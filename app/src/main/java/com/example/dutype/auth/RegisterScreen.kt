@@ -1,5 +1,7 @@
-package com.example.dutype.auth
+﻿package com.example.dutype.auth
 
+import com.dutype.app.R
+import androidx.compose.ui.res.stringResource
 import android.app.Activity
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -53,7 +55,6 @@ import androidx.compose.ui.platform.LocalAutofill
 import androidx.compose.ui.platform.LocalAutofillTree
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.dutype.app.R
 import com.example.dutype.components.LanguageSelectionBottomSheet
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
@@ -146,10 +147,10 @@ private fun RegisterContent(
         }
     }
 
-    // Handle OTP verification success — new user registration flow
+    // Handle OTP verification success â€” new user registration flow
     LaunchedEffect(otpState.otpVerified) {
         if (otpState.otpVerified) {
-            Timber.d("📱 REGISTER - OTP verified, creating new user profile")
+            Timber.d("ðŸ“± REGISTER - OTP verified, creating new user profile")
             try {
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 if (currentUser != null) {
@@ -193,7 +194,7 @@ private fun RegisterContent(
                                 onFailure = { error ->
                                     Timber.w(error, "REGISTER - Immediate referral apply failed; fallback will run after profile completion")
                                     val msg = error.message?.takeIf { it.isNotBlank() }
-                                        ?: if (isTelugu) "రిఫరల్ కోడ్ వర్తించలేదు. ప్రొఫైల్ పూర్తయిన తర్వాత మళ్లీ ప్రయత్నిస్తాం." else "Couldn't apply referral now — we'll retry after profile setup."
+                                        ?: if (isTelugu) "à°°à°¿à°«à°°à°²à± à°•à±‹à°¡à± à°µà°°à±à°¤à°¿à°‚à°šà°²à±‡à°¦à±. à°ªà±à°°à±Šà°«à±ˆà°²à± à°ªà±‚à°°à±à°¤à°¯à°¿à°¨ à°¤à°°à±à°µà°¾à°¤ à°®à°³à±à°²à±€ à°ªà±à°°à°¯à°¤à±à°¨à°¿à°¸à±à°¤à°¾à°‚." else "Couldn't apply referral now â€” we'll retry after profile setup."
                                     Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                                 }
                             )
@@ -210,7 +211,7 @@ private fun RegisterContent(
                         Timber.e(error, "REGISTER - Registration finalization failed")
                         Toast.makeText(
                             context,
-                            error?.message ?: if (isTelugu) "నమోదును పూర్తి చేయలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి." else "Could not finish registration. Please try again.",
+                            error?.message ?: if (isTelugu) "à°¨à°®à±‹à°¦à±à°¨à± à°ªà±‚à°°à±à°¤à°¿ à°šà±‡à°¯à°²à±‡à°•à°ªà±‹à°¯à°¾à°‚. à°¦à°¯à°šà±‡à°¸à°¿ à°®à°³à±à°²à±€ à°ªà±à°°à°¯à°¤à±à°¨à°¿à°‚à°šà°‚à°¡à°¿." else "Could not finish registration. Please try again.",
                             Toast.LENGTH_LONG
                         ).show()
                         otpViewModel.resetState()
@@ -227,7 +228,7 @@ private fun RegisterContent(
     }
 
     if (otpState.otpSent) {
-        // ── Enterprise SMS Auto-Retrieval ────────────────────────────────────
+        // â”€â”€ Enterprise SMS Auto-Retrieval â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         DisposableEffect(Unit) {
             val helper = SmsAutoRetrieverHelper(
                 context = context,
@@ -253,7 +254,7 @@ private fun RegisterContent(
                 otpValue = autoCode
             }
         }
-        // ────────────────────────────────────────────────────────────────────
+        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         Box(
             modifier = Modifier
@@ -348,7 +349,7 @@ private fun RegisterContent(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = if (isTelugu) "సహాయం" else "Help",
+                                    text = if (isTelugu) "à°¸à°¹à°¾à°¯à°‚" else "Help",
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, color = Ink900)
                                 )
                             }
@@ -360,7 +361,7 @@ private fun RegisterContent(
 
                 // Bold Create Account Title & Awesome Subtitle
                 Text(
-                    text = if (isTelugu) "ఖాతా సృష్టించండి" else "Create Account",
+                    text = if (isTelugu) "à°–à°¾à°¤à°¾ à°¸à±ƒà°·à±à°Ÿà°¿à°‚à°šà°‚à°¡à°¿" else "Create Account",
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
@@ -371,7 +372,7 @@ private fun RegisterContent(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = if (isTelugu) "DutyPe క్షణిక పనివర్గ నెట్‌వర్క్‌లో చేరండి" else "Join DutyPe's instant workforce network",
+                    text = if (isTelugu) "DutyPe à°•à±à°·à°£à°¿à°• à°ªà°¨à°¿à°µà°°à±à°— à°¨à±†à°Ÿà±â€Œà°µà°°à±à°•à±â€Œà°²à±‹ à°šà±‡à°°à°‚à°¡à°¿" else "Join DutyPe's instant workforce network",
                     style = MaterialTheme.typography.bodyLarge.copy(
                         color = Ink600,
                         fontSize = 15.sp
@@ -407,18 +408,18 @@ private fun RegisterContent(
                                     FirestoreUtils.PhoneExistenceResult.EXISTS -> {
                                         isCheckingPhone = false
                                         val existingRoleLabel = when (phoneCheck.existingRole?.uppercase()) {
-                                            "WORKER" -> if (isTelugu) "వర్కర్" else "worker"
-                                            "EMPLOYER" -> if (isTelugu) "ఎంప్లాయర్" else "employer"
+                                            "WORKER" -> if (isTelugu) "à°µà°°à±à°•à°°à±" else "worker"
+                                            "EMPLOYER" -> if (isTelugu) "à°Žà°‚à°ªà±à°²à°¾à°¯à°°à±" else "employer"
                                             else -> null
                                         }
                                         val message = if (existingRoleLabel != null) {
                                             if (isTelugu)
-                                                "ఈ ఫోన్ నంబర్ ఇప్పటికే $existingRoleLabel గా ఉంది. దయచేసి $existingRoleLabel గా లాగిన్ అవ్వండి."
+                                                "à°ˆ à°«à±‹à°¨à± à°¨à°‚à°¬à°°à± à°‡à°ªà±à°ªà°Ÿà°¿à°•à±‡ $existingRoleLabel à°—à°¾ à°‰à°‚à°¦à°¿. à°¦à°¯à°šà±‡à°¸à°¿ $existingRoleLabel à°—à°¾ à°²à°¾à°—à°¿à°¨à± à°…à°µà±à°µà°‚à°¡à°¿."
                                             else
                                                 "This phone number is already registered as a $existingRoleLabel. Please log in as a $existingRoleLabel."
                                         } else {
                                             if (isTelugu)
-                                                "ఈ ఫోన్ నంబర్‌తో ఖాతా ఉంది. దయచేసి లాగిన్ అవ్వండి."
+                                                "à°ˆ à°«à±‹à°¨à± à°¨à°‚à°¬à°°à±â€Œà°¤à±‹ à°–à°¾à°¤à°¾ à°‰à°‚à°¦à°¿. à°¦à°¯à°šà±‡à°¸à°¿ à°²à°¾à°—à°¿à°¨à± à°…à°µà±à°µà°‚à°¡à°¿."
                                             else
                                                 "This phone number is already registered. Please log in."
                                         }
@@ -460,7 +461,7 @@ private fun RegisterContent(
     }
 }
 
-// ─── Registration Input Section ──────────────────────────────────────────────
+// â”€â”€â”€ Registration Input Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
 private fun RegisterInputSection(
@@ -521,7 +522,7 @@ private fun RegisterInputSection(
         },
         onValidatedCodeChanged = { validatedReferralCode = it },
         onCreateClick = {
-            Timber.d("📱 Register - Continue clicked, name=$fullName")
+            Timber.d("ðŸ“± Register - Continue clicked, name=$fullName")
             if (!validatedReferralCode.isNullOrBlank()) {
                 scope.launch {
                     profileCompletionViewModel.saveReferralCode(validatedReferralCode!!)
@@ -569,9 +570,9 @@ private fun RegisterEntrySection(
         // Full Name Input Label
         Text(
             text = if (role == UserRole.EMPLOYER) {
-                if (isTelugu) "కంపెనీ పేరు" else "Company Name"
+                if (isTelugu) "à°•à°‚à°ªà±†à°¨à±€ à°ªà±‡à°°à±" else "Company Name"
             } else {
-                if (isTelugu) "పూర్తి పేరు" else "Full Name"
+                if (isTelugu) "à°ªà±‚à°°à±à°¤à°¿ à°ªà±‡à°°à±" else "Full Name"
             },
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = FontWeight.SemiBold,
@@ -591,7 +592,7 @@ private fun RegisterEntrySection(
 
         // Phone Number Input Label
         Text(
-            text = if (isTelugu) "మొబైల్ నంబర్" else "Mobile Number",
+            text = if (isTelugu) "à°®à±Šà°¬à±ˆà°²à± à°¨à°‚à°¬à°°à±" else "Mobile Number",
             style = MaterialTheme.typography.bodyMedium.copy(
                 fontWeight = FontWeight.SemiBold,
                 color = Ink900
@@ -614,7 +615,7 @@ private fun RegisterEntrySection(
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Country Code Section: 📞 +91 ∨
+                // Country Code Section: ðŸ“ž +91 âˆ¨
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.clickable { }
@@ -694,7 +695,7 @@ private fun RegisterEntrySection(
                     decorationBox = { innerTextField ->
                         if (phoneNumber.isBlank()) {
                             Text(
-                                text = "Phone number",
+                                text = stringResource(R.string.auto_phone_number),
                                 style = MaterialTheme.typography.bodyLarge.copy(
                                     fontSize = 16.sp,
                                     color = Ink400
@@ -743,13 +744,13 @@ private fun RegisterEntrySection(
             )
             Text(
                 text = buildAnnotatedString {
-                    append(if (isTelugu) "నేను ఈ వాటికి అంగీకరిస్తున్నాను: " else "I agree to the ")
+                    append(if (isTelugu) "à°¨à±‡à°¨à± à°ˆ à°µà°¾à°Ÿà°¿à°•à°¿ à°…à°‚à°—à±€à°•à°°à°¿à°¸à±à°¤à±à°¨à±à°¨à°¾à°¨à±: " else "I agree to the ")
                     withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = BrandBluePrimary)) {
-                        append(if (isTelugu) "సేవా నిబంధనలు" else "Terms of Service")
+                        append(if (isTelugu) "à°¸à±‡à°µà°¾ à°¨à°¿à°¬à°‚à°§à°¨à°²à±" else "Terms of Service")
                     }
-                    append(if (isTelugu) " మరియు " else " and ")
+                    append(if (isTelugu) " à°®à°°à°¿à°¯à± " else " and ")
                     withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = BrandBluePrimary)) {
-                        append(if (isTelugu) "గోప్యతా విధానం" else "Privacy Policy")
+                        append(if (isTelugu) "à°—à±‹à°ªà±à°¯à°¤à°¾ à°µà°¿à°§à°¾à°¨à°‚" else "Privacy Policy")
                     }
                 },
                 style = MaterialTheme.typography.bodySmall.copy(color = Ink600, lineHeight = 18.sp),
@@ -765,7 +766,7 @@ private fun RegisterEntrySection(
                 if (!termsAccepted) {
                     Toast.makeText(
                         appContext,
-                        if (isTelugu) "దయచేసి నిబంధనలు మరియు షరతులను అంగీకరించండి" else "Please accept the Terms & Conditions",
+                        if (isTelugu) "à°¦à°¯à°šà±‡à°¸à°¿ à°¨à°¿à°¬à°‚à°§à°¨à°²à± à°®à°°à°¿à°¯à± à°·à°°à°¤à±à°²à°¨à± à°…à°‚à°—à±€à°•à°°à°¿à°‚à°šà°‚à°¡à°¿" else "Please accept the Terms & Conditions",
                         Toast.LENGTH_SHORT
                     ).show()
                 } else {
@@ -796,7 +797,7 @@ private fun RegisterEntrySection(
                 ) {
                     Box(modifier = Modifier.size(18.dp)) // Equal weight balance box
                     Text(
-                        text = if (isTelugu) "ఖాతా సృష్టించండి" else "Create Account",
+                        text = if (isTelugu) "à°–à°¾à°¤à°¾ à°¸à±ƒà°·à±à°Ÿà°¿à°‚à°šà°‚à°¡à°¿" else "Create Account",
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
@@ -822,7 +823,7 @@ private fun RegisterEntrySection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (isTelugu) "ఇప్పటికే ఖాతా ఉందా? " else "Already have an account? ",
+                text = if (isTelugu) "à°‡à°ªà±à°ªà°Ÿà°¿à°•à±‡ à°–à°¾à°¤à°¾ à°‰à°‚à°¦à°¾? " else "Already have an account? ",
                 style = MaterialTheme.typography.bodyMedium.copy(color = Ink600)
             )
             TextButton(
@@ -830,7 +831,7 @@ private fun RegisterEntrySection(
                 contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
             ) {
                 Text(
-                    text = if (isTelugu) "లాగిన్" else "Login",
+                    text = if (isTelugu) "à°²à°¾à°—à°¿à°¨à±" else "Login",
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = BrandBluePrimary)
                 )
             }
@@ -867,9 +868,9 @@ private fun RegisterNameField(
         placeholder = {
             Text(
                 if (role == UserRole.EMPLOYER) {
-                    if (isTelugu) "కంపెనీ పేరు నమోదు చేయండి" else "Enter company name"
+                    if (isTelugu) "à°•à°‚à°ªà±†à°¨à±€ à°ªà±‡à°°à± à°¨à°®à±‹à°¦à± à°šà±‡à°¯à°‚à°¡à°¿" else "Enter company name"
                 } else {
-                    if (isTelugu) "మీ పూర్తి పేరు నమోదు చేయండి" else "Enter full name"
+                    if (isTelugu) "à°®à±€ à°ªà±‚à°°à±à°¤à°¿ à°ªà±‡à°°à± à°¨à°®à±‹à°¦à± à°šà±‡à°¯à°‚à°¡à°¿" else "Enter full name"
                 },
                 style = MaterialTheme.typography.bodyMedium.copy(color = Ink400)
             )
@@ -906,7 +907,7 @@ private fun RegisterShieldArtwork(modifier: Modifier = Modifier) {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "✦",
+            text = "âœ¦",
             color = WorkerColors.Warning,
             style = AppTypography.displayTitle.copy(fontSize = 18.sp),
             modifier = Modifier.align(Alignment.CenterStart).offset(x = 28.dp)
@@ -968,7 +969,7 @@ private fun RegisterReferralSection(
                             onValidatedCodeChanged(normalizedCode)
                             Toast.makeText(
                                 appContext,
-                                if (isTelugu) "✓ ${validation.referrerName} నుండి చెల్లుబాటు అయ్యే కోడ్" else "✓ Valid code from ${validation.referrerName}",
+                                if (isTelugu) "âœ“ ${validation.referrerName} à°¨à±à°‚à°¡à°¿ à°šà±†à°²à±à°²à±à°¬à°¾à°Ÿà± à°…à°¯à±à°¯à±‡ à°•à±‹à°¡à±" else "âœ“ Valid code from ${validation.referrerName}",
                                 Toast.LENGTH_SHORT
                             ).show()
                         } else {
@@ -977,16 +978,16 @@ private fun RegisterReferralSection(
                             onValidatedCodeChanged(null)
                             Toast.makeText(
                                 appContext,
-                                validation.errorMessage ?: if (isTelugu) "చెల్లని కోడ్" else "Invalid code",
+                                validation.errorMessage ?: if (isTelugu) "à°šà±†à°²à±à°²à°¨à°¿ à°•à±‹à°¡à±" else "Invalid code",
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
                     } catch (e: Exception) {
                         isValidatingCode = false
-                        codeValidationError = if (isTelugu) "కోడ్ ధృవీకరణ విఫలమైంది" else "Failed to validate code"
+                        codeValidationError = if (isTelugu) "à°•à±‹à°¡à± à°§à±ƒà°µà±€à°•à°°à°£ à°µà°¿à°«à°²à°®à±ˆà°‚à°¦à°¿" else "Failed to validate code"
                         validatedReferrerName = null
                         onValidatedCodeChanged(null)
-                        Timber.e(e, "🎁 REFERRAL: Validation error")
+                        Timber.e(e, "ðŸŽ REFERRAL: Validation error")
                     }
                 }
             }
@@ -1000,7 +1001,7 @@ private fun RegisterReferralSection(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = if (isTelugu) "రిఫరల్ కోడ్ ఉందా?" else "Have a referral code?",
+            text = if (isTelugu) "à°°à°¿à°«à°°à°²à± à°•à±‹à°¡à± à°‰à°‚à°¦à°¾?" else "Have a referral code?",
             style = AppTypography.bodyMedium.copy(
                 color = WorkerColors.TextSecondary,
                 fontWeight = FontWeight.Medium
@@ -1012,9 +1013,9 @@ private fun RegisterReferralSection(
         ) {
             Text(
                 text = if (showReferralInput) {
-                    if (isTelugu) "దాచు" else "Hide"
+                    if (isTelugu) "à°¦à°¾à°šà±" else "Hide"
                 } else {
-                    if (isTelugu) "కోడ్ నమోదు చేయండి" else "Enter Code"
+                    if (isTelugu) "à°•à±‹à°¡à± à°¨à°®à±‹à°¦à± à°šà±‡à°¯à°‚à°¡à°¿" else "Enter Code"
                 },
                 style = AppTypography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
@@ -1047,7 +1048,7 @@ private fun RegisterReferralSection(
                     },
                     placeholder = {
                         Text(
-                            if (isTelugu) "ఉదా: DUTY4F9A" else "e.g. DUTY4F9A",
+                            if (isTelugu) "à°‰à°¦à°¾: DUTY4F9A" else "e.g. DUTY4F9A",
                             style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary)
                         )
                     },
@@ -1061,7 +1062,7 @@ private fun RegisterReferralSection(
 
                             validatedReferrerName != null -> Icon(
                                 Icons.Filled.CheckCircle,
-                                contentDescription = if (isTelugu) "చెల్లుబాటు అయ్యింది" else "Valid",
+                                contentDescription = if (isTelugu) "à°šà±†à°²à±à°²à±à°¬à°¾à°Ÿà± à°…à°¯à±à°¯à°¿à°‚à°¦à°¿" else "Valid",
                                 tint = WorkerColors.Success,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -1074,7 +1075,7 @@ private fun RegisterReferralSection(
                             }) {
                                 Icon(
                                     painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
-                                    contentDescription = if (isTelugu) "తీసివేయండి" else "Clear",
+                                    contentDescription = if (isTelugu) "à°¤à±€à°¸à°¿à°µà±‡à°¯à°‚à°¡à°¿" else "Clear",
                                     tint = WorkerColors.IconSecondary,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -1127,7 +1128,7 @@ private fun RegisterReferralSection(
                                         onValidatedCodeChanged(normalizedCode)
                                         Toast.makeText(
                                             appContext,
-                                            if (isTelugu) "✓ ${validation.referrerName} నుండి చెల్లుబాటు అయ్యే కోడ్" else "✓ Valid code from ${validation.referrerName}",
+                                            if (isTelugu) "âœ“ ${validation.referrerName} à°¨à±à°‚à°¡à°¿ à°šà±†à°²à±à°²à±à°¬à°¾à°Ÿà± à°…à°¯à±à°¯à±‡ à°•à±‹à°¡à±" else "âœ“ Valid code from ${validation.referrerName}",
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     } else {
@@ -1136,16 +1137,16 @@ private fun RegisterReferralSection(
                                         onValidatedCodeChanged(null)
                                         Toast.makeText(
                                             appContext,
-                                            validation.errorMessage ?: if (isTelugu) "చెల్లని కోడ్" else "Invalid code",
+                                            validation.errorMessage ?: if (isTelugu) "à°šà±†à°²à±à°²à°¨à°¿ à°•à±‹à°¡à±" else "Invalid code",
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     }
                                 } catch (e: Exception) {
                                     isValidatingCode = false
-                                    codeValidationError = if (isTelugu) "కోడ్ ధృవీకరణ విఫలమైంది" else "Failed to validate code"
+                                    codeValidationError = if (isTelugu) "à°•à±‹à°¡à± à°§à±ƒà°µà±€à°•à°°à°£ à°µà°¿à°«à°²à°®à±ˆà°‚à°¦à°¿" else "Failed to validate code"
                                     validatedReferrerName = null
                                     onValidatedCodeChanged(null)
-                                    Timber.e(e, "🎁 REFERRAL: Validation error")
+                                    Timber.e(e, "ðŸŽ REFERRAL: Validation error")
                                 }
                             }
                         }
@@ -1165,7 +1166,7 @@ private fun RegisterReferralSection(
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = WorkerColors.CardBackground)
                     } else {
                         Text(
-                            text = if (validatedReferrerName != null) "✓" else if (isTelugu) "ధృవీకరించండి" else "Verify",
+                            text = if (validatedReferrerName != null) "âœ“" else if (isTelugu) "à°§à±ƒà°µà±€à°•à°°à°¿à°‚à°šà°‚à°¡à°¿" else "Verify",
                             style = AppTypography.buttonMedium
                         )
                     }
@@ -1175,17 +1176,17 @@ private fun RegisterReferralSection(
             Spacer(modifier = Modifier.height(4.dp))
             when {
                 validatedReferrerName != null -> Text(
-                    if (isTelugu) "✓ $validatedReferrerName నుండి చెల్లుబాటు అయ్యే కోడ్" else "✓ Valid code from $validatedReferrerName",
+                    if (isTelugu) "âœ“ $validatedReferrerName à°¨à±à°‚à°¡à°¿ à°šà±†à°²à±à°²à±à°¬à°¾à°Ÿà± à°…à°¯à±à°¯à±‡ à°•à±‹à°¡à±" else "âœ“ Valid code from $validatedReferrerName",
                     style = AppTypography.caption.copy(color = WorkerColors.Success)
                 )
 
                 codeValidationError != null && referralCode.length >= 7 -> Text(
-                    codeValidationError ?: if (isTelugu) "చెల్లని కోడ్" else "Invalid code",
+                    codeValidationError ?: if (isTelugu) "à°šà±†à°²à±à°²à°¨à°¿ à°•à±‹à°¡à±" else "Invalid code",
                     style = AppTypography.caption.copy(color = WorkerColors.Error)
                 )
 
                 else -> Text(
-                    if (isTelugu) "మీ స్నేహితుడి రిఫరల్ కోడ్ ఉంటే ఇక్కడ నమోదు చేయండి" else "Enter your friend's referral code if you have one",
+                    if (isTelugu) "à°®à±€ à°¸à±à°¨à±‡à°¹à°¿à°¤à±à°¡à°¿ à°°à°¿à°«à°°à°²à± à°•à±‹à°¡à± à°‰à°‚à°Ÿà±‡ à°‡à°•à±à°•à°¡ à°¨à°®à±‹à°¦à± à°šà±‡à°¯à°‚à°¡à°¿" else "Enter your friend's referral code if you have one",
                     style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
                 )
             }
@@ -1218,7 +1219,7 @@ private fun RegisterReferralCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (isTelugu) "రిఫరల్ కోడ్ ఉందా?" else "Have a referral code?",
+                text = if (isTelugu) "à°°à°¿à°«à°°à°²à± à°•à±‹à°¡à± à°‰à°‚à°¦à°¾?" else "Have a referral code?",
                 style = AppTypography.bodyMedium.copy(
                     color = textColor,
                     fontWeight = FontWeight.Medium
@@ -1231,9 +1232,9 @@ private fun RegisterReferralCard(
             ) {
                 Text(
                     text = if (showReferralInput) {
-                        if (isTelugu) "దాచు" else "Hide"
+                        if (isTelugu) "à°¦à°¾à°šà±" else "Hide"
                     } else {
-                        if (isTelugu) "కోడ్ నమోదు" else "Enter Code"
+                        if (isTelugu) "à°•à±‹à°¡à± à°¨à°®à±‹à°¦à±" else "Enter Code"
                     },
                     style = AppTypography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
@@ -1260,7 +1261,7 @@ private fun RegisterReferralCard(
                         onValueChange = onCodeChange,
                         placeholder = {
                             Text(
-                                if (isTelugu) "ఉదా: DUTY4F9A" else "e.g. DUTY4F9A",
+                                if (isTelugu) "à°‰à°¦à°¾: DUTY4F9A" else "e.g. DUTY4F9A",
                                 style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary)
                             )
                         },
@@ -1273,7 +1274,7 @@ private fun RegisterReferralCard(
                                 )
                                 validatedReferrerName != null -> Icon(
                                     Icons.Filled.CheckCircle,
-                                    contentDescription = if (isTelugu) "చెల్లుబాటు అయ్యింది" else "Valid",
+                                    contentDescription = if (isTelugu) "à°šà±†à°²à±à°²à±à°¬à°¾à°Ÿà± à°…à°¯à±à°¯à°¿à°‚à°¦à°¿" else "Valid",
                                     tint = WorkerColors.Success,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -1281,7 +1282,7 @@ private fun RegisterReferralCard(
                                 referralCode.isNotEmpty() -> IconButton(onClick = onClear) {
                                     Icon(
                                         painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
-                                        contentDescription = if (isTelugu) "తీసివేయండి" else "Clear",
+                                        contentDescription = if (isTelugu) "à°¤à±€à°¸à°¿à°µà±‡à°¯à°‚à°¡à°¿" else "Clear",
                                         tint = WorkerColors.IconSecondary,
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -1334,7 +1335,7 @@ private fun RegisterReferralCard(
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = WorkerColors.CardBackground)
                         } else {
                             Text(
-                                text = if (validatedReferrerName != null) "✓" else if (isTelugu) "ధృవీకరించండి" else "Verify",
+                                text = if (validatedReferrerName != null) "âœ“" else if (isTelugu) "à°§à±ƒà°µà±€à°•à°°à°¿à°‚à°šà°‚à°¡à°¿" else "Verify",
                                 style = AppTypography.buttonMedium
                             )
                         }
@@ -1344,15 +1345,15 @@ private fun RegisterReferralCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 when {
                     validatedReferrerName != null -> Text(
-                        if (isTelugu) "✓ $validatedReferrerName నుండి చెల్లుబాటు అయ్యే కోడ్" else "✓ Valid code from $validatedReferrerName",
+                        if (isTelugu) "âœ“ $validatedReferrerName à°¨à±à°‚à°¡à°¿ à°šà±†à°²à±à°²à±à°¬à°¾à°Ÿà± à°…à°¯à±à°¯à±‡ à°•à±‹à°¡à±" else "âœ“ Valid code from $validatedReferrerName",
                         style = AppTypography.caption.copy(color = WorkerColors.Success)
                     )
                     codeValidationError != null && referralCode.length >= 7 -> Text(
-                        codeValidationError ?: if (isTelugu) "చెల్లని కోడ్" else "Invalid code",
+                        codeValidationError ?: if (isTelugu) "à°šà±†à°²à±à°²à°¨à°¿ à°•à±‹à°¡à±" else "Invalid code",
                         style = AppTypography.caption.copy(color = WorkerColors.Error)
                     )
                     else -> Text(
-                        if (isTelugu) "మీ స్నేహితుడి రిఫరల్ కోడ్ ఉంటే ఇక్కడ నమోదు చేయండి" else "Enter your friend's referral code if you have one",
+                        if (isTelugu) "à°®à±€ à°¸à±à°¨à±‡à°¹à°¿à°¤à±à°¡à°¿ à°°à°¿à°«à°°à°²à± à°•à±‹à°¡à± à°‰à°‚à°Ÿà±‡ à°‡à°•à±à°•à°¡ à°¨à°®à±‹à°¦à± à°šà±‡à°¯à°‚à°¡à°¿" else "Enter your friend's referral code if you have one",
                         style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
                     )
                 }
@@ -1361,7 +1362,7 @@ private fun RegisterReferralCard(
     }
 }
 
-// ─── OTP Verification Section (Register) ─────────────────────────────────────
+// â”€â”€â”€ OTP Verification Section (Register) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
 private fun RegisterOtpSection(
@@ -1396,7 +1397,7 @@ private fun RegisterOtpSection(
         horizontalAlignment = Alignment.Start
     ) {
         Text(
-            text = if (isTelugu) "మీ నంబర్‌ను ధృవీకరించండి" else "Verify your number",
+            text = if (isTelugu) "à°®à±€ à°¨à°‚à°¬à°°à±â€Œà°¨à± à°§à±ƒà°µà±€à°•à°°à°¿à°‚à°šà°‚à°¡à°¿" else "Verify your number",
             style = AppTypography.pageTitle.copy(fontWeight = FontWeight.Bold, fontSize = 20.sp),
             color = WorkerColors.TextPrimary,
             textAlign = TextAlign.Start,
@@ -1406,7 +1407,7 @@ private fun RegisterOtpSection(
         Spacer(modifier = Modifier.height(3.dp))
 
         val annotatedText = buildAnnotatedString {
-            append(if (isTelugu) "SMS ద్వారా పంపిన 6 అంకెల కోడ్‌ను ఇక్కడ నమోదు చేయండి: " else "Enter the 6-digit code sent via SMS at ")
+            append(if (isTelugu) "SMS à°¦à±à°µà°¾à°°à°¾ à°ªà°‚à°ªà°¿à°¨ 6 à°…à°‚à°•à±†à°² à°•à±‹à°¡à±â€Œà°¨à± à°‡à°•à±à°•à°¡ à°¨à°®à±‹à°¦à± à°šà±‡à°¯à°‚à°¡à°¿: " else "Enter the 6-digit code sent via SMS at ")
             withStyle(
                 style = SpanStyle(
                     fontWeight = FontWeight.Bold,
@@ -1418,7 +1419,7 @@ private fun RegisterOtpSection(
             append("  ")
             pushStringAnnotation(tag = "CHANGE", annotation = "change")
             withStyle(SpanStyle(color = Color(0xFF2563EB), fontWeight = FontWeight.SemiBold, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)) {
-                append(if (isTelugu) "మార్చు" else "Change Number")
+                append(if (isTelugu) "à°®à°¾à°°à±à°šà±" else "Change Number")
             }
             pop()
         }
@@ -1470,7 +1471,7 @@ private fun RegisterOtpSection(
                     ) {
                         Icon(
                             painter = painterResource(id = android.R.drawable.ic_menu_revert),
-                            contentDescription = if (isTelugu) "OTP మళ్లీ పంపండి" else "Resend OTP",
+                            contentDescription = if (isTelugu) "OTP à°®à°³à±à°²à±€ à°ªà°‚à°ªà°‚à°¡à°¿" else "Resend OTP",
                             tint = if (timerActive) WorkerColors.TextDisabled else WorkerColors.TextPrimary
                         )
                     }
@@ -1486,7 +1487,7 @@ private fun RegisterOtpSection(
                     }
                 }
                 Text(
-                    text = if (isTelugu) "OTP మళ్లీ పంపండి" else "Resend OTP",
+                    text = if (isTelugu) "OTP à°®à°³à±à°²à±€ à°ªà°‚à°ªà°‚à°¡à°¿" else "Resend OTP",
                     style = AppTypography.labelSmall.copy(
                         color = if (timerActive) WorkerColors.TextDisabled else WorkerColors.TextSecondary
                     )
@@ -1515,7 +1516,7 @@ private fun RegisterOtpSection(
                         modifier = Modifier.size(22.dp)
                     )
                 } else {
-                    Text(if (isTelugu) "ధృవీకరించి ఖాతా సృష్టించండి" else "Verify & Create Account", style = AppTypography.buttonLarge)
+                    Text(if (isTelugu) "à°§à±ƒà°µà±€à°•à°°à°¿à°‚à°šà°¿ à°–à°¾à°¤à°¾ à°¸à±ƒà°·à±à°Ÿà°¿à°‚à°šà°‚à°¡à°¿" else "Verify & Create Account", style = AppTypography.buttonLarge)
                 }
             }
         }
@@ -1530,6 +1531,6 @@ private fun RegisterOtpSection(
     }
 }
 
-// ─── OTP Input Boxes ─────────────────────────────────────────────────────────
+// â”€â”€â”€ OTP Input Boxes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// ─── Navigation helpers ──────────────────────────────────────────────────────
+// â”€â”€â”€ Navigation helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

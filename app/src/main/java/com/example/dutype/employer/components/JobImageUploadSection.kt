@@ -1,5 +1,6 @@
-package com.example.dutype.employer.components
+﻿package com.example.dutype.employer.components
 
+import com.dutype.app.R
 import android.Manifest
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -56,7 +57,6 @@ import com.example.dutype.components.OptimizedJobImage
 import timber.log.Timber
 import java.io.File
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 
 /**
  * Job Image Upload Section for PostJobScreen
@@ -94,7 +94,7 @@ fun JobImageUploadSection(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            Timber.d("📸 JOB IMAGE: Gallery image selected: $it")
+            Timber.d("ðŸ“¸ JOB IMAGE: Gallery image selected: $it")
             onImageSelected(it)
         }
     }
@@ -104,10 +104,10 @@ fun JobImageUploadSection(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
         if (success && tempImageUri != null) {
-            Timber.d("📸 JOB IMAGE: Camera image captured: $tempImageUri")
+            Timber.d("ðŸ“¸ JOB IMAGE: Camera image captured: $tempImageUri")
             onImageSelected(tempImageUri!!)
         } else {
-            Timber.w("📸 JOB IMAGE: Camera capture failed or cancelled")
+            Timber.w("ðŸ“¸ JOB IMAGE: Camera capture failed or cancelled")
         }
     }
     
@@ -120,7 +120,7 @@ fun JobImageUploadSection(
             tempImageUri = createImageFile()
             tempImageUri?.let { cameraLauncher.launch(it) }
         } else {
-            Timber.w("📸 JOB IMAGE: Camera permission denied")
+            Timber.w("ðŸ“¸ JOB IMAGE: Camera permission denied")
         }
     }
     
@@ -149,13 +149,13 @@ fun JobImageUploadSection(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Job Image (Optional)",
+                        text = stringResource(R.string.auto_job_image_optional),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF1E293B)
                     )
                     Text(
-                        text = "Add one clear photo of the workplace or job area",
+                        text = stringResource(R.string.auto_add_one_clear_photo_of_the_workplace_or_jo),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF6B7280)
                     )
@@ -199,7 +199,7 @@ fun JobImageUploadSection(
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "Uploading...",
+                                    text = stringResource(R.string.auto_uploading),
                                     color = Color.White,
                                     fontSize = 14.sp
                                 )
@@ -305,12 +305,12 @@ fun JobImageUploadSection(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Tap to add job photo",
+                            text = stringResource(R.string.auto_tap_to_add_job_photo),
                             style = MaterialTheme.typography.bodyMedium,
                             color = Color(0xFF6B7280)
                         )
                         Text(
-                            text = "This photo appears on worker and employer cards",
+                            text = stringResource(R.string.auto_this_photo_appears_on_worker_and_employer),
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF9CA3AF)
                         )
@@ -387,7 +387,7 @@ fun JobImageUploadSection(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "A clear job photo helps workers understand the place and apply with more confidence.",
+                        text = stringResource(R.string.auto_a_clear_job_photo_helps_workers_understand),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color(0xFF166534)
                     )

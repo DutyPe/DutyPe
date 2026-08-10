@@ -1,5 +1,6 @@
-package com.example.dutype.worker.screens
+﻿package com.example.dutype.worker.screens
 
+import com.dutype.app.R
 import android.widget.Toast
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -39,7 +40,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.dutype.app.R
 import com.google.firebase.auth.FirebaseAuth
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.*
@@ -336,7 +336,7 @@ fun WorkerReferEarnScreen(
                         }
                     }
                     
-                    // Withdraw Button � always visible once data is loaded
+                    // Withdraw Button ï¿½ always visible once data is loaded
                     item {
                         val balance = uiState.stats?.availableBalance ?: 0.0
                         val minWithdrawal = referralConfig.minWithdrawal
@@ -1522,7 +1522,7 @@ private fun LegalDisclaimerCard() {
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = "Important Information",
+                    text = stringResource(R.string.auto_important_information),
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.Bold,
                         color = WorkerColors.Warning

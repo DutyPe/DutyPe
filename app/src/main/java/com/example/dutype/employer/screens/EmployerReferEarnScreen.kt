@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
+import com.dutype.app.R
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ClipData
@@ -37,7 +38,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.dutype.app.R
 import com.google.firebase.auth.FirebaseAuth
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.EmployerColors

@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
+import com.dutype.app.R
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -31,7 +32,6 @@ import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.EmployerColors
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 
 // Employer theme colors
 private val EmployerPrimaryBlue = Color(0xFF1E3A8A)
@@ -440,7 +440,7 @@ fun EmployerSupportScreen(
             
             // App Version
             Text(
-                text = "App Version 1.0.5",
+                text = stringResource(R.string.auto_app_version_1_0_5),
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = EmployerColors.TextTertiary
                 ),

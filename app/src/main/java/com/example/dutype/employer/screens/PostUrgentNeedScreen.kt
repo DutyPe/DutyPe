@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
+import com.dutype.app.R
 import android.Manifest
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -35,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.dutype.app.R
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.models.QuickUrgentNeedInput
@@ -448,7 +448,7 @@ internal fun PostUrgentNeedContent(
                     OutlinedTextField(
                         value = perPersonPaymentText,
                         onValueChange = { value -> perPersonPaymentText = value.filter { it.isDigit() } },
-                        label = { Text("₹ per person") },
+                        label = { Text("â‚¹ per person") },
                         modifier = Modifier.weight(1f),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
@@ -467,7 +467,7 @@ internal fun PostUrgentNeedContent(
                     ) {
                         Text("Total Amount", style = MaterialTheme.typography.bodySmall, color = EmployerColors.TextSecondary)
                         Text(
-                            text = "₹${total.toInt()}",
+                            text = "â‚¹${total.toInt()}",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = EmployerColors.TextPrimary
@@ -504,7 +504,7 @@ internal fun PostUrgentNeedContent(
                         } else {
                             Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
                         }
-                        Text(text = "Use Current Location")
+                        Text(text = stringResource(R.string.auto_use_current_location))
                     }
                     if (!urgentLocationError.isNullOrBlank()) {
                         Text(
@@ -576,7 +576,7 @@ internal fun PostUrgentNeedContent(
                             needType = if (urgencyType == "custom" || urgencyType == "tomorrow") "scheduled" else "urgent_now",
                             urgencyType = urgencyType,
                             contactNumber = contactNumber,
-                            budgetText = "₹${pp.toInt()} per person",
+                            budgetText = "â‚¹${pp.toInt()} per person",
                             perPersonPayment = pp,
                             totalPayment = total,
                             durationText = selectedDuration,

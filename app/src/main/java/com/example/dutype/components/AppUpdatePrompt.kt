@@ -1,5 +1,6 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -19,7 +20,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 import com.example.dutype.repositories.AppUpdateConfig
 import timber.log.Timber
 

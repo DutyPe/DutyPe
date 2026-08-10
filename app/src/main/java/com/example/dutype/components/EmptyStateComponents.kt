@@ -1,5 +1,6 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,7 +44,6 @@ import androidx.compose.ui.unit.dp
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 
 /**
  * CENTRALIZED EMPTY STATE COMPONENTS

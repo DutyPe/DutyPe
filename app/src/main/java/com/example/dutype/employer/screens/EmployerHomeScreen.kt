@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
+import com.dutype.app.R
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -116,7 +117,6 @@ import com.example.dutype.utils.DeepLinkHandler
 import com.example.dutype.components.JobCardShimmer
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import androidx.compose.ui.platform.LocalContext
-import com.dutype.app.R
 import android.content.Intent
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -530,7 +530,7 @@ fun EmployerHomeScreen(
             )
         }
 
-        // Welcome celebration overlay — shown once after new employer completes profile
+        // Welcome celebration overlay â€” shown once after new employer completes profile
         // var showCelebration by remember { mutableStateOf(consumeWelcomeCelebrationFlag(context)) }
         // WelcomeCelebrationOverlay(
         //     visible = showCelebration,
@@ -1029,14 +1029,14 @@ private fun InviteEarnEmployerCard(inviteEarnAmount: Int = 20) {
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Invite & Earn ₹$inviteEarnAmount",
+                    text = "Invite & Earn â‚¹$inviteEarnAmount",
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = EmployerColors.Success,
                         fontWeight = FontWeight.Bold
                     )
                 )
                 Text(
-                    text = "Invite other employers and earn ₹$inviteEarnAmount when they post their first job.",
+                    text = "Invite other employers and earn â‚¹$inviteEarnAmount when they post their first job.",
                     style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Success)
                 )
             }
@@ -1063,7 +1063,7 @@ private fun EmployerPostJobSection(
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Column {
             Text(
-                text = "Create a New Posting",
+                text = stringResource(R.string.auto_create_a_new_posting),
                 style = AppTypography.sectionHeader.copy(
                     color = EmployerColors.TextPrimary,
                     fontWeight = FontWeight.Bold,
@@ -1073,7 +1073,7 @@ private fun EmployerPostJobSection(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "Choose the posting format that fits your immediate staffing need.",
+                text = stringResource(R.string.auto_choose_the_posting_format_that_fits_your_i),
                 style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
             )
         }
@@ -1412,7 +1412,7 @@ fun LoadingScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            // Solid role background â€” the shimmer skeleton sits on the same
+            // Solid role background Ã¢â‚¬â€ the shimmer skeleton sits on the same
             // surface as the rest of the employer flow.
             .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
@@ -1583,7 +1583,7 @@ fun EnhancedStatsGrid(stats: JobStats, onViewAnalytics: (() -> Unit)? = null) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Your Dashboard",
+                text = stringResource(R.string.auto_your_dashboard),
                 style = AppTypography.sectionHeader.copy(
                     color = EmployerColors.TextPrimary,
                     fontSize = 20.sp,
@@ -1680,7 +1680,7 @@ fun RecentJobsSection(
         ) {
             Column {
             Text(
-                text = "Recent Job Postings",
+                text = stringResource(R.string.auto_recent_job_postings),
                 style = com.example.dutype.ui.theme.AppTypography.sectionHeader,
                 modifier = Modifier.padding(start = 8.dp)
             )
@@ -1727,7 +1727,7 @@ fun RecentJobsSection(
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "Refreshing recent jobs...",
+                        text = stringResource(R.string.auto_refreshing_recent_jobs),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -1754,7 +1754,7 @@ fun RecentJobsSection(
                         title = job.title,
                         description = job.description,
                         location = job.addressText.ifBlank { job.location },
-                        // Bug #6 fix: salary is now a free-form String â€”
+                        // Bug #6 fix: salary is now a free-form String Ã¢â‚¬â€
                         // pass it through verbatim so "Negotiable",
                         // ranges, and "+" suffixes survive the round-trip.
                         payAmount = job.salary,
@@ -1858,13 +1858,13 @@ fun EmptyJobsState(onPostJob: () -> Unit) {
                 tint = Color.Gray.copy(alpha = 0.6f)
             )
             Text(
-                text = "No Recent Jobs",
+                text = stringResource(R.string.auto_no_recent_jobs),
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                 color = Color.Gray,
                 textAlign = TextAlign.Center
             )
             Text(
-                text = "Start by posting your first job to find great candidates",
+                text = stringResource(R.string.auto_start_by_posting_your_first_job_to_find_gr),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.Gray,
                 textAlign = TextAlign.Center
@@ -1914,7 +1914,7 @@ private fun EmployerProfileCompletionPrompt(
                     modifier = Modifier.size(24.dp)
                 )
                 Text(
-                    text = "Complete Your Company Profile",
+                    text = stringResource(R.string.auto_complete_your_company_profile),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = EmployerColors.Primary
@@ -1923,7 +1923,7 @@ private fun EmployerProfileCompletionPrompt(
             }
             
             Text(
-                text = "Complete your profile to access all features and attract better candidates",
+                text = stringResource(R.string.auto_complete_your_profile_to_access_all_featur),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = EmployerColors.Primary
                 )
@@ -1936,7 +1936,7 @@ private fun EmployerProfileCompletionPrompt(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Profile Completion",
+                        text = stringResource(R.string.auto_profile_completion),
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontWeight = FontWeight.Medium,
                             color = EmployerColors.Primary
@@ -1986,7 +1986,7 @@ private fun EmployerProfileCompletionPrompt(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = "Complete Profile",
+                    text = stringResource(R.string.auto_complete_profile),
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontWeight = FontWeight.SemiBold
                     )
@@ -2122,7 +2122,7 @@ fun ApplicationAnalyticsSection(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                        text = "Recent Job Activity",
+                        text = stringResource(R.string.auto_recent_job_activity),
                     style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = EmployerColors.TextSecondary

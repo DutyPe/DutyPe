@@ -1,5 +1,7 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -498,7 +500,7 @@ private fun EnhancedSuggestionItem(
             // Recent Indicator with Better Styling
             if (suggestion.isRecent) {
                 Text(
-                    text = "Recent",
+                    text = stringResource(R.string.auto_recent),
                     color = WorkerColors.TextTertiary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,

@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
+import com.dutype.app.R
 import android.app.Activity
 import android.net.Uri
 import android.widget.Toast
@@ -51,7 +52,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import com.example.dutype.components.markWelcomeCelebrationPending
 import timber.log.Timber
-import com.dutype.app.R
 
 /**
  * Mandatory Employer Profile Setup Screen
@@ -138,12 +138,12 @@ fun MandatoryEmployerProfileSetupScreen(
                 // Check if user has already used a referral code
                 hasAlreadyUsedReferral = profileCompletionViewModel.hasUserUsedReferralCode(currentUser.uid)
                 showReferralSection = !hasAlreadyUsedReferral
-                Timber.d("🎁 REFERRAL: hasAlreadyUsedReferral=$hasAlreadyUsedReferral, showReferralSection=$showReferralSection")
+                Timber.d("ðŸŽ REFERRAL: hasAlreadyUsedReferral=$hasAlreadyUsedReferral, showReferralSection=$showReferralSection")
                 
                 // Load full profile data for prefilling (all fields needed for form)
                 val existingDataResult = profileCompletionViewModel.loadExistingProfileData()
                 existingDataResult.onSuccess { existingData ->
-                    Timber.d("📦 PREFILL: Loading existing employer profile data (lightweight)")
+                    Timber.d("ðŸ“¦ PREFILL: Loading existing employer profile data (lightweight)")
                     
                     // Prefill form fields with existing data (schema-compliant fields only)
                     val savedCompanyName = existingData["companyName"] as? String
@@ -157,16 +157,16 @@ fun MandatoryEmployerProfileSetupScreen(
                     // Apply prefilled values (only if current field is empty)
                     if (companyName.isBlank() && !savedCompanyName.isNullOrBlank()) {
                         companyName = savedCompanyName
-                        Timber.d("📦 PREFILL: companyName = $companyName")
+                        Timber.d("ðŸ“¦ PREFILL: companyName = $companyName")
                     }
                     if (contactPhone.isBlank() && !savedContactPhone.isNullOrBlank()) {
                         // Clean phone number (remove country code if present)
                         contactPhone = savedContactPhone.replace("+91", "").trim()
-                        Timber.d("📦 PREFILL: contactPhone = $contactPhone")
+                        Timber.d("ðŸ“¦ PREFILL: contactPhone = $contactPhone")
                     }
                     if (industry.isBlank() && !savedIndustry.isNullOrBlank()) {
                         industry = savedIndustry
-                        Timber.d("📦 PREFILL: industry = $industry")
+                        Timber.d("ðŸ“¦ PREFILL: industry = $industry")
                     }
                     if (businessAddress.isBlank() && !savedBusinessAddress.isNullOrBlank()) {
                         businessAddress = savedBusinessAddress
@@ -190,7 +190,7 @@ fun MandatoryEmployerProfileSetupScreen(
                     }
                     if (!savedProfileImageUrl.isNullOrBlank()) {
                         selfieUrl = savedProfileImageUrl
-                        Timber.d("📦 PREFILL: profileImageUrl exists")
+                        Timber.d("ðŸ“¦ PREFILL: profileImageUrl exists")
                     }
                 }
                 
@@ -199,7 +199,7 @@ fun MandatoryEmployerProfileSetupScreen(
                     val savedName = profileCompletionViewModel.getUserName()
                     if (savedName != null) {
                         companyName = savedName
-                        Timber.d("📦 PREFILL: companyName from Google = $companyName")
+                        Timber.d("ðŸ“¦ PREFILL: companyName from Google = $companyName")
                     }
                 }
                 
@@ -208,12 +208,12 @@ fun MandatoryEmployerProfileSetupScreen(
                     val savedPhone = profileCompletionViewModel.getPhoneNumber()
                     if (savedPhone != null) {
                         contactPhone = savedPhone.replace("+91", "").trim()
-                        Timber.d("📦 PREFILL: contactPhone from OTP = $contactPhone")
+                        Timber.d("ðŸ“¦ PREFILL: contactPhone from OTP = $contactPhone")
                     }
                 }
             }
         } catch (e: Exception) {
-            Timber.e(e, "📦 PREFILL: Error loading existing profile data")
+            Timber.e(e, "ðŸ“¦ PREFILL: Error loading existing profile data")
         } finally {
             isLoadingExistingData = false
         }
@@ -268,7 +268,7 @@ fun MandatoryEmployerProfileSetupScreen(
     fun handleCompletion() {
         // Prevent double-execution
         if (isCompletionInProgress) {
-            Timber.w("📍 Profile completion already in progress, ignoring duplicate call")
+            Timber.w("ðŸ“ Profile completion already in progress, ignoring duplicate call")
             return
         }
         
@@ -296,16 +296,16 @@ fun MandatoryEmployerProfileSetupScreen(
                                 onSuccess = { url ->
                                     uploadedSelfieUrl = url
                                     selfieUrl = url
-                                    Timber.d("📸 Employer selfie uploaded: $url")
+                                    Timber.d("ðŸ“¸ Employer selfie uploaded: $url")
                                 },
                                 onFailure = { e ->
-                                    Timber.e(e, "📸 Failed to upload employer selfie")
+                                    Timber.e(e, "ðŸ“¸ Failed to upload employer selfie")
                                     // Show error but continue - selfie upload is not blocking
                                     selfieError = "Photo upload failed. Your profile will be saved without photo."
                                 }
                             )
                         } catch (e: Exception) {
-                            Timber.e(e, "📸 Exception during employer selfie upload")
+                            Timber.e(e, "ðŸ“¸ Exception during employer selfie upload")
                             selfieError = "Photo upload failed. Your profile will be saved without photo."
                         } finally {
                             isUploadingSelfie = false
@@ -341,7 +341,7 @@ fun MandatoryEmployerProfileSetupScreen(
                         .saveEmployerProfileData(employerProfileData)
                         .getOrThrow()
 
-                    // Referral apply is non-critical for the navigation gate —
+                    // Referral apply is non-critical for the navigation gate â€”
                     // run it AFTER the user has been routed to home so the
                     // "saving" sheet dismisses promptly. Failure here only
                     // affects bonus crediting; the profile itself is saved.
@@ -364,10 +364,10 @@ fun MandatoryEmployerProfileSetupScreen(
                                     ).show()
                                 } else {
                                     Timber.w(
-                                        "🎁 REFERRAL: Employer fallback apply failed: ${referralApplyResult.exceptionOrNull()?.message}"
+                                        "ðŸŽ REFERRAL: Employer fallback apply failed: ${referralApplyResult.exceptionOrNull()?.message}"
                                     )
                                 }
-                            }.onFailure { Timber.w(it, "🎁 REFERRAL: background apply error") }
+                            }.onFailure { Timber.w(it, "ðŸŽ REFERRAL: background apply error") }
                         }
                     }
                 }
@@ -398,13 +398,13 @@ fun MandatoryEmployerProfileSetupScreen(
                                     userId = notificationUser.uid,
                                     userRole = "EMPLOYER"
                                 ).onSuccess {
-                                    Timber.d("📬 Profile completion notification sent for employer (first time)")
+                                    Timber.d("ðŸ“¬ Profile completion notification sent for employer (first time)")
                                 }.onFailure { error ->
-                                    Timber.e(error, "📬 Employer profile completion notification failed")
+                                    Timber.e(error, "ðŸ“¬ Employer profile completion notification failed")
                                 }
                                 fcmTokenManager.registerTokenWithRole("EMPLOYER")
-                                Timber.d("📬 FCM token registered with EMPLOYER role")
-                            }.onFailure { Timber.e(it, "📬 Background notification/FCM failure") }
+                                Timber.d("ðŸ“¬ FCM token registered with EMPLOYER role")
+                            }.onFailure { Timber.e(it, "ðŸ“¬ Background notification/FCM failure") }
                         }
                     }
 
@@ -413,7 +413,7 @@ fun MandatoryEmployerProfileSetupScreen(
                         reviewTriggerService.onEmployerProfileCompleted(activity)
                     }
                 } else {
-                    Timber.d("📬 Profile already complete - skipping notification (this is a profile update)")
+                    Timber.d("ðŸ“¬ Profile already complete - skipping notification (this is a profile update)")
                 }
 
                 // Navigate to the returnRoute if provided (e.g. post_job after
@@ -422,7 +422,7 @@ fun MandatoryEmployerProfileSetupScreen(
                 //
                 // BUG #1 FIX: `EMPLOYER_POST_JOB` (and other employer-shell
                 // routes) only exist inside the nested `EmployerMainScreen`
-                // NavHost — not in this outer graph. Navigating to them
+                // NavHost â€” not in this outer graph. Navigating to them
                 // directly from here crashes with
                 // `Navigation destination ... cannot be found in the navigation
                 // graph`. We instead navigate the outer controller to
@@ -430,7 +430,7 @@ fun MandatoryEmployerProfileSetupScreen(
                 // the desired inner route via `EmployerInnerNavQueue`; the
                 // employer shell drains it on first composition.
                 if (returnRoute != null) {
-                    Timber.d("📍 Profile complete - queuing inner route '$returnRoute' and navigating to EMPLOYER_HOME")
+                    Timber.d("ðŸ“ Profile complete - queuing inner route '$returnRoute' and navigating to EMPLOYER_HOME")
                     com.example.dutype.navigation.EmployerInnerNavQueue.setPending(returnRoute)
                     navController.navigate(Routes.EMPLOYER_HOME) {
                         popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
@@ -438,7 +438,7 @@ fun MandatoryEmployerProfileSetupScreen(
                     }
                     logFunnelEvent("completed", mapOf("destination" to returnRoute))
                 } else {
-                    Timber.d("📍 Profile complete - navigating to EMPLOYER_HOME")
+                    Timber.d("ðŸ“ Profile complete - navigating to EMPLOYER_HOME")
                     navController.navigate(Routes.EMPLOYER_HOME) {
                         popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
                         launchSingleTop = true
@@ -538,7 +538,7 @@ fun MandatoryEmployerProfileSetupScreen(
                                     }
                                     referralValidationResult = ReferralValidationResult(
                                         isValid = true,
-                                        message = "Valid code from $roleDisplay! You'll both earn ₹25.",
+                                        message = "Valid code from $roleDisplay! You'll both earn â‚¹25.",
                                         referrerName = referrerInfo.first
                                     )
                                 } else {
@@ -564,7 +564,7 @@ fun MandatoryEmployerProfileSetupScreen(
         onSelfieCapture = { uri ->
             selfieUriString = uri.toString()
             selfieError = null
-            Timber.d("📸 Employer selfie captured: $uri")
+            Timber.d("ðŸ“¸ Employer selfie captured: $uri")
         },
         onSelfieRetake = {
             selfieUriString = null
@@ -858,7 +858,7 @@ private fun CompanyInformationStep(
 
             Column {
                 Text(
-                    text = "Company Information",
+                    text = stringResource(R.string.auto_company_information),
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
@@ -866,7 +866,7 @@ private fun CompanyInformationStep(
                     )
                 )
                 Text(
-                    text = "Tell us about your company",
+                    text = stringResource(R.string.auto_tell_us_about_your_company),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = EmployerColors.TextSecondary,
                         fontWeight = FontWeight.Medium
@@ -1020,7 +1020,7 @@ private fun ContactDetailsStep(
 
             Column {
                 Text(
-                    text = "Contact Details",
+                    text = stringResource(R.string.auto_contact_details),
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
@@ -1028,7 +1028,7 @@ private fun ContactDetailsStep(
                     )
                 )
                 Text(
-                    text = "How can we reach you?",
+                    text = stringResource(R.string.auto_how_can_we_reach_you),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = EmployerColors.TextSecondary,
                         fontWeight = FontWeight.Medium

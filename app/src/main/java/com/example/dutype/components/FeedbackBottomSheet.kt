@@ -1,5 +1,6 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
@@ -32,7 +33,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 import com.example.dutype.ui.theme.WorkerColors
 
 // Helper function to get app version dynamically
@@ -145,7 +145,7 @@ fun FeedbackBottomSheet(
                         Spacer(modifier = Modifier.height(23.dp))
                         
                         Text(
-                            text = "Thank You! 🙏",
+                            text = stringResource(R.string.auto_thank_you),
                             style = MaterialTheme.typography.headlineSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
@@ -155,7 +155,7 @@ fun FeedbackBottomSheet(
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         Text(
-                            text = "Your feedback helps us improve DutyPe",
+                            text = stringResource(R.string.auto_your_feedback_helps_us_improve_dutype),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = WorkerColors.TextSecondary
                             )
@@ -175,7 +175,7 @@ fun FeedbackBottomSheet(
                 ) {
                     // Header
                     Text(
-                        text = "Share Your Feedback",
+                        text = stringResource(R.string.auto_share_your_feedback),
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.Bold,
                             color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
@@ -185,7 +185,7 @@ fun FeedbackBottomSheet(
                     Spacer(modifier = Modifier.height(8.dp))
                     
                     Text(
-                        text = "Help us improve DutyPe by sharing your experience",
+                        text = stringResource(R.string.auto_help_us_improve_dutype_by_sharing_your_exp),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = WorkerColors.TextSecondary,
                             textAlign = TextAlign.Center
@@ -196,7 +196,7 @@ fun FeedbackBottomSheet(
                     
                     // Rating Section
                     Text(
-                        text = "How would you rate your experience?",
+                        text = stringResource(R.string.auto_how_would_you_rate_your_experience),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Medium,
                             color = WorkerColors.TextSecondary
@@ -227,11 +227,11 @@ fun FeedbackBottomSheet(
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = when (selectedRating) {
-                                1 -> "Poor 😞"
-                                2 -> "Fair 😐"
-                                3 -> "Good 🙂"
-                                4 -> "Very Good 😊"
-                                5 -> "Excellent! 🤩"
+                                1 -> "Poor ðŸ˜ž"
+                                2 -> "Fair ðŸ˜"
+                                3 -> "Good ðŸ™‚"
+                                4 -> "Very Good ðŸ˜Š"
+                                5 -> "Excellent! ðŸ¤©"
                                 else -> ""
                             },
                             style = MaterialTheme.typography.bodyMedium.copy(
@@ -244,7 +244,7 @@ fun FeedbackBottomSheet(
                     
                     // Category Selection
                     Text(
-                        text = "Feedback Category",
+                        text = stringResource(R.string.auto_feedback_category),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Medium,
                             color = WorkerColors.TextSecondary
@@ -335,7 +335,7 @@ fun FeedbackBottomSheet(
                             )
                         ) {
                             Text(
-                                text = "Later",
+                                text = stringResource(R.string.auto_later),
                                 style = MaterialTheme.typography.bodyLarge.copy(
                                     fontWeight = FontWeight.Medium
                                 )
@@ -417,7 +417,7 @@ fun FeedbackBottomSheet(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "Submit",
+                                    text = stringResource(R.string.auto_submit),
                                     style = MaterialTheme.typography.bodyLarge.copy(
                                         fontWeight = FontWeight.SemiBold
                                     )

@@ -1,5 +1,6 @@
-package com.example.dutype.worker.screens
+﻿package com.example.dutype.worker.screens
 
+import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -50,7 +51,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.vector.ImageVector
 import kotlinx.coroutines.launch
 import timber.log.Timber
-import com.dutype.app.R
 import com.example.dutype.components.EmptyLocationState
 import com.example.dutype.components.EmptySearchState
 
@@ -114,17 +114,17 @@ fun AllJobsScreen(
         val categoryForQuery = initialFilter.takeIf { it != "All Jobs" }
         viewModel.setInitialCategory(categoryForQuery)
         
-        // 🚀 UBER/SWIGGY STRATEGY: Get location fast and load jobs in parallel
+        // ðŸš€ UBER/SWIGGY STRATEGY: Get location fast and load jobs in parallel
         val locationPreferences = viewModel.locationPreferences
         val savedLocation = locationPreferences.getSavedLocationIfFresh()
         
         if (savedLocation != null) {
-            Timber.d("📍 AllJobsScreen: Using cached location - lat=${savedLocation.latitude}, lon=${savedLocation.longitude}")
+            Timber.d("ðŸ“ AllJobsScreen: Using cached location - lat=${savedLocation.latitude}, lon=${savedLocation.longitude}")
             viewModel.setUserLocation(savedLocation.latitude, savedLocation.longitude)
         }
         
         // Load jobs immediately (don't wait for location)
-        Timber.d("📍 AllJobsScreen: Loading jobs with category: $categoryForQuery")
+        Timber.d("ðŸ“ AllJobsScreen: Loading jobs with category: $categoryForQuery")
         viewModel.loadJobs(limit = PAGE_SIZE, category = categoryForQuery)
         
         // Get fresh location in background to update distances
@@ -136,40 +136,40 @@ fun AllJobsScreen(
                         val locationService = viewModel.locationService
                         locationRepository.refresh { freshLocation ->
                             if (freshLocation != null) {
-                                Timber.d("📍 AllJobsScreen: Fresh location received - updating distances")
+                                Timber.d("ðŸ“ AllJobsScreen: Fresh location received - updating distances")
                                 // Location already saved by getLocationFast()
                                 val data = locationService.toLocationData(freshLocation)
                                 viewModel.setUserLocation(data.latitude, data.longitude)
                             }
                         }
                     } else {
-                        Timber.d("📍 AllJobsScreen: Skipping GPS fetch - using fresh cached location")
+                        Timber.d("ðŸ“ AllJobsScreen: Skipping GPS fetch - using fresh cached location")
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to get fresh location")
                 }
             }
         } else {
-            Timber.d("📍 AllJobsScreen: Manual location lock active - skipping background GPS refresh")
+            Timber.d("ðŸ“ AllJobsScreen: Manual location lock active - skipping background GPS refresh")
         }
         
         // Auto-search with voice query if provided
         if (!voiceQuery.isNullOrBlank()) {
-            timber.log.Timber.d("🎤 Voice query received: $voiceQuery")
-            timber.log.Timber.d("🎤 Setting search query in ViewModel...")
+            timber.log.Timber.d("ðŸŽ¤ Voice query received: $voiceQuery")
+            timber.log.Timber.d("ðŸŽ¤ Setting search query in ViewModel...")
             viewModel.setSearchQuery(voiceQuery)
-            timber.log.Timber.d("🎤 Search query set successfully")
+            timber.log.Timber.d("ðŸŽ¤ Search query set successfully")
         }
     }
     
     // Debug: Log search query changes
     LaunchedEffect(searchQuery) {
-        timber.log.Timber.d("🔍 Search query in UI: '$searchQuery'")
-        timber.log.Timber.d("🔍 Filtered jobs count: ${filteredJobs.size}")
+        timber.log.Timber.d("ðŸ” Search query in UI: '$searchQuery'")
+        timber.log.Timber.d("ðŸ” Filtered jobs count: ${filteredJobs.size}")
     }
     
     val categoryTabs = remember {
-        val allCategories = listOf("All Jobs" to "📋")
+        val allCategories = listOf("All Jobs" to "ðŸ“‹")
         val jobCategories = com.example.dutype.employer.models.JobCategory.entries
             .filter { it != com.example.dutype.employer.models.JobCategory.OTHER }
             .map { it.displayName to it.icon }
@@ -193,7 +193,7 @@ fun AllJobsScreen(
             backgroundColor = WorkerColors.CardBackground
         )
 
-        // Location bar — shows the area jobs are sorted around; tap to change.
+        // Location bar â€” shows the area jobs are sorted around; tap to change.
         JobLocationBar(
             locationText = currentLocation?.getShortAddress() ?: "Set your location",
             onClick = { showLocationSheet = true }
@@ -367,7 +367,7 @@ fun AllJobsScreen(
         }
     }
     
-    // Location picker sheet — search any area to re-sort jobs by nearest first.
+    // Location picker sheet â€” search any area to re-sort jobs by nearest first.
     if (showLocationSheet) {
         JobLocationPickerSheet(
             locationService = viewModel.locationService,
@@ -517,7 +517,7 @@ private fun JobLocationBar(
         Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Showing jobs near",
+                text = stringResource(R.string.auto_showing_jobs_near),
                 style = AppTypography.labelSmall.copy(color = WorkerColors.TextTertiary)
             )
             Text(
@@ -540,7 +540,7 @@ private fun JobLocationBar(
                 .padding(start = 10.dp, end = 6.dp, top = 5.dp, bottom = 5.dp)
         ) {
             Text(
-                text = "Change",
+                text = stringResource(R.string.auto_change),
                 style = AppTypography.labelMedium.copy(
                     color = WorkerColors.Primary,
                     fontWeight = FontWeight.SemiBold
@@ -583,14 +583,14 @@ private fun JobLocationPickerSheet(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Choose job location",
+                text = stringResource(R.string.auto_choose_job_location),
                 style = AppTypography.pageTitle.copy(
                     color = WorkerColors.TextPrimary,
                     fontWeight = FontWeight.Bold
                 )
             )
             Text(
-                text = "Search any area, city or locality to see the nearest jobs there.",
+                text = stringResource(R.string.auto_search_any_area_city_or_locality_to_see_th),
                 style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary)
             )
             LocationAutocompleteField(
@@ -645,7 +645,7 @@ private fun JobsList(
             val nextLoadToken = "${uiState.lastDocumentId ?: "null"}:${jobs.size}"
             if (nextLoadToken != lastLoadTriggerToken) {
                 lastLoadTriggerToken = nextLoadToken
-                Timber.d("📦 AllJobs: user reached last visible job, requesting next page (token=$nextLoadToken)")
+                Timber.d("ðŸ“¦ AllJobs: user reached last visible job, requesting next page (token=$nextLoadToken)")
                 onLoadMore()
             }
         }
@@ -720,7 +720,7 @@ private fun JobsList(
                 onClick = {
                     scope.launch {
                         listState.animateScrollToItem(0)
-                        Timber.d("📦 Jumped to top - ${jobs.size} jobs loaded")
+                        Timber.d("ðŸ“¦ Jumped to top - ${jobs.size} jobs loaded")
                     }
                 },
                 containerColor = WorkerColors.Primary,
@@ -952,7 +952,7 @@ private fun JobFilterBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Location Radius",
+                    text = stringResource(R.string.auto_location_radius),
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)
                 )
                 Text(
@@ -1047,7 +1047,7 @@ private fun JobFilterBottomSheet(
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Text(
-                    text = "Apply Filters",
+                    text = stringResource(R.string.auto_apply_filters),
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )

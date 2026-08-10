@@ -1,5 +1,6 @@
-package com.example.dutype.worker.screens.profile
+﻿package com.example.dutype.worker.screens.profile
 
+import com.dutype.app.R
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -48,7 +49,6 @@ import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,7 +96,7 @@ fun WorkerProfileDetailsScreen(
     val imagePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        Timber.d("📸 WORKER PROFILE DETAILS: Image picker result - uri: $uri")
+        Timber.d("ðŸ“¸ WORKER PROFILE DETAILS: Image picker result - uri: $uri")
         uri?.let { selectedUri ->
             profileImageUri = selectedUri
             isUploadingImage = true
@@ -104,14 +104,14 @@ fun WorkerProfileDetailsScreen(
             scope.launch {
                 try {
                     val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                    Timber.d("📸 WORKER PROFILE DETAILS: Current user: ${currentUser?.uid}")
+                    Timber.d("ðŸ“¸ WORKER PROFILE DETAILS: Current user: ${currentUser?.uid}")
                     if (currentUser != null) {
-                        Timber.d("📸 WORKER PROFILE DETAILS: Starting upload...")
+                        Timber.d("ðŸ“¸ WORKER PROFILE DETAILS: Starting upload...")
                         val uploadResult = profileCompletionViewModel.uploadProfileImage(selectedUri, currentUser.uid, "worker")
                         uploadResult.fold(
                             onSuccess = { imageUrl ->
                                 profileImageUrl = imageUrl
-                                Timber.i("📸 WORKER PROFILE DETAILS: ✅ Profile image uploaded: $imageUrl")
+                                Timber.i("ðŸ“¸ WORKER PROFILE DETAILS: âœ… Profile image uploaded: $imageUrl")
                                 
                                 // Update profile data with new image URL
                                 val updatedProfileData = mapOf(
@@ -123,18 +123,18 @@ fun WorkerProfileDetailsScreen(
                                 Toast.makeText(context, context.getString(R.string.profile_photo_updated), Toast.LENGTH_SHORT).show()
                             },
                             onFailure = { exception ->
-                                Timber.e(exception, "📸 WORKER PROFILE DETAILS: ❌ Failed to upload profile image")
+                                Timber.e(exception, "ðŸ“¸ WORKER PROFILE DETAILS: âŒ Failed to upload profile image")
                                 profileImageUri = null
                                 Toast.makeText(context, context.getString(R.string.profile_photo_upload_failed), Toast.LENGTH_SHORT).show()
                             }
                         )
                     } else {
-                        Timber.w("📸 WORKER PROFILE DETAILS: No current user - cannot upload")
+                        Timber.w("ðŸ“¸ WORKER PROFILE DETAILS: No current user - cannot upload")
                         profileImageUri = null
                         Toast.makeText(context, context.getString(R.string.profile_login_to_upload), Toast.LENGTH_SHORT).show()
                     }
                 } catch (e: Exception) {
-                    Timber.e(e, "📸 WORKER PROFILE DETAILS: ❌ Error uploading profile image")
+                    Timber.e(e, "ðŸ“¸ WORKER PROFILE DETAILS: âŒ Error uploading profile image")
                     profileImageUri = null
                     Toast.makeText(context, context.getString(R.string.profile_photo_upload_error), Toast.LENGTH_SHORT).show()
                 } finally {
@@ -168,7 +168,7 @@ fun WorkerProfileDetailsScreen(
                         experience = data["experience"] as? String ?: experience
                         profileImageUrl = data["profileImageUrl"] as? String
 
-                        // skills from worker_profiles — displayed as comma-separated skills
+                        // skills from worker_profiles â€” displayed as comma-separated skills
                         val rawSkills = data["skills"]
                         skills = when (rawSkills) {
                             is List<*> -> rawSkills.filterIsInstance<String>().joinToString(", ")
@@ -176,7 +176,7 @@ fun WorkerProfileDetailsScreen(
                             else -> skills
                         }
 
-                        Timber.d("📸 WORKER PROFILE DETAILS: Loaded profile image URL: $profileImageUrl")
+                        Timber.d("ðŸ“¸ WORKER PROFILE DETAILS: Loaded profile image URL: $profileImageUrl")
                     },
                     onFailure = { exception ->
                         Timber.e(exception, "Error loading worker profile data")
@@ -329,7 +329,7 @@ fun WorkerProfileDetailsScreen(
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            text = if (workerTotalRatings > 0) "★ ${"%.1f".format(workerRating)}  •  $workerTotalRatings review${if (workerTotalRatings != 1) "s" else ""}"
+                                            text = if (workerTotalRatings > 0) "â˜… ${"%.1f".format(workerRating)}  â€¢  $workerTotalRatings review${if (workerTotalRatings != 1) "s" else ""}"
                                             else stringResource(R.string.profile_no_ratings),
                                             style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary)
                                         )
@@ -862,7 +862,7 @@ private fun ProfileTextField(
     }
 
     // Re-prompt the OS location permission on every tap if it hasn't been granted
-    // yet — including recoveries from a previous denial.
+    // yet â€” including recoveries from a previous denial.
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
@@ -965,7 +965,7 @@ private fun ProfileTextField(
         if (!enabled && label == stringResource(R.string.phone_number)) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Phone number cannot be changed (from login)",
+                text = stringResource(R.string.auto_phone_number_cannot_be_changed_from_login),
                 style = AppTypography.caption.copy(
                     color = WorkerColors.TextSecondary.copy(alpha = 0.7f),
                     fontSize = 11.sp

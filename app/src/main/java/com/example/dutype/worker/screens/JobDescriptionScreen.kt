@@ -1,5 +1,6 @@
-package com.example.dutype.worker.screens
+﻿package com.example.dutype.worker.screens
 
+import com.dutype.app.R
 import android.app.Activity
 import com.example.dutype.di.rememberInAppReviewTriggerService
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -121,7 +122,6 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
-import com.dutype.app.R
 import com.example.dutype.components.OfflineBanner
 import com.example.dutype.components.ShareJobIconButton
 import com.example.dutype.components.CallUpdateBottomSheet
@@ -233,7 +233,7 @@ fun JobDescriptionScreen(
                         }
                     }
                     .onFailure { e ->
-                        Timber.e(e, "📞 Failed to log call tap for job: ${currentJob.id}")
+                        Timber.e(e, "ðŸ“ž Failed to log call tap for job: ${currentJob.id}")
                         android.widget.Toast.makeText(context, context.getString(R.string.save_feedback_failed), android.widget.Toast.LENGTH_SHORT).show()
                     }
             }
@@ -248,7 +248,7 @@ fun JobDescriptionScreen(
     // REMOVED: jobApplicationUiState - not needed, we use smartApplicationViewModel.hasUserApplied() instead
 
     // Reactive auth state so the UI updates immediately after a login via
-    // the bottom sheet — the old `val currentUser = ...getInstance().currentUser`
+    // the bottom sheet â€” the old `val currentUser = ...getInstance().currentUser`
     // was a one-shot snapshot captured at composition time and stayed null
     // after the LoginBottomSheet signed in the user.
     var currentUser by remember { mutableStateOf(com.google.firebase.auth.FirebaseAuth.getInstance().currentUser) }
@@ -926,13 +926,13 @@ private fun JobCallFeedbackSheet(
             }
 
             Text(
-                text = "Did you get selected or hired from this call?",
+                text = stringResource(R.string.auto_did_you_get_selected_or_hired_from_this_ca),
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                 color = WorkerColors.TextSecondary
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 FeedbackChoiceButton(
-                    text = "Yes",
+                    text = stringResource(R.string.auto_yes),
                     selected = jobOfferAccepted == true,
                     onClick = { jobOfferAccepted = true },
                     modifier = Modifier.weight(1f),
@@ -946,7 +946,7 @@ private fun JobCallFeedbackSheet(
                     enabled = !isSubmitting
                 )
                 FeedbackChoiceButton(
-                    text = "Skip",
+                    text = stringResource(R.string.auto_skip),
                     selected = jobOfferAccepted == null,
                     onClick = { jobOfferAccepted = null },
                     modifier = Modifier.weight(1f),
@@ -1087,7 +1087,7 @@ private fun JobDetailsContent(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .clip(RoundedCornerShape(10.dp)),
-                            // Show the full uploaded image — every corner —
+                            // Show the full uploaded image â€” every corner â€”
                             // instead of cropping the edges. Matches what the
                             // employer sees in the preview screen.
                             contentScale = ContentScale.Fit,
@@ -1131,7 +1131,7 @@ private fun JobDetailsContent(
         //                 modifier = Modifier.fillMaxWidth().padding(12.dp),
         //                 verticalAlignment = Alignment.CenterVertically
         //             ) {
-        //                 Text("🏛️", style = MaterialTheme.typography.bodyMedium)
+        //                 Text("ðŸ›ï¸", style = MaterialTheme.typography.bodyMedium)
         //                 Spacer(modifier = Modifier.width(8.dp))
         //                 Text(stringResource(R.string.near_label), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF166534)))
         //                 Text(job.landmark, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF166534)))
@@ -1231,10 +1231,10 @@ private fun JobDetailsContent(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     // Salary/Pay
-                    JobDetailRow(Icons.Default.Payments, WorkerColors.Success, "Salary:", if (payAmount != "Not specified") "₹$payAmount $payTypeDisplay" else payAmount)
+                    JobDetailRow(Icons.Default.Payments, WorkerColors.Success, "Salary:", if (payAmount != "Not specified") "â‚¹$payAmount $payTypeDisplay" else payAmount)
                     Spacer(modifier = Modifier.height(10.dp))
                     
-                    // Vacancies — not in schema, removed
+                    // Vacancies â€” not in schema, removed
                     
                     // Experience
                     JobDetailRow(Icons.Default.Star, Color(0xFFFBBF24), "Experience:", experienceDisplay)
@@ -1254,7 +1254,7 @@ private fun JobDetailsContent(
 
                     JobDetailRow(Icons.Default.AccessTime, Color(0xFF6366F1), "Shift:", shiftTimingDisplay)
 
-                    // Category row removed — redundant with the Job Type row above.
+                    // Category row removed â€” redundant with the Job Type row above.
 
                     if (job.vacancies > 0) {
                         Spacer(modifier = Modifier.height(10.dp))
@@ -1270,7 +1270,7 @@ private fun JobDetailsContent(
                         job.gender.ifBlank { "Any" }
                     )
 
-                    // Posted time — shown last, after gender
+                    // Posted time â€” shown last, after gender
                     if (job.createdAt > 0) {
                         Spacer(modifier = Modifier.height(10.dp))
                         JobDetailRow(Icons.Default.AccessTime, WorkerColors.Primary, "Posted:", com.example.dutype.utils.DateTimeUtils.formatTimeAgoExactDays(job.createdAt))
@@ -1327,7 +1327,7 @@ private fun JobDetailsContent(
                     //     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     //         job.requirements.forEach { req ->
                     //             Row(modifier = Modifier.fillMaxWidth()) {
-                    //                 Text("•", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), fontWeight = FontWeight.Bold, fontSize = 16.sp))
+                    //                 Text("â€¢", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), fontWeight = FontWeight.Bold, fontSize = 16.sp))
                     //                 Spacer(modifier = Modifier.width(10.dp))
                     //                 Text(req, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), lineHeight = 22.sp))
                     //             }
@@ -1368,7 +1368,7 @@ private fun JobDetailsContent(
             }
         }
 
-        // Inline Call + Apply action row — appears directly after the
+        // Inline Call + Apply action row â€” appears directly after the
         // "don't pay fee" safety banner so the user has a natural,
         // non-floating touchpoint while they're reading the details.
         // Paired with a divider above it for visual separation. The
@@ -1421,14 +1421,14 @@ private fun JobDetailsContent(
 
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
-                            text = "Similar jobs",
+                            text = stringResource(R.string.auto_similar_jobs),
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = WorkerColors.TextPrimary
                             )
                         )
                         Text(
-                            text = "Roles related to this opening",
+                            text = stringResource(R.string.auto_roles_related_to_this_opening),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = WorkerColors.TextSecondary
                             )
@@ -1541,7 +1541,7 @@ private fun JobDetailRow(icon: ImageVector, iconColor: Color, label: String, val
 }
 
 private fun parseDescriptionToBullets(description: String): List<String> {
-    val lines = description.replace("•", "\n").replace("-", "\n").replace("*", "\n").split("\n").map { it.trim() }.filter { it.isNotEmpty() && it.length > 3 }
+    val lines = description.replace("â€¢", "\n").replace("-", "\n").replace("*", "\n").split("\n").map { it.trim() }.filter { it.isNotEmpty() && it.length > 3 }
     if (lines.size > 1) return lines.take(6)
     val sentences = description.split(".").map { it.trim() }.filter { it.isNotEmpty() && it.length > 10 }
     return if (sentences.isNotEmpty()) sentences.take(6) else listOf(description)

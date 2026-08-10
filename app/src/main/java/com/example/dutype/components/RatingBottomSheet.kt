@@ -1,5 +1,6 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,7 +20,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 import com.example.dutype.ui.theme.WorkerColors
 
 /**
@@ -140,7 +140,7 @@ fun RatingBottomSheet(
 
             // Tags
             Text(
-                text = "What stood out?",
+                text = stringResource(R.string.auto_what_stood_out),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = WorkerColors.TextSecondary
@@ -226,7 +226,7 @@ fun RatingBottomSheet(
                     )
                 } else {
                     Text(
-                        text = "Submit Rating",
+                        text = stringResource(R.string.auto_submit_rating),
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontWeight = FontWeight.Bold,
                             color = Color.White

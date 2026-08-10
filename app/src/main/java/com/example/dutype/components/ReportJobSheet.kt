@@ -1,5 +1,6 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -27,7 +28,6 @@ import androidx.compose.ui.unit.sp
 import com.example.dutype.services.ReportType
 import kotlinx.coroutines.launch
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 import com.example.dutype.ui.theme.WorkerColors
 
 /**
@@ -98,13 +98,13 @@ fun ReportJobSheet(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "Report Job",
+                                text = stringResource(R.string.auto_report_job),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                             )
                             Text(
-                                text = "Help us keep DutyPe safe",
+                                text = stringResource(R.string.auto_help_us_keep_dutype_safe),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = WorkerColors.TextSecondary
                             )
@@ -175,7 +175,7 @@ fun ReportJobSheet(
                 
                 // Report type selection header
                 Text(
-                    text = "What's the issue?",
+                    text = stringResource(R.string.auto_what_s_the_issue),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = WorkerColors.TextSecondary
@@ -306,7 +306,7 @@ fun ReportJobSheet(
                         )
                     } else {
                         Text(
-                            text = "Submit Report",
+                            text = stringResource(R.string.auto_submit_report),
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 15.sp
                         )
@@ -329,7 +329,7 @@ fun ReportJobSheet(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Your report is anonymous",
+                        text = stringResource(R.string.auto_your_report_is_anonymous),
                         style = MaterialTheme.typography.bodySmall,
                         color = WorkerColors.TextTertiary
                     )
@@ -482,7 +482,7 @@ private fun SuccessContent(
         Spacer(modifier = Modifier.height(20.dp))
         
         Text(
-            text = "Report Submitted",
+            text = stringResource(R.string.auto_report_submitted),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
             color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
@@ -501,7 +501,7 @@ private fun SuccessContent(
         Spacer(modifier = Modifier.height(8.dp))
         
         Text(
-            text = "Thank you for helping keep DutyPe safe!",
+            text = stringResource(R.string.auto_thank_you_for_helping_keep_dutype_safe),
             style = MaterialTheme.typography.bodySmall,
             color = WorkerColors.Success,
             fontWeight = FontWeight.Medium

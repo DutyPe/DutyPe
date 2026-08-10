@@ -1,5 +1,6 @@
-package com.example.dutype.employer.components
+﻿package com.example.dutype.employer.components
 
+import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -24,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.dutype.employer.models.*
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 import com.example.dutype.ui.theme.EmployerColors
 
 @Composable
@@ -60,7 +60,7 @@ fun JobSummaryCard(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Job Preview",
+                    text = stringResource(R.string.auto_job_preview),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = EmployerColors.TextPrimary

@@ -1,5 +1,6 @@
-package com.example.dutype.worker.screens.myJobs
+﻿package com.example.dutype.worker.screens.myJobs
 
+import com.dutype.app.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -80,7 +81,6 @@ import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.components.EmptyListState
 import com.example.dutype.components.EmptySearchState

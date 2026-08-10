@@ -1,5 +1,6 @@
-package com.example.dutype.worker.components
+﻿package com.example.dutype.worker.components
 
+import com.dutype.app.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -68,15 +69,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 
 // Helper functions for status display
 private fun getStatusIcon(status: ApplicationStatus): String {
     return when (status) {
-        ApplicationStatus.APPLIED -> "⏳"
-        ApplicationStatus.HIRED -> "🎉"
-        ApplicationStatus.COMPLETED -> "✅"
-        ApplicationStatus.REJECTED -> "❌"
+        ApplicationStatus.APPLIED -> "â³"
+        ApplicationStatus.HIRED -> "ðŸŽ‰"
+        ApplicationStatus.COMPLETED -> "âœ…"
+        ApplicationStatus.REJECTED -> "âŒ"
         ApplicationStatus.WITHDRAWN -> ""
         else -> ""
     }
@@ -128,7 +128,7 @@ fun JobApplicationCard(
     // can dial the employer directly to push their candidacy. Hidden once the
     // application is rejected or already completed (terminal states).
     // Batch-n #4: show the Call button even if `employerPhone` snapshot is
-    // missing on legacy applications — when tapped without a number we
+    // missing on legacy applications â€” when tapped without a number we
     // open the job detail screen so the worker can still find the contact
     // there. Previously the button was hidden whenever the phone was
     // blank, which silently dropped the primary CTA on most older rows.
@@ -234,7 +234,7 @@ fun JobApplicationCard(
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
-                // Quick-call hint banner — nudges the worker that calling is
+                // Quick-call hint banner â€” nudges the worker that calling is
                 // the fastest way to land the job. Only shown when the
                 // application is in an active funnel stage and the employer
                 // shared a phone number on the job post.
@@ -257,7 +257,7 @@ fun JobApplicationCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "This job was filled. Your application is still saved here.",
+                            text = stringResource(R.string.auto_this_job_was_filled_your_application_is_st),
                             style = AppTypography.caption.copy(
                                 color = WorkerColors.Warning,
                                 fontWeight = FontWeight.Medium
@@ -287,7 +287,7 @@ fun JobApplicationCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "Call employer to confirm availability and next steps.",
+                            text = stringResource(R.string.auto_call_employer_to_confirm_availability_and),
                             style = AppTypography.caption.copy(
                                 color = WorkerColors.Success,
                                 fontWeight = FontWeight.Medium
@@ -319,7 +319,7 @@ fun JobApplicationCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
-                            text = "Employer not responding? Try one call, then keep applying to similar active jobs.",
+                            text = stringResource(R.string.auto_employer_not_responding_try_one_call_then),
                             style = AppTypography.caption.copy(
                                 color = WorkerColors.Warning,
                                 fontWeight = FontWeight.Medium
@@ -369,7 +369,7 @@ fun JobApplicationCard(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Call employer",
+                                text = stringResource(R.string.auto_call_employer),
                                 style = AppTypography.buttonSmall.copy(
                                     color = Color.White
                                 )
@@ -389,7 +389,7 @@ fun JobApplicationCard(
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Text(
-                                text = "Withdraw",
+                                text = stringResource(R.string.auto_withdraw),
                                 style = AppTypography.buttonSmall.copy(
                                     color = WorkerColors.Error
                                 )
@@ -471,7 +471,7 @@ fun JobApplicationCard(
                                 shape = RoundedCornerShape(12.dp)
                             ) {
                                 Text(
-                                    text = "Rate Employer",
+                                    text = stringResource(R.string.auto_rate_employer),
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = Color.White

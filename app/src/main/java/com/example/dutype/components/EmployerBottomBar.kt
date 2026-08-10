@@ -1,5 +1,6 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
 import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,7 +40,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.dutype.app.R
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.IconSizes
@@ -90,7 +90,7 @@ fun EmployerBottomBar(
     )
 
     // Bug (batch-j) #1: employer bottom bar now mirrors the worker bar's
-    // clean, flat PhonePe/Paytm-style geometry — plain white Surface, a
+    // clean, flat PhonePe/Paytm-style geometry â€” plain white Surface, a
     // 0.5dp top border, 64dp item row, three equally-weighted tabs, and
     // the system navigation-bar inset applied INSIDE the Surface so the
     // bar paints right to the gesture edge (no stray strip underneath).
@@ -107,7 +107,7 @@ fun EmployerBottomBar(
             tonalElevation = 0.dp
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // Hairline top divider — same tone as the worker bar.
+                // Hairline top divider â€” same tone as the worker bar.
                 Spacer(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -136,7 +136,7 @@ fun EmployerBottomBar(
                         onClick = { navigateTo(homeItem.first) }
                     )
 
-                    // Post Job tab — middle position, same shape & size as
+                    // Post Job tab â€” middle position, same shape & size as
                     // the other two. Keeps the selectedItemColor (blue)
                     // tint so Post Job still reads as the primary action
                     // without elevating above the bar line.

@@ -1,5 +1,6 @@
-package com.example.dutype.common.screens
+﻿package com.example.dutype.common.screens
 
+import com.dutype.app.R
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
@@ -54,7 +55,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -177,7 +177,7 @@ private fun PolicyMainContainer(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "DutyPe Technologies",
+                        text = stringResource(R.string.auto_dutype_technologies),
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.Bold,
                             color = Ink900

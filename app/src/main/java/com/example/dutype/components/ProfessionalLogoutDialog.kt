@@ -1,5 +1,7 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -127,7 +129,7 @@ private fun LogoutBottomSheetContent(
         
         // Title
         Text(
-            text = "Sign Out",
+            text = stringResource(R.string.auto_sign_out),
             style = AppTypography.pageTitle.copy(
                 color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
             ),
@@ -136,7 +138,7 @@ private fun LogoutBottomSheetContent(
         
         // Description - more compact
         Text(
-            text = "Are you sure you want to sign out?",
+            text = stringResource(R.string.auto_are_you_sure_you_want_to_sign_out),
             style = AppTypography.bodyMedium.copy(
                 color = WorkerColors.TextSecondary
             ),
@@ -163,7 +165,7 @@ private fun LogoutBottomSheetContent(
                 )
             ) {
                 Text(
-                    text = "Cancel",
+                    text = stringResource(R.string.auto_cancel),
                     style = AppTypography.buttonMedium
                 )
             }
@@ -229,12 +231,12 @@ private fun performLogout(
 ) {
     scope.launch {
         try {
-            Timber.d("🔐 Starting logout process...")
+            Timber.d("ðŸ” Starting logout process...")
             
             // Step 1: Use AuthManager.logout() as the single source of truth
             // This handles: Firebase signOut, FCM token removal, local state clearing
             authManager.logout()
-            Timber.d("✅ AuthManager logout completed (Firebase + FCM + local state)")
+            Timber.d("âœ… AuthManager logout completed (Firebase + FCM + local state)")
 
             // Step 2: Navigate IMMEDIATELY so the "Signing Out..." sheet
             // dismisses promptly. Heavy DataStore resets run in background;
@@ -262,18 +264,18 @@ private fun performLogout(
                     .onFailure { Timber.w(it, "Profile setup state reset failed (non-fatal)") }
             }
 
-            Timber.d("✅ Logout completed successfully")
+            Timber.d("âœ… Logout completed successfully")
             
         } catch (e: Exception) {
             // Even if there's an error, ensure we clear local data and navigate
-            Timber.e(e, "❌ Logout error - forcing cleanup")
+            Timber.e(e, "âŒ Logout error - forcing cleanup")
             
             // Force cleanup even on error
             try {
                 authManager.logout()
                 profileCompletionViewModel.resetProfileSetupState()
             } catch (cleanupError: Exception) {
-                Timber.e(cleanupError, "❌ Cleanup error during forced logout")
+                Timber.e(cleanupError, "âŒ Cleanup error during forced logout")
             }
             
             // Always navigate away from authenticated screens

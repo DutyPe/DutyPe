@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
+import com.dutype.app.R
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -52,7 +53,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import com.dutype.app.R
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
@@ -187,7 +187,7 @@ fun EmployerJobPreviewScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Job not found",
+                            text = stringResource(R.string.auto_job_not_found),
                             color = EmployerColors.TextSecondary,
                             fontSize = 14.sp
                         )
@@ -231,7 +231,7 @@ fun EmployerJobPreviewScreen(
             }
         }
 
-        // Sticky bottom Edit bar — direct child of outer Box so we can align.
+        // Sticky bottom Edit bar â€” direct child of outer Box so we can align.
         if (!isLoading && job != null) {
             val j = job!!
             val currentStatus = j.status.lowercase()
@@ -266,7 +266,7 @@ fun EmployerJobPreviewScreen(
                             result.onSuccess {
                                 val newStatus = if (isPaused) "open" else "paused"
                                 job = j.copy(status = newStatus)
-                                val msg = if (isPaused) "Job resumed — visible to workers" else "Job paused — hidden from workers"
+                                val msg = if (isPaused) "Job resumed â€” visible to workers" else "Job paused â€” hidden from workers"
                                 Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                             }.onFailure { e ->
                                 Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -418,7 +418,7 @@ private fun HeroBlock(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(Modifier.width(6.dp))
-                    Text(text = "Change image")
+                    Text(text = stringResource(R.string.auto_change_image))
                 }
             } else {
                 Column(
@@ -437,7 +437,7 @@ private fun HeroBlock(
                     )
                     Spacer(Modifier.height(10.dp))
                     Text(
-                        text = "No job image yet",
+                        text = stringResource(R.string.auto_no_job_image_yet),
                         color = Color.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
@@ -457,7 +457,7 @@ private fun HeroBlock(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(Modifier.width(6.dp))
-                        Text(text = "Upload image")
+                        Text(text = stringResource(R.string.auto_upload_image))
                     }
                 }
             }
@@ -528,7 +528,7 @@ private fun DetailsCard(job: JobListing) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Job details",
+                    text = stringResource(R.string.auto_job_details),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = EmployerColors.TextPrimary,
@@ -550,15 +550,15 @@ private fun DetailsCard(job: JobListing) {
                     Spacer(Modifier.height(8.dp))
                     HorizontalDivider(color = Color(0xFFEDF2F7))
 
-                    InfoRow("Work type", job.jobType.ifBlank { "—" })
-                    InfoRow("Salary", job.salary.ifBlank { "—" })
+                    InfoRow("Work type", job.jobType.ifBlank { "â€”" })
+                    InfoRow("Salary", job.salary.ifBlank { "â€”" })
                     if (job.salaryType.isNotBlank()) {
                         InfoRow("Pay type", job.salaryType.lowercase().replaceFirstChar { it.titlecase() })
                     }
                     InfoRow("Vacancies", job.vacancies.toString())
-                    InfoRow("Shift", job.shiftTiming.ifBlank { "—" })
+                    InfoRow("Shift", job.shiftTiming.ifBlank { "â€”" })
                     InfoRow("Gender", job.gender.ifBlank { "Any" })
-                    InfoRow("Experience", job.experienceRequired.ifBlank { "—" })
+                    InfoRow("Experience", job.experienceRequired.ifBlank { "â€”" })
                     if (job.contactNumber.isNotBlank()) {
                         InfoRow("Contact", job.contactNumber)
                     }
@@ -601,7 +601,7 @@ private fun DescriptionCard(description: String) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "Description",
+                text = stringResource(R.string.auto_description),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = EmployerColors.TextPrimary
@@ -668,7 +668,7 @@ private fun StickyEditBar(
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                             } else {
                                 Text(
-                                    text = if (isPaused) "▶ Resume Job" else "⏸ Pause Job",
+                                    text = if (isPaused) "â–¶ Resume Job" else "â¸ Pause Job",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -692,7 +692,7 @@ private fun StickyEditBar(
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
                             } else {
                                 Text(
-                                    text = "🔄 Renew (1 credit)",
+                                    text = stringResource(R.string.auto_renew_1_credit),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -725,7 +725,7 @@ private fun StickyEditBar(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "Delete",
+                            text = stringResource(R.string.auto_delete),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -750,7 +750,7 @@ private fun StickyEditBar(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "Edit Job",
+                        text = stringResource(R.string.auto_edit_job),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -761,6 +761,6 @@ private fun StickyEditBar(
 }
 
 private fun formatDate(epochMillis: Long): String {
-    if (epochMillis <= 0L) return "—"
+    if (epochMillis <= 0L) return "â€”"
     return SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(epochMillis))
 }

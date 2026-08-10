@@ -1,5 +1,6 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseOutBounce
 import androidx.compose.animation.core.LinearEasing
@@ -45,7 +46,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dutype.app.R
 import com.example.dutype.ui.theme.WorkerColors
 import kotlinx.coroutines.delay
 import kotlin.math.abs

@@ -1,5 +1,6 @@
-package com.example.dutype.services
+﻿package com.example.dutype.services
 
+import com.dutype.app.R
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -7,7 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.app.NotificationCompat
-import com.dutype.app.R
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.NotificationData
@@ -112,7 +112,7 @@ class NotificationService @Inject constructor(
                 "Birthday Wishes",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Birthday wishes from DutyPe 🎂"
+                description = "Birthday wishes from DutyPe ðŸŽ‚"
                 enableVibration(true)
             },
             NotificationChannel(
@@ -615,7 +615,7 @@ class NotificationService @Inject constructor(
             notification.type,
             notification.data
         )
-        Timber.d("📱 Generated deep link: $deepLink")
+        Timber.d("ðŸ“± Generated deep link: $deepLink")
         
         // Add deep link to notification data
         val dataWithDeepLink = notification.data.toMutableMap().apply {
@@ -649,8 +649,8 @@ class NotificationService @Inject constructor(
         
         // Show local notification immediately for the current user (self-notifications such as
         // profile complete, job posted, worker hired confirmation, etc.)
-        // Cross-user notifications (employer ← new application, worker ← status update) are
-        // delivered to the OTHER device via Cloud Function → FCM.
+        // Cross-user notifications (employer â† new application, worker â† status update) are
+        // delivered to the OTHER device via Cloud Function â†’ FCM.
         val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
         if (currentUserId != null && recipientId == currentUserId) {
             showLocalNotification(notificationWithRecipient)
@@ -710,7 +710,7 @@ class NotificationService @Inject constructor(
     /**
      * Show a local on-device notification immediately.
      * Called for self-notifications (recipient == current user) to guarantee display
-     * without depending on Cloud Function → FCM round-trip.
+     * without depending on Cloud Function â†’ FCM round-trip.
      * Uses NotificationChannelManager channels to stay consistent with FCM payloads.
      */
     private fun showLocalNotification(notification: NotificationData) {
@@ -795,9 +795,9 @@ class NotificationService @Inject constructor(
 
         try {
             notificationManager.notify(notificationId, notificationBuilder.build())
-            Timber.d("NotificationService: ✅ Local notification shown: ${notification.title}")
+            Timber.d("NotificationService: âœ… Local notification shown: ${notification.title}")
         } catch (e: SecurityException) {
-            Timber.e(e, "NotificationService: ❌ Failed to show local notification")
+            Timber.e(e, "NotificationService: âŒ Failed to show local notification")
         }
     }
     

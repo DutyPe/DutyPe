@@ -1,5 +1,6 @@
-package com.example.dutype.common.screens.support
+﻿package com.example.dutype.common.screens.support
 
+import com.dutype.app.R
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -20,7 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dutype.app.R
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography

@@ -1,5 +1,6 @@
-package com.example.dutype.worker.screens.map
+﻿package com.example.dutype.worker.screens.map
 
+import com.dutype.app.R
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -23,7 +24,6 @@ import com.google.maps.android.compose.*
 import kotlinx.coroutines.delay
 import timber.log.Timber
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 
 // Urgency colors for pulsing markers
 private val UrgentRed = Color(0xFFEF4444)
@@ -248,7 +248,7 @@ fun EnhancedGoogleMapView(
         properties = mapProperties,
         uiSettings = mapUiSettings,
         onMapLoaded = {
-            Timber.d("📍 EnhancedGoogleMap: Map loaded with ${jobs.size} jobs")
+            Timber.d("ðŸ“ EnhancedGoogleMap: Map loaded with ${jobs.size} jobs")
             onMapReady()
         }
     ) {

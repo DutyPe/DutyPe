@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
+import com.dutype.app.R
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -49,7 +50,6 @@ import com.example.dutype.viewmodels.InstantHelpViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -576,7 +576,7 @@ private fun TimelineJobCard(
                 ) {
                     InfoChip(
                         icon = Icons.Default.CurrencyRupee,
-                        text = "₹${job.salary.ifBlank { "-" }}",
+                        text = "â‚¹${job.salary.ifBlank { "-" }}",
                         backgroundColor = EmployerColors.SuccessLight,
                         iconColor = EmployerColors.Success
                     )
@@ -776,7 +776,7 @@ private fun HistoryJobCard(
                 )
                 InfoChip(
                     icon = Icons.Default.CurrencyRupee,
-                    text = "₹${job.salary.ifBlank { "-" }}",
+                    text = "â‚¹${job.salary.ifBlank { "-" }}",
                     backgroundColor = EmployerColors.SuccessLight,
                     iconColor = EmployerColors.Success
                 )

@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens.settings
+﻿package com.example.dutype.employer.screens.settings
 
+import com.dutype.app.R
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -67,7 +68,6 @@ import kotlinx.coroutines.launch
 import com.example.dutype.components.EmptyListState
 import com.example.dutype.components.EmptyStateAction
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -144,7 +144,7 @@ fun EmployerAddressManagementScreen(
                         searchQuery = locationInfo.getFullAddress()
                         locationLatitude = locationInfo.latitude
                         locationLongitude = locationInfo.longitude
-                        timber.log.Timber.d("📍 AddressManagement: Got location - lat: $locationLatitude, lon: $locationLongitude")
+                        timber.log.Timber.d("ðŸ“ AddressManagement: Got location - lat: $locationLatitude, lon: $locationLongitude")
                     } else {
                         locationError = "Unable to get current location"
                     }
@@ -188,7 +188,7 @@ fun EmployerAddressManagementScreen(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
-                        text = "Add New Address",
+                        text = stringResource(R.string.auto_add_new_address),
                         style = AppTypography.sectionHeader.copy(
                             color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                         )
@@ -225,7 +225,7 @@ fun EmployerAddressManagementScreen(
                                 fullAddress = selectedAddress
                                 locationLatitude = latitude
                                 locationLongitude = longitude
-                                timber.log.Timber.d("📍 Selected place: $selectedAddress")
+                                timber.log.Timber.d("ðŸ“ Selected place: $selectedAddress")
                             },
                             locationService = locationService,
                             label = stringResource(R.string.search_or_enter_address),
@@ -281,14 +281,14 @@ fun EmployerAddressManagementScreen(
                                         android.widget.Toast.LENGTH_SHORT
                                     ).show()
 
-                                    timber.log.Timber.d("📍 AddressManagement: Address saved successfully")
+                                    timber.log.Timber.d("ðŸ“ AddressManagement: Address saved successfully")
                                 }.onFailure { error ->
                                     android.widget.Toast.makeText(
                                         context,
                                         "Failed to save address: ${error.message}",
                                         android.widget.Toast.LENGTH_SHORT
                                     ).show()
-                                    timber.log.Timber.e(error, "❌ AddressManagement: Failed to save address")
+                                    timber.log.Timber.e(error, "âŒ AddressManagement: Failed to save address")
                                 }
                                 isAddingAddress = false
                             }
@@ -326,7 +326,7 @@ fun EmployerAddressManagementScreen(
             // Saved Addresses Section
             if (officeAddresses.isNotEmpty()) {
                 Text(
-                    text = "Saved Addresses",
+                    text = stringResource(R.string.auto_saved_addresses),
                     style = AppTypography.sectionHeader.copy(
                         color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                     ),
@@ -445,7 +445,7 @@ private fun AddressCard(
                             shape = RoundedCornerShape(4.dp)
                         ) {
                             Text(
-                                text = "DEFAULT",
+                                text = stringResource(R.string.auto_default),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = EmployerColors.Success,
@@ -519,7 +519,7 @@ private fun AddressCard(
                 if (!address.isDefault) {
                     TextButton(onClick = onSetDefault) {
                         Text(
-                            text = "Set as Default",
+                            text = stringResource(R.string.auto_set_as_default),
                             fontSize = 12.sp,
                             color = employerBlue
                         )

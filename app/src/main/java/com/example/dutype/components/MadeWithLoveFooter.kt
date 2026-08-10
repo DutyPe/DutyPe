@@ -1,5 +1,7 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,7 +39,7 @@ fun MadeWithLoveFooter(modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.Start
     ) {
         Text(
-            text = "Made with ",
+            text = stringResource(R.string.auto_made_with),
             style = MaterialTheme.typography.titleLarge.copy(
                 color = labelColor,
                 fontWeight = FontWeight.SemiBold,
@@ -51,7 +53,7 @@ fun MadeWithLoveFooter(modifier: Modifier = Modifier) {
             modifier = Modifier.size(24.dp)
         )
         Text(
-            text = " in Bharat",
+            text = stringResource(R.string.auto_in_bharat),
             style = MaterialTheme.typography.titleLarge.copy(
                 color = labelColor,
                 fontWeight = FontWeight.SemiBold,

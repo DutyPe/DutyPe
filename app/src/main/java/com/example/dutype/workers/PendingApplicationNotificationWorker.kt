@@ -1,10 +1,10 @@
-package com.example.dutype.workers
+﻿package com.example.dutype.workers
 
+import com.dutype.app.R
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.dutype.app.R
 import com.example.dutype.models.NotificationData
 import com.example.dutype.models.NotificationType
 import com.example.dutype.services.NotificationService
@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
  * Features:
  * - Runs every 6 hours
  * - One notification per job (rate limited to once per 24 hours)
- * - Quiet hours respected (skips ~10 PM–8 AM)
+ * - Quiet hours respected (skips ~10 PMâ€“8 AM)
  * - Includes deep link to JobDescriptionScreen
  * 
  * Notification Message:
@@ -54,18 +54,18 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
         return try {
             val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
             if (currentUserId == null) {
-                Timber.w("🔔 PendingApplicationNotificationWorker - No authenticated user, skipping")
+                Timber.w("ðŸ”” PendingApplicationNotificationWorker - No authenticated user, skipping")
                 return Result.success()
             }
 
             // Quiet hours: never send reminders late night / early morning (no ~2 AM pings).
             val hourOfDay = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
             if (hourOfDay >= 22 || hourOfDay < 8) {
-                Timber.d("🔔 PendingApplicationNotificationWorker - quiet hours (hour=$hourOfDay), skipping")
+                Timber.d("ðŸ”” PendingApplicationNotificationWorker - quiet hours (hour=$hourOfDay), skipping")
                 return Result.success()
             }
 
-            Timber.d("🔔 PendingApplicationNotificationWorker - Starting for user $currentUserId")
+            Timber.d("ðŸ”” PendingApplicationNotificationWorker - Starting for user $currentUserId")
             
             val now = System.currentTimeMillis()
             val pendingThreshold = now - TimeUnit.HOURS.toMillis(PENDING_THRESHOLD_HOURS)
@@ -86,7 +86,7 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
                 status == "applied" && createdAt in 1..pendingThreshold
             }
 
-            Timber.d("🔔 Found ${pendingApplications.size} pending applications older than 24 hours")
+            Timber.d("ðŸ”” Found ${pendingApplications.size} pending applications older than 24 hours")
             
             var notificationsSent = 0
             
@@ -101,7 +101,7 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
                     
                     // Rate limit: Only send if no notification sent in last 24 hours
                     if (lastNotificationSent > notificationCooldown) {
-                        Timber.d("🔔 Skipping notification for application $applicationId - already sent in last 24h")
+                        Timber.d("ðŸ”” Skipping notification for application $applicationId - already sent in last 24h")
                         continue
                     }
                     
@@ -127,19 +127,19 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
                     prefs.edit().putLong(cooldownKey, now).apply()
                     
                     notificationsSent++
-                    Timber.d("✅ Sent pending application notification for job $jobId to worker $workerId")
+                    Timber.d("âœ… Sent pending application notification for job $jobId to worker $workerId")
                     
                 } catch (e: Exception) {
-                    Timber.e(e, "❌ Error processing application ${doc.id}")
+                    Timber.e(e, "âŒ Error processing application ${doc.id}")
                     // Continue with next application
                 }
             }
             
-            Timber.d("🔔 PendingApplicationNotificationWorker - Completed. Sent $notificationsSent notifications")
+            Timber.d("ðŸ”” PendingApplicationNotificationWorker - Completed. Sent $notificationsSent notifications")
             Result.success()
             
         } catch (e: Exception) {
-            Timber.e(e, "❌ PendingApplicationNotificationWorker - Failed")
+            Timber.e(e, "âŒ PendingApplicationNotificationWorker - Failed")
             Result.retry()
         }
     }

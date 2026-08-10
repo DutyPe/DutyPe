@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
+import com.dutype.app.R
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -43,13 +44,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 
 /**
  * Employer Company Details screen.
  *
  * Refactored Apr 2026 to mirror the structure and polish of
- * WorkerProfileDetailsScreen â€” same Surface-based custom top bar,
+ * WorkerProfileDetailsScreen Ã¢â‚¬â€ same Surface-based custom top bar,
  * staggered AnimatedVisibility entrance, LazyColumn body, view/edit
  * mode separation, sticky bottom Save/Cancel bar, and EmployerColors
  * theming throughout.
@@ -66,12 +66,12 @@ fun EmployerCompanyDetailsScreen(
     // Identity
     var currentUserId by remember { mutableStateOf("") }
 
-    // Form state â€” basic info
+    // Form state Ã¢â‚¬â€ basic info
     var companyName by remember { mutableStateOf("") }
     var contactPhone by remember { mutableStateOf("") }
     var businessAddress by remember { mutableStateOf("") }
 
-    // Form state â€” company details
+    // Form state Ã¢â‚¬â€ company details
     var industry by remember { mutableStateOf("") }
 
     // Profile image
@@ -504,7 +504,7 @@ private fun CompanyLogoSection(
         )
 
         Text(
-            text = "Tap logo to change",
+            text = stringResource(R.string.auto_tap_logo_to_change),
             style = AppTypography.caption,
             color = EmployerColors.TextSecondary
         )
@@ -565,7 +565,7 @@ private fun RatingsCard(
         ) {
             Column {
                 Text(
-                    text = "Ratings & Reviews",
+                    text = stringResource(R.string.auto_ratings_reviews),
                     style = MaterialTheme.typography.titleSmall.copy(
                         color = EmployerColors.TextPrimary,
                         fontWeight = FontWeight.Bold
@@ -574,7 +574,7 @@ private fun RatingsCard(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = if (totalRatings > 0) {
-                        "â˜… ${"%.1f".format(rating)}  â€¢  $totalRatings review${if (totalRatings != 1) "s" else ""}"
+                        "Ã¢Ëœâ€¦ ${"%.1f".format(rating)}  Ã¢â‚¬Â¢  $totalRatings review${if (totalRatings != 1) "s" else ""}"
                     } else {
                         "No ratings yet"
                     },
@@ -771,7 +771,7 @@ private fun CompanyTextField(
     }
 
     // Re-prompt the OS location permission on every tap if it hasn't been granted
-    // yet — including recoveries from a previous denial.
+    // yet â€” including recoveries from a previous denial.
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
@@ -872,7 +872,7 @@ private fun CompanyTextField(
         if (!enabled && label == stringResource(R.string.contact_phone)) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Phone number cannot be changed (from login)",
+                text = stringResource(R.string.auto_phone_number_cannot_be_changed_from_login),
                 style = AppTypography.caption.copy(
                     color = EmployerColors.TextSecondary.copy(alpha = 0.7f),
                     fontSize = 11.sp
@@ -909,7 +909,7 @@ private fun EditModeButtons(
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text(
-                    text = "Cancel",
+                    text = stringResource(R.string.auto_cancel),
                     style = AppTypography.buttonMedium
                 )
             }
@@ -931,7 +931,7 @@ private fun EditModeButtons(
                     )
                 } else {
                     Text(
-                        text = "Save Changes",
+                        text = stringResource(R.string.auto_save_changes),
                         style = AppTypography.buttonMedium,
                         color = Color.White
                     )

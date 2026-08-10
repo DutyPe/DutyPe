@@ -1,5 +1,6 @@
-package com.example.dutype.employer.components.postjob
+﻿package com.example.dutype.employer.components.postjob
 
+import com.dutype.app.R
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -18,7 +19,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dutype.app.R
 
 /**
  * P2 PERFORMANCE FIX: Extracted StepProgressIndicator composable
@@ -48,7 +48,7 @@ fun PostJobStepIndicator(
         "How workers can reach you",
         "Verify and publish your job"
     )
-    val stepIcons = listOf("📝", "💰", "📞", "✅")
+    val stepIcons = listOf("ðŸ“", "ðŸ’°", "ðŸ“ž", "âœ…")
     
     Column(
         modifier = modifier
@@ -71,7 +71,7 @@ fun PostJobStepIndicator(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(
-                    text = stepIcons.getOrElse(currentStep - 1) { "📝" },
+                    text = stepIcons.getOrElse(currentStep - 1) { "ðŸ“" },
                     fontSize = 24.sp
                 )
                 Column {

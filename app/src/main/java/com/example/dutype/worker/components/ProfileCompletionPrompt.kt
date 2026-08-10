@@ -1,5 +1,6 @@
-package com.example.dutype.worker.components
+﻿package com.example.dutype.worker.components
 
+import com.dutype.app.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -22,7 +23,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dutype.app.R
 import com.example.dutype.ui.theme.WorkerColors
 
 /**
@@ -91,14 +91,14 @@ fun ProfileCompletionPrompt(
                     // Profile completion text
                     Column {
                         Text(
-                            text = "Complete Your Profile",
+                            text = stringResource(R.string.auto_complete_your_profile),
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = WorkerColors.Warning
                             )
                         )
                         Text(
-                            text = "$completionPercentage% complete • ${missingFields.size} fields missing",
+                            text = "$completionPercentage% complete â€¢ ${missingFields.size} fields missing",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = WorkerColors.Warning.copy(alpha = 0.8f)
                             )
@@ -121,7 +121,7 @@ fun ProfileCompletionPrompt(
                         modifier = Modifier.height(36.dp)
                     ) {
                         Text(
-                            text = "Complete",
+                            text = stringResource(R.string.auto_complete),
                             color = Color.White,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold

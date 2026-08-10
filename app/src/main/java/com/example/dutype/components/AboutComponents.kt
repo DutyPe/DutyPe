@@ -1,5 +1,6 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -40,22 +41,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dutype.app.R
 import com.example.dutype.ui.theme.AppTypography
 
 private val Ink900 = Color(0xFF0F172A)
 private val Ink600 = Color(0xFF475569)
 
 private fun aboutIconFor(symbol: String): ImageVector = when (symbol) {
-    "💰" -> Icons.Default.Payments
-    "❤️" -> Icons.Default.Favorite
-    "🚀" -> Icons.Default.TrendingUp
-    "🛡️", "🔒" -> Icons.Default.Security
-    "👥", "🤝" -> Icons.Default.Groups
-    "🏢" -> Icons.Default.Business
-    "🎯" -> Icons.Default.Flag
-    "💡" -> Icons.Default.Lightbulb
-    "✅" -> Icons.Default.CheckCircle
+    "ðŸ’°" -> Icons.Default.Payments
+    "â¤ï¸" -> Icons.Default.Favorite
+    "ðŸš€" -> Icons.Default.TrendingUp
+    "ðŸ›¡ï¸", "ðŸ”’" -> Icons.Default.Security
+    "ðŸ‘¥", "ðŸ¤" -> Icons.Default.Groups
+    "ðŸ¢" -> Icons.Default.Business
+    "ðŸŽ¯" -> Icons.Default.Flag
+    "ðŸ’¡" -> Icons.Default.Lightbulb
+    "âœ…" -> Icons.Default.CheckCircle
     else -> Icons.Default.Info
 }
 
@@ -67,7 +67,7 @@ fun AboutHero(
     title: String,
     subtitle: String,
     accentColor: Color = Ink900,
-    badgeEmoji: String = "👋"
+    badgeEmoji: String = "ðŸ‘‹"
 ) {
     Row(
         modifier = Modifier
@@ -132,7 +132,7 @@ fun AboutDutyPeOverview() {
             }
             Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = "What is DutyPe?",
+                text = stringResource(R.string.auto_what_is_dutype),
                 style = AppTypography.sectionHeader.copy(
                     fontWeight = FontWeight.Bold,
                     color = Ink900
@@ -140,7 +140,7 @@ fun AboutDutyPeOverview() {
             )
         }
         Text(
-            text = "DutyPe is India's premier instant workforce platform designed to directly connect local businesses and households (Employers) with verified daily-wage workers and skilled professionals (Workers). We eliminate middleman commissions, provide direct phone-based hiring, and offer GPS location discovery for transparent, fair, and instant work opportunities across India.",
+            text = stringResource(R.string.auto_dutype_is_india_s_premier_instant_workforc),
             style = AppTypography.bodyMedium.copy(
                 color = Ink600,
                 lineHeight = 22.sp
@@ -192,7 +192,7 @@ fun AboutSectionCard(
 }
 
 /**
- * A bullet row — uniform black bullet point (`•`), no colorful dots.
+ * A bullet row â€” uniform black bullet point (`â€¢`), no colorful dots.
  */
 @Composable
 fun AboutBullet(text: String, accentColor: Color = Ink900) {
@@ -203,7 +203,7 @@ fun AboutBullet(text: String, accentColor: Color = Ink900) {
         verticalAlignment = Alignment.Top
     ) {
         Text(
-            text = "•",
+            text = "â€¢",
             style = MaterialTheme.typography.bodyLarge.copy(
                 fontWeight = FontWeight.Bold,
                 color = Ink900

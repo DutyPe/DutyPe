@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
+import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -52,7 +53,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.dutype.app.R
 import com.example.dutype.models.InstantRequest
 import com.example.dutype.models.InstantResponse
 import com.example.dutype.ui.theme.EmployerColors
@@ -412,7 +412,7 @@ private fun EmployerUrgentNeedCard(
                         UrgentStatusBadge(request.status)
                     }
                     Text(
-                        text = "${request.category} • ${needTypeLabel(request.needType)} • ${DateTimeUtils.formatRelativeTime(request.createdAt)}",
+                        text = "${request.category} â€¢ ${needTypeLabel(request.needType)} â€¢ ${DateTimeUtils.formatRelativeTime(request.createdAt)}",
                         style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis

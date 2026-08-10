@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
+import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -57,7 +58,6 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.Calendar
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 
 private fun InstantRequest.toJobListing(): JobListing {
     return JobListing(
@@ -175,7 +175,7 @@ fun OverviewStatsSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            text = "Job Overview",
+            text = stringResource(R.string.auto_job_overview),
             style = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.Bold,
                 color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
@@ -227,7 +227,7 @@ fun ApplicationStatsCard(appStats: ApplicationStats) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Application Summary",
+                text = stringResource(R.string.auto_application_summary),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
@@ -310,7 +310,7 @@ fun RecentApplicationsSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Recent Applications",
+                    text = stringResource(R.string.auto_recent_applications),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
@@ -320,7 +320,7 @@ fun RecentApplicationsSection(
                     onClick = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_APPLICATIONS) }
                 ) {
                     Text(
-                        text = "View All",
+                        text = stringResource(R.string.auto_view_all),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = EmployerColors.Primary,
                             fontWeight = FontWeight.Medium
@@ -347,7 +347,7 @@ fun RecentApplicationsSection(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "No applications yet",
+                            text = stringResource(R.string.auto_no_applications_yet),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = EmployerColors.TextSecondary
                             )
@@ -382,7 +382,7 @@ fun RecentJobsActivitySection(jobs: List<JobListing>) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Recent Job Activity",
+                text = stringResource(R.string.auto_recent_job_activity),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
@@ -407,7 +407,7 @@ fun RecentJobsActivitySection(jobs: List<JobListing>) {
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "No jobs posted yet",
+                            text = stringResource(R.string.auto_no_jobs_posted_yet),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = EmployerColors.TextSecondary
                             )
@@ -479,7 +479,7 @@ private fun JobActivityItem(job: JobListing) {
                 .padding(horizontal = 8.dp, vertical = 4.dp)
         ) {
             Text(
-                text = "Open",
+                text = stringResource(R.string.auto_open),
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontWeight = FontWeight.Medium,
                     color = EmployerColors.Success

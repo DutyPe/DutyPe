@@ -1,5 +1,7 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
+import androidx.compose.ui.res.stringResource
 import android.app.Activity
 import android.content.Intent
 import androidx.compose.animation.*
@@ -48,12 +50,12 @@ private val languages = listOf(
     LanguageItem(
         code = "hi",
         name = "Hindi",
-        nativeName = "हिन्दी"
+        nativeName = "à¤¹à¤¿à¤¨à¥à¤¦à¥€"
     ),
     LanguageItem(
         code = LocaleHelper.LANGUAGE_TELUGU,
         name = "Telugu",
-        nativeName = "తెలుగు"
+        nativeName = "à°¤à±†à°²à±à°—à±"
     )
 )
 
@@ -97,7 +99,7 @@ fun LanguageSelectionBottomSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Select Language",
+                    text = stringResource(R.string.auto_select_language),
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,

@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
+import com.dutype.app.R
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -26,7 +27,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.dutype.app.R
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.components.RatingBottomSheet
 import com.example.dutype.models.InstantRequest

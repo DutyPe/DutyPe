@@ -1,5 +1,6 @@
-package com.example.dutype.worker.screens
+﻿package com.example.dutype.worker.screens
 
+import com.dutype.app.R
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -50,7 +51,6 @@ import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.*
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 import com.example.dutype.viewmodels.InstantHelpViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -85,7 +85,7 @@ fun WorkerHistoryScreen(
     }
     
     // Filter applications based on selected tab.
-    // Bug #13 fix: Tabs were broken — tab 0 (Timeline) and tab 1 (Completed)
+    // Bug #13 fix: Tabs were broken â€” tab 0 (Timeline) and tab 1 (Completed)
     // both filtered by HIRED, so they showed identical lists. Timeline should
     // show ALL non-rejected applications grouped by month; Completed shows
     // only HIRED; All History shows everything.
@@ -395,7 +395,7 @@ private fun WorkerUrgentHistoryCard(
                     Text(
                         text = listOf(response.requestCategory, response.employerName)
                             .filter { it.isNotBlank() }
-                            .joinToString(" • ")
+                            .joinToString(" â€¢ ")
                             .ifBlank { stringResource(R.string.urgent_work) },
                         style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary),
                         maxLines = 1,

@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
+import com.dutype.app.R
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -44,7 +45,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
-import com.dutype.app.R
 import com.example.dutype.models.EmployerSubscription
 import com.example.dutype.models.PaymentRequest
 import com.example.dutype.ui.theme.AppTypography
@@ -312,7 +312,7 @@ fun EmployerSubscriptionScreen(
                 }
 
                 Text(
-                    text = "Amount Payable: ₹${plan.price.toInt()}",
+                    text = "Amount Payable: â‚¹${plan.price.toInt()}",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
                     color = Brand
@@ -320,7 +320,7 @@ fun EmployerSubscriptionScreen(
 
                 // Step 1: Copy UPI ID
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StepLabel(step = 1, text = "Copy UPI ID & pay")
+                    StepLabel(step = 1, text = stringResource(R.string.auto_copy_upi_id_pay))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -356,7 +356,7 @@ fun EmployerSubscriptionScreen(
                 // Step 2: QR Codes if configured
                 if (qrs.isNotEmpty()) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StepLabel(step = 2, text = "Or scan the active payment QR")
+                        StepLabel(step = 2, text = stringResource(R.string.auto_or_scan_the_active_payment_qr))
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -397,7 +397,7 @@ fun EmployerSubscriptionScreen(
                             tint = Ink500
                         )
                         Text(
-                            text = "Payments are non-refundable. Verify your UTR before submitting.",
+                            text = stringResource(R.string.auto_payments_are_non_refundable_verify_your_ut),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             color = Ink700
@@ -407,7 +407,7 @@ fun EmployerSubscriptionScreen(
 
                 // Step 3: UTR Number input
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StepLabel(step = if (qrs.isNotEmpty()) 3 else 2, text = "Enter 12-digit UTR number")
+                    StepLabel(step = if (qrs.isNotEmpty()) 3 else 2, text = stringResource(R.string.auto_enter_12_digit_utr_number))
                     OutlinedTextField(
                         value = utrNumber,
                         onValueChange = { if (it.length <= 12 && it.all { char -> char.isDigit() }) utrNumber = it },
@@ -428,7 +428,7 @@ fun EmployerSubscriptionScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     StepLabel(
                         step = if (qrs.isNotEmpty()) 4 else 3,
-                        text = "Attach payment screenshot (optional)"
+                        text = stringResource(R.string.auto_attach_payment_screenshot_optional)
                     )
                     Row(
                         modifier = Modifier
@@ -452,7 +452,7 @@ fun EmployerSubscriptionScreen(
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Text(
-                                    text = "Screenshot attached",
+                                    text = stringResource(R.string.auto_screenshot_attached),
                                     fontWeight = FontWeight.Medium,
                                     fontSize = 13.sp,
                                     color = Ink700
@@ -465,7 +465,7 @@ fun EmployerSubscriptionScreen(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Upload screenshot",
+                                    text = stringResource(R.string.auto_upload_screenshot),
                                     fontWeight = FontWeight.Medium,
                                     fontSize = 13.sp,
                                     color = Ink700
@@ -523,7 +523,7 @@ fun EmployerSubscriptionScreen(
                         com.example.dutype.components.DutyPeLoader(color = Color.White, size = 24.dp)
                     } else {
                         Text(
-                            text = "Submit Transaction Details",
+                            text = stringResource(R.string.auto_submit_transaction_details),
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
                         )
@@ -564,13 +564,13 @@ fun EmployerSubscriptionScreen(
                         modifier = Modifier.size(64.dp)
                     )
                     Text(
-                        text = "Submission Successful!",
+                        text = stringResource(R.string.auto_submission_successful),
                         style = AppTypography.displayTitle.copy(fontWeight = FontWeight.Bold, color = Ink900),
                         textAlign = TextAlign.Center,
                         fontFamily = MeeshoFontFamily
                     )
                     Text(
-                        text = "Your UPI reference has been submitted. Admin will verify it with the bank and activate your plan within 5-10 mins.",
+                        text = stringResource(R.string.auto_your_upi_reference_has_been_submitted_admi),
                         style = AppTypography.bodySmall.copy(color = Ink500),
                         textAlign = TextAlign.Center
                     )
@@ -857,7 +857,7 @@ private fun PlanCard(
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text(
-                            text = "₹${plan.price.toInt()}",
+                            text = "â‚¹${plan.price.toInt()}",
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Black,
                             color = textColor
@@ -991,7 +991,7 @@ private fun TransactionCard(
                     fontFamily = MeeshoFontFamily
                 )
                 Text(
-                    text = "₹${req.amount.toInt()}",
+                    text = "â‚¹${req.amount.toInt()}",
                     fontWeight = FontWeight.Black,
                     fontSize = 14.sp,
                     color = Brand

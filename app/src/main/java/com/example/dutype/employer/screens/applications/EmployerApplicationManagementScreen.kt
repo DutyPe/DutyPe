@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens.applications
+﻿package com.example.dutype.employer.screens.applications
 
+import com.dutype.app.R
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -34,7 +35,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dutype.app.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.dutype.components.ApplicationListItemShimmer
@@ -92,7 +92,7 @@ fun EmployerApplicationManagementScreen(
     var showStatusFilter by remember { mutableStateOf(false) }
     var showSearchBar by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
-    // Batch-p #7: filter chips at top — Total / Applied / Shortlisted /
+    // Batch-p #7: filter chips at top â€” Total / Applied / Shortlisted /
     // Hired. Selecting one filters the application list locally so the
     // counts in the header stay accurate while the user drills in.
     var statusFilter by remember { mutableStateOf<ApplicationStatus?>(null) }
@@ -430,7 +430,7 @@ fun EmployerApplicationManagementScreen(
             FreeContactsBanner(freeRemaining = uiState.freeContactsRemaining)
         }
         
-        // Stats Summary Card — click any item to filter the list
+        // Stats Summary Card â€” click any item to filter the list
         ApplicationStatsSummary(
             stats = stats,
             selectedFilter = statusFilter,
@@ -683,7 +683,7 @@ private fun MatchedWorkersContent(
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                         )
                         Text(
-                            text = "New matches are hidden. Accepted workers will stay visible here.",
+                            text = stringResource(R.string.auto_new_matches_are_hidden_accepted_workers_wi),
                             style = AppTypography.bodySmall.copy(color = EmployerColors.TextSecondary),
                             textAlign = TextAlign.Center
                         )
@@ -1092,7 +1092,7 @@ private fun MatchedWorkerCard(
 
             if (worker.matchReasons.isNotEmpty()) {
                 Text(
-                    text = worker.matchReasons.joinToString(" • "),
+                    text = worker.matchReasons.joinToString(" â€¢ "),
                     style = AppTypography.bodySmall.copy(color = EmployerColors.TextSecondary),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -1319,7 +1319,7 @@ private fun JobReportSummaryCard(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = "Community Reports",
+                text = stringResource(R.string.auto_community_reports),
                 style = AppTypography.labelLarge.copy(
                     fontWeight = FontWeight.Bold,
                     color = EmployerColors.Error
@@ -1337,7 +1337,7 @@ private fun JobReportSummaryCard(
                         color = Color(0xFFB91C1C)
                     )
                     Text(
-                        text = "Loading report details...",
+                        text = stringResource(R.string.auto_loading_report_details),
                         style = AppTypography.caption.copy(color = Color(0xFF7F1D1D))
                     )
                 }
@@ -2020,7 +2020,7 @@ private fun FreeContactsBanner(freeRemaining: Int) {
                 modifier = Modifier.size(20.dp)
             )
             Text(
-                text = "🎁 $freeRemaining free contact unlocks remaining",
+                text = "ðŸŽ $freeRemaining free contact unlocks remaining",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = EmployerColors.Success,
                     fontWeight = FontWeight.Medium
@@ -2057,7 +2057,7 @@ private fun NeedSubscriptionDialog(
         },
         title = {
             Text(
-                text = "Subscription Required",
+                text = stringResource(R.string.auto_subscription_required),
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.Bold,
                     color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
@@ -2066,7 +2066,7 @@ private fun NeedSubscriptionDialog(
         },
         text = {
             Text(
-                text = "You need an active subscription to view worker contact details. Subscribe now to access premium features.",
+                text = stringResource(R.string.auto_you_need_an_active_subscription_to_view_wo),
                 style = MaterialTheme.typography.bodyLarge,
                 color = com.example.dutype.ui.theme.EmployerColors.TextSecondary,
                 textAlign = TextAlign.Center
@@ -2082,7 +2082,7 @@ private fun NeedSubscriptionDialog(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = "View Plans",
+                    text = stringResource(R.string.auto_view_plans),
                     modifier = Modifier.padding(vertical = 4.dp),
                     fontWeight = FontWeight.Bold
                 )
@@ -2094,7 +2094,7 @@ private fun NeedSubscriptionDialog(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Cancel",
+                    text = stringResource(R.string.auto_cancel),
                     color = com.example.dutype.ui.theme.EmployerColors.TextSecondary
                 )
             }
@@ -2150,7 +2150,7 @@ private fun JobFilledCandidatesContent(
                 }
                 Column {
                     Text(
-                        text = "Job Position Filled",
+                        text = stringResource(R.string.auto_job_position_filled),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF065F46)
@@ -2175,7 +2175,7 @@ private fun JobFilledCandidatesContent(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No hired workers selected yet for this filled job.",
+                    text = stringResource(R.string.auto_no_hired_workers_selected_yet_for_this_fil),
                     style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary),
                     textAlign = TextAlign.Center
                 )
@@ -2266,7 +2266,7 @@ private fun SelectedWorkerCard(
                             modifier = Modifier.size(14.dp)
                         )
                         Text(
-                            text = "SELECTED WORKER",
+                            text = stringResource(R.string.auto_selected_worker),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = EmployerColors.Success,
@@ -2380,7 +2380,7 @@ private fun SelectedWorkerCard(
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = "Contact details are locked.",
+                                text = stringResource(R.string.auto_contact_details_are_locked),
                                 style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Warning),
                                 maxLines = 2,
                                 overflow = TextOverflow.Ellipsis

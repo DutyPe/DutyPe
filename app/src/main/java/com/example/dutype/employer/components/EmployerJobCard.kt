@@ -1,5 +1,6 @@
-package com.example.dutype.employer.components
+﻿package com.example.dutype.employer.components
 
+import com.dutype.app.R
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -17,7 +18,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.dutype.app.R
 import com.example.dutype.employer.helpers.JobPostingHelpers
 import com.example.dutype.employer.models.JobPostingModel
 import com.example.dutype.ui.theme.AppTypography
@@ -149,7 +149,7 @@ fun EmployerJobCard(
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = "Vacancies Filled",
+                                text = stringResource(R.string.auto_vacancies_filled),
                                 style = AppTypography.status.copy(
                                     color = Color(0xFFF59E0B)
                                 )
@@ -319,7 +319,7 @@ private fun JobCardFooter(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Per-user request (Apr 2026): the "👥 N applications" stat
+            // Per-user request (Apr 2026): the "ðŸ‘¥ N applications" stat
             // chip is removed from this row. The full applications count
             // is already shown when the employer taps the card.
 
@@ -357,7 +357,7 @@ private fun JobStatsRow(jobPosting: JobPostingModel) {
                 style = AppTypography.labelLarge
             )
             Text(
-                text = "applications",
+                text = stringResource(R.string.auto_applications),
                 style = AppTypography.caption,
                 color = EmployerColors.TextSecondary
             )
@@ -417,7 +417,7 @@ private fun JobManagementDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Manage Job",
+                text = stringResource(R.string.auto_manage_job),
                 style = AppTypography.sectionHeader
             )
         },
@@ -449,7 +449,7 @@ private fun JobManagementDialog(
                 
                 // Management options
                 Text(
-                    text = "What would you like to do?",
+                    text = stringResource(R.string.auto_what_would_you_like_to_do),
                     style = AppTypography.labelLarge,
                     color = EmployerColors.TextPrimary
                 )

@@ -1,5 +1,7 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -70,7 +72,7 @@ fun OfflineBanner(
                 )
                 
                 Text(
-                    text = "You're offline. Check your internet connection.",
+                    text = stringResource(R.string.auto_you_re_offline_check_your_internet_connect),
                     color = Color.White,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
@@ -111,7 +113,7 @@ fun CompactOfflineIndicator(
             )
             
             Text(
-                text = "No internet connection",
+                text = stringResource(R.string.auto_no_internet_connection),
                 color = WorkerColors.Error,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,

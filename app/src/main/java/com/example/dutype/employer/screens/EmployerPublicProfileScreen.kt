@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
+import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,7 +51,6 @@ import java.util.Date
 import java.util.Locale
 import timber.log.Timber
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 
 private data class EmployerPublicJobPreview(
     val id: String,
@@ -202,7 +202,7 @@ fun EmployerPublicProfileScreen(
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = "Public hiring profile",
+                                    text = stringResource(R.string.auto_public_hiring_profile),
                                     style = AppTypography.bodyMedium,
                                     color = EmployerColors.TextSecondary
                                 )
@@ -239,7 +239,7 @@ fun EmployerPublicProfileScreen(
                     if (jobs.isNotEmpty()) {
                         item {
                             Text(
-                                text = "Recent Job Openings",
+                                text = stringResource(R.string.auto_recent_job_openings),
                                 style = AppTypography.sectionHeader,
                                 color = EmployerColors.TextPrimary
                             )

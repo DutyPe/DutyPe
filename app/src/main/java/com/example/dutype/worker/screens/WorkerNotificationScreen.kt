@@ -1,5 +1,6 @@
-package com.example.dutype.worker.screens
+﻿package com.example.dutype.worker.screens
 
+import com.dutype.app.R
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -75,7 +76,6 @@ import com.google.firebase.auth.FirebaseAuth
 import timber.log.Timber
 import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,12 +91,12 @@ fun WorkerNotificationScreen(
     var dialogData by remember { mutableStateOf<com.example.dutype.utils.NotificationDialogData?>(null) }
 
     // If the user previously denied POST_NOTIFICATIONS, landing on this screen is a
-    // strong signal that they want notifications — re-prompt the system dialog.
+    // strong signal that they want notifications â€” re-prompt the system dialog.
     val context = androidx.compose.ui.platform.LocalContext.current
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { granted ->
-        Timber.d("🔔 WorkerNotificationScreen - POST_NOTIFICATIONS granted=$granted")
+        Timber.d("ðŸ”” WorkerNotificationScreen - POST_NOTIFICATIONS granted=$granted")
     }
     LaunchedEffect(Unit) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -110,11 +110,11 @@ fun WorkerNotificationScreen(
         }
     }
 
-    // This screen is hardcoded to the WORKER role via WorkerNotificationViewModel —
+    // This screen is hardcoded to the WORKER role via WorkerNotificationViewModel â€”
     // single-role accounts mean we just load once on enter and again when the dialog closes.
     LaunchedEffect(dialogData == null) {
         if (dialogData == null) {
-            Timber.d("🔔 WorkerNotificationScreen - Loading worker notifications")
+            Timber.d("ðŸ”” WorkerNotificationScreen - Loading worker notifications")
             viewModel.loadNotifications()
         }
     }

@@ -1,5 +1,6 @@
-package com.example.dutype.worker.screens
+﻿package com.example.dutype.worker.screens
 
+import com.dutype.app.R
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -51,7 +52,6 @@ import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.google.firebase.auth.FirebaseAuth
 import timber.log.Timber
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 
 /**
  * Job Application Screen - Review and Submit Application
@@ -260,7 +260,7 @@ private fun WorkerWorkTipsSection() {
                 )
                 Column {
                     Text(
-                        text = "SAFETY WARNING",
+                        text = stringResource(R.string.auto_safety_warning),
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
                         color = Color(0xFF991B1B)
@@ -328,7 +328,7 @@ private fun WorkerWorkTipsSection() {
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Verify Phone Details",
+                            text = stringResource(R.string.auto_verify_phone_details),
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
                             color = Color(0xFF111827)
@@ -359,7 +359,7 @@ private fun WorkerWorkTipsSection() {
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Reach on Time",
+                            text = stringResource(R.string.auto_reach_on_time),
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
                             color = Color(0xFF111827)
@@ -390,7 +390,7 @@ private fun WorkerWorkTipsSection() {
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Polite Behaviour",
+                            text = stringResource(R.string.auto_polite_behaviour),
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
                             color = Color(0xFF111827)
@@ -410,7 +410,7 @@ private fun WorkerWorkTipsSection() {
 
 /**
  * Batch-m fix: route the worker home navigation through the
- * WorkerNavGraph's actual start destination ("home" — see
+ * WorkerNavGraph's actual start destination ("home" â€” see
  * `WorkerBottomRoutes.HOME`). The earlier code popped to
  * `Routes.WORKER_HOME` ("worker_home") which is a top-level role-graph
  * route NOT registered inside WorkerNavGraph, so the popBackStack call
@@ -497,7 +497,7 @@ private fun ApplicationSentSuccess(
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "Application Sent!",
+            text = stringResource(R.string.auto_application_sent),
             style = AppTypography.cardTitle.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 22.sp,
@@ -579,7 +579,7 @@ private fun JobSummaryCard(job: JobListing) {
         ) {
             // Section header
             Text(
-                text = "Applying for",
+                text = stringResource(R.string.auto_applying_for),
                 style = AppTypography.labelMedium.copy(
                     color = WorkerColors.TextSecondary,
                     fontSize = 12.sp
@@ -628,7 +628,7 @@ private fun JobSummaryCard(job: JobListing) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Location (from job_details.addressText — runtime only)
+                // Location (from job_details.addressText â€” runtime only)
                 if (job.addressText.isNotEmpty()) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -650,7 +650,7 @@ private fun JobSummaryCard(job: JobListing) {
                     }
                 }
                 
-                // Pay — Bug #6: salary is a String now.
+                // Pay â€” Bug #6: salary is a String now.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val salaryStr = job.salary.ifBlank { "Negotiable" }
                     val period = when (job.salaryType.uppercase()) {
@@ -659,7 +659,7 @@ private fun JobSummaryCard(job: JobListing) {
                         else -> "day"
                     }
                     Text(
-                        text = "₹$salaryStr",
+                        text = "â‚¹$salaryStr",
                         style = AppTypography.labelMedium.copy(
                             color = WorkerColors.Success,
                             fontWeight = FontWeight.Bold
@@ -719,7 +719,7 @@ private fun SubmitApplicationButton(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Submitting...",
+                    text = stringResource(R.string.auto_submitting),
                     style = AppTypography.buttonMedium.copy(
                         color = Color.White,
                         fontWeight = FontWeight.SemiBold
@@ -734,7 +734,7 @@ private fun SubmitApplicationButton(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Submit Application",
+                    text = stringResource(R.string.auto_submit_application),
                     style = AppTypography.buttonMedium.copy(
                         color = Color.White,
                         fontWeight = FontWeight.SemiBold
@@ -747,7 +747,7 @@ private fun SubmitApplicationButton(
         
         // Disclaimer
         Text(
-            text = "By submitting, you agree to share your profile information with the employer.",
+            text = stringResource(R.string.auto_by_submitting_you_agree_to_share_your_prof),
             style = AppTypography.caption.copy(
                 color = WorkerColors.TextTertiary,
                 fontSize = 11.sp

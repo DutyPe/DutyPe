@@ -1,5 +1,7 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
+import androidx.compose.ui.res.stringResource
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -79,7 +81,7 @@ fun DutyPeWhatsAppCommunityCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "DutyPe WhatsApp Community",
+                    text = stringResource(R.string.auto_dutype_whatsapp_community),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
@@ -95,7 +97,7 @@ fun DutyPeWhatsAppCommunityCard(
                 color = Color(0xFF25D366)
             ) {
                 Text(
-                    text = "JOIN",
+                    text = stringResource(R.string.auto_join),
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.Bold,

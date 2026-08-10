@@ -1,5 +1,6 @@
-package com.example.dutype.onboarding
+﻿package com.example.dutype.onboarding
 
+import com.dutype.app.R
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
@@ -74,7 +75,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.dutype.app.R
 import com.example.dutype.navigation.Routes
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
@@ -133,7 +133,7 @@ fun OnboardingScreen(
 
     fun completeAndNavigate() {
         coroutineScope.launch {
-            Timber.d("🎯 OnboardingScreen - Completing onboarding flow")
+            Timber.d("ðŸŽ¯ OnboardingScreen - Completing onboarding flow")
             viewModel.markOnboardingCompleted()
             viewModel.markAppAsOpened()
             navController.navigate(Routes.SELECT_ROLE) {
@@ -219,8 +219,8 @@ private fun OnboardingHeader(
     var showLanguageBottomSheet by remember { mutableStateOf(false) }
 
     val activeLangName = when (com.example.dutype.utils.LocaleHelper.getLanguage(context)) {
-        com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU -> "తెలుగు"
-        com.example.dutype.utils.LocaleHelper.LANGUAGE_HINDI -> "हिन्दी"
+        com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU -> "à°¤à±†à°²à±à°—à±"
+        com.example.dutype.utils.LocaleHelper.LANGUAGE_HINDI -> "à¤¹à¤¿à¤¨à¥à¤¦à¥€"
         else -> "English"
     }
 

@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
+import com.dutype.app.R
 import android.Manifest
 import android.net.Uri
 import android.widget.Toast
@@ -25,7 +26,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.dutype.app.R
 import androidx.navigation.NavController
 import com.example.dutype.employer.components.JobImageUploadSection
 import com.example.dutype.employer.models.*
@@ -137,7 +137,7 @@ fun EditJobScreen(
 
     // Load jobs first, then find the specific job
     LaunchedEffect(jobId) {
-        Timber.d(" EditJobScreen - Loading job with ID: $jobId")
+        Timber.d("Â EditJobScreen - Loading job with ID: $jobId")
         
         // First load all jobs to ensure we have the latest data
         viewModel.loadMyJobs()
@@ -149,7 +149,7 @@ fun EditJobScreen(
     LaunchedEffect(jobId) {
         kotlinx.coroutines.delay(10000) // 10 seconds timeout
         if (isLoadingJob && currentJob == null) {
-            Timber.w(" EditJobScreen - Job loading timeout, navigating back")
+            Timber.w("Â EditJobScreen - Job loading timeout, navigating back")
             isLoadingJob = false
             navController.popBackStack()
         }
@@ -157,9 +157,9 @@ fun EditJobScreen(
     
     // Load the specific job once jobs are loaded
     LaunchedEffect(uiState.myJobs, jobId) {
-        Timber.d(" EditJobScreen - Jobs loaded: ${uiState.myJobs.size}, looking for jobId: $jobId")
+        Timber.d("Â EditJobScreen - Jobs loaded: ${uiState.myJobs.size}, looking for jobId: $jobId")
         uiState.myJobs.forEach { job ->
-            Timber.d(" EditJobScreen - Available job: ${job.id} - ${job.title}")
+            Timber.d("Â EditJobScreen - Available job: ${job.id} - ${job.title}")
         }
         
         if (uiState.myJobs.isNotEmpty()) {
@@ -171,16 +171,16 @@ fun EditJobScreen(
             // too, so the edit form is correctly pre-filled.
             val existingJob = uiState.myJobs.find { it.id == jobId }
             if (existingJob != null) {
-                Timber.d(" EditJobScreen - placeholder from cache: ${existingJob.title}")
+                Timber.d("Â EditJobScreen - placeholder from cache: ${existingJob.title}")
                 currentJob = existingJob
             }
-            Timber.d(" EditJobScreen - fetching full merged job from repository")
+            Timber.d("Â EditJobScreen - fetching full merged job from repository")
             viewModel.getJobById(jobId) { job ->
                 if (job != null) {
-                    Timber.d(" EditJobScreen - merged job loaded: ${job.title}")
+                    Timber.d("Â EditJobScreen - merged job loaded: ${job.title}")
                     currentJob = job
                 } else if (existingJob == null) {
-                    Timber.w(" EditJobScreen - Job not found in repository")
+                    Timber.w("Â EditJobScreen - Job not found in repository")
                 }
                 isLoadingJob = false
             }
@@ -192,34 +192,34 @@ fun EditJobScreen(
         val job = currentJob
         if (job != null) {
             try {
-                Timber.d(" EditJobScreen - Job loaded: ${job.title}")
-                Timber.d(" EditJobScreen - Job posted at: ${job.createdAt}")
+                Timber.d("Â EditJobScreen - Job loaded: ${job.title}")
+                Timber.d("Â EditJobScreen - Job posted at: ${job.createdAt}")
                 
                 val currentTime = System.currentTimeMillis()
                 val jobPostedTime = job.createdAt
                 
-                Timber.d(" EditJobScreen - Current time: $currentTime")
-                Timber.d(" EditJobScreen - Job posted time: $jobPostedTime")
-                Timber.d(" EditJobScreen - Time difference: ${currentTime - jobPostedTime}")
-                Timber.d(" EditJobScreen - Edit window millis: ${JobEditPolicy.EDIT_WINDOW_MILLIS}")
+                Timber.d("Â EditJobScreen - Current time: $currentTime")
+                Timber.d("Â EditJobScreen - Job posted time: $jobPostedTime")
+                Timber.d("Â EditJobScreen - Time difference: ${currentTime - jobPostedTime}")
+                Timber.d("Â EditJobScreen - Edit window millis: ${JobEditPolicy.EDIT_WINDOW_MILLIS}")
                 
                 if (!JobEditPolicy.canEdit(jobPostedTime, currentTime)) {
                     canEditJob = false
                     timeRestrictionMessage = JobEditPolicy.blockedMessage(jobPostedTime, currentTime)
-                    Timber.w(" EditJobScreen - Job cannot be edited after ${JobEditPolicy.EDIT_WINDOW_HOURS} hours")
+                    Timber.w("Â EditJobScreen - Job cannot be edited after ${JobEditPolicy.EDIT_WINDOW_HOURS} hours")
                 } else {
                     canEditJob = true
                     timeRestrictionMessage = ""
-                    Timber.d(" EditJobScreen - Job can be edited")
+                    Timber.d("Â EditJobScreen - Job can be edited")
                 }
             } catch (e: Exception) {
-                Timber.e(e, " EditJobScreen - Error processing job: ${e.message}")
+                Timber.e(e, "Â EditJobScreen - Error processing job: ${e.message}")
                 e.printStackTrace()
                 canEditJob = false
                 timeRestrictionMessage = "Error processing job: ${e.message}"
             }
         } else {
-            Timber.d(" EditJobScreen - No job loaded yet")
+            Timber.d("Â EditJobScreen - No job loaded yet")
         }
     }
 
@@ -234,7 +234,7 @@ fun EditJobScreen(
             // Initialize location coordinates from existing job
             locationLatitude = job.lat
             locationLongitude = job.lng
-            Timber.d(" EditJob: Loaded existing coordinates - lat: $locationLatitude, lon: $locationLongitude")
+            Timber.d("Â EditJob: Loaded existing coordinates - lat: $locationLatitude, lon: $locationLongitude")
             // Pay type from stored salaryType ("HOURLY"|"DAILY"|"MONTHLY")
             payType = PayType.values().firstOrNull {
                 it.name.equals(job.salaryType, ignoreCase = true) ||
@@ -242,7 +242,7 @@ fun EditJobScreen(
             } ?: PayType.DAILY
             vacancies = job.vacancies.toString()
             employerName = job.companyName
-            // Job type stored on `jobType` (Full-time / Part-time / …).
+            // Job type stored on `jobType` (Full-time / Part-time / â€¦).
             workType = job.jobType.ifBlank { "Part-time" }
             experienceLevel = job.experienceRequired.ifBlank { "No Experience Required" }
             educationRequired = job.educationRequired.ifBlank { "No qualification required" }
@@ -264,7 +264,7 @@ fun EditJobScreen(
                     shift.displayName.equals(storedShiftTiming, ignoreCase = true)
             }
             shiftTiming = matchedShift ?: ShiftTiming.FLEXIBLE
-            Timber.d(" EditJob: prefilled payType=$payType shift=$storedShiftTiming")
+            Timber.d("Â EditJob: prefilled payType=$payType shift=$storedShiftTiming")
         }
     }
 
@@ -288,7 +288,7 @@ fun EditJobScreen(
                         // Store coordinates for distance calculation
                         locationLatitude = locationInfo.latitude
                         locationLongitude = locationInfo.longitude
-                        Timber.d(" EditJob: Location set - lat: $locationLatitude, lon: $locationLongitude, accuracy: ${locationInfo.accuracy}m")
+                        Timber.d("Â EditJob: Location set - lat: $locationLatitude, lon: $locationLongitude, accuracy: ${locationInfo.accuracy}m")
                     } else {
                         locationError = "Unable to get current location"
                     }
@@ -327,14 +327,14 @@ fun EditJobScreen(
                     val locationChanged = location != originalJob.addressText.ifBlank { originalJob.location }
                     
                     if (locationLatitude == 0.0 && locationLongitude == 0.0 && location.isNotBlank()) {
-                        Timber.d(" EDIT JOB: Geocoding manual location: $location")
+                        Timber.d("Â EDIT JOB: Geocoding manual location: $location")
                         val geocodedLocation = locationService.getCoordinatesFromAddress(location)
                         if (geocodedLocation != null) {
                             finalLatitude = geocodedLocation.latitude
                             finalLongitude = geocodedLocation.longitude
-                            Timber.d(" EDIT JOB: Geocoded - lat: $finalLatitude, lon: $finalLongitude")
+                            Timber.d("Â EDIT JOB: Geocoded - lat: $finalLatitude, lon: $finalLongitude")
                         } else if (!locationChanged) {
-                            Timber.w(" EDIT JOB: Geocoding failed, using original coordinates")
+                            Timber.w("Â EDIT JOB: Geocoding failed, using original coordinates")
                             finalLatitude = originalJob.lat
                             finalLongitude = originalJob.lng
                         } else {
@@ -359,7 +359,7 @@ fun EditJobScreen(
                         "description" to description,
                         "contactNumber" to contactNumber,
                         "vacancies" to (vacancies.toIntOrNull() ?: return@launch),
-                        // Save the chosen work mode (Part-time / Full-time / …)
+                        // Save the chosen work mode (Part-time / Full-time / â€¦)
                         // as `jobType`.
                         "jobType" to workType,
                         "category" to com.example.dutype.utils.JobCategoryResolver.inferCategoryName(title, description),
@@ -370,14 +370,14 @@ fun EditJobScreen(
                         "jobImageUrl" to jobImageUrl
                     )
                     
-                    Timber.d(" EDIT JOB: Updating job with coordinates - lat: $finalLatitude, lon: $finalLongitude")
+                    Timber.d("Â EDIT JOB: Updating job with coordinates - lat: $finalLatitude, lon: $finalLongitude")
                     
                     viewModel.updateJob(originalJob.id, updates) { success, error ->
                         if (success) {
                             navController.popBackStack()
                         } else {
                             // Handle error - could show a toast or error message
-                            Timber.e("âŒ Failed to update job: $error")
+                            Timber.e("Ã¢ÂÅ’ Failed to update job: $error")
                         }
                     }
                 }
@@ -393,7 +393,7 @@ fun EditJobScreen(
                     navController.popBackStack()
                 } else {
                     // Handle error - could show a toast or error message
-                    Timber.e("âŒ Failed to delete job: $error")
+                    Timber.e("Ã¢ÂÅ’ Failed to delete job: $error")
                 }
             }
         }
@@ -414,12 +414,12 @@ fun EditJobScreen(
                     color = EmployerColors.Primary
                 )
                 Text(
-                    text = "Loading job details...",
+                    text = stringResource(R.string.auto_loading_job_details),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.Gray
                 )
                 Text(
-                    text = "Please wait while we fetch your job information",
+                    text = stringResource(R.string.auto_please_wait_while_we_fetch_your_job_inform),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray.copy(alpha = 0.7f)
                 )
@@ -465,7 +465,7 @@ fun EditJobScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     
                     Text(
-                        text = "Edit Job",
+                        text = stringResource(R.string.auto_edit_job),
                         style = AppTypography.screenTitle.copy(
                             color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                         ),
@@ -632,7 +632,7 @@ fun EditJobScreen(
                             }
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Job Title",
+                                text = stringResource(R.string.auto_job_title),
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
@@ -721,7 +721,7 @@ fun EditJobScreen(
                         )
 
                         Text(
-                            text = "Pay type",
+                            text = stringResource(R.string.auto_pay_type),
                             style = MaterialTheme.typography.labelLarge.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 color = EmployerColors.TextSecondary
@@ -791,7 +791,7 @@ fun EditJobScreen(
                             }
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Job Location",
+                                text = stringResource(R.string.auto_job_location),
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
@@ -807,7 +807,7 @@ fun EditJobScreen(
                                 location = address
                                 locationLatitude = lat
                                 locationLongitude = lng
-                                Timber.d(" EditJob: Location selected - $address at ($lat, $lng)")
+                                Timber.d("Â EditJob: Location selected - $address at ($lat, $lng)")
                             },
                             locationService = locationService,
                             label = stringResource(R.string.work_location),
@@ -827,7 +827,7 @@ fun EditJobScreen(
                                                 location = locationInfo.getFullAddress()
                                                 locationLatitude = locationInfo.latitude
                                                 locationLongitude = locationInfo.longitude
-                                                Timber.d(" EditJob: GPS location - lat: $locationLatitude, lon: $locationLongitude")
+                                                Timber.d("Â EditJob: GPS location - lat: $locationLatitude, lon: $locationLongitude")
                                             } else {
                                                 locationError = "Unable to get current location"
                                             }
@@ -907,7 +907,7 @@ fun EditJobScreen(
                             }
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Job Description",
+                                text = stringResource(R.string.auto_job_description),
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
@@ -1024,7 +1024,7 @@ fun EditJobScreen(
                             }
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Contact Information",
+                                text = stringResource(R.string.auto_contact_information),
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
@@ -1093,7 +1093,7 @@ fun EditJobScreen(
                             }
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = "Additional Details",
+                                text = stringResource(R.string.auto_additional_details),
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
@@ -1105,7 +1105,7 @@ fun EditJobScreen(
                         // Work type
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
-                                text = "Work type",
+                                text = stringResource(R.string.auto_work_type),
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.Medium,
                                     color = EmployerColors.TextSecondary
@@ -1146,7 +1146,7 @@ fun EditJobScreen(
                         // Shift
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text(
-                                text = "Shift",
+                                text = stringResource(R.string.auto_shift),
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     fontWeight = FontWeight.Medium,
                                     color = EmployerColors.TextSecondary

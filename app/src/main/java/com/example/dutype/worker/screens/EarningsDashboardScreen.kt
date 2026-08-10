@@ -1,5 +1,6 @@
-package com.example.dutype.worker.screens
+﻿package com.example.dutype.worker.screens
 
+import com.dutype.app.R
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,7 +38,6 @@ import java.util.*
 import com.example.dutype.components.EmptyListState
 import com.example.dutype.components.EmptyStateAction
 import androidx.compose.ui.res.stringResource
-import com.dutype.app.R
 
 /**
  * Earnings Dashboard Screen

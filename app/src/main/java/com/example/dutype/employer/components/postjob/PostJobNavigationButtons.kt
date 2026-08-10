@@ -1,5 +1,7 @@
-package com.example.dutype.employer.components.postjob
+﻿package com.example.dutype.employer.components.postjob
 
+import com.dutype.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -62,7 +64,7 @@ fun PostJobNavigationButtons(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Previous",
+                    text = stringResource(R.string.auto_previous),
                     fontWeight = FontWeight.Medium
                 )
             }
@@ -83,7 +85,7 @@ fun PostJobNavigationButtons(
                 )
             ) {
                 Text(
-                    text = "Continue",
+                    text = stringResource(R.string.auto_continue),
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -115,7 +117,7 @@ fun PostJobNavigationButtons(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Posting...",
+                        text = stringResource(R.string.auto_posting),
                         fontWeight = FontWeight.SemiBold
                     )
                 } else {
@@ -126,7 +128,7 @@ fun PostJobNavigationButtons(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Post Job",
+                        text = stringResource(R.string.auto_post_job),
                         fontWeight = FontWeight.SemiBold
                     )
                 }

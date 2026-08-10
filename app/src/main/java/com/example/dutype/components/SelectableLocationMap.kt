@@ -1,5 +1,7 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -119,7 +121,7 @@ fun SelectableLocationMap(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "Map unavailable",
+                                text = stringResource(R.string.auto_map_unavailable),
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     color = WorkerColors.TextPrimary,
                                     fontWeight = FontWeight.SemiBold,

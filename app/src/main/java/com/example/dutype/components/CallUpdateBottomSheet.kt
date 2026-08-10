@@ -1,5 +1,6 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -50,7 +51,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dutype.app.R
 import com.example.dutype.services.JobAvailabilityFeedback
 import com.example.dutype.ui.theme.WorkerColors
 import kotlinx.coroutines.launch
@@ -178,13 +178,13 @@ fun CallUpdateBottomSheet(
             }
 
             Text(
-                text = "Did you get selected or hired from this call?",
+                text = stringResource(R.string.auto_did_you_get_selected_or_hired_from_this_ca),
                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                 color = WorkerColors.TextSecondary
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 FeedbackChoiceButton(
-                    text = "Yes",
+                    text = stringResource(R.string.auto_yes),
                     selected = jobOfferAccepted == true,
                     onClick = { jobOfferAccepted = true },
                     modifier = Modifier.weight(1f),
@@ -198,7 +198,7 @@ fun CallUpdateBottomSheet(
                     enabled = !isSubmitting
                 )
                 FeedbackChoiceButton(
-                    text = "Skip",
+                    text = stringResource(R.string.auto_skip),
                     selected = jobOfferAccepted == null,
                     onClick = { jobOfferAccepted = null },
                     modifier = Modifier.weight(1f),

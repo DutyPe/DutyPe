@@ -1,5 +1,7 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
@@ -144,7 +146,7 @@ fun BirthdayBanner(
                     Spacer(modifier = Modifier.height(4.dp))
                     
                     Text(
-                        text = "Wishing you a wonderful day filled with joy!",
+                        text = stringResource(R.string.auto_wishing_you_a_wonderful_day_filled_with_jo),
                         color = Color.White.copy(alpha = 0.9f),
                         style = AppTypography.bodySmall,
                         textAlign = TextAlign.Center
@@ -153,7 +155,7 @@ fun BirthdayBanner(
                     Spacer(modifier = Modifier.height(4.dp))
                     
                     Text(
-                        text = "Team DutyPe",
+                        text = stringResource(R.string.auto_team_dutype),
                         color = Color.White.copy(alpha = 0.8f),
                         style = AppTypography.labelSmall,
                         fontWeight = FontWeight.Medium

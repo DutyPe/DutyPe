@@ -1,5 +1,7 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
+import androidx.compose.ui.res.stringResource
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -39,18 +41,18 @@ fun NotificationPermissionBottomSheet(
             "Enable Notifications",
             "Stay updated with job applications, candidate responses, and important updates from your job postings.",
             listOf(
-                "📋" to "Application notifications",
-                "👥" to "Candidate responses", 
-                "📊" to "Job posting updates"
+                "ðŸ“‹" to "Application notifications",
+                "ðŸ‘¥" to "Candidate responses", 
+                "ðŸ“Š" to "Job posting updates"
             )
         )
         else -> Triple(
             "Enable Notifications", 
             "Stay updated with job alerts, application status updates, and new opportunities from employers.",
             listOf(
-                "🔔" to "Job alerts",
-                "📱" to "Application updates",
-                "💼" to "New opportunities"
+                "ðŸ””" to "Job alerts",
+                "ðŸ“±" to "Application updates",
+                "ðŸ’¼" to "New opportunities"
             )
         )
     }
@@ -127,7 +129,7 @@ fun NotificationPermissionBottomSheet(
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         Text(
-                            text = "Cancel",
+                            text = stringResource(R.string.auto_cancel),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Medium
                             )
@@ -159,7 +161,7 @@ fun NotificationPermissionBottomSheet(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "Turn On Notifications",
+                                text = stringResource(R.string.auto_turn_on_notifications),
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = FontWeight.SemiBold
                                 ),

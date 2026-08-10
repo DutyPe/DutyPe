@@ -1,5 +1,6 @@
-package com.example.dutype.employer.components
+﻿package com.example.dutype.employer.components
 
+import com.dutype.app.R
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -62,7 +63,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dutype.app.R
 import com.example.dutype.employer.helpers.JobPostingHelpers
 import com.example.dutype.employer.models.PayType
 import com.example.dutype.employer.models.ShiftTiming
@@ -141,7 +141,7 @@ fun WorkScheduleSection(
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            text = "Shift",
+            text = stringResource(R.string.auto_shift),
             style = MaterialTheme.typography.labelLarge
         )
 
@@ -411,7 +411,7 @@ fun PaymentSection(
                 },
                 supportingText = {
                     Text(
-                        text = "Enter amount, range (10000-15000), or text (Based on experience)",
+                        text = stringResource(R.string.auto_enter_amount_range_10000_15000_or_text_bas),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -475,7 +475,7 @@ fun LocationSection(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Job Location",
+                text = stringResource(R.string.auto_job_location),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
@@ -523,7 +523,7 @@ fun VacanciesSection(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Text(
-                text = "Number of Positions",
+                text = stringResource(R.string.auto_number_of_positions),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = EmployerColors.TextPrimary
@@ -588,7 +588,7 @@ fun ContactSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Contact Information",
+                    text = stringResource(R.string.auto_contact_information),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = EmployerColors.TextPrimary

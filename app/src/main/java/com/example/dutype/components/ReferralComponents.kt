@@ -1,5 +1,7 @@
-package com.example.dutype.components
+﻿package com.example.dutype.components
 
+import com.dutype.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -112,7 +114,7 @@ fun ReferralCodeInput(
         if (value.isEmpty() && validationResult == null) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Use a referral code to unlock your Rs.20 signup bonus",
+                text = stringResource(R.string.auto_use_a_referral_code_to_unlock_your_rs_20_s),
                 style = MaterialTheme.typography.bodySmall,
                 color = WorkerColors.TextSecondary,
                 modifier = Modifier.padding(start = 16.dp)

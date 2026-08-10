@@ -1,5 +1,6 @@
-package com.example.dutype.worker.components.home
+﻿package com.example.dutype.worker.components.home
 
+import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -20,7 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dutype.app.R
 import com.example.dutype.ui.theme.WorkerColors
 
 /**
@@ -55,7 +55,7 @@ fun HomeHeader(
             // Left side - DutyPe text and location
             Column {
                 Text(
-                    text = "DutyPe",
+                    text = stringResource(R.string.auto_dutype),
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 22.sp,

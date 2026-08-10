@@ -1,5 +1,6 @@
-package com.example.dutype.worker.screens.profile
+﻿package com.example.dutype.worker.screens.profile
 
+import com.dutype.app.R
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -89,7 +90,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.dutype.app.R
 import com.example.dutype.components.ProfessionalLogoutDialog
 import com.example.dutype.components.ProfileShimmer
 import com.example.dutype.data.ApplicationFormDataStore
@@ -255,7 +255,7 @@ fun WorkerProfileScreen(
                             uploadResult.fold(
                                 onSuccess = { imageUrl ->
                                     profileImageUrl = imageUrl
-                                    Timber.i(" WORKER PROFILE: âœ… Profile image uploaded: $imageUrl")
+                                    Timber.i(" WORKER PROFILE: Ã¢Å“â€¦ Profile image uploaded: $imageUrl")
                                     android.widget.Toast.makeText(context, context.getString(R.string.profile_photo_updated), android.widget.Toast.LENGTH_SHORT).show()
                                     
                                     // Update worker profile data with image URL
@@ -379,7 +379,7 @@ fun WorkerProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                // Solid role background â€” no gradient.
+                // Solid role background Ã¢â‚¬â€ no gradient.
                 .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
         ) {
             // Offline banner at the very top
@@ -404,7 +404,7 @@ fun WorkerProfileScreen(
                         IconButton(onClick = { showLanguageBottomSheet = true }) {
                             Icon(
                                 painter = painterResource(id = R.drawable.translate_indic_24),
-                                contentDescription = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "à°­à°¾à°· à°®à°¾à°°à±à°šà±" else "Change Language",
+                                contentDescription = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "Ã Â°Â­Ã Â°Â¾Ã Â°Â· Ã Â°Â®Ã Â°Â¾Ã Â°Â°Ã Â±ÂÃ Â°Å¡Ã Â±Â" else "Change Language",
                                 tint = Color(0xFFE91E63), // Pink/magenta color
                                 modifier = Modifier.size(24.dp)
                             )
@@ -887,7 +887,7 @@ fun WorkerProfileScreen(
                         MenuDivider()
                         MeeshoMenuItem(
                             icon = Icons.Default.DeleteForever,
-                            title = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "ఖాతా శాశ్వతంగా తొలగించు" else "Delete Account & Data",
+                            title = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "à°–à°¾à°¤à°¾ à°¶à°¾à°¶à±à°µà°¤à°‚à°—à°¾ à°¤à±Šà°²à°—à°¿à°‚à°šà±" else "Delete Account & Data",
                             isDestructive = true,
                             onClick = { showAccountDeletionDialog = true }
                         )
@@ -1463,7 +1463,7 @@ private fun FollowUsSection() {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Follow Us On",
+                text = stringResource(R.string.auto_follow_us_on),
                 fontSize = 16.sp,
                 color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
             )
@@ -1570,7 +1570,7 @@ private fun RoleManagementMenuItem(
             
             Column {
                 Text(
-                    text = "Switch Role",
+                    text = stringResource(R.string.auto_switch_role),
                     style = com.example.dutype.ui.theme.AppTypography.menuItemTitle.copy(
                         color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                     )
@@ -1578,7 +1578,7 @@ private fun RoleManagementMenuItem(
                 Spacer(modifier = Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "Active: ",
+                        text = stringResource(R.string.auto_active),
                         style = com.example.dutype.ui.theme.AppTypography.menuItemSubtitle.copy(
                             color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
                         )

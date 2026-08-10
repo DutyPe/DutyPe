@@ -1,5 +1,6 @@
-package com.example.dutype.employer.screens
+﻿package com.example.dutype.employer.screens
 
+import com.dutype.app.R
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -68,7 +69,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.dutype.app.R
 import androidx.navigation.compose.rememberNavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.components.RatingBottomSheet
@@ -410,7 +410,7 @@ fun ProfessionalWorkerProfileViewScreen(
                     }
 
                     // Apr 2026: removed the redundant "Additional Information"
-                    // card — languages now live inside Personal Information.
+                    // card â€” languages now live inside Personal Information.
 
                     // Apr 2026: action buttons moved out of the scrolling
                     // list and pinned to the bottom of the screen instead
@@ -665,7 +665,7 @@ private fun ApplicationStatusCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Application Status",
+                    text = stringResource(R.string.auto_application_status),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
@@ -715,7 +715,7 @@ private fun ApplicationStatusCard(
                         modifier = Modifier.padding(12.dp)
                     ) {
                         Text(
-                            text = "Cover Letter",
+                            text = stringResource(R.string.auto_cover_letter),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 color = EmployerColors.TextSecondary
@@ -833,7 +833,7 @@ private fun PersonalInformationCard(
             )
 
             Text(
-                text = "Personal Information",
+                text = stringResource(R.string.auto_personal_information),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
@@ -926,7 +926,7 @@ private fun WorkExperienceCard(experience: List<WorkExperienceDisplay>) {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = "Work Experience",
+                text = stringResource(R.string.auto_work_experience),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
@@ -1002,7 +1002,7 @@ private fun SkillsCard(skills: List<String>) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Skills",
+                text = stringResource(R.string.auto_skills),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
@@ -1048,7 +1048,7 @@ private fun AdditionalInfoCard(workerProfile: WorkerProfileData) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
-                text = "Additional Information",
+                text = stringResource(R.string.auto_additional_information),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
                     color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
@@ -1118,7 +1118,7 @@ private fun ActionButtonsCard(
 
         // Bug #15 fix: show "Mark Work Done" only after the candidate is
         // hired so the employer can complete the contract and the
-        // worker's earnings move from pending â†’ paid on the Earnings tab.
+        // worker's earnings move from pending Ã¢â€ â€™ paid on the Earnings tab.
         if (application?.status == ApplicationStatus.HIRED) {
             Button(
                 onClick = { onActionClick(ApplicationAction.MARK_COMPLETED) },
@@ -1224,7 +1224,7 @@ private fun LoadingWorkerProfileState() {
                 color = EmployerColors.Primary
             )
             Text(
-                text = "Loading worker profile...",
+                text = stringResource(R.string.auto_loading_worker_profile),
                 style = MaterialTheme.typography.bodyLarge.copy(
                     color = EmployerColors.TextSecondary
                 )
@@ -1259,7 +1259,7 @@ private fun ErrorWorkerProfileState(
                     tint = EmployerColors.Error
                 )
                 Text(
-                    text = "Failed to load worker profile",
+                    text = stringResource(R.string.auto_failed_to_load_worker_profile),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
