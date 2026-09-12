@@ -47,6 +47,10 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -60,6 +64,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -231,11 +236,13 @@ fun EmployerHomeScreen(
     val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
     val employerId = currentUser?.uid
     val isGuestEmployer = currentUser == null || currentUser.isAnonymous
+    var showLoginBottomSheet by remember { mutableStateOf(false) }
     LaunchedEffect(employerId) {
         if (employerId != null) {
             Timber.d("EMPLOYER_HOME: Loading jobs for employerId=$employerId")
             viewModel.loadMyJobs()
             instantHelpViewModel.loadEmployerUrgentNeeds()
+            applicationViewModel.loadEmployerApplications()
         } else {
             Timber.w("EMPLOYER_HOME: No employerId - user not authenticated")
         }
@@ -295,8 +302,7 @@ fun EmployerHomeScreen(
             }
         }
     }
-    
-    // Note: We don't track views for employers viewing their own jobs
+
     
     // Check subscription expiry to trigger on-device push warning
     LaunchedEffect(subscription) {
@@ -430,17 +436,32 @@ fun EmployerHomeScreen(
         // Profile completion prompt removed - not needed for hyper-local employers
 
         // Show dashboard content directly with pull-to-refresh
+        var isPullRefreshing by remember { mutableStateOf(false) }
+        val isRefreshingActive = isPullRefreshing || isRefreshing
         val pullToRefreshState = rememberPullToRefreshState()
         PullToRefreshBox(
-            isRefreshing = isRefreshing,
+            isRefreshing = isRefreshingActive,
             onRefresh = {
-                // Refresh all data sources
-                viewModel.refreshMyJobs()
-                instantHelpViewModel.loadEmployerUrgentNeeds()
-                announcementViewModel.loadAnnouncements("EMPLOYER") // Refresh announcements for employers
+                coroutineScope.launch {
+                    isPullRefreshing = true
+                    viewModel.refreshMyJobs()
+                    instantHelpViewModel.loadEmployerUrgentNeeds()
+                    announcementViewModel.loadAnnouncements("EMPLOYER")
+                    kotlinx.coroutines.delay(1000)
+                    isPullRefreshing = false
+                }
             },
             state = pullToRefreshState,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pullToRefreshState,
+                    isRefreshing = isRefreshingActive,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    containerColor = Color.White,
+                    color = com.example.dutype.ui.theme.EmployerColors.Primary
+                )
+            }
         ) {
             DashboardContent(
                 recentJobs = recentJobs,
@@ -469,13 +490,17 @@ fun EmployerHomeScreen(
                 guestWelcomeMessage = employerWelcomeMessage,
                 guestWelcomeButtonText = stringResource(R.string.guest_welcome_login_register),
                 onGuestWelcomeClick = {
-                    rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER")
+                    showLoginBottomSheet = true
                 },
                 companyName = companyName.ifEmpty { "" },
                 unreadCount = unreadNotificationCount,
                 headerLottieUrl = dynamicFeatures.headerLottieUrl,
                 onNotificationClick = {
-                    navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_NOTIFICATIONS)
+                    if (isGuestEmployer) {
+                        showLoginBottomSheet = true
+                    } else {
+                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_NOTIFICATIONS)
+                    }
                 }
             )
         }
@@ -530,13 +555,16 @@ fun EmployerHomeScreen(
             )
         }
 
-        // Welcome celebration overlay — shown once after new employer completes profile
-        // var showCelebration by remember { mutableStateOf(consumeWelcomeCelebrationFlag(context)) }
-        // WelcomeCelebrationOverlay(
-        //     visible = showCelebration,
-        //     bonusAmount = referralConfig.employerSignupBonus.toInt().takeIf { showEmployerCashBonus && it > 0 } ?: 0,
-        //     onDismiss = { showCelebration = false }
-        // )
+        // Guest Mode Login Bottom Sheet
+        com.example.dutype.components.LoginBottomSheet(
+            isVisible = showLoginBottomSheet,
+            onDismiss = { showLoginBottomSheet = false },
+            onLoginSuccess = { showLoginBottomSheet = false },
+            role = com.example.dutype.models.UserRole.EMPLOYER,
+            title = stringResource(R.string.guest_post_job_title),
+            subtitle = stringResource(R.string.guest_post_job_desc),
+            navController = navController
+        )
     } // Box
 }
 
@@ -588,6 +616,17 @@ fun DashboardContent(
     val hasNormalJobs = recentJobs.isNotEmpty()
     val hasUrgentNeeds = urgentRequests.isNotEmpty()
 
+    val applicationUiState by applicationViewModel.uiState.collectAsStateWithLifecycle()
+    var dismissedNudgeApplicationId by remember { mutableStateOf<String?>(null) }
+    var showNudgeStopCallsDialog by remember { mutableStateOf(false) }
+    var pendingNudgeHiredApp by remember { mutableStateOf<com.example.dutype.models.JobApplication?>(null) }
+
+    val recentNudgeCandidate = remember(applicationUiState.applications, dismissedNudgeApplicationId) {
+        applicationUiState.applications
+            .filter { it.status == com.example.dutype.models.ApplicationStatus.APPLIED && it.id != dismissedNudgeApplicationId }
+            .maxByOrNull { it.createdAt }
+    }
+
     if (isLoading && recentJobs.isEmpty()) {
         // Show loading when first coming to the page
         LoadingScreen()
@@ -610,6 +649,38 @@ fun DashboardContent(
                     headerLottieUrl = headerLottieUrl,
                     onNotificationClick = onNotificationClick
                 )
+            }
+            if (recentNudgeCandidate != null) {
+                item {
+                    CandidateHiringNudgeCard(
+                        candidate = recentNudgeCandidate,
+                        onHiredClick = {
+                            pendingNudgeHiredApp = recentNudgeCandidate
+                            showNudgeStopCallsDialog = true
+                        },
+                        onShortlistClick = {
+                            applicationViewModel.updateApplicationStatus(
+                                recentNudgeCandidate.id,
+                                com.example.dutype.models.ApplicationStatus.APPLIED,
+                                "Shortlisted from home nudge"
+                            )
+                            dismissedNudgeApplicationId = recentNudgeCandidate.id
+                            Toast.makeText(context, "Candidate shortlisted!", Toast.LENGTH_SHORT).show()
+                        },
+                        onRejectClick = {
+                            applicationViewModel.updateApplicationStatus(
+                                recentNudgeCandidate.id,
+                                com.example.dutype.models.ApplicationStatus.REJECTED,
+                                "Not hired from home nudge"
+                            )
+                            dismissedNudgeApplicationId = recentNudgeCandidate.id
+                            Toast.makeText(context, "Feedback recorded", Toast.LENGTH_SHORT).show()
+                        },
+                        onDismiss = {
+                            dismissedNudgeApplicationId = recentNudgeCandidate.id
+                        }
+                    )
+                }
             }
             if (showGuestWelcomeCard) {
                 item {
@@ -720,6 +791,7 @@ fun DashboardContent(
                 }
             }
 
+            /*
             item {
                 val isErrorState = !hasActiveSub || totalCredits <= 0
                 val bgColor = when {
@@ -844,6 +916,7 @@ fun DashboardContent(
                     }
                 }
             }
+            */
 
             item {
                 EnhancedStatsGrid(updatedStats, onViewAnalytics = { navController.navigate(com.example.dutype.navigation.Routes.ANALYTICS) })
@@ -909,6 +982,66 @@ fun DashboardContent(
                 com.example.dutype.components.MadeWithLoveFooter()
             }
             
+        }
+
+        if (showNudgeStopCallsDialog && pendingNudgeHiredApp != null) {
+            val app = pendingNudgeHiredApp!!
+            AlertDialog(
+                onDismissRequest = {
+                    showNudgeStopCallsDialog = false
+                    pendingNudgeHiredApp = null
+                },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("🎉", fontSize = 20.sp)
+                        Text("Confirm Hiring", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    }
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text("You are hiring ${app.workerName.ifBlank { "this worker" }} for ${app.jobTitle.ifBlank { "this job" }}.")
+                        Text(
+                            "Do you want to STOP incoming calls for this job now to prevent spam calls?",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = Color(0xFFDC2626)
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val targetJobId = app.jobId
+                            applicationViewModel.updateApplicationStatus(app.id, com.example.dutype.models.ApplicationStatus.HIRED, "Hired from home nudge (calls stopped)")
+                            if (targetJobId.isNotBlank()) {
+                                viewModel.updateJob(targetJobId, mapOf("callsStopped" to true, "status" to "filled")) { _, _ -> }
+                            }
+                            dismissedNudgeApplicationId = app.id
+                            showNudgeStopCallsDialog = false
+                            pendingNudgeHiredApp = null
+                            Toast.makeText(context, "Hired! Incoming calls stopped.", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Stop Calls (Job Filled)", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(
+                        onClick = {
+                            applicationViewModel.updateApplicationStatus(app.id, com.example.dutype.models.ApplicationStatus.HIRED, "Hired from home nudge (keep open)")
+                            dismissedNudgeApplicationId = app.id
+                            showNudgeStopCallsDialog = false
+                            pendingNudgeHiredApp = null
+                            Toast.makeText(context, "Hired! Job remains open for more calls.", Toast.LENGTH_SHORT).show()
+                        },
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Keep Open (Need More)")
+                    }
+                }
+            )
         }
     }
 }
@@ -1869,18 +2002,6 @@ fun EmptyJobsState(onPostJob: () -> Unit) {
                 color = Color.Gray,
                 textAlign = TextAlign.Center
             )
-//            Button(
-//                onClick = onPostJob,
-//                shape = RoundedCornerShape(12.dp),
-//                colors = ButtonDefaults.buttonColors(
-//                    containerColor = MaterialTheme.colorScheme.primary
-//                )
-//            )
-////            {
-////                Icon(Icons.Default.Add, contentDescription = "Post Job")
-////                Spacer(modifier = Modifier.width(8.dp))
-////                Text("Post Your First Job", fontWeight = FontWeight.Bold)
-////            }
         }
     }
 }
@@ -2146,4 +2267,160 @@ fun ApplicationAnalyticsSection(
 // NOTE: AnalyticsItem and ActivityItem functions moved to AnalyticsScreen.kt
 // Import from there: com.example.dutype.employer.screens.AnalyticsItem
 // Import from there: com.example.dutype.employer.screens.ActivityItem
+
+@Composable
+fun CandidateHiringNudgeCard(
+    candidate: com.example.dutype.models.JobApplication,
+    onHiredClick: () -> Unit,
+    onShortlistClick: () -> Unit,
+    onRejectClick: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+        border = BorderStroke(1.5.dp, Color(0xFF86EFAC)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("⚡", fontSize = 16.sp)
+                    Text(
+                        text = "1-TAP CANDIDATE CHECK-IN",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF166534),
+                        letterSpacing = 0.5.sp
+                    )
+                }
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Dismiss",
+                        tint = Color(0xFF94A3B8),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = "${candidate.workerName.ifBlank { "A worker" }} applied / called for ${candidate.jobTitle.ifBlank { "your job vacancy" }}.",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF1E293B)
+            )
+
+            // Metadata badges: audio intro, distance, salary
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (!candidate.audioIntroUrl.isNullOrBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFFEFF6FF)
+                    ) {
+                        Text(
+                            text = "🎙️ 15s Audio Intro",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF1D4ED8),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                if (candidate.distanceKm != null && candidate.distanceKm > 0.0) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFFEFF6FF)
+                    ) {
+                        Text(
+                            text = "📍 ${"%.1f".format(candidate.distanceKm)} km",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF1D4ED8),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+                if (!candidate.expectedSalary.isNullOrBlank()) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFFECFDF5)
+                    ) {
+                        Text(
+                            text = "💰 ₹${candidate.expectedSalary}",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF047857),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = "Did you hire this person?",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF334155)
+            )
+
+            // 3 Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Button(
+                    onClick = onHiredClick,
+                    modifier = Modifier.weight(1f).height(42.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Text("✅ Yes, Hired", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+
+                OutlinedButton(
+                    onClick = onShortlistClick,
+                    modifier = Modifier.weight(1.1f).height(42.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF1E293B)),
+                    border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Text("💬 Considering", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                OutlinedButton(
+                    onClick = onRejectClick,
+                    modifier = Modifier.weight(0.9f).height(42.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFDC2626)),
+                    border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Text("❌ Not Hired", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFDC2626))
+                }
+            }
+        }
+    }
+}
+
 

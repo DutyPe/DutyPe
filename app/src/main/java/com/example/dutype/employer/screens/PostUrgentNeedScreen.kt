@@ -86,13 +86,7 @@ fun PostUrgentNeedScreen(
                 }
             },
             onInsufficientCredits = {
-                if (employerSubscription.status != "LOADING" && employerSubscription.normalCredits <= 0) {
-                    Toast.makeText(context, "Please purchase a subscription to post jobs", Toast.LENGTH_LONG).show()
-                    navController.navigate(Routes.EMPLOYER_SUBSCRIPTION)
-                    true
-                } else {
-                    false
-                }
+                false
             }
         )
     }
@@ -120,13 +114,12 @@ internal fun PostUrgentNeedContent(
     var categoryExpanded by rememberSaveable { mutableStateOf(false) }
 
     val urgencyOptions = listOf(
+        "1_day" to "1 Day",
+        "2_days" to "2 Days",
         "right_now" to "Right Now",
-        "within_1_hour" to "Within 1 Hour",
-        "today" to "Today",
-        "tomorrow" to "Tomorrow",
         "custom" to "Select Date"
     )
-    var urgencyType by rememberSaveable { mutableStateOf("right_now") }
+    var urgencyType by rememberSaveable { mutableStateOf("1_day") }
     var scheduledAtMillis by rememberSaveable { mutableStateOf(0L) }
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     
@@ -573,7 +566,7 @@ internal fun PostUrgentNeedContent(
                             description = notes,
                             category = effectiveCategory,
                             workersNeeded = workersNeeded,
-                            needType = if (urgencyType == "custom" || urgencyType == "tomorrow") "scheduled" else "urgent_now",
+                            needType = if (urgencyType == "custom" || urgencyType == "tomorrow" || urgencyType == "2_days") "scheduled" else "urgent_now",
                             urgencyType = urgencyType,
                             contactNumber = contactNumber,
                             budgetText = "₹${pp.toInt()} per person",
@@ -582,13 +575,19 @@ internal fun PostUrgentNeedContent(
                             durationText = selectedDuration,
                             addressText = addressText,
                             radiusKm = 10.0,
-                            scheduledAtMillis = if (urgencyType == "tomorrow") {
+                            scheduledAtMillis = if (urgencyType == "tomorrow" || urgencyType == "2_days") {
                                 val zone = ZoneId.systemDefault()
                                 LocalDate.now(zone).plusDays(1).atTime(9, 0).atZone(zone).toInstant().toEpochMilli()
+                            } else if (urgencyType == "1_day" || urgencyType == "today") {
+                                System.currentTimeMillis() + 24L * 60 * 60 * 1000L
                             } else if (urgencyType == "custom") {
-                                scheduledAtMillis // Ideally picked from a DatePicker if we implement it
+                                scheduledAtMillis
                             } else 0L,
-                            scheduledAtLabel = if (urgencyType == "tomorrow") "Tomorrow" else ""
+                            scheduledAtLabel = when (urgencyType) {
+                                "2_days", "tomorrow" -> "2 Days"
+                                "1_day", "today" -> "1 Day"
+                                else -> ""
+                            }
                         )
                     ) { requestId ->
                         Toast.makeText(context, "Urgent need posted", Toast.LENGTH_SHORT).show()

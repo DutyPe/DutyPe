@@ -16,19 +16,49 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     
+    <!-- Explicit Hardware Feature Declarations: Prevent Google Play from filtering budget/Go devices -->
+    <!-- Location features: DutyPe works with GPS, Network, or manual city/area selection -->
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-feature android:name="android.hardware.location.network" android:required="false" />
+    
     <!-- Notification Permission - Runtime request (Android 13+) -->
     <!-- Used for: Job alerts, application status updates, employer messages -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     
-    <!-- Camera Permission - Runtime request only when needed -->
+    <!-- Camera Permission & Features: Fixed-focus budget devices & devices without front camera -->
     <!-- Used for: Profile photo capture, QR code scanning for work verification -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <uses-feature android:name="android.hardware.camera.front" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
     
+    <!-- Biometric/Fingerprint features (injected by security libraries, optional on budget phones) -->
+    <uses-feature android:name="android.hardware.fingerprint" android:required="false" />
+    <uses-feature android:name="android.hardware.biometrics" android:required="false" tools:ignore="UnusedAttribute" />
+
+    <!-- Connectivity and Telephony features -->
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
+    <uses-feature android:name="android.hardware.wifi" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.faketouch" android:required="false" />
+
     <!-- WAKE_LOCK - Auto-granted by WorkManager, not shown to users -->
     <!-- Used for: Background job sync and notification delivery -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Screen size compatibility for all form factors & resolutions -->
+    <supports-screens
+        android:smallScreens="true"
+        android:normalScreens="true"
+        android:largeScreens="true"
+        android:xlargeScreens="true"
+        android:anyDensity="true"
+        android:resizeable="true" />
 
 	<application
 		android:name="com.example.dutype.DutyPeApplication"
@@ -50,18 +80,7 @@
             android:name="com.google.android.gms.version"
             android:value="@integer/google_play_services_version" />
 
-        <!-- Force-register Firebase Instance ID Registrar for Component Discovery -->
-        <service
-            android:name="com.google.firebase.components.ComponentDiscoveryService"
-            android:exported="false"
-            tools:node="merge">
-            <meta-data
-                android:name="com.google.firebase.components:com.example.dutype.di.FirebaseIidRegistrar"
-                android:value="com.google.firebase.components.ComponentRegistrar" />
-            <meta-data
-                android:name="com.google.firebase.components:com.google.firebase.iid.Registrar"
-                android:value="com.google.firebase.components.ComponentRegistrar" />
-        </service>
+
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
@@ -211,6 +230,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity-alias>
+
+        <!-- Firebase Component Discovery: Register FirebaseIidRegistrar to provide FirebaseInstanceIdInternal -->
+        <service
+            android:name="com.google.firebase.components.ComponentDiscoveryService"
+            android:exported="false">
+            <meta-data
+                android:name="com.google.firebase.components:com.example.dutype.di.FirebaseIidRegistrar"
+                android:value="com.google.firebase.components.ComponentRegistrar" />
+        </service>
     </application>
 
 </manifest>

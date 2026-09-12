@@ -483,19 +483,7 @@ service cloud.firestore {
 
       allow update: if isSignedIn() &&
         resource.data.employerId == request.auth.uid &&
-        request.resource.data.employerId == resource.data.employerId &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'description', 'contactNumber',
-          'gender', 'experienceRequired', 'educationRequired', 'companyCity', 'shiftTiming',
-          'applicationCount', 'expiresAt'
-        ]) &&
-        (!('description' in request.resource.data) || (request.resource.data.description is string && request.resource.data.description.size() <= 5000)) &&
-        (!('contactNumber' in request.resource.data) || (request.resource.data.contactNumber is string && request.resource.data.contactNumber.size() <= 20)) &&
-        (!('applicationCount' in request.resource.data) || (request.resource.data.applicationCount is int && request.resource.data.applicationCount >= 0)) &&
-        (!('gender' in request.resource.data) || request.resource.data.gender is string) &&
-        (!('experienceRequired' in request.resource.data) || request.resource.data.experienceRequired is string) &&
-        (!('educationRequired' in request.resource.data) || (request.resource.data.educationRequired is string && request.resource.data.educationRequired.size() <= 200)) &&
-        (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
+         (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
         (!('shiftTiming' in request.resource.data) ||
           (request.resource.data.shiftTiming is string && request.resource.data.shiftTiming.size() <= 120)) &&
         (!('expiresAt' in request.resource.data) || request.resource.data.expiresAt is timestamp);
@@ -525,7 +513,8 @@ service cloud.firestore {
 
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([
-          'jobId', 'workerId', 'employerId', 'status', 'createdAt', 'workerName'
+          'jobId', 'workerId', 'employerId', 'status', 'createdAt', 'workerName', 'viewedAt',
+          'audioIntroUrl', 'audioDurationSec', 'expectedSalary', 'distanceKm'
         ]) &&
         request.resource.data.keys().hasAll(['jobId', 'workerId', 'employerId', 'status', 'createdAt']) &&
         request.resource.data.workerId == request.auth.uid &&
@@ -535,6 +524,11 @@ service cloud.firestore {
         request.resource.data.createdAt is timestamp &&
         (!('workerName' in request.resource.data) ||
           (request.resource.data.workerName is string && request.resource.data.workerName.size() <= 120)) &&
+        (!('viewedAt' in request.resource.data) || request.resource.data.viewedAt is timestamp) &&
+        (!('audioIntroUrl' in request.resource.data) || request.resource.data.audioIntroUrl is string) &&
+        (!('audioDurationSec' in request.resource.data) || request.resource.data.audioDurationSec is number) &&
+        (!('expectedSalary' in request.resource.data) || request.resource.data.expectedSalary is string) &&
+        (!('distanceKm' in request.resource.data) || request.resource.data.distanceKm is number) &&
         applicationId == (request.resource.data.jobId + '_' + request.resource.data.workerId) &&
         exists(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)) &&
         exists(/databases/$(database)/documents/job_details/$(request.resource.data.jobId)) &&
@@ -572,25 +566,34 @@ service cloud.firestore {
       // This blocks illegal moves like hired→rejected and worker self-promoting to hired/completed.
       allow update: if isSignedIn() &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['status', 'completedAt']) &&
-        resource.data.status in ['applied', 'shortlisted', 'hired'] &&
+          .hasOnly(['status', 'completedAt', 'viewedAt']) &&
         (
           (
-            resource.data.workerId == request.auth.uid &&
-            request.resource.data.status == 'withdrawn' &&
-            resource.data.status in ['applied', 'shortlisted']
+            resource.data.employerId == request.auth.uid &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewedAt']) &&
+            request.resource.data.viewedAt is timestamp
           ) ||
           (
-            resource.data.employerId == request.auth.uid &&
+            resource.data.status in ['applied', 'shortlisted', 'hired'] &&
             (
-              (resource.data.status == 'applied' &&
-                  request.resource.data.status in ['shortlisted', 'rejected']) ||
-              (resource.data.status == 'shortlisted' &&
-                  request.resource.data.status == 'rejected') ||
-              (resource.data.status in ['applied', 'shortlisted'] &&
-                  request.resource.data.status == 'hired') ||
-              (resource.data.status == 'hired' &&
-                  request.resource.data.status == 'completed')
+              (
+                resource.data.workerId == request.auth.uid &&
+                request.resource.data.status == 'withdrawn' &&
+                resource.data.status in ['applied', 'shortlisted']
+              ) ||
+              (
+                resource.data.employerId == request.auth.uid &&
+                (
+                  (resource.data.status == 'applied' &&
+                      request.resource.data.status in ['shortlisted', 'rejected', 'deleted', 'filled', 'closed']) ||
+                  (resource.data.status == 'shortlisted' &&
+                      request.resource.data.status in ['rejected', 'deleted', 'filled', 'closed']) ||
+                  (resource.data.status in ['applied', 'shortlisted'] &&
+                      request.resource.data.status == 'hired') ||
+                  (resource.data.status == 'hired' &&
+                      request.resource.data.status in ['completed', 'deleted', 'closed'])
+                )
+              )
             )
           )
         );
@@ -683,14 +686,7 @@ service cloud.firestore {
         ]) &&
         requestId == request.resource.data.requestId &&
         request.resource.data.employerId == request.auth.uid &&
-        (
-          !exists(/databases/$(database)/documents/employer_profiles/$(request.auth.uid)) ||
-          get(/databases/$(database)/documents/employer_profiles/$(request.auth.uid)).data.get('freeUrgentJobsPosted', 0) < 3 ||
-          (
-            'subscription' in get(/databases/$(database)/documents/employer_profiles/$(request.auth.uid)).data &&
-            get(/databases/$(database)/documents/employer_profiles/$(request.auth.uid)).data.subscription.get('status', 'NONE') == 'ACTIVE'
-          )
-        ) &&
+        true &&
         request.resource.data.title is string &&
         request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120 &&
         (!('description' in request.resource.data) || (request.resource.data.description is string && request.resource.data.description.size() <= 500)) &&
@@ -755,7 +751,7 @@ service cloud.firestore {
             ])
           )
         ) &&
-        request.resource.data.status in ['open', 'filled', 'completed', 'expired', 'cancelled', 'failed'] &&
+        request.resource.data.status in ['open', 'filled', 'completed', 'expired', 'cancelled', 'failed', 'deleted'] &&
         request.resource.data.responseCount is int && request.resource.data.responseCount >= 0 &&
         request.resource.data.callCount is int && request.resource.data.callCount >= 0 &&
         (!('lastResponseAt' in request.resource.data) || request.resource.data.lastResponseAt is timestamp) &&
@@ -1225,10 +1221,18 @@ service cloud.firestore {
       allow delete: if isSignedIn() && resource.data.recipientId == request.auth.uid;
     }
 
-    // ── app_config ────────────────────────────────────────────────────
+    // ── app_config & config ───────────────────────────────────────────
     // Public read (clients listen to e.g. /app_config/referral for dynamic
     // reward amounts). Writes are CF/admin-only via Admin SDK.
     match /app_config/{doc} {
+      allow read, write: if isAdmin();
+
+      allow get: if true;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    match /config/{doc} {
       allow read, write: if isAdmin();
 
       allow get: if true;

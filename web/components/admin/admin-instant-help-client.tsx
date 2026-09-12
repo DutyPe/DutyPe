@@ -24,6 +24,12 @@ type InstantRequestRow = {
   category: string;
   status: string;
   employerName: string;
+  employerPhone?: string;
+  perPersonPayment?: number;
+  totalPayment?: number;
+  durationText?: string;
+  scheduleLabel?: string;
+  scheduledAt?: number;
   responseCount: number;
   callCount: number;
   notifiedWorkerCount: number;
@@ -211,8 +217,13 @@ export function AdminInstantHelpClient() {
                 <tr key={request.id}>
                   <td>
                     <strong>{request.title}</strong>
+                    {request.perPersonPayment ? <span style={{ marginLeft: "6px", color: "#16a34a", fontWeight: 600 }}>₹{request.perPersonPayment}</span> : null}
                     <br />
-                    <small>{request.category || "-"} · {request.employerName || "Employer"}</small>
+                    <small>
+                      {request.category || "-"} · {request.employerName || "Employer"}
+                      {request.durationText ? ` · ${request.durationText}` : ""}
+                      {request.scheduleLabel ? ` · 🕒 ${request.scheduleLabel}` : ""}
+                    </small>
                   </td>
                   <td>{statusLabel(request.status)}</td>
                   <td>{request.responseCount}</td>

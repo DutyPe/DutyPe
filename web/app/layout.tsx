@@ -84,7 +84,11 @@ export const metadata: Metadata = {
   },
   other: {
     "google-adsense-account": ADSENSE_CLIENT_ID,
-    "facebook-domain-verification": "pm8w20h5ejx9kch4n7w6ijcbh3gfi8"
+    "facebook-domain-verification": "pm8w20h5ejx9kch4n7w6ijcbh3gfi8",
+    "google-play-app": "app-id=com.dutype.app",
+    "al:android:package": "com.dutype.app",
+    "al:android:app_name": "DutyPe",
+    "al:android:url": "https://dutype.in"
   }
 };
 
@@ -93,6 +97,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <head>
         <meta name="facebook-domain-verification" content="pm8w20h5ejx9kch4n7w6ijcbh3gfi8" />
+        <meta name="google-play-app" content="app-id=com.dutype.app" />
+        <meta property="al:android:package" content="com.dutype.app" />
+        <meta property="al:android:app_name" content="DutyPe" />
+        <meta property="al:android:url" content="https://dutype.in" />
         <script
           async
           src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}

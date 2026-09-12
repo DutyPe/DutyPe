@@ -1,9 +1,6 @@
-DutyPe: Hire Local Staff & Find Jobs Nearby. Commission Free!
-
-What's New:
-• Superfast Login: Enabled automatic SMS OTP verification—no typing required!
-• Crash Fix: Resolved app restarts during phone verification.
-• Premium Hiring Room: Easily manage selected candidates with call shortcuts and ratings.
-• Optimized Speeds: Gated background API calls on filled jobs.
-• WhatsApp Community: Direct access to 10k+ local members for instant hires.
-• Hire cooks, maids, drivers, delivery agents nearby!
+What's New in DutyPe 4.3:
+• ⚡ Ultra-Fast Performance: Blazing-fast app launch and smoother navigation.
+• 🔔 Real-Time Job & Call Alerts: Instant notifications when employers shortlist you or candidates apply.
+• 📍 Hyper-Local Vacancies: Discover verified jobs within 5–25 km with accurate commute distances.
+• 📞 Direct Call & 0% Fee: Connect directly with employers and workers without middlemen.
+• 🏢 Enhanced Hiring Room: Fast hiring for Drivers, Cooks, Delivery, Housekeeping & Staff!

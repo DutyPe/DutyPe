@@ -1673,4 +1673,35 @@
     <string name="report_non_payment_details_hint">पूरा दिन काम किया, नियोक्ता ने कॉल उठाना बंद कर दिया</string>
     <string name="report_non_payment_submit">शिकायत करें</string>
     <string name="report_non_payment_action">इस नौकरी का भुगतान नहीं मिला?</string>
+    <!-- Expanding / Hubs Keys in Hindi -->
+    <string name="auto_dutype">DutyPe</string>
+    <string name="auto_dutype_technologies">DutyPe Technologies</string>
+    <string name="default_web_client_id">1062348180452-n56rc8anhkscm6cjceurig9jgelrr67s.apps.googleusercontent.com</string>
+    <string name="dutype_expanding_title">DutyPe जल्द ही %s में आ रहा है!</string>
+    <string name="dutype_expanding_title_generic">DutyPe जल्द ही आपके क्षेत्र में आ रहा है!</string>
+    <string name="dutype_expanding_desc">हम इस क्षेत्र में स्थानीय दुकानों, व्यवसायों और नियोक्ताओं को तेज़ी से जोड़ रहे हैं। नौकरियाँ शुरू होते ही हम आपको तुरंत सूचित करेंगे!</string>
+    <string name="dutype_notify_me_btn">नौकरी शुरू होने पर मुझे सूचित करें</string>
+    <string name="dutype_notified_success">आप प्राथमिकता सूची में हैं! नौकरी आते ही हम सबसे पहले आपको सूचित करेंगे।</string>
+    <string name="dutype_share_employer_btn">स्थानीय व्यवसायों को मुफ़्त में नौकरी पोस्ट करने के लिए कहें (100% मुफ़्त)</string>
+    <string name="dutype_share_employer_msg">%s में स्थानीय कर्मचारियों को काम पर रखना चाहते हैं? DutyPe ऐप पर बिना किसी कमीशन के मुफ़्त में नौकरियाँ पोस्ट करें: https://dutype.in</string>
+    <string name="dutype_explore_active_hubs">या पास के सक्रिय हब में नौकरियाँ देखें:</string>
+
+    <!-- Guest Mode & Progressive Auth Strings in Hindi -->
+    <string name="continue_as_guest">अतिथि के रूप में जारी रखें</string>
+    <string name="skip_for_now">छोड़ें</string>
+    <string name="explore_as_guest">अतिथि के रूप में देखें</string>
+    <string name="guest_user_title">अतिथि उपयोगकर्ता</string>
+    <string name="guest_mode_welcome">नौकरियों को मुफ़्त में देखें। आवेदन करने या नियोक्ताओं से संपर्क करने के लिए लॉगिन करें।</string>
+    <string name="guest_apply_login_title">आवेदन करने के लिए लॉगिन करें</string>
+    <string name="guest_apply_login_desc">नियोक्ता आपसे सीधे संपर्क कर सके इसके लिए कृपया अपना मोबाइल नंबर सत्यापित करें।</string>
+    <string name="guest_call_login_title">नियोक्ता को कॉल करने के लिए लॉगिन करें</string>
+    <string name="guest_call_login_desc">नियोक्ता के संपर्क विवरण देखने और सीधे बात करने के लिए लॉगिन करें।</string>
+    <string name="guest_save_login_title">नौकरियों को सहेजने के लिए लॉगिन करें</string>
+    <string name="guest_save_login_desc">अपनी पसंदीदा नौकरियों को सहेजने और बाद में देखने के लिए लॉगिन करें।</string>
+    <string name="guest_post_job_title">नौकरी पोस्ट करने के लिए लॉगिन करें</string>
+    <string name="guest_post_job_desc">बिना किसी कमीशन के मुफ़्त में नौकरी पोस्ट करने और स्थानीय कर्मचारियों को काम पर रखने के लिए लॉगिन करें।</string>
+    <string name="guest_profile_sign_in">लॉगिन / पंजीकरण</string>
+    <string name="guest_profile_desc">1-टैप में नौकरियों के लिए आवेदन करने, पसंदीदा सहेजने और कमाई ट्रैक करने के लिए अपना प्रोफ़ाइल बनाएं।</string>
+    <string name="guest_history_desc">अपने नौकरी आवेदनों और स्थिति को ट्रैक करने के लिए लॉगिन करें।</string>
+    <string name="guest_notifications_desc">तुरंत नौकरी अलर्ट और नियोक्ता शॉर्टलिस्ट सूचनाएं प्राप्त करने के लिए लॉगिन करें।</string>
 </resources>

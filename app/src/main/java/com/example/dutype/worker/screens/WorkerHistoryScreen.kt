@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -186,11 +187,11 @@ fun WorkerHistoryScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(
+                        itemsIndexed(
                             items = filteredApplications,
-                            key = { application -> "app_hist_${application.id}" },
-                            contentType = { "history_application_card" }
-                        ) { application ->
+                            key = { index, application -> "app_hist_${application.id.ifBlank { "app" }}_$index" },
+                            contentType = { _, _ -> "history_application_card" }
+                        ) { _, application ->
                             HistoryApplicationCard(
                                 application = application,
                                 onClick = {
@@ -230,11 +231,11 @@ private fun TimelineView(
             }
             
             // Timeline items for this month
-            items(
+            itemsIndexed(
                 items = applications,
-                key = { application -> "app_tl_${application.id}" },
-                contentType = { "timeline_application_card" }
-            ) { application ->
+                key = { index, application -> "app_tl_${application.id.ifBlank { "app" }}_$index" },
+                contentType = { _, _ -> "timeline_application_card" }
+            ) { _, application ->
                 val isLastInMonth = applications.last() == application
                 TimelineJobCard(
                     application = application,
@@ -342,7 +343,7 @@ private fun WorkerUrgentHistoryContent(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(responses, key = { response -> "worker_urgent_${response.responseId}" }) { response ->
+                itemsIndexed(responses, key = { index, response -> "worker_urgent_${response.responseId.ifBlank { "resp" }}_$index" }) { _, response ->
                     WorkerUrgentHistoryCard(
                         response = response,
                         onCallEmployer = onCallEmployer
@@ -558,7 +559,28 @@ private fun TimelineJobCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    ApplicationStatusBadge(status = application.status)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ApplicationStatusBadge(status = application.status)
+                        if (application.viewedAt > 0L && application.status == ApplicationStatus.APPLIED) {
+                            Surface(
+                                color = WorkerColors.Primary.copy(alpha = 0.12f),
+                                shape = RoundedCornerShape(6.dp)
+                            ) {
+                                Text(
+                                    text = "👁 Viewed ${DateTimeUtils.formatTimeAgoExactDays(application.viewedAt)}",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = WorkerColors.Primary,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 11.sp
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
                     
                     Text(
                         text = formatTimelineDate(application.createdAt),

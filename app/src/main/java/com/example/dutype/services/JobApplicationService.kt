@@ -365,7 +365,11 @@ class JobApplicationService @Inject constructor(
     suspend fun applyForJob(
         jobId: String,
         userId: String,
-        coverLetter: String? = null
+        coverLetter: String? = null,
+        audioIntroUrl: String? = null,
+        audioDurationSec: Int? = null,
+        expectedSalary: String? = null,
+        distanceKm: Double? = null
     ): Result<JobApplication> {
         return try {
             Timber.d("JobApplicationService.applyForJob - Starting for jobId: $jobId, userId: $userId")
@@ -382,7 +386,15 @@ class JobApplicationService @Inject constructor(
             }
             
             Timber.d("JobApplicationService.applyForJob - Pre-check passed, proceeding with application...")
-            val result = applyDirectly(jobId, userId, coverLetter)
+            val result = applyDirectly(
+                jobId = jobId,
+                userId = userId,
+                coverLetter = coverLetter,
+                audioIntroUrl = audioIntroUrl,
+                audioDurationSec = audioDurationSec,
+                expectedSalary = expectedSalary,
+                distanceKm = distanceKm
+            )
             
             // Increment user application count on success
             if (result.isSuccess) {
@@ -409,7 +421,11 @@ class JobApplicationService @Inject constructor(
     private suspend fun applyDirectly(
         jobId: String,
         userId: String,
-        coverLetter: String?
+        coverLetter: String?,
+        audioIntroUrl: String? = null,
+        audioDurationSec: Int? = null,
+        expectedSalary: String? = null,
+        distanceKm: Double? = null
     ): Result<JobApplication> {
         return try {
             val jobResult = getJobDetailsWithLocalFallback(jobId)
@@ -470,7 +486,11 @@ class JobApplicationService @Inject constructor(
                 jobLocation = jobLocation,
                 companyName = companyName,
                 employerPhone = employerContactPhone,
-                coverLetter = coverLetter.orEmpty()
+                coverLetter = coverLetter.orEmpty(),
+                audioIntroUrl = audioIntroUrl,
+                audioDurationSec = audioDurationSec,
+                expectedSalary = expectedSalary,
+                distanceKm = distanceKm
             )
 
             // Save application
@@ -723,6 +743,12 @@ class JobApplicationService @Inject constructor(
      * Uses fallback queries to handle missing Firestore indexes
      */
     fun getWorkerApplications(workerId: String): Flow<Result<List<JobApplication>>> = callbackFlow {
+        if (workerId.isBlank()) {
+            trySend(Result.success(emptyList()))
+            awaitClose { }
+            return@callbackFlow
+        }
+
         try {
             Timber.d("[Applications] Listening to applications for workerId: $workerId")
             
@@ -739,6 +765,7 @@ class JobApplicationService @Inject constructor(
             val registration = query.addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Timber.e(error, "[Applications] Snapshot listener failed for workerId: $workerId")
+                    trySend(Result.success(localApplications))
                     return@addSnapshotListener
                 }
 
@@ -780,7 +807,7 @@ class JobApplicationService @Inject constructor(
             Timber.e(e, "[Applications] Error setting up listener for workerId: $workerId")
             val localApplications = getLocalApplications(workerId)
             trySend(Result.success(localApplications.sortedByDescending { it.createdAt }))
-            close(e)
+            close()
         }
     }.flowOn(Dispatchers.IO)
     
@@ -1117,10 +1144,17 @@ class JobApplicationService @Inject constructor(
     }
     
     /**
-     * Mark application as viewed by employer (no-op — updatedAt not in target schema)
+     * Mark application as viewed by employer
      */
     suspend fun markApplicationAsViewed(applicationId: String, employerId: String): Result<Unit> {
-        return Result.success(Unit)
+        return try {
+            val appRef = firestore.collection(applicationsCollection).document(applicationId)
+            appRef.update("viewedAt", com.google.firebase.Timestamp.now()).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Timber.w(e, "[JobApplicationService] markApplicationAsViewed failed for $applicationId: ${e.message}")
+            Result.failure(e)
+        }
     }
     
     private suspend fun getJobTitle(jobId: String): String {

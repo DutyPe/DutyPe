@@ -318,6 +318,39 @@ private fun RegisterContent(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        // Continue as Guest / Skip Button
+                        Surface(
+                            onClick = {
+                                val targetHome = if (role == UserRole.EMPLOYER) Routes.EMPLOYER_HOME else Routes.WORKER_HOME
+                                navController.navigate(targetHome) {
+                                    popUpTo(Routes.SELECT_ROLE) { inclusive = false }
+                                }
+                            },
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color(0xFFEFF6FF),
+                            border = BorderStroke(1.dp, BrandBlueBorder)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (isTelugu) "స్కిప్ చేయండి" else "Skip",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = BrandBluePrimary
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = BrandBluePrimary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+
                         // WhatsApp Help Button
                         Surface(
                             onClick = {
@@ -560,7 +593,7 @@ private fun RegisterEntrySection(
     val appContext = LocalContext.current
     val nameValid = fullName.trim().length >= 2
     val phoneValid = ValidationUtils.isValidIndianPhoneNumber(phoneNumber)
-    val buttonEnabled = nameValid && phoneValid && !otpState.isLoading && !isCheckingPhone
+    val buttonEnabled = nameValid && phoneValid && !otpState.isLoading && !isCheckingPhone && termsAccepted
 
     Column(
         modifier = Modifier.fillMaxWidth(),

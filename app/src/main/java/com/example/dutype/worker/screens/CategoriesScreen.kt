@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -332,37 +333,12 @@ private fun JobsListSection(
         }
         // Empty state
         else if (!isLoading && jobs.isEmpty()) {
-            Box(
+            com.example.dutype.components.DutyPeExpandingLocationState(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        imageVector = Icons.Default.Work,
-                        contentDescription = null,
-                        tint = WorkerColors.TextTertiary,
-                        modifier = Modifier.size(64.dp)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = if (selectedCategory == "All") "No nearby jobs right now" else "No $selectedCategory jobs nearby",
-                        style = AppTypography.bodyMedium.copy(
-                            color = WorkerColors.TextSecondary,
-                            textAlign = TextAlign.Center
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = stringResource(R.string.auto_we_checked_10km_and_15km_around_your_locat),
-                        style = AppTypography.bodySmall.copy(
-                            color = WorkerColors.TextTertiary,
-                            textAlign = TextAlign.Center
-                        )
-                    )
-                }
-            }
+                    .padding(16.dp),
+                categoryFilter = if (selectedCategory == "All") null else selectedCategory
+            )
         }
         // Jobs list
         else {
@@ -372,10 +348,10 @@ private fun JobsListSection(
                 contentPadding = PaddingValues(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(
+                itemsIndexed(
                     items = jobs,
-                    key = { job -> "${selectedCategory}_${job.id}" } // CRITICAL FIX: Include category in key to prevent conflicts
-                ) { job ->
+                    key = { index, job -> "${selectedCategory}_${job.id.ifBlank { "job" }}_$index" }
+                ) { _, job ->
                     JobCard(
                         job = job,
                         isSaved = job.isSaved,

@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.screens.myJobs
+package com.example.dutype.worker.screens.myJobs
 
 import com.dutype.app.R
 import androidx.compose.animation.AnimatedVisibility
@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -179,7 +180,7 @@ private fun LoadingSavedJobs() {
         modifier = Modifier
             .fillMaxSize()
             .padding(top = 16.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 100.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(3) { // Show 3 shimmer cards for saved jobs
@@ -224,15 +225,15 @@ private fun SavedJobsContent(
                 top = 8.dp,
                 start = 16.dp,
                 end = 16.dp,
-                bottom = 16.dp
+                bottom = 100.dp
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             scrollStateManager = scrollStateManager
         ) {
-            items(
+            itemsIndexed(
                 items = savedJobs,
-                key = { job -> job.id }
-            ) { job ->
+                key = { index, job -> "${job.id.ifBlank { "saved" }}_$index" }
+            ) { _, job ->
                 val id = job.id
                 // Use JobCard with JobListing directly
                 // NOTE: Apply button removed from JobCard - users apply from JobDescriptionScreen

@@ -25,17 +25,15 @@ object TopCityChips {
         fun label(): String = city
     }
 
-    private val defaultCities = listOf(
+    val defaultCities = listOf(
         CityLocationChip("Hyderabad", "Telangana", 17.3850, 78.4867),
-        CityLocationChip("Khammam", "Telangana", 17.2473, 80.1514),
-        CityLocationChip("Warangal", "Telangana", 17.9689, 79.5941),
-        CityLocationChip("Karimnagar", "Telangana", 18.4386, 79.1288),
         CityLocationChip("Nizamabad", "Telangana", 18.6725, 78.0941),
-        CityLocationChip("Nalgonda", "Telangana", 17.0575, 79.2672),
         CityLocationChip("Vijayawada", "Andhra Pradesh", 16.5062, 80.6480),
         CityLocationChip("Visakhapatnam", "Andhra Pradesh", 17.6868, 83.2185),
         CityLocationChip("Bengaluru", "Karnataka", 12.9716, 77.5946),
-        CityLocationChip("Chennai", "Tamil Nadu", 13.0827, 80.2707)
+        CityLocationChip("Kolkata", "West Bengal", 22.5726, 88.3639),
+        CityLocationChip("Mumbai", "Maharashtra", 19.0760, 72.8777),
+        CityLocationChip("Pune", "Maharashtra", 18.5204, 73.8567)
     )
 
     private fun parseCityName(raw: String): String {

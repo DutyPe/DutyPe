@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DutyPe Growth Command Center</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+
+  <!-- Header & Navigation -->
+  <header class="border-b border-slate-800 bg-slate-950/80 sticky top-0 z-50 backdrop-blur">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 font-bold text-white text-xl">
+          D
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">DutyPe Growth Engine</h1>
+          <p class="text-xs text-emerald-400 flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Live Lead Scanner</p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <button onclick="triggerScan()" id="scanBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition shadow-md shadow-indigo-600/30">
+          <i class="fa-solid fa-radar animate-spin" id="scanSpinner" style="display: none;"></i>
+          <i class="fa-solid fa-magnifying-glass" id="scanIcon"></i>
+          <span>Scan Live Instagram</span>
+        </button>
+        <button onclick="seedMock()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium px-3 py-2 rounded-lg transition border border-slate-700">
+          + Add Test Leads
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <!-- Top Stats Row -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4">
+        <p class="text-xs text-slate-400 font-medium">Total Leads</p>
+        <p class="text-2xl font-bold text-white mt-1">{{ stats.total_leads }}</p>
+      </div>
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4">
+        <p class="text-xs text-indigo-400 font-medium">New Ready</p>
+        <p class="text-2xl font-bold text-indigo-400 mt-1">{{ stats.new_leads }}</p>
+      </div>
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4">
+        <p class="text-xs text-amber-400 font-medium">Contacted</p>
+        <p class="text-2xl font-bold text-amber-400 mt-1">{{ stats.contacted_leads }}</p>
+      </div>
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4">
+        <p class="text-xs text-emerald-400 font-medium">Converted</p>
+        <p class="text-2xl font-bold text-emerald-400 mt-1">{{ stats.converted_leads }}</p>
+      </div>
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4">
+        <p class="text-xs text-purple-400 font-medium">Employers</p>
+        <p class="text-2xl font-bold text-purple-400 mt-1">{{ stats.employer_leads }}</p>
+      </div>
+      <div class="bg-slate-800/60 border border-slate-700/60 rounded-xl p-4">
+        <p class="text-xs text-cyan-400 font-medium">Workers</p>
+        <p class="text-2xl font-bold text-cyan-400 mt-1">{{ stats.worker_leads }}</p>
+      </div>
+    </div>
+
+    <!-- Filters & Tabs -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 border-b border-slate-800 pb-4">
+      <div class="flex items-center space-x-2">
+        <a href="/" class="px-4 py-2 rounded-lg text-xs font-semibold {% if not current_type %}bg-slate-700 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-800{% endif %} transition">
+          All Leads
+        </a>
+        <a href="/?lead_type=EMPLOYER" class="px-4 py-2 rounded-lg text-xs font-semibold {% if current_type == 'EMPLOYER' %}bg-purple-600 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-800{% endif %} transition flex items-center gap-1.5">
+          <i class="fa-solid fa-briefcase text-xs"></i> Employers Hiring
+        </a>
+        <a href="/?lead_type=WORKER" class="px-4 py-2 rounded-lg text-xs font-semibold {% if current_type == 'WORKER' %}bg-cyan-600 text-white{% else %}text-slate-400 hover:text-white hover:bg-slate-800{% endif %} transition flex items-center gap-1.5">
+          <i class="fa-solid fa-user-check text-xs"></i> Workers Looking
+        </a>
+      </div>
+      <div class="text-xs text-slate-400">
+        Showing {{ leads|length }} leads
+      </div>
+    </div>
+
+    <!-- Leads List -->
+    {% if not leads %}
+    <div class="text-center py-16 bg-slate-800/30 border border-slate-800 rounded-2xl">
+      <i class="fa-solid fa-inbox text-4xl text-slate-600 mb-3"></i>
+      <h3 class="text-base font-semibold text-slate-300">No leads found in this view</h3>
+      <p class="text-xs text-slate-500 mt-1 mb-4">Run the Instagram scanner or seed test data to get started.</p>
+      <button onclick="seedMock()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition">
+        Load Sample Leads
+      </button>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {% for lead in leads %}
+      <div class="bg-slate-800/70 border {% if lead.lead_type == 'EMPLOYER' %}border-purple-500/30 hover:border-purple-500/60{% else %}border-cyan-500/30 hover:border-cyan-500/60{% endif %} rounded-2xl p-5 transition shadow-lg flex flex-col justify-between" id="card-{{ lead.id }}">
+        
+        <div>
+          <!-- Header info -->
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold px-2.5 py-0.5 rounded-full {% if lead.lead_type == 'EMPLOYER' %}bg-purple-950 text-purple-300 border border-purple-800{% else %}bg-cyan-950 text-cyan-300 border border-cyan-800{% endif %}">
+                  {{ lead.lead_type }}
+                </span>
+                <span class="text-xs font-semibold text-slate-300 bg-slate-900/80 px-2.5 py-0.5 rounded-full border border-slate-700">
+                  <i class="fa-solid fa-map-pin text-rose-400 mr-1"></i> {{ lead.city }}
+                </span>
+                <span class="text-xs font-semibold text-slate-300 bg-slate-900/80 px-2.5 py-0.5 rounded-full border border-slate-700">
+                  {{ lead.category_role }}
+                </span>
+              </div>
+              <p class="text-sm font-bold text-white mt-2">@{{ lead.author_username }}</p>
+            </div>
+
+            <!-- Status Dropdown -->
+            <select onchange="changeStatus({{ lead.id }}, this.value)" class="text-xs font-semibold rounded-lg px-2.5 py-1 bg-slate-900 border border-slate-700 text-slate-200 focus:ring-1 focus:ring-indigo-500">
+              <option value="NEW" {% if lead.status == 'NEW' %}selected{% endif %}>🟢 New</option>
+              <option value="CONTACTED" {% if lead.status == 'CONTACTED' %}selected{% endif %}>🟡 Contacted</option>
+              <option value="CONVERTED" {% if lead.status == 'CONVERTED' %}selected{% endif %}>🚀 Converted</option>
+              <option value="IGNORED" {% if lead.status == 'IGNORED' %}selected{% endif %}>⚪ Ignored</option>
+            </select>
+          </div>
+
+          <!-- Summary -->
+          <p class="text-xs font-medium text-slate-300 mb-3 bg-slate-900/60 p-2.5 rounded-lg border border-slate-800/80">
+            {{ lead.summary }}
+          </p>
+
+          <!-- Raw Caption Preview -->
+          <details class="text-xs text-slate-400 mb-4 cursor-pointer">
+            <summary class="hover:text-slate-300">View Raw Caption</summary>
+            <p class="mt-2 text-slate-400 bg-slate-950 p-2.5 rounded text-xs whitespace-pre-wrap border border-slate-800">{{ lead.raw_caption }}</p>
+          </details>
+
+          <!-- Pre-drafted Pitches Box -->
+          <div class="space-y-2 mb-4">
+            <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-700/60">
+              <div class="flex items-center justify-between text-[11px] font-semibold text-slate-400 mb-1">
+                <span><i class="fa-solid fa-comment-dots text-indigo-400 mr-1"></i> Recommended Comment</span>
+                <button onclick="copyText('{{ lead.comment_pitch|escape }}', this)" class="text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                  <i class="fa-regular fa-copy"></i> Copy
+                </button>
+              </div>
+              <p class="text-xs text-slate-200 font-medium select-all">{{ lead.comment_pitch }}</p>
+            </div>
+
+            <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-700/60">
+              <div class="flex items-center justify-between text-[11px] font-semibold text-slate-400 mb-1">
+                <span><i class="fa-solid fa-paper-plane text-emerald-400 mr-1"></i> Recommended Direct Message</span>
+                <button onclick="copyText('{{ lead.dm_pitch|escape }}', this)" class="text-emerald-400 hover:text-emerald-300 flex items-center gap-1">
+                  <i class="fa-regular fa-copy"></i> Copy
+                </button>
+              </div>
+              <p class="text-xs text-slate-200 font-medium select-all">{{ lead.dm_pitch }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 1-Click Action Buttons -->
+        <div class="flex items-center gap-2 pt-3 border-t border-slate-800">
+          <a href="{{ lead.post_url }}" target="_blank" class="flex-1 bg-gradient-to-r from-pink-600 to-purple-600 hover:opacity-90 text-white text-xs font-semibold py-2 px-3 rounded-lg text-center flex items-center justify-center gap-1.5 transition">
+            <i class="fa-brands fa-instagram"></i> Open Reel
+          </a>
+
+          {% if lead.phone_number %}
+          <a href="https://wa.me/91{{ lead.phone_number }}?text={{ lead.dm_pitch|urlencode }}" target="_blank" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold py-2 px-3 rounded-lg text-center flex items-center justify-center gap-1.5 transition">
+            <i class="fa-brands fa-whatsapp"></i> Chat (+91 {{ lead.phone_number }})
+          </a>
+          {% endif %}
+        </div>
+
+      </div>
+      {% endfor %}
+    </div>
+
+  </main>
+
+  <script>
+    function copyText(text, btn) {
+      navigator.clipboard.writeText(text);
+      const original = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> Copied!';
+      setTimeout(() => { btn.innerHTML = original; }, 2000);
+    }
+
+    async function changeStatus(leadId, newStatus) {
+      await fetch(`/api/leads/${leadId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+    }
+
+    async function triggerScan() {
+      document.getElementById('scanSpinner').style.display = 'inline-block';
+      document.getElementById('scanIcon').style.display = 'none';
+      document.getElementById('scanBtn').disabled = true;
+
+      try {
+        const res = await fetch('/api/scan', { method: 'POST' });
+        const data = await res.json();
+        alert(`Scan completed! Found ${data.count} new leads.`);
+        window.location.reload();
+      } catch (e) {
+        alert('Scan finished or timed out. Refreshing leads list.');
+        window.location.reload();
+      }
+    }
+
+    async function seedMock() {
+      await fetch('/api/seed-mock', { method: 'POST' });
+      window.location.reload();
+    }
+  </script>
+
+</body>
+</html>

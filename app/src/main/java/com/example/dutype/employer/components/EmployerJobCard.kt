@@ -213,12 +213,19 @@ private fun JobStatusBadge(
 ) {
     val normalizedStatus = status.lowercase()
     val expiresAtMillis = expiresAt ?: 0L
-    val isClosed = isFilled || normalizedStatus == "closed"
+    val now = System.currentTimeMillis()
+    val isClosed = isFilled || normalizedStatus == "closed" || normalizedStatus == "filled"
     val isExpired = normalizedStatus == "expired" ||
-        (!isClosed && expiresAtMillis > 0L && expiresAtMillis <= System.currentTimeMillis())
+        (!isClosed && expiresAtMillis > 0L && expiresAtMillis <= now)
+    val isExpiringSoon = !isClosed && !isExpired && expiresAtMillis > now && (expiresAtMillis - now <= 3L * 24 * 60 * 60 * 1000L)
+
     val (color, statusText, icon) = when {
         isClosed -> Triple(Color(0xFF16A34A), "Filled", Icons.Default.CheckCircle)
         isExpired -> Triple(Color(0xFFEF4444), "Expired", Icons.Default.EventBusy)
+        isExpiringSoon -> {
+            val daysLeft = (((expiresAtMillis - now) / (24 * 60 * 60 * 1000L)) + 1).toInt()
+            Triple(Color(0xFFF59E0B), "Expires in ${daysLeft}d", Icons.Default.Warning)
+        }
         else -> Triple(Color(0xFF10B981), "Active", Icons.Default.CheckCircle)
     }
 

@@ -1,10 +1,6 @@
 package com.example.dutype.common.screens
 
 import com.dutype.app.R
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -59,6 +55,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -75,17 +72,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.ContextCompat
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
-import com.example.dutype.location.LocationPreferences
-import com.example.dutype.models.LocationData
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
-import com.example.dutype.utils.LocationService
-import kotlinx.coroutines.launch
 import timber.log.Timber
 
 @Composable
@@ -96,130 +88,14 @@ fun SelectRoleScreen(
     com.example.dutype.ui.theme.ForceLightTheme {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     var isVisible by remember { mutableStateOf(false) }
-    var hasNotificationPermission by remember { mutableStateOf(false) }
-    var hasLocationPermission by remember { mutableStateOf(false) }
     var showLanguageBottomSheet by remember { mutableStateOf(false) }
 
-    // Check current permission status (no location fetch on startup for fast loading)
+    // Show UI immediately — permissions are requested on the home screens
+    // after users see the app's value, not before role selection.
     LaunchedEffect(Unit) {
-        hasNotificationPermission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        } else {
-            true // Notifications don't require runtime permission on older versions
-        }
-
-        hasLocationPermission = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-
-        Timber.d("📍 SelectRoleScreen - Initial permission check: notification=$hasNotificationPermission, location=$hasLocationPermission")
-        // Location will be fetched when user navigates to a screen that needs it (e.g., WorkerHomeScreen)
-    }
-
-    // Location permission launcher - FETCH LOCATION IMMEDIATELY after permission granted
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        hasLocationPermission = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        Timber.d("📍 SelectRoleScreen - Location permission result: $hasLocationPermission")
-
-        // CRITICAL FIX: If permission granted, fetch location immediately using lite speed
-        if (hasLocationPermission) {
-            val locationPreferences = LocationPreferences(context)
-            locationPreferences.setPermissionGranted(true)
-            Timber.d("📍 SelectRoleScreen - Permission saved, fetching location NOW at LIGHT SPEED...")
-
-            // Fetch location immediately in background (LIGHT SPEED - highest priority)
-            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                try {
-                    val locationService = LocationService(context)
-                    // Use getLocationFast for immediate fetch with high priority
-                    locationService.getLocationFast(locationPreferences) { locationInfo ->
-                        if (locationInfo != null) {
-                            Timber.d("📍 SelectRoleScreen - ⚡ LIGHT SPEED location fetched: ${locationInfo.getFullAddress()}")
-                            // Convert LocationInfo to LocationData for saving
-                            val locationData = LocationData(
-                                latitude = locationInfo.latitude,
-                                longitude = locationInfo.longitude,
-                                address = locationInfo.address,
-                                city = locationInfo.city,
-                                area = locationInfo.area,
-                                state = locationInfo.state,
-                                country = locationInfo.country,
-                                accuracy = locationInfo.accuracy,
-                                timestamp = locationInfo.timestamp
-                            )
-                            // Save to preferences immediately so WorkerHomeScreen can use it
-                            scope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                                locationPreferences.saveLocation(locationData)
-                                Timber.d("📍 SelectRoleScreen - ✅ Location saved to preferences, WorkerHomeScreen will show it immediately")
-                            }
-                        } else {
-                            Timber.w("📍 SelectRoleScreen - Location fetch returned null")
-                        }
-                    }
-                } catch (e: Exception) {
-                    Timber.e(e, "📍 SelectRoleScreen - Error fetching location at light speed")
-                }
-            }
-        }
-
         isVisible = true
-    }
-
-    // Notification permission launcher
-    val notificationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        hasNotificationPermission = isGranted
-        Timber.d("🔔 SelectRoleScreen - Notification permission result: $isGranted")
-
-        // After notification permission, request location permission (no toast)
-        if (!hasLocationPermission) {
-            Timber.d("📍 SelectRoleScreen - Requesting location permission...")
-            locationPermissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            )
-        } else {
-            isVisible = true
-        }
-    }
-
-    // Request permissions on first load
-    LaunchedEffect(Unit) {
-        val sharedPrefs = context.getSharedPreferences("permission_prefs", android.content.Context.MODE_PRIVATE)
-        val permissionsAskedBefore = sharedPrefs.getBoolean("permissions_asked_on_role_screen", false)
-
-        if (!permissionsAskedBefore) {
-            Timber.d("🔔 SelectRoleScreen - First time on role screen, requesting permissions...")
-            sharedPrefs.edit().putBoolean("permissions_asked_on_role_screen", true).apply()
-
-            // Request notification permission first (Android 13+)
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU && !hasNotificationPermission) {
-                Timber.d("🔔 SelectRoleScreen - Requesting notification permission...")
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            } else if (!hasLocationPermission) {
-                // Skip notification, go straight to location
-                Timber.d("📍 SelectRoleScreen - Requesting location permission...")
-                locationPermissionLauncher.launch(
-                    arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                )
-            } else {
-                // Both permissions already granted
-                isVisible = true
-            }
-        } else {
-            // Permissions already asked before, just show the UI
-            Timber.d("📍 SelectRoleScreen - Permissions already asked, showing UI")
-            isVisible = true
-        }
     }
 
     Box(
@@ -334,13 +210,15 @@ fun SelectRoleScreen(
                         delay = 50,
                         onClick = {
                             Timber.d("🔍 Worker role selected")
+                            val targetRole = com.example.dutype.models.UserRole.WORKER
+                            scope.launch {
+                                profileCompletionViewModel.saveUserInfoToLocalStorage("", "", targetRole)
+                                com.example.dutype.navigation.StartDestinationCache.save(context, Routes.WORKER_HOME)
+                            }
                             if (onRoleSelected != null) {
                                 onRoleSelected.invoke("WORKER")
                             } else {
-                                // Navigate directly to Worker Home (guest mode)
-                                navController.navigate(Routes.WORKER_HOME) {
-                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                                }
+                                navController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
                             }
                         }
                     )
@@ -355,13 +233,15 @@ fun SelectRoleScreen(
                         delay = 150,
                         onClick = {
                             Timber.d("🔍 Employer role selected")
+                            val targetRole = com.example.dutype.models.UserRole.EMPLOYER
+                            scope.launch {
+                                profileCompletionViewModel.saveUserInfoToLocalStorage("", "", targetRole)
+                                com.example.dutype.navigation.StartDestinationCache.save(context, Routes.EMPLOYER_HOME)
+                            }
                             if (onRoleSelected != null) {
                                 onRoleSelected.invoke("EMPLOYER")
                             } else {
-                                // Navigate directly to Employer Home (guest mode)
-                                navController.navigate(Routes.EMPLOYER_HOME) {
-                                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
-                                }
+                                navController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER")
                             }
                         }
                     )

@@ -12,18 +12,22 @@ import javax.inject.Singleton
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
 
+import com.example.dutype.firestore.FirestoreCollections
+import timber.log.Timber
+
 @Singleton
 class SubscriptionRepository @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
     /**
      * Real-time listener to get subscription plans from Firestore configuration.
-     * Uses fallback plans if document doesn't exist or is empty.
+     * Uses fallback plans if document doesn't exist, has permission issues, or is empty.
      */
     fun getPlans(): Flow<List<Plan>> = callbackFlow {
-        val listener = firestore.collection("config").document("subscription_plans")
+        val listener = firestore.collection(FirestoreCollections.APP_CONFIG).document("subscription_plans")
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
+                    Timber.w(error, "Failed to get subscription plans from app_config, using fallback")
                     trySend(getFallbackPlans())
                     return@addSnapshotListener
                 }
@@ -51,13 +55,21 @@ class SubscriptionRepository @Inject constructor(
 
     /**
      * Real-time listener to get all active QR codes from Firestore.
+     * Protected against guest/unauthenticated crashes.
      */
     fun getActiveQrCodes(): Flow<List<QrCode>> = callbackFlow {
+        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        if (currentUser == null || currentUser.isAnonymous) {
+            trySend(emptyList())
+            awaitClose { }
+            return@callbackFlow
+        }
         val listener = firestore.collection("active_qr_codes")
             .whereEqualTo("isActive", true)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    Timber.w(error, "Failed to get active QR codes")
+                    trySend(emptyList())
                     return@addSnapshotListener
                 }
                 val qrs = snapshot?.documents?.mapNotNull { doc ->
@@ -102,11 +114,17 @@ class SubscriptionRepository @Inject constructor(
      * Real-time listener to get payment submissions history for an employer.
      */
     fun getPaymentRequests(employerId: String): Flow<List<PaymentRequest>> = callbackFlow {
+        if (employerId.isBlank()) {
+            trySend(emptyList())
+            awaitClose { }
+            return@callbackFlow
+        }
         val listener = firestore.collection("subscription_payment_requests")
             .whereEqualTo("employerId", employerId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    Timber.w(error, "Failed to get payment requests for employer $employerId")
+                    trySend(emptyList())
                     return@addSnapshotListener
                 }
                 val requests = snapshot?.documents?.mapNotNull { doc ->

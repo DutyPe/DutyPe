@@ -1,9 +1,18 @@
 package com.example.dutype.worker.screens
 
 import com.dutype.app.R
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.example.dutype.utils.AudioRecordingHelper
+import com.example.dutype.utils.AudioPlaybackHelper
+import java.io.File
+import kotlinx.coroutines.delay
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -15,6 +24,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.text.style.TextAlign
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -27,7 +37,6 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -135,6 +144,96 @@ fun JobApplicationScreen(
             applicationViewModel.clearError()
         }
     }
+
+    val recordingHelper = remember { AudioRecordingHelper(context) }
+    val playbackHelper = remember { AudioPlaybackHelper() }
+
+    var recordedAudioFile by remember { mutableStateOf<File?>(null) }
+    var recordedDurationSec by remember { mutableIntStateOf(0) }
+    var isRecording by remember { mutableStateOf(false) }
+    var recordingProgressSeconds by remember { mutableIntStateOf(0) }
+
+    val isPlayingPreview by playbackHelper.isPlaying.collectAsStateWithLifecycle()
+    val playbackProgress by playbackHelper.progress.collectAsStateWithLifecycle()
+
+    DisposableEffect(Unit) {
+        onDispose {
+            recordingHelper.cleanup()
+            playbackHelper.release()
+        }
+    }
+
+    LaunchedEffect(isRecording) {
+        if (isRecording) {
+            recordingProgressSeconds = 0
+            for (i in 1..15) {
+                delay(1000L)
+                if (!isRecording) break
+                recordingProgressSeconds = i
+                if (i >= 15) {
+                    val stopResult = recordingHelper.stopRecording()
+                    stopResult.onSuccess { (file, duration) ->
+                        recordedAudioFile = file
+                        recordedDurationSec = duration
+                    }
+                    isRecording = false
+                    break
+                }
+            }
+        } else {
+            recordingProgressSeconds = 0
+        }
+    }
+
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            playbackHelper.stop()
+            val result = recordingHelper.startRecording()
+            result.onSuccess {
+                isRecording = true
+                recordedAudioFile = null
+                recordedDurationSec = 0
+            }.onFailure {
+                Toast.makeText(context, "Failed to start recording: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Microphone permission is required to record voice intro", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    val handleStartRecording: () -> Unit = {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasPermission) {
+            playbackHelper.stop()
+            val result = recordingHelper.startRecording()
+            result.onSuccess {
+                isRecording = true
+                recordedAudioFile = null
+                recordedDurationSec = 0
+            }.onFailure {
+                Toast.makeText(context, "Failed to start recording: ${it.message}", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    val handleStopRecording: () -> Unit = {
+        val stopResult = recordingHelper.stopRecording()
+        stopResult.onSuccess { (file, duration) ->
+            recordedAudioFile = file
+            recordedDurationSec = duration
+        }.onFailure {
+            Toast.makeText(context, "Recording was too short, please try again", Toast.LENGTH_SHORT).show()
+        }
+        isRecording = false
+    }
     
     Column(
         modifier = Modifier
@@ -202,6 +301,31 @@ fun JobApplicationScreen(
 
                         Spacer(modifier = Modifier.height(12.dp))
 
+                        // 15-Sec Voice Intro Recording Card
+                        VoiceIntroRecordingCard(
+                            recordedAudioFile = recordedAudioFile,
+                            recordedDurationSec = recordedDurationSec,
+                            isRecording = isRecording,
+                            recordingProgressSeconds = recordingProgressSeconds,
+                            isPlayingPreview = isPlayingPreview,
+                            playbackProgress = playbackProgress,
+                            onStartRecording = handleStartRecording,
+                            onStopRecording = handleStopRecording,
+                            onTogglePlayPreview = {
+                                recordedAudioFile?.let { file ->
+                                    playbackHelper.playFile(file)
+                                }
+                            },
+                            onReRecord = {
+                                playbackHelper.stop()
+                                recordingHelper.cleanup()
+                                recordedAudioFile = null
+                                recordedDurationSec = 0
+                            }
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
                         WorkerWorkTipsSection()
 
                         Spacer(modifier = Modifier.height(24.dp))
@@ -223,7 +347,9 @@ fun JobApplicationScreen(
                             onSubmit = {
                                 applicationViewModel.applyForJob(
                                     jobId = jobId,
-                                    coverLetter = null
+                                    coverLetter = null,
+                                    audioFile = recordedAudioFile,
+                                    audioDurationSec = if (recordedAudioFile != null) recordedDurationSec else null
                                 )
                             }
                         )
@@ -461,6 +587,30 @@ private fun ApplicationSentSuccess(
         label = "tickAlpha"
     )
 
+    val context = LocalContext.current
+    val isTelugu = com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
+
+    val hasNotificationPermission = remember {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.POST_NOTIFICATIONS
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+    var showNotificationCard by remember { mutableStateOf(!hasNotificationPermission) }
+
+    val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        showNotificationCard = false
+        if (isGranted) {
+            Toast.makeText(context, if (isTelugu) "నోటిఫికేషన్లు ఆన్ చేయబడ్డాయి" else "Application alerts enabled", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -516,7 +666,67 @@ private fun ApplicationSentSuccess(
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        if (showNotificationCard) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF2563EB).copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = null,
+                            tint = Color(0xFF2563EB),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isTelugu) "ఎంప్లాయర్ కాల్‌ను మిస్ కాకండి!" else "Don't miss the employer's call!",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = Color(0xFF1E3A8A)
+                        )
+                        Text(
+                            text = if (isTelugu) "మిమ్మల్ని షార్ట్‌లిస్ట్ చేసినా లేదా సంప్రదించినా వెంటనే తెలుసుకోవడానికి నోటిఫికేషన్‌లను ఆన్ చేయండి." else "Turn on notifications to know instantly when this employer shortlists or contacts you.",
+                            fontSize = 12.sp,
+                            color = Color(0xFF3B82F6),
+                            lineHeight = 16.sp
+                        )
+                    }
+                    TextButton(
+                        onClick = {
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                        }
+                    ) {
+                        Text(
+                            text = if (isTelugu) "ఆన్ చేయండి" else "Turn On",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            color = Color(0xFF2563EB)
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         Button(
             onClick = if (canCallEmployer) onCallEmployer else onViewMyJobs,
@@ -754,5 +964,209 @@ private fun SubmitApplicationButton(
             ),
             modifier = Modifier.padding(horizontal = 8.dp)
         )
+    }
+}
+
+@Composable
+private fun VoiceIntroRecordingCard(
+    recordedAudioFile: File?,
+    recordedDurationSec: Int,
+    isRecording: Boolean,
+    recordingProgressSeconds: Int,
+    isPlayingPreview: Boolean,
+    playbackProgress: Float,
+    onStartRecording: () -> Unit,
+    onStopRecording: () -> Unit,
+    onTogglePlayPreview: () -> Unit,
+    onReRecord: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(
+            1.dp,
+            if (isRecording) Color(0xFFEF4444) else if (recordedAudioFile != null) Color(0xFF10B981) else Color(0xFFE2E8F0)
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .background(
+                            if (isRecording) Color(0xFFFEE2E2) else if (recordedAudioFile != null) Color(0xFFD1FAE5) else Color(0xFFEDE9FE),
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isRecording) Icons.Default.Mic else if (recordedAudioFile != null) Icons.Default.CheckCircle else Icons.Default.Mic,
+                        contentDescription = null,
+                        tint = if (isRecording) Color(0xFFDC2626) else if (recordedAudioFile != null) Color(0xFF059669) else Color(0xFF7C3AED),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "15-Sec Voice Intro",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = Color(0xFF1E293B)
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFFFEF3C7)
+                        ) {
+                            Text(
+                                text = "HIRE 3X FASTER",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFB45309),
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    Text(
+                        text = "Bolkar batayein: Naam, kaam ka anubhav, bike/licence",
+                        fontSize = 11.sp,
+                        color = Color(0xFF64748B)
+                    )
+                }
+            }
+
+            if (isRecording) {
+                // Recording active state
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFFEF2F2), RoundedCornerShape(12.dp))
+                        .padding(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .background(Color(0xFFDC2626), CircleShape)
+                        )
+                        Text(
+                            text = "Recording Voice Intro: 0:${recordingProgressSeconds.toString().padStart(2, '0')} / 0:15",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF991B1B)
+                        )
+                    }
+
+                    LinearProgressIndicator(
+                        progress = { (recordingProgressSeconds.toFloat() / 15f).coerceIn(0f, 1f) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = Color(0xFFDC2626),
+                        trackColor = Color(0xFFFECACA)
+                    )
+
+                    Button(
+                        onClick = onStopRecording,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Done Recording (15s Max)", fontWeight = FontWeight.Bold)
+                    }
+                }
+            } else if (recordedAudioFile != null) {
+                // Recorded state with preview player
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFF0FDF4), RoundedCornerShape(12.dp))
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF059669), modifier = Modifier.size(16.dp))
+                            Text(
+                                text = "Voice Intro Recorded (${recordedDurationSec}s)",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF065F46)
+                            )
+                        }
+                        TextButton(
+                            onClick = onReRecord,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, tint = Color(0xFF059669), modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Re-record", fontSize = 11.sp, color = Color(0xFF059669))
+                        }
+                    }
+
+                    LinearProgressIndicator(
+                        progress = { playbackProgress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = Color(0xFF059669),
+                        trackColor = Color(0xFFA7F3D0)
+                    )
+
+                    Button(
+                        onClick = onTogglePlayPreview,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = if (isPlayingPreview) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(if (isPlayingPreview) "Pause Preview" else "Listen Preview", fontWeight = FontWeight.Bold)
+                    }
+                }
+            } else {
+                // Idle state - tap to record
+                Button(
+                    onClick = onStartRecording,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Record 15-Sec Voice Intro", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
     }
 }

@@ -1,4 +1,4 @@
-﻿package com.example.dutype.components
+package com.example.dutype.components
 
 import com.dutype.app.R
 import android.widget.Toast
@@ -19,21 +19,22 @@ import androidx.compose.ui.text.font.FontWeight
 import com.example.dutype.models.JobListing
 import com.example.dutype.services.JobShareService
 
+import androidx.compose.ui.res.painterResource
+
 /**
- * Share Job Button Component - Industry Standard
+ * Share Job Button Component - WhatsApp Native Sharing
  * 
- * Simple text-based sharing following LinkedIn/Indeed/Swiggy best practices:
- * - Instant sharing (no image generation)
- * - Works perfectly on WhatsApp, SMS, Email
+ * Simple text-based sharing directly to WhatsApp with viral messaging:
+ * - Instant WhatsApp sharing with deep links
+ * - No Resume needed highlighted
  * - Android App Links (opens app if installed, else Play Store)
- * - Clean, professional format
  */
 
 @Composable
 fun ShareJobIconButton(
     job: JobListing,
     modifier: Modifier = Modifier,
-    tint: Color = Color(0xFF3B82F6)
+    tint: Color = Color(0xFF25D366) // WhatsApp Green
 ) {
     val context = LocalContext.current
     val jobShareService = remember { JobShareService() }
@@ -41,7 +42,7 @@ fun ShareJobIconButton(
     IconButton(
         onClick = {
             try {
-                jobShareService.shareJob(context, job)
+                jobShareService.shareJobToWhatsApp(context, job)
             } catch (e: Exception) {
                 Toast.makeText(context, context.getString(R.string.failed_share_job), Toast.LENGTH_SHORT).show()
             }
@@ -49,10 +50,10 @@ fun ShareJobIconButton(
         modifier = modifier
     ) {
         Icon(
-            imageVector = Icons.Default.Share,
+            painter = painterResource(id = R.drawable.ic_whatsapp),
             contentDescription = stringResource(R.string.share_job_content_description),
             tint = tint,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(24.dp)
         )
     }
 }

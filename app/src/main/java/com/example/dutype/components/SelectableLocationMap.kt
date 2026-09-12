@@ -1,4 +1,4 @@
-﻿package com.example.dutype.components
+package com.example.dutype.components
 
 import com.dutype.app.R
 import androidx.compose.ui.res.stringResource
@@ -49,103 +49,101 @@ fun SelectableLocationMap(
         return
     }
 
-    key(latitude, longitude) {
-        val selectedPoint = LatLng(latitude, longitude)
-        var isMapLoaded by remember(latitude, longitude) { mutableStateOf(false) }
-        var showFallback by remember(latitude, longitude) { mutableStateOf(false) }
-        val markerState = remember(latitude, longitude) { MarkerState(position = selectedPoint) }
-        val cameraPositionState = rememberCameraPositionState {
-            position = CameraPosition.fromLatLngZoom(selectedPoint, 16f)
+    val selectedPoint = LatLng(latitude, longitude)
+    var isMapLoaded by remember(latitude, longitude) { mutableStateOf(false) }
+    var showFallback by remember(latitude, longitude) { mutableStateOf(false) }
+    val markerState = remember(latitude, longitude) { MarkerState(position = selectedPoint) }
+    val cameraPositionState = rememberCameraPositionState(key = "$latitude,$longitude") {
+        position = CameraPosition.fromLatLngZoom(selectedPoint, 16f)
+    }
+    val mapProperties = remember { MapProperties(isBuildingEnabled = true) }
+    val mapUiSettings = remember {
+        MapUiSettings(
+            compassEnabled = true,
+            mapToolbarEnabled = false,
+            myLocationButtonEnabled = false,
+            rotationGesturesEnabled = false,
+            scrollGesturesEnabled = true,
+            tiltGesturesEnabled = false,
+            zoomControlsEnabled = false,
+            zoomGesturesEnabled = true
+        )
+    }
+
+    LaunchedEffect(markerState.position) {
+        val position = markerState.position
+        val moved = abs(position.latitude - latitude) > 0.000001 ||
+            abs(position.longitude - longitude) > 0.000001
+        if (moved) {
+            onLocationPicked(position.latitude, position.longitude)
         }
-        val mapProperties = remember { MapProperties(isBuildingEnabled = true) }
-        val mapUiSettings = remember {
-            MapUiSettings(
-                compassEnabled = true,
-                mapToolbarEnabled = false,
-                myLocationButtonEnabled = false,
-                rotationGesturesEnabled = false,
-                scrollGesturesEnabled = true,
-                tiltGesturesEnabled = false,
-                zoomControlsEnabled = false,
-                zoomGesturesEnabled = true
+    }
+
+    LaunchedEffect(latitude, longitude, isMapLoaded) {
+        showFallback = false
+        delay(5000)
+        if (!isMapLoaded) {
+            showFallback = true
+        }
+    }
+
+    Box(modifier = modifier) {
+        GoogleMap(
+            modifier = Modifier.fillMaxSize(),
+            cameraPositionState = cameraPositionState,
+            properties = mapProperties,
+            uiSettings = mapUiSettings,
+            onMapClick = { point ->
+                markerState.position = point
+                onLocationPicked(point.latitude, point.longitude)
+            },
+            onMapLoaded = { isMapLoaded = true }
+        ) {
+            Marker(
+                state = markerState,
+                title = markerTitle,
+                snippet = markerSnippet,
+                draggable = true
             )
         }
 
-        LaunchedEffect(markerState.position) {
-            val position = markerState.position
-            val moved = abs(position.latitude - latitude) > 0.000001 ||
-                abs(position.longitude - longitude) > 0.000001
-            if (moved) {
-                onLocationPicked(position.latitude, position.longitude)
-            }
-        }
-
-        LaunchedEffect(latitude, longitude, isMapLoaded) {
-            showFallback = false
-            delay(5000)
-            if (!isMapLoaded) {
-                showFallback = true
-            }
-        }
-
-        Box(modifier = modifier) {
-            GoogleMap(
-                modifier = Modifier.fillMaxSize(),
-                cameraPositionState = cameraPositionState,
-                properties = mapProperties,
-                uiSettings = mapUiSettings,
-                onMapClick = { point ->
-                    markerState.position = point
-                    onLocationPicked(point.latitude, point.longitude)
-                },
-                onMapLoaded = { isMapLoaded = true }
+        if (!isMapLoaded) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(WorkerColors.ChipBackground),
+                contentAlignment = Alignment.Center
             ) {
-                Marker(
-                    state = markerState,
-                    title = markerTitle,
-                    snippet = markerSnippet,
-                    draggable = true
-                )
-            }
-
-            if (!isMapLoaded) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(WorkerColors.ChipBackground),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (showFallback) {
-                        Column(
-                            modifier = Modifier.padding(20.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = stringResource(R.string.auto_map_unavailable),
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = WorkerColors.TextPrimary,
-                                    fontWeight = FontWeight.SemiBold,
-                                    textAlign = TextAlign.Center
-                                )
+                if (showFallback) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = stringResource(R.string.auto_map_unavailable),
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = WorkerColors.TextPrimary,
+                                fontWeight = FontWeight.SemiBold,
+                                textAlign = TextAlign.Center
                             )
-                            Text(
-                                text = "${String.format(java.util.Locale.US, "%.6f", latitude)}, ${String.format(java.util.Locale.US, "%.6f", longitude)}",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = WorkerColors.TextSecondary,
-                                    textAlign = TextAlign.Center
-                                ),
-                                modifier = Modifier.padding(top = 6.dp)
-                            )
-                        }
-                    } else {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            color = WorkerColors.TextPrimary,
-                            strokeWidth = 2.dp
+                        )
+                        Text(
+                            text = "${String.format(java.util.Locale.US, "%.6f", latitude)}, ${String.format(java.util.Locale.US, "%.6f", longitude)}",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = WorkerColors.TextSecondary,
+                                textAlign = TextAlign.Center
+                            ),
+                            modifier = Modifier.padding(top = 6.dp)
                         )
                     }
+                } else {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = WorkerColors.TextPrimary,
+                        strokeWidth = 2.dp
+                    )
                 }
             }
         }
     }
-}
+}

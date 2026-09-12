@@ -9,6 +9,7 @@ object Routes {
     const val PRIVACY_POLICY = "privacy_policy"
     const val REGISTER = "register"
     const val SELECT_ROLE = "select_role"
+    const val SETTINGS = "settings"
     const val WORKER_HOME = "worker_home"
     const val EMPLOYER_HOME = "employer_home"
     const val EMPLOYER_COMPANY_DETAILS = "employer_company_details"

@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -40,6 +41,7 @@ import com.example.dutype.data.JobDraftDataStore
 import com.example.dutype.employer.models.JobCategory
 import com.example.dutype.employer.models.PayType
 import com.example.dutype.employer.models.ShiftTiming
+import com.example.dutype.models.InstantRequest
 import com.example.dutype.models.InstantResponse
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
@@ -93,6 +95,8 @@ fun EmployerHistoryScreen(
     var showRatingSheet by remember { mutableStateOf(false) }
     var ratedResponseIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var repostingJobId by remember { mutableStateOf<String?>(null) }
+    var showDeleteUrgentConfirm by remember { mutableStateOf(false) }
+    var urgentRequestToDelete by remember { mutableStateOf<InstantRequest?>(null) }
     
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
@@ -146,6 +150,37 @@ fun EmployerHistoryScreen(
                             }
                         )
                     }
+                }
+            }
+        )
+    }
+
+    if (showDeleteUrgentConfirm && urgentRequestToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteUrgentConfirm = false },
+            title = { Text("Delete Urgent Post") },
+            text = { Text("Are you sure you want to delete this urgent post? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val req = urgentRequestToDelete
+                        if (req == null) return@TextButton
+                        showDeleteUrgentConfirm = false
+                        instantHelpViewModel.deleteEmployerInstantRequest(req.requestId) { success ->
+                            if (success) {
+                                Toast.makeText(context, "Post deleted successfully", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Failed to delete post", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                ) {
+                    Text("Delete", color = EmployerColors.Error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteUrgentConfirm = false }) {
+                    Text(stringResource(R.string.close))
                 }
             }
         )
@@ -280,6 +315,10 @@ fun EmployerHistoryScreen(
                 },
                 onMarkRequestFilled = { request -> instantHelpViewModel.markEmployerInstantRequestFilled(request) },
                 onCancelRequest = { request -> instantHelpViewModel.cancelEmployerInstantRequest(request, "Cancelled from employer history") },
+                onDeleteRequest = { request ->
+                    urgentRequestToDelete = request
+                    showDeleteUrgentConfirm = true
+                },
                 onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
             )
         } else when {
@@ -347,11 +386,11 @@ fun EmployerHistoryScreen(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(
+                        itemsIndexed(
                             items = filteredJobs,
-                            key = { job -> "emphistory_${job.id}" },
-                            contentType = { "employer_history_card" }
-                        ) { job ->
+                            key = { index, job -> "emphistory_${job.id.ifBlank { "job" }}_$index" },
+                            contentType = { _, _ -> "employer_history_card" }
+                        ) { _, job ->
                             HistoryJobCard(
                                 job = job,
                                 currentTime = currentTime,
@@ -389,11 +428,11 @@ private fun TimelineView(
             }
             
             // Timeline items for this month
-            items(
+            itemsIndexed(
                 items = jobs,
-                key = { job -> "emptimeline_${job.id}" },
-                contentType = { "employer_timeline_card" }
-            ) { job ->
+                key = { index, job -> "emptimeline_${job.id.ifBlank { "job" }}_$index" },
+                contentType = { _, _ -> "employer_timeline_card" }
+            ) { _, job ->
                 val isLastInMonth = jobs.last() == job
                 TimelineJobCard(
                     job = job,

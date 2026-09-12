@@ -22,6 +22,7 @@ type DashboardSnapshot = {
   pendingApplications: number;
   totalReferrals: number;
   completedReferrals: number;
+  stateStats: Record<string, { workers: number; employers: number; total: number }>;
   recentJobs: {
     id: string;
     title: string;
@@ -190,7 +191,10 @@ export function AdminDashboardClient() {
     async function load() {
       try {
         const [usersRes, jobsRes, applicationsRes, referralsRes] = await Promise.all([
-          fetchAdminJson<{ users?: Array<{ id: string } & Record<string, unknown>> }>(
+          fetchAdminJson<{
+            users?: Array<{ id: string } & Record<string, unknown>>;
+            stateCounts?: Record<string, { workers: number; employers: number; admins: number; total: number }>;
+          }>(
             "/api/admin/users",
             { users: [] }
           ),
@@ -209,6 +213,8 @@ export function AdminDashboardClient() {
         ]);
 
         const users = usersRes.data.users ?? [];
+        const stateStats: Record<string, { workers: number; employers: number; total: number }> =
+          usersRes.data.stateCounts ?? {};
         const jobs = jobsRes.data.jobs ?? [];
         const applications = applicationsRes.data.applications ?? [];
         const referrals = referralsRes.data.referrals ?? [];
@@ -256,6 +262,7 @@ export function AdminDashboardClient() {
             }).length,
             totalReferrals: referrals.length,
             completedReferrals: referrals.filter((r: any) => String(r.status ?? "").trim().toUpperCase() === "COMPLETED").length,
+            stateStats,
             recentJobs: sortedJobs.map((j: any) => ({
               id: j.id,
               title: j.title ?? "Untitled",
@@ -357,6 +364,84 @@ export function AdminDashboardClient() {
             <span>Referrals</span>
             <small>{s.completedReferrals} completed</small>
           </div>
+        </div>
+      </div>
+
+      {/* State-wise Distribution */}
+      <div className="admin-section">
+        <div className="admin-section-header">
+          <h2 className="admin-section-title">📍 State-Wise User Distribution</h2>
+          <Link href="/admin/users" className="admin-view-all">View user directory →</Link>
+        </div>
+        
+        {/* Highlight Cards for Top Focus States */}
+        <div className="admin-stats-grid small" style={{ marginBottom: "1rem" }}>
+          {["Telangana", "Andhra Pradesh"].map((st) => {
+            const counts = s.stateStats[st] || { workers: 0, employers: 0, total: 0 };
+            return (
+              <div key={st} className="admin-stat-card" style={{ borderLeft: "4px solid #0969da" }}>
+                <div className="admin-stat-icon" style={{ background: "#ddf4ff" }}>🏛️</div>
+                <div className="admin-stat-info">
+                  <strong style={{ fontSize: "1.1rem" }}>{st}</strong>
+                  <span>{counts.total} Total Users</span>
+                  <small style={{ fontWeight: 600, color: "#1a7f37" }}>
+                    👷 {counts.workers} Workers · 🏢 {counts.employers} Employers
+                  </small>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* State Breakdown Table */}
+        <div className="admin-table-container">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>State / Region</th>
+                <th style={{ textAlign: "right" }}>👷 Workers</th>
+                <th style={{ textAlign: "right" }}>🏢 Employers</th>
+                <th style={{ textAlign: "right" }}>Total Users</th>
+                <th style={{ minWidth: "140px" }}>Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(s.stateStats).length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: "center", color: "#6e7781", padding: "1.2rem" }}>
+                    No location data available yet
+                  </td>
+                </tr>
+              ) : (
+                Object.entries(s.stateStats)
+                  .sort((a, b) => b[1].total - a[1].total)
+                  .map(([stateName, counts]) => {
+                    const pct = s.totalUsers > 0 ? Math.round((counts.total / s.totalUsers) * 100) : 0;
+                    return (
+                      <tr key={stateName}>
+                        <td>
+                          <strong>{stateName}</strong>
+                          {stateName === "Telangana" || stateName === "Andhra Pradesh" ? (
+                            <span className="status-pill success" style={{ marginLeft: "8px", fontSize: "10px" }}>Primary</span>
+                          ) : null}
+                        </td>
+                        <td style={{ textAlign: "right", fontWeight: 600, color: "#0969da" }}>{counts.workers}</td>
+                        <td style={{ textAlign: "right", fontWeight: 600, color: "#8250df" }}>{counts.employers}</td>
+                        <td style={{ textAlign: "right", fontWeight: 700 }}>{counts.total}</td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <div style={{ flex: 1, height: "8px", background: "#eaeef2", borderRadius: "4px", overflow: "hidden" }}>
+                              <div style={{ width: `${Math.min(pct, 100)}%`, height: "100%", background: "#0969da", borderRadius: "4px" }} />
+                            </div>
+                            <span style={{ fontSize: "12px", color: "#57609a", minWidth: "32px", textAlign: "right" }}>{pct}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

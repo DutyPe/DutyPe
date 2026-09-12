@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -262,10 +263,10 @@ fun WorkerNotificationScreen(
                     state = listState,
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
-                    items(
+                    itemsIndexed(
                         items = uiState.notifications,
-                        key = { it.id }
-                    ) { notification ->
+                        key = { index, notification -> "${notification.id.ifBlank { "notif" }}_$index" }
+                    ) { _, notification ->
                         SwipeToDeleteNotificationItem(
                             notification = notification,
                             onNotificationClick = { 

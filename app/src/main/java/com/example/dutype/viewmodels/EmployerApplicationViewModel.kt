@@ -713,63 +713,26 @@ class EmployerApplicationViewModel @Inject constructor(
      * Consumes 1 instant credit (contact credit). If 0, redirects to Subscription screen.
      */
     fun unlockContact(applicationId: String, onSuccess: () -> Unit, onPaymentRequired: () -> Unit) {
-        val subscription = userMetadata.subscription.value
-        Timber.d("[EmployerVM] unlockContact called for $applicationId. Instant credits: ${subscription.instantCredits}")
+        Timber.d("[EmployerVM] unlockContact called for $applicationId (free unlock active)")
         
-        if (subscription.instantCredits > 0) {
-            viewModelScope.launch {
-                try {
-                    val uid = auth.currentUser?.uid ?: return@launch
-                    Timber.d("[EmployerVM] Proceeding to unlock contact for $applicationId with uid: $uid")
-                    
-                    val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                    db.runTransaction { transaction ->
-                        val ref = db.collection("employer_profiles").document(uid)
-                        val snap = transaction.get(ref)
-                        @Suppress("UNCHECKED_CAST")
-                        val subMap = snap.get("subscription") as? Map<String, Any?>
-                        if (subMap != null) {
-                            @Suppress("UNCHECKED_CAST")
-                            val creditsMap = subMap["credits"] as? Map<String, Any?>
-                            val instantCredits = (creditsMap?.get("instant") as? Number)?.toInt() ?: 0
-                            Timber.d("[EmployerVM] Firestore instant credits: $instantCredits")
-                            
-                            if (instantCredits > 0) {
-                                val newCreditsMap = creditsMap?.toMutableMap() ?: mutableMapOf()
-                                newCreditsMap["instant"] = instantCredits - 1
-                                val newSubMap = subMap.toMutableMap()
-                                newSubMap["credits"] = newCreditsMap
-                                transaction.update(
-                                    ref,
-                                    mapOf(
-                                        "subscription" to newSubMap,
-                                        "unlockedContacts" to com.google.firebase.firestore.FieldValue.arrayUnion(applicationId)
-                                    )
-                                )
-                                Timber.d("[EmployerVM] Transaction success, credits deducted and contact added to unlockedContacts array")
-                            } else {
-                                Timber.w("[EmployerVM] Transaction failed: no credits in firestore")
-                                throw Exception("No credits")
-                            }
-                        } else {
-                            Timber.w("[EmployerVM] Transaction failed: subMap is null")
-                            throw Exception("subMap is null")
-                        }
-                    }.await()
-                    
-                    Timber.d("[EmployerVM] Updating UI state with unlocked contact")
-                    _uiState.update { state ->
-                        state.copy(unlockedContacts = state.unlockedContacts + applicationId)
-                    }
-                    onSuccess()
-                } catch (e: Exception) {
-                    Timber.e(e, "[EmployerVM] Transaction failed with exception, triggering onPaymentRequired")
-                    onPaymentRequired()
+        viewModelScope.launch {
+            try {
+                val uid = auth.currentUser?.uid ?: return@launch
+                Timber.d("[EmployerVM] Proceeding to unlock contact for $applicationId with uid: $uid")
+                
+                val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                val ref = db.collection("employer_profiles").document(uid)
+                ref.update("unlockedContacts", com.google.firebase.firestore.FieldValue.arrayUnion(applicationId)).await()
+                
+                Timber.d("[EmployerVM] Contact unlocked successfully in Firestore")
+                _uiState.update { state ->
+                    state.copy(unlockedContacts = state.unlockedContacts + applicationId)
                 }
+                onSuccess()
+            } catch (e: Exception) {
+                Timber.e(e, "[EmployerVM] unlockContact failed with exception")
+                onPaymentRequired()
             }
-        } else {
-            Timber.w("[EmployerVM] Local state shows no credits, triggering onPaymentRequired")
-            onPaymentRequired()
         }
     }
     

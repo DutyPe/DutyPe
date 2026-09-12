@@ -290,6 +290,39 @@ private fun OtpLoginScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Continue as Guest / Skip Button
+                    Surface(
+                        onClick = {
+                            val targetHome = if (role == UserRole.EMPLOYER) Routes.EMPLOYER_HOME else Routes.WORKER_HOME
+                            navController.navigate(targetHome) {
+                                popUpTo(Routes.SELECT_ROLE) { inclusive = false }
+                            }
+                        },
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color(0xFFEFF6FF),
+                        border = BorderStroke(1.dp, BrandBlueBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.skip_for_now),
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = BrandBluePrimary
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                tint = BrandBluePrimary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+
                     // WhatsApp Help Button
                     Surface(
                         onClick = {
@@ -572,7 +605,7 @@ private fun OtpLoginScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }

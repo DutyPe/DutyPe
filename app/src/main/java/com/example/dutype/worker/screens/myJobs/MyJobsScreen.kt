@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.screens.myJobs
+package com.example.dutype.worker.screens.myJobs
 
 import com.dutype.app.R
 import androidx.compose.animation.AnimatedVisibility
@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -327,7 +328,7 @@ fun MyJobsScreen(
                                     top = 16.dp,
                                     start = 16.dp,
                                     end = 16.dp,
-                                    bottom = 0.dp
+                                    bottom = 100.dp
                                 ),
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                                 scrollStateManager = scrollStateManager
@@ -369,7 +370,7 @@ fun MyJobsScreen(
                                     top = 16.dp,
                                     start = 16.dp,
                                     end = 16.dp,
-                                    bottom = 0.dp
+                                    bottom = 100.dp
                                 ),
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                                 scrollStateManager = scrollStateManager
@@ -385,10 +386,10 @@ fun MyJobsScreen(
                                         )
                                     }
                                 } else {
-                                    items(
+                                    itemsIndexed(
                                         items = filteredApplications,
-                                        key = { application -> "myjobs_${application.id}" }
-                                    ) { application ->
+                                        key = { index, application -> "myjobs_${application.id.ifBlank { "app" }}_$index" }
+                                    ) { _, application ->
                                         JobApplicationCard(
                                             application = application,
                                             onCardClick = { app ->
@@ -426,30 +427,6 @@ fun MyJobsScreen(
                 )
             }
         }
-        }
-        
-        // Home FAB
-        FloatingActionButton(
-            onClick = {
-                kotlin.runCatching {
-                    navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
-                        popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.HOME) { inclusive = false }
-                        launchSingleTop = true
-                    }
-                }.onFailure { error ->
-                    Timber.e(error, "Failed to navigate to home tab from my jobs FAB")
-                }
-            },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 76.dp, end = 16.dp),
-            containerColor = WorkerColors.Primary,
-            contentColor = Color.White
-        ) {
-            Icon(
-                imageVector = Icons.Default.Home,
-                contentDescription = "Home"
-            )
         }
     }
     

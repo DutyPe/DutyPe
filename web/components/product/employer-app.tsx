@@ -612,8 +612,39 @@ export function EmployerPostJobClient({ session }: SharedProps) {
       setSubmitting(true);
       setError(null);
 
-      const jobRef = doc(collection(activeServices.db, "jobs"));
+      // Check daily limit of 3 free jobs if user does not have an active subscription
+      const profileDoc = await getDoc(doc(activeServices.db, "employer_profiles", activeUser.uid));
+      const profileData = profileDoc.exists() ? profileDoc.data() : null;
+      const sub = profileData?.subscription || null;
       const currentTime = Date.now();
+      const isExpired = sub?.expiryDate > 0 && sub?.expiryDate < currentTime;
+      const hasActiveSubscription = sub?.status !== "NONE" && !isExpired && sub?.credits?.normal > 0;
+
+      if (!hasActiveSubscription) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStart = today.getTime();
+
+        const allJobsSnap = await getDocs(
+          query(
+            collection(activeServices.db, "jobs"),
+            where("employerId", "==", activeUser.uid)
+          )
+        );
+
+        const todayJobsCount = allJobsSnap.docs.filter((doc) => {
+          const data = doc.data();
+          return data.createdAt && data.createdAt >= todayStart;
+        }).length;
+
+        if (todayJobsCount >= 3) {
+          setError("You have reached the daily limit of 3 free job posts. Please try again tomorrow!");
+          setSubmitting(false);
+          return;
+        }
+      }
+
+      const jobRef = doc(collection(activeServices.db, "jobs"));
       const vacancies = Math.max(1, Number(form.vacancies || "1"));
       const latitude = Number(form.latitude);
       const longitude = Number(form.longitude);

@@ -1,9 +1,11 @@
 package com.example.dutype.worker.screens.profile
 
 import com.dutype.app.R
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,10 +30,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.DateRange
@@ -48,6 +53,7 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -96,6 +102,7 @@ import com.example.dutype.data.ApplicationFormDataStore
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.ScrollStateManager
+import com.example.dutype.utils.findActivity
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.viewmodels.ProfileViewModel
 import com.example.dutype.worker.models.PersonalInfo
@@ -454,7 +461,7 @@ fun WorkerProfileScreen(
             
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(vertical = 0.dp)
+                contentPadding = PaddingValues(top = 0.dp, bottom = 100.dp)
         ) {
         // User Profile Card
         item {
@@ -686,41 +693,32 @@ fun WorkerProfileScreen(
             }
         }
         
-        // Official WhatsApp Community Card
-        item {
-            Spacer(modifier = Modifier.height(12.dp))
-            com.example.dutype.components.DutyPeWhatsAppCommunityCard(
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-        }
-        
         // My Activity Section
         item {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.profile_my_activity),
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF64748B),
+                    fontSize = 12.sp
+                ),
+                modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
+            )
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.Transparent
-                ),
-                shape = RoundedCornerShape(0.dp),
-                border = null,
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(0.6.dp, Color(0xFFE2E8F0))
             ) {
                 Column {
-                    // Section Header
-                    Text(
-                        text = stringResource(R.string.profile_my_activity),
-                        style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
-                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                        ),
-                        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
-                    )
-                    
                     MeeshoMenuItem(
                         icon = Icons.Outlined.Description,
                         title = stringResource(R.string.my_applications),
+                        iconColor = Color(0xFF2563EB),
                         onClick = { 
                             if (currentUserId.isEmpty()) {
                                 pendingMenuAction = "applications"
@@ -731,11 +729,12 @@ fun WorkerProfileScreen(
                         }
                     )
                     
-                    MenuDivider()
+                    HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
 
                     MeeshoMenuItem(
                         icon = Icons.Outlined.Star,
                         title = stringResource(R.string.my_earnings),
+                        iconColor = Color(0xFF10B981),
                         onClick = { 
                             if (currentUserId.isEmpty()) {
                                 pendingMenuAction = "earnings"
@@ -745,40 +744,38 @@ fun WorkerProfileScreen(
                             }
                         }
                     )
-                    
                 }
             }
         }
         
         // Rewards Section
         item {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.profile_rewards),
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF64748B),
+                    fontSize = 12.sp
+                ),
+                modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
+            )
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.Transparent
-                ),
-                shape = RoundedCornerShape(0.dp),
-                border = null,
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(0.6.dp, Color(0xFFE2E8F0))
             ) {
                 Column {
-                    Text(
-                        text = stringResource(R.string.profile_rewards),
-                        style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
-                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                        ),
-                        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
-                    )
-                    
                     MeeshoMenuItem(
                         icon = Icons.Outlined.CardGiftcard,
                         title = stringResource(R.string.refer_earn),
                         badgeText = stringResource(R.string.profile_badge_new),
+                        iconColor = Color(0xFF8B5CF6),
                         onClick = { 
-                            // Refer & Earn requires login
                             if (currentUserId.isNotEmpty()) {
                                 localNavController?.navigate(Routes.WORKER_REFER_EARN) ?: rootNavController.navigate(Routes.WORKER_REFER_EARN)
                             } else {
@@ -793,105 +790,93 @@ fun WorkerProfileScreen(
         
         // Others Section
         item {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = stringResource(R.string.profile_others),
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF64748B),
+                    fontSize = 12.sp
+                ),
+                modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
+            )
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.Transparent
-                ),
-                shape = RoundedCornerShape(0.dp),
-                border = null,
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                border = BorderStroke(0.6.dp, Color(0xFFE2E8F0))
             ) {
                 Column {
-                    Text(
-                        text = stringResource(R.string.profile_others),
-                        style = com.example.dutype.ui.theme.AppTypography.sectionHeader.copy(
-                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                        ),
-                        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
-                    )
-                    
-                    // Help & FAQs - First item
+                    // Help & FAQs
                     MeeshoMenuItem(
                         icon = Icons.Outlined.Phone,
                         title = stringResource(R.string.help_faqs),
+                        iconColor = Color(0xFF0EA5E9),
                         onClick = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) }
                     )
                     
-                    MenuDivider()
+                    HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
                     
-                    // Role switching is not supported; accounts are single-role for life.
-                    
-                    // About Us - Available without login
+                    // About Us
                     MeeshoMenuItem(
                         icon = Icons.Outlined.Info,
                         title = stringResource(R.string.about_us),
+                        iconColor = Color(0xFF6366F1),
                         onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) }
                     )
 
-                    MenuDivider()
+                    HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
 
-                    // Privacy Policy
+                    // Settings
                     MeeshoMenuItem(
-                        icon = Icons.Outlined.Security,
-                        title = "Privacy Policy",
-                        onClick = { rootNavController.navigate(Routes.PRIVACY_POLICY) }
+                        icon = Icons.Outlined.Settings,
+                        title = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "సెట్టింగ్‌లు" else "Settings",
+                        iconColor = Color(0xFF64748B),
+                        onClick = { rootNavController.navigate(Routes.SETTINGS) }
                     )
 
-                    MenuDivider()
+                    HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
 
-                    // Terms of Service
+                    // Rate on Play Store
                     MeeshoMenuItem(
-                        icon = Icons.Outlined.Description,
-                        title = "Terms of Service",
-                        onClick = { rootNavController.navigate(Routes.TERMS_OF_SERVICE) }
+                        icon = Icons.Outlined.Star,
+                        title = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "ప్లే స్టోర్‌లో రేటింగ్ ఇవ్వండి (5★)" else "Rate DutyPe on Play Store (5★)",
+                        iconColor = Color(0xFFF59E0B),
+                        onClick = {
+                            val inAppReviewManager = com.example.dutype.utils.InAppReviewManager(context)
+                            inAppReviewManager.openPlayStore(context)
+                        }
                     )
 
-                    MenuDivider()
-                }
-            }
-        }
-        
-        // Follow Us Section - COMMENTED OUT
-        /*
-        item {
-            FollowUsSection()
-        }
-        */
-        
-        // Logout & Delete Account Menu Card
-        item {
-            if (currentUserId.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color.Transparent
-                    ),
-                    border = null,
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    shape = RoundedCornerShape(0.dp)
-                ) {
-                    Column {
-                        MeeshoMenuItem(
-                            icon = Icons.AutoMirrored.Outlined.ExitToApp,
-                            title = stringResource(R.string.log_out),
-                            isDestructive = false,
-                            onClick = { showLogoutDialog = true }
-                        )
-                        MenuDivider()
-                        MeeshoMenuItem(
-                            icon = Icons.Default.DeleteForever,
-                            title = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "ఖాతా శాశ్వతంగా తొలగించు" else "Delete Account & Data",
-                            isDestructive = true,
-                            onClick = { showAccountDeletionDialog = true }
-                        )
-                    }
+                    HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
+
+                    // Join DutyPe Jobs WhatsApp Group
+                    val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
+                    MeeshoMenuItem(
+                        icon = Icons.AutoMirrored.Filled.Chat,
+                        title = if (isTelugu) "డ్యూటీపే జాబ్స్ వాట్సాప్ గ్రూప్" else "Join DutyPe Jobs Group",
+                        subtitle = if (isTelugu) "తాజా జాబ్ అప్‌డేట్‌లు & డైరెక్ట్ నోటిఫికేషన్లు" else "Daily job updates & direct hiring on WhatsApp",
+                        iconColor = Color(0xFF25D366),
+                        onClick = {
+                            val whatsAppGroupUrl = "https://chat.whatsapp.com/ITnhw0jk2G0I9TNlDCaNQI?s=cl&p=a&ilr=4"
+                            try {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(whatsAppGroupUrl)).apply {
+                                    setPackage("com.whatsapp")
+                                }
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                                try {
+                                    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(whatsAppGroupUrl))
+                                    context.startActivity(browserIntent)
+                                } catch (_: Exception) {
+                                    android.widget.Toast.makeText(context, "Unable to open WhatsApp link", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    )
                 }
             }
         }
@@ -1287,87 +1272,88 @@ private fun ModernEditDialog(
 // ============================================
 
 /**
- * Meesho-style menu item with clean design - supports custom icon colors
+ * Modern profile menu item with colored circle icon container matching SettingsScreen
  */
 @Composable
 private fun MeeshoMenuItem(
     icon: ImageVector,
     title: String,
-    onClick: () -> Unit,
+    subtitle: String? = null,
     badgeText: String? = null,
     isDestructive: Boolean = false,
-    iconColor: Color? = null
+    iconColor: Color = Color(0xFF2563EB),
+    onClick: () -> Unit
 ) {
-    val resolvedIconColor = when {
-        isDestructive -> com.example.dutype.ui.theme.WorkerColors.Error
-        iconColor != null -> iconColor
-        else -> com.example.dutype.ui.theme.WorkerColors.IconPrimary
-    }
-
-    val iconBgColor = when {
-        isDestructive -> Color(0xFFFEE2E2)
-        iconColor != null -> iconColor.copy(alpha = 0.1f)
-        else -> com.example.dutype.ui.theme.WorkerColors.ChipBackground
-    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(0.dp))
-            .clickable { onClick() }
-            .padding(horizontal = 4.dp, vertical = 6.dp),
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Apr 2026: icon background removed for a flat, divider-only look.
         Box(
-            modifier = Modifier.size(40.dp),
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(if (isDestructive) Color(0xFFFEE2E2) else iconColor.copy(alpha = 0.1f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = resolvedIconColor,
+                tint = if (isDestructive) Color(0xFFDC2626) else iconColor,
                 modifier = Modifier.size(20.dp)
             )
         }
 
         Spacer(modifier = Modifier.width(14.dp))
 
-        Text(
-            text = title,
-            style = com.example.dutype.ui.theme.AppTypography.menuItemTitle.copy(
-                color = if (isDestructive)
-                    com.example.dutype.ui.theme.WorkerColors.Error
-                else
-                    com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                fontWeight = FontWeight.Medium,
-                fontSize = 15.sp
-            ),
-            modifier = Modifier.weight(1f)
-        )
-
-        // Badge
-        if (badgeText != null) {
-            Box(
-                modifier = Modifier
-                    .background(Color(0xFFEEF2FF), RoundedCornerShape(0.dp))
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
-            ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = badgeText,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF4F46E5)
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isDestructive) Color(0xFFDC2626) else Color(0xFF0F172A),
+                        fontSize = 15.sp
+                    )
+                )
+                if (!badgeText.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFFEEF2FF))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = badgeText,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color(0xFF4F46E5),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            )
+                        )
+                    }
+                }
+            }
+            if (!subtitle.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF64748B),
+                        fontSize = 12.sp
+                    )
                 )
             }
-            Spacer(modifier = Modifier.width(8.dp))
         }
 
         Icon(
-            imageVector = Icons.Default.ChevronRight,
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
-            tint = com.example.dutype.ui.theme.WorkerColors.IconSecondary,
-            modifier = Modifier.size(20.dp)
+            tint = Color(0xFF94A3B8),
+            modifier = Modifier.size(18.dp)
         )
     }
 }
@@ -1442,7 +1428,7 @@ private fun MenuDivider() {
 @Composable
 private fun FollowUsSection() {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val whatsAppChannelUrl = "https://whatsapp.com/channel/0029VbBdNOQ1iUxZMmvg8t2G"
+    val whatsAppChannelUrl = "https://chat.whatsapp.com/ITnhw0jk2G0I9TNlDCaNQI?s=cl&p=a&ilr=4"
     val instagramUrl = "https://www.instagram.com/dutype.in"
     
     Card(

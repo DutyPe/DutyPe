@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
@@ -240,51 +241,60 @@ fun EmptyJobsState(
     navController: NavController? = null,
     currentLocationName: String? = null,
     isAppliedAllVariant: Boolean = false,
-    @Suppress("UNUSED_PARAMETER") suggestedCities: List<TopCityChips.CityLocationChip> = emptyList(),
-    @Suppress("UNUSED_PARAMETER") onCitySelected: (TopCityChips.CityLocationChip) -> Unit = {}
+    suggestedCities: List<TopCityChips.CityLocationChip> = emptyList(),
+    onCitySelected: (TopCityChips.CityLocationChip) -> Unit = {},
+    onHelpDesk: (() -> Unit)? = null
 ) {
-    val locationLabel = currentLocationName?.let { "near \"$it\"" } ?: "in your area"
-    val humorPool = if (isAppliedAllVariant) WorkerAppliedAllHumorMessages else WorkerEmptyHumorMessages
-    // Pick a stable random message per location so it does not flicker on recomposition.
-    val humorMessage = remember(currentLocationName, isAppliedAllVariant) {
-        humorPool.random()
-    }
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 24.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(0.dp),
-            modifier = Modifier.padding(horizontal = 32.dp)
-        ) {
-            JobHuntingIllustration(isAppliedAllVariant = isAppliedAllVariant)
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Text(
-                text = if (isAppliedAllVariant) "You are on top of it!" else "No jobs $locationLabel",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                ),
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = humorMessage,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = WorkerColors.TextSecondary,
-                    lineHeight = 22.sp
-                ),
-                textAlign = TextAlign.Center
-            )
+    if (isAppliedAllVariant) {
+        val humorPool = WorkerAppliedAllHumorMessages
+        val humorMessage = remember(currentLocationName) {
+            humorPool.random()
         }
+
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(vertical = 24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(0.dp),
+                modifier = Modifier.padding(horizontal = 32.dp)
+            ) {
+                JobHuntingIllustration(isAppliedAllVariant = true)
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Text(
+                    text = "You are on top of it!",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                    ),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = humorMessage,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = WorkerColors.TextSecondary,
+                        lineHeight = 22.sp
+                    ),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    } else {
+        com.example.dutype.components.DutyPeExpandingLocationState(
+            modifier = modifier,
+            locationName = currentLocationName,
+            suggestedCities = suggestedCities,
+            onCitySelected = onCitySelected,
+            onHelpDesk = onHelpDesk
+        )
     }
 }
 
@@ -528,8 +538,7 @@ fun HomeSectionsContent(
     onCallInstantRequest: (InstantRequest) -> Unit = {},
     onAcceptWorkerJobRequest: (WorkerJobRequest) -> Unit = {},
     onRejectWorkerJobRequest: (WorkerJobRequest) -> Unit = {},
-    onOpenWorkerJobRequest: (WorkerJobRequest) -> Unit = {}
-,
+    onOpenWorkerJobRequest: (WorkerJobRequest) -> Unit = {},
     todayEarningsAmount: Double = 0.0,
     todayJobsDone: Int = 0,
     thisWeekEarningsAmount: Double = 0.0,
@@ -537,7 +546,9 @@ fun HomeSectionsContent(
     ratingValue: Float = 0f,
     reviewCount: Int = 0,
     appliedJobsCount: Int = 0,
-    promoBannerUrl: String = ""
+    promoBannerUrl: String = "",
+    onRequestLocationPermission: () -> Unit = {},
+    headerContent: @Composable () -> Unit = {}
 ) {
     val workerHomeViewModel: com.example.dutype.viewmodels.WorkerHomeViewModel = hiltViewModel()
     val recentHires by workerHomeViewModel.uiState.collectAsState()
@@ -612,19 +623,23 @@ fun HomeSectionsContent(
     }
     
     Box(modifier = Modifier.fillMaxSize()) {
-        // Scrollable content - scrolls over the header
+        // Scrollable content - header and all body sections scroll together seamlessly
         ScrollAwareLazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Transparent), // Transparent to show purple background
+                .background(Color.Transparent), // Transparent to show background
             state = listState,
             contentPadding = PaddingValues(
-                top = headerHeightDp + 16.dp,
+                top = 0.dp,
                 bottom = 100.dp
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             scrollStateManager = scrollStateManager
         ) {
+            item(key = "worker_home_header_item") {
+                headerContent()
+            }
+
             if (promoBannerUrl.isNotBlank() || announcements.isNotEmpty()) {
                 item {
                     AnnouncementList(
@@ -642,13 +657,15 @@ fun HomeSectionsContent(
                 }
             }
 
-            item {
-                WorkerQuickActionsGrid(
-                    onBrowseJobs = { navController.navigate("${Routes.WORKER_ALL_JOBS}?filter=All Jobs") },
-                    onAppliedJobs = { navController.navigate(WorkerBottomRoutes.MY_JOBS) },
-                    onEarnings = { navController.navigate(Routes.WORKER_EARNINGS) },
-                    onHelpDesk = { navController.navigate(Routes.HELP) }
-                )
+            if (!showEmptyJobsState && hasLocationPermission) {
+                item {
+                    WorkerQuickActionsGrid(
+                        onBrowseJobs = { navController.navigate("${Routes.WORKER_ALL_JOBS}?filter=All Jobs") },
+                        onAppliedJobs = { navController.navigate(WorkerBottomRoutes.MY_JOBS) },
+                        onEarnings = { navController.navigate(Routes.WORKER_EARNINGS) },
+                        onHelpDesk = { navController.navigate(Routes.HELP) }
+                    )
+                }
             }
 
             if (
@@ -787,20 +804,28 @@ fun HomeSectionsContent(
         }
         */
 
-        if (showEmptyJobsState) {
+        if (!hasLocationPermission) {
+            // Location permission not granted -> show friendly empty state requiring location
+            item {
+                com.example.dutype.components.LocationPermissionRequiredState(
+                    onRequestPermissionClick = onRequestLocationPermission
+                )
+            }
+        } else if (showEmptyJobsState) {
             item {
                 EmptyJobsState(
-                    modifier = Modifier.fillParentMaxHeight(0.65f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight(),
                     navController = rootNavController,
                     currentLocationName = emptyJobsCurrentLocationName,
                     isAppliedAllVariant = emptyJobsIsAppliedAllVariant,
                     suggestedCities = emptyJobsSuggestedCities,
-                    onCitySelected = onEmptyJobsCitySelected
+                    onCitySelected = onEmptyJobsCitySelected,
+                    onHelpDesk = { navController.navigate(Routes.HELP) }
                 )
             }
-        }
-
-        if (!showEmptyJobsState) {
+        } else {
             // Section 3: Jobs For You (skill-matched) - transparent to show gradient
             item {
                 Column(
@@ -1879,6 +1904,7 @@ internal fun DynamicHeader(
     primaryColorHex: String = "",
     headerTextColorHex: String = "",
     headerLottieUrl: String = "",
+    showCategoryRail: Boolean = true,
     onCategoryTap: (String) -> Unit = {},
     onSearchTap: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -2017,10 +2043,10 @@ internal fun DynamicHeader(
                     }
                 }
 
-                // Right: Availability switch + notifications
+                // Right: Availability switch + Notifications (Map pin commented out for now)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     if (isUrgentJobsEnabled) {
                         Switch(
@@ -2044,10 +2070,25 @@ internal fun DynamicHeader(
                         )
                     }
 
+                    /*
+                    // Map Button to view jobs on Google Map (commented for now)
+                    IconButton(
+                        onClick = onMapClick,
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.LocationOn,
+                            contentDescription = stringResource(R.string.jobs_near_you_map),
+                            tint = bannerContentColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    */
+
                     Box {
                         IconButton(
                             onClick = onNotificationClick,
-                            modifier = Modifier.size(40.dp)
+                            modifier = Modifier.size(38.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Notifications,
@@ -2073,47 +2114,49 @@ internal fun DynamicHeader(
                 }
             }
 
-            // Spacer to separate top bar and category rail
-            Spacer(modifier = Modifier.height(8.dp))
+            if (showCategoryRail) {
+                // Spacer to separate top bar and category rail
+                Spacer(modifier = Modifier.height(8.dp))
 
-            // Category rail — scrollable horizontal tabs
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(end = 12.dp)
-            ) {
-                items(categoryTabs) { (label, emoji) ->
-                    val selected = selectedCategory == label
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .width(64.dp)
-                            .clickable {
-                                selectedCategory = label
-                                onCategoryTap(label)
-                            }
-                    ) {
-                        Box(
+                // Category rail — scrollable horizontal tabs
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(end = 12.dp)
+                ) {
+                    items(categoryTabs) { (label, emoji) ->
+                        val selected = selectedCategory == label
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier
-                                .size(52.dp)
-                                .background(
-                                    color = if (selected) Color.White else Color.White.copy(alpha = 0.2f),
-                                    shape = CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
+                                .width(64.dp)
+                                .clickable {
+                                    selectedCategory = label
+                                    onCategoryTap(label)
+                                }
                         ) {
-                            Text(text = emoji, fontSize = 24.sp)
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = bannerContentColor,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                            Box(
+                                modifier = Modifier
+                                    .size(52.dp)
+                                    .background(
+                                        color = if (selected) Color.White else Color.White.copy(alpha = 0.2f),
+                                        shape = CircleShape
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(text = emoji, fontSize = 24.sp)
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = bannerContentColor,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                                )
                             )
-                        )
+                        }
                     }
                 }
             }

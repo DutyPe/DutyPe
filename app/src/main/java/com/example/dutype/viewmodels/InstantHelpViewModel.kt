@@ -323,6 +323,33 @@ class InstantHelpViewModel @Inject constructor(
         }
     }
 
+    fun deleteEmployerInstantRequest(requestId: String, onComplete: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(updatingEmployerRequestId = requestId, error = null) }
+            instantHelpService.deleteEmployerInstantRequest(requestId).fold(
+                onSuccess = {
+                    _uiState.update { state ->
+                        state.copy(
+                            updatingEmployerRequestId = null,
+                            employerInstantRequests = state.employerInstantRequests.filter { it.requestId != requestId },
+                            message = "Urgent request deleted"
+                        )
+                    }
+                    onComplete(true)
+                },
+                onFailure = { error ->
+                    _uiState.update { state ->
+                        state.copy(
+                            updatingEmployerRequestId = null,
+                            error = error.message ?: "Failed to delete urgent request"
+                        )
+                    }
+                    onComplete(false)
+                }
+            )
+        }
+    }
+
     fun loadWorkerUrgentHistory() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingWorkerUrgentHistory = true, error = null) }

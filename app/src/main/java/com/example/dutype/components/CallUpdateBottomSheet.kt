@@ -1,4 +1,4 @@
-﻿package com.example.dutype.components
+package com.example.dutype.components
 
 import com.dutype.app.R
 import androidx.compose.animation.AnimatedVisibility
@@ -71,9 +71,16 @@ fun CallUpdateBottomSheet(
     var isSubmitting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    androidx.activity.compose.BackHandler(enabled = true) {
+        // Intercept back navigation to make feedback mandatory
+    }
+
     ModalBottomSheet(
-        onDismissRequest = { if (!isSubmitting) onDismiss() },
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        onDismissRequest = { /* Mandatory: User must submit call feedback */ },
+        sheetState = rememberModalBottomSheetState(
+            skipPartiallyExpanded = true,
+            confirmValueChange = { false } // Prevents swiping down to dismiss
+        ),
         containerColor = WorkerColors.CardBackground,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
@@ -112,8 +119,16 @@ fun CallUpdateBottomSheet(
                         )
                     }
                 }
-                IconButton(onClick = onDismiss, enabled = !isSubmitting) {
-                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close), tint = WorkerColors.TextSecondary)
+                Box(
+                    modifier = Modifier
+                        .background(WorkerColors.Primary.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "Required",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = WorkerColors.Primary
+                    )
                 }
             }
 
@@ -151,59 +166,58 @@ fun CallUpdateBottomSheet(
                 FeedbackChoiceButton(
                     text = stringResource(R.string.no_answer),
                     selected = spokeWithEmployer == false,
-                    onClick = { spokeWithEmployer = false },
+                    onClick = {
+                        spokeWithEmployer = false
+                        availability = null
+                        jobOfferAccepted = null
+                    },
                     modifier = Modifier.weight(1f),
                     enabled = !isSubmitting
                 )
             }
 
-            Text(
-                text = stringResource(R.string.job_still_available_question),
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = WorkerColors.TextSecondary
-            )
-            LazyRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(JobAvailabilityFeedback.entries) { option ->
+            if (spokeWithEmployer == true) {
+                Text(
+                    text = stringResource(R.string.job_still_available_question),
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = WorkerColors.TextSecondary
+                )
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(JobAvailabilityFeedback.entries) { option ->
+                        FeedbackChoiceButton(
+                            text = jobAvailabilityFeedbackLabel(option),
+                            selected = availability == option,
+                            onClick = { availability = option },
+                            modifier = Modifier.width(140.dp),
+                            enabled = !isSubmitting
+                        )
+                    }
+                }
+
+                Text(
+                    text = stringResource(R.string.auto_did_you_get_selected_or_hired_from_this_ca),
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = WorkerColors.TextSecondary
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     FeedbackChoiceButton(
-                        text = jobAvailabilityFeedbackLabel(option),
-                        selected = availability == option,
-                        onClick = { availability = option },
-                        modifier = Modifier.width(140.dp),
+                        text = stringResource(R.string.auto_yes),
+                        selected = jobOfferAccepted == true,
+                        onClick = { jobOfferAccepted = true },
+                        modifier = Modifier.weight(1f),
+                        enabled = !isSubmitting
+                    )
+                    FeedbackChoiceButton(
+                        text = "No",
+                        selected = jobOfferAccepted == false,
+                        onClick = { jobOfferAccepted = false },
+                        modifier = Modifier.weight(1f),
                         enabled = !isSubmitting
                     )
                 }
-            }
-
-            Text(
-                text = stringResource(R.string.auto_did_you_get_selected_or_hired_from_this_ca),
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = WorkerColors.TextSecondary
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                FeedbackChoiceButton(
-                    text = stringResource(R.string.auto_yes),
-                    selected = jobOfferAccepted == true,
-                    onClick = { jobOfferAccepted = true },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSubmitting
-                )
-                FeedbackChoiceButton(
-                    text = "No",
-                    selected = jobOfferAccepted == false,
-                    onClick = { jobOfferAccepted = false },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSubmitting
-                )
-                FeedbackChoiceButton(
-                    text = stringResource(R.string.auto_skip),
-                    selected = jobOfferAccepted == null,
-                    onClick = { jobOfferAccepted = null },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSubmitting
-                )
             }
 
             AnimatedVisibility(visible = errorMessage != null) {
@@ -214,12 +228,14 @@ fun CallUpdateBottomSheet(
                 )
             }
 
+            val hasAnsweredSpoke = spokeWithEmployer != null
             Button(
                 onClick = {
+                    val spoke = spokeWithEmployer ?: false
                     scope.launch {
                         isSubmitting = true
                         errorMessage = null
-                        val result = onSubmit(spokeWithEmployer ?: false, availability, jobOfferAccepted)
+                        val result = onSubmit(spoke, availability, jobOfferAccepted)
                         isSubmitting = false
                         result.fold(
                             onSuccess = { onSubmitted() },
@@ -227,16 +243,22 @@ fun CallUpdateBottomSheet(
                         )
                     }
                 },
-                enabled = !isSubmitting,
+                enabled = !isSubmitting && hasAnsweredSpoke,
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (hasAnsweredSpoke) WorkerColors.Primary else WorkerColors.TextSecondary.copy(alpha = 0.3f)
+                )
             ) {
                 if (isSubmitting) {
                     CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                 }
-                Text(stringResource(R.string.submit_update), color = Color.White, fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = if (hasAnsweredSpoke) stringResource(R.string.submit_update) else "Please select an answer above",
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }

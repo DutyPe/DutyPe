@@ -141,50 +141,16 @@ fun EmployerMainScreen(
         // from drawing under the status bar area. Individual screens handle their 
         // own statusBarsPadding.
 
-        // Navigation bar overlay — rendered only on routes where the
-        // EmployerBottomBar is NOT shown. The bottom bar itself now
-        // extends under the gesture area and paints that region, so
-        // drawing a second overlay there would create a visible flat
-        // "second bar" below the rounded bottom nav (bug #2).
-        if (!shouldShowBottomBar) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                    .background(roleColors.navigationBar)
-                    .align(Alignment.BottomCenter)
-                    .zIndex(1000f) // Ensure it's always on top
-            )
-        }
-
-        // Main content area
-        Scaffold(
-            modifier = Modifier.fillMaxSize(),
-            containerColor = roleColors.screenBackground,
-            contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            bottomBar = {
-                if (shouldShowBottomBar) {
-                    // Use custom EmployerBottomBar with interstitial ad before Post Job
-                    EmployerBottomBar(
-                        navController = navController,
-                        selectedItemColor = com.example.dutype.ui.theme.EmployerColors.BottomNavSelected
-                    )
-                }
-            }
-        ) { paddingValues ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(
-                        start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
-                        end = paddingValues.calculateEndPadding(LocalLayoutDirection.current),
-                        bottom = paddingValues.calculateBottomPadding()
-                    )
+        // Main content area - fills full screen so content flows behind floating bottom bar
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(roleColors.screenBackground)
+        ) {
+            NavHost(
+                navController = navController,
+                startDestination = Routes.EMPLOYER_DASHBOARD
             ) {
-                NavHost(
-                    navController = navController,
-                    startDestination = Routes.EMPLOYER_DASHBOARD
-                ) {
                     composable(Routes.EMPLOYER_DASHBOARD) {
                         EmployerHomeScreen(
                             navController = navController,
@@ -449,8 +415,35 @@ fun EmployerMainScreen(
                     }
                 }
             }
+
+            // Navigation bar overlay — rendered only on routes where the bottom bar is NOT shown
+            if (!shouldShowBottomBar) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                        .background(roleColors.navigationBar)
+                        .align(Alignment.BottomCenter)
+                        .zIndex(1000f) // Ensure it's always on top
+                )
+            }
+
+            // Floating Bottom Bar as an overlay on top of screen content
+            androidx.compose.animation.AnimatedVisibility(
+                visible = shouldShowBottomBar,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = androidx.compose.animation.slideInVertically(
+                    initialOffsetY = { it },
+                    animationSpec = androidx.compose.animation.core.tween(200)
+                ),
+                exit = androidx.compose.animation.slideOutVertically(
+                    targetOffsetY = { it },
+                    animationSpec = androidx.compose.animation.core.tween(200)
+                )
+            ) {
+                EmployerBottomBar(navController = navController)
+            }
         }
-    }
     } // end DutyPeEmployerTheme
 }
 

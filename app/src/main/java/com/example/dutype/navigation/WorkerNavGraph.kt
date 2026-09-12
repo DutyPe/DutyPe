@@ -267,6 +267,11 @@ fun WorkerNavGraph(
                 returnRoute = returnRoute
             )
         }
+
+        // Settings Screen
+        composable(Routes.SETTINGS) {
+            com.example.dutype.common.screens.SettingsScreen(navController = rootNavController)
+        }
     }
 }
 

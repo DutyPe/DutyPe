@@ -46,13 +46,16 @@ class InAppReviewManager @Inject constructor(
         val dismissCount = prefs[KEY_REVIEW_DISMISSED_COUNT] ?: 0
         if (dismissCount >= MAX_DISMISS_COUNT) return false
 
-        val lastRequest = prefs[KEY_LAST_REVIEW_REQUEST] ?: 0
+        val lastRequest = prefs[KEY_LAST_REVIEW_REQUEST] ?: 0L
+        if (lastRequest == 0L) {
+            return true
+        }
         val daysSinceLastRequest = (System.currentTimeMillis() - lastRequest) / (1000 * 60 * 60 * 24)
         return daysSinceLastRequest >= MIN_DAYS_BETWEEN_REQUESTS
     }
 
-    suspend fun requestInAppReview(activity: Activity) {
-        if (!shouldShowReviewPrompt()) {
+    suspend fun requestInAppReview(activity: Activity, force: Boolean = false) {
+        if (!force && !shouldShowReviewPrompt()) {
             Timber.d("Review prompt skipped")
             return
         }
@@ -69,6 +72,9 @@ class InAppReviewManager @Inject constructor(
                     }
                 } else {
                     Timber.w(request.exception, "Failed to request review flow")
+                    if (force) {
+                        openPlayStore(activity)
+                    }
                 }
             }
             context.reviewDataStore.edit { prefs ->
@@ -77,21 +83,36 @@ class InAppReviewManager @Inject constructor(
             }
         } catch (e: Exception) {
             Timber.e(e, "Error launching in-app review")
+            if (force) {
+                openPlayStore(activity)
+            }
         }
     }
 
     fun openPlayStore(context: Context) {
+        val packageName = context.packageName.ifBlank { "com.dutype.app" }
         try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.dutype.app"))
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(intent)
-        } catch (e: Exception) {
+            val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName")).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                setPackage("com.android.vending")
+            }
+            context.startActivity(marketIntent)
+        } catch (_: Exception) {
             try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(PLAY_STORE_URL))
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(intent)
-            } catch (e2: Exception) {
-                Timber.e(e2, "Failed to open Play Store")
+                val genericMarketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName")).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(genericMarketIntent)
+            } catch (_: Exception) {
+                try {
+                    val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName")).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(webIntent)
+                } catch (e3: Exception) {
+                    Timber.e(e3, "Failed to open Play Store")
+                    android.widget.Toast.makeText(context, "Could not open Google Play Store", android.widget.Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }

@@ -24,11 +24,23 @@ public.pem
 serviceAccountKey.json
 serviceAccountKey*.json
 Accountkey*.json
+.env
+*.env
+.env.*
+functions/.env
 
 # Build outputs and logs
 *_output.txt
 *.log
 scripts/output/
+deps.txt
+
+# Python & SQLite
+__pycache__/
+*.pyc
+*.pyo
+*.db
+*.sqlite3
 
 # Temporary files
 *.tmp

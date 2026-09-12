@@ -238,13 +238,14 @@ class CategoriesViewModel @Inject constructor(
     private suspend fun loadAllJobs(limit: Long, lastDocumentId: String? = null) {
         Timber.d("📦 Loading all jobs with limit=$limit, after=$lastDocumentId")
         // Keep "All" category paginated from first paint to avoid loading hundreds of jobs upfront.
+        val hasLoc = GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
         val summaryFlow = firestoreJobRepository.getAllJobsSummary(
             limit = limit,
             lastDocumentId = lastDocumentId,
             category = null,
-            userLatitude = null,
-            userLongitude = null,
-            radiusKm = 0.0
+            userLatitude = if (hasLoc) userLatitude else null,
+            userLongitude = if (hasLoc) userLongitude else null,
+            radiusKm = if (hasLoc) 50.0 else 0.0
         )
         
         summaryFlow.collect { result ->
@@ -318,13 +319,14 @@ class CategoriesViewModel @Inject constructor(
         Timber.d("📦 Limit: $limit")
         Timber.d("📦 lastDocumentId: $lastDocumentId")
         Timber.d("📦 =========================================")
+        val hasLoc = GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
         val summaryFlow = firestoreJobRepository.getAllJobsSummary(
             limit = limit,
             lastDocumentId = lastDocumentId,
             category = categoryQuery,
-            userLatitude = null,
-            userLongitude = null,
-            radiusKm = 0.0
+            userLatitude = if (hasLoc) userLatitude else null,
+            userLongitude = if (hasLoc) userLongitude else null,
+            radiusKm = if (hasLoc) 50.0 else 0.0
         )
         
         summaryFlow.collect { result ->

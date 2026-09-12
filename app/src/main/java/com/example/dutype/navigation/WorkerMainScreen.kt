@@ -69,7 +69,7 @@ fun WorkerMainScreen(
     // Rule: ALL worker screens use white status bar color to keep consistency
     // across the app. The status bar overlay is always white regardless of route.
     var currentStatusBarColor by remember { mutableStateOf(Color.White) }
-    val navigationBarColor = com.example.dutype.ui.theme.WorkerColors.BottomNavBackground
+    val navigationBarColor = Color.Transparent
 
     // Apply system bar colors using enableEdgeToEdge (Android 15+ compatible)
     LaunchedEffect(currentStatusBarColor) {
@@ -99,8 +99,8 @@ fun WorkerMainScreen(
         activity?.enableEdgeToEdge(
             statusBarStyle = statusBarStyle,
             navigationBarStyle = SystemBarStyle.light(
-                scrim = navigationBarColor.toArgb(),
-                darkScrim = navigationBarColor.toArgb()
+                scrim = Color.Transparent.toArgb(),
+                darkScrim = Color.Transparent.toArgb()
             )
         )
     }
@@ -115,7 +115,6 @@ fun WorkerMainScreen(
         Routes.WORKER_EARNINGS, // Hide bottom bar on earnings screen
         Routes.WORKER_HISTORY, // Hide bottom bar on work history screen
         Routes.WORKER_REFER_EARN, // Hide bottom bar on refer & earn screen
-        WorkerBottomRoutes.MY_JOBS, "myjobs", // Hide bottom bar on my jobs screen
         Routes.WORKER_CATEGORIES, "worker_categories", // Hide bottom bar on categories screen
         Routes.PROFILE_SETUP, "profile_setup", // Hide bottom bar on profile setup screen
         Routes.JOB_APPLICATION, "job_application" // Hide bottom bar on apply for job screen
@@ -148,61 +147,50 @@ fun WorkerMainScreen(
         // backgrounds (like WorkerHomeScreen's Lottie animation) from drawing under
         // the status bar area. Individual screens handle their own statusBarsPadding.
 
-        // Navigation bar overlay - Always show
+        // Main content area - fills full screen so content flows behind floating bottom bar
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsBottomHeight(WindowInsets.navigationBars)
-                .background(navigationBarColor)
-                .align(Alignment.BottomCenter)
-                .zIndex(1000f) // Ensure it's always on top
-        )
-
-        // Main content area with role background
-        Scaffold(
-            modifier = Modifier
                 .fillMaxSize()
-                .background(roleColors.screenBackground),
-            containerColor = roleColors.screenBackground,
-            contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            bottomBar = {
-                // Animated bottom bar visibility
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = showBottomBar,
-                    enter = androidx.compose.animation.slideInVertically(
-                        initialOffsetY = { it },
-                        animationSpec = androidx.compose.animation.core.tween(200)
-                    ),
-                    exit = androidx.compose.animation.slideOutVertically(
-                        targetOffsetY = { it },
-                        animationSpec = androidx.compose.animation.core.tween(200)
-                    )
-                ) {
-                    WorkerBottomBar(navController = navController)
-                }
-            }
-        ) { paddingValues ->
+                .background(roleColors.screenBackground)
+        ) {
+            WorkerNavGraph(
+                navController = navController,
+                rootNavController = rootNavController,
+                onStatusBarColorChange = { color ->
+                    currentStatusBarColor = color
+                    onStatusBarColorChange(color)
+                },
+                scrollStateManager = scrollStateManager,
+                notificationPermissionManager = notificationPermissionManager
+            )
+        }
+
+        // Navigation bar overlay - only drawn when floating bottom bar is hidden
+        if (!showBottomBar) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
+                    .windowInsetsBottomHeight(WindowInsets.navigationBars)
                     .background(roleColors.screenBackground)
-                    .padding(
-                        start = paddingValues.calculateStartPadding(LocalLayoutDirection.current),
-                        end = paddingValues.calculateEndPadding(LocalLayoutDirection.current),
-                        bottom = if (showBottomBar) paddingValues.calculateBottomPadding() else 0.dp
-                    )
-            ) {
-                WorkerNavGraph(
-                    navController = navController,
-                    rootNavController = rootNavController,
-                    onStatusBarColorChange = { color ->
-                        currentStatusBarColor = color
-                        onStatusBarColorChange(color)
-                    },
-                    scrollStateManager = scrollStateManager,
-                    notificationPermissionManager = notificationPermissionManager
-                )
-            }
+                    .align(Alignment.BottomCenter)
+                    .zIndex(1000f) // Ensure it's always on top
+            )
+        }
+
+        // Floating Bottom Bar as an overlay on top of screen content
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showBottomBar,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            enter = androidx.compose.animation.slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = androidx.compose.animation.core.tween(200)
+            ),
+            exit = androidx.compose.animation.slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = androidx.compose.animation.core.tween(200)
+            )
+        ) {
+            WorkerBottomBar(navController = navController)
         }
     }
     } // end DutyPeWorkerTheme

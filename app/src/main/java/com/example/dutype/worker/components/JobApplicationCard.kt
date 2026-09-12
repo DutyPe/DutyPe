@@ -221,9 +221,28 @@ fun JobApplicationCard(
                 // hides the job address to keep this list compact and private.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    if (application.viewedAt > 0L && application.status == ApplicationStatus.APPLIED) {
+                        Surface(
+                            color = WorkerColors.Primary.copy(alpha = 0.12f),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text(
+                                text = "👁 Viewed by employer ${DateTimeUtils.formatTimeAgoExactDays(application.viewedAt)}",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = WorkerColors.Primary,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 11.sp
+                                ),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.width(1.dp))
+                    }
+
                     Text(
                         text = "Applied ${formatDate(application.createdAt)}",
                         style = AppTypography.caption.copy(

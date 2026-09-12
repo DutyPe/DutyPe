@@ -1,6 +1,7 @@
 package com.example.dutype.employer.screens.profilescreen
 
 import com.dutype.app.R
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,6 +15,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.CardGiftcard
@@ -23,6 +26,7 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.*
@@ -46,6 +50,7 @@ import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.example.dutype.components.ProfessionalLogoutDialog
 import com.example.dutype.navigation.Routes
 import com.example.dutype.components.ProfileShimmer
+import com.example.dutype.utils.findActivity
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
@@ -442,56 +447,34 @@ fun EmployerProfileScreen(
                 }
             }
 
-            // Official WhatsApp Community Card
-            item {
-                Spacer(modifier = Modifier.height(12.dp))
-                com.example.dutype.components.DutyPeWhatsAppCommunityCard(
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-            }
-
-
-            
             // ═══════════════════════════════════════════════════════════════
             // MY ACTIVITY SECTION
             // ═══════════════════════════════════════════════════════════════
             item {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = stringResource(R.string.my_activity),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF64748B),
+                        fontSize = 12.sp
+                    ),
+                    modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
+                )
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                    border = null,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    shape = RoundedCornerShape(0.dp)
+                    border = BorderStroke(0.6.dp, Color(0xFFE2E8F0))
                 ) {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        SectionHeader(title = stringResource(R.string.my_activity))
-                        Spacer(modifier = Modifier.height(4.dp))
-                        
-                        ProfileMenuItem(
-                            icon = Icons.Outlined.Star,
-                            title = "Subscription",
-                            onClick = { 
-                                if (currentUserId.isEmpty()) {
-                                    pendingMenuAction = "subscription"
-                                    showLoginBottomSheet = true
-                                } else {
-                                    try {
-                                        val navControllerToUse = localNavController ?: rootNavController
-                                        navControllerToUse.navigate(Routes.EMPLOYER_SUBSCRIPTION)
-                                    } catch (e: Exception) {
-                                        timber.log.Timber.e(e, "Error navigating to EMPLOYER_SUBSCRIPTION")
-                                    }
-                                }
-                            }
-                        )
-                        HorizontalDivider(color = EmployerColors.Divider, thickness = 0.5.dp)
-                        
+                    Column {
                         ProfileMenuItem(
                             icon = Icons.Outlined.Work,
                             title = stringResource(R.string.my_job_posts),
+                            iconColor = Color(0xFF2563EB),
                             onClick = { 
                                 if (currentUserId.isEmpty()) {
                                     pendingMenuAction = "job_posts"
@@ -512,11 +495,12 @@ fun EmployerProfileScreen(
                             }
                         )
                         
-                        EmployerMenuDivider()
+                        HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
                         
                         ProfileMenuItem(
                             icon = Icons.Outlined.LocationOn,
                             title = stringResource(R.string.work_locations),
+                            iconColor = Color(0xFFEC4899),
                             onClick = { 
                                 if (currentUserId.isEmpty()) {
                                     pendingMenuAction = "locations"
@@ -539,160 +523,112 @@ fun EmployerProfileScreen(
                     }
                 }
             }
-            
-            // ═══════════════════════════════════════════════════════════════
-            // REWARDS SECTION
-            // ═══════════════════════════════════════════════════════════════
-            // BUG #11 FIX: Remove "Refer & Earn" entry from the EMPLOYER profile.
-            // The referral program is worker-only (rewards are credited via the
-            // applyReferralCode Cloud Function on worker registration). Showing
-            // it on the employer side caused confusion and bug reports about
-            // money "not being credited" when employers tried to use it.
-            /*
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                    border = null,
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    shape = RoundedCornerShape(0.dp)
-                ) {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        SectionHeader(title = stringResource(R.string.rewards))
-                        Spacer(modifier = Modifier.height(4.dp))
-                        
-                        ProfileMenuItem(
-                            icon = Icons.Outlined.CardGiftcard,
-                            title = stringResource(R.string.refer_earn),
-                            onClick = { 
-                                if (currentUserId.isEmpty()) {
-                                    pendingMenuAction = "refer_earn"
-                                    showLoginBottomSheet = true
-                                } else {
-                                    localNavController?.navigate(Routes.EMPLOYER_REFER_EARN) 
-                                        ?: rootNavController.navigate(Routes.EMPLOYER_REFER_EARN)
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-            */
 
             // ═══════════════════════════════════════════════════════════════
             // OTHERS SECTION
             // ═══════════════════════════════════════════════════════════════
             item {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = stringResource(R.string.others),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF64748B),
+                        fontSize = 12.sp
+                    ),
+                    modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
+                )
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                    border = null,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    shape = RoundedCornerShape(0.dp)
+                    border = BorderStroke(0.6.dp, Color(0xFFE2E8F0))
                 ) {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        SectionHeader(title = stringResource(R.string.others))
-                        Spacer(modifier = Modifier.height(4.dp))
-                        
+                    Column {
                         ProfileMenuItem(
                             icon = Icons.Outlined.Phone,
                             title = stringResource(R.string.help_faqs),
+                            iconColor = Color(0xFF0EA5E9),
                             onClick = { 
                                 localNavController?.navigate(Routes.EMPLOYER_HELP) 
                                     ?: rootNavController.navigate(Routes.EMPLOYER_HELP) 
                             }
                         )
                         
-                        EmployerMenuDivider()
+                        HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
                         
                         ProfileMenuItem(
                             icon = Icons.Outlined.Info,
                             title = stringResource(R.string.about),
+                            iconColor = Color(0xFF6366F1),
                             onClick = { 
                                 localNavController?.navigate(Routes.EMPLOYER_ABOUT) 
                                     ?: rootNavController.navigate(Routes.EMPLOYER_ABOUT) 
                             }
                         )
 
-                        EmployerMenuDivider()
+                        HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
 
+                        // Settings - Privacy Policy, Terms of Service, Logout, Delete Account
                         ProfileMenuItem(
-                            icon = Icons.Outlined.Security,
-                            title = "Privacy Policy",
+                            icon = Icons.Outlined.Settings,
+                            title = if (com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU) "సెట్టింగ్‌లు" else "Settings",
+                            iconColor = Color(0xFF64748B),
                             onClick = { 
-                                rootNavController.navigate(Routes.PRIVACY_POLICY) 
+                                rootNavController.navigate(Routes.SETTINGS) 
                             }
                         )
 
-                        EmployerMenuDivider()
+                        HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
 
                         ProfileMenuItem(
-                            icon = Icons.Outlined.Description,
-                            title = "Terms of Service",
-                            onClick = { 
-                                rootNavController.navigate(Routes.TERMS_OF_SERVICE) 
+                            icon = Icons.Default.Star,
+                            title = if (com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU) "ప్లే స్టోర్‌లో రేటింగ్ ఇవ్వండి (5★)" else "Rate DutyPe on Play Store (5★)",
+                            iconColor = Color(0xFFF59E0B),
+                            onClick = {
+                                val inAppReviewManager = com.example.dutype.utils.InAppReviewManager(context)
+                                inAppReviewManager.openPlayStore(context)
                             }
                         )
-                        
-                        if (currentUserId.isNotEmpty()) {
-                            // Logout moved below
-                        }
+
+                        HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
+
+                        // Join DutyPe WhatsApp Group as flat menu item right after Rate DutyPe
+                        val isTelugu = com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
+                        ProfileMenuItem(
+                            icon = Icons.AutoMirrored.Filled.Chat,
+                            title = if (isTelugu) "డ్యూటీపే జాబ్స్ వాట్సాప్ గ్రూప్" else "Join DutyPe Jobs Group",
+                            subtitle = if (isTelugu) "తాజా వర్కర్ అప్‌డేట్‌లు & హైరింగ్ కమ్యూనిటీ" else "Daily worker updates & hiring community on WhatsApp",
+                            iconColor = Color(0xFF25D366),
+                            onClick = {
+                                val whatsAppGroupUrl = "https://chat.whatsapp.com/ITnhw0jk2G0I9TNlDCaNQI?s=cl&p=a&ilr=4"
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(whatsAppGroupUrl)).apply {
+                                        setPackage("com.whatsapp")
+                                    }
+                                    context.startActivity(intent)
+                                } catch (_: Exception) {
+                                    try {
+                                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(whatsAppGroupUrl))
+                                        context.startActivity(browserIntent)
+                                    } catch (_: Exception) {
+                                        android.widget.Toast.makeText(context, "Unable to open WhatsApp link", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        )
                     }
                 }
             }
-            
-            // Follow Us Section - COMMENTED OUT
-            /*
-            item {
-                EmployerFollowUsSection()
-            }
-            */
-            
-            // Logout - Simple menu item below Follow Us
-            item {
-                if (currentUserId.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color.Transparent
-                        ),
-                        border = null,
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                        shape = RoundedCornerShape(0.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                            ProfileMenuItem(
-                                icon = Icons.AutoMirrored.Outlined.ExitToApp,
-                                title = stringResource(R.string.log_out),
-                                onClick = { showLogoutDialog = true },
-                                isDestructive = false
-                            )
-                            HorizontalDivider(color = EmployerColors.Border, thickness = 1.dp)
-                            ProfileMenuItem(
-                                icon = Icons.Default.DeleteForever,
-                                title = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "ఖాతా శాశ్వతంగా తొలగించు" else "Delete Account & Data",
-                                onClick = { showAccountDeletionDialog = true },
-                                isDestructive = true
-                            )
-                        }
-                    }
-                }
-            }
-            
+
             item {
                 Spacer(modifier = Modifier.height(24.dp))
             }
-            }
         }
+    }
     }
 
     // Logout Dialog
@@ -793,39 +729,29 @@ private fun ProfileMenuItem(
     icon: ImageVector,
     title: String,
     subtitle: String? = null,
-    onClick: () -> Unit,
+    badgeText: String? = null,
     isDestructive: Boolean = false,
-    iconColor: Color? = null
+    iconColor: Color = Color(0xFF2563EB),
+    onClick: () -> Unit
 ) {
-    val resolvedIconColor = when {
-        isDestructive -> WorkerColors.Error
-        iconColor != null -> iconColor
-        else -> WorkerColors.IconPrimary
-    }
-
-    val iconBgColor = when {
-        isDestructive -> EmployerColors.ErrorLight
-        iconColor != null -> iconColor.copy(alpha = 0.1f)
-        else -> WorkerColors.ChipBackground
-    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(0.dp))
-            .clickable { onClick() }
-            .padding(horizontal = 4.dp, vertical = 6.dp),
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Apr 2026: icon background removed for a flat, divider-only look.
         Box(
-            modifier = Modifier.size(40.dp),
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(if (isDestructive) Color(0xFFFEE2E2) else iconColor.copy(alpha = 0.1f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = resolvedIconColor,
+                tint = if (isDestructive) Color(0xFFDC2626) else iconColor,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -833,19 +759,40 @@ private fun ProfileMenuItem(
         Spacer(modifier = Modifier.width(14.dp))
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = AppTypography.menuItemTitle.copy(
-                    color = if (isDestructive) WorkerColors.Error else WorkerColors.TextPrimary,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 15.sp
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isDestructive) Color(0xFFDC2626) else Color(0xFF0F172A),
+                        fontSize = 15.sp
+                    )
                 )
-            )
-            if (subtitle != null) {
+                if (!badgeText.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFFEEF2FF))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = badgeText,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color(0xFF4F46E5),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            )
+                        )
+                    }
+                }
+            }
+            if (!subtitle.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = subtitle,
-                    style = AppTypography.menuItemSubtitle.copy(
-                        color = WorkerColors.TextSecondary,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF64748B),
                         fontSize = 12.sp
                     )
                 )
@@ -853,10 +800,10 @@ private fun ProfileMenuItem(
         }
 
         Icon(
-            imageVector = Icons.Default.ChevronRight,
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
-            tint = WorkerColors.IconSecondary,
-            modifier = Modifier.size(20.dp)
+            tint = Color(0xFF94A3B8),
+            modifier = Modifier.size(18.dp)
         )
     }
 }
@@ -927,7 +874,7 @@ private fun EmployerMenuDivider() {
 @Composable
 private fun EmployerFollowUsSection() {
     val context = LocalContext.current
-    val whatsAppChannelUrl = "https://whatsapp.com/channel/0029VbBdNOQ1iUxZMmvg8t2G"
+    val whatsAppChannelUrl = "https://chat.whatsapp.com/ITnhw0jk2G0I9TNlDCaNQI?s=cl&p=a&ilr=4"
     val instagramUrl = "https://www.instagram.com/dutype.in"
     
     Card(

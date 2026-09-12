@@ -186,7 +186,7 @@ class FirestoreJobViewModel @Inject constructor(
         appStateManager.savedJobIds,
         _maxDistanceFilter
     ) { state, appliedIds, savedJobIds, maxDistance ->
-        if (state.isLoading || state.hasError) {
+        if ((state.isLoading && state.jobs.isEmpty()) || (state.hasError && state.jobs.isEmpty())) {
             emptyList()
         } else {
             state.jobs
@@ -197,11 +197,10 @@ class FirestoreJobViewModel @Inject constructor(
                 .filter { job -> job.status == "open" }
                 .filter { job -> normalizedJobId(job) !in appliedIds }
                 .filter { job -> 
-                    // Apply distance filter
+                    // Distance filter: If user set a specific maxDistanceFilter, enforce it.
+                    // Otherwise, allow NearestJobsEngine's multi-tier proximity sorting to provide nearby or district/state fallback.
                     val dist = job.distance
-                    maxDistance == Double.MAX_VALUE || 
-                    dist == null || 
-                    dist <= maxDistance 
+                    (maxDistance == Double.MAX_VALUE || (dist != null && dist <= maxDistance))
                 }
                 // PRESERVE existing order from _uiState.jobs.
                 // Jobs are already sorted nearest-first on initial load.
@@ -300,6 +299,13 @@ class FirestoreJobViewModel @Inject constructor(
         // NOTE: HomeScreen will call loadJobsSummaryForHome(5) to load only 5 jobs
         // This init loads 20 for CategoriesScreen/AllJobsScreen which need more
         // HomeScreen should override this by calling loadJobsSummaryForHome(5)
+        val savedLoc = locationPreferences.getSavedLocationIfFresh()
+        if (savedLoc != null && (userLatitude == 0.0 && userLongitude == 0.0)) {
+            userLatitude = savedLoc.latitude
+            userLongitude = savedLoc.longitude
+            savedStateHandle["userLatitude"] = userLatitude
+            savedStateHandle["userLongitude"] = userLongitude
+        }
         syncAppliedJobsFromBackend()
         
         // PERFORMANCE FIX P1: Location debouncing - prevents CPU spikes
@@ -334,6 +340,23 @@ class FirestoreJobViewModel @Inject constructor(
      * 
      * FIXED: Immediate calculation for initial load, debounced for updates
      */
+    /**
+     * Called when worker explicitly picks a new location.
+     * Resets caching cooldowns and immediately queries Firestore for fresh jobs near the new location.
+     */
+    fun onLocationChanged(latitude: Double, longitude: Double) {
+        userLatitude = latitude
+        userLongitude = longitude
+        savedStateHandle["userLatitude"] = latitude
+        savedStateHandle["userLongitude"] = longitude
+        lastRecalcLatitude = null
+        lastRecalcLongitude = null
+        lastHomeLoadAtMs = 0L
+        hasInitiallyLoaded = false
+        Timber.d("📍 ViewModel: onLocationChanged ($latitude, $longitude) -> triggering fresh job fetch from Firestore")
+        loadJobsSummaryForHome(forceRefresh = true)
+    }
+
     fun setUserLocation(latitude: Double, longitude: Double, immediate: Boolean = false) {
         val sameAsCurrent =
             kotlin.math.abs(latitude - userLatitude) < LOCATION_EPSILON &&
@@ -352,27 +375,21 @@ class FirestoreJobViewModel @Inject constructor(
         savedStateHandle["userLatitude"] = latitude
         savedStateHandle["userLongitude"] = longitude
         
-        if (_uiState.value.jobs.isEmpty()) {
-            Timber.d("📍 ViewModel: User location set - lat=$latitude, lon=$longitude (no jobs to calculate)")
-            return
-        }
-
-        if (sameAsCurrent) {
+        if (sameAsCurrent && !immediate) {
             Timber.d("📍 ViewModel: User location unchanged from current state - skipping duplicate update")
             return
         }
 
-        if (sameAsLastProcessed) {
+        if (sameAsLastProcessed && !immediate) {
             Timber.d("📍 ViewModel: User location unchanged - skipping duplicate recalculation")
             return
         }
         
-        // CRITICAL FIX: Calculate immediately on first location set or when requested
-        if (immediate || wasZero) {
-            Timber.d("📍 ViewModel: User location set - lat=$latitude, lon=$longitude (IMMEDIATE calculation)")
-            viewModelScope.launch {
-                recalculateDistancesInternal(latitude, longitude)
-            }
+        if (immediate || wasZero || _uiState.value.jobs.isEmpty()) {
+            Timber.d("📍 ViewModel: User location set - lat=$latitude, lon=$longitude (fetching jobs for location)")
+            lastHomeLoadAtMs = 0L
+            hasInitiallyLoaded = false
+            loadJobsSummaryForHome(forceRefresh = true)
         } else {
             Timber.d("📍 ViewModel: User location set - lat=$latitude, lon=$longitude (debouncing 1000ms...)")
             // Use debounce for subsequent updates to prevent CPU spikes
@@ -419,24 +436,27 @@ class FirestoreJobViewModel @Inject constructor(
     }
 
     private fun applyStrictNearbyWindow(sortedJobs: List<JobListing>): List<JobListing> {
-        // FIX: Never return empty. Show nearby jobs first, then all remaining sorted by distance.
-        // User requirement: show near jobs first (10km, 15km...) then load more without distance limit.
-        val inPrimaryRadius = sortedJobs.filter { job ->
+        val within50km = sortedJobs.filter { job ->
             val distance = job.distance
-            distance != null && distance <= STRICT_NEARBY_RADIUS_KM
+            distance != null && distance <= com.example.dutype.engine.NearestJobsEngine.MAX_WORKER_RADIUS_KM
         }
-        if (inPrimaryRadius.isNotEmpty()) {
-            Timber.d("📍 Strict nearby filter: ${inPrimaryRadius.size} jobs within ${STRICT_NEARBY_RADIUS_KM}km")
-            // Return nearby jobs + remaining jobs (sorted by distance, nearest first)
-            val remaining = sortedJobs.filter { job ->
-                val distance = job.distance
-                distance == null || distance > STRICT_NEARBY_RADIUS_KM
-            }
-            return inPrimaryRadius + remaining
+        if (within50km.isNotEmpty()) {
+            return within50km
         }
-
-        // No jobs within radius - return ALL jobs sorted by distance (don't return empty!)
-        Timber.w("📍 Strict nearby filter: 0 jobs within ${STRICT_NEARBY_RADIUS_KM}km - returning ALL ${sortedJobs.size} jobs sorted by distance")
+        val within150km = sortedJobs.filter { job ->
+            val distance = job.distance
+            distance != null && distance <= 150.0
+        }
+        if (within150km.isNotEmpty()) {
+            return within150km
+        }
+        val within500km = sortedJobs.filter { job ->
+            val distance = job.distance
+            distance != null && distance <= 500.0
+        }
+        if (within500km.isNotEmpty()) {
+            return within500km
+        }
         return sortedJobs
     }
     
@@ -473,9 +493,9 @@ class FirestoreJobViewModel @Inject constructor(
                 Timber.d("🔍 P0 FIX: Loading job SUMMARIES for workers (limit: $limit) - 70% bandwidth reduction")
                 firestoreJobRepository.getAllJobsSummary(
                     limit = limit,
-                    userLatitude = null,
-                    userLongitude = null,
-                    radiusKm = 0.0
+                    userLatitude = queryUserLatitude(),
+                    userLongitude = queryUserLongitude(),
+                    radiusKm = if (hasValidUserLocation()) 50.0 else 0.0
                 ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
@@ -537,11 +557,16 @@ class FirestoreJobViewModel @Inject constructor(
      * 
      * PERFORMANCE BOOST: Uses metadata document for <300ms load time (vs 4.8s)
      */
-    fun loadJobsSummaryForHome() {
+    fun loadJobsSummaryForHome(forceRefresh: Boolean = false) {
         currentCategoryFilter = null // Clear category filter for home
 
+        if (forceRefresh) {
+            lastHomeLoadAtMs = 0L
+            hasInitiallyLoaded = false
+        }
+
         val now = System.currentTimeMillis()
-        val hasReusableHomeData = _uiState.value.jobs.isNotEmpty() &&
+        val hasReusableHomeData = !forceRefresh && _uiState.value.jobs.isNotEmpty() &&
             ! _uiState.value.hasError &&
             (now - lastHomeLoadAtMs) < homeReloadCooldownMs
         if (hasReusableHomeData) {
@@ -550,8 +575,8 @@ class FirestoreJobViewModel @Inject constructor(
             return
         }
 
-        Timber.d("🏠 Loading jobs for HomeScreen with fast summary query (limit: 20, display 5)")
-        loadJobsSummaryFromMetadata(limit = 20, useLocationQuery = false)
+        Timber.d("🏠 Loading jobs for HomeScreen with fast summary query (limit: 20, display 5, forceRefresh=$forceRefresh)")
+        loadJobsSummaryFromMetadata(limit = 20, useLocationQuery = true)
     }
     
     /**
@@ -689,9 +714,9 @@ class FirestoreJobViewModel @Inject constructor(
                 Timber.d("📦 Loading job summaries for workers (limit: $limit) - LIGHTWEIGHT MODE")
                 firestoreJobRepository.getAllJobsSummary(
                     limit = limit,
-                    userLatitude = null,
-                    userLongitude = null,
-                    radiusKm = 0.0
+                    userLatitude = queryUserLatitude(),
+                    userLongitude = queryUserLongitude(),
+                    radiusKm = if (hasValidUserLocation()) 50.0 else 0.0
                 ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
@@ -777,9 +802,9 @@ class FirestoreJobViewModel @Inject constructor(
                 firestoreJobRepository.getAllJobsSummary(
                     limit = limit,
                     lastDocumentId = null,
-                    userLatitude = null,
-                    userLongitude = null,
-                    radiusKm = 0.0
+                    userLatitude = queryUserLatitude(),
+                    userLongitude = queryUserLongitude(),
+                    radiusKm = if (hasValidUserLocation()) 50.0 else 0.0
                 ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
@@ -964,9 +989,9 @@ class FirestoreJobViewModel @Inject constructor(
                 firestoreJobRepository.getAllJobsSummary(
                     limit = limit,
                     lastDocumentId = lastDocumentId,
-                    userLatitude = null,
-                    userLongitude = null,
-                    radiusKm = 0.0
+                    userLatitude = queryUserLatitude(),
+                    userLongitude = queryUserLongitude(),
+                    radiusKm = if (hasValidUserLocation()) 50.0 else 0.0
                 ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
@@ -1032,9 +1057,9 @@ class FirestoreJobViewModel @Inject constructor(
                 firestoreJobRepository.getAllJobsSummary(
                     limit = limit,
                     lastDocumentId = lastDocumentId,
-                    userLatitude = null,
-                    userLongitude = null,
-                    radiusKm = 0.0
+                    userLatitude = queryUserLatitude(),
+                    userLongitude = queryUserLongitude(),
+                    radiusKm = if (hasValidUserLocation()) 50.0 else 0.0
                 ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
@@ -1081,14 +1106,11 @@ class FirestoreJobViewModel @Inject constructor(
             // PERFORMANCE FIX P2: Clear vacancy statuses on refresh to prevent memory leak
             clearVacancyStatuses()
 
-            // Bug #6 fix: hard 8s safety timeout so a stuck Firestore stream
-            // (offline / SSL handshake retry storm) cannot leave the
-            // PullToRefreshBox spinner stuck forever. Cancels the watchdog
-            // when the collect path finishes normally.
+            // Safety timeout so a stuck network stream cannot leave isRefreshing stuck
             val refreshJob = launch {
-                kotlinx.coroutines.delay(8000)
+                kotlinx.coroutines.delay(3500)
                 if (_uiState.value.isRefreshing) {
-                    Timber.w("⚠️ refreshJobs watchdog: forcing isRefreshing=false after 8s")
+                    Timber.w("⚠️ refreshJobs watchdog: forcing isRefreshing=false after 3.5s")
                     _uiState.value = _uiState.value.copy(isRefreshing = false)
                 }
             }
@@ -1098,9 +1120,9 @@ class FirestoreJobViewModel @Inject constructor(
                     limit = 50L,
                     lastDocumentId = null,
                     category = currentCategoryFilter,
-                    userLatitude = null,
-                    userLongitude = null,
-                    radiusKm = 0.0
+                    userLatitude = queryUserLatitude(),
+                    userLongitude = queryUserLongitude(),
+                    radiusKm = if (hasValidUserLocation()) 50.0 else 0.0
                 ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->
@@ -1134,6 +1156,7 @@ class FirestoreJobViewModel @Inject constructor(
                 )
             } finally {
                 refreshJob.cancel()
+                _uiState.value = _uiState.value.copy(isRefreshing = false)
             }
         }
     }

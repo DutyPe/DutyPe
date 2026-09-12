@@ -1085,7 +1085,9 @@
     <string name="post_urgent_need_subtitle">⚡ Need a Worker Now? Hire in Minutes</string>
     <string-array name="urgent_work_categories">
         <item>House Cleaning</item>
+        <item>Bathroom Cleaning</item>
         <item>Deep Cleaning</item>
+        <item>Shopping / Queue Helper</item>
         <item>Cook for Today</item>
         <item>Babysitter</item>
         <item>Elder Care Helper</item>
@@ -1712,4 +1714,33 @@
     <string name="report_non_payment_details_hint">Worked full day, employer stopped answering calls</string>
     <string name="report_non_payment_submit">Report</string>
     <string name="report_non_payment_action">Not paid for this job?</string>
+
+    <!-- DutyPe Expanding to Area / Promising Empty State -->
+    <string name="dutype_expanding_title">DutyPe is expanding to %s soon!</string>
+    <string name="dutype_expanding_title_generic">DutyPe is expanding to your area soon!</string>
+    <string name="dutype_expanding_desc">We are actively onboarding local shops, businesses, and employers in this area. We promise to notify you the moment jobs open up!</string>
+    <string name="dutype_notify_me_btn">Notify Me When Jobs Open</string>
+    <string name="dutype_notified_success">You\'re on the priority list! We\'ll alert you first.</string>
+    <string name="dutype_share_employer_btn">Tell Local Businesses to Post Jobs (100% Free)</string>
+    <string name="dutype_share_employer_msg">Looking to hire local staff in %s? Post jobs for free with zero middleman fees on DutyPe app: https://dutype.in</string>
+    <string name="dutype_explore_active_hubs">Or explore jobs in nearby active hubs:</string>
+
+    <!-- Guest Mode & Progressive Auth Strings -->
+    <string name="continue_as_guest">Continue as Guest</string>
+    <string name="skip_for_now">Skip</string>
+    <string name="explore_as_guest">Explore as Guest</string>
+    <string name="guest_user_title">Guest User</string>
+    <string name="guest_mode_welcome">Explore jobs freely. Sign in when you want to apply or contact employers.</string>
+    <string name="guest_apply_login_title">Login to Apply for this Job</string>
+    <string name="guest_apply_login_desc">Verify your mobile number so the employer can contact you directly for this job.</string>
+    <string name="guest_call_login_title">Login to Call Employer</string>
+    <string name="guest_call_login_desc">Sign in with your mobile number to view employer contact details and speak directly.</string>
+    <string name="guest_save_login_title">Login to Save Jobs</string>
+    <string name="guest_save_login_desc">Sign in to save favorite jobs and access them anytime.</string>
+    <string name="guest_post_job_title">Login to Post a Job</string>
+    <string name="guest_post_job_desc">Sign in to post jobs for free and hire local workers without commission.</string>
+    <string name="guest_profile_sign_in">Sign In / Register</string>
+    <string name="guest_profile_desc">Create your profile to apply for jobs with 1-tap, save favorites, and track earnings.</string>
+    <string name="guest_history_desc">Sign in to track your job applications and hiring status.</string>
+    <string name="guest_notifications_desc">Sign in to receive instant job alerts and employer shortlist notifications.</string>
 </resources>

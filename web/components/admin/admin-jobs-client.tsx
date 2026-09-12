@@ -27,6 +27,7 @@ type JobRow = {
   jobType?: string;
   shift?: string;
   shiftTiming?: string;
+  createdAt?: { _seconds?: number; seconds?: number } | string | number | null;
 };
 
 function renderLocation(job: JobRow): string {
@@ -40,6 +41,28 @@ function renderLocation(job: JobRow): string {
     }
   }
   return "N/A";
+}
+
+function getEpochMillis(createdAt: any): number {
+  if (!createdAt) return 0;
+  if (typeof createdAt === "number") return createdAt;
+  if (typeof createdAt === "string") return new Date(createdAt).getTime();
+  if (typeof createdAt === "object") {
+    if (typeof createdAt._seconds === "number") return createdAt._seconds * 1000;
+    if (typeof createdAt.seconds === "number") return createdAt.seconds * 1000;
+  }
+  return 0;
+}
+
+function formatDateLocal(createdAt: any): string {
+  const millis = getEpochMillis(createdAt);
+  if (millis === 0) return "N/A";
+  const date = new Date(millis);
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
 }
 
 type EditingJob = {
@@ -265,10 +288,13 @@ export function AdminJobsClient() {
 
     return matchesSearch && matchesStatus;
   });
+  const sortedJobs = [...filteredJobs].sort((a, b) => {
+    return getEpochMillis(b.createdAt) - getEpochMillis(a.createdAt);
+  });
   const {
     pageRows: visibleJobs,
     safePage: visibleJobsPage
-  } = paginateRows(filteredJobs, currentPage, pageSize);
+  } = paginateRows(sortedJobs, currentPage, pageSize);
 
   if (loading) {
     return (
@@ -444,6 +470,7 @@ export function AdminJobsClient() {
                   <th>Location</th>
                   <th>Salary</th>
                   <th>Vacancies</th>
+                  <th>Posted Date</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -456,6 +483,7 @@ export function AdminJobsClient() {
                     <td>{renderLocation(job)}</td>
                     <td>{formatCurrencyRange(job.salary ?? job.payAmount, job.salaryType ?? job.payType)}</td>
                     <td>{job.vacancies ?? 0}</td>
+                    <td>{formatDateLocal(job.createdAt)}</td>
                     <td>
                       <button
                         className={`status-pill clickable ${job.isActive ? "success" : "danger"}`}

@@ -53,23 +53,25 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 807
-        versionName = "4.0"
+        versionCode = 816
+        versionName = "4.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Locales shipped in the bundle. Anything omitted here is stripped at build
-        // time, so values-<lang> is silently dropped no matter what the UI offers.
-        resourceConfigurations += listOf("en", "te", "hi")
+        // Release-size guardrail: DutyPe ships English + Telugu only. Filtering
+        // split churn small for tiny Play hotfixes.
+        resourceConfigurations += listOf("en", "te")
         
         // Manifest placeholders for API keys
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")
         
-        // 16 KB Page Size Support for Android 15+ (Required by Google Play from Nov 1, 2025)
-        // Ensures native libraries work on devices with 16KB page sizes
+        // Native ABI Support:
+        // - armeabi-v7a: Essential for 32-bit budget Android devices & Android Go Edition (e.g. TECNO POP 9)
+        // - arm64-v8a: Standard 64-bit ARM architecture (with 16KB ELF page size support for Android 15+)
+        // - x86_64: 64-bit emulators & ChromeOS devices
         ndk {
             abiFilters.clear()
-            abiFilters.addAll(listOf("arm64-v8a", "x86_64"))
+            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86_64"))
         }
     }
 
@@ -365,11 +367,13 @@ dependencies {
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.13.0"))
+    implementation("com.google.firebase:firebase-analytics-ktx")
     implementation("com.google.firebase:firebase-auth-ktx")
     
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.firebase:geofire-android-common:3.2.0")
-    implementation("com.google.firebase:firebase-iid:21.1.0")
+    // NOTE: firebase-iid has been REMOVED (deprecated service with old Registrar).
+    // firebase-iid-interop:17.1.0 is required by firebase-functions-ktx to provide FirebaseInstanceIdInternal.
     implementation("com.google.firebase:firebase-iid-interop:17.1.0")
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.firebase:firebase-storage-ktx")
@@ -422,12 +426,12 @@ dependencies {
     // `net.zetetic:android-database-sqlcipher:4.5.4` artifact is NOT 16 KB
     // compatible.
     implementation("net.zetetic:sqlcipher-android:4.6.1")
-    implementation("androidx.sqlite:sqlite:2.6.2")
+    implementation("androidx.sqlite:sqlite:2.4.0") // pinned: 2.6.x API changes cause AbstractMethodError with sqlcipher 4.6.1
     // EncryptedSharedPreferences for securely storing the DB passphrase
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // WorkManager for background sync
-    implementation("androidx.work:work-runtime-ktx:2.9.0")
+    // WorkManager for background sync — 2.10.1 is stable and fixes AbstractMethodError with Hilt 2.51+
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("androidx.hilt:hilt-work:1.2.0")
     ksp("androidx.hilt:hilt-compiler:1.2.0")
 
@@ -454,8 +458,12 @@ configurations.all {
     resolutionStrategy {
         eachDependency {
             if (requested.group == "androidx.work") {
-                useVersion("2.9.0")
+                useVersion("2.10.1")
                 because("Force consistent WorkManager version to prevent AbstractMethodError")
+            }
+            if (requested.group == "androidx.sqlite") {
+                useVersion("2.4.0")
+                because("Pin androidx.sqlite to 2.4.0 — sqlcipher-android:4.6.1 was compiled against this version; 2.6.x API changes cause AbstractMethodError")
             }
         }
     }

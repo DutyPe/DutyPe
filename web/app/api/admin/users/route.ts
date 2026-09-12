@@ -54,6 +54,71 @@ function normalizePhoneForDoc(value: unknown) {
   return raw;
 }
 
+function inferState(data: {
+  state?: unknown;
+  city?: unknown;
+  address?: unknown;
+  locationText?: unknown;
+  location?: unknown;
+  lat?: unknown;
+  lng?: unknown;
+}): string {
+  const rawState = String(data.state ?? "").trim().toLowerCase();
+  if (rawState.includes("telangana") || rawState === "ts" || rawState === "tg") return "Telangana";
+  if (rawState.includes("andhra") || rawState.includes("ap")) return "Andhra Pradesh";
+  if (rawState.includes("karnataka") || rawState === "ka") return "Karnataka";
+  if (rawState.includes("tamil") || rawState === "tn") return "Tamil Nadu";
+  if (rawState.includes("maharashtra") || rawState === "mh") return "Maharashtra";
+
+  const combinedText = [
+    data.city,
+    data.locationText,
+    data.address,
+    typeof data.location === "string" ? data.location : ""
+  ].map(v => String(v ?? "").toLowerCase()).join(" ");
+
+  const telanganaKeywords = [
+    "hyderabad", "secunderabad", "cyberabad", "warangal", "nizamabad", "karimnagar",
+    "khammam", "mahbubnagar", "nalgonda", "adilabad", "suryapet", "siddipet",
+    "miryalaguda", "jagtial", "mancherial", "ramagundam", "kothagudem", "kamareddy",
+    "medak", "sangareddy", "rangareddy", "hitec city", "madhapur", "gachibowli",
+    "kukatpally", "dilsukhnagar", "ameerpet", "kondapur", "miyapur", "telangana", "ts", "tg"
+  ];
+  if (telanganaKeywords.some(kw => combinedText.includes(kw))) return "Telangana";
+
+  const apKeywords = [
+    "visakhapatnam", "vizag", "vijayawada", "guntur", "nellore", "kurnool",
+    "rajahmundry", "kakinada", "tirupati", "anantapur", "kadapa", "vizianagaram",
+    "eluru", "ongole", "nandyal", "machilipatnam", "adoni", "tenali", "proddatur",
+    "chittoor", "hindupur", "bhimavaram", "amaravati", "srikakulam", "andhra pradesh", "andhra"
+  ];
+  if (apKeywords.some(kw => combinedText.includes(kw))) return "Andhra Pradesh";
+
+  if (combinedText.includes("bengaluru") || combinedText.includes("bangalore") || combinedText.includes("mysore") || combinedText.includes("karnataka")) return "Karnataka";
+  if (combinedText.includes("chennai") || combinedText.includes("coimbatore") || combinedText.includes("madurai") || combinedText.includes("tamil nadu")) return "Tamil Nadu";
+  if (combinedText.includes("mumbai") || combinedText.includes("pune") || combinedText.includes("nagpur") || combinedText.includes("maharashtra")) return "Maharashtra";
+  if (combinedText.includes("delhi") || combinedText.includes("noida") || combinedText.includes("gurugram") || combinedText.includes("gurgaon")) return "Delhi NCR";
+
+  let lat = typeof data.lat === "number" ? data.lat : Number(data.lat);
+  let lng = typeof data.lng === "number" ? data.lng : Number(data.lng);
+  if ((!lat || !lng) && typeof data.location === "object" && data.location !== null) {
+    lat = Number((data.location as any).lat);
+    lng = Number((data.location as any).lng);
+  }
+
+  if (lat && lng && lat > 0 && lng > 0) {
+    if (lat >= 15.8 && lat <= 19.9 && lng >= 77.2 && lng <= 81.8) {
+      if (lng > 80.5 && lat < 18.0) return "Andhra Pradesh";
+      return "Telangana";
+    }
+    if (lat >= 12.6 && lat <= 19.1 && lng >= 76.7 && lng <= 84.8) {
+      return "Andhra Pradesh";
+    }
+  }
+
+  return "Other / Unknown";
+}
+
 function withId(id: string, value: Record<string, unknown> | null) {
   return value ? { id, ...value } : null;
 }
@@ -223,6 +288,24 @@ export async function GET(request: NextRequest) {
         referralCodeByUserId: referralCodeByUserId.get(userId)
       });
 
+      const state = inferState({
+        state: rawDoc.state || workerProfile?.state || employerProfile?.state,
+        city: rawDoc.city || rawDoc.companyCity || workerProfile?.city || employerProfile?.city || employerProfile?.companyCity,
+        address: rawDoc.address || rawDoc.addressText || workerProfile?.address || workerProfile?.locationText || employerProfile?.companyAddress || employerProfile?.address,
+        locationText: rawDoc.locationText || workerProfile?.locationText || employerProfile?.locationText,
+        location: rawDoc.location || workerProfile?.location || employerProfile?.location,
+        lat: rawDoc.lat || workerProfile?.lat || employerProfile?.lat,
+        lng: rawDoc.lng || workerProfile?.lng || employerProfile?.lng
+      });
+
+      const city = firstNonEmptyString(
+        rawDoc.city,
+        rawDoc.companyCity,
+        workerProfile?.city,
+        employerProfile?.city,
+        employerProfile?.companyCity
+      );
+
       return {
         id: userId,
         fullName: normalized.fullName,
@@ -233,6 +316,8 @@ export async function GET(request: NextRequest) {
         activeRole: normalized.activeRole,
         roles: normalized.roles,
         roleSource,
+        state,
+        city,
         phoneRoleDocId: phoneRole?.docId ?? "",
         phoneRoleUid: phoneRole?.uid ?? "",
         phoneRoleRole: phoneRole?.role ?? "",
@@ -280,6 +365,25 @@ export async function GET(request: NextRequest) {
       { workers: 0, employers: 0, admins: 0, missing: 0, other: 0 }
     );
 
+    const stateCounts = users.reduce<Record<string, { workers: number; employers: number; admins: number; total: number }>>(
+      (acc, user) => {
+        const st = user.state || "Other / Unknown";
+        if (!acc[st]) {
+          acc[st] = { workers: 0, employers: 0, admins: 0, total: 0 };
+        }
+        acc[st].total += 1;
+        if (user.canonicalRole === "WORKER" || user.role === "WORKER" || user.activeRole === "WORKER") {
+          acc[st].workers += 1;
+        } else if (user.canonicalRole === "EMPLOYER" || user.role === "EMPLOYER" || user.activeRole === "EMPLOYER") {
+          acc[st].employers += 1;
+        } else if (user.canonicalRole === "ADMIN") {
+          acc[st].admins += 1;
+        }
+        return acc;
+      },
+      {}
+    );
+
     const sourceCounts = {
       identities: users.length,
       users: usersSnapshot.size,
@@ -298,7 +402,7 @@ export async function GET(request: NextRequest) {
       phoneRolesMissingUid
     };
 
-    return NextResponse.json({ users, sourceCounts, roleCounts, integrityCounts });
+    return NextResponse.json({ users, sourceCounts, roleCounts, stateCounts, integrityCounts });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load users.";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -364,8 +468,6 @@ export async function PATCH(request: NextRequest) {
     const payload: Record<string, unknown> = {};
 
     if (hasRoleUpdate && newRole) {
-      // Single-role schema: the live `users` collection only stores `role`
-      // (and `activeRole` for compat). No `roles[]` array.
       payload.role = newRole;
       payload.activeRole = newRole;
     }

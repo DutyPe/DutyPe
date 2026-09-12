@@ -1,8 +1,11 @@
 # Release Name
 
-Version code: 76
-Version name: 2.8.0
+Version code: 810
+Version name: 4.3
 
-English: DutyPe v76 - Superfast OTP Login & Premium Hiring Room (No Commission)
-Hindi: DutyPe v76 - सुपरफ़ास्ट OTP लॉगिन और प्रीमियम हायरिंग रूम (फ्री पोस्टिंग)
-Telugu: DutyPe v76 - సూపర్ ఫాస్ట్ OTP లాగిన్ & ప్రీమియం హైరింగ్ రూమ్ (ఉచితం)
+English: DutyPe v4.3 - Hyper-Local Jobs & Fast Staff Hiring (Zero Fees)
+Telugu: DutyPe v4.3 - లోకల్ జాబ్స్ & వేగవంతమైన స్టాఫ్ హైరింగ్ (ఉచితం)
+Hindi: DutyPe v4.3 - लोकल जॉब्स और फास्ट स्टाफ हायरिंग (जीरो फीस)
+
+## Play Console Recommended Title:
+Hire Local Staff & Find Jobs Nearby (0% Commission)

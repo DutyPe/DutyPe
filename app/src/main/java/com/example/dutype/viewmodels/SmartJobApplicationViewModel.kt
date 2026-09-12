@@ -257,11 +257,15 @@ class SmartJobApplicationViewModel @Inject constructor(
     // =============================================================================
 
     /**
-     * Apply for a job
+     * Apply for a job with optional 15-second audio intro
      */
     fun applyForJob(
         jobId: String,
-        coverLetter: String? = null
+        coverLetter: String? = null,
+        audioFile: java.io.File? = null,
+        audioDurationSec: Int? = null,
+        expectedSalary: String? = null,
+        distanceKm: Double? = null
     ) {
         viewModelScope.launch {
             Timber.d("🚀 SmartJobApplicationViewModel: Starting application for jobId: $jobId")
@@ -278,9 +282,33 @@ class SmartJobApplicationViewModel @Inject constructor(
                 )
                 return@launch
             }
+
+            var uploadedAudioUrl: String? = null
+            if (audioFile != null && audioFile.exists()) {
+                val duration = audioDurationSec ?: 15
+                val uploadResult = com.example.dutype.utils.AudioRecordingHelper.uploadToFirebaseStorage(
+                    file = audioFile,
+                    userId = currentUser.uid,
+                    durationSec = duration
+                )
+                if (uploadResult.isSuccess) {
+                    uploadedAudioUrl = uploadResult.getOrNull()?.first
+                    Timber.d("🎙️ Audio intro uploaded successfully: $uploadedAudioUrl")
+                } else {
+                    Timber.w("Audio intro upload failed, proceeding without audio: ${uploadResult.exceptionOrNull()?.message}")
+                }
+            }
             
             Timber.d("🚀 SmartJobApplicationViewModel: Calling applyForJob for user: ${currentUser.uid}")
-            val result = jobApplicationService.applyForJob(jobId, currentUser.uid, coverLetter)
+            val result = jobApplicationService.applyForJob(
+                jobId = jobId,
+                userId = currentUser.uid,
+                coverLetter = coverLetter,
+                audioIntroUrl = uploadedAudioUrl,
+                audioDurationSec = if (uploadedAudioUrl != null) audioDurationSec else null,
+                expectedSalary = expectedSalary,
+                distanceKm = distanceKm
+            )
             result.onSuccess { application ->
                 val canonicalId = application.id
                 Timber.d("✅ SmartJobApplicationViewModel: Application successful! applicationId: ${application.id}")

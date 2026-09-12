@@ -289,6 +289,31 @@ fun PostJobScreen(
     
     // Guest mode - Login bottom sheet state for job posting
     var showLoginBottomSheet by remember { mutableStateOf(false) }
+
+    // Notification permission prompt after job posting
+    var showPostJobNotificationBottomSheet by remember { mutableStateOf(false) }
+    var pendingNavJobId by remember { mutableStateOf<String?>(null) }
+
+    fun navigateAfterJobPosted(jobId: String?) {
+        onJobPosted?.invoke(jobId)
+        if (onJobPosted == null) {
+            if (!jobId.isNullOrBlank()) {
+                navController.navigate(Routes.employerApplicationsJobRoute(jobId)) {
+                    popUpTo(Routes.EMPLOYER_HOME) { inclusive = false }
+                }
+            } else {
+                navController.navigate(Routes.EMPLOYER_HOME) {
+                    popUpTo(Routes.EMPLOYER_HOME) { inclusive = false }
+                }
+            }
+        }
+    }
+
+    val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) {
+        navigateAfterJobPosted(pendingNavJobId)
+    }
     
     // LazyList state for the single-canvas studio layout
     val listState = rememberLazyListState()
@@ -590,8 +615,7 @@ fun PostJobScreen(
             shiftTiming = shiftTiming,
             vacancies = vacancies.toIntOrNull() ?: 0,
             employerId = employerId ?: "",
-            employerName = employerName,
-            postedTime = System.currentTimeMillis()
+                postedTime = System.currentTimeMillis()
         )
     }
 
@@ -599,142 +623,143 @@ fun PostJobScreen(
     fun submitJobWithCoordinates(finalLatitude: Double, finalLongitude: Double) {
         // Double-check to prevent duplicate submissions
         if (employerJobUiState.isCreatingJob) {
-            Timber.w("� JOB POSTING DEBUG: Already creating job in submitJobWithCoordinates, ignoring")
-            return
-        }
-        
-        Timber.d("� JOB POSTING DEBUG: Creating job posting...")
-        val jobPosting = createJobPosting()
-        val vacancyCount = vacancies.toIntOrNull()
-        if (vacancyCount == null || vacancyCount !in 1..50) {
-            Toast.makeText(context, context.getString(R.string.enter_number_positions), Toast.LENGTH_SHORT).show()
-            isSubmittingJob = false
-            return
-        }
-
-        // BUG #6 FIX: payAmount is a free-form field (the form/help text says
-        // "Enter amount, range (10000-15000), or text (Based on experience)").
-        // The previous `toDoubleOrNull() ?: 0.0` collapsed every non-numeric
-        // input to 0.0, which the strict Firestore schema (`salary > 0`) then
-        // silently rejected so the post never went through. The parser keeps
-        // a positive numeric for filtering and surfaces the original text in
-        // the description so workers still see "Pay: 15000-20000" or
-        // "Pay: Negotiable".
-        // Bug #6 fix: salary is a String — the employer's exact text
-        // ("Negotiable" / "1000-2000" / "2000+" / "5000") is sent
-        // verbatim to Firestore. The card layer formats for display via
-        // SalaryFormatter; numeric filters parse the lower bound.
-        val payParsed = com.example.dutype.utils.PayAmountParser.parse(jobPosting.payAmount)
-        val descriptionWithPayText = jobPosting.description.ifBlank {
-            buildString {
-                append("Hiring for ")
-                append(jobPosting.title.trim())
-                append(".")
-                if (shiftTiming.displayName.isNotBlank()) {
-                    append(" Shift: ")
-                    append(shiftTiming.displayName)
-                    append(".")
-                }
-            }
-        }
-        val inferredCategoryName = com.example.dutype.utils.JobCategoryResolver.inferCategoryName(
-            title = jobPosting.title,
-            description = descriptionWithPayText
-        )
-
-        // Build job data map directly from jobPosting (no intermediate JobListing needed)
-        val jobData = mutableMapOf<String, Any>(
-            // Core job information
-            "title" to jobPosting.title,
-            // Job type stores the work mode (Full-time / Part-time / �).
-            "jobType" to workType,
-            "category" to inferredCategoryName,
-            
-            // Location information
-            "location" to mapOf("lat" to finalLatitude, "lng" to finalLongitude),
-            "addressText" to jobPosting.location,
-            
-            // Pay information
-            "salary" to payParsed.text,
-            "salaryType" to jobPosting.payType.name,
-            
-            // Job details
-            "description" to descriptionWithPayText,
-            "gender" to gender,
-            "experienceRequired" to experienceLevel,
-            "educationRequired" to educationRequired,
-            "shiftTiming" to (
-                // Batch-p #3: persist the typed-in start/end timing for CUSTOM shifts.
-                if (shiftTiming == ShiftTiming.CUSTOM &&
-                    (customShiftStart.isNotBlank() || customShiftEnd.isNotBlank())
-                ) {
-                    listOf(customShiftStart.trim(), customShiftEnd.trim())
-                        .filter { it.isNotBlank() }
-                        .joinToString(separator = " - ")
-                } else {
-                    shiftTiming.displayName
-                }
-            ),
-            "vacancies" to vacancyCount,
-            
-            // Contact information
-            "contactNumber" to jobPosting.contactNumber,
-
-            // System fields
-            "employerId" to (employerId ?: ""),
-
-            // #5 fix: optional hero image URL persisted on jobmetadata so
-            // it shows on worker / employer job cards instead of an emoji.
-            "jobImageUrl" to jobImageUrl
-        )
-        if (repostOfJobId.isNotBlank()) {
-            jobData["repostOfJobId"] = repostOfJobId
-            jobData["repostedAt"] = System.currentTimeMillis()
-        }
-        
-        // DEBUG: Log all job data being sent to Firestore
-        Timber.d("� JOB POSTING DEBUG: Job Data to be saved:")
-        jobData.forEach { (key, value) ->
-            Timber.d("�   - $key: $value")
-        }
-        
-        employerJobViewModel.createJob(jobData) { success, newJobId, message ->
-            // Reset local guard
-            isSubmittingJob = false
-            
-            if (success) {
-                Timber.i("� JOB POSTING DEBUG: ✅ Job posted successfully!")
-                Toast.makeText(context, context.getString(R.string.post_job_success), Toast.LENGTH_SHORT).show()
-                
-                // Trigger in-app review after successful job posting
-                context.findActivity()?.let { activity ->
-                    reviewTriggerService.onEmployerJobPosted(activity)
+                    Timber.w(" JOB POSTING DEBUG: Already creating job in submitJobWithCoordinates, ignoring")
+                    return
                 }
                 
-                // Call the callback if provided (for tabbed interface)
-                onJobPosted?.invoke(newJobId)
-                // Navigate to the hiring room so the employer can start calling applicants/matches immediately.
-                if (onJobPosted == null) {
-                    if (!newJobId.isNullOrBlank()) {
-                        navController.navigate(Routes.employerApplicationsJobRoute(newJobId)) {
-                            popUpTo(Routes.EMPLOYER_HOME) { inclusive = false }
-                        }
-                    } else {
-                        navController.navigate(Routes.EMPLOYER_HOME) {
-                            popUpTo(Routes.EMPLOYER_HOME) { inclusive = false }
+                Timber.d(" JOB POSTING DEBUG: Creating job posting...")
+                val jobPosting = createJobPosting()
+                val vacancyCount = vacancies.toIntOrNull()
+                if (vacancyCount == null || vacancyCount !in 1..50) {
+                    Toast.makeText(context, context.getString(R.string.enter_number_positions), Toast.LENGTH_SHORT).show()
+                    isSubmittingJob = false
+                    return
+                }
+
+                // BUG #6 FIX: payAmount is a free-form field (the form/help text says
+                // "Enter amount, range (10000-15000), or text (Based on experience)").
+                // The previous `toDoubleOrNull() ?: 0.0` collapsed every non-numeric
+                // input to 0.0, which the strict Firestore schema (`salary > 0`) then
+                // silently rejected so the post never went through. The parser keeps
+                // a positive numeric for filtering and surfaces the original text in
+                // the description so workers still see "Pay: 15000-20000" or
+                // "Pay: Negotiable".
+                // Bug #6 fix: salary is a String — the employer's exact text
+                // ("Negotiable" / "1000-2000" / "2000+" / "5000") is sent
+                // verbatim to Firestore. The card layer formats for display via
+                // SalaryFormatter; numeric filters parse the lower bound.
+                val payParsed = com.example.dutype.utils.PayAmountParser.parse(jobPosting.payAmount)
+                val descriptionWithPayText = jobPosting.description.ifBlank {
+                    buildString {
+                        append("Hiring for ")
+                        append(jobPosting.title.trim())
+                        append(".")
+                        if (shiftTiming.displayName.isNotBlank()) {
+                            append(" Shift: ")
+                            append(shiftTiming.displayName)
+                            append(".")
                         }
                     }
                 }
-            } else {
-                Timber.e("� JOB POSTING DEBUG: ❌ Job posting failed: $message")
-                Toast.makeText(context, context.getString(R.string.post_job_error, message), Toast.LENGTH_LONG).show()
+                val inferredCategoryName = com.example.dutype.utils.JobCategoryResolver.inferCategoryName(
+                    title = jobPosting.title,
+                    description = descriptionWithPayText
+                )
+
+                // Build job data map directly from jobPosting (no intermediate JobListing needed)
+                val jobData = mutableMapOf<String, Any>(
+                    // Core job information
+                    "title" to jobPosting.title,
+                    // Job type stores the work mode (Full-time / Part-time / ).
+                    "jobType" to workType,
+                    "category" to inferredCategoryName,
+                    
+                    // Location information
+                    "location" to mapOf("lat" to finalLatitude, "lng" to finalLongitude),
+                    "addressText" to jobPosting.location,
+                    
+                    // Pay information
+                    "salary" to payParsed.text,
+                    "salaryType" to jobPosting.payType.name,
+                    
+                    // Job details
+                    "description" to descriptionWithPayText,
+                    "gender" to gender,
+                    "experienceRequired" to experienceLevel,
+                    "educationRequired" to educationRequired,
+                    "shiftTiming" to (
+                        // Batch-p #3: persist the typed-in start/end timing for CUSTOM shifts.
+                        if (shiftTiming == ShiftTiming.CUSTOM &&
+                            (customShiftStart.isNotBlank() || customShiftEnd.isNotBlank())
+                        ) {
+                            listOf(customShiftStart.trim(), customShiftEnd.trim())
+                                .filter { it.isNotBlank() }
+                                .joinToString(separator = " - ")
+                        } else {
+                            shiftTiming.displayName
+                        }
+                    ),
+                    "vacancies" to vacancyCount,
+                    
+                    // Contact information
+                    "contactNumber" to jobPosting.contactNumber,
+
+                    // System fields
+                    "employerId" to (employerId ?: ""),
+
+                    // #5 fix: optional hero image URL persisted on jobmetadata so
+                    // it shows on worker / employer job cards instead of an emoji.
+                    "jobImageUrl" to jobImageUrl
+                )
+                if (repostOfJobId.isNotBlank()) {
+                    jobData["repostOfJobId"] = repostOfJobId
+                    jobData["repostedAt"] = System.currentTimeMillis()
+                }
+                
+                // DEBUG: Log all job data being sent to Firestore
+                Timber.d(" JOB POSTING DEBUG: Job Data to be saved:")
+                jobData.forEach { (key, value) ->
+                    Timber.d("   - $key: $value")
+                }
+                
+                employerJobViewModel.createJob(jobData) { success, newJobId, message ->
+                    // Reset local guard
+                    isSubmittingJob = false
+                    
+                    if (success) {
+                        Timber.i(" JOB POSTING DEBUG: ✅ Job posted successfully!")
+                        Toast.makeText(context, context.getString(R.string.post_job_success), Toast.LENGTH_SHORT).show()
+                        
+                        // Trigger in-app review after successful job posting
+                        context.findActivity()?.let { activity ->
+                            reviewTriggerService.onEmployerJobPosted(activity)
+                        }
+
+                        val hasNotificationPermission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            androidx.core.content.ContextCompat.checkSelfPermission(
+                                context,
+                                android.Manifest.permission.POST_NOTIFICATIONS
+                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                        } else {
+                            true
+                        }
+
+                        if (!hasNotificationPermission && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            pendingNavJobId = newJobId
+                            showPostJobNotificationBottomSheet = true
+                        } else {
+                            navigateAfterJobPosted(newJobId)
+                        }
+                    } else {
+                        Timber.e(" JOB POSTING DEBUG: ❌ Job posting failed: $message")
+                        Toast.makeText(context, context.getString(R.string.post_job_error, message), Toast.LENGTH_LONG).show()
+                    }
+                }
             }
-        }
-    }
 
     // Submit job function - handles login check, profile check, and geocoding
     fun submitJob(finalLatitude1: Double, finalLongitude1: Double) {
-        Timber.d("� JOB POSTING DEBUG: submitJob() called")
+        Timber.d(" JOB POSTING DEBUG: submitJob() called")
         
         // STEP 1: Check if user is logged in
         val currentUser = FirebaseAuth.getInstance().currentUser
@@ -913,7 +938,7 @@ fun PostJobScreen(
     //   1 ? Pay & where   (compensation + location)
     //   2 ? Requirements & contact (people, schedule, perks, contact, review)
     var currentStep by remember { mutableIntStateOf(0) }
-    var postingMode by remember { mutableStateOf("urgent") }
+    var postingMode by remember { mutableStateOf("vacancy") }
     var showAdvancedJobDetails by remember { mutableStateOf(false) }
     var showAdvancedRequirements by remember { mutableStateOf(false) }
     val totalSteps = 3
@@ -946,11 +971,13 @@ fun PostJobScreen(
             return
         }
         
-        // Direct credit check before submission
+        // Direct credit check before submission bypassed for free postings (daily limits enforced backend-side)
+        /*
         if (employerSubscription.status != "LOADING" && employerSubscription.normalCredits <= 0) {
             showNoCreditsDialog = true
             return
         }
+        */
 
         submitJob(0.0, 0.0)
     }
@@ -1655,6 +1682,24 @@ fun PostJobScreen(
         title = stringResource(R.string.login_to_post_job),
         subtitle = stringResource(R.string.login_publish_job_subtitle)
     )
+
+    // Notification permission prompt after job posting
+    com.example.dutype.components.NotificationPermissionBottomSheet(
+        isVisible = showPostJobNotificationBottomSheet,
+        onDismiss = {
+            showPostJobNotificationBottomSheet = false
+            navigateAfterJobPosted(pendingNavJobId)
+        },
+        onEnableNotifications = {
+            showPostJobNotificationBottomSheet = false
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                navigateAfterJobPosted(pendingNavJobId)
+            }
+        },
+        userRole = "employer"
+    )
 }
 
 @Composable
@@ -2342,7 +2387,7 @@ private fun PostingTypeTabs(
     onUrgentNeedClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val selectedIndex = if (selectedType == "urgent") 0 else 1
+    val selectedIndex = if (selectedType == "vacancy") 0 else 1
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -2361,24 +2406,24 @@ private fun PostingTypeTabs(
             ) {
                 Tab(
                     selected = selectedIndex == 0,
-                    onClick = onUrgentNeedClick,
-                    icon = { Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    text = { Text(stringResource(R.string.urgent_need), fontWeight = if (selectedIndex == 0) FontWeight.Bold else FontWeight.Medium) }
+                    onClick = onVacancyClick,
+                    icon = { Icon(Icons.Default.Work, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    text = { Text(stringResource(R.string.normal_job), fontWeight = if (selectedIndex == 0) FontWeight.Bold else FontWeight.Medium) }
                 )
                 Tab(
                     selected = selectedIndex == 1,
-                    onClick = onVacancyClick,
-                    icon = { Icon(Icons.Default.Work, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    text = { Text(stringResource(R.string.normal_job), fontWeight = if (selectedIndex == 1) FontWeight.Bold else FontWeight.Medium) }
+                    onClick = onUrgentNeedClick,
+                    icon = { Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    text = { Text(stringResource(R.string.urgent_need), fontWeight = if (selectedIndex == 1) FontWeight.Bold else FontWeight.Medium) }
                 )
             }
         }
 
         Text(
             text = if (selectedIndex == 0) {
-                stringResource(R.string.post_job_urgent_tab_desc)
-            } else {
                 stringResource(R.string.post_job_normal_tab_desc)
+            } else {
+                stringResource(R.string.post_job_urgent_tab_desc)
             },
             style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
             modifier = Modifier.padding(horizontal = 4.dp)

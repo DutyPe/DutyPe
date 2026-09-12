@@ -399,6 +399,9 @@ fun MainNavGraph(
         composable(Routes.PRIVACY_POLICY) {
             PrivacyPolicyScreen(navController)
         }
+        composable(Routes.SETTINGS) {
+            com.example.dutype.common.screens.SettingsScreen(navController)
+        }
         composable(Routes.WORKER_HOME) {
             WorkerMainScreen(
                 rootNavController = navController,
@@ -750,14 +753,12 @@ fun RoleSelectionWithNavigation(
                     }
                 }
             } else {
-                // Mandatory login: guests are not allowed into Home. Any role
-                // selection without a signed-in user is routed to the login screen.
-                // (This branch is normally unreachable because the onRoleSelected
-                // callback below redirects unsigned users straight to login, but we
-                // keep it consistent so no code path can leak a guest into Home.)
-                val roleArg = if (role == "EMPLOYER") "EMPLOYER" else "WORKER"
-                Timber.i("Mandatory login - unsigned role selection routed to ENHANCED_LOGIN ($roleArg)")
-                navController.navigate("${Routes.ENHANCED_LOGIN}?role=$roleArg") {
+                // Guest mode: route directly to the selected role's home screen
+                val targetRole = if (role == "EMPLOYER") com.example.dutype.models.UserRole.EMPLOYER else com.example.dutype.models.UserRole.WORKER
+                val targetHome = if (targetRole == com.example.dutype.models.UserRole.EMPLOYER) Routes.EMPLOYER_HOME else Routes.WORKER_HOME
+                Timber.i("Guest mode: navigating to $targetHome")
+                navController.navigate(targetHome) {
+                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                     launchSingleTop = true
                 }
             }
@@ -771,13 +772,14 @@ fun RoleSelectionWithNavigation(
     SelectRoleScreen(
         navController = navController,
         onRoleSelected = { role ->
+            val targetRole = if (role == "EMPLOYER") com.example.dutype.models.UserRole.EMPLOYER else com.example.dutype.models.UserRole.WORKER
+            val targetHome = if (targetRole == com.example.dutype.models.UserRole.EMPLOYER) Routes.EMPLOYER_HOME else Routes.WORKER_HOME
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser == null) {
-                // Mandatory login: a guest must sign in before entering the app.
-                // Keep SELECT_ROLE on the back stack so "back" returns to role choice.
-                val roleArg = if (role == "EMPLOYER") "EMPLOYER" else "WORKER"
-                Timber.i("Mandatory login - routing unsigned $roleArg to ENHANCED_LOGIN")
-                navController.navigate("${Routes.ENHANCED_LOGIN}?role=$roleArg") {
+                // Guest mode: navigate directly to Home
+                Timber.i("Guest selected $role -> routing directly to $targetHome")
+                navController.navigate(targetHome) {
+                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
                     launchSingleTop = true
                 }
             } else {

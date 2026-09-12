@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -53,6 +54,8 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.example.dutype.components.EmptyLocationState
 import com.example.dutype.components.EmptySearchState
+import com.example.dutype.utils.findActivity
+import com.example.dutype.components.openNotificationSettings
 
 /**
  * AllJobsScreen - Displays all available jobs with infinite scroll
@@ -101,7 +104,97 @@ fun AllJobsScreen(
     // Local UI state
     var showFilterSheet by remember { mutableStateOf(false) }
     var showLocationSheet by remember { mutableStateOf(false) }
+    var showLocationPermissionBottomSheet by remember { mutableStateOf(false) }
+    var hasAttemptedLocationRequest by remember { mutableStateOf(false) }
     val currentLocation by viewModel.locationPreferences.currentLocation.collectAsStateWithLifecycle()
+    val coroutineScope = rememberCoroutineScope()
+
+    var hasLocationPermission by remember {
+        mutableStateOf(
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    // Automatically detect permission grant when returning to app
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                val isGranted = androidx.core.content.ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.ACCESS_FINE_LOCATION
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+                if (isGranted && !hasLocationPermission) {
+                    hasLocationPermission = true
+                    val locationService = viewModel.locationService
+                    coroutineScope.launch {
+                        locationRepository.refresh { freshLocation ->
+                            if (freshLocation != null) {
+                                val data = locationService.toLocationData(freshLocation)
+                                viewModel.setUserLocation(data.latitude, data.longitude)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    val locationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        hasLocationPermission = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (hasLocationPermission) {
+            val locationService = viewModel.locationService
+            coroutineScope.launch {
+                locationRepository.refresh { freshLocation ->
+                    if (freshLocation != null) {
+                        val data = locationService.toLocationData(freshLocation)
+                        viewModel.setUserLocation(data.latitude, data.longitude)
+                    }
+                }
+            }
+        }
+    }
+
+    fun requestOrOpenLocationSettings() {
+        val activity = context.findActivity()
+        val isPermanentlyDenied = activity != null && hasAttemptedLocationRequest &&
+            !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, android.Manifest.permission.ACCESS_FINE_LOCATION) &&
+            !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, android.Manifest.permission.ACCESS_COARSE_LOCATION)
+
+        if (isPermanentlyDenied) {
+            val isTelugu = com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
+            val message = if (isTelugu) "దయచేసి సెట్టింగ్స్‌లో లొకేషన్ అనుమతిని ఆన్ చేయండి" else "Please enable Location permission in App Settings"
+            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+            openNotificationSettings(context)
+        } else {
+            hasAttemptedLocationRequest = true
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
     
     // Pagination: 10 jobs per page
     val pageSize = PAGE_SIZE
@@ -263,63 +356,71 @@ fun AllJobsScreen(
                 }
             }
         }
-        // Category rail section
-        LazyRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(WorkerColors.CardBackground)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(bottom = 12.dp)
-        ) {
-            items(
-                items = categoryTabs,
-                key = { (label, _) -> "cat_tab_$label" },
-                contentType = { "category_chip" }
-            ) { (label, emoji) ->
-                val isSelected = selectedChip == label || 
-                                 (selectedChip == "Any" && label == "All Jobs") ||
-                                 (selectedChip == "All" && label == "All Jobs")
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .width(64.dp)
-                        .clickable { viewModel.setCategoryAndReload(label) }
-                ) {
-                    Box(
+
+        val isEmptyJobsState = filteredJobs.isEmpty() && !uiState.isLoading
+        
+        // Category rail section - hide when in empty state to remove clutter
+        if (!isEmptyJobsState) {
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(WorkerColors.CardBackground)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 12.dp)
+            ) {
+                items(
+                    items = categoryTabs,
+                    key = { (label, _) -> "cat_tab_$label" },
+                    contentType = { "category_chip" }
+                ) { (label, emoji) ->
+                    val isSelected = selectedChip == label || 
+                                     (selectedChip == "Any" && label == "All Jobs") ||
+                                     (selectedChip == "All" && label == "All Jobs")
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier
-                            .size(52.dp)
-                            .background(
-                                color = if (isSelected) {
-                                    if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color.White.copy(alpha = 0.15f) else WorkerColors.Primary.copy(alpha = 0.15f)
-                                } else {
-                                    if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color.White.copy(alpha = 0.05f) else Color(0xFFF1F5F9)
-                                },
-                                shape = CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
+                            .width(64.dp)
+                            .clickable { viewModel.setCategoryAndReload(label) }
                     ) {
-                        Text(text = emoji, fontSize = 24.sp)
-                    }
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = if (label == "All Jobs") "All" else label,
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = if (isSelected) WorkerColors.Primary else WorkerColors.TextSecondary,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        Box(
+                            modifier = Modifier
+                                .size(52.dp)
+                                .background(
+                                    color = if (isSelected) {
+                                        if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color.White.copy(alpha = 0.15f) else WorkerColors.Primary.copy(alpha = 0.15f)
+                                    } else {
+                                        if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color.White.copy(alpha = 0.05f) else Color(0xFFF1F5F9)
+                                    },
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = emoji, fontSize = 24.sp)
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = if (label == "All Jobs") "All" else label,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = if (isSelected) WorkerColors.Primary else WorkerColors.TextSecondary,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
                         )
-                    )
+                    }
                 }
             }
+            HorizontalDivider(color = WorkerColors.Border, thickness = 1.dp)
         }
-
-
-        
-        HorizontalDivider(color = WorkerColors.Border, thickness = 1.dp)
 
         // Job list content
         when {
-            uiState.isLoading -> {
+            !hasLocationPermission && currentLocation == null -> {
+                com.example.dutype.components.LocationPermissionRequiredState(
+                    onRequestPermissionClick = { showLocationPermissionBottomSheet = true }
+                )
+            }
+
+            uiState.isLoading && filteredJobs.isEmpty() -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
@@ -343,8 +444,17 @@ fun AllJobsScreen(
                 EmptyState(
                     searchQuery = searchQuery,
                     selectedChip = selectedChip,
+                    locationName = currentLocation?.getShortAddress(),
                     onViewAllJobs = { viewModel.setSelectedChip("All Jobs") },
-                    onClearSearch = { viewModel.setSearchQuery("") }
+                    onClearSearch = { viewModel.setSearchQuery("") },
+                    onCitySuggestionClick = { chip ->
+                        coroutineScope.launch {
+                            val locData = com.example.dutype.location.TopCityChips.toLocationData(chip)
+                            viewModel.locationPreferences.saveLocation(locData, forceManualOverride = true)
+                            viewModel.onLocationChanged(chip.latitude, chip.longitude)
+                        }
+                    },
+                    onHelpDesk = { navController.navigate(Routes.HELP) }
                 )
             }
             
@@ -381,12 +491,22 @@ fun AllJobsScreen(
                     area = address.split(",").firstOrNull()?.trim()
                 )
                 viewModel.locationPreferences.saveLocation(data, forceManualOverride = true)
-                viewModel.setUserLocation(lat, lon)
+                viewModel.onLocationChanged(lat, lon)
                 showLocationSheet = false
                 android.widget.Toast.makeText(context, "Showing jobs near $address", android.widget.Toast.LENGTH_SHORT).show()
             }
         )
     }
+
+    // Location Permission Bottom Sheet
+    com.example.dutype.components.LocationPermissionBottomSheet(
+        isVisible = showLocationPermissionBottomSheet,
+        onDismiss = { showLocationPermissionBottomSheet = false },
+        onAllowLocation = {
+            showLocationPermissionBottomSheet = false
+            requestOrOpenLocationSettings()
+        }
+    )
 
     // Filter Bottom Sheet
     if (showFilterSheet) {
@@ -664,11 +784,11 @@ private fun JobsList(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(
+            itemsIndexed(
                 items = jobs,
-                key = { job -> "alljobs_${job.id}" },
-                contentType = { "job_card" }
-            ) { job ->
+                key = { _, job -> job.id.ifBlank { job.jobId.ifBlank { "job_${job.hashCode()}" } } },
+                contentType = { _, _ -> "job_card" }
+            ) { _, job ->
                 JobCard(
                     job = job,
                     isSaved = job.isSaved,
@@ -807,8 +927,11 @@ private fun ErrorState(
 private fun EmptyState(
     searchQuery: String,
     selectedChip: String,
+    locationName: String? = null,
     onViewAllJobs: () -> Unit,
-    onClearSearch: () -> Unit = {}
+    onClearSearch: () -> Unit = {},
+    onCitySuggestionClick: (com.example.dutype.location.TopCityChips.CityLocationChip) -> Unit = {},
+    onHelpDesk: (() -> Unit)? = null
 ) {
     if (searchQuery.isNotBlank()) {
         // Show search empty state for search queries
@@ -819,7 +942,10 @@ private fun EmptyState(
     } else {
         // Show location empty state for location misses
         EmptyLocationState(
-            categoryFilter = selectedChip
+            categoryFilter = selectedChip,
+            locationName = locationName,
+            onCitySuggestionClick = onCitySuggestionClick,
+            onHelpDesk = onHelpDesk
         )
     }
 }

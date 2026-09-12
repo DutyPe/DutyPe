@@ -40,15 +40,21 @@ object NearestJobsEngine {
     
     private const val EARTH_RADIUS_KM = 6371.0
     private const val DISTANCE_UNAVAILABLE = Double.MAX_VALUE
-    
+
+    /**
+     * STRICT MAXIMUM RADIUS FOR SHOWING JOBS TO WORKERS.
+     * Any job located > 50km from the worker is completely filtered out.
+     */
+    const val MAX_WORKER_RADIUS_KM = 50.0
+
     /**
      * Distance tiers for UX grouping
      */
     enum class DistanceTier(val minKm: Double, val maxKm: Double, val label: String, val emoji: String) {
         VERY_NEAR(0.0, 5.0, "VERY NEAR", "📍"),
-        NEAR(5.0, 10.0, "NEAR", "📗"),
-        MODERATE(10.0, 20.0, "MODERATE", "📙"),
-        FAR(20.0, Double.MAX_VALUE, "FAR", "📕")
+        NEAR(5.0, 15.0, "NEARBY", "📗"),
+        MODERATE(15.0, 30.0, "IN YOUR CITY", "📙"),
+        FAR(30.0, MAX_WORKER_RADIUS_KM, "WITHIN 50 KM", "🗺️")
     }
     
     // ============================================================================
@@ -56,27 +62,22 @@ object NearestJobsEngine {
     // ============================================================================
     
     /**
-     * MAIN METHOD: Get sorted nearby jobs
+     * MAIN METHOD: Get sorted nearby jobs (Strictly within 50 km)
      * 
-     * This is the single entry point for all job sorting in the app.
-     * 
-     * Flow:
-     * 1. Validate coordinates
-     * 2. Calculate distances (Haversine, optimized)
-     * 3. Sort by distance (nearest first)
-     * 4. Return sorted list
-     * 
-     * Performance: ~4ms for 500 jobs on Snapdragon 778G
+     * Calculates distance from user location, filters out all jobs > 50km,
+     * and sorts the remaining jobs nearest first.
      * 
      * @param jobs List of jobs to sort
      * @param userLatitude User's latitude
      * @param userLongitude User's longitude
-     * @return Sorted jobs (nearest first), or original list if coordinates invalid
+     * @param maxRadiusKm Maximum search radius in km (defaults to 50.0 km)
+     * @return Sorted jobs (nearest first, strictly within 50km)
      */
     fun getNearbyJobs(
         jobs: List<JobListing>,
         userLatitude: Double,
-        userLongitude: Double
+        userLongitude: Double,
+        maxRadiusKm: Double = MAX_WORKER_RADIUS_KM
     ): List<JobListing> {
         // Early return: invalid user coordinates
         if (!hasValidCoordinates(userLatitude, userLongitude)) {
@@ -86,38 +87,63 @@ object NearestJobsEngine {
         
         if (jobs.isEmpty()) return jobs
         
-        Timber.d("🎯 Engine: Sorting ${jobs.size} jobs by distance from ($userLatitude, $userLongitude)")
+        Timber.d("🎯 Engine: Calculating distances for ${jobs.size} jobs from ($userLatitude, $userLongitude)")
         
-        // Calculate distances and sort in single pass
-        return jobs
-            .map { job ->
-                if (hasValidCoordinates(job.lat, job.lng)) {
-                    job.copy(distance = calculateHaversineDistance(
-                        userLatitude, userLongitude,
-                        job.lat, job.lng
-                    ))
-                } else {
-                    job.copy(distance = null)  // Invalid job coordinates
-                }
+        val withCalculatedDistance = jobs.map { job ->
+            if (hasValidCoordinates(job.lat, job.lng)) {
+                val dist = calculateHaversineDistance(
+                    userLatitude, userLongitude,
+                    job.lat, job.lng
+                )
+                job.copy(distance = dist)
+            } else {
+                job
             }
-            .sortedBy { it.distance ?: DISTANCE_UNAVAILABLE }
-            .also { sorted ->
-                // Log top results for verification
-                sorted.take(3).forEach { job ->
-                    val distStr = job.distance?.let { "%.2f km".format(it) } ?: "NO LOCATION"
-                    Timber.d("🎯   → ${job.title}: $distStr")
-                }
-            }
+        }.sortedBy { it.distance ?: DISTANCE_UNAVAILABLE }
+
+        // Tier 1: Local / Nearby within primary radius (e.g. 50km)
+        val localJobs = withCalculatedDistance.filter {
+            val d = it.distance
+            d != null && d <= maxRadiusKm
+        }
+        if (localJobs.isNotEmpty()) {
+            return localJobs
+        }
+
+        // Tier 2 Fallback: District / Commuter radius (within 150 km)
+        val districtJobs = withCalculatedDistance.filter {
+            val d = it.distance
+            d != null && d <= 150.0
+        }
+        if (districtJobs.isNotEmpty()) {
+            Timber.d("🎯 Engine: Fallback to district 150km radius (${districtJobs.size} jobs found)")
+            return districtJobs
+        }
+
+        // Tier 3 Fallback: State / Wider region (within 500 km)
+        val stateJobs = withCalculatedDistance.filter {
+            val d = it.distance
+            d != null && d <= 500.0
+        }
+        if (stateJobs.isNotEmpty()) {
+            Timber.d("🎯 Engine: Fallback to state 500km radius (${stateJobs.size} jobs found)")
+            return stateJobs
+        }
+
+        // Tier 4 Fallback: Return all available jobs sorted nearest-first
+        Timber.d("🎯 Engine: Fallback to all available jobs sorted by proximity (${withCalculatedDistance.size} jobs)")
+        return withCalculatedDistance
     }
     
     /**
      * MAIN METHOD: Get sorted nearby jobs (for summaries)
-     * Same as above but for JobListingSummary objects
+     * Same as above but for JobListingSummary objects with multi-tier fallback
      */
     fun getNearbyJobSummaries(
         summaries: List<JobListingSummary>,
         userLatitude: Double,
-        userLongitude: Double
+        userLongitude: Double,
+        maxRadiusKm: Double = MAX_WORKER_RADIUS_KM
     ): List<JobListingSummary> {
         if (!hasValidCoordinates(userLatitude, userLongitude)) {
             Timber.w("🎯 Engine: Cannot sort summaries - invalid user location")
@@ -126,20 +152,45 @@ object NearestJobsEngine {
         
         if (summaries.isEmpty()) return summaries
         
-        Timber.d("🎯 Engine: Sorting ${summaries.size} job summaries by distance")
+        Timber.d("🎯 Engine: Calculating distances for ${summaries.size} job summaries")
         
-        return summaries
-            .map { summary ->
-                if (hasValidCoordinates(summary.lat, summary.lng)) {
-                    summary.copy(distance = calculateHaversineDistance(
-                        userLatitude, userLongitude,
-                        summary.lat, summary.lng
-                    ))
-                } else {
-                    summary.copy(distance = null)
-                }
+        val withCalculatedDistance = summaries.map { summary ->
+            if (hasValidCoordinates(summary.lat, summary.lng)) {
+                val dist = calculateHaversineDistance(
+                    userLatitude, userLongitude,
+                    summary.lat, summary.lng
+                )
+                summary.copy(distance = dist)
+            } else {
+                summary
             }
-            .sortedBy { it.distance ?: DISTANCE_UNAVAILABLE }
+        }.sortedBy { it.distance ?: DISTANCE_UNAVAILABLE }
+
+        val localSummaries = withCalculatedDistance.filter {
+            val d = it.distance
+            d != null && d <= maxRadiusKm
+        }
+        if (localSummaries.isNotEmpty()) {
+            return localSummaries
+        }
+
+        val districtSummaries = withCalculatedDistance.filter {
+            val d = it.distance
+            d != null && d <= 150.0
+        }
+        if (districtSummaries.isNotEmpty()) {
+            return districtSummaries
+        }
+
+        val stateSummaries = withCalculatedDistance.filter {
+            val d = it.distance
+            d != null && d <= 500.0
+        }
+        if (stateSummaries.isNotEmpty()) {
+            return stateSummaries
+        }
+
+        return withCalculatedDistance
     }
     
     /**
@@ -199,7 +250,8 @@ object NearestJobsEngine {
             distanceKm < 0.1 -> "< 100m"
             distanceKm < 1.0 -> "${(distanceKm * 1000).toInt()}m away"
             distanceKm < 100.0 -> "%.1f km away".format(distanceKm)
-            else -> "Far away"
+            distanceKm < 1000.0 -> "${distanceKm.toInt()} km away"
+            else -> "In your region"
         }
     }
     

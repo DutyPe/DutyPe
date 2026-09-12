@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { SiteShell } from "@/components/site-shell";
+import { AppConversionCard } from "@/components/public/app-conversion-card";
 import {
   PLAY_STORE_URL,
   SITE_URL,
@@ -460,6 +461,16 @@ export default function LegacyContentPage({ params }: Props) {
         </div>
 
         <div className="section-grid legacy-grid">{page.blocks.map((block) => renderBlock(block))}</div>
+
+        {isJobSeoPage ? (
+          <AppConversionCard
+            categoryOrCity={
+              params.slug.startsWith("jobs-in-")
+                ? params.slug.replace("jobs-in-", "").charAt(0).toUpperCase() + params.slug.replace("jobs-in-", "").slice(1)
+                : page.title.replace("Jobs", "").trim()
+            }
+          />
+        ) : null}
 
         {page.ctaTitle && page.ctaCopy ? (
           <div className="callout legacy-cta-callout">

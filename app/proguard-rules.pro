@@ -157,9 +157,24 @@
 -keep class androidx.work.impl.background.systemalarm.SystemAlarmService { *; }
 -keep class androidx.work.impl.foreground.SystemForegroundService { *; }
 -dontwarn androidx.work.impl.**
-# Firebase IID / Interop
--keep class com.google.firebase.iid.** { *; }
--keep interface com.google.firebase.iid.** { *; }
--keepclassmembers class com.google.firebase.iid.** { *; }
--keepclassmembers interface com.google.firebase.iid.** { *; }
--dontwarn com.google.firebase.iid.**
+# Firebase Component Discovery — required for Firebase to find its own modules via reflection
+# Without these, R8 strips ComponentRegistrar implementations and FirebaseInitProvider crashes with MissingDependencyException.
+-keep class * implements com.google.firebase.components.ComponentRegistrar {
+    public <init>();
+    public java.util.List getComponents();
+}
+-keep class com.google.firebase.components.** { *; }
+-keep interface com.google.firebase.components.** { *; }
+-keepclassmembers class com.google.firebase.components.** { *; }
+-keep class com.google.firebase.inject.** { *; }
+-keep interface com.google.firebase.inject.** { *; }
+-keep class com.google.firebase.provider.FirebaseInitProvider { *; }
+-keep class com.google.firebase.components.ComponentDiscoveryService { *; }
+-keep class com.example.dutype.di.FirebaseIidRegistrar { *; }
+-keep class com.google.firebase.iid.internal.** { *; }
+-keep interface com.google.firebase.iid.internal.** { *; }
+
+# Keep firebase-common, firebase-installations, and analytics which ComponentRuntime depends on
+-keep class com.google.firebase.** { *; }
+-keep interface com.google.firebase.** { *; }
+-dontwarn com.google.firebase.**

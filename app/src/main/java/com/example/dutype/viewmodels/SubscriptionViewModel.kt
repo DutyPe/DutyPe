@@ -12,8 +12,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
@@ -44,17 +46,27 @@ class SubscriptionViewModel @Inject constructor(
 
     private fun loadPlans() {
         viewModelScope.launch {
-            subscriptionRepository.getPlans().collectLatest { fetchedPlans ->
-                _plans.value = fetchedPlans
-            }
+            subscriptionRepository.getPlans()
+                .catch { e ->
+                    Timber.w(e, "Error collecting subscription plans flow")
+                    emit(emptyList())
+                }
+                .collectLatest { fetchedPlans ->
+                    _plans.value = fetchedPlans
+                }
         }
     }
 
     private fun loadActiveQrCodes() {
         viewModelScope.launch {
-            subscriptionRepository.getActiveQrCodes().collectLatest { qrs ->
-                _activeQrCodes.value = qrs
-            }
+            subscriptionRepository.getActiveQrCodes()
+                .catch { e ->
+                    Timber.w(e, "Error collecting active QR codes flow")
+                    emit(emptyList())
+                }
+                .collectLatest { qrs ->
+                    _activeQrCodes.value = qrs
+                }
         }
     }
 
@@ -62,9 +74,14 @@ class SubscriptionViewModel @Inject constructor(
         viewModelScope.launch {
             userMetadata.userStats.collectLatest { stats ->
                 if (stats.userId.isNotEmpty()) {
-                    subscriptionRepository.getPaymentRequests(stats.userId).collectLatest { requests ->
-                        _paymentRequests.value = requests
-                    }
+                    subscriptionRepository.getPaymentRequests(stats.userId)
+                        .catch { e ->
+                            Timber.w(e, "Error collecting payment requests flow")
+                            emit(emptyList())
+                        }
+                        .collectLatest { requests ->
+                            _paymentRequests.value = requests
+                        }
                 }
             }
         }

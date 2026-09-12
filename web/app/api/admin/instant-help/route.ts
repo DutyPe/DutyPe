@@ -45,12 +45,22 @@ export async function GET(request: NextRequest) {
       const firstResponseAt = readMillis(data.firstResponseAt as FirestoreValue);
       const completedAt = readMillis(data.completedAt as FirestoreValue);
       const expiresAt = readMillis(data.expiresAt as FirestoreValue);
+      const scheduledAt = readMillis(data.scheduledAt as FirestoreValue);
       return {
         id: doc.id,
         title: String(data.title ?? "Urgent request"),
         category: String(data.category ?? ""),
         status: String(data.status ?? "open").toLowerCase(),
         employerName: String(data.employerName ?? ""),
+        employerPhone: String(data.employerPhone ?? data.contactNumber ?? ""),
+        workersNeeded: Number(data.workersNeeded ?? 1),
+        perPersonPayment: Number(data.perPersonPayment ?? 0),
+        totalPayment: Number(data.totalPayment ?? 0),
+        durationText: String(data.durationText ?? ""),
+        addressText: String(data.addressText ?? ""),
+        scheduledAt,
+        scheduleLabel: String(data.scheduleLabel ?? ""),
+        urgencyType: String(data.urgencyType ?? data.urgency ?? ""),
         responseCount: Number(data.responseCount ?? 0),
         callCount: Number(data.callCount ?? 0),
         notifiedWorkerCount: Number(data.notifiedWorkerCount ?? 0),

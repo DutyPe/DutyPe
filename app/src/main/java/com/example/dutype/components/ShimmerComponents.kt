@@ -560,7 +560,7 @@ fun WorkerHomeShimmer(
             .fillMaxSize()
             .background(Color.Transparent),
         contentPadding = PaddingValues(
-            top = 140.dp,
+            top = 16.dp,
             bottom = 100.dp
         ),
         verticalArrangement = Arrangement.spacedBy(12.dp)

@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --bg: #e8e6df;
   --surface: rgba(255, 255, 255, 0.82);
   --surface-strong: rgba(255, 255, 255, 0.92);
@@ -164,41 +164,6 @@ button {
 
 .page-shell-plain .footer-top-row {
   grid-template-columns: minmax(0, 1fr);
-}
-
-.page-ambient {
-  position: fixed;
-  z-index: 0;
-  border-radius: 999px;
-  filter: blur(16px);
-  pointer-events: none;
-  animation: drift 16s ease-in-out infinite;
-}
-
-.ambient-a {
-  top: 72px;
-  right: -110px;
-  width: 360px;
-  height: 360px;
-  background: rgba(255, 255, 255, 0.66);
-}
-
-.ambient-b {
-  left: -100px;
-  bottom: 8vh;
-  width: 320px;
-  height: 320px;
-  background: rgba(0, 0, 0, 0.08);
-  animation-delay: -6s;
-}
-
-.ambient-c {
-  top: 35vh;
-  right: 10vw;
-  width: 240px;
-  height: 240px;
-  background: rgba(255, 255, 255, 0.24);
-  animation-delay: -10s;
 }
 
 .topbar {

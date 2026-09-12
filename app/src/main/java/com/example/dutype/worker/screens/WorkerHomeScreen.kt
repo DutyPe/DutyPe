@@ -56,8 +56,10 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.collectAsState
@@ -69,6 +71,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import com.example.dutype.utils.findActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -131,6 +134,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 
 // Status bar matches the top of the worker home header. These are Android
@@ -220,9 +224,33 @@ fun WorkerHomeScreen(
 
     // Location loading state
     var isLocationLoading by remember { mutableStateOf(false) }
-    
-    // P1-2: Removed dead `permissionsRequested`, `isFirstTimeUser`, `bottomSheetsShownInSession`,
-    // and `hasNotificationPermission` flags — each was assigned an initial value but never read.
+    var hasAttemptedLocationRequest by remember { mutableStateOf(false) }
+
+    // Re-check permission automatically when user returns to the app (e.g. from System Settings)
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                val isGranted = ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+
+                if (isGranted && !hasLocationPermission) {
+                    hasLocationPermission = true
+                    isLocationLoading = true
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     // Bottom sheet state - declare before permission launchers
     var showNotificationBottomSheet by remember { mutableStateOf(false) }
@@ -232,9 +260,12 @@ fun WorkerHomeScreen(
     var isFetchingSheetLocation by remember { mutableStateOf(false) }
     var shouldFetchCurrentLocationAfterPermission by remember { mutableStateOf(false) }
     var showNoUrgentJobsToastAfterSwitchOn by remember { mutableStateOf(false) }
-    // P1 PLAY STORE COMPLIANCE: Show mandatory in-app disclosure before the
-    // system location permission dialog (required by Google Play policy §4.1).
-    var showLocationDisclosureDialog by remember { mutableStateOf(false) }
+    var showLoginBottomSheet by remember { mutableStateOf(false) }
+    var loginSheetTitle by remember { mutableStateOf("") }
+    var loginSheetSubtitle by remember { mutableStateOf("") }
+    // P1 PLAY STORE COMPLIANCE & SMOOTH PERMISSION UX: Show friendly bottom sheet
+    // explaining location benefits before triggering Android system permission dialog.
+    var showLocationPermissionBottomSheet by remember { mutableStateOf(false) }
     val locationPickerSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     suspend fun saveWorkerHomeLocation(locationData: LocationData, manual: Boolean) {
@@ -247,7 +278,8 @@ fun WorkerHomeScreen(
         }
 
         if (GeoUtils.hasValidCoordinates(locationData.latitude, locationData.longitude)) {
-            jobViewModel.setUserLocation(locationData.latitude, locationData.longitude, immediate = true)
+            jobViewModel.onLocationChanged(locationData.latitude, locationData.longitude)
+            instantHelpViewModel.refreshWorkerInstantRequests(locationData)
         }
 
         currentUser?.uid?.let { userId ->
@@ -322,94 +354,114 @@ fun WorkerHomeScreen(
             shouldFetchCurrentLocationAfterPermission = false
             locationPickerError = context.getString(R.string.location_permission_required_current)
         }
-
-        // For first-time users, don't show bottom sheets immediately after denying
-        // Bottom sheets will only show when they reopen the app
-        // (No bottom sheet logic here for first-time users)
     }
-    
-    // P1-2: Removed `voiceSearchLauncher` — only consumer was the commented-out Voice Search FAB block
-    // (also removed below). Restore both together if voice search is reintroduced.
+
+    fun requestOrOpenLocationSettings() {
+        val activity = context.findActivity()
+        val isPermanentlyDenied = activity != null && hasAttemptedLocationRequest &&
+            !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_FINE_LOCATION) &&
+            !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_COARSE_LOCATION)
+
+        if (isPermanentlyDenied) {
+            val isTelugu = com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
+            val message = if (isTelugu) "దయచేసి సెట్టింగ్స్‌లో లొకేషన్ అనుమతిని ఆన్ చేయండి" else "Please enable Location permission in App Settings"
+            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+            openNotificationSettings(context)
+        } else {
+            hasAttemptedLocationRequest = true
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
+    // Direct location permission request on screen entry
+    LaunchedEffect(Unit) {
+        if (!hasLocationPermission) {
+            hasAttemptedLocationRequest = true
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        } else {
+            isLocationLoading = true
+        }
+    }
 
     // Track if location fetch is in progress to prevent duplicate calls
     var locationFetchInProgress by remember { mutableStateOf(false) }
 
     // Fetch location when permission is granted and loading is true
-    LaunchedEffect(isLocationLoading) {
-        if (isLocationLoading && hasLocationPermission && !locationFetchInProgress) {
+    LaunchedEffect(isLocationLoading, hasLocationPermission) {
+        if (isLocationLoading) {
+            if (!hasLocationPermission) {
+                isLocationLoading = false
+                locationFetchInProgress = false
+                return@LaunchedEffect
+            }
+            if (locationFetchInProgress) return@LaunchedEffect
+
             locationFetchInProgress = true
             try {
-                val freshCachedLocation = locationPreferences.getSavedLocationIfFresh(5 * 60 * 1000L)
-                if (freshCachedLocation != null) {
-                    Timber.d(" Using fresh cached location, skipping new GPS fetch")
-                    jobViewModel.setUserLocation(
-                        freshCachedLocation.latitude,
-                        freshCachedLocation.longitude,
-                        immediate = true
-                    )
-                    isLocationLoading = false
-                    return@LaunchedEffect
-                }
+                withTimeoutOrNull(3500L) {
+                    val freshCachedLocation = locationPreferences.getSavedLocationIfFresh(5 * 60 * 1000L)
+                    if (freshCachedLocation != null) {
+                        Timber.d("  Using fresh cached location, skipping new GPS fetch")
+                        jobViewModel.setUserLocation(
+                            freshCachedLocation.latitude,
+                            freshCachedLocation.longitude,
+                            immediate = true
+                        )
+                        return@withTimeoutOrNull
+                    }
 
-                //  UBER/SWIGGY STRATEGY: Get location instantly, upgrade in background
-                // This provides immediate results while improving accuracy.
-                // Uses LocationRepository so concurrent screens share a single GPS request.
-                Timber.d(" Starting FAST location fetch (Uber/Swiggy strategy)...")
-                
-                locationRepository.refresh { locationData ->
-                    if (locationData != null) {
-                        Timber.d(" ⚡ Location update received: ${locationData.getShortAddress()} (${locationData.accuracy}m)")
-                        
-                        // Location already saved by getLocationFast()
-                        locationPreferences.setPermissionGranted(true)
-                        
-                        // Convert LocationInfo to LocationData for Firestore sync
-                        val data = locationService.toLocationData(locationData)
-                        
-                        // Save to Firestore for cross-device sync
-                        currentUser?.uid?.let { userId ->
-                            launch(Dispatchers.IO) {
-                                try {
-                                    val firestore = com.example.dutype.di.firestoreFromHilt(context)
-                                    firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).set(
-                                        mapOf(
-                                            "address" to data.getFullAddress(),
-                                            "location" to mapOf(
-                                                "lat" to data.latitude,
-                                                "lng" to data.longitude
+                    // UBER/SWIGGY STRATEGY: Get location instantly, upgrade in background
+                    Timber.d("  Starting FAST location fetch (Uber/Swiggy strategy)...")
+                    locationRepository.refresh { locationData ->
+                        if (locationData != null) {
+                            Timber.d("  ⚡ Location update received: ${locationData.getShortAddress()} (${locationData.accuracy}m)")
+                            locationPreferences.setPermissionGranted(true)
+                            val data = locationService.toLocationData(locationData)
+                            currentUser?.uid?.let { userId ->
+                                launch(kotlinx.coroutines.NonCancellable + Dispatchers.IO) {
+                                    try {
+                                        val firestore = com.example.dutype.di.firestoreFromHilt(context)
+                                        firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).set(
+                                            mapOf(
+                                                "address" to data.getFullAddress(),
+                                                "location" to mapOf(
+                                                    "lat" to data.latitude,
+                                                    "lng" to data.longitude
+                                                ),
+                                                "geohash" to GeoUtils.encodeGeohash(data.latitude, data.longitude),
+                                                "updatedAt" to com.google.firebase.Timestamp.now()
                                             ),
-                                            "geohash" to GeoUtils.encodeGeohash(data.latitude, data.longitude),
-                                            "updatedAt" to com.google.firebase.Timestamp.now()
-                                        ),
-                                        com.google.firebase.firestore.SetOptions.merge()
-                                    ).await()
-                                    Timber.d(" Location synced to Firestore")
-                                } catch (e: Exception) {
-                                    Timber.e(e, "Failed to sync location to Firestore")
+                                            com.google.firebase.firestore.SetOptions.merge()
+                                        ).await()
+                                        Timber.d("  Location synced to Firestore")
+                                    } catch (_: Exception) {}
                                 }
                             }
-                        }
-                        
-                        // CRITICAL FIX: Update ViewModel immediately AND trigger UI refresh
-                        if (data.latitude != 0.0 || data.longitude != 0.0) {
-                            jobViewModel.setUserLocation(
-                                data.latitude, 
-                                data.longitude,
-                                immediate = true  // Calculate distances immediately
-                            )
-                            
-                            // FORCE UI REFRESH: Trigger recomposition by updating a state
-                            // This ensures the location text updates immediately
-                            Timber.d(" FORCING UI REFRESH after location update")
+
+                            if (data.latitude != 0.0 || data.longitude != 0.0) {
+                                jobViewModel.setUserLocation(
+                                    data.latitude, 
+                                    data.longitude,
+                                    immediate = true
+                                )
+                            }
                         }
                     }
                 }
-                
             } catch (e: Exception) {
                 Timber.e(e, "Failed to fetch location")
             } finally {
-                // Reduce loading delay to 500ms for instant feedback
-                delay(500L)
+                delay(200L)
                 isLocationLoading = false
                 locationFetchInProgress = false
             }
@@ -489,6 +541,10 @@ fun WorkerHomeScreen(
     LaunchedEffect(Unit) {
         announcementViewModel.loadAnnouncements("worker")
     }
+
+    // Location permission will be requested via the bottom sheet when user taps the empty state.
+    // Notification permission is requested in WorkerNotificationScreen (contextual — user already
+    // navigated to notifications, so they clearly want them).
 
     LaunchedEffect(currentUser?.uid) {
         if (currentUser?.uid != null) {
@@ -612,6 +668,8 @@ fun WorkerHomeScreen(
     // The screen no longer renders an Accompanist HorizontalPager — these declarations were leftover
     // from a previous tab-based layout. Status-bar color is now driven by the single LaunchedEffect below.
     val pullToRefreshState = rememberPullToRefreshState()
+    var isPullRefreshing by remember { mutableStateOf(false) }
+    val isRefreshingActive = isPullRefreshing || jobUiState.isRefreshing
     
     // Debug: Log when announcements change
     LaunchedEffect(announcements) {
@@ -642,7 +700,7 @@ fun WorkerHomeScreen(
 
 
     // Location text - show FULL address like professional apps (Swiggy, Zomato, Flipkart)
-    val locationText = remember(currentLocation) {
+    val locationText = remember(currentLocation, hasLocationPermission, isLocationLoading) {
         when {
             currentLocation != null -> {
                 val loc = currentLocation!!
@@ -668,8 +726,8 @@ fun WorkerHomeScreen(
     val onLocationChipSelected: (TopCityChips.CityLocationChip) -> Unit = { chip ->
         val selectedLocation = TopCityChips.toLocationData(chip)
         locationPreferences.savePreferredLocation(selectedLocation)
-        jobViewModel.setUserLocation(selectedLocation.latitude, selectedLocation.longitude, immediate = true)
-        jobViewModel.loadJobsSummaryForHome()
+        jobViewModel.onLocationChanged(selectedLocation.latitude, selectedLocation.longitude)
+        instantHelpViewModel.refreshWorkerInstantRequests(selectedLocation)
     }
 
     // Solid role background — every worker screen shares the same clean
@@ -704,19 +762,32 @@ fun WorkerHomeScreen(
                 ) {
                     // Simple job cards list
                     PullToRefreshBox(
-                        isRefreshing = jobUiState.isRefreshing,
+                        isRefreshing = isRefreshingActive,
                         onRefresh = {
-                            // Refresh all data sources
-                            jobViewModel.refreshJobs()
-                            if (hasLocationPermission) {
-                                isLocationLoading = true
+                            scope.launch {
+                                isPullRefreshing = true
+                                jobViewModel.refreshJobs()
+                                if (hasLocationPermission) {
+                                    isLocationLoading = true
+                                }
+                                announcementViewModel.loadAnnouncements("WORKER") // Refresh announcements for workers
+                                workerJobRequestViewModel.loadPendingRequests()
+                                instantHelpViewModel.refreshWorkerInstantRequests(currentLocation)
+                                kotlinx.coroutines.delay(1000)
+                                isPullRefreshing = false
                             }
-                            announcementViewModel.loadAnnouncements("WORKER") // Refresh announcements for workers
-                            workerJobRequestViewModel.loadPendingRequests()
-                            instantHelpViewModel.refreshWorkerInstantRequests(currentLocation)
                         },
                         state = pullToRefreshState,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
+                        indicator = {
+                            PullToRefreshDefaults.Indicator(
+                                state = pullToRefreshState,
+                                isRefreshing = isRefreshingActive,
+                                modifier = Modifier.align(Alignment.TopCenter),
+                                containerColor = Color.White,
+                                color = com.example.dutype.ui.theme.WorkerColors.Primary
+                            )
+                        }
                     ) {
                         when {
                             // Show shimmer only when loading AND no jobs yet
@@ -739,6 +810,7 @@ fun WorkerHomeScreen(
                             else -> {
                                 val showEmptyJobsState = !jobUiState.isLoading && (jobUiState.jobs.isEmpty() || filteredJobs.isEmpty())
                                 val isAppliedAllVariant = !jobUiState.jobs.isEmpty() && filteredJobs.isEmpty()
+                                val showCategoryRail = hasLocationPermission && !showEmptyJobsState
 
                                 HomeSectionsContent(
                                     jobListings = filteredJobs,
@@ -775,7 +847,9 @@ fun WorkerHomeScreen(
                                     guestWelcomeMessage = stringResource(R.string.guest_worker_welcome_message),
                                     guestWelcomeButtonText = stringResource(R.string.guest_welcome_login_register),
                                     onGuestWelcomeClick = {
-                                        rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
+                                        loginSheetTitle = context.getString(R.string.guest_apply_login_title)
+                                        loginSheetSubtitle = context.getString(R.string.guest_apply_login_desc)
+                                        showLoginBottomSheet = true
                                     },
                                     appliedJobsCount = applicationStats.appliedApplications,
                                     announcements = announcements,
@@ -791,11 +865,9 @@ fun WorkerHomeScreen(
                                     onTurnOnAvailability = {
                                         val selectedLocation = currentLocation
                                         if (isGuestUser) {
-                                            android.widget.Toast.makeText(
-                                                context,
-                                                context.getString(R.string.please_login_instant_works),
-                                                android.widget.Toast.LENGTH_SHORT
-                                            ).show()
+                                            loginSheetTitle = context.getString(R.string.guest_apply_login_title)
+                                            loginSheetSubtitle = context.getString(R.string.please_login_instant_works)
+                                            showLoginBottomSheet = true
                                         } else if (
                                             selectedLocation == null ||
                                             !GeoUtils.hasValidCoordinates(selectedLocation.latitude, selectedLocation.longitude)
@@ -811,21 +883,39 @@ fun WorkerHomeScreen(
                                         }
                                     },
                                     onApplyInstantRequest = { request ->
-                                        instantHelpViewModel.respondToInstantRequest(request, "applied")
+                                        if (isGuestUser) {
+                                            loginSheetTitle = context.getString(R.string.guest_apply_login_title)
+                                            loginSheetSubtitle = context.getString(R.string.guest_apply_login_desc)
+                                            showLoginBottomSheet = true
+                                        } else {
+                                            instantHelpViewModel.respondToInstantRequest(request, "applied")
+                                        }
                                     },
                                     onCallInstantRequest = { request ->
-                                        openWorkerUrgentDialer(
-                                            context,
-                                            request.contactNumber.ifBlank { request.employerPhone }
-                                        )
-                                        instantHelpViewModel.respondToInstantRequest(request, "called") {
-                                            // Contact UI is opened immediately; this callback only confirms the response record.
+                                        if (isGuestUser) {
+                                            loginSheetTitle = context.getString(R.string.guest_call_login_title)
+                                            loginSheetSubtitle = context.getString(R.string.guest_call_login_desc)
+                                            showLoginBottomSheet = true
+                                        } else {
+                                            openWorkerUrgentDialer(
+                                                context,
+                                                request.contactNumber.ifBlank { request.employerPhone }
+                                            )
+                                            instantHelpViewModel.respondToInstantRequest(request, "called") {
+                                                // Contact UI is opened immediately; this callback only confirms the response record.
+                                            }
                                         }
                                     },
                                     onAcceptWorkerJobRequest = { request ->
-                                        workerJobRequestViewModel.acceptRequest(request.requestId) { acceptedJobId ->
-                                            if (acceptedJobId.isNotBlank()) {
-                                                navController.navigate(Routes.jobDetailRoute(acceptedJobId))
+                                        if (isGuestUser) {
+                                            loginSheetTitle = context.getString(R.string.guest_apply_login_title)
+                                            loginSheetSubtitle = context.getString(R.string.guest_apply_login_desc)
+                                            showLoginBottomSheet = true
+                                        } else {
+                                            workerJobRequestViewModel.acceptRequest(request.requestId) { acceptedJobId ->
+                                                if (acceptedJobId.isNotBlank()) {
+                                                    navController.navigate(Routes.jobDetailRoute(acceptedJobId))
+                                                }
                                             }
                                         }
                                     },
@@ -843,7 +933,85 @@ fun WorkerHomeScreen(
                                     weekJobsDone = thisWeekJobsDone,
                                     ratingValue = workerRating,
                                     reviewCount = workerReviewCount,
-                                    promoBannerUrl = dynamicFeaturesConfig.promoBannerUrl
+                                    promoBannerUrl = dynamicFeaturesConfig.promoBannerUrl,
+                                    onRequestLocationPermission = {
+                                        showLocationPermissionBottomSheet = true
+                                    },
+                                    headerContent = {
+                                        DynamicHeader(
+                                            locationText = locationText,
+                                            locationBarAlpha = locationBarAlpha,
+                                            isLocationLoading = isLocationLoading && currentLocation == null,
+                                            unreadNotificationCount = unreadNotificationCount,
+                                            isInstantAvailable = instantHelpState.workerAvailability.isAvailable,
+                                            isInstantAvailabilitySaving = instantHelpState.isSavingAvailability,
+                                            todayEarningsAmount = todayEarningsAmount,
+                                            todayJobsDone = todayJobsDone,
+                                            thisWeekEarningsAmount = thisWeekEarningsAmount,
+                                            weekJobsDone = thisWeekJobsDone,
+                                            ratingValue = workerRating,
+                                            reviewCount = workerReviewCount,
+                                            isUrgentJobsEnabled = dynamicFeaturesConfig.isUrgentJobsEnabled,
+                                            primaryColorHex = dynamicFeaturesConfig.primaryColor,
+                                            headerTextColorHex = dynamicFeaturesConfig.headerTextColor,
+                                            headerLottieUrl = dynamicFeaturesConfig.headerLottieUrl,
+                                            showCategoryRail = showCategoryRail,
+                                            onCategoryTap = { category ->
+                                                val normalizedCategory = if (category.equals("All", ignoreCase = true)) {
+                                                    "All Jobs"
+                                                } else {
+                                                    category
+                                                }
+                                                navController.navigate("${Routes.WORKER_ALL_JOBS}?filter=${Uri.encode(normalizedCategory)}")
+                                            },
+                                            onSearchTap = {
+                                                navController.navigate("${Routes.WORKER_ALL_JOBS}?filter=All Jobs")
+                                            },
+                                            onInstantAvailabilityChange = { isAvailable ->
+                                                val selectedLocation = currentLocation
+                                                if (isGuestUser) {
+                                                    android.widget.Toast.makeText(
+                                                        context,
+                                                        context.getString(R.string.please_login_instant_works),
+                                                        android.widget.Toast.LENGTH_SHORT
+                                                    ).show()
+                                                } else if (
+                                                    isAvailable &&
+                                                    (selectedLocation == null || !GeoUtils.hasValidCoordinates(selectedLocation.latitude, selectedLocation.longitude))
+                                                ) {
+                                                    android.widget.Toast.makeText(
+                                                        context,
+                                                        context.getString(R.string.set_location_before_instant),
+                                                        android.widget.Toast.LENGTH_SHORT
+                                                    ).show()
+                                                } else {
+                                                    showNoUrgentJobsToastAfterSwitchOn = isAvailable
+                                                    instantHelpViewModel.setWorkerAvailability(isAvailable, selectedLocation)
+                                                }
+                                            },
+                                            onMapClick = { navController.navigate(Routes.WORKER_JOB_MAP) },
+                                            onNotificationClick = {
+                                                currentUser?.uid?.let { userId ->
+                                                    scope.launch {
+                                                        try {
+                                                            unreadNotificationCount = jobApplicationService.getUnreadNotificationCount(
+                                                                userId = userId,
+                                                                activeRole = "WORKER"
+                                                            )
+                                                        } catch (e: Exception) {
+                                                            Timber.w(e, "Failed to fetch unread notification count")
+                                                        }
+                                                    }
+                                                }
+                                                navController.navigate(Routes.WORKER_NOTIFICATIONS)
+                                            },
+                                            onLocationClick = {
+                                                locationPickerText = currentLocation?.getDisplayAddress().orEmpty()
+                                                locationPickerError = null
+                                                showLocationPickerSheet = true
+                                            }
+                                        )
+                                    }
                                 )
                             }
                         }
@@ -853,91 +1021,6 @@ fun WorkerHomeScreen(
                     // Voice search lives behind WORKER_ALL_JOBS?voiceQuery= now; reintroduce here only
                     // alongside the matching `voiceSearchLauncher` if voice-from-home is brought back.
                 }
-            }
-            
-            // Floating header that stays fixed at top - positioned as overlay
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.TopCenter)
-                    .onGloballyPositioned { coordinates ->
-                        with(density) {
-                            headerHeightDp = coordinates.size.height.toDp()
-                        }
-                    }
-            ) {
-                DynamicHeader(
-                    locationText = locationText,
-                    locationBarAlpha = locationBarAlpha,
-                    isLocationLoading = isLocationLoading,
-                    unreadNotificationCount = unreadNotificationCount,
-                    isInstantAvailable = instantHelpState.workerAvailability.isAvailable,
-                    isInstantAvailabilitySaving = instantHelpState.isSavingAvailability,
-                    todayEarningsAmount = todayEarningsAmount,
-                    todayJobsDone = todayJobsDone,
-                    thisWeekEarningsAmount = thisWeekEarningsAmount,
-                    weekJobsDone = thisWeekJobsDone,
-                    ratingValue = workerRating,
-                    reviewCount = workerReviewCount,
-                    isUrgentJobsEnabled = dynamicFeaturesConfig.isUrgentJobsEnabled,
-                    primaryColorHex = dynamicFeaturesConfig.primaryColor,
-                    headerTextColorHex = dynamicFeaturesConfig.headerTextColor,
-                    headerLottieUrl = dynamicFeaturesConfig.headerLottieUrl,
-                    onCategoryTap = { category ->
-                        val normalizedCategory = if (category.equals("All", ignoreCase = true)) {
-                            "All Jobs"
-                        } else {
-                            category
-                        }
-                        navController.navigate("${Routes.WORKER_ALL_JOBS}?filter=${Uri.encode(normalizedCategory)}")
-                    },
-                    onSearchTap = {
-                        navController.navigate("${Routes.WORKER_ALL_JOBS}?filter=All Jobs")
-                    },
-                    onInstantAvailabilityChange = { isAvailable ->
-                        val selectedLocation = currentLocation
-                        if (isGuestUser) {
-                            android.widget.Toast.makeText(
-                                context,
-                                context.getString(R.string.please_login_instant_works),
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
-                        } else if (
-                            isAvailable &&
-                            (selectedLocation == null || !GeoUtils.hasValidCoordinates(selectedLocation.latitude, selectedLocation.longitude))
-                        ) {
-                            android.widget.Toast.makeText(
-                                context,
-                                context.getString(R.string.set_location_before_instant),
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
-                        } else {
-                            showNoUrgentJobsToastAfterSwitchOn = isAvailable
-                            instantHelpViewModel.setWorkerAvailability(isAvailable, selectedLocation)
-                        }
-                    },
-                    onMapClick = { navController.navigate(Routes.WORKER_JOB_MAP) },
-                    onNotificationClick = {
-                        currentUser?.uid?.let { userId ->
-                            scope.launch {
-                                try {
-                                    unreadNotificationCount = jobApplicationService.getUnreadNotificationCount(
-                                        userId = userId,
-                                        activeRole = "WORKER"
-                                    )
-                                } catch (e: Exception) {
-                                    Timber.w(e, "Failed to fetch unread notification count")
-                                }
-                            }
-                        }
-                        navController.navigate(Routes.WORKER_NOTIFICATIONS)
-                    },
-                    onLocationClick = {
-                        locationPickerText = currentLocation?.getDisplayAddress().orEmpty()
-                        locationPickerError = null
-                        showLocationPickerSheet = true
-                    }
-                )
             }
         }
 
@@ -960,7 +1043,7 @@ fun WorkerHomeScreen(
                         // P1: Show disclosure first; launcher fires inside the dialog's
                         // confirm callback so the system prompt only appears after consent.
                         shouldFetchCurrentLocationAfterPermission = true
-                        showLocationDisclosureDialog = true
+                        showLocationPermissionBottomSheet = true
                     }
                 },
                 onLocationSelected = { selectedAddress, latitude, longitude ->
@@ -989,73 +1072,33 @@ fun WorkerHomeScreen(
             userRole = "worker"
         )
 
-        // P1 PLAY STORE COMPLIANCE — Location Disclosure Dialog
-        // Google Play requires a prominent in-app disclosure before requesting
-        // location permission if the feature involves background or precise location.
-        // This dialog appears BEFORE the system permission prompt.
-        if (showLocationDisclosureDialog) {
-            val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = {
-                    showLocationDisclosureDialog = false
-                    shouldFetchCurrentLocationAfterPermission = false
-                },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Outlined.LocationOn,
-                        contentDescription = null,
-                        tint = PrimaryBlue,
-                        modifier = Modifier.size(32.dp)
-                    )
-                },
-                title = {
-                    Text(
-                        text = if (isTelugu) "మీ లొకేషన్ అనుమతి" else "Location Permission",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    )
-                },
-                text = {
-                    Text(
-                        text = if (isTelugu)
-                            "DutyPe మీకు దగ్గరలో ఉన్న ఉద్యోగాలను చూపించడానికి మీ ఖచ్చితమైన స్థానాన్ని ఉపయోగిస్తుంది. ఈ సమాచారం మీకు సంబంధించిన ఉద్యోగ ఫలితాలు అందించడానికి మాత్రమే ఉపయోగించబడుతుంది."
-                        else
-                            "DutyPe uses your precise location to show nearby jobs and calculate distances. Your location is only used to deliver relevant job results near you and is never shared with employers without your consent.",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                },
-                confirmButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = {
-                            showLocationDisclosureDialog = false
-                            locationPermissionLauncher.launch(
-                                arrayOf(
-                                    Manifest.permission.ACCESS_FINE_LOCATION,
-                                    Manifest.permission.ACCESS_COARSE_LOCATION
-                                )
-                            )
-                        }
-                    ) {
-                        Text(
-                            text = if (isTelugu) "అనుమతించు" else "Allow",
-                            color = PrimaryBlue,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                },
-                dismissButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = {
-                            showLocationDisclosureDialog = false
-                            shouldFetchCurrentLocationAfterPermission = false
-                        }
-                    ) {
-                        Text(text = if (isTelugu) "వద్దు" else "Not Now")
-                    }
-                },
-                shape = RoundedCornerShape(16.dp),
-                containerColor = Color.White
-            )
-        }
+        // P1 PLAY STORE COMPLIANCE & SMOOTH PERMISSION UX — Location Permission Bottom Sheet
+        // Google Play requires prominent disclosure before requesting location permission.
+        // This bottom sheet explains the value clearly before launching the system prompt.
+        com.example.dutype.components.LocationPermissionBottomSheet(
+            isVisible = showLocationPermissionBottomSheet,
+            onDismiss = {
+                showLocationPermissionBottomSheet = false
+                shouldFetchCurrentLocationAfterPermission = false
+            },
+            onAllowLocation = {
+                showLocationPermissionBottomSheet = false
+                requestOrOpenLocationSettings()
+            }
+        )
+
+        // Guest Mode Login Bottom Sheet
+        com.example.dutype.components.LoginBottomSheet(
+            isVisible = showLoginBottomSheet,
+            onDismiss = { showLoginBottomSheet = false },
+            onLoginSuccess = {
+                showLoginBottomSheet = false
+            },
+            role = com.example.dutype.models.UserRole.WORKER,
+            title = if (loginSheetTitle.isNotBlank()) loginSheetTitle else stringResource(R.string.guest_apply_login_title),
+            subtitle = if (loginSheetSubtitle.isNotBlank()) loginSheetSubtitle else stringResource(R.string.guest_apply_login_desc),
+            navController = navController
+        )
 
         if (!showNotificationBottomSheet && !showLocationPickerSheet) {
             AppUpdatePrompt(

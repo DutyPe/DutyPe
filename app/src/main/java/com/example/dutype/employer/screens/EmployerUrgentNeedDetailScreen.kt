@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import com.dutype.app.R
 import android.content.Intent
@@ -59,6 +59,7 @@ fun EmployerUrgentNeedDetailScreen(
     var pendingCancelRequest by remember { mutableStateOf<InstantRequest?>(null) }
     var showRatingSheet by remember { mutableStateOf(false) }
     var ratedResponseIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(requestId) {
         instantHelpViewModel.loadEmployerUrgentNeeds()
@@ -169,6 +170,36 @@ fun EmployerUrgentNeedDetailScreen(
         )
     }
 
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Delete Urgent Post") },
+            text = { Text("Are you sure you want to delete this urgent post? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirm = false
+                        instantHelpViewModel.deleteEmployerInstantRequest(requestId) { success ->
+                            if (success) {
+                                Toast.makeText(context, "Post deleted successfully", Toast.LENGTH_SHORT).show()
+                                onNavigateBack()
+                            } else {
+                                Toast.makeText(context, "Failed to delete post", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                ) {
+                    Text("Delete", color = EmployerColors.Error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text(stringResource(R.string.close))
+                }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -200,6 +231,7 @@ fun EmployerUrgentNeedDetailScreen(
             },
             onMarkRequestFilled = { requestToFill -> instantHelpViewModel.markEmployerInstantRequestFilled(requestToFill) },
             onCancelRequest = { requestToCancel -> pendingCancelRequest = requestToCancel },
+            onDeleteRequest = { showDeleteConfirm = true },
             onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
         )
     }

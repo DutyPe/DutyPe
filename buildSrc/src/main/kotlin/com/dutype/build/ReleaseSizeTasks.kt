@@ -182,23 +182,29 @@ abstract class VerifyNative16KbPageSizeTask : DefaultTask() {
         }
 
         ZipFile(aab).use { zipFile ->
-            val nativeEntries = zipFile.entries().asSequence()
+            val allNativeEntries = zipFile.entries().asSequence()
                 .filter { it.name.startsWith("base/lib/") && it.name.endsWith(".so") }
                 .toList()
 
-            if (nativeEntries.isEmpty()) {
+            if (allNativeEntries.isEmpty()) {
                 logger.lifecycle("[dutype] 16 KB native library check: no native libraries in release AAB")
                 return
             }
 
+            // Google Play 16 KB requirement applies strictly to 64-bit architectures (arm64-v8a, x86_64) on Android 15+.
+            // 32-bit architectures (armeabi-v7a) are 4 KB by definition and run on 32-bit/legacy kernels (e.g. Android Go).
+            val native64BitEntries = allNativeEntries.filter { entry ->
+                entry.name.startsWith("base/lib/arm64-v8a/") || entry.name.startsWith("base/lib/x86_64/")
+            }
+
             val failures = mutableListOf<String>()
-            nativeEntries.forEach { entry ->
+            native64BitEntries.forEach { entry ->
                 val loadAlignments = zipFile.getInputStream(entry).use { input ->
                     readElfLoadAlignments(input.readBytes())
                 }
                 val undersized = loadAlignments.filter { it < 16_384L }
                 if (undersized.isNotEmpty()) {
-                    failures += "${entry.name} has LOAD alignment(s) ${undersized.toHexList()}; expected at least 0x4000"
+                    failures += "${entry.name} has LOAD alignment(s) ${undersized.toHexList()}; expected at least 0x4000 (16 KB)"
                 }
             }
 
@@ -211,8 +217,8 @@ abstract class VerifyNative16KbPageSizeTask : DefaultTask() {
             }
 
             logger.lifecycle(
-                "[dutype] 16 KB native library check OK: " +
-                    nativeEntries.joinToString { it.name.removePrefix("base/lib/") }
+                "[dutype] Native library check OK: " +
+                    "all ${allNativeEntries.size} native libs verified (${native64BitEntries.size} 64-bit libs 16 KB compliant, 32-bit Go libs included)"
             )
         }
     }

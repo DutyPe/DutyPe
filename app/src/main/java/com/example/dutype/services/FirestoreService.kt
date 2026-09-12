@@ -75,6 +75,8 @@ class FirestoreService @Inject constructor(
     suspend fun deleteJob(jobId: String): Result<Unit> = jobService.deleteJob(jobId)
     
     suspend fun pauseJob(jobId: String): Result<Unit> = jobService.pauseJob(jobId)
+
+    suspend fun closeJob(jobId: String): Result<Unit> = jobService.closeJob(jobId)
     
     suspend fun resumeJob(jobId: String): Result<Unit> = jobService.resumeJob(jobId)
     

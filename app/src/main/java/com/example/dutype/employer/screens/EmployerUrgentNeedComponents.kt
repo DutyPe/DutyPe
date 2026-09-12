@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -38,6 +39,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -161,6 +164,7 @@ internal fun EmployerUrgentNeedHistoryContent(
     onRateResponse: (InstantResponse) -> Unit,
     onMarkRequestFilled: (InstantRequest) -> Unit,
     onCancelRequest: (InstantRequest) -> Unit,
+    onDeleteRequest: ((InstantRequest) -> Unit)? = null,
     onPostUrgentNeed: () -> Unit
 ) {
     when {
@@ -206,7 +210,7 @@ internal fun EmployerUrgentNeedHistoryContent(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(requests, key = { request -> "urgent_${request.requestId}" }) { request ->
+                itemsIndexed(requests, key = { index, request -> "urgent_${request.requestId.ifBlank { "req" }}_$index" }) { _, request ->
                     EmployerUrgentNeedCard(
                         request = request,
                         responses = responsesByRequestId[request.requestId].orEmpty(),
@@ -221,7 +225,8 @@ internal fun EmployerUrgentNeedHistoryContent(
                         onNoShowResponse = onNoShowResponse,
                         onRateResponse = onRateResponse,
                         onMarkRequestFilled = onMarkRequestFilled,
-                        onCancelRequest = onCancelRequest
+                        onCancelRequest = onCancelRequest,
+                        onDeleteRequest = onDeleteRequest
                     )
                 }
             }
@@ -245,6 +250,7 @@ internal fun EmployerUrgentNeedDetailContent(
     onRateResponse: (InstantResponse) -> Unit,
     onMarkRequestFilled: (InstantRequest) -> Unit,
     onCancelRequest: (InstantRequest) -> Unit,
+    onDeleteRequest: ((InstantRequest) -> Unit)? = null,
     onPostUrgentNeed: () -> Unit
 ) {
     when {
@@ -301,6 +307,7 @@ internal fun EmployerUrgentNeedDetailContent(
                         onRateResponse = onRateResponse,
                         onMarkRequestFilled = onMarkRequestFilled,
                         onCancelRequest = onCancelRequest,
+                        onDeleteRequest = onDeleteRequest,
                         showDetailButton = false
                     )
                 }
@@ -367,6 +374,7 @@ private fun EmployerUrgentNeedCard(
     onRateResponse: (InstantResponse) -> Unit,
     onMarkRequestFilled: (InstantRequest) -> Unit,
     onCancelRequest: (InstantRequest) -> Unit,
+    onDeleteRequest: ((InstantRequest) -> Unit)? = null,
     showDetailButton: Boolean = true
 ) {
     val normalizedStatus = request.status.lowercase(Locale.ROOT)
@@ -546,6 +554,27 @@ private fun EmployerUrgentNeedCard(
                                     Text(stringResource(R.string.stop_urgent_job))
                                 }
                             }
+                        }
+                    }
+                }
+                
+                // Add Delete Button if request is cancelled, failed, completed, or expired!
+                val isInactive = normalizedStatus in setOf("completed", "expired", "cancelled", "failed")
+                if (isInactive && onDeleteRequest != null) {
+                    OutlinedButton(
+                        onClick = { onDeleteRequest(request) },
+                        enabled = !isRequestUpdating,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = EmployerColors.Error),
+                        border = BorderStroke(1.dp, EmployerColors.Error)
+                    ) {
+                        if (isRequestUpdating) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), color = EmployerColors.Error, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = EmployerColors.Error)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Delete Post")
                         }
                     }
                 }

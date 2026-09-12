@@ -1675,4 +1675,35 @@
     <string name="report_non_payment_details_hint">పూర్తి రోజు పని చేశాను, యజమాని కాల్స్ ఎత్తడం మానేశారు</string>
     <string name="report_non_payment_submit">నివేదించండి</string>
     <string name="report_non_payment_action">ఈ ఉద్యోగానికి చెల్లింపు అందలేదా?</string>
+    <!-- Expanding / Hubs Keys in Telugu -->
+    <string name="auto_dutype">DutyPe</string>
+    <string name="auto_dutype_technologies">DutyPe Technologies</string>
+    <string name="default_web_client_id">1062348180452-n56rc8anhkscm6cjceurig9jgelrr67s.apps.googleusercontent.com</string>
+    <string name="dutype_expanding_title">DutyPe త్వరలోనే %s కు విస్తరిస్తోంది!</string>
+    <string name="dutype_expanding_title_generic">DutyPe త్వరలోనే మీ ప్రాంతానికి విస్తరిస్తోంది!</string>
+    <string name="dutype_expanding_desc">మేము ఈ ప్రాంతంలో స్థానిక దుకాణాలు, వ్యాపారాలు మరియు యజమానులను వేగంగా జోడిస్తున్నాము. ఉద్యోగాలు రాగానే మీకు వెంటనే తెలియజేస్తాము!</string>
+    <string name="dutype_notify_me_btn">ఉద్యోగాలు రాగానే తెలియజేయండి</string>
+    <string name="dutype_notified_success">మీరు ప్రాధాన్యత జాబితాలో ఉన్నారు! ఉద్యోగాలు రాగానే ముందే తెలియజేస్తాము.</string>
+    <string name="dutype_share_employer_btn">స్థానిక యజమానులకు ఉచితంగా జాబ్స్ పోస్ట్ చేయమని చెప్పండి (100% ఉచితం)</string>
+    <string name="dutype_share_employer_msg">%s లో స్థానిక సిబ్బందిని నియమించుకోవాలనుకుంటున్నారా? DutyPe యాప్‌లో సున్నా కమిషన్‌తో ఉచితంగా ఉద్యోగాలను పోస్ట్ చేయండి: https://dutype.in</string>
+    <string name="dutype_explore_active_hubs">లేదా సమీపంలోని యాక్టివ్ హబ్‌లలో ఉద్యోగాలను చూడండి:</string>
+
+    <!-- Guest Mode & Progressive Auth Strings in Telugu -->
+    <string name="continue_as_guest">అతిథిగా కొనసాగించండి</string>
+    <string name="skip_for_now">స్కిప్ చేయండి</string>
+    <string name="explore_as_guest">అతిథిగా చూడండి</string>
+    <string name="guest_user_title">అతిథి వినియోగదారు</string>
+    <string name="guest_mode_welcome">ఉద్యోగాలను ఉచితంగా చూడండి. దరఖాస్తు చేయడానికి లేదా యజమానులను సంప్రదించడానికి లాగిన్ అవ్వండి.</string>
+    <string name="guest_apply_login_title">దరఖాస్తు చేసుకోవడానికి లాగిన్ అవ్వండి</string>
+    <string name="guest_apply_login_desc">యజమాని మిమ్మల్ని నేరుగా సంప్రదించడానికి దయచేసి మీ మొబైల్ నంబర్‌ను ధృవీకరించండి.</string>
+    <string name="guest_call_login_title">యజమానికి కాల్ చేయడానికి లాగిన్ అవ్వండి</string>
+    <string name="guest_call_login_desc">యజమాని ఫోన్ నంబర్‌ను చూడటానికి మరియు నేరుగా మాట్లాడటానికి లాగిన్ అవ్వండి.</string>
+    <string name="guest_save_login_title">జాబ్స్‌ను సేవ్ చేయడానికి లాగిన్ అవ్వండి</string>
+    <string name="guest_save_login_desc">మీకు నచ్చిన ఉద్యోగాలను సేవ్ చేసుకోవడానికి లాగిన్ అవ్వండి.</string>
+    <string name="guest_post_job_title">ఉద్యోగం పోస్ట్ చేయడానికి లాగిన్ అవ్వండి</string>
+    <string name="guest_post_job_desc">కమీషన్ లేకుండా ఉచితంగా ఉద్యోగాలు పోస్ట్ చేయడానికి మరియు స్థానిక వర్కర్లను నియమించుకోవడానికి లాగిన్ అవ్వండి.</string>
+    <string name="guest_profile_sign_in">లాగిన్ / రిజిస్టర్</string>
+    <string name="guest_profile_desc">1-ట్యాప్‌తో జాబ్స్‌కి అప్లై చేయడానికి, ఫేవరెట్‌లను సేవ్ చేయడానికి మరియు సంపాదనను ట్రాక్ చేయడానికి మీ ప్రొఫైల్‌ను సృష్టించండి.</string>
+    <string name="guest_history_desc">మీ జాబ్ అప్లికేషన్లు మరియు నియామక స్థితిని ట్రాక్ చేయడానికి లాగిన్ అవ్వండి.</string>
+    <string name="guest_notifications_desc">తక్షణ ఉద్యోగ అలర్ట్‌లు మరియు యజమాని షార్ట్‌లిస్ట్ నోటిఫికేషన్‌లను పొందడానికి లాగిన్ అవ్వండి.</string>
 </resources>

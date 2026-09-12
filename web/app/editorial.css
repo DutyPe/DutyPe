@@ -116,33 +116,13 @@
   position: relative;
   background: #ffffff;
   border: 1px solid var(--edge);
-  border-radius: 16px;
+  border-radius: 14px;
   color: var(--ink);
-  box-shadow: 0 1px 2px rgba(9, 9, 9, 0.04);
-  transform: perspective(1100px) rotateX(var(--tilt-x, 0deg))
-    rotateY(var(--tilt-y, 0deg));
+  box-shadow: 0 1px 3px rgba(9, 9, 9, 0.04);
   transition:
-    transform 460ms var(--dp-ease),
-    box-shadow 460ms var(--dp-ease),
-    border-color 460ms var(--dp-ease);
-  will-change: transform;
-}
-
-/* Green rule that draws in on hover. */
-.home-editorial .card::after,
-.home-editorial .route-card::after,
-.home-editorial .spotlight-card::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  height: 3px;
-  width: 100%;
-  background: linear-gradient(90deg, var(--green), var(--clay));
-  transform: scaleX(0);
-  transform-origin: 0 50%;
-  transition: transform 460ms var(--dp-ease);
-  border-radius: 0 0 16px 16px;
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
 }
 
 .home-editorial .card:hover,
@@ -152,16 +132,11 @@
 .home-editorial .mini-route-card:hover,
 .home-editorial .detail-panel:hover,
 .home-editorial .trust-panel:hover {
-  border-color: rgba(20, 107, 79, 0.36);
+  border-color: rgba(20, 107, 79, 0.4);
   box-shadow:
-    0 20px 44px -22px rgba(9, 9, 9, 0.28),
-    0 2px 6px rgba(9, 9, 9, 0.05);
-}
-
-.home-editorial .card:hover::after,
-.home-editorial .route-card:hover::after,
-.home-editorial .spotlight-card:hover::after {
-  transform: scaleX(1);
+    0 12px 28px -10px rgba(9, 9, 9, 0.12),
+    0 2px 6px rgba(9, 9, 9, 0.04);
+  transform: translateY(-2px);
 }
 
 .home-editorial .card h3,
@@ -292,28 +267,11 @@
 
 .hero-editorial {
   position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  border-radius: 26px;
-  background:
-    radial-gradient(90% 80% at 82% 18%, rgba(20, 107, 79, 0.14), transparent 60%),
-    radial-gradient(70% 70% at 12% 88%, rgba(154, 91, 5, 0.1), transparent 58%),
-    #ffffff;
+  border-radius: 20px;
+  background: #ffffff;
   border: 1px solid var(--edge);
-  padding-block: clamp(48px, 6.5vw, 92px);
-}
-
-.hero-editorial::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(9, 9, 9, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(9, 9, 9, 0.045) 1px, transparent 1px);
-  background-size: 60px 60px;
-  mask-image: radial-gradient(70% 60% at 50% 40%, #000, transparent 76%);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  padding-block: clamp(40px, 5.5vw, 76px);
 }
 
 .hero-editorial-grid {

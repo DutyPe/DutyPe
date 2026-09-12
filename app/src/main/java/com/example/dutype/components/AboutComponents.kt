@@ -60,7 +60,7 @@ private fun aboutIconFor(symbol: String): ImageVector = when (symbol) {
 }
 
 /**
- * Clean Single-Page Hero block for About Us featuring DutyPe launcher icon.
+ * Clean Single-Page Hero block for About Us.
  */
 @Composable
 fun AboutHero(
@@ -69,41 +69,24 @@ fun AboutHero(
     accentColor: Color = Ink900,
     badgeEmoji: String = "👋"
 ) {
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = 4.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF0F172A)),
-            contentAlignment = Alignment.Center
-        ) {
-            Image(
-                painter = painterResource(id = R.mipmap.ic_launcher_foreground),
-                contentDescription = "DutyPe Logo",
-                modifier = Modifier.size(40.dp)
+        Text(
+            text = title,
+            style = AppTypography.pageTitle.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp,
+                color = Ink900
             )
-        }
-        Spacer(modifier = Modifier.width(16.dp))
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = title,
-                style = AppTypography.pageTitle.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
-                    color = Ink900
-                )
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = subtitle,
-                style = AppTypography.bodyMedium.copy(color = Ink600)
-            )
-        }
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = subtitle,
+            style = AppTypography.bodyMedium.copy(color = Ink600)
+        )
     }
 }
 

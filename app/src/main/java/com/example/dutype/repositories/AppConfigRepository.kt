@@ -15,6 +15,7 @@ import kotlinx.coroutines.SupervisorJob
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
+import timber.log.Timber
 
 /**
  * Admin-editable referral configuration.
@@ -119,7 +120,12 @@ class AppConfigRepository @Inject constructor(
     val referralConfig: StateFlow<ReferralConfig> = callbackFlow {
         val ref = firestore.collection(com.example.dutype.firestore.FirestoreCollections.APP_CONFIG).document("referral")
         trySend(ReferralConfig()) // seed defaults immediately
-        val registration = ref.addSnapshotListener { snap, _ ->
+        val registration = ref.addSnapshotListener { snap, error ->
+            if (error != null) {
+                Timber.w(error, "AppConfigRepository: referral listener error; using defaults")
+                trySend(ReferralConfig())
+                return@addSnapshotListener
+            }
             if (snap == null || !snap.exists()) {
                 trySend(ReferralConfig())
                 return@addSnapshotListener
@@ -155,7 +161,12 @@ class AppConfigRepository @Inject constructor(
     val appUpdateConfig: StateFlow<AppUpdateConfig> = callbackFlow {
         val ref = firestore.collection(com.example.dutype.firestore.FirestoreCollections.APP_CONFIG).document("app_update")
         trySend(AppUpdateConfig())
-        val registration = ref.addSnapshotListener { snap, _ ->
+        val registration = ref.addSnapshotListener { snap, error ->
+            if (error != null) {
+                Timber.w(error, "AppConfigRepository: app_update listener error; using defaults")
+                trySend(AppUpdateConfig())
+                return@addSnapshotListener
+            }
             if (snap == null || !snap.exists()) {
                 trySend(AppUpdateConfig())
                 return@addSnapshotListener
@@ -182,7 +193,11 @@ class AppConfigRepository @Inject constructor(
     val dynamicFeaturesConfig: StateFlow<DynamicFeaturesConfig> = callbackFlow {
         val ref = firestore.collection(com.example.dutype.firestore.FirestoreCollections.APP_CONFIG).document("dynamic_features")
         trySend(initialDynamicFeaturesConfig)
-        val registration = ref.addSnapshotListener { snap, _ ->
+        val registration = ref.addSnapshotListener { snap, error ->
+            if (error != null) {
+                Timber.w(error, "AppConfigRepository: dynamic_features listener error; using cached/defaults")
+                return@addSnapshotListener
+            }
             if (snap == null || !snap.exists()) {
                 return@addSnapshotListener
             }

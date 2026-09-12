@@ -44,6 +44,7 @@ data class FirestoreEmployerJobUiState(
 class FirestoreEmployerJobViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val firestoreJobRepository: FirestoreJobRepository,
+    private val notificationService: com.example.dutype.services.NotificationService,
     val employerProfileCache: EmployerProfileCache,
     val jobDraftDataStore: JobDraftDataStore,
     private val performanceTracker: com.example.dutype.performance.PerformanceTracker
@@ -165,6 +166,7 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                             // Bug #4 fix: hydrate per-job application counts
                             // from the dedicated employer_job_cards collection.
                             loadApplicationCounts(jobs.map { it.id })
+                            checkAndNotifyExpiringJobs(jobs, employerId)
                         },
                         onFailure = { exception ->
                             Timber.e(exception, "Failed to load employer jobs")
@@ -193,6 +195,13 @@ class FirestoreEmployerJobViewModel @Inject constructor(
             performanceTracker.trackOperation("refreshMyJobs")
             _uiState.value = _uiState.value.copy(isRefreshing = true, error = null, hasError = false)
             
+            val watchdog = launch {
+                kotlinx.coroutines.delay(3500)
+                if (_uiState.value.isRefreshing) {
+                    _uiState.value = _uiState.value.copy(isRefreshing = false)
+                }
+            }
+
             try {
                 val employerId = currentUser?.uid
                 if (employerId == null) {
@@ -228,6 +237,9 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                     hasError = true,
                     error = e.message ?: "Failed to refresh your jobs"
                 )
+            } finally {
+                watchdog.cancel()
+                _uiState.value = _uiState.value.copy(isRefreshing = false)
             }
         }
     }
@@ -477,6 +489,16 @@ class FirestoreEmployerJobViewModel @Inject constructor(
         }
     }
 
+    suspend fun closeJob(jobId: String): Result<Unit> {
+        return try {
+            var result: Result<Unit> = Result.failure(Exception("Unknown error"))
+            firestoreJobRepository.closeJob(jobId).collect { result = it }
+            result
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun resumeJob(jobId: String): Result<Unit> {
         return try {
             var result: Result<Unit> = Result.failure(Exception("Unknown error"))
@@ -567,6 +589,25 @@ class FirestoreEmployerJobViewModel @Inject constructor(
             } catch (e: Exception) {
                 Timber.e(e, "Exception updating employer profile")
                 callback(false, e.message)
+            }
+        }
+    }
+
+    private fun checkAndNotifyExpiringJobs(jobs: List<JobListing>, employerId: String) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val threeDaysMs = 3L * 24 * 60 * 60 * 1000L
+            jobs.filter { job ->
+                val status = job.status.lowercase()
+                status == "open" && job.expiresAt != null && (job.expiresAt - now in 1L..threeDaysMs)
+            }.forEach { expiringJob ->
+                val daysLeft = (((expiringJob.expiresAt ?: now) - now) / (24 * 60 * 60 * 1000L) + 1).toInt()
+                notificationService.sendJobExpiryReminderNotification(
+                    jobId = expiringJob.id.ifBlank { expiringJob.jobId },
+                    jobTitle = expiringJob.title.ifBlank { "Job" },
+                    employerId = employerId,
+                    daysLeft = daysLeft
+                )
             }
         }
     }

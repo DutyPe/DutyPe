@@ -3,27 +3,24 @@ import Image from "next/image";
 import { ReactNode } from "react";
 
 import { AdSenseBanner } from "@/components/public/adsense-banner";
+import { SmartAppBanner } from "@/components/public/smart-app-banner";
 import { PLAY_STORE_URL, footerGroups, primaryNav, siteMeta } from "@/lib/public-site";
 
 export function SiteShell({
   children,
   plain = false,
   hideTopBar = false,
+  hideAds = false,
 }: {
   children: ReactNode;
   plain?: boolean;
   hideTopBar?: boolean;
+  hideAds?: boolean;
 }) {
+  const downloadUrl = `${PLAY_STORE_URL}&referrer=utm_source%3Dweb_topbar%26utm_medium%3Dorganic_web`;
+
   return (
     <div className={plain ? "page-shell page-shell-plain" : "page-shell"}>
-      {!plain ? (
-        <>
-          <div className="page-ambient ambient-a" />
-          <div className="page-ambient ambient-b" />
-          <div className="page-ambient ambient-c" />
-        </>
-      ) : null}
-
       <div className="page-wrap">
         <header className={hideTopBar ? "topbar topbar-slim" : "topbar"}>
           {!hideTopBar ? (
@@ -54,12 +51,12 @@ export function SiteShell({
                 Post Job
               </Link>
               <a
-                href={PLAY_STORE_URL}
-                className="button topbar-button"
+                href={downloadUrl}
+                className="button topbar-button download-highlight-btn"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Download App
+                📱 Download App
               </a>
             </div>
           </div>
@@ -74,7 +71,7 @@ export function SiteShell({
           </nav>
         </header>
 
-        {!plain ? <AdSenseBanner /> : null}
+        {!plain && !hideAds ? <AdSenseBanner /> : null}
 
         <main className="site-main">{children}</main>
 
@@ -123,6 +120,8 @@ export function SiteShell({
           </div>
         </footer>
       </div>
+
+      <SmartAppBanner />
     </div>
   );
 }

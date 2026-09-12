@@ -161,22 +161,11 @@ object AppModule {
             return buildInMemoryDutyPeDatabase(context)
         }
 
-        val database = buildEncryptedDutyPeDatabase(context)
         return try {
-            verifyDutyPeDatabaseOpens(database)
-            database
-        } catch (error: RuntimeException) {
-            if (!isRecoverableSqlCipherOpenFailure(error)) {
-                throw error
-            }
-
-            Timber.e(error, "Encrypted Room database failed to open; clearing local cache and rebuilding")
-            database.close()
-            deleteDutyPeDatabaseFiles(context)
-
-            buildEncryptedDutyPeDatabase(context).also { rebuiltDatabase ->
-                verifyDutyPeDatabaseOpens(rebuiltDatabase)
-            }
+            buildEncryptedDutyPeDatabase(context)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to initialize encrypted database; falling back to in-memory database to prevent startup crash")
+            buildInMemoryDutyPeDatabase(context)
         }
     }
 
@@ -194,15 +183,7 @@ object AppModule {
         val passphrase = com.example.dutype.database.security.DatabasePassphraseProvider.getPassphrase(context)
         val factory = net.zetetic.database.sqlcipher.SupportOpenHelperFactory(passphrase)
 
-        // SCHEMA MIGRATION POLICY:
-        // - Any schema bump from v7 onward MUST add an explicit Migration object.
-        //   Blanket destructive migration is a data-loss bomb for offline users.
-        // - Legacy versions 1..6 predate the current release; wiping those
-        //   installs is acceptable because their schemas are not exported.
-        // - Downgrades wipe (nothing we can do safely).
-        // When adding a migration, register it here with `.addMigrations(Migration_7_8, ...)`
-        // and REMOVE the corresponding version number from the legacy list.
-        return Room.databaseBuilder(
+        val database = Room.databaseBuilder(
             context,
             DutyPeDatabase::class.java,
             DutyPeDatabase.DATABASE_NAME
@@ -211,6 +192,35 @@ object AppModule {
             .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6, 7)
             .fallbackToDestructiveMigrationOnDowngrade()
             .build()
+
+        try {
+            verifyDutyPeDatabaseOpens(database)
+        } catch (error: Throwable) {
+            if (isRecoverableSqlCipherOpenFailure(error)) {
+                Timber.e(error, "[AppModule] Database open verification failed with recoverable error; rebuilding fresh database")
+                try {
+                    database.close()
+                } catch (_: Exception) {}
+                deleteDutyPeDatabaseFiles(context)
+
+                val freshDatabase = Room.databaseBuilder(
+                    context,
+                    DutyPeDatabase::class.java,
+                    DutyPeDatabase.DATABASE_NAME
+                )
+                    .openHelperFactory(factory)
+                    .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6, 7)
+                    .fallbackToDestructiveMigrationOnDowngrade()
+                    .build()
+
+                verifyDutyPeDatabaseOpens(freshDatabase)
+                return freshDatabase
+            } else {
+                throw error
+            }
+        }
+
+        return database
     }
 
     private fun buildInMemoryDutyPeDatabase(context: Context): DutyPeDatabase {
@@ -288,8 +298,8 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideJobCacheManager(): JobCacheManager {
-        return JobCacheManager()
+    fun provideJobCacheManager(jobDao: JobDao): JobCacheManager {
+        return JobCacheManager(jobDao)
     }
 
     // EmployerProfileCache uses @Inject constructor, so Hilt resolves it automatically.

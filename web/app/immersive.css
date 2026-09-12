@@ -1,67 +1,24 @@
 /* ==========================================================================
-   Motion primitives — no theming here, just behaviour.
-   Transform/opacity only so everything stays on the compositor.
+   Clean layout utilities — Instant rendering without animation delays
    ========================================================================== */
 
 :root {
-  --dp-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dp-ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ---------- Scroll reveal ----------
-   Hiding only applies once MotionLayer sets .dp-motion-ready on <html>, so a
-   JS failure or a no-JS crawler never sees blank sections. */
-
-.dp-motion-ready [data-reveal],
-.dp-motion-ready .home-editorial .section {
-  opacity: 0;
-  transform: translate3d(0, 26px, 0);
-  transition:
-    opacity 760ms var(--dp-ease),
-    transform 760ms var(--dp-ease);
-  transition-delay: calc(var(--reveal-index, 0) * 60ms);
-  will-change: transform, opacity;
-}
-
-.dp-motion-ready [data-reveal].is-revealed,
-.dp-motion-ready .home-editorial .section.is-revealed {
+/* Ensure all sections and elements render immediately at full opacity */
+[data-reveal],
+.home-editorial .section {
   opacity: 1;
   transform: none;
-  will-change: auto;
 }
-
-/* ---------- Scroll progress ---------- */
 
 .home-immersive-layer {
-  position: relative;
-  z-index: 40;
+  display: none;
 }
 
-.home-scroll-progress {
-  position: fixed;
-  inset-inline: 0;
-  top: 0;
-  height: 2px;
-  transform-origin: 0 50%;
-  transform: scaleX(0);
-  background: linear-gradient(90deg, var(--brand), var(--warning));
-  z-index: 50;
-  pointer-events: none;
-}
-
-/* Cursor and aurora belong to the dark treatment; kept out of the editorial look. */
 .home-cursor-halo,
 .home-cursor-dot,
 .home-aurora {
   display: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dp-motion-ready [data-reveal],
-  .dp-motion-ready [data-reveal].is-revealed,
-  .dp-motion-ready .home-editorial .section,
-  .dp-motion-ready .home-editorial .section.is-revealed {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
 }

@@ -43,6 +43,11 @@ fun DocumentSnapshot.toJobApplicationOrNull(): JobApplication? {
         workerDateOfBirth = data["workerDateOfBirth"]?.toString().orEmpty(),
         workerBio = data["workerBio"]?.toString().orEmpty(),
         employerPhone = (data["employerPhone"] as? String)?.takeIf { it.isNotBlank() },
-        jobStatus = data["jobStatus"]?.toString()?.takeIf { it.isNotBlank() } ?: "open"
+        jobStatus = data["jobStatus"]?.toString()?.takeIf { it.isNotBlank() } ?: "open",
+        viewedAt = data["viewedAt"].toEpochMillis(),
+        audioIntroUrl = (data["audioIntroUrl"] as? String)?.takeIf { it.isNotBlank() },
+        audioDurationSec = (data["audioDurationSec"] as? Number)?.toInt(),
+        expectedSalary = (data["expectedSalary"] as? String)?.takeIf { it.isNotBlank() },
+        distanceKm = (data["distanceKm"] as? Number)?.toDouble()
     )
 }

@@ -80,52 +80,11 @@ class NotificationService @Inject constructor(
     }
     
     /**
-     * Create notification channels for different types of notifications
+     * Create notification channels for different types of notifications (API 26+)
      */
     private fun createNotificationChannels() {
-        val channels = listOf(
-            NotificationChannel(
-                "application_updates",
-                "Application Updates",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Notifications about job application status changes"
-                enableVibration(true)
-            },
-            NotificationChannel(
-                "new_applications",
-                "New Applications",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Notifications about new job applications"
-                enableVibration(true)
-            },
-            NotificationChannel(
-                "job_updates",
-                "Job Updates",
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply {
-                description = "Notifications about job posting updates"
-            },
-            NotificationChannel(
-                "birthday",
-                "Birthday Wishes",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Birthday wishes from DutyPe 🎂"
-                enableVibration(true)
-            },
-            NotificationChannel(
-                "general",
-                "General",
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply {
-                description = "General app notifications"
-            }
-        )
-        
-        channels.forEach { channel ->
-            notificationManager.createNotificationChannel(channel)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            NotificationChannelManager.createNotificationChannels(context)
         }
     }
     
@@ -181,6 +140,25 @@ class NotificationService @Inject constructor(
             Result.success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "Failed to send job posted notification")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Send notification for job expiring soon (3-day reminder)
+     */
+    suspend fun sendJobExpiryReminderNotification(
+        jobId: String,
+        jobTitle: String,
+        employerId: String,
+        daysLeft: Int = 3
+    ): Result<Unit> {
+        return try {
+            val notification = createJobExpiryReminderNotification(jobId, jobTitle, daysLeft)
+            sendNotification(notification, employerId)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to send job expiry reminder notification")
             Result.failure(e)
         }
     }
@@ -516,6 +494,28 @@ class NotificationService @Inject constructor(
             data = mapOf(
                 "jobTitle" to jobTitle,
                 "action" to "view_job"
+            ),
+            createdAt = System.currentTimeMillis(),
+            isRead = false
+        )
+    }
+
+    /**
+     * Create job expiry reminder notification
+     */
+    private fun createJobExpiryReminderNotification(jobId: String, jobTitle: String, daysLeft: Int): NotificationData {
+        return NotificationData(
+            id = UUID.randomUUID().toString(),
+            recipientId = "",
+            title = "Job Post Expiring Soon",
+            message = "Your job post for $jobTitle expires in $daysLeft days. Tap here to extend or repost.",
+            type = NotificationType.JOB_EXPIRY_REMINDER,
+            targetRole = "EMPLOYER",
+            data = mapOf(
+                "jobId" to jobId,
+                "jobTitle" to jobTitle,
+                "daysLeft" to daysLeft.toString(),
+                "action" to "view_my_jobs"
             ),
             createdAt = System.currentTimeMillis(),
             isRead = false

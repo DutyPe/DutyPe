@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
@@ -132,11 +133,14 @@ fun LocationAutocompleteField(
                 LazyColumn(
                     modifier = Modifier.heightIn(max = 200.dp)
                 ) {
-                    items(
+                    itemsIndexed(
                         items = placeSuggestions,
-                        key = { suggestion -> suggestion.placeId.ifBlank { suggestion.description } },
-                        contentType = { "location_suggestion" }
-                    ) { suggestion ->
+                        key = { index, suggestion ->
+                            val raw = suggestion.placeId.ifBlank { suggestion.description }
+                            "${raw}_$index"
+                        },
+                        contentType = { _, _ -> "location_suggestion" }
+                    ) { _, suggestion ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()

@@ -289,6 +289,10 @@ class AllJobsViewModel @Inject constructor(
 
     private fun hasValidUserLocation(): Boolean = GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
 
+    private fun queryUserLatitude(): Double? = userLatitude.takeIf { hasValidUserLocation() }
+
+    private fun queryUserLongitude(): Double? = userLongitude.takeIf { hasValidUserLocation() }
+
     private fun applyRuntimeFlags(jobs: List<JobListing>): List<JobListing> {
         val savedJobIds = appStateManager.savedJobIds.value
         val appliedJobIds = appStateManager.appliedJobIds.value
@@ -364,16 +368,9 @@ class AllJobsViewModel @Inject constructor(
         val savedJobIds = inputs.savedJobIds
         val appliedJobIds = inputs.appliedJobIds
 
-        // CRITICAL FIX: Don't return empty during loading - let UI handle loading state
-        // Only return empty if there's an error
-        if (state.hasError) {
-            Timber.d("🔍 filteredJobs: Returning empty due to error")
-            return@combine emptyList()
-        }
-        
-        // During loading with no jobs yet, return empty to show shimmer
-        if (state.jobs.isEmpty() && state.isLoading) {
-            Timber.d("🔍 filteredJobs: Loading... returning empty for shimmer")
+        // CRITICAL FIX: Don't return empty during loading if jobs already exist in state
+        if ((state.isLoading && state.jobs.isEmpty()) || (state.hasError && state.jobs.isEmpty())) {
+            Timber.d("🔍 filteredJobs: Loading/error with empty jobs - returning empty for shimmer")
             return@combine emptyList()
         }
         
@@ -500,9 +497,14 @@ class AllJobsViewModel @Inject constructor(
                     (!hasSalaryUpperBound || (if (upper == Double.MAX_VALUE) lower.toInt() <= filters.salaryMax else upper.toInt() <= filters.salaryMax))
                 )
             
-            // Distance filter
+            // Distance filter: If user explicitly picked a maxDistance (e.g. 5km/10km/25km), enforce it.
+            // Otherwise, allow NearestJobsEngine's multi-tier proximity sorting to provide nearby or district/state fallback.
             val dist = job.distance
-            val distanceMatch = filters.maxDistance == null || dist == null || dist <= filters.maxDistance
+            val distanceMatch = if (filters.maxDistance != null) {
+                dist != null && dist <= filters.maxDistance
+            } else {
+                true
+            }
             val payTypeMatch = filters.payType == "Any" || job.salaryType.equals(filters.payType, ignoreCase = true)
             val workTypeMatch = matchesWorkType(job, filters.workType)
             val experienceMatch = matchesExperienceLevel(job, filters.experienceLevel)
@@ -583,6 +585,13 @@ class AllJobsViewModel @Inject constructor(
     )
     
     init {
+        val savedLoc = locationPreferences.getSavedLocationIfFresh()
+        if (savedLoc != null && (userLatitude == 0.0 && userLongitude == 0.0)) {
+            userLatitude = savedLoc.latitude
+            userLongitude = savedLoc.longitude
+            savedStateHandle["userLatitude"] = userLatitude
+            savedStateHandle["userLongitude"] = userLongitude
+        }
         syncAppliedJobsFromBackend()
         
         // P0 FIX: Observe location changes and re-sort jobs immediately
@@ -709,15 +718,26 @@ class AllJobsViewModel @Inject constructor(
     // PUBLIC API - Data Loading
     // ==========================================
     
-    fun setUserLocation(latitude: Double, longitude: Double) {
+    fun onLocationChanged(latitude: Double, longitude: Double) {
+        setUserLocation(latitude, longitude, forceReload = true)
+    }
+
+    fun setUserLocation(latitude: Double, longitude: Double, forceReload: Boolean = false) {
+        val sameAsCurrent =
+            kotlin.math.abs(latitude - userLatitude) < 0.00001 &&
+            kotlin.math.abs(longitude - userLongitude) < 0.00001
+
         userLatitude = latitude
         userLongitude = longitude
         savedStateHandle["userLatitude"] = latitude
         savedStateHandle["userLongitude"] = longitude
-        Timber.d("📍 AllJobsVM: User location set - lat=$latitude, lon=$longitude")
+        Timber.d("📍 AllJobsVM: User location set - lat=$latitude, lon=$longitude (forceReload=$forceReload)")
         
-        // Recalculate distances for existing jobs immediately
-        if (_uiState.value.jobs.isNotEmpty()) {
+        if (forceReload || !sameAsCurrent || _uiState.value.jobs.isEmpty()) {
+            hasInitiallyLoaded = false
+            _uiState.update { it.copy(lastDocumentId = null, hasMore = true) }
+            loadJobs(limit = PAGE_SIZE, category = _uiState.value.initialCategory)
+        } else if (_uiState.value.jobs.isNotEmpty()) {
             viewModelScope.launch {
                 recalculateDistances()
             }
@@ -805,9 +825,9 @@ class AllJobsViewModel @Inject constructor(
                         limit = limit,
                         lastDocumentId = null,
                         category = firestoreCategory,
-                        userLatitude = null,
-                        userLongitude = null,
-                        radiusKm = 0.0
+                        userLatitude = queryUserLatitude(),
+                        userLongitude = queryUserLongitude(),
+                        radiusKm = if (hasValidUserLocation()) 50.0 else 0.0
                     )
                     summaryFlow.collect { result ->
                         result.fold(
@@ -974,7 +994,6 @@ class AllJobsViewModel @Inject constructor(
                 } else {
                     Timber.d("📦 AllJobsVM: Loading more jobs (after: $lastDocumentId, category: $firestoreCategory)")
                     
-                    // Load full dataset for pagination; location is used only for client-side distance sorting.
                     firestoreJobRepository.getAllJobsSummary(
                         limit = limit, 
                         lastDocumentId = lastDocumentId,
@@ -1002,14 +1021,13 @@ class AllJobsViewModel @Inject constructor(
             try {
                 paginationUsesLocation = false
                 // SMOOTH INFINITE SCROLL: Load first batch on refresh
-                // Refresh from full dataset irrespective of location availability.
                 firestoreJobRepository.getAllJobsSummary(
                     limit = PAGE_SIZE, 
                     lastDocumentId = null,
                     category = _uiState.value.initialCategory?.takeIf { it != "All Jobs" }?.let { categoryMapping[it] ?: it },
-                    userLatitude = null,
-                    userLongitude = null,
-                    radiusKm = 0.0
+                    userLatitude = queryUserLatitude(),
+                    userLongitude = queryUserLongitude(),
+                    radiusKm = if (hasValidUserLocation()) 50.0 else 0.0
                 ).collect { result ->
                     result.fold(
                         onSuccess = { summaries ->

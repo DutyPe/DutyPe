@@ -24,11 +24,14 @@ class JobShareService @Inject constructor() {
         try {
             val jobLink = DeepLinkHandler.generateJobWebLink(job.id)
             val shareText = buildString {
-                append("💼 ${job.title}\n\n")
-                append("💰 ${formatPay(job)}\n")
-                if (job.addressText.isNotEmpty()) append("📍 ${job.addressText}\n")
-                append("\n👉 Apply now: $jobLink\n\n")
-                append("📲 Download DutyPe app for instant job alerts")
+                append("🚨 *URGENT HIRING NEARBY!* 🚨\n\n")
+                append("💼 *Role:* ${job.title}\n")
+                if (job.companyName.isNotBlank()) append("🏢 *Company:* ${job.companyName}\n")
+                append("💰 *Salary:* ${formatPay(job)}\n")
+                if (job.addressText.isNotEmpty()) append("📍 *Location:* ${job.addressText}\n")
+                append("✅ *No Resume needed* (Direct Call / 1-Tap Apply)\n\n")
+                append("👉 *Apply / Call Employer Now:* $jobLink\n\n")
+                append("📲 _Download DutyPe for 100% free local jobs & instant daily work_")
             }
             context.startActivity(Intent.createChooser(
                 Intent(Intent.ACTION_SEND).apply {
@@ -46,11 +49,14 @@ class JobShareService @Inject constructor() {
         try {
             val jobLink = DeepLinkHandler.generateJobWebLink(job.id)
             val shareText = buildString {
-                append("💼 *${job.title}*\n\n")
-                append("💰 ${formatPay(job)}\n")
-                if (job.addressText.isNotEmpty()) append("📍 ${job.addressText}\n")
-                append("\n👉 *Apply now:* $jobLink\n\n")
-                append("📲 _Download DutyPe app for instant job alerts_")
+                append("🚨 *URGENT HIRING NEARBY!* 🚨\n\n")
+                append("💼 *Role:* ${job.title}\n")
+                if (job.companyName.isNotBlank()) append("🏢 *Company:* ${job.companyName}\n")
+                append("💰 *Salary:* ${formatPay(job)}\n")
+                if (job.addressText.isNotEmpty()) append("📍 *Location:* ${job.addressText}\n")
+                append("✅ *No Resume needed* (Direct Call / 1-Tap Apply)\n\n")
+                append("👉 *Apply / Call Employer Now:* $jobLink\n\n")
+                append("📲 _Download DutyPe for 100% free local jobs & instant daily work_")
             }
             try {
                 context.startActivity(Intent(Intent.ACTION_SEND).apply {
@@ -78,10 +84,13 @@ class JobShareService @Inject constructor() {
     fun generateShareMessage(job: JobListing): String {
         val jobLink = DeepLinkHandler.generateJobWebLink(job.id)
         return buildString {
-            append("💼 ${job.title}\n\n")
-            append("💰 ${formatPay(job)}\n")
-            if (job.addressText.isNotEmpty()) append("📍 ${job.addressText}\n")
-            append("\n👉 Apply: $jobLink")
+            append("🚨 *URGENT HIRING NEARBY!* 🚨\n\n")
+            append("💼 *Role:* ${job.title}\n")
+            if (job.companyName.isNotBlank()) append("🏢 *Company:* ${job.companyName}\n")
+            append("💰 *Salary:* ${formatPay(job)}\n")
+            if (job.addressText.isNotEmpty()) append("📍 *Location:* ${job.addressText}\n")
+            append("✅ *No Resume needed* (Direct Call / 1-Tap Apply)\n\n")
+            append("👉 *Apply / Call Employer Now:* $jobLink")
         }
     }
 }

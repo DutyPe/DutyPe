@@ -229,21 +229,15 @@ class InstantHelpService @Inject constructor(
                 }
                 
                 val expiresAtMillis = when (input.urgencyType) {
-                    "right_now" -> nowMillis + 2L * 60 * 60 * 1000L // 2 Hours
-                    "within_1_hour" -> nowMillis + 4L * 60 * 60 * 1000L // 4 Hours
-                    "today" -> {
-                        java.util.Calendar.getInstance().apply {
-                            set(java.util.Calendar.HOUR_OF_DAY, 23)
-                            set(java.util.Calendar.MINUTE, 59)
-                            set(java.util.Calendar.SECOND, 59)
-                        }.timeInMillis
-                    }
-                    "tomorrow" -> nowMillis + 24L * 60 * 60 * 1000L // 24 Hours
+                    "right_now" -> nowMillis + 4L * 60 * 60 * 1000L // 4 Hours
+                    "within_1_hour" -> nowMillis + 6L * 60 * 60 * 1000L // 6 Hours
+                    "today", "1_day", "within_1_day" -> nowMillis + 24L * 60 * 60 * 1000L // 1 Day (24 Hours)
+                    "tomorrow", "2_days", "within_2_days" -> nowMillis + 48L * 60 * 60 * 1000L // 2 Days (48 Hours)
                     "custom" -> {
                         if (input.scheduledAtMillis > nowMillis) input.scheduledAtMillis
-                        else nowMillis + 24L * 60 * 60 * 1000L
+                        else nowMillis + 48L * 60 * 60 * 1000L
                     }
-                    else -> nowMillis + 24L * 60 * 60 * 1000L
+                    else -> nowMillis + 48L * 60 * 60 * 1000L // Default: 2 Days
                 }
                 val expiresAt = Timestamp(java.util.Date(expiresAtMillis))
                 val safeRadius = input.radiusKm.coerceIn(2.0, MAX_INSTANT_WORK_DISTANCE_KM)
@@ -327,6 +321,7 @@ class InstantHelpService @Inject constructor(
 
             val requests = snapshot.documents
                 .mapNotNull { it.toInstantRequestOrNull() }
+                .filter { it.status != "deleted" }
                 .sortedByDescending { it.createdAt }
 
             Result.success(requests)
@@ -581,12 +576,14 @@ class InstantHelpService @Inject constructor(
 
             firestore.runTransaction { transaction ->
                 if (isEarlyDelete) {
-                    // 1. Delete request document completely
-                    transaction.delete(requestRef)
-                    
-                    // 2. Refund credits to the employer profile
+                    // 1. Read first!
                     val employerProfileRef = firestore.collection(FirestoreCollections.EMPLOYER_PROFILES).document(employerId)
                     val profileSnap = transaction.get(employerProfileRef)
+                    
+                    // 2. Delete request document completely
+                    transaction.delete(requestRef)
+                    
+                    // 3. Refund credits to the employer profile
                     if (profileSnap.exists()) {
                         val subMap = profileSnap.get("subscription") as? Map<String, Any?>
                         if (subMap != null) {
@@ -641,6 +638,21 @@ class InstantHelpService @Inject constructor(
             }
             batch.commit().await()
 
+            Result.success(Unit)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
+    suspend fun deleteEmployerInstantRequest(requestId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val employerId = auth.currentUser?.uid
+        if (employerId.isNullOrBlank()) {
+            return@withContext Result.failure(IllegalStateException("Please login again"))
+        }
+
+        return@withContext try {
+            val requestRef = firestore.collection(FirestoreCollections.INSTANT_REQUESTS).document(requestId)
+            requestRef.update("status", "deleted").await()
             Result.success(Unit)
         } catch (error: Exception) {
             Result.failure(error)

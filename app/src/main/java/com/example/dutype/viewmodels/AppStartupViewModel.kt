@@ -38,11 +38,9 @@ class AppStartupViewModel @Inject constructor(
 
     private val initialCachedDestination: String? by lazy {
         val cached = StartDestinationCache.read(context)
-        // Profile-setup routes need a signed-in uid just as much as the home routes do.
-        // Omitting them let a logged-out cold start open mandatory setup with no user.
-        val isAuthGated = cached == Routes.WORKER_HOME ||
-            cached == Routes.EMPLOYER_HOME ||
-            cached == Routes.PROFILE_SETUP ||
+        // Profile-setup routes need a signed-in uid.
+        // Home routes (WORKER_HOME / EMPLOYER_HOME) support guest exploration.
+        val isAuthGated = cached == Routes.PROFILE_SETUP ||
             cached == Routes.EMPLOYER_PROFILE_SETUP
         if (isAuthGated && FirebaseAuth.getInstance().currentUser == null) {
             null
@@ -74,16 +72,27 @@ class AppStartupViewModel @Inject constructor(
                     return@launch
                 }
 
-                // 2. Check FirebaseAuth
+                // 2. Check Role & Auth (Supports Guest Mode)
                 val currentUser = FirebaseAuth.getInstance().currentUser
+                val dataStoreRole = profileSetupStateManager.getUserRole()
+
                 if (currentUser == null) {
+                    // Guest user: If user already picked a role before, route directly to Home
+                    if (dataStoreRole == UserRole.WORKER) {
+                        Timber.d("🚀 AppStartupViewModel -> Guest WORKER_HOME")
+                        updateDestination(Routes.WORKER_HOME)
+                        return@launch
+                    } else if (dataStoreRole == UserRole.EMPLOYER) {
+                        Timber.d("🚀 AppStartupViewModel -> Guest EMPLOYER_HOME")
+                        updateDestination(Routes.EMPLOYER_HOME)
+                        return@launch
+                    }
                     Timber.d("🚀 AppStartupViewModel -> SELECT_ROLE")
                     updateDestination(Routes.SELECT_ROLE)
                     return@launch
                 }
 
                 // 3. Fast Path: Check DataStore
-                val dataStoreRole = profileSetupStateManager.getUserRole()
                 if (dataStoreRole != null && profileSetupStateManager.isProfileComplete(dataStoreRole)) {
                     val dest = if (dataStoreRole == UserRole.WORKER) Routes.WORKER_HOME else Routes.EMPLOYER_HOME
                     Timber.d("🚀 AppStartupViewModel -> Fast Path: $dest")

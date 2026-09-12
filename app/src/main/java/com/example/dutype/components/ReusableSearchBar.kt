@@ -1,4 +1,4 @@
-﻿package com.example.dutype.components
+package com.example.dutype.components
 
 import com.dutype.app.R
 import androidx.compose.ui.res.stringResource
@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -419,10 +420,10 @@ fun ReusableSearchBar(
                         .padding(vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    items(
+                    itemsIndexed(
                         items = suggestions.take(maxSuggestions),
-                        key = { it.text }
-                    ) { suggestion ->
+                        key = { index, item -> "${item.text}_$index" }
+                    ) { _, suggestion ->
                         EnhancedSuggestionItem(
                             suggestion = suggestion,
                             onSuggestionClick = { selectedSuggestion ->

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { SiteShell } from "@/components/site-shell";
+import { AppConversionCard } from "@/components/public/app-conversion-card";
 import { PLAY_STORE_URL, coreSeoKeywords } from "@/lib/public-site";
 
 const allCategories = [
@@ -129,6 +130,11 @@ export default function JobsHubPage() {
             </Link>
           ))}
         </div>
+
+        <AppConversionCard
+          title="Looking for Local Jobs Near You?"
+          subtitle="Get real-time job notifications, call employers directly, and apply with 1 tap on the DutyPe App."
+        />
       </section>
 
       <section className="section">
@@ -156,16 +162,6 @@ export default function JobsHubPage() {
               <p className="route-note">Browse {city.label} jobs</p>
             </Link>
           ))}
-        </div>
-      </section>
-
-      <section className="section">
-        <div className="callout">
-          <strong>Get the full experience</strong>
-          <span>
-            For live listings with real-time updates, download the DutyPe app free
-            from the Google Play Store and start applying to jobs near you.
-          </span>
         </div>
       </section>
     </SiteShell>

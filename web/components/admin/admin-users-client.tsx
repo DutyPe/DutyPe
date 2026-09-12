@@ -39,6 +39,8 @@ type UserRow = {
   firebaseFields?: Record<string, unknown>;
   referralCode?: string;
   referral_code?: string;
+  state?: string;
+  city?: string;
   isBanned?: boolean;
   isVerified?: boolean;
   createdAt?: unknown;
@@ -72,6 +74,7 @@ export function AdminUsersClient() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
+  const [stateFilter, setStateFilter] = useState<string>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
@@ -79,6 +82,7 @@ export function AdminUsersClient() {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [sourceCounts, setSourceCounts] = useState<SourceCounts>({});
   const [roleCounts, setRoleCounts] = useState<RoleCounts>({});
+  const [stateCounts, setStateCounts] = useState<Record<string, { workers: number; employers: number; admins: number; total: number }>>({});
   // The live `users` collection only stores a single `role` field. We
   // keep the draft minimal: name, phone, role.
   const [editDrafts, setEditDrafts] = useState<
@@ -110,6 +114,7 @@ export function AdminUsersClient() {
         users?: UserRow[];
         sourceCounts?: SourceCounts;
         roleCounts?: RoleCounts;
+        stateCounts?: Record<string, { workers: number; employers: number; admins: number; total: number }>;
         error?: string;
       };
 
@@ -121,6 +126,7 @@ export function AdminUsersClient() {
       setUsers(nextUsers);
       setSourceCounts(payload.sourceCounts ?? {});
       setRoleCounts(payload.roleCounts ?? {});
+      setStateCounts(payload.stateCounts ?? {});
       setEditDrafts(createDraftMap(nextUsers));
       setError(null);
     } catch (loadError) {
@@ -136,7 +142,7 @@ export function AdminUsersClient() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, roleFilter, pageSize]);
+  }, [searchTerm, roleFilter, stateFilter, pageSize]);
 
   async function handleDelete(userId: string) {
     if (!window.confirm("Delete this user? This cannot be undone.")) return;
@@ -272,7 +278,9 @@ export function AdminUsersClient() {
       (roleFilter === "MISSING_AUTH" && user.hasAuthUser !== true) ||
       primaryRole(user) === roleFilter;
 
-    return matchesSearch && matchesRole;
+    const matchesState = stateFilter === "ALL" || (user.state || "Other / Unknown") === stateFilter;
+
+    return matchesSearch && matchesRole && matchesState;
   });
   const {
     pageRows: visibleUsers,
@@ -333,6 +341,50 @@ export function AdminUsersClient() {
         </div>
       </div>
 
+      {/* State Quick Filter Chips */}
+      {Object.keys(stateCounts).length > 0 ? (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", margin: "0.75rem 0 0.5rem 0" }}>
+          <span style={{ fontSize: "12px", color: "#64748b", alignSelf: "center", fontWeight: 600 }}>Filter by State:</span>
+          <button
+            type="button"
+            style={{
+              padding: "4px 12px",
+              borderRadius: "16px",
+              border: stateFilter === "ALL" ? "1.5px solid #0969da" : "1px solid #d0d7de",
+              background: stateFilter === "ALL" ? "#ddf4ff" : "#f6f8fa",
+              color: stateFilter === "ALL" ? "#0969da" : "#24292f",
+              cursor: "pointer",
+              fontSize: "12px",
+              fontWeight: stateFilter === "ALL" ? 600 : 400
+            }}
+            onClick={() => setStateFilter("ALL")}
+          >
+            All States ({users.length})
+          </button>
+          {Object.entries(stateCounts)
+            .sort((a, b) => b[1].total - a[1].total)
+            .map(([st, counts]) => (
+              <button
+                key={st}
+                type="button"
+                style={{
+                  padding: "4px 12px",
+                  borderRadius: "16px",
+                  border: stateFilter === st ? "1.5px solid #0969da" : "1px solid #d0d7de",
+                  background: stateFilter === st ? "#ddf4ff" : "#f6f8fa",
+                  color: stateFilter === st ? "#0969da" : "#24292f",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: stateFilter === st ? 600 : 400
+                }}
+                onClick={() => setStateFilter(stateFilter === st ? "ALL" : st)}
+              >
+                📍 {st} (<strong>{counts.total}</strong> · 👷{counts.workers} 🏢{counts.employers})
+              </button>
+            ))}
+        </div>
+      ) : null}
+
       {/* Toolbar */}
       <div className="admin-toolbar">
         <input
@@ -357,6 +409,20 @@ export function AdminUsersClient() {
           <option value="MISSING_PHONE_ROLE">Missing phoneRoles</option>
           <option value="MISSING_AUTH">Missing Auth user</option>
         </select>
+        <select
+          className="admin-filter"
+          value={stateFilter}
+          onChange={(e) => setStateFilter(e.target.value)}
+        >
+          <option value="ALL">All States</option>
+          <option value="Telangana">Telangana</option>
+          <option value="Andhra Pradesh">Andhra Pradesh</option>
+          <option value="Karnataka">Karnataka</option>
+          <option value="Tamil Nadu">Tamil Nadu</option>
+          <option value="Maharashtra">Maharashtra</option>
+          <option value="Delhi NCR">Delhi NCR</option>
+          <option value="Other / Unknown">Other / Unknown</option>
+        </select>
         <span className="admin-count">{filteredUsers.length} users</span>
       </div>
 
@@ -374,7 +440,7 @@ export function AdminUsersClient() {
             <table className="data-table admin-users-table">
               <thead>
                 <tr>
-                  <th>Identity</th>
+                  <th>Identity & Location</th>
                   <th>Phone Roles</th>
                   <th>Role</th>
                   <th>Firebase Sources</th>
@@ -401,6 +467,9 @@ export function AdminUsersClient() {
                           />
                           <div className="admin-cell-sub">uid: {user.id}</div>
                           <div className="admin-cell-sub">name source: {user.phoneRoleName ? "phoneRoles" : "profile/auth"}</div>
+                          <div className="admin-cell-sub" style={{ color: "#0969da", fontWeight: 500, marginTop: "2px" }}>
+                            📍 {user.state || "Unknown State"}{user.city ? ` · ${user.city}` : ""}
+                          </div>
                         </td>
                         <td>
                           <input

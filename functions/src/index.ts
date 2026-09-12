@@ -19,6 +19,8 @@ export * from './employer-landing';
 export * from "./auth-callables";
 export * from './metrics-aggregation';
 export * from './identity-mirror';
+export * from './whatsapp-chatbot';
+export * from './job-consensus-closer';
 
 const db = admin.firestore();
 const messaging = admin.messaging();
@@ -1540,3 +1542,8 @@ export * from "./auto-complete";
 // EXPORT APP CONFIG (admin-editable referral rewards)
 // ============================================
 export { updateReferralConfig, getReferralConfigCallable } from "./app-config";
+
+// ============================================
+// EXPORT WHATSAPP CHATBOT WEBHOOK
+// ============================================
+export { whatsappWebhook } from "./whatsapp-chatbot";

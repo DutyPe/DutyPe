@@ -50,11 +50,15 @@ data class JobApplication(
     // employer directly from the MyJobs card without an extra read.
     val employerPhone: String? = null,
     val jobStatus: String = "open",
-    val coverLetter: String = ""
+    val coverLetter: String = "",
+    val viewedAt: Long = 0L,
+    val audioIntroUrl: String? = null,
+    val audioDurationSec: Int? = null,
+    val expectedSalary: String? = null,
+    val distanceKm: Double? = null
 ) {
     /**
-     * Canonical write path. Keeps the application document strict and only
-     * includes workerName as the allowed denormalized display field.
+     * Canonical write path. Includes audio intro and core denormalized fields.
      */
     fun toFirestoreMap(): Map<String, Any> {
         return buildMap {
@@ -63,7 +67,14 @@ data class JobApplication(
             put("employerId", employerId)
             put("status", status.toFirestoreValue())
             put("createdAt", com.google.firebase.Timestamp(createdAt / 1000, ((createdAt % 1000) * 1_000_000).toInt()))
+            if (viewedAt > 0L) {
+                put("viewedAt", com.google.firebase.Timestamp(viewedAt / 1000, ((viewedAt % 1000) * 1_000_000).toInt()))
+            }
             workerName.trim().takeIf { it.isNotBlank() }?.let { put("workerName", it) }
+            audioIntroUrl?.trim()?.takeIf { it.isNotBlank() }?.let { put("audioIntroUrl", it) }
+            audioDurationSec?.takeIf { it > 0 }?.let { put("audioDurationSec", it) }
+            expectedSalary?.trim()?.takeIf { it.isNotBlank() }?.let { put("expectedSalary", it) }
+            distanceKm?.takeIf { it >= 0 }?.let { put("distanceKm", it) }
         }
     }
 }

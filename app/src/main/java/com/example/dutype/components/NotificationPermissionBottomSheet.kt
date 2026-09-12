@@ -34,25 +34,26 @@ fun NotificationPermissionBottomSheet(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val isTelugu = com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
     
     // Role-specific content
     val (title, description, benefits) = when (userRole.lowercase()) {
         "employer" -> Triple(
-            "Enable Notifications",
-            "Stay updated with job applications, candidate responses, and important updates from your job postings.",
+            if (isTelugu) "వెంటనే నోటిఫికేషన్లు పొందండి!" else "Get Notified Instantly!",
+            if (isTelugu) "ఎవరైనా అభ్యర్థి అప్లై చేసిన వెంటనే నోటిఫికేషన్ పొందండి! అభ్యర్థులు ఇతర ఉద్యోగాల్లో చేరకముందే వేగంగా నియమించుకోండి." else "Get notified the second a worker applies! Turn on notifications so you can hire before candidates take other jobs.",
             listOf(
-                "📋" to "Application notifications",
-                "👥" to "Candidate responses", 
-                "📊" to "Job posting updates"
+                "📋" to (if (isTelugu) "అప్లికేషన్ అలర్ట్‌లు" else "Instant applicant alerts"),
+                "👥" to (if (isTelugu) "అభ్యర్థుల వివరాలు" else "Candidate details immediately"), 
+                "📊" to (if (isTelugu) "జాబ్ అప్‌డేట్స్" else "Job status updates")
             )
         )
         else -> Triple(
-            "Enable Notifications", 
-            "Stay updated with job alerts, application status updates, and new opportunities from employers.",
+            if (isTelugu) "జాబ్ అలర్ట్‌లు & అప్‌డేట్స్" else "Stay Updated with Job Alerts", 
+            if (isTelugu) "మీ ఏరియాలో కొత్త ఉద్యోగాలు మరియు శాలరీ అలర్ట్‌లను మిస్ కాకుండా నోటిఫికేషన్‌లను ఆన్ చేయండి." else "Stay updated on new daily jobs in your area and salary alerts. Enable notifications to receive updates here.",
             listOf(
-                "🔔" to "Job alerts",
-                "📱" to "Application updates",
-                "💼" to "New opportunities"
+                "🔔" to (if (isTelugu) "డైలీ జాబ్ అలర్ట్స్" else "Daily job matches"),
+                "📱" to (if (isTelugu) "స్టేటస్ అప్‌డేట్స్" else "Application status updates"),
+                "💼" to (if (isTelugu) "సమీప ఉద్యోగాలు" else "Nearby vacancies")
             )
         )
     }

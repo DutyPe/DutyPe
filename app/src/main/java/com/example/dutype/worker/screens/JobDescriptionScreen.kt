@@ -246,6 +246,14 @@ fun JobDescriptionScreen(
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var pendingAction by remember { mutableStateOf<String?>(null) }
 
+    // Notification permission prompt on saving jobs
+    var showSaveJobNotificationPrompt by remember { mutableStateOf(false) }
+    val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) {
+        showSaveJobNotificationPrompt = false
+    }
+
     val applicationUiState by smartApplicationViewModel.uiState.collectAsStateWithLifecycle()
     // REMOVED: jobApplicationUiState - not needed, we use smartApplicationViewModel.hasUserApplied() instead
 
@@ -415,6 +423,17 @@ fun JobDescriptionScreen(
                                     } else {
                                         savedJobsViewModel.saveJob(resolvedJobId)
                                         snackbarMessage = "Job saved!"
+                                        val hasNotifPerm = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                            androidx.core.content.ContextCompat.checkSelfPermission(
+                                                context,
+                                                android.Manifest.permission.POST_NOTIFICATIONS
+                                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                        } else {
+                                            true
+                                        }
+                                        if (!hasNotifPerm && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                            showSaveJobNotificationPrompt = true
+                                        }
                                     }
                                     showSnackbar = true
                                 }
@@ -432,7 +451,7 @@ fun JobDescriptionScreen(
                     job?.let { currentJob ->
                         ShareJobIconButton(
                             job = currentJob,
-                            tint = WorkerColors.TextSecondary
+                            tint = Color(0xFF25D366)
                         )
                     }
                 }
@@ -652,6 +671,19 @@ fun JobDescriptionScreen(
         }
     )
 
+    // Notification permission prompt when worker saves/bookmarks a job
+    com.example.dutype.components.NotificationPermissionBottomSheet(
+        isVisible = showSaveJobNotificationPrompt,
+        onDismiss = { showSaveJobNotificationPrompt = false },
+        onEnableNotifications = {
+            showSaveJobNotificationPrompt = false
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+        },
+        userRole = "worker"
+    )
+
     if (showCallFeedbackSheet && pendingCallFeedbackJob != null) {
         CallUpdateBottomSheet(
             jobTitle = pendingCallFeedbackJob?.title.orEmpty(),
@@ -804,6 +836,28 @@ private fun RowScope.ActionButtonsContent(
                 )
             }
         }
+    } else if (job != null && job.status.lowercase() in setOf("closed", "filled", "deleted", "expired")) {
+        Button(
+            onClick = { },
+            enabled = false,
+            modifier = Modifier.weight(1f).height(50.dp),
+            colors = ButtonDefaults.buttonColors(
+                disabledContainerColor = Color(0xFFE2E8F0),
+                disabledContentColor = Color(0xFF64748B)
+            ),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text(
+                text = when (job.status.lowercase()) {
+                    "filled" -> "Position Filled"
+                    "deleted" -> "Job Removed"
+                    "expired" -> "Job Expired"
+                    else -> "Job Closed"
+                },
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp
+            )
+        }
     } else {
         Button(
             onClick = {
@@ -819,232 +873,6 @@ private fun RowScope.ActionButtonsContent(
         ) {
             Text(stringResource(R.string.apply_now), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun JobCallFeedbackSheet(
-    jobTitle: String,
-    companyName: String,
-    onDismiss: () -> Unit,
-    onSubmit: suspend (Boolean, JobAvailabilityFeedback?, Boolean?) -> Result<Unit>,
-    onSubmitted: () -> Unit
-) {
-    val context = LocalContext.current
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    var spokeWithEmployer by remember { mutableStateOf<Boolean?>(null) }
-    var availability by remember { mutableStateOf<JobAvailabilityFeedback?>(null) }
-    var jobOfferAccepted by remember { mutableStateOf<Boolean?>(null) }
-    var isSubmitting by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    ModalBottomSheet(
-        onDismissRequest = { if (!isSubmitting) onDismiss() },
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = WorkerColors.CardBackground,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .background(WorkerColors.Primary.copy(alpha = 0.12f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Phone, contentDescription = null, tint = WorkerColors.Primary, modifier = Modifier.size(21.dp))
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            text = stringResource(R.string.quick_call_update),
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                            color = WorkerColors.TextPrimary
-                        )
-                        Text(
-                            text = stringResource(R.string.quick_call_update_body),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = WorkerColors.TextSecondary
-                        )
-                    }
-                }
-                IconButton(onClick = onDismiss, enabled = !isSubmitting) {
-                    Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close), tint = WorkerColors.TextSecondary)
-                }
-            }
-
-            if (jobTitle.isNotBlank() || companyName.isNotBlank()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = WorkerColors.ChipBackground),
-                    elevation = CardDefaults.cardElevation(0.dp),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        if (jobTitle.isNotBlank()) {
-                            Text(jobTitle, color = WorkerColors.TextPrimary, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        if (companyName.isNotBlank()) {
-                            Text(companyName, color = WorkerColors.TextSecondary, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                }
-            }
-
-            Text(
-                text = stringResource(R.string.did_speak_employer),
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = WorkerColors.TextSecondary
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                FeedbackChoiceButton(
-                    text = stringResource(R.string.yes_spoke),
-                    selected = spokeWithEmployer == true,
-                    onClick = { spokeWithEmployer = true },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSubmitting
-                )
-                FeedbackChoiceButton(
-                    text = stringResource(R.string.no_answer),
-                    selected = spokeWithEmployer == false,
-                    onClick = { spokeWithEmployer = false },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSubmitting
-                )
-            }
-
-            Text(
-                text = stringResource(R.string.job_still_available_question),
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = WorkerColors.TextSecondary
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                JobAvailabilityFeedback.entries.forEach { option ->
-                    FeedbackChoiceButton(
-                        text = jobAvailabilityFeedbackLabel(option),
-                        selected = availability == option,
-                        onClick = { availability = option },
-                        modifier = Modifier.width(140.dp),
-                        enabled = !isSubmitting
-                    )
-                }
-            }
-
-            Text(
-                text = stringResource(R.string.auto_did_you_get_selected_or_hired_from_this_ca),
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                color = WorkerColors.TextSecondary
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                FeedbackChoiceButton(
-                    text = stringResource(R.string.auto_yes),
-                    selected = jobOfferAccepted == true,
-                    onClick = { jobOfferAccepted = true },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSubmitting
-                )
-                FeedbackChoiceButton(
-                    text = "No",
-                    selected = jobOfferAccepted == false,
-                    onClick = { jobOfferAccepted = false },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSubmitting
-                )
-                FeedbackChoiceButton(
-                    text = stringResource(R.string.auto_skip),
-                    selected = jobOfferAccepted == null,
-                    onClick = { jobOfferAccepted = null },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isSubmitting
-                )
-            }
-
-            AnimatedVisibility(visible = errorMessage != null) {
-                Text(
-                    text = errorMessage.orEmpty(),
-                    color = WorkerColors.Error,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            Button(
-                onClick = {
-                    val spoke = spokeWithEmployer
-                    scope.launch {
-                        isSubmitting = true
-                        errorMessage = null
-                        val result = onSubmit(spoke ?: false, availability, jobOfferAccepted)
-                        isSubmitting = false
-                        result.fold(
-                            onSuccess = { onSubmitted() },
-                            onFailure = { error -> errorMessage = error.message ?: context.getString(R.string.save_feedback_failed) }
-                        )
-                    }
-                },
-                enabled = !isSubmitting,
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary)
-            ) {
-                if (isSubmitting) {
-                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-                Text(stringResource(R.string.submit_update), color = Color.White, fontWeight = FontWeight.SemiBold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun jobAvailabilityFeedbackLabel(option: JobAvailabilityFeedback): String = when (option) {
-    JobAvailabilityFeedback.STILL_AVAILABLE -> stringResource(R.string.availability_still_available)
-    JobAvailabilityFeedback.FILLED -> stringResource(R.string.availability_job_filled)
-    JobAvailabilityFeedback.NOT_SURE -> stringResource(R.string.availability_not_sure)
-}
-
-@Composable
-private fun FeedbackChoiceButton(
-    text: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true
-) {
-    OutlinedButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.height(44.dp),
-        shape = RoundedCornerShape(10.dp),
-        border = BorderStroke(1.dp, if (selected) WorkerColors.Primary else WorkerColors.Border),
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = if (selected) WorkerColors.Primary.copy(alpha = 0.12f) else WorkerColors.CardBackground,
-            contentColor = if (selected) Color(0xFF1D4ED8) else WorkerColors.TextSecondary
-        ),
-        contentPadding = PaddingValues(horizontal = 12.dp)
-    ) {
-        if (selected) {
-            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-        }
-        Text(text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -1293,19 +1121,6 @@ private fun JobDetailsContent(
                         "Gender:",
                         job.gender.ifBlank { "Any" }
                     )
-
-                    // Posted time — shown last, after gender
-                    if (job.createdAt > 0) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        JobDetailRow(Icons.Default.AccessTime, WorkerColors.Primary, "Posted:", com.example.dutype.utils.DateTimeUtils.formatTimeAgoExactDays(job.createdAt))
-                    }
-                    
-                    /* REMOVED: Employer Trust Section - employerTrustTier and employerCreatedAt no longer in JobListing model
-                    // These fields should be fetched from employer profile if needed in the future
-                            }
-                        }
-                    }
-                    */
                 }
             }
         }
@@ -1321,8 +1136,29 @@ private fun JobDetailsContent(
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // Job Description Section
-                    Text(stringResource(R.string.job_description_label), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary))
+                    // Job Description Section Header & Time
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.job_description_label),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                            )
+                        )
+                        if (job.createdAt > 0) {
+                            Text(
+                                text = "Posted ${com.example.dutype.utils.DateTimeUtils.formatTimeAgoExactDays(job.createdAt)}",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = WorkerColors.TextTertiary,
+                                    fontSize = 11.5.sp
+                                )
+                            )
+                        }
+                    }
                     
                     Spacer(modifier = Modifier.height(12.dp))
                     
@@ -1336,28 +1172,6 @@ private fun JobDetailsContent(
                             }
                         }
                     }
-
-                    // Requirements Section - REMOVED (requirements field no longer exists in JobListing)
-                    // if (job.requirements.isNotEmpty()) {
-                    //     Spacer(modifier = Modifier.height(16.dp))
-                    //     Divider(color = Color(0xFFE5E7EB), thickness = 1.dp)
-                    //     Spacer(modifier = Modifier.height(16.dp))
-                    //     
-                    //     Text(stringResource(R.string.requirements), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color.Black))
-                    //     
-                    //     Spacer(modifier = Modifier.height(12.dp))
-                    //     
-                    //     // Requirements bullet points - Black bullets
-                    //     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    //         job.requirements.forEach { req ->
-                    //             Row(modifier = Modifier.fillMaxWidth()) {
-                    //                 Text("•", style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), fontWeight = FontWeight.Bold, fontSize = 16.sp))
-                    //                 Spacer(modifier = Modifier.width(10.dp))
-                    //                 Text(req, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF374151), lineHeight = 22.sp))
-                    //             }
-                    //         }
-                    //     }
-                    // }
                 }
             }
         }

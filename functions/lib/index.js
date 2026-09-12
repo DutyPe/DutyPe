@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.claimWelcomeBonus = exports.applyReferralCode = exports.ensureUserReferralCode = exports.onEmployerProfileReferralReady = exports.onWorkerProfileReferralReady = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.expireStaleInstantRequests = exports.syncInstantResponseMetrics = exports.notifyAvailableWorkersForInstantRequest = exports.persistSelfNotification = exports.sendPushNotification = exports.sendBroadcastNotification = exports.cleanupExpiredNotifications = void 0;
+exports.whatsappWebhook = exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.claimWelcomeBonus = exports.applyReferralCode = exports.ensureUserReferralCode = exports.onEmployerProfileReferralReady = exports.onWorkerProfileReferralReady = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.expireStaleInstantRequests = exports.syncInstantResponseMetrics = exports.notifyAvailableWorkersForInstantRequest = exports.persistSelfNotification = exports.sendPushNotification = exports.sendBroadcastNotification = exports.cleanupExpiredNotifications = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const validation_1 = require("./validation");
@@ -35,6 +35,8 @@ __exportStar(require("./employer-landing"), exports);
 __exportStar(require("./auth-callables"), exports);
 __exportStar(require("./metrics-aggregation"), exports);
 __exportStar(require("./identity-mirror"), exports);
+__exportStar(require("./whatsapp-chatbot"), exports);
+__exportStar(require("./job-consensus-closer"), exports);
 const db = admin.firestore();
 const messaging = admin.messaging();
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
@@ -1321,4 +1323,9 @@ __exportStar(require("./auto-complete"), exports);
 var app_config_1 = require("./app-config");
 Object.defineProperty(exports, "updateReferralConfig", { enumerable: true, get: function () { return app_config_1.updateReferralConfig; } });
 Object.defineProperty(exports, "getReferralConfigCallable", { enumerable: true, get: function () { return app_config_1.getReferralConfigCallable; } });
+// ============================================
+// EXPORT WHATSAPP CHATBOT WEBHOOK
+// ============================================
+var whatsapp_chatbot_1 = require("./whatsapp-chatbot");
+Object.defineProperty(exports, "whatsappWebhook", { enumerable: true, get: function () { return whatsapp_chatbot_1.whatsappWebhook; } });
 //# sourceMappingURL=index.js.map

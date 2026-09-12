@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import com.dutype.app.R
 import androidx.compose.foundation.background
@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -246,7 +247,7 @@ fun EmployerPublicProfileScreen(
                         }
                     }
 
-                    items(jobs, key = { it.id }) { job ->
+                    itemsIndexed(jobs, key = { index, it -> "${it.id.ifBlank { "job" }}_$index" }) { _, job ->
                         Card(
                             colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                             shape = RoundedCornerShape(16.dp),
