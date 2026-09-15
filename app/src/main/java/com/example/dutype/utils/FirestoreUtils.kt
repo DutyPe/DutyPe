@@ -8,6 +8,38 @@ import timber.log.Timber
  * Utility functions for Firestore database operations
  */
 object FirestoreUtils {
+
+    suspend fun readProfileDocument(userId: String): com.google.firebase.firestore.DocumentSnapshot {
+        val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+        val owner = currentUserId == userId
+        val reference = FirebaseFirestore.getInstance()
+            .collection(if (owner) "users" else "public_profiles").document(userId)
+        val document = reference.get().await()
+        if (owner && com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid != currentUserId) {
+            throw IllegalStateException("Account changed while reading a private profile")
+        }
+        if (!owner && !document.exists() && currentUserId != null) {
+            com.google.firebase.functions.FirebaseFunctions.getInstance().getHttpsCallable("getPublicProfile")
+                .call(mapOf("userId" to userId)).await()
+            return reference.get(com.google.firebase.firestore.Source.SERVER).await()
+        }
+        return document
+    }
+
+    suspend fun applicationContact(applicationId: String): Map<String, Any> {
+        val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+            ?: throw IllegalStateException("User not authenticated")
+        val response = com.google.firebase.functions.FirebaseFunctions.getInstance()
+            .getHttpsCallable("getApplicationContact").call(mapOf("applicationId" to applicationId)).await()
+        check(com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid == userId) {
+            "Account changed while reading application contacts"
+        }
+        val profile = (response.data as? Map<*, *>)?.get("profile") as? Map<*, *>
+            ?: throw IllegalStateException("Application contact is unavailable")
+        return profile.entries.mapNotNull { (key, value) ->
+            if (key is String && value != null) key to value else null
+        }.toMap()
+    }
     
     /**
      * Check if a user exists by phone number in Firestore
@@ -20,47 +52,9 @@ object FirestoreUtils {
      * @return User data map if found, null otherwise
      */
     suspend fun checkUserExistsByPhoneNumber(phoneNumber: String): Map<String, Any?>? {
-        return try {
-            val firestore = FirebaseFirestore.getInstance()
-            val normalized = PhoneNumberUtils.normalize(phoneNumber)
-            
-            Timber.d("🔍 Phone check: input=$phoneNumber, normalized=$normalized")
-            
-            // Primary query: search by normalized phone (single query)
-            val primaryResult = firestore.collection("users")
-                .whereEqualTo("phone", normalized)
-                .limit(1)
-                .get()
-                .await()
-            
-            if (primaryResult.documents.isNotEmpty()) {
-                val doc = primaryResult.documents[0]
-                Timber.d("✅ Found user by phone=$normalized, docId=${doc.id}")
-                return doc.data
-            }
-            
-            // Fallback: try without country code (legacy data)
-            val withoutCountryCode = normalized.removePrefix("+91").removePrefix("91")
-            if (withoutCountryCode != normalized) {
-                val fallbackResult = firestore.collection("users")
-                    .whereEqualTo("phone", withoutCountryCode)
-                    .limit(1)
-                    .get()
-                    .await()
-                
-                if (fallbackResult.documents.isNotEmpty()) {
-                    val doc = fallbackResult.documents[0]
-                    Timber.d("✅ Found user by phone=$withoutCountryCode (legacy), docId=${doc.id}")
-                    return doc.data
-                }
-            }
-            
-            Timber.d("❌ User not found for phone: $normalized")
-            null
-        } catch (e: Exception) {
-            Timber.e(e, "❌ Phone check error for: $phoneNumber")
-            null
-        }
+        val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser ?: return null
+        if (PhoneNumberUtils.normalize(user.phoneNumber.orEmpty()) != PhoneNumberUtils.normalize(phoneNumber)) return null
+        return FirebaseFirestore.getInstance().collection("users").document(user.uid).get().await().data
     }
     
     /**
@@ -127,11 +121,7 @@ object FirestoreUtils {
      */
     suspend fun getUserByUid(uid: String): Map<String, Any>? {
         return try {
-            val firestore = FirebaseFirestore.getInstance()
-            val documentSnapshot = firestore.collection("users")
-                .document(uid)
-                .get()
-                .await()
+            val documentSnapshot = readProfileDocument(uid)
             
             if (documentSnapshot.exists()) {
                 @Suppress("UNCHECKED_CAST")

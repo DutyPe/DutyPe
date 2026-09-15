@@ -40,6 +40,7 @@ class FCMTokenManager @Inject constructor(
      * Call this after successful login/signup
      */
     suspend fun registerToken(): Result<String> {
+        if (com.dutype.app.BuildConfig.LOCAL_STAGING) return Result.success("local-staging-push-disabled")
         return try {
             val userId = auth.currentUser?.uid
             if (userId == null) {
@@ -68,6 +69,7 @@ class FCMTokenManager @Inject constructor(
      * Call this after profile setup when role is known
      */
     suspend fun registerTokenWithRole(role: String): Result<String> {
+        if (com.dutype.app.BuildConfig.LOCAL_STAGING) return Result.success("local-staging-push-disabled")
         return try {
             val userId = auth.currentUser?.uid
             if (userId == null) {
@@ -166,21 +168,17 @@ class FCMTokenManager @Inject constructor(
     /**
      * Remove FCM token when user logs out
      */
-    suspend fun removeToken() {
-        try {
-            val userId = auth.currentUser?.uid ?: return
-            
-            // Mark token as inactive
-            // OPTIMIZED: Remove from users collection only (no separate fcm_tokens collection)
-            firestore.collection("users")
-                .document(userId)
-                .update("fcmToken", null, "fcmTokenUpdatedAt", System.currentTimeMillis())
-                .await()
-            
-            Timber.i("FCMTokenManager: Token removed for user: $userId")
-        } catch (e: Exception) {
-            Timber.e(e, "FCMTokenManager: Error removing token")
-        }
+    suspend fun removeToken(userId: String) {
+        if (com.dutype.app.BuildConfig.LOCAL_STAGING) return
+        check(auth.currentUser?.uid == userId) { "Account changed during token cleanup" }
+        val token = FirebaseMessaging.getInstance().token.await()
+        val userRef = firestore.collection("users").document(userId)
+        firestore.runTransaction { transaction ->
+            val user = transaction.get(userRef)
+            if (user.getString("fcmToken") == token) {
+                transaction.update(userRef, "fcmToken", null, "fcmTokenUpdatedAt", System.currentTimeMillis())
+            }
+        }.await()
     }
     
     /**
@@ -226,6 +224,7 @@ class FCMTokenManager @Inject constructor(
      * Subscribe to topic for broadcast notifications
      */
     fun subscribeToTopic(topic: String) {
+        if (com.dutype.app.BuildConfig.LOCAL_STAGING) return
         FirebaseMessaging.getInstance().subscribeToTopic(topic)
             .addOnSuccessListener {
                 Timber.i("FCMTokenManager: Subscribed to topic: $topic")
@@ -239,6 +238,7 @@ class FCMTokenManager @Inject constructor(
      * Unsubscribe from topic
      */
     fun unsubscribeFromTopic(topic: String) {
+        if (com.dutype.app.BuildConfig.LOCAL_STAGING) return
         FirebaseMessaging.getInstance().unsubscribeFromTopic(topic)
             .addOnSuccessListener {
                 Timber.i("FCMTokenManager: Unsubscribed from topic: $topic")

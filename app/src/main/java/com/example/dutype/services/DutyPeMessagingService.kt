@@ -9,6 +9,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.dutype.app.R
 import com.example.dutype.MainActivity
+import com.example.dutype.models.shouldDisplayPush
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -43,6 +44,13 @@ class DutyPeMessagingService : FirebaseMessagingService() {
         // Extract notification data
         val notification = remoteMessage.notification
         val data = remoteMessage.data
+
+        if (!shouldDisplayPush(
+            currentUserId = if (getSharedPreferences("auth_prefs", Context.MODE_PRIVATE)
+                .getBoolean("is_logged_in", false)) FirebaseAuth.getInstance().currentUser?.uid else null,
+                recipientId = data["recipientId"],
+                isTopicMessage = remoteMessage.from?.startsWith("/topics/") == true
+            )) return
         
         // Get title and body
         val title = notification?.title ?: data["title"] ?: return
@@ -148,7 +156,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
             .setPriority(priority)
             .setGroup(NOTIFICATION_GROUP)
             .setCategory(getNotificationCategory(type))
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .apply {
                 // Add action buttons based on type
                 addActionsForType(this, type, data, notificationId)

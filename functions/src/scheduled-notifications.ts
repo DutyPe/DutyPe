@@ -165,20 +165,15 @@ async function sendFCMNotification(
     // Send FCM message
     await admin.messaging().send({
       token: token,
-      notification: {
+      data: {
+        ...payload.data,
+        recipientId: userId,
         title: payload.title,
-        body: payload.body
+        body: payload.body,
+        channel: payload.channel
       },
-      data: payload.data,
       android: {
-        priority: payload.priority,
-        notification: {
-          channelId: payload.channel,
-          sound: 'default',
-          priority: payload.priority === 'high' ? 'high' : 'default',
-          defaultSound: true,
-          defaultVibrateTimings: true
-        }
+        priority: payload.priority
       }
     });
     

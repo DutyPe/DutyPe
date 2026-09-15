@@ -47,19 +47,20 @@ class ProfileCompletionService @Inject constructor(
      * Caches for 30s to avoid repeated reads in the same session flow.
      */
     private suspend fun getCachedUserDoc(userId: String): Map<String, Any>? {
-        val cached = userDocCache[userId]
+        val cacheKey = "${auth.currentUser?.uid}:$userId"
+        val cached = userDocCache[cacheKey]
         if (cached != null && (System.currentTimeMillis() - cached.first) < USER_DOC_CACHE_TTL_MS) {
             return cached.second
         }
-        val userDoc = firestore.collection("users").document(userId).get().await()
+        val userDoc = com.example.dutype.utils.FirestoreUtils.readProfileDocument(userId)
         val data = userDoc.data ?: return null
-        userDocCache[userId] = System.currentTimeMillis() to data
+        userDocCache[cacheKey] = System.currentTimeMillis() to data
         return data
     }
     
     /** Invalidate cache for a user after writes */
     private fun invalidateUserCache(userId: String) {
-        userDocCache.remove(userId)
+        userDocCache.remove("${auth.currentUser?.uid}:$userId")
     }
     
     /**
@@ -496,24 +497,22 @@ class ProfileCompletionService @Inject constructor(
      */
     suspend fun saveUserInfo(email: String, name: String, role: String): Result<Unit> {
         return try {
-        val currentUser = auth.currentUser
-        if (currentUser == null) {
+            val currentUser = auth.currentUser
+            if (currentUser == null) {
                 return Result.failure(Exception("User not authenticated"))
             }
-            
-            // Initialize roles array with the selected role
             val roleUpper = role.uppercase()
-            val userData = mapOf(
-                "email" to email,
-                "name" to name,
-                "roles" to listOf(roleUpper),
-                "activeRole" to roleUpper,
-                "createdAt" to System.currentTimeMillis()
-            )
-            
-            firestore.collection("users").document(currentUser.uid)
-                .set(userData)
-                .await()
+            require(roleUpper in listOf("WORKER", "EMPLOYER"))
+            val userRef = firestore.collection("users").document(currentUser.uid)
+            firestore.runTransaction { transaction ->
+                val existing = transaction.get(userRef)
+                val roles = ((existing.get("roles") as? List<*>)?.filterIsInstance<String>().orEmpty() + roleUpper).distinct()
+                val updates = mutableMapOf<String, Any>("roles" to roles, "activeRole" to roleUpper)
+                if (existing.getString("name").isNullOrBlank()) updates["name"] = name
+                if (existing.getString("email").isNullOrBlank()) updates["email"] = email
+                if (!existing.contains("createdAt")) updates["createdAt"] = System.currentTimeMillis()
+                transaction.set(userRef, updates, com.google.firebase.firestore.SetOptions.merge())
+            }.await()
             invalidateUserCache(currentUser.uid)
             
             Timber.d("✅ ProfileCompletionService - Created user with roles: [$roleUpper], activeRole: $roleUpper")
@@ -689,19 +688,10 @@ class ProfileCompletionService @Inject constructor(
      */
     suspend fun checkExistingProfileByEmail(email: String): Result<Boolean> {
         return try {
-            val query = firestore.collection("users")
-                .whereEqualTo("email", email)
-                .limit(1)
-                .get()
-                .await()
-            
-            if (query.isEmpty) {
-                return Result.success(false)
-            }
-            
-            // Check if user has completed profile (not just if document exists)
-            val userDoc = query.documents.first()
-            val isProfileComplete = userDoc.getBoolean("isProfileComplete") ?: false
+            val currentUser = auth.currentUser ?: return Result.success(false)
+            val userData = getCachedUserDoc(currentUser.uid) ?: return Result.success(false)
+            if (!(userData["email"] as? String).equals(email, ignoreCase = true)) return Result.success(false)
+            val isProfileComplete = userData["isProfileComplete"] as? Boolean ?: false
             // SECURITY FIX: Don't log email addresses
             Timber.d("🔍 checkExistingProfileByEmail: User exists, isProfileComplete: $isProfileComplete")
             
@@ -761,18 +751,9 @@ class ProfileCompletionService @Inject constructor(
      */
     suspend fun loadExistingProfileDataByEmail(email: String): Result<Map<String, Any?>> {
         return try {
-            val query = firestore.collection("users")
-                .whereEqualTo("email", email)
-                .limit(1)
-                .get()
-                .await()
-            
-            if (query.isEmpty) {
-                return Result.failure(Exception("User not found"))
-            }
-            
-            val userDoc = query.documents.first()
-            val userData = userDoc.data ?: return Result.failure(Exception("User data not found"))
+            val currentUser = auth.currentUser ?: return Result.failure(Exception("User not authenticated"))
+            val userData = getCachedUserDoc(currentUser.uid) ?: return Result.failure(Exception("User not found"))
+            if (!(userData["email"] as? String).equals(email, ignoreCase = true)) return Result.failure(Exception("User not found"))
             Result.success(userData)
         } catch (e: Exception) {
             Result.failure(e)
@@ -911,16 +892,8 @@ class ProfileCompletionService @Inject constructor(
             
             Timber.d("📱 DUAL-ROLE: Checking phone for: $cleanPhone, requestedRole: $currentRole")
             
-            // Check if user exists in users collection
-            val usersQuery = firestore.collection("users")
-                .whereEqualTo("phone", cleanPhone)
-                .limit(1)
-                .get()
-                .await()
-            
-            if (!usersQuery.isEmpty) {
-                val userDoc = usersQuery.documents.first()
-                val userData = userDoc.data ?: return Result.success(null)
+            val userData = com.example.dutype.utils.FirestoreUtils.checkUserExistsByPhoneNumber(phone)
+            if (userData != null) {
                 
                 // Get user's roles array
                 @Suppress("UNCHECKED_CAST")
@@ -1426,40 +1399,10 @@ class ProfileCompletionService @Inject constructor(
                 return Result.failure(Exception("User not found"))
             }
 
-            val updates = mutableMapOf<String, Any>()
-            @Suppress("UNCHECKED_CAST")
-            val existingStats = existingDoc.get("referralStats") as? Map<String, Any?> ?: emptyMap()
-            val defaults = mapOf(
-                "totalReferrals" to 0,
-                "successfulReferrals" to 0,
-                "pendingReferrals" to 0,
-                "expiredReferrals" to 0,
-                "rejectedReferrals" to 0,
-                "totalEarnings" to 0.0,
-                "pendingEarnings" to 0.0,
-                "withdrawnAmount" to 0.0,
-                "availableBalance" to 0.0,
-                "canWithdraw" to false,
-                "nextMilestone" to 5,
-                "currentTier" to "BRONZE",
-                "freeJobPostings" to 0,
-                "signupBonusReceived" to false,
-                "signupBonusAmount" to 0.0
-            )
-
-            defaults.forEach { (key, value) ->
-                if (!existingStats.containsKey(key)) {
-                    updates["referralStats.$key"] = value
-                }
-            }
-            updates["referralStats.lastUpdated"] = System.currentTimeMillis()
-
-            if (updates.isNotEmpty()) {
-                firestore.collection(COLLECTION_USERS)
-                    .document(userId)
-                    .update(updates)
-                    .await()
-            }
+            firestore.collection(COLLECTION_USERS)
+                .document(userId)
+                .update("referralStats.lastUpdated", System.currentTimeMillis())
+                .await()
 
             Timber.d("REFERRAL: Referral stats initialized for $userId; backend will ensure canonical referral code")
             Result.success(Unit)

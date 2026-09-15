@@ -8,10 +8,14 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
+import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
+import java.io.IOException
 import javax.inject.Named
 import javax.inject.Singleton
 
@@ -21,10 +25,15 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object AIModule {
-    
-    // For emulator use 10.0.2.2, for physical device use your computer's IP
-    // Current: Using computer's local IP for physical device testing
-    private const val AI_BACKEND_URL = "http://10.91.59.173:8000/"
+
+    internal fun configuredUrl(value: String, debug: Boolean): HttpUrl? {
+        val url = value.trim().toHttpUrlOrNull() ?: return null
+        if ((!debug && !url.isHttps) || url.username.isNotEmpty() || url.password.isNotEmpty() ||
+            url.query != null || url.fragment != null) return null
+        return url.newBuilder().apply {
+            if (!url.encodedPath.endsWith("/")) addPathSegment("")
+        }.build()
+    }
     
     @Provides
     @Singleton
@@ -42,6 +51,17 @@ object AIModule {
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .addInterceptor { chain ->
+                val configured = configuredUrl(BuildConfig.AI_BACKEND_URL, BuildConfig.DEBUG)
+                    ?: throw IOException("AI backend is not configured with a valid URL")
+                if (chain.request().url.host != configured.host ||
+                    chain.request().url.scheme != configured.scheme ||
+                    chain.request().url.port != configured.port) {
+                    throw IOException("Unexpected AI backend destination")
+                }
+                chain.proceed(chain.request())
+            }
+            .followRedirects(false)
             .addInterceptor(loggingInterceptor)
             .addInterceptor { chain ->
                 val originalRequest = chain.request()
@@ -60,7 +80,8 @@ object AIModule {
         @Named("AIBackendOkHttpClient") okHttpClient: OkHttpClient
     ): Retrofit {
         return Retrofit.Builder()
-            .baseUrl(AI_BACKEND_URL)
+            .baseUrl(configuredUrl(BuildConfig.AI_BACKEND_URL, BuildConfig.DEBUG)
+                ?: "https://backend-not-configured.invalid/".toHttpUrl())
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

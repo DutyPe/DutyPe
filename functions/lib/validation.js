@@ -9,7 +9,19 @@
  * @since 2.4.1
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.cleanupRateLimits = exports.checkRateLimit = exports.validateEnum = exports.validateArray = exports.validateMessage = exports.sanitizeText = exports.validateDocumentId = exports.validateUserId = exports.validatePhone = exports.validateEmail = exports.validateBoolean = exports.validateNumber = exports.validateString = void 0;
+exports.validateString = validateString;
+exports.validateNumber = validateNumber;
+exports.validateBoolean = validateBoolean;
+exports.validateEmail = validateEmail;
+exports.validatePhone = validatePhone;
+exports.validateUserId = validateUserId;
+exports.validateDocumentId = validateDocumentId;
+exports.sanitizeText = sanitizeText;
+exports.validateMessage = validateMessage;
+exports.validateArray = validateArray;
+exports.validateEnum = validateEnum;
+exports.checkRateLimit = checkRateLimit;
+exports.cleanupRateLimits = cleanupRateLimits;
 const functions = require("firebase-functions");
 /**
  * Validate string input
@@ -43,7 +55,6 @@ function validateString(value, fieldName, options = {}) {
     }
     return trimmed;
 }
-exports.validateString = validateString;
 /**
  * Validate number input
  */
@@ -76,7 +87,6 @@ function validateNumber(value, fieldName, options = {}) {
     }
     return num;
 }
-exports.validateNumber = validateNumber;
 /**
  * Validate boolean input
  */
@@ -92,7 +102,6 @@ function validateBoolean(value, fieldName, required = false) {
     }
     return value;
 }
-exports.validateBoolean = validateBoolean;
 /**
  * Validate email format
  */
@@ -104,7 +113,6 @@ function validateEmail(email, required = false) {
     });
     return emailStr.toLowerCase();
 }
-exports.validateEmail = validateEmail;
 /**
  * Validate phone number format (Indian format)
  */
@@ -116,7 +124,6 @@ function validatePhone(phone, required = false) {
         pattern: /^\+?[1-9]\d{9,14}$/,
     });
 }
-exports.validatePhone = validatePhone;
 /**
  * Validate user ID format
  */
@@ -128,7 +135,6 @@ function validateUserId(userId, required = true) {
         pattern: /^[a-zA-Z0-9_-]+$/,
     });
 }
-exports.validateUserId = validateUserId;
 /**
  * Validate document ID format
  */
@@ -140,7 +146,6 @@ function validateDocumentId(docId, fieldName = "documentId", required = true) {
         pattern: /^[a-zA-Z0-9_-]+$/,
     });
 }
-exports.validateDocumentId = validateDocumentId;
 /**
  * Sanitize text to prevent XSS
  * Removes HTML tags and dangerous characters
@@ -153,7 +158,6 @@ function sanitizeText(text) {
         .replace(/[<>'"]/g, "") // Remove dangerous characters
         .trim();
 }
-exports.sanitizeText = sanitizeText;
 /**
  * Validate and sanitize message text
  */
@@ -165,7 +169,6 @@ function validateMessage(message, maxLength = 1000) {
     });
     return sanitizeText(messageStr);
 }
-exports.validateMessage = validateMessage;
 /**
  * Validate array input
  */
@@ -187,7 +190,6 @@ function validateArray(value, fieldName, options = {}) {
     }
     return value;
 }
-exports.validateArray = validateArray;
 /**
  * Validate enum value
  */
@@ -200,7 +202,6 @@ function validateEnum(value, fieldName, allowedValues, required = true) {
     }
     return value;
 }
-exports.validateEnum = validateEnum;
 /**
  * Rate limiting check (simple in-memory implementation)
  * For production, use Redis or Firestore-based rate limiting
@@ -224,7 +225,6 @@ function checkRateLimit(userId, action, maxRequests = 10, windowMs = 60000 // 1 
     }
     limit.count++;
 }
-exports.checkRateLimit = checkRateLimit;
 /**
  * Clean up expired rate limit entries (call periodically)
  */
@@ -236,5 +236,4 @@ function cleanupRateLimits() {
         }
     }
 }
-exports.cleanupRateLimits = cleanupRateLimits;
 //# sourceMappingURL=validation.js.map

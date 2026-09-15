@@ -319,19 +319,6 @@ private fun OtpLoginScreen(
                                 try {
                                     isCheckingPhone = true
 
-                                    // Login-only: check if user exists
-                                    val userExists = FirestoreUtils.doesUserExist(fullPhoneNumber)
-                                    if (!userExists) {
-                                        isCheckingPhone = false
-                                        Toast.makeText(
-                                            context,
-                                            "No account found with this number. Please Register first.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        Timber.w("📱 Login blocked - User doesn't exist: $fullPhoneNumber")
-                                        return@launch
-                                    }
-
                                     isCheckingPhone = false
                                     profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
                                     profileCompletionViewModel.savePhoneNumber(fullPhoneNumber)

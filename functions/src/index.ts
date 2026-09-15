@@ -364,6 +364,7 @@ export const sendPushNotification = functions.firestore
       const message: admin.messaging.Message = {
         token: fcmToken,
         data: {
+          recipientId: recipientId,
           notificationId: notificationId,
           title: notification.title || "DutyPe",
           message: notification.message || "",
@@ -1057,3 +1058,6 @@ export {
 // EXPORT JOB POSTING FUNCTIONS
 // ============================================
 export * from "./job-posting";
+export { submitRating } from "./ratings";
+export { syncPublicProfile, getPublicProfile, getApplicationContact } from "./profiles";
+export { requestNotification, notifyApplicationEvent } from "./notification-events";

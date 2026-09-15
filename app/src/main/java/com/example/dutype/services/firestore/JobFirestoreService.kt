@@ -12,6 +12,25 @@ import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
+internal suspend fun <Entry> fillVisibleJobPage(
+    limit: Int,
+    fetch: suspend (Int, Entry?) -> List<Entry>,
+    visible: (Entry) -> Boolean
+): List<Entry> {
+    require(limit > 0)
+    val entries = mutableListOf<Entry>()
+    var cursor: Entry? = null
+    while (entries.size < limit) {
+        val remaining = limit - entries.size
+        val page = fetch(remaining, cursor)
+        if (page.isEmpty()) break
+        entries.addAll(page.filter(visible))
+        cursor = page.last()
+        if (page.size < remaining) break
+    }
+    return entries
+}
+
 /**
  * JobFirestoreService - Handles all job-related Firestore operations
  * 
@@ -198,19 +217,33 @@ class JobFirestoreService @Inject constructor(
             
             Timber.d("📂 Executing Firestore query...")
             val startTime = System.currentTimeMillis()
-            val snapshot = query.get().await()
+            val currentTime = System.currentTimeMillis()
+            val documents = if (limit > 0) {
+                fillVisibleJobPage<com.google.firebase.firestore.DocumentSnapshot>(
+                    limit = limit.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                    fetch = { remaining, cursor ->
+                        val pageQuery = if (cursor == null) query else query.startAfter(cursor)
+                        pageQuery.limit(remaining.toLong()).get().await().documents
+                    },
+                    visible = { document ->
+                        val expiry = (document.get("expiresAt") as? Number)?.toLong() ?: 0L
+                        document.getBoolean("isActive") == true && document.getBoolean("isFilled") != true &&
+                            (expiry == 0L || expiry > currentTime)
+                    }
+                )
+            } else {
+                query.get().await().documents
+            }
             val queryTime = System.currentTimeMillis() - startTime
             
             Timber.d("📂 ========== FIRESTORE QUERY RESULT ==========")
             Timber.d("📂 Query completed in ${queryTime}ms")
-            Timber.d("📂 Documents returned from Firestore: ${snapshot.documents.size}")
-            
-            val currentTime = System.currentTimeMillis()
+            Timber.d("📂 Documents returned from Firestore: ${documents.size}")
             
             // INDUSTRY STANDARD: Client-side filtering for isActive, isFilled, expiry
             // This avoids complex composite indexes while keeping queries fast
             // Trade-off: Fetch 10-20% more data, but zero index maintenance
-            val jobs = snapshot.documents.mapNotNull { doc ->
+            val jobs = documents.mapNotNull { doc ->
                 val data = doc.data ?: return@mapNotNull null
                 
                 // Filter 1: isActive check
@@ -250,9 +283,9 @@ class JobFirestoreService @Inject constructor(
             }
             
             Timber.d("📦 ========== CLIENT-SIDE FILTERING ==========")
-            Timber.d("📦 Firestore returned: ${snapshot.documents.size} documents")
+            Timber.d("📦 Firestore returned: ${documents.size} documents")
             Timber.d("📦 After filtering (isActive=true, not filled, not expired): ${jobs.size} jobs")
-            Timber.d("📦 Filtered out: ${snapshot.documents.size - jobs.size} jobs")
+            Timber.d("📦 Filtered out: ${documents.size - jobs.size} jobs")
             
             if (jobs.isNotEmpty()) {
                 Timber.d("📦 Sample job categories:")
@@ -270,6 +303,8 @@ class JobFirestoreService @Inject constructor(
             
             Timber.d("📦 ========== QUERY COMPLETE ==========")
             Result.success(jobs)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "❌ ========== FIRESTORE QUERY ERROR ==========")
             Timber.e("❌ Failed to fetch job summaries")

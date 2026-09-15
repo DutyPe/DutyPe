@@ -12,6 +12,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
@@ -42,6 +47,7 @@ class AuthManager @Inject constructor(
     
     // Use SupervisorJob to prevent child failures from cancelling other operations
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val logoutMutex = Mutex()
     
     companion object {
         private const val KEY_USER = "current_user"
@@ -106,17 +112,27 @@ class AuthManager @Inject constructor(
      * - AppStateManager session (saved jobs, applications, profile state)
      * - SessionManager (ends session tracking)
      */
-    fun logout() {
-        Timber.d("AuthManager - Logout initiated")
-        
-        // Clear local preferences
-        prefs.edit().clear().apply()
-        
-        // Sign out from Firebase
-        firebaseAuth.signOut()
-        
-        // Clear all state managers and remove FCM token
-        scope.launch {
+    suspend fun logout() = withContext(NonCancellable + Dispatchers.IO) {
+        logoutMutex.withLock {
+            Timber.d("AuthManager - Logout initiated")
+            val userId = firebaseAuth.currentUser?.uid
+            prefs.edit().clear().apply()
+
+            try {
+                androidx.core.app.NotificationManagerCompat.from(context).cancelAll()
+                if (userId != null) {
+                    withTimeoutOrNull(3000L) { fcmTokenManager.removeToken(userId) }
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "AuthManager - Token unlink failed; continuing local logout")
+            } finally {
+                if (firebaseAuth.currentUser?.uid == userId) {
+                    firebaseAuth.signOut()
+                    androidx.core.app.NotificationManagerCompat.from(context).cancelAll()
+                }
+            }
+
+            if (firebaseAuth.currentUser != null) return@withLock
             try {
                 // End session tracking
                 sessionManager.endSession()
@@ -133,16 +149,11 @@ class AuthManager @Inject constructor(
                 Timber.e(e, "AuthManager - Error clearing AppStateManager session")
             }
             
-            try {
-                fcmTokenManager.removeToken()
-                Timber.d("AuthManager - FCM token removed")
-            } catch (e: Exception) {
-                Timber.e(e, "AuthManager - Error removing FCM token")
-            }
-
             // Re-subscribe this device to guest topic so we can send
             // re-engagement notifications when the user is logged out.
             try {
+                fcmTokenManager.unsubscribeFromTopic(FCMTokenManager.TOPIC_WORKERS)
+                fcmTokenManager.unsubscribeFromTopic(FCMTokenManager.TOPIC_EMPLOYERS)
                 fcmTokenManager.subscribeToTopic(FCMTokenManager.TOPIC_GUEST_USERS)
                 Timber.d("AuthManager - Re-subscribed to guest_users topic")
             } catch (e: Exception) {
@@ -151,9 +162,8 @@ class AuthManager @Inject constructor(
             
             // Note: profileSetupStateManager.resetProfileSetupState() is now called 
             // inside appStateManager.clearSession(), so no need to call it separately
+            Timber.d("AuthManager - Logout completed")
         }
-        
-        Timber.d("AuthManager - Logout completed")
     }
     
     fun updateUser(user: User) {

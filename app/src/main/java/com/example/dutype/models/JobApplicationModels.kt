@@ -76,6 +76,12 @@ data class JobApplication(
     val applicationId: String get() = id
 }
 
+fun JobApplication.statusUpdateFields(): Map<String, Any> = mapOf(
+    "status" to status.name,
+    "statusHistory" to statusHistory,
+    "updatedAt" to updatedAt
+)
+
 /**
  * Document attachment for applications
  */
@@ -143,15 +149,32 @@ enum class ApplicationStatus {
     UNDER_REVIEW,
     REJECTED,
     ACCEPTED,
+    IN_PROGRESS,
     COMPLETED,
     WITHDRAWN
 }
+
+fun ApplicationStatus.canBeAccepted(): Boolean =
+    this == ApplicationStatus.PENDING || this == ApplicationStatus.UNDER_REVIEW
+
+fun ApplicationStatus.occupiesVacancy(): Boolean =
+    this == ApplicationStatus.ACCEPTED || this == ApplicationStatus.IN_PROGRESS || this == ApplicationStatus.COMPLETED
+
+fun ApplicationStatus.canEmployerTransitionTo(target: ApplicationStatus): Boolean =
+    target == this || when (this) {
+        ApplicationStatus.PENDING -> target in setOf(ApplicationStatus.UNDER_REVIEW, ApplicationStatus.ACCEPTED, ApplicationStatus.REJECTED)
+        ApplicationStatus.UNDER_REVIEW -> target in setOf(ApplicationStatus.ACCEPTED, ApplicationStatus.REJECTED)
+        ApplicationStatus.ACCEPTED -> target in setOf(ApplicationStatus.IN_PROGRESS, ApplicationStatus.REJECTED)
+        ApplicationStatus.IN_PROGRESS -> target == ApplicationStatus.COMPLETED
+        ApplicationStatus.REJECTED, ApplicationStatus.COMPLETED, ApplicationStatus.WITHDRAWN -> false
+    }
 
 fun ApplicationStatus.getDisplayName(): String = when (this) {
     ApplicationStatus.PENDING -> "Pending"
     ApplicationStatus.UNDER_REVIEW -> "Under Review"
     ApplicationStatus.REJECTED -> "Rejected"
     ApplicationStatus.ACCEPTED -> "Accepted"
+    ApplicationStatus.IN_PROGRESS -> "In Progress"
     ApplicationStatus.COMPLETED -> "Completed"
     ApplicationStatus.WITHDRAWN -> "Withdrawn"
 }
@@ -207,6 +230,7 @@ fun ApplicationStatus.getStatusColor(): Color {
         ApplicationStatus.PENDING -> Color(0xFFFFA500) // Orange
         ApplicationStatus.UNDER_REVIEW -> Color(0xFF2196F3) // Blue
         ApplicationStatus.ACCEPTED -> Color(0xFF4CAF50) // Green
+        ApplicationStatus.IN_PROGRESS -> Color(0xFF00897B)
         ApplicationStatus.REJECTED -> Color(0xFFF44336) // Red
         ApplicationStatus.COMPLETED -> Color(0xFF9C27B0) // Purple
         ApplicationStatus.WITHDRAWN -> Color(0xFF757575) // Gray

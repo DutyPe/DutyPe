@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -89,6 +90,7 @@ class SmartJobApplicationViewModel @Inject constructor(
     
     // Guard to prevent duplicate loadMyApplications calls
     private var hasInitiallyLoaded = false
+    private var applicationsSubscription: Job? = null
     
     // Guard to prevent duplicate loadUserCapabilities calls
     private var hasLoadedCapabilities = false
@@ -138,8 +140,9 @@ class SmartJobApplicationViewModel @Inject constructor(
         }
         
         hasInitiallyLoaded = true
-        
-        viewModelScope.launch {
+
+        applicationsSubscription?.cancel()
+        applicationsSubscription = viewModelScope.launch {
             _legacyUiState.value = _legacyUiState.value.copy(isLoading = true, hasError = false)
             
             jobApplicationService.getWorkerApplications(currentUser.uid).collect { result ->
@@ -153,8 +156,10 @@ class SmartJobApplicationViewModel @Inject constructor(
                         loadApplicationStats()
                     },
                     onFailure = { exception: Throwable ->
+                        _uiState.value = _uiState.value.copy(applications = emptyList())
                         _legacyUiState.value = _legacyUiState.value.copy(
                             isLoading = false,
+                            applications = emptyList(),
                             hasError = true,
                             error = exception.message ?: "Failed to load applications"
                         )
@@ -169,21 +174,23 @@ class SmartJobApplicationViewModel @Inject constructor(
      */
     fun loadApplicationsByStatus(status: ApplicationStatus) {
         val currentUser = auth.currentUser ?: return
-        
-        viewModelScope.launch {
+
+        applicationsSubscription?.cancel()
+        applicationsSubscription = viewModelScope.launch {
             _legacyUiState.value = _legacyUiState.value.copy(isLoading = true, hasError = false)
             
-            jobApplicationService.getApplicationsByStatus(currentUser.uid, status).collect { result ->
+            jobApplicationService.getWorkerApplications(currentUser.uid).collect { result ->
                 result.fold(
                     onSuccess = { applications: List<JobApplication> ->
                         _legacyUiState.value = _legacyUiState.value.copy(
                             isLoading = false,
-                            applications = applications
+                            applications = applications.filter { it.status == status }
                         )
                     },
                     onFailure = { exception: Throwable ->
                         _legacyUiState.value = _legacyUiState.value.copy(
                             isLoading = false,
+                            applications = emptyList(),
                             hasError = true,
                             error = exception.message ?: "Failed to load applications"
                         )

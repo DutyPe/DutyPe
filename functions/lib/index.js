@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.onUserProfileComplete = exports.updateMetadataOnUserCreate = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.sendPushNotification = exports.sendBroadcastNotification = exports.enforceJobRateLimit = void 0;
+exports.notifyApplicationEvent = exports.requestNotification = exports.getApplicationContact = exports.getPublicProfile = exports.syncPublicProfile = exports.submitRating = exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.onUserProfileComplete = exports.updateMetadataOnUserCreate = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.sendPushNotification = exports.sendBroadcastNotification = exports.enforceJobRateLimit = exports.cleanupExpiredNotifications = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 // Initialize Firebase Admin SDK
@@ -23,6 +23,8 @@ admin.initializeApp();
 // SCHEDULED NOTIFICATIONS (Enterprise Grade)
 // ============================================
 __exportStar(require("./scheduled-notifications"), exports);
+var scheduled_notifications_1 = require("./scheduled-notifications");
+Object.defineProperty(exports, "cleanupExpiredNotifications", { enumerable: true, get: function () { return scheduled_notifications_1.cleanupExpiredNotifications; } });
 __exportStar(require("./referral-system"), exports);
 __exportStar(require("./job-landing"), exports);
 __exportStar(require("./worker-landing"), exports);
@@ -305,8 +307,8 @@ exports.sendPushNotification = functions.firestore
         const deepLink = ((_a = notification.data) === null || _a === void 0 ? void 0 : _a.deepLink) || "";
         // Map notification type to Android channel ID
         const notificationType = notification.type || "general";
-        const highPriorityTypes = ["BIRTHDAY", "JOB_EXPIRY", "APPLICATION_STATUS", "JOB_ALERT", "NEW_APPLICATION", "APPLICATION_WITHDRAWN"];
-        const mediumPriorityTypes = ["PENDING_APPLICATIONS", "JOB_RECOMMENDATION", "REMINDER"];
+        const highPriorityTypes = ["BIRTHDAY", "JOB_EXPIRY", "APPLICATION_STATUS", "JOB_ALERT", "NEW_APPLICATION", "APPLICATION_WITHDRAWN", "WORKER_HIRED", "PROFILE_COMPLETE", "JOB_POSTED", "JOB_PAUSED", "SHORTLISTED", "REJECTED", "APPLICATION_STATUS_UPDATE", "WELCOME"];
+        const mediumPriorityTypes = ["PENDING_APPLICATIONS", "JOB_RECOMMENDATION", "REMINDER", "INTERVIEW_SCHEDULED"];
         let channelId = "low_priority";
         if (highPriorityTypes.includes(notificationType)) {
             channelId = "high_priority";
@@ -314,33 +316,25 @@ exports.sendPushNotification = functions.firestore
         else if (mediumPriorityTypes.includes(notificationType)) {
             channelId = "medium_priority";
         }
-        // Build the FCM message
+        // Build the FCM message.
+        // DATA-ONLY message (no android.notification block) so that onMessageReceived()
+        // is ALWAYS called by DutyPeMessagingService regardless of whether the app is
+        // in foreground, background, or killed. This gives the app full control over
+        // how the notification is displayed and ensures deep-links work correctly.
         const message = {
             token: fcmToken,
             data: {
+                recipientId: recipientId,
                 notificationId: notificationId,
                 title: notification.title || "DutyPe",
                 message: notification.message || "",
                 body: notification.message || "",
                 type: notificationType,
-                action: notification.action || "",
-                jobId: notification.jobId || "",
-                applicationId: notification.applicationId || "",
                 deepLink: deepLink,
-                click_action: "FLUTTER_NOTIFICATION_CLICK",
                 channel: channelId,
             },
             android: {
                 priority: "high",
-                notification: {
-                    title: notification.title || "DutyPe",
-                    body: notification.message || "",
-                    icon: "ic_notification",
-                    color: notification.type === "BIRTHDAY" ? "#FF6B9D" : "#3B82F6",
-                    sound: "default",
-                    clickAction: "OPEN_ACTIVITY",
-                    channelId: channelId,
-                },
             },
         };
         // Send the notification
@@ -910,4 +904,13 @@ Object.defineProperty(exports, "getReferralLeaderboard", { enumerable: true, get
 // EXPORT JOB POSTING FUNCTIONS
 // ============================================
 __exportStar(require("./job-posting"), exports);
+var ratings_1 = require("./ratings");
+Object.defineProperty(exports, "submitRating", { enumerable: true, get: function () { return ratings_1.submitRating; } });
+var profiles_1 = require("./profiles");
+Object.defineProperty(exports, "syncPublicProfile", { enumerable: true, get: function () { return profiles_1.syncPublicProfile; } });
+Object.defineProperty(exports, "getPublicProfile", { enumerable: true, get: function () { return profiles_1.getPublicProfile; } });
+Object.defineProperty(exports, "getApplicationContact", { enumerable: true, get: function () { return profiles_1.getApplicationContact; } });
+var notification_events_1 = require("./notification-events");
+Object.defineProperty(exports, "requestNotification", { enumerable: true, get: function () { return notification_events_1.requestNotification; } });
+Object.defineProperty(exports, "notifyApplicationEvent", { enumerable: true, get: function () { return notification_events_1.notifyApplicationEvent; } });
 //# sourceMappingURL=index.js.map

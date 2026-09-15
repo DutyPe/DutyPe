@@ -61,7 +61,7 @@ firebase-auth = { group = "com.google.firebase", name = "firebase-auth", version
 firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appcheck-debug", version.ref = "firebaseAppcheckDebug" }
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
-androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "androidxFoundation" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
 firebase-pnv = { group = "com.google.firebase", name = "firebase-pnv", version.ref = "firebasePnv" }
 androidx-ui-text = { group = "androidx.compose.ui", name = "ui-text", version.ref = "uiTextVersion" }
 

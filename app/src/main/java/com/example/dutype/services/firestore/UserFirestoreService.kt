@@ -51,8 +51,7 @@ class UserFirestoreService @Inject constructor(
                     "profileCompleted" to user.profileCompleted,
                     "isActive" to user.isActive,
                     "createdAt" to user.createdAt,
-                    "updatedAt" to System.currentTimeMillis(),
-                    "referralCode" to user.referralCode
+                    "updatedAt" to System.currentTimeMillis()
                 )
                 
                 // Merge prevents accidental field loss when this method runs with partial user data.
@@ -72,7 +71,7 @@ class UserFirestoreService @Inject constructor(
     suspend fun getUserById(userId: String): Result<User?> {
         return try {
             Timber.d("🔍 UserFirestoreService.getUserById - Fetching user: $userId")
-            val document = firestore.collection(USERS_COLLECTION).document(userId).get().await()
+            val document = com.example.dutype.utils.FirestoreUtils.readProfileDocument(userId)
             if (document.exists()) {
                 // Log the raw data to debug field names
                 Timber.d("🔍 UserFirestoreService.getUserById - Raw data: ${document.data}")
@@ -96,24 +95,8 @@ class UserFirestoreService @Inject constructor(
      * Get user by email
      */
     suspend fun getUserByEmail(email: String): Result<User?> {
-        return try {
-            val query = firestore.collection(USERS_COLLECTION)
-                .whereEqualTo("email", email)
-                .limit(1)
-                .get()
-                .await()
-            
-            if (!query.isEmpty) {
-                val document = query.documents.first()
-                val user = document.toObject(User::class.java)
-                val userWithId = user?.copy(id = document.id) ?: User(id = document.id)
-                Result.success(userWithId)
-            } else {
-                Result.success(null)
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: return Result.success(null)
+        return getUserById(userId).map { user -> user?.takeIf { it.email.equals(email, ignoreCase = true) } }
     }
     
     /**
@@ -170,7 +153,7 @@ class UserFirestoreService @Inject constructor(
      */
     suspend fun getUsersByRole(role: UserRole, limit: Long = 50): Result<List<User>> {
         return try {
-            val query = firestore.collection(USERS_COLLECTION)
+            val query = firestore.collection("public_profiles")
                 .whereArrayContains("roles", role.name)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .limit(limit)
@@ -188,17 +171,7 @@ class UserFirestoreService @Inject constructor(
      * Check if user exists by email
      */
     suspend fun userExistsByEmail(email: String): Result<Boolean> {
-        return try {
-            val query = firestore.collection(USERS_COLLECTION)
-                .whereEqualTo("email", email)
-                .limit(1)
-                .get()
-                .await()
-            
-            Result.success(!query.isEmpty)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        return getUserByEmail(email).map { it != null }
     }
     
     /**
@@ -272,7 +245,7 @@ class UserFirestoreService @Inject constructor(
      */
     suspend fun searchUsers(query: String): Result<List<User>> {
         return try {
-            val usersQuery = firestore.collection(USERS_COLLECTION)
+            val usersQuery = firestore.collection("public_profiles")
                 .orderBy("fullName")
                 .startAt(query)
                 .endAt(query + "\uf8ff")
@@ -293,7 +266,7 @@ class UserFirestoreService @Inject constructor(
      */
     suspend fun getUserSummary(userId: String): Result<Map<String, Any?>?> {
         return try {
-            val document = firestore.collection(USERS_COLLECTION).document(userId).get().await()
+            val document = com.example.dutype.utils.FirestoreUtils.readProfileDocument(userId)
             if (document.exists()) {
                 val data = document.data ?: return Result.success(null)
                 
@@ -325,7 +298,7 @@ class UserFirestoreService @Inject constructor(
             val allSummaries = mutableListOf<Map<String, Any?>>()
             
             for (chunk in chunks) {
-                val query = firestore.collection(USERS_COLLECTION)
+                val query = firestore.collection("public_profiles")
                     .whereIn("id", chunk)
                     .get()
                     .await()

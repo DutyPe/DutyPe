@@ -206,7 +206,7 @@ class OtpViewModel @Inject constructor(
             _otpState.value = _otpState.value.copy(isLoading = true, error = null)
             
             // Log to crash reports
-            errorHandler.logBreadcrumb("OTP send started: $phoneNumber")
+            errorHandler.logBreadcrumb("OTP send started")
             
             // Start 60-second cooldown timer for initial OTP send
             startResendCooldown()
@@ -330,15 +330,15 @@ class OtpViewModel @Inject constructor(
             _otpState.value = _otpState.value.copy(isLoading = true, error = null)
             
             // Track OTP verification attempt for crash investigation
-            errorHandler.logBreadcrumb("OTP verification started - Code: ${otp.take(1)}***")
+            errorHandler.logBreadcrumb("OTP verification started")
             
             try {
                 val verificationId = storedVerificationId
-                       if (verificationId != null) {
-                           errorHandler.logBreadcrumb("OTP verification ID available - proceeding")
-                           val credential = PhoneAuthProvider.getCredential(verificationId, otp)
-                           signInWithPhoneAuthCredential(credential, context)
-                       } else {
+                if (verificationId != null) {
+                    errorHandler.logBreadcrumb("OTP verification ID available - proceeding")
+                    val credential = PhoneAuthProvider.getCredential(verificationId, otp)
+                    signInWithPhoneAuthCredential(credential, context)
+                } else {
                     Timber.e("âŒ Verification ID not found for OTP verification")
                     errorHandler.logBreadcrumb("OTP verification failed: No verification ID stored")
                     errorHandler.logEvent("otp_verify_no_verification_id", true)
@@ -369,7 +369,7 @@ class OtpViewModel @Inject constructor(
                 if (firebaseUser != null) {
                     val phoneNumber = firebaseUser.phoneNumber ?: ""
                     val userId = firebaseUser.uid
-                    errorHandler.logBreadcrumb("Firebase sign-in successful: $phoneNumber")
+                    errorHandler.logBreadcrumb("Firebase sign-in successful")
                     
                     // ðŸ” CRITICAL: Check if user has existing profile data in Firestore
                     // REFACTORED: Now uses FirestoreUtils.getUserByUid() - canonical implementation
@@ -378,7 +378,6 @@ class OtpViewModel @Inject constructor(
                     val hasExistingProfile = existingProfileData != null && isProfileComplete(existingProfileData)
                     
                     Timber.d("OtpViewModel - Existing profile found: $hasExistingProfile")
-                    Timber.d("OtpViewModel - Profile data: $existingProfileData")
                     
                     // Create user object from Firebase data, using existing profile if available
                     val user = User(
@@ -394,7 +393,7 @@ class OtpViewModel @Inject constructor(
                         } else {
                             UserRole.WORKER
                         },
-                        profileCompleted = true,
+                        profileCompleted = hasExistingProfile,
                         profileImageUrl = existingProfileData?.get("profileImageUrl") as? String
                     )
                     
@@ -417,7 +416,7 @@ class OtpViewModel @Inject constructor(
                     
                     Timber.i("âœ… User authenticated successfully: $userId")
                     errorHandler.logBreadcrumb("User saved to AuthManager - Authentication complete")
-                    errorHandler.setUserInfo(userId, phoneNumber)
+                    errorHandler.setUserInfo(userId)
                     
                     // ðŸ”” Register FCM token for push notifications with role-based topics
                     viewModelScope.launch {

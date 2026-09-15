@@ -89,8 +89,8 @@ object AppModule {
         // This caches Firestore data locally for 40MB (configurable)
         // Used by: WhatsApp, Instagram, Uber, Airbnb
         try {
-            firestore.firestoreSettings = com.google.firebase.firestore.FirebaseFirestoreSettings.Builder()
-                .setPersistenceEnabled(true) // Enable offline cache
+            firestore.firestoreSettings = com.google.firebase.firestore.FirebaseFirestoreSettings.Builder(firestore.firestoreSettings)
+                .setPersistenceEnabled(!com.dutype.app.BuildConfig.LOCAL_STAGING)
                 .setCacheSizeBytes(100L * 1024L * 1024L) // P1 FIX: 100MB cap (was UNLIMITED — OOM risk at scale)
                 .build()
             Timber.d("✅ Firestore offline persistence enabled")
@@ -386,9 +386,10 @@ object AppModule {
     fun provideApplicationManagementService(
         firestore: FirebaseFirestore,
         notificationService: NotificationService,
-        workVerificationService: WorkVerificationService
+        workVerificationService: WorkVerificationService,
+        jobApplicationService: JobApplicationService
     ): ApplicationManagementService {
-        return ApplicationManagementService(firestore, notificationService, workVerificationService)
+        return ApplicationManagementService(firestore, notificationService, workVerificationService, jobApplicationService)
     }
 
     @Provides

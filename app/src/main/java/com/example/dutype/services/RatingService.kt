@@ -44,7 +44,8 @@ data class RatingResult(
 @Singleton
 class RatingService @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val functions: com.google.firebase.functions.FirebaseFunctions = com.google.firebase.functions.FirebaseFunctions.getInstance()
 ) {
     companion object {
         const val RATINGS_COLLECTION = "ratings"
@@ -70,86 +71,21 @@ class RatingService @Inject constructor(
             val currentUser = auth.currentUser
                 ?: return Result.failure(Exception("User not authenticated"))
 
-            // Check if already rated this application for this target role
-            val existing = firestore.collection(RATINGS_COLLECTION)
-                .whereEqualTo("applicationId", applicationId)
-                .whereEqualTo("raterId", currentUser.uid)
-                .whereEqualTo("targetRole", targetRole)
-                .limit(1)
-                .get()
-                .await()
-
-            if (!existing.isEmpty) {
-                return Result.success(RatingResult(false, "You have already rated this"))
-            }
-
-            val ratingRef = firestore.collection(RATINGS_COLLECTION).document()
-            val ratingData = Rating(
-                id = ratingRef.id,
-                applicationId = applicationId,
-                jobId = jobId,
-                raterId = currentUser.uid,
-                raterName = currentUser.displayName ?: "",
-                raterRole = raterRole,
-                targetUserId = targetUserId,
-                targetUserName = targetUserName,
-                targetRole = targetRole,
-                rating = rating,
-                review = review,
-                tags = tags,
-                createdAt = System.currentTimeMillis()
-            )
-
-            // Save rating
-            ratingRef.set(ratingData).await()
-
-            // Update target user's rating summary (role-specific field)
-            updateUserRatingSummary(targetUserId, targetRole, rating)
-
-            Timber.d("⭐ Rating submitted: $rating stars for $targetRole $targetUserId")
-
+            val result = functions.getHttpsCallable("submitRating").call(mapOf(
+                "userId" to currentUser.uid,
+                "applicationId" to applicationId,
+                "rating" to rating,
+                "review" to review,
+                "tags" to tags
+            )).await()
+            val response = result.data as? Map<*, *>
+            check(response?.get("success") == true) { "Rating submission was not confirmed" }
             Result.success(RatingResult(true, "Rating submitted successfully!"))
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "Failed to submit rating")
             Result.failure(e)
-        }
-    }
-
-    /**
-     * Update the target user's average rating and total ratings
-     * Uses role-specific fields for dual-role users
-     */
-    private suspend fun updateUserRatingSummary(
-        userId: String,
-        targetRole: String,
-        newRating: Int
-    ) {
-        try {
-            val userRef = firestore.collection(USERS_COLLECTION).document(userId)
-            val userDoc = userRef.get().await()
-
-            if (!userDoc.exists()) return
-
-            // Role-specific field names
-            val avgField = if (targetRole == "WORKER") "workerAverageRating" else "averageRating"
-            val countField = if (targetRole == "WORKER") "workerTotalRatings" else "totalRatings"
-
-            val currentAvg = (userDoc.getDouble(avgField) ?: 0.0)
-            val currentCount = (userDoc.getLong(countField) ?: 0L).toInt()
-
-            val newCount = currentCount + 1
-            val newAvg = ((currentAvg * currentCount) + newRating) / newCount
-
-            userRef.update(
-                mapOf(
-                    avgField to newAvg,
-                    countField to newCount
-                )
-            ).await()
-
-            Timber.d("⭐ Updated $targetRole rating for $userId: $newAvg ($newCount ratings)")
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to update user rating summary")
         }
     }
 

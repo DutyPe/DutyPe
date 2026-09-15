@@ -31,6 +31,14 @@ class WorkVerificationService @Inject constructor(
         private const val COLLECTION_APPLICATIONS = "job_applications"
         private const val COLLECTION_JOBS = "jobs"
     }
+
+    private fun participantQuery(): com.google.firebase.firestore.Query {
+        val userId = auth.currentUser?.uid.orEmpty()
+        return firestore.collection(COLLECTION_APPLICATIONS).where(com.google.firebase.firestore.Filter.or(
+            com.google.firebase.firestore.Filter.equalTo("workerId", userId),
+            com.google.firebase.firestore.Filter.equalTo("employerId", userId)
+        ))
+    }
     
     /**
      * Generate a new verification code for an accepted job application
@@ -55,7 +63,7 @@ class WorkVerificationService @Inject constructor(
             var verificationCode = WorkVerification.generateVerificationCode()
             var attempts = 0
             while (attempts < 5) {
-                val existingCode = firestore.collection(COLLECTION_APPLICATIONS)
+                val existingCode = participantQuery()
                     .whereEqualTo("verification.verificationCode", verificationCode)
                     .limit(1)
                     .get()
@@ -146,6 +154,7 @@ class WorkVerificationService @Inject constructor(
             
             // OPTIMIZED: Query applications collection for verification code
             val allCodesSnapshot = firestore.collection(COLLECTION_APPLICATIONS)
+                .whereEqualTo("employerId", employerId)
                 .whereEqualTo("verificationCode", normalizedCode)
                 .limit(1)
                 .get()
@@ -178,6 +187,7 @@ class WorkVerificationService @Inject constructor(
             
             // Find verification by code with PENDING status
             val querySnapshot = firestore.collection(COLLECTION_APPLICATIONS)
+                .whereEqualTo("employerId", employerId)
                 .whereEqualTo("verificationCode", normalizedCode)
                 .whereEqualTo("verificationStatus", VerificationStatus.PENDING.name)
                 .get()
@@ -311,10 +321,24 @@ class WorkVerificationService @Inject constructor(
             mapOf("lat" to latitude, "lng" to longitude)
         } else null
         
-        // Update application with verified status and nested verification data
-        firestore.collection(COLLECTION_APPLICATIONS)
-            .document(verification.applicationId)
-            .update(
+        firestore.runTransaction { transaction ->
+            val applicationRef = firestore.collection(COLLECTION_APPLICATIONS).document(verification.applicationId)
+            val jobRef = firestore.collection(COLLECTION_JOBS).document(verification.jobId)
+            val applicationDoc = transaction.get(applicationRef)
+            val jobDoc = transaction.get(jobRef)
+            check(auth.currentUser?.uid == verifiedByEmployerId &&
+                applicationDoc.getString("employerId") == verifiedByEmployerId &&
+                jobDoc.getString("employerId") == verifiedByEmployerId) { "Only the job's employer can verify work" }
+            check(applicationDoc.getString("status") == "ACCEPTED" &&
+                applicationDoc.getString("verification.status") == VerificationStatus.PENDING.name &&
+                applicationDoc.getString("verification.verificationCode") == verification.verificationCode &&
+                applicationDoc.getString("verification.verificationId") == verification.verificationId &&
+                applicationDoc.getString("workerId") == verification.workerId &&
+                applicationDoc.getString("jobId") == verification.jobId &&
+                ((applicationDoc.get("verification.expiresAt") as? Number)?.toLong() ?: 0L) > now) {
+                "Verification has expired, changed, or already been used"
+            }
+            transaction.update(applicationRef,
                 mapOf(
                     "verification.status" to VerificationStatus.VERIFIED.name,
                     "verification.verifiedAt" to now,
@@ -322,21 +346,17 @@ class WorkVerificationService @Inject constructor(
                     "verification.verifiedLocation" to location,
                     "verificationStatus" to VerificationStatus.VERIFIED.name,
                     "workStartedAt" to now,
-                    "status" to "IN_PROGRESS"
+                    "status" to com.example.dutype.models.ApplicationStatus.IN_PROGRESS.name,
+                    "updatedAt" to now
                 )
             )
-            .await()
-        
-        // Update job status
-        firestore.collection(COLLECTION_JOBS)
-            .document(verification.jobId)
-            .update(
+            transaction.update(jobRef,
                 mapOf(
                     "hasActiveWorker" to true,
                     "lastWorkerStartedAt" to now
                 )
             )
-            .await()
+        }.await()
         
         Timber.i("🔐 WORK VERIFICATION: ✅ Work started! Verification ${verification.verificationId} completed")
         
@@ -471,7 +491,7 @@ class WorkVerificationService @Inject constructor(
     suspend fun regenerateVerification(verificationId: String): Result<WorkVerification> {
         return try {
             // Find application by verificationId
-            val querySnapshot = firestore.collection(COLLECTION_APPLICATIONS)
+            val querySnapshot = participantQuery()
                 .whereEqualTo("verificationId", verificationId)
                 .limit(1)
                 .get()
@@ -489,7 +509,7 @@ class WorkVerificationService @Inject constructor(
             var newCode = WorkVerification.generateVerificationCode()
             var attempts = 0
             while (attempts < 5) {
-                val existingCode = firestore.collection(COLLECTION_APPLICATIONS)
+                val existingCode = participantQuery()
                     .whereEqualTo("verification.verificationCode", newCode)
                     .limit(1)
                     .get()

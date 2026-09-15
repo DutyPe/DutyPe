@@ -47,6 +47,7 @@ class NotificationService @Inject constructor(
      * Create notification channels for different types of notifications
      */
     private fun createNotificationChannels() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) return
         val channels = listOf(
             NotificationChannel(
                 "application_updates",
@@ -457,6 +458,7 @@ class NotificationService @Inject constructor(
             ApplicationStatus.PENDING -> "Application Submitted"
             ApplicationStatus.UNDER_REVIEW -> "Application Under Review"
             ApplicationStatus.ACCEPTED -> "Congratulations! You're Accepted"
+            ApplicationStatus.IN_PROGRESS -> "Work Started"
             ApplicationStatus.COMPLETED -> "Job Completed"
             ApplicationStatus.REJECTED -> "Application Update"
             ApplicationStatus.WITHDRAWN -> "Application Withdrawn"
@@ -466,6 +468,7 @@ class NotificationService @Inject constructor(
             ApplicationStatus.PENDING -> "Your application for ${application.jobTitle} has been submitted successfully"
             ApplicationStatus.UNDER_REVIEW -> "Your application for ${application.jobTitle} is now under review"
             ApplicationStatus.ACCEPTED -> "Congratulations! You've been accepted for ${application.jobTitle}"
+            ApplicationStatus.IN_PROGRESS -> "Your work for ${application.jobTitle} has started"
             ApplicationStatus.COMPLETED -> "Great job! Your work for ${application.jobTitle} has been marked as completed"
             ApplicationStatus.REJECTED -> "Update on your application for ${application.jobTitle}"
             ApplicationStatus.WITHDRAWN -> "You have withdrawn your application for ${application.jobTitle}"
@@ -637,50 +640,16 @@ class NotificationService @Inject constructor(
      * DO NOT call sendPushNotification() locally to avoid duplicate notifications!
      */
     suspend fun sendNotification(notification: NotificationData, recipientId: String) {
-        Timber.i("NotificationService.sendNotification called")
-        Timber.d("notification.id: ${notification.id}")
-        Timber.d("notification.title: ${notification.title}")
-        Timber.d("notification.type: ${notification.type}")
-        Timber.d("recipientId: $recipientId")
-        
-        // Build deep link for this notification
-        val deepLink = com.example.dutype.utils.NotificationDeepLinkBuilder.buildDeepLink(
-            notification.type,
-            notification.data
-        )
-        Timber.d("📱 Generated deep link: $deepLink")
-        
-        // Add deep link to notification data
-        val dataWithDeepLink = notification.data.toMutableMap().apply {
-            put("deepLink", deepLink)
-            put("notificationId", notification.id)
-        }
-        
-        // Save to Firestore - Cloud Function will handle FCM push notification
-        val notificationWithRecipient = notification.copy(
-            recipientId = recipientId,
-            data = dataWithDeepLink,
-            expiresAt = notification.createdAt + NOTIFICATION_RETENTION_MS
-        )
-        Timber.d("Saving notification to Firestore...")
-        Timber.d("Notification to save: $notificationWithRecipient")
-        
-        firestore.collection(notificationsCollection)
-            .document(notificationWithRecipient.id)
-            .set(notificationWithRecipient)
-            .await()
-        
-        Timber.i("Notification saved to Firestore successfully with ID: ${notificationWithRecipient.id}")
-        Timber.d("Deep link included in notification data: $deepLink")
-
-        // Show local notification immediately for the current user (self-notifications such as
-        // profile complete, job posted, job paused, worker hired confirmation, etc.)
-        // Cross-user notifications (employer ← new application, worker ← status update) are
-        // delivered to the OTHER device via Cloud Function → FCM.
-        val currentUserId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
-        if (currentUserId != null && recipientId == currentUserId) {
-            showLocalNotification(notificationWithRecipient)
-        }
+        val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+            ?: throw IllegalStateException("User not authenticated")
+        val result = com.google.firebase.functions.FirebaseFunctions.getInstance()
+            .getHttpsCallable("requestNotification").call(mapOf(
+                "userId" to userId,
+                "type" to notification.type.name,
+                "recipientId" to recipientId,
+                "data" to notification.data
+            )).await()
+        check((result.data as? Map<*, *>)?.get("success") == true) { "Notification event was not confirmed" }
     }
     
     /**

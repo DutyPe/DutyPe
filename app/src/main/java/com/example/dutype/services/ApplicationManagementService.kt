@@ -30,10 +30,19 @@ import javax.inject.Singleton
 class ApplicationManagementService @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val notificationService: NotificationService,
-    private val workVerificationService: WorkVerificationService
+    private val workVerificationService: WorkVerificationService,
+    private val jobApplicationService: JobApplicationService
 ) {
     
     private val applicationsCollection = "job_applications"
+
+    private fun participantQuery(): Query {
+        val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
+        return firestore.collection(applicationsCollection).where(com.google.firebase.firestore.Filter.or(
+            com.google.firebase.firestore.Filter.equalTo("workerId", userId),
+            com.google.firebase.firestore.Filter.equalTo("employerId", userId)
+        ))
+    }
     
     // ==================== STATUS MANAGEMENT ====================
     
@@ -46,50 +55,7 @@ class ApplicationManagementService @Inject constructor(
         updatedBy: String,
         notes: String? = null
     ): Result<JobApplication> {
-        return try {
-            RetryUtils.retryWithBackoffResult {
-                val docRef = firestore.collection(applicationsCollection).document(applicationId)
-                val doc = docRef.get().await()
-                
-                if (!doc.exists()) {
-                    return@retryWithBackoffResult Result.failure(Exception("Application not found"))
-                }
-                
-                val currentApplication = doc.toObject(JobApplication::class.java)
-                    ?: return@retryWithBackoffResult Result.failure(Exception("Invalid application data"))
-                
-                val updatedApplication = currentApplication.copy(
-                    status = newStatus,
-                    updatedAt = System.currentTimeMillis()
-                )
-                
-                docRef.set(updatedApplication).await()
-                
-                // Send notification to worker about status change
-                notificationService.sendApplicationStatusNotification(
-                    updatedApplication, newStatus, updatedApplication.workerId
-                )
-                
-                // Send hired notification when status is ACCEPTED
-                if (newStatus == ApplicationStatus.ACCEPTED) {
-                    try {
-                        notificationService.sendWorkerHiredNotification(
-                            workerName = updatedApplication.workerName,
-                            jobTitle = updatedApplication.jobTitle,
-                            workerId = updatedApplication.workerId,
-                            employerId = updatedApplication.employerId,
-                            jobId = updatedApplication.jobId
-                        )
-                    } catch (e: Exception) {
-                        Timber.e(e, "Failed to send worker hired notification")
-                    }
-                }
-                
-                Result.success(updatedApplication)
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        return jobApplicationService.updateApplicationStatus(applicationId, newStatus, updatedBy, notes)
     }
 
     
@@ -115,7 +81,7 @@ class ApplicationManagementService @Inject constructor(
                     updatedAt = System.currentTimeMillis()
                 )
                 
-                docRef.set(updatedApplication).await()
+                docRef.update("status", ApplicationStatus.UNDER_REVIEW.name, "updatedAt", updatedApplication.updatedAt).await()
                 
                 notificationService.sendApplicationStatusNotification(
                     updatedApplication, 
@@ -139,115 +105,14 @@ class ApplicationManagementService @Inject constructor(
      * Checks vacancy limit before accepting and generates work verification code
      */
     suspend fun acceptApplication(applicationId: String, employerId: String): Result<JobApplication> {
-        return try {
-            // P1 FIX: Use transaction to prevent race condition
-            val result = firestore.runTransaction { transaction ->
-                val docRef = firestore.collection(applicationsCollection).document(applicationId)
-                val doc = transaction.get(docRef)
-                
-                if (!doc.exists()) {
-                    throw Exception("Application not found")
-                }
-                
-                val currentApplication = doc.toObject(JobApplication::class.java)
-                    ?: throw Exception("Invalid application data")
-                
-                // P1 FIX: Check vacancy within transaction
-                val jobRef = firestore.collection("jobs").document(currentApplication.jobId)
-                val jobDoc = transaction.get(jobRef)
-                
-                if (!jobDoc.exists()) {
-                    throw Exception("Job not found")
-                }
-                
-                val jobData = jobDoc.data ?: throw Exception("Invalid job data")
-                val requiredVacancies = (jobData["vacancies"] as? Long)?.toInt() ?: 1
-                val acceptedCount = (jobData["acceptedCount"] as? Long)?.toInt() ?: 0
-                
-                // P1 FIX: Check if vacancy available
-                if (acceptedCount >= requiredVacancies) {
-                    throw Exception("All vacancies for this job have been filled. Cannot accept more applications.")
-                }
-                
-                // P1 FIX: Atomically increment accepted count
-                transaction.update(jobRef, "acceptedCount", acceptedCount + 1)
-                
-                // Update application status
-                val updatedApplication = currentApplication.copy(
-                    status = ApplicationStatus.ACCEPTED,
-                    updatedAt = System.currentTimeMillis()
-                )
-                
-                transaction.set(docRef, updatedApplication)
-                
-                updatedApplication
-            }.await()
-            
-            // Generate Work Start Verification Code (outside transaction)
-            try {
-                workVerificationService.generateVerification(
-                    jobId = result.jobId,
-                    applicationId = applicationId,
-                    workerId = result.workerId,
-                    employerId = employerId,
-                    workerName = result.workerName,
-                    jobTitle = result.jobTitle,
-                    employerName = result.companyName
-                )
-                Timber.i("🔐 WORK VERIFICATION: Generated verification code for application $applicationId")
-            } catch (e: Exception) {
-                Timber.e(e, "🔐 WORK VERIFICATION: Failed to generate verification code")
-            }
-            
-            // Send notification to worker (outside transaction)
-            notificationService.sendApplicationStatusNotification(
-                result, 
-                ApplicationStatus.ACCEPTED, 
-                result.workerId
-            )
-            
-            // Update job vacancy status if needed (outside transaction)
-            updateJobVacancyStatusIfNeeded(result.jobId)
-            
-            Result.success(result)
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to accept application")
-            Result.failure(e)
-        }
+        return jobApplicationService.acceptApplication(applicationId, employerId)
     }
     
     /**
      * Reject application (employer action)
      */
     suspend fun rejectApplication(applicationId: String, employerId: String, reason: String? = null): Result<JobApplication> {
-        return try {
-            val docRef = firestore.collection(applicationsCollection).document(applicationId)
-            val doc = docRef.get().await()
-            
-            if (!doc.exists()) {
-                return Result.failure(Exception("Application not found"))
-            }
-            
-            val currentApplication = doc.toObject(JobApplication::class.java)
-                ?: return Result.failure(Exception("Invalid application data"))
-            
-            val updatedApplication = currentApplication.copy(
-                status = ApplicationStatus.REJECTED,
-                updatedAt = System.currentTimeMillis()
-            )
-            
-            docRef.set(updatedApplication).await()
-            
-            notificationService.sendApplicationStatusNotification(
-                updatedApplication, 
-                ApplicationStatus.REJECTED, 
-                updatedApplication.workerId
-            )
-            
-            Result.success(updatedApplication)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        return jobApplicationService.rejectApplication(applicationId, employerId, reason)
     }
     
     /**
@@ -286,7 +151,7 @@ class ApplicationManagementService @Inject constructor(
                     updatedAt = System.currentTimeMillis()
                 )
                 
-                docRef.set(updatedApplication).await()
+                docRef.update("updatedAt", updatedApplication.updatedAt).await()
                 Result.success(updatedApplication)
             }
         } catch (e: Exception) {
@@ -315,7 +180,7 @@ class ApplicationManagementService @Inject constructor(
                 return Result.success(false)
             }
             
-            val acceptedApplications = firestore.collection(applicationsCollection)
+            val acceptedApplications = participantQuery()
                 .whereEqualTo("jobId", jobId)
                 .whereEqualTo("status", ApplicationStatus.ACCEPTED.name)
                 .limit(100)
@@ -345,7 +210,7 @@ class ApplicationManagementService @Inject constructor(
             val jobData = jobDoc.data ?: return Result.failure(Exception("Invalid job data"))
             val requiredVacancies = (jobData["vacancies"] as? Long)?.toInt() ?: 1
             
-            val acceptedApplications = firestore.collection(applicationsCollection)
+            val acceptedApplications = participantQuery()
                 .whereEqualTo("jobId", jobId)
                 .whereEqualTo("status", ApplicationStatus.ACCEPTED.name)
                 .limit(100)
@@ -394,7 +259,7 @@ class ApplicationManagementService @Inject constructor(
             val jobData = jobDoc.data ?: return
             val requiredVacancies = jobData["vacancies"] as? Long ?: 1L
             
-            val acceptedApplications = firestore.collection(applicationsCollection)
+            val acceptedApplications = participantQuery()
                 .whereEqualTo("jobId", jobId)
                 .whereEqualTo("status", ApplicationStatus.ACCEPTED.name)
                 .limit(100)

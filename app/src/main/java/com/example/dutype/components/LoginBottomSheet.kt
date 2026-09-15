@@ -405,31 +405,6 @@ fun LoginBottomSheet(
                                 try {
                                     isCheckingPhone = true
                                     
-                                    // PRE-OTP USER CHECK: Verify user existence before sending OTP
-                                    val userExists = com.example.dutype.utils.FirestoreUtils.doesUserExist(fullPhoneNumber)
-                                    
-                                    if (isRegistrationMode && userExists) {
-                                        // Registration mode but user exists - block registration
-                                        isCheckingPhone = false
-                                        Toast.makeText(
-                                            context,
-                                            "This number is already registered. Please use Login instead.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        Timber.w("📱 Registration blocked - User already exists: $fullPhoneNumber")
-                                        return@launch
-                                    } else if (!isRegistrationMode && !userExists) {
-                                        // Login mode but user doesn't exist - block login
-                                        isCheckingPhone = false
-                                        Toast.makeText(
-                                            context,
-                                            "No account found with this number. Please Register first.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        Timber.w("📱 Login blocked - User doesn't exist: $fullPhoneNumber")
-                                        return@launch
-                                    }
-                                    
                                     isCheckingPhone = false
                                     profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
                                     profileCompletionViewModel.savePhoneNumber(fullPhoneNumber)

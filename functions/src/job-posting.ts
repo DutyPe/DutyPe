@@ -14,6 +14,8 @@
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { createHash } from 'crypto';
+import { validateString } from './validation';
 
 const db = admin.firestore();
 
@@ -39,19 +41,21 @@ export const createJobWithIdempotency = functions.https.onCall(async (data, cont
         );
     }
 
-    const { idempotencyKey, ...jobData } = data;
-
-    // Validate idempotency key
-    if (!idempotencyKey || typeof idempotencyKey !== 'string') {
-        throw new functions.https.HttpsError(
-            'invalid-argument',
-            'Idempotency key is required'
-        );
+    const idempotencyKey = validateString(data?.idempotencyKey, 'idempotencyKey', {
+        required: true, maxLength: 128, pattern: /^[a-zA-Z0-9_-]+$/
+    });
+    const { idempotencyKey: ignoredKey, ...jobData } = data;
+    const employerId = context.auth.uid;
+    if (jobData.employerId !== employerId) {
+        throw new functions.https.HttpsError('permission-denied', 'You can only create your own jobs');
     }
+    validateString(jobData.title, 'title', { required: true, maxLength: 500 });
+    validateString(jobData.category, 'category', { required: true, maxLength: 100 });
 
     try {
         // Check if job with this idempotency key already exists
         const existingJobsSnapshot = await db.collection('jobs')
+            .where('employerId', '==', employerId)
             .where('idempotencyKey', '==', idempotencyKey)
             .limit(1)
             .get();
@@ -75,25 +79,35 @@ export const createJobWithIdempotency = functions.https.onCall(async (data, cont
             );
         }
 
-        // Create new job with idempotency key
-        const jobRef = await db.collection('jobs').add({
-            ...jobData,
-            idempotencyKey,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            isActive: true,
-            isFilled: false
+        const jobId = createHash('sha256').update(`${employerId}\0${idempotencyKey}`).digest('hex');
+        const jobRef = db.collection('jobs').doc(jobId);
+        const duplicate = await db.runTransaction(async transaction => {
+            const existing = await transaction.get(jobRef);
+            if (existing.exists) {
+                if (existing.get('employerId') !== employerId) {
+                    throw new functions.https.HttpsError('permission-denied', 'Job ownership does not match');
+                }
+                return true;
+            }
+            const now = Date.now();
+            transaction.create(jobRef, {
+                ...jobData, employerId, jobId, idempotencyKey,
+                createdAt: now, updatedAt: now, isActive: true, isFilled: false,
+                acceptedCount: 0, applicationCount: 0
+            });
+            return false;
         });
 
         functions.logger.info(`New job created: ${jobRef.id} with idempotency key: ${idempotencyKey}`);
 
         return {
             jobId: jobRef.id,
-            duplicate: false,
+            duplicate,
             message: 'Job created successfully'
         };
 
     } catch (error: any) {
+        if (error instanceof functions.https.HttpsError) throw error;
         functions.logger.error('Error creating job:', error);
         throw new functions.https.HttpsError(
             'internal',
@@ -120,7 +134,7 @@ export const batchUpdateVacancyStatus = functions.https.onCall(async (data, cont
         throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
     }
 
-    const { jobIds } = data;
+    const jobIds = data?.jobIds;
 
     if (!Array.isArray(jobIds) || jobIds.length === 0) {
         throw new functions.https.HttpsError('invalid-argument', 'jobIds must be a non-empty array');
@@ -130,14 +144,20 @@ export const batchUpdateVacancyStatus = functions.https.onCall(async (data, cont
     if (jobIds.length > 10) {
         throw new functions.https.HttpsError('invalid-argument', 'Maximum 10 jobs per batch');
     }
+    for (const jobId of jobIds) validateString(jobId, 'jobId', { required: true, maxLength: 256, pattern: /^[a-zA-Z0-9_-]+$/ });
+    const employerId = context.auth.uid;
 
     try {
-        const batch = db.batch();
+        return await db.runTransaction(async transaction => {
+        const jobs = await transaction.getAll(...Array.from(new Set<string>(jobIds)).map(jobId => db.collection('jobs').doc(jobId)));
+        if (jobs.some(job => job.exists && job.get('employerId') !== employerId)) {
+            throw new functions.https.HttpsError('permission-denied', 'You can only update your own jobs');
+        }
         const results: { [key: string]: any } = {};
 
-        for (const jobId of jobIds) {
-            const jobRef = db.collection('jobs').doc(jobId);
-            const jobDoc = await jobRef.get();
+        for (const jobDoc of jobs) {
+            const jobId = jobDoc.id;
+            const jobRef = jobDoc.ref;
 
             if (!jobDoc.exists) {
                 results[jobId] = { error: 'Job not found' };
@@ -146,7 +166,7 @@ export const batchUpdateVacancyStatus = functions.https.onCall(async (data, cont
 
             const jobData = jobDoc.data();
             const vacancies = jobData?.vacancies || 0;
-            const applicationsCount = jobData?.applicationsCount || 0;
+            const applicationsCount = jobData?.acceptedCount || 0;
 
             // Calculate vacancy status
             const isFilled = applicationsCount >= vacancies;
@@ -160,15 +180,15 @@ export const batchUpdateVacancyStatus = functions.https.onCall(async (data, cont
 
             // Update if status changed
             if (jobData?.isFilled !== isFilled) {
-                batch.update(jobRef, { isFilled });
+                transaction.update(jobRef, { isFilled });
             }
         }
 
-        await batch.commit();
-
         return { success: true, results };
+        });
 
     } catch (error: any) {
+        if (error instanceof functions.https.HttpsError) throw error;
         functions.logger.error('Batch update error:', error);
         throw new functions.https.HttpsError('internal', 'Batch update failed', error.message);
     }

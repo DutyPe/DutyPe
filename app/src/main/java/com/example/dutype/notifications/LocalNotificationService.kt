@@ -102,13 +102,13 @@ class LocalNotificationService @Inject constructor() {
      */
     suspend fun archiveNotification(notificationId: String): Result<Unit> {
         return try {
-        val index = notificationsList.indexOfFirst { it.id == notificationId }
-        if (index != -1) {
-            notificationsList[index] = notificationsList[index].copy(
-                isArchived = true,
-                archivedAt = System.currentTimeMillis()
-            )
-            _notifications.value = notificationsList.toList()
+            val index = notificationsList.indexOfFirst { it.id == notificationId }
+            if (index != -1) {
+                notificationsList[index] = notificationsList[index].copy(
+                    isArchived = true,
+                    archivedAt = System.currentTimeMillis()
+                )
+                _notifications.value = notificationsList.toList()
                 updateUnreadCount()
                 Result.success(Unit)
             } else {

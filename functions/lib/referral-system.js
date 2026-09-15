@@ -35,6 +35,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.onUserProfileComplete = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const firestore_1 = require("firebase-admin/firestore");
+const crypto_1 = require("crypto");
 const validation_1 = require("./validation");
 const db = admin.firestore();
 // ============================================
@@ -42,17 +44,17 @@ const db = admin.firestore();
 // ============================================
 const REFERRAL_CONFIG = {
     // Reward amounts (in INR)
-    REWARD_PER_REFERRAL: 25,
-    SIGNUP_BONUS: 25,
-    MIN_WITHDRAWAL: 50,
-    MAX_WITHDRAWAL_PER_DAY: 1000,
+    REWARD_PER_REFERRAL: 25, // ₹25 per successful referral
+    SIGNUP_BONUS: 25, // ₹25 for new user who uses code
+    MIN_WITHDRAWAL: 50, // Minimum ₹50 to withdraw
+    MAX_WITHDRAWAL_PER_DAY: 1000, // Max ₹1000 per day
     // Milestone bonuses
     MILESTONES: {
-        5: 50,
-        10: 100,
-        15: 150,
-        25: 250,
-        50: 500,
+        5: 50, // 5 referrals = ₹50 bonus
+        10: 100, // 10 referrals = ₹100 bonus
+        15: 150, // 15 referrals = ₹150 bonus
+        25: 250, // 25 referrals = ₹250 bonus
+        50: 500, // 50 referrals = ₹500 bonus
         100: 1000 // 100 referrals = ₹1000 bonus
     },
     // Withdrawal milestones (can withdraw at these counts)
@@ -64,11 +66,11 @@ const REFERRAL_CONFIG = {
         25: { count: 25, days: 60 }
     },
     // Fraud prevention
-    MAX_REFERRALS_PER_DAY: 50,
-    MAX_PENDING_REFERRALS: 100,
-    REFERRAL_EXPIRY_DAYS: 30,
-    SAME_DEVICE_COOLDOWN_HOURS: 24,
-    SAME_IP_MAX_REFERRALS: 5,
+    MAX_REFERRALS_PER_DAY: 50, // Max referrals per user per day
+    MAX_PENDING_REFERRALS: 100, // Max pending referrals
+    REFERRAL_EXPIRY_DAYS: 30, // Referral expires in 30 days
+    SAME_DEVICE_COOLDOWN_HOURS: 24, // Same device can't be used for 24 hours
+    SAME_IP_MAX_REFERRALS: 5, // Max 5 referrals from same IP per day
     // Tier thresholds
     TIERS: {
         BRONZE: 0,
@@ -929,117 +931,113 @@ exports.expirePendingReferrals = functions.pubsub
 // EVENT 5: WITHDRAWAL REQUEST PROCESSING
 // ============================================
 exports.requestWithdrawal = functions.https.onCall(async (data, context) => {
+    var _a, _b, _c;
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
     }
     const userId = context.auth.uid;
-    try {
-        (0, validation_1.validateUserId)(userId, true);
-        (0, validation_1.validateNumber)(data.amount, "amount", { min: 1, max: 100000 });
-        (0, validation_1.validateEnum)(data.paymentMethod || "UPI", "paymentMethod", ["UPI", "BANK_TRANSFER"]);
-        if (data.paymentMethod === "UPI" && data.upiId) {
-            (0, validation_1.validateString)(data.upiId, "upiId", { minLength: 3, maxLength: 100 });
-        }
-        if (data.paymentMethod === "BANK_TRANSFER" && data.bankDetails) {
-            (0, validation_1.validateString)(data.bankDetails.accountNumber, "accountNumber", { minLength: 8, maxLength: 20 });
-            (0, validation_1.validateString)(data.bankDetails.ifscCode, "ifscCode", { minLength: 11, maxLength: 11 });
-            (0, validation_1.validateString)(data.bankDetails.accountHolderName, "accountHolderName", { minLength: 2, maxLength: 100 });
-        }
+    if (!data || typeof data !== "object" || typeof data.amount !== "number") {
+        throw new functions.https.HttpsError("invalid-argument", "A numeric amount and request details are required");
     }
-    catch (error) {
-        throw new functions.https.HttpsError("invalid-argument", error.message);
+    if (data.userId !== undefined && data.userId !== userId) {
+        throw new functions.https.HttpsError("permission-denied", "Account changed before withdrawal");
     }
-    await (0, validation_1.checkRateLimit)(userId, "withdrawal_requests", 5, 24 * 60 * 60 * 1000);
-    const amount = parseFloat(data.amount);
-    const paymentMethod = data.paymentMethod || "UPI";
-    const upiId = data.upiId;
-    const bankDetails = data.bankDetails;
+    const amount = (0, validation_1.validateNumber)(data.amount, "amount", {
+        required: true, min: REFERRAL_CONFIG.MIN_WITHDRAWAL, max: REFERRAL_CONFIG.MAX_WITHDRAWAL_PER_DAY
+    });
+    const amountPaise = Math.round(amount * 100);
+    if (!Number.isSafeInteger(amountPaise) || Math.abs(amount * 100 - amountPaise) > 0.000001) {
+        throw new functions.https.HttpsError("invalid-argument", "Amount must have at most two decimal places");
+    }
+    const requestId = (0, validation_1.validateString)(data.requestId, "requestId", {
+        required: true, minLength: 16, maxLength: 80, pattern: /^[a-zA-Z0-9_-]+$/
+    });
+    const paymentMethod = (0, validation_1.validateEnum)(data.paymentMethod || "UPI", "paymentMethod", ["UPI", "BANK_TRANSFER"]);
+    const payment = {
+        paymentMethod,
+        upiId: paymentMethod === "UPI" ? (0, validation_1.validateString)(data.upiId, "upiId", {
+            required: true, minLength: 5, maxLength: 100, pattern: /^[a-zA-Z0-9._-]+@[a-zA-Z][a-zA-Z0-9.-]+$/
+        }) : null,
+        bankAccountNumber: paymentMethod === "BANK_TRANSFER" ? (0, validation_1.validateString)((_a = data.bankDetails) === null || _a === void 0 ? void 0 : _a.accountNumber, "accountNumber", {
+            required: true, minLength: 8, maxLength: 20, pattern: /^[0-9]+$/
+        }) : null,
+        ifscCode: paymentMethod === "BANK_TRANSFER" ? (0, validation_1.validateString)((_b = data.bankDetails) === null || _b === void 0 ? void 0 : _b.ifscCode, "ifscCode", {
+            required: true, pattern: /^[A-Z]{4}0[A-Z0-9]{6}$/
+        }) : null,
+        accountHolderName: paymentMethod === "BANK_TRANSFER" ? (0, validation_1.validateString)((_c = data.bankDetails) === null || _c === void 0 ? void 0 : _c.accountHolderName, "accountHolderName", {
+            required: true, minLength: 2, maxLength: 100
+        }) : null
+    };
+    const withdrawalId = (0, crypto_1.createHash)("sha256").update(`${userId}\0${requestId}`).digest("hex");
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const day = today.toISOString().slice(0, 10);
     try {
         const userRef = db.collection("users").doc(userId);
-        const legacyStatsRef = db.collection("referral_stats").doc(userId);
-        const [userDoc, legacyStatsDoc] = await Promise.all([
-            userRef.get(),
-            legacyStatsRef.get()
-        ]);
-        if (!userDoc.exists) {
-            return { success: false, error: "No referral stats found" };
-        }
-        const userData = userDoc.data() || {};
-        const stats = getCombinedReferralStats(userData, legacyStatsDoc.data() || {});
-        const availableBalance = getNumberValue(stats.availableBalance);
-        const successfulReferrals = getNumberValue(stats.successfulReferrals);
-        const canUserWithdraw = getBooleanValue(stats.canWithdraw, canWithdraw(successfulReferrals));
-        if (getBooleanValue(stats.isBlocked)) {
-            return { success: false, error: "Your account is blocked from withdrawals" };
-        }
-        if (!canUserWithdraw) {
-            return { success: false, error: "You need at least 5 successful referrals to withdraw" };
-        }
-        if (amount < REFERRAL_CONFIG.MIN_WITHDRAWAL) {
-            return { success: false, error: "Minimum withdrawal is Rs." + REFERRAL_CONFIG.MIN_WITHDRAWAL };
-        }
-        if (amount > availableBalance) {
-            return { success: false, error: "Insufficient balance. Available: Rs." + availableBalance };
-        }
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayWithdrawals = await db.collection("withdrawal_requests")
-            .where("userId", "==", userId)
-            .where("createdAt", ">=", today)
-            .get();
-        const todayTotal = todayWithdrawals.docs.reduce((sum, doc) => sum + getNumberValue(doc.data().amount), 0);
-        if (todayTotal + amount > REFERRAL_CONFIG.MAX_WITHDRAWAL_PER_DAY) {
-            return { success: false, error: "Daily limit is Rs." + REFERRAL_CONFIG.MAX_WITHDRAWAL_PER_DAY };
-        }
-        if (paymentMethod === "UPI" && !upiId) {
-            return { success: false, error: "UPI ID is required" };
-        }
-        if (paymentMethod === "BANK_TRANSFER" && (!(bankDetails === null || bankDetails === void 0 ? void 0 : bankDetails.accountNumber) || !(bankDetails === null || bankDetails === void 0 ? void 0 : bankDetails.ifscCode))) {
-            return { success: false, error: "Bank account details are required" };
-        }
-        const userRole = getStringValue(userData.activeRole || userData.role || stats.userRole, "WORKER");
-        const withdrawalId = db.collection("withdrawal_requests").doc().id;
-        const batch = db.batch();
-        batch.set(db.collection("withdrawal_requests").doc(withdrawalId), {
-            id: withdrawalId,
-            userId,
-            userRole,
-            amount,
-            status: "PENDING",
-            paymentMethod,
-            upiId: upiId || null,
-            bankAccountNumber: (bankDetails === null || bankDetails === void 0 ? void 0 : bankDetails.accountNumber) || null,
-            ifscCode: (bankDetails === null || bankDetails === void 0 ? void 0 : bankDetails.ifscCode) || null,
-            accountHolderName: (bankDetails === null || bankDetails === void 0 ? void 0 : bankDetails.accountHolderName) || null,
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
+        const statsRef = db.collection("referral_stats").doc(userId);
+        const withdrawalRef = db.collection("withdrawal_requests").doc(withdrawalId);
+        const dailyRef = db.collection("withdrawal_daily").doc(`${userId}_${day}`);
+        return await db.runTransaction(async (transaction) => {
+            var _a;
+            const [withdrawalDoc, userDoc, statsDoc, dailyDoc] = await transaction.getAll(withdrawalRef, userRef, statsRef, dailyRef);
+            if (withdrawalDoc.exists) {
+                const previous = withdrawalDoc.data();
+                if (previous.userId !== userId || previous.amount !== amount ||
+                    Object.entries(payment).some(([key, value]) => previous[key] !== value)) {
+                    throw new functions.https.HttpsError("already-exists", "Request ID was already used for different withdrawal details");
+                }
+                return { success: true, withdrawalId };
+            }
+            if (!userDoc.exists || !statsDoc.exists) {
+                return { success: false, error: "An authoritative referral balance is not available. Contact support." };
+            }
+            const userData = userDoc.data();
+            const stats = statsDoc.data();
+            if (getBooleanValue(stats.isBlocked) || getBooleanValue((_a = userData.referralStats) === null || _a === void 0 ? void 0 : _a.isBlocked)) {
+                return { success: false, error: "Your account is blocked from withdrawals" };
+            }
+            if (!canWithdraw(getNumberValue(stats.successfulReferrals))) {
+                return { success: false, error: "You have not reached a withdrawal referral milestone" };
+            }
+            const availablePaise = Math.round(getNumberValue(stats.availableBalance) * 100);
+            if (!Number.isSafeInteger(availablePaise) || amountPaise > availablePaise) {
+                return { success: false, error: "Insufficient referral balance" };
+            }
+            let dailyPaise = getNumberValue(dailyDoc.get("amountPaise"));
+            let dailyCount = getNumberValue(dailyDoc.get("requestCount"));
+            if (!dailyDoc.exists) {
+                const previousRequests = await transaction.get(db.collection("withdrawal_requests")
+                    .where("userId", "==", userId).where("createdAt", ">=", today));
+                dailyPaise = previousRequests.docs.reduce((total, document) => total + Math.round(getNumberValue(document.get("amount")) * 100), 0);
+                dailyCount = previousRequests.size;
+            }
+            if (dailyPaise + amountPaise > REFERRAL_CONFIG.MAX_WITHDRAWAL_PER_DAY * 100 || dailyCount >= 5) {
+                return { success: false, error: "Daily withdrawal limit reached" };
+            }
+            const userRole = getStringValue(userData.activeRole || userData.role || stats.userRole, "WORKER");
+            const availableBalance = (availablePaise - amountPaise) / 100;
+            const withdrawnAmount = (Math.round(getNumberValue(stats.withdrawnAmount) * 100) + amountPaise) / 100;
+            const totalWithdrawals = getNumberValue(stats.totalWithdrawals) + 1;
+            const timestamp = firestore_1.FieldValue.serverTimestamp();
+            transaction.create(withdrawalRef, Object.assign(Object.assign({ id: withdrawalId, requestId, userId, userRole, amount, status: "PENDING" }, payment), { createdAt: timestamp }));
+            transaction.set(dailyRef, { userId, day, amountPaise: dailyPaise + amountPaise, requestCount: dailyCount + 1 });
+            transaction.update(statsRef, { availableBalance, withdrawnAmount, totalWithdrawals, lastWithdrawalAt: timestamp, lastUpdated: timestamp });
+            transaction.update(userRef, {
+                "referralStats.availableBalance": availableBalance,
+                "referralStats.withdrawnAmount": withdrawnAmount,
+                "referralStats.totalWithdrawals": totalWithdrawals,
+                "referralStats.lastWithdrawalAt": timestamp,
+                "referralStats.lastUpdated": timestamp
+            });
+            transaction.create(db.collection("referral_events").doc(`withdrawal_${withdrawalId}`), {
+                eventType: "WITHDRAWAL_REQUESTED", userId, withdrawalId, amount, timestamp
+            });
+            return { success: true, withdrawalId };
         });
-        batch.update(userRef, {
-            "referralStats.availableBalance": admin.firestore.FieldValue.increment(-amount),
-            "referralStats.withdrawnAmount": admin.firestore.FieldValue.increment(amount),
-            "referralStats.lastWithdrawalAt": admin.firestore.FieldValue.serverTimestamp(),
-            "referralStats.totalWithdrawals": admin.firestore.FieldValue.increment(1),
-            "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
-        });
-        batch.set(legacyStatsRef, {
-            userId,
-            userRole,
-            availableBalance: admin.firestore.FieldValue.increment(-amount),
-            withdrawnAmount: admin.firestore.FieldValue.increment(amount),
-            lastWithdrawalAt: admin.firestore.FieldValue.serverTimestamp(),
-            totalWithdrawals: admin.firestore.FieldValue.increment(1),
-            lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-        batch.set(db.collection("referral_events").doc(), {
-            eventType: "WITHDRAWAL_REQUESTED",
-            userId,
-            withdrawalId,
-            amount,
-            timestamp: admin.firestore.FieldValue.serverTimestamp()
-        });
-        await batch.commit();
-        return { success: true, withdrawalId };
     }
     catch (error) {
+        if (error instanceof functions.https.HttpsError)
+            throw error;
         functions.logger.error("REFERRAL: Error creating withdrawal:", error);
         throw new functions.https.HttpsError("internal", "Failed to create withdrawal request");
     }

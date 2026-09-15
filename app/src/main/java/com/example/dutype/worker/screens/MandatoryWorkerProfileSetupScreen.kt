@@ -2070,5 +2070,5 @@ fun animateIntAsState(
         targetValue = targetValue.toFloat(),
         animationSpec = animationSpec
     )
-    return derivedStateOf { floatValue.toInt() }
+    return remember { derivedStateOf { floatValue.toInt() } }
 }

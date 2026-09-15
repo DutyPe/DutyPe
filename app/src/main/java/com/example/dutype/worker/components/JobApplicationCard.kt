@@ -70,7 +70,7 @@ import java.util.Locale
 // Helper functions for status display
 private fun getStatusIcon(status: ApplicationStatus): String {
     return when (status) {
-        ApplicationStatus.PENDING -> "⏳"
+        ApplicationStatus.PENDING, ApplicationStatus.IN_PROGRESS -> "⏳"
         ApplicationStatus.UNDER_REVIEW -> "👀"
         ApplicationStatus.ACCEPTED -> "🎉"
         ApplicationStatus.COMPLETED -> "✅"
@@ -84,6 +84,7 @@ private fun getStatusDisplayName(status: ApplicationStatus): String {
         ApplicationStatus.PENDING -> "Pending Review"
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
         ApplicationStatus.ACCEPTED -> "Accepted"
+        ApplicationStatus.IN_PROGRESS -> "In Progress"
         ApplicationStatus.COMPLETED -> "Completed"
         ApplicationStatus.REJECTED -> "Not Selected"
         ApplicationStatus.WITHDRAWN -> "Withdrawn"
@@ -95,6 +96,7 @@ private fun getStatusColor(status: ApplicationStatus): Color {
         ApplicationStatus.PENDING -> Color(0xFFF59E0B) // Amber
         ApplicationStatus.UNDER_REVIEW -> Color(0xFF3B82F6) // Blue
         ApplicationStatus.ACCEPTED -> Color(0xFF10B981) // Green
+        ApplicationStatus.IN_PROGRESS -> Color(0xFF00897B)
         ApplicationStatus.COMPLETED -> Color(0xFF7C3AED) // Purple
         ApplicationStatus.REJECTED -> Color(0xFFEF4444) // Red
         ApplicationStatus.WITHDRAWN -> Color(0xFF6B7280) // Gray

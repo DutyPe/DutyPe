@@ -110,12 +110,6 @@ class PendingApplicationNotificationWorker @AssistedInject constructor(
                     // Send notification (no quiet hours restriction as per requirements)
                     notificationService.sendNotification(notification, workerId)
                     
-                    // Update lastPendingNotificationSent timestamp
-                    firestore.collection("job_applications")
-                        .document(applicationId)
-                        .update("lastPendingNotificationSent", now)
-                        .await()
-                    
                     notificationsSent++
                     Timber.d("✅ Sent pending application notification for job $jobId to worker $workerId")
                     

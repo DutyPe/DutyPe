@@ -38,12 +38,13 @@ android {
         versionName = "2.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("boolean", "LOCAL_STAGING", "false")
         
         buildConfigField("String", "MAPS_API_KEY", "\"${localProperties.getProperty("MAPS_API_KEY", "")}\"")
         buildConfigField("String", "AZURE_MAPS_KEY", "\"${localProperties.getProperty("AZURE_MAPS_KEY", "")}\"")
         
         // AI Backend Configuration
-        buildConfigField("String", "AI_BACKEND_URL", "\"${localProperties.getProperty("AI_BACKEND_URL", "http://10.0.2.2:8000/")}\"")
+        buildConfigField("String", "AI_BACKEND_URL", "\"${localProperties.getProperty("AI_BACKEND_URL", "")}\"")
         buildConfigField("String", "AI_BACKEND_API_KEY", "\"${localProperties.getProperty("AI_BACKEND_API_KEY", "")}\"")
         
         // Manifest placeholders for API keys
@@ -87,8 +88,22 @@ android {
         debug {
             isMinifyEnabled = false
             isShrinkResources = false
+            buildConfigField("String", "AI_BACKEND_URL", "\"${localProperties.getProperty("AI_BACKEND_URL", "http://10.0.2.2:8000/")}\"")
+        }
+        create("staging") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".staging"
+            versionNameSuffix = "-local-staging"
+            matchingFallbacks += listOf("debug")
+            buildConfigField("boolean", "LOCAL_STAGING", "true")
+            buildConfigField("String", "AI_BACKEND_URL", "\"\"")
+            buildConfigField("String", "AI_BACKEND_API_KEY", "\"\"")
+            buildConfigField("String", "MAPS_API_KEY", "\"\"")
+            buildConfigField("String", "AZURE_MAPS_KEY", "\"\"")
+            manifestPlaceholders["MAPS_API_KEY"] = ""
         }
     }
+    testBuildType = if (providers.gradleProperty("localStagingTests").orNull == "true") "staging" else "debug"
     
     // JNI Libraries packaging - 16KB page size compatibility
     packaging {
@@ -158,8 +173,7 @@ android {
         // (IncompatibleClassChangeError in NonNullableMutableLiveDataDetector)
         disable += "NullSafeMutableLiveData"
         
-        // Don't abort build on lint errors during release
-        abortOnError = false
+        abortOnError = true
     }
 }
 

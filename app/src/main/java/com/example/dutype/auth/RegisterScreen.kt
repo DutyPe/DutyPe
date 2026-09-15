@@ -95,6 +95,7 @@ import com.example.dutype.viewmodels.OtpState
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
 /**
@@ -160,6 +161,26 @@ private fun RegisterContent(
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 if (currentUser != null) {
                     val userId = currentUser.uid
+                    val existing = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                        .collection("users").document(userId)
+                        .get(com.google.firebase.firestore.Source.SERVER).await().data
+                    val existingName = (existing?.get("fullName") as? String)
+                        ?.takeIf { it.isNotBlank() } ?: existing?.get("name") as? String
+                    if (!existingName.isNullOrBlank() || existing?.get("profileCompleted") == true) {
+                        profileCompletionViewModel.updateUserRole(role)
+                        profileCompletionViewModel.saveUserInfoToLocalStorage(
+                            email = existing?.get("email") as? String ?: "",
+                            name = existingName.orEmpty(), role = role
+                        )
+                        if (existing?.get("profileCompleted") == true) {
+                            val destination = if (role == UserRole.EMPLOYER) Routes.EMPLOYER_HOME else Routes.WORKER_HOME
+                            navController.navigate(destination) { popUpTo(0) { inclusive = true } }
+                        } else {
+                            navigateToProfileSetup(role, navController)
+                        }
+                        otpViewModel.resetState()
+                        return@LaunchedEffect
+                    }
                     profileCompletionViewModel.updateUserRole(role)
 
                     // Save the full name captured during registration
@@ -270,19 +291,6 @@ private fun RegisterContent(
                             scope.launch {
                                 try {
                                     isCheckingPhone = true
-
-                                    // Check if user already exists
-                                    val userExists = FirestoreUtils.doesUserExist(fullPhoneNumber)
-                                    if (userExists) {
-                                        isCheckingPhone = false
-                                        Toast.makeText(
-                                            context,
-                                            "This number is already registered. Please Login instead.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        Timber.w("📱 REGISTER blocked - User already exists: $fullPhoneNumber")
-                                        return@launch
-                                    }
 
                                     isCheckingPhone = false
                                     profileCompletionViewModel.saveAuthMethod("PHONE_OTP")

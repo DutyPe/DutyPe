@@ -297,6 +297,7 @@ class DutyPeApplication : Application(), Configuration.Provider {
      * Handles errors gracefully - OTP still works without App Check in most cases
      */
     private fun initializeAppCheck() {
+        if (BuildConfig.LOCAL_STAGING) return
         try {
             val firebaseAppCheck = FirebaseAppCheck.getInstance()
             

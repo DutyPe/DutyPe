@@ -16,10 +16,30 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 import com.example.dutype.utils.SecureLogger
 import javax.inject.Inject
 import javax.inject.Singleton
+
+internal fun withdrawalRequestFingerprint(userId: String, details: Map<String, Any?>): String {
+    val encoded = com.google.gson.Gson().toJson(listOf(userId, details)).toByteArray(Charsets.UTF_8)
+    return java.security.MessageDigest.getInstance("SHA-256").digest(encoded)
+        .joinToString("") { "%02x".format(it) }
+}
+
+internal class WithdrawalRequestJournal(
+    private val read: (String) -> String?,
+    private val write: (String, String?) -> Boolean
+) {
+    fun begin(fingerprint: String): String = read(fingerprint) ?: java.util.UUID.randomUUID().toString().also {
+        check(write(fingerprint, it)) { "Cannot safely save the withdrawal request. Please try again." }
+    }
+
+    fun complete(fingerprint: String): Boolean = write(fingerprint, null)
+}
 
 /**
  * ============================================
@@ -56,6 +76,17 @@ class ReferralService @Inject constructor(
         private const val COLLECTION_WITHDRAWALS = "withdrawal_requests"
         private const val COLLECTION_USERS = "users"
     }
+
+    private val withdrawalMutex = Mutex()
+    private val withdrawalPreferences = context.getSharedPreferences("pending_withdrawals", android.content.Context.MODE_PRIVATE)
+    private val withdrawalJournal = WithdrawalRequestJournal(
+        read = { withdrawalPreferences.getString(it, null) },
+        write = { key, value ->
+            val editor = withdrawalPreferences.edit()
+            if (value == null) editor.remove(key) else editor.putString(key, value)
+            editor.commit()
+        }
+    )
 
     private suspend fun findReferralCodeDocument(rawCode: String): DocumentSnapshot? {
         val normalizedCode = normalizeReferralCode(rawCode)
@@ -649,20 +680,26 @@ class ReferralService @Inject constructor(
         paymentMethod: PaymentMethod,
         upiId: String? = null,
         bankDetails: BankDetails? = null
-    ): Result<WithdrawalResult> {
-        return try {
-            val data = hashMapOf<String, Any?>(
+    ): Result<WithdrawalResult> = withContext(Dispatchers.IO) {
+        withdrawalMutex.withLock {
+        try {
+            val userId = auth.currentUser?.uid ?: return@withLock Result.failure(Exception("User not authenticated"))
+            val data = linkedMapOf<String, Any?>(
+                "userId" to userId,
                 "amount" to amount,
                 "paymentMethod" to paymentMethod.name,
-                "upiId" to upiId,
+                "upiId" to upiId?.trim(),
                 "bankDetails" to bankDetails?.let {
-                    hashMapOf(
-                        "accountNumber" to it.accountNumber,
-                        "ifscCode" to it.ifscCode,
-                        "accountHolderName" to it.accountHolderName
+                    linkedMapOf(
+                        "accountNumber" to it.accountNumber.trim(),
+                        "ifscCode" to it.ifscCode.trim().uppercase(),
+                        "accountHolderName" to it.accountHolderName.trim()
                     )
                 }
             )
+            val fingerprint = withdrawalRequestFingerprint(userId, data)
+            data["requestId"] = withdrawalJournal.begin(fingerprint)
+            check(auth.currentUser?.uid == userId) { "Account changed before withdrawal" }
 
             Timber.d("🎁 REFERRAL: Requesting withdrawal of ₹$amount")
 
@@ -673,8 +710,9 @@ class ReferralService @Inject constructor(
 
             @Suppress("UNCHECKED_CAST")
             val response = result.data as? Map<String, Any?> ?: emptyMap()
-            
-            val success = response["success"] as? Boolean ?: false
+            val success = response["success"] as? Boolean
+                ?: throw IllegalStateException("Withdrawal result is unknown. Retry to check the same request.")
+            withdrawalJournal.complete(fingerprint)
             
             if (success) {
                 Timber.d("🎁 REFERRAL: ✅ Withdrawal request created")
@@ -688,9 +726,12 @@ class ReferralService @Inject constructor(
                 Result.failure(Exception(error))
             }
 
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "🎁 REFERRAL: Error requesting withdrawal")
             Result.failure(e)
+        }
         }
     }
 

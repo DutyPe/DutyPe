@@ -65,6 +65,7 @@ class EmployerApplicationViewModel @Inject constructor(
     }
     
     private val auth = FirebaseAuth.getInstance()
+    private var applicationsSubscription: kotlinx.coroutines.Job? = null
     
     // Note: Don't load applications in init - let the screen decide what to load
     // based on whether it's viewing all applications or job-specific applications
@@ -83,7 +84,8 @@ class EmployerApplicationViewModel @Inject constructor(
             return
         }
         
-        viewModelScope.launch {
+        applicationsSubscription?.cancel()
+        applicationsSubscription = viewModelScope.launch {
             val startTime = System.currentTimeMillis()
             com.example.dutype.performance.MainThreadChecker.assertMainThread("EmployerApplicationViewModel.loadEmployerApplications")
             
@@ -124,6 +126,8 @@ class EmployerApplicationViewModel @Inject constructor(
                             performanceTracker.trackApiCall("load_employer_applications", duration, success = false)
                             
                             _uiState.value = _uiState.value.copy(
+                                applications = emptyList(),
+                                allApplications = emptyList(),
                                 isLoading = false,
                                 hasError = true,
                                 error = error.message ?: "Failed to load applications"
@@ -131,6 +135,8 @@ class EmployerApplicationViewModel @Inject constructor(
                         }
                     )
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val duration = System.currentTimeMillis() - startTime
                 performanceTracker.trackApiCall("load_employer_applications", duration, success = false)
@@ -149,7 +155,8 @@ class EmployerApplicationViewModel @Inject constructor(
      * SCALABILITY: Enriches applications with worker profile data dynamically
      */
     fun loadJobApplications(jobId: String) {
-        viewModelScope.launch {
+        applicationsSubscription?.cancel()
+        applicationsSubscription = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, hasError = false)
             
             try {
@@ -180,6 +187,8 @@ class EmployerApplicationViewModel @Inject constructor(
                         onFailure = { error ->
                             Timber.e("[EmployerApplicationViewModel] Failed to load job applications for $jobId: ${error.message}")
                             _uiState.value = _uiState.value.copy(
+                                applications = emptyList(),
+                                allApplications = emptyList(),
                                 isLoading = false,
                                 hasError = true,
                                 error = error.message ?: "Failed to load job applications"
@@ -187,6 +196,8 @@ class EmployerApplicationViewModel @Inject constructor(
                         }
                     )
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Timber.e("[EmployerApplicationViewModel] Exception loading job applications for $jobId: ${e.message}")
                 _uiState.value = _uiState.value.copy(
@@ -270,18 +281,23 @@ class EmployerApplicationViewModel @Inject constructor(
         if (workerId.isBlank()) return application
         
         // Check cache first
-        val cachedProfile = workerProfileCache[workerId]
+        val cacheKey = "${auth.currentUser?.uid}:${application.id}:${application.status}:$workerId"
+        val cachedProfile = workerProfileCache[cacheKey]
         if (cachedProfile != null) {
             return applyWorkerProfileToApplication(application, cachedProfile)
         }
         
         // Fetch worker profile
         return try {
-            val profileResult = profileCompletionService.getUserProfile(workerId)
+            val profileResult = if (application.status != ApplicationStatus.REJECTED && application.status != ApplicationStatus.WITHDRAWN) {
+                Result.success(com.example.dutype.utils.FirestoreUtils.applicationContact(application.id))
+            } else {
+                profileCompletionService.getUserProfile(workerId)
+            }
             profileResult.fold(
                 onSuccess = { profile ->
                     // Cache the profile
-                    workerProfileCache[workerId] = profile
+                    workerProfileCache[cacheKey] = profile
                     Timber.d("[EmployerVM] Enriched application with worker profile for workerId=$workerId")
                     applyWorkerProfileToApplication(application, profile)
                 },

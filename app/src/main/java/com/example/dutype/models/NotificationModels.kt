@@ -3,6 +3,14 @@ package com.example.dutype.models
 import androidx.annotation.Keep
 import com.google.firebase.firestore.PropertyName
 
+fun shouldDisplayPush(currentUserId: String?, recipientId: String?, isTopicMessage: Boolean): Boolean {
+    return if (recipientId.isNullOrBlank()) {
+        isTopicMessage
+    } else {
+        !currentUserId.isNullOrBlank() && currentUserId == recipientId
+    }
+}
+
 /**
  * NotificationData - MINIMAL MODEL (8 fields)
  * Based on Urban Company/TaskRabbit patterns

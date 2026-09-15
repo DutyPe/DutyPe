@@ -6,9 +6,20 @@ service cloud.firestore {
     // ADMIN HELPER FUNCTION
     // ============================================
     function isAdmin() {
-      return request.auth != null && 
-             (request.auth.token.email.matches('.*@dutype.com') ||
-              request.auth.token.email in ['admin@dutype.com', 'vamsi@dutype.com', 'vamsib298@gmail.com']);
+      return request.auth != null && request.auth.token.get('admin', false) == true;
+    }
+
+    function referralStats(data) {
+      return data.get('referralStats', null) is map ? data.referralStats : {};
+    }
+
+    function safeReferralStatsUpdate(before, after) {
+      let previous = referralStats(before);
+      let next = referralStats(after);
+      return next.diff(previous).affectedKeys().hasOnly(['lastUpdated', 'freeJobPostings']) &&
+             next.get('freeJobPostings', 0) is number &&
+             next.get('freeJobPostings', 0) >= 0 &&
+             next.get('freeJobPostings', 0) <= previous.get('freeJobPostings', 0);
     }
     
     // ============================================
@@ -20,19 +31,7 @@ service cloud.firestore {
     // DUAL-ROLE: Supports both single role and multi-role (roles array + activeRole)
     // DENORMALIZED: Rating summaries, saved jobs, FCM tokens stored here
     match /users/{userId} {
-      // Owner can read/write their own data
-      allow read: if request.auth != null && request.auth.uid == userId;
-      
-      // Allow authenticated users to read other users' PUBLIC fields only
-      // This is needed for viewing employer profiles on job cards
-      // ADMIN: Allow admins to list all users
-      allow read: if request.auth != null;
-      allow list: if request.auth != null;
-      
-      // PHONE NUMBER LOOKUP: Allow unauthenticated queries for pre-OTP user existence check
-      // This is needed for FirestoreUtils.doesUserExist() during registration
-      // Security: Limited to small queries only (limit <= 2)
-      allow list: if request.query.limit <= 2;  // Allow phone lookup queries (authenticated or not)
+      allow read: if isAdmin() || (request.auth != null && request.auth.uid == userId);
       
       // REFERRAL CODE IMMUTABILITY: Once set, referralCode can NEVER be changed by users
       // REFERRAL STATS: Can be updated by owner OR by Cloud Functions (for rewards)
@@ -40,21 +39,20 @@ service cloud.firestore {
       // RATING SUMMARY: Can be updated by RatingService
       // SAVED JOBS: Can be updated by owner (add/remove saved job IDs)
       // This prevents users from changing their code but allows Cloud Functions to credit rewards
-      allow create: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId &&
+               request.resource.data.get('referralStats', null) == null &&
+               request.resource.data.get('referralCode', '') in ['', null] &&
+                       !('referralCodeCreatedAt' in request.resource.data) &&
+                       request.resource.data.get('averageRating', 0) in [0, null] &&
+                       request.resource.data.get('totalRatings', 0) in [0, null] &&
+                       request.resource.data.get('workerAverageRating', 0) in [0, null] &&
+                       request.resource.data.get('workerTotalRatings', 0) in [0, null];
       
       allow update: if request.auth != null && 
                       request.auth.uid == userId &&
-                      // CRITICAL: Referral code is IMMUTABLE - once set, it can NEVER be changed
-                      // If referralCode exists in old document, new document MUST have same value
-                      // If referralCode doesn't exist in old document, it can be set (by Cloud Function)
-                      // User updates CANNOT change referralCode field at all
-                      (!('referralCode' in request.resource.data) || 
-                       !('referralCode' in resource.data) ||
-                       request.resource.data.referralCode == resource.data.referralCode) &&
-                      // Also protect referralCodeCreatedAt timestamp
-                      (!('referralCodeCreatedAt' in request.resource.data) || 
-                       !('referralCodeCreatedAt' in resource.data) ||
-                       request.resource.data.referralCodeCreatedAt == resource.data.referralCodeCreatedAt) &&
+                      !request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['referralCode', 'referralCodeCreatedAt', 'averageRating', 'totalRatings', 'workerAverageRating', 'workerTotalRatings']) &&
+                      safeReferralStatsUpdate(resource.data, request.resource.data) &&
                       // DUAL-ROLE VALIDATION: Ensure roles array is valid
                       // Must have at least one role, max 2 roles (WORKER and/or EMPLOYER)
                       (!('roles' in request.resource.data) || 
@@ -84,12 +82,15 @@ service cloud.firestore {
       }
     }
     
-    // Phone roles collection - LIMITED PUBLIC READ for pre-login role check
-    // Document ID is the phone number (without +91 prefix)
-    // Contains only { role: "WORKER" | "EMPLOYER" } - minimal data exposure
+    match /public_profiles/{userId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /phone_roles/{phoneNumber} {
-      allow read: if true;  // Safe: only contains role, no PII
-      allow write: if request.auth != null;
+      allow read, write: if request.auth != null &&
+        request.auth.token.get('phone_number', '') != '' &&
+        request.auth.token.phone_number in [phoneNumber, '+91' + phoneNumber, '+' + phoneNumber];
     }
     
     
@@ -100,9 +101,13 @@ service cloud.firestore {
       // Anyone can read jobs (including guests)
       allow read: if true;
       // Employers can manage their own jobs OR admins can manage all jobs
-      allow write: if isAdmin() || (request.auth != null && 
-        (request.auth.uid == resource.data.employerId || 
-         request.auth.uid == request.resource.data.employerId));
+      allow create: if isAdmin() || (request.auth != null &&
+        request.auth.uid == request.resource.data.employerId);
+      allow update: if isAdmin() || (request.auth != null &&
+        request.auth.uid == resource.data.employerId &&
+        request.resource.data.employerId == resource.data.employerId);
+      allow delete: if isAdmin() || (request.auth != null &&
+        request.auth.uid == resource.data.employerId);
       // Workers can update application count
       allow update: if request.auth != null && 
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applicationCount', 'updatedAt', 'lastApplicationAt']);
@@ -113,13 +118,47 @@ service cloud.firestore {
     // ============================================
     // Now includes verification data as nested field (no separate work_verifications collection)
     match /job_applications/{applicationId} {
-      // Authenticated users can read applications they're involved in (worker or employer)
-      allow get: if request.auth != null;
-      allow list: if request.auth != null;
+      function employerStatusUpdateAllowed() {
+        let previous = resource.data.status;
+        let next = request.resource.data.status;
+        return next == previous ||
+               (previous == 'PENDING' && next in ['UNDER_REVIEW', 'ACCEPTED', 'REJECTED']) ||
+               (previous == 'UNDER_REVIEW' && next in ['ACCEPTED', 'REJECTED']) ||
+               (previous == 'ACCEPTED' && next in ['IN_PROGRESS', 'REJECTED']) ||
+               (previous == 'IN_PROGRESS' && next == 'COMPLETED');
+      }
+
+      function workerUpdateAllowed() {
+        let changed = request.resource.data.diff(resource.data).affectedKeys();
+        return (resource.data.status in ['PENDING', 'UNDER_REVIEW'] &&
+                request.resource.data.status == 'WITHDRAWN' &&
+                changed.hasOnly(['status', 'statusHistory', 'updatedAt', 'active'])) ||
+               (resource.data.status == 'ACCEPTED' &&
+                request.resource.data.status == 'ACCEPTED' &&
+                changed.hasOnly(['verification', 'verificationId', 'verificationCode', 'verificationStatus']) &&
+                request.resource.data.verificationStatus == 'PENDING' &&
+                request.resource.data.verification.status == 'PENDING' &&
+                request.resource.data.verification.applicationId == applicationId &&
+                request.resource.data.verification.jobId == resource.data.jobId &&
+                request.resource.data.verification.workerId == resource.data.workerId &&
+                request.resource.data.verification.employerId == resource.data.employerId &&
+                request.resource.data.verification.verificationCode == request.resource.data.verificationCode);
+      }
+
+      allow read: if request.auth != null &&
+        (request.auth.uid == resource.data.workerId || request.auth.uid == resource.data.employerId || isAdmin());
       
-      allow write: if request.auth != null && 
-        (request.auth.uid == request.resource.data.workerId ||
-         request.auth.uid == request.resource.data.employerId);
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.workerId &&
+        request.resource.data.status == 'PENDING' &&
+        request.resource.data.employerId == get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)).data.employerId &&
+        !request.resource.data.keys().hasAny(['verification', 'verificationCode', 'verificationStatus', 'workStartedAt']);
+      allow update: if request.auth != null &&
+        ((request.auth.uid == resource.data.employerId && employerStatusUpdateAllowed()) ||
+         (request.auth.uid == resource.data.workerId && workerUpdateAllowed())) &&
+        request.resource.data.workerId == resource.data.workerId &&
+        request.resource.data.employerId == resource.data.employerId &&
+        request.resource.data.jobId == resource.data.jobId;
     }
     
     
@@ -135,11 +174,10 @@ service cloud.firestore {
       // Security: Query MUST filter by recipientId to only return user's own notifications
       allow list: if request.auth != null && 
         request.auth.uid == resource.data.recipientId;
-      // Allow creating notifications (for system/other users sending notifications)
-      allow create: if request.auth != null;
-      // Only recipient can update (mark as read) or delete their notifications
-      allow update, delete: if request.auth != null && 
-        request.auth.uid == resource.data.recipientId;
+      allow create: if false;
+      allow update: if request.auth != null && request.auth.uid == resource.data.recipientId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'readAt']);
+      allow delete: if request.auth != null && request.auth.uid == resource.data.recipientId;
     }
     
     // ============================================
@@ -246,7 +284,7 @@ service cloud.firestore {
       // Updates only via Cloud Functions
       allow update: if false;
       // Allow listing for history queries
-      allow list: if request.auth != null;
+      allow list: if isAdmin();
     }
     
     // CONSOLIDATED: referral_events and referral_clicks have been merged into referrals collection
@@ -274,14 +312,7 @@ service cloud.firestore {
     match /ratings/{ratingId} {
       // Anyone authenticated can read ratings
       allow read: if request.auth != null;
-      // Users can create ratings (one per application)
-      allow create: if request.auth != null && 
-        request.resource.data.raterId == request.auth.uid;
-      // Users can update their own ratings
-      allow update: if request.auth != null && 
-        request.auth.uid == resource.data.raterId;
-      // No deletion
-      allow delete: if false;
+      allow create, update, delete: if false;
     }
 
     // Withdrawal requests
@@ -294,7 +325,7 @@ service cloud.firestore {
       // Admins can update (process withdrawals)
       allow update: if isAdmin();
       // Allow listing for history
-      allow list: if request.auth != null;
+      allow list: if isAdmin();
     }
   }
 }

@@ -164,8 +164,9 @@ class ReferralViewModel @Inject constructor(
      * Request withdrawal
      */
     fun requestWithdrawal(amount: Double, upiId: String) {
+        if (_uiState.value.isProcessingWithdrawal) return
+        _uiState.value = _uiState.value.copy(isProcessingWithdrawal = true, withdrawalError = null)
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isProcessingWithdrawal = true, withdrawalError = null)
             
             try {
                 val result = referralService.requestWithdrawal(
@@ -191,6 +192,8 @@ class ReferralViewModel @Inject constructor(
                         )
                     }
                 )
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting withdrawal")
                 _uiState.value = _uiState.value.copy(

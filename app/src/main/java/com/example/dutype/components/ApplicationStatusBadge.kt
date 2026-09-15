@@ -97,6 +97,11 @@ private fun getStatusStyle(status: ApplicationStatus): Triple<Color, Color, Imag
             Color(0xFF059669),
             Icons.Default.CheckCircle
         )
+        ApplicationStatus.IN_PROGRESS -> Triple(
+            Color(0xFFE0F2F1),
+            Color(0xFF00897B),
+            Icons.Default.Schedule
+        )
         ApplicationStatus.COMPLETED -> Triple(
             Color(0xFFF3E8FF),
             Color(0xFF7C3AED),
@@ -124,6 +129,7 @@ private fun ApplicationStatus.getDisplayName(): String {
         ApplicationStatus.PENDING -> "Pending"
         ApplicationStatus.UNDER_REVIEW -> "Under Review"
         ApplicationStatus.ACCEPTED -> "Accepted"
+        ApplicationStatus.IN_PROGRESS -> "In Progress"
         ApplicationStatus.COMPLETED -> "Completed"
         ApplicationStatus.REJECTED -> "Rejected"
         ApplicationStatus.WITHDRAWN -> "Withdrawn"

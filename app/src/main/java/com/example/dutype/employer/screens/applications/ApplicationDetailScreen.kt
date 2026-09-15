@@ -157,11 +157,7 @@ fun ApplicationDetailScreen(
         val workerId = application?.workerId
         if (!workerId.isNullOrBlank()) {
             try {
-                val userDoc = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                    .collection("users")
-                    .document(workerId)
-                    .get()
-                    .await()
+                val userDoc = com.example.dutype.utils.FirestoreUtils.readProfileDocument(workerId)
                 if (userDoc.exists()) {
                     workerAverageRating = (userDoc.getDouble("workerAverageRating") ?: 0.0).toFloat()
                     workerTotalRatings = (userDoc.getLong("workerTotalRatings") ?: 0L).toInt()
