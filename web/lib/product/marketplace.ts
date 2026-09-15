@@ -1,5 +1,6 @@
 import { readTimestamp } from "@/lib/firebase/firestore-helpers";
 
+import { hasValidCoordinates } from "./location";
 import { displayProfileName, type ProductUserProfile } from "./profile";
 
 export type ProductApplicationStatus =
@@ -23,6 +24,8 @@ export type ProductStatusHistoryEntry = {
 export type ProductJob = {
   acceptedCount: number;
   applicationCount: number;
+  city: string;
+  area: string;
   category: string;
   companyName: string;
   contactNumber: string;
@@ -111,10 +114,13 @@ export function normalizeProductJob(
   value: Record<string, unknown> | undefined
 ): ProductJob {
   const payload = value ?? {};
+  const hasCoordinates = hasValidCoordinates(payload.latitude, payload.longitude);
 
   return {
     acceptedCount: numberValue(payload.acceptedCount),
     applicationCount: numberValue(payload.applicationCount),
+    city: stringValue(payload.city),
+    area: stringValue(payload.area ?? payload.locality),
     category: stringValue(payload.category).toUpperCase(),
     companyName: stringValue(payload.companyName),
     contactNumber: stringValue(payload.contactNumber),
@@ -129,10 +135,13 @@ export function normalizeProductJob(
     isFilled: booleanValue(payload.isFilled),
     jobId: stringValue(payload.jobId, id),
     jobType: stringValue(payload.jobType, "FULL_TIME"),
-    latitude: numberValue(payload.latitude),
+    latitude: hasCoordinates ? numberValue(payload.latitude) : 0,
     location: stringValue(payload.location),
-    longitude: numberValue(payload.longitude),
-    payAmount: stringValue(payload.payAmount),
+    longitude: hasCoordinates ? numberValue(payload.longitude) : 0,
+    payAmount:
+      typeof payload.payAmount === "number" && Number.isFinite(payload.payAmount)
+        ? String(payload.payAmount)
+        : stringValue(payload.payAmount),
     payType: stringValue(payload.payType, "MONTHLY"),
     postedAt: payload.postedAt ?? payload.createdAt ?? Date.now(),
     shiftTiming: stringValue(payload.shiftTiming),

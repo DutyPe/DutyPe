@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { createContext, createElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { User, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 import { getFirebaseServices } from "@/lib/firebase/client";
+import { FIREBASE_SETUP_ERROR, firebaseAuthErrorMessage } from "@/lib/firebase/auth-errors";
 import {
   extractProductRoles,
   getActiveProductRole,
@@ -23,21 +24,52 @@ export type ProductSession = {
   user: User | null;
 };
 
+const ProductSessionContext = createContext<ProductSession | null>(null);
+
+export function ProductSessionProvider({ children }: { children: ReactNode }) {
+  const session = useProductSessionState();
+  return createElement(ProductSessionContext.Provider, { value: session }, children);
+}
+
 export function useProductSession(): ProductSession {
+  const session = useContext(ProductSessionContext);
+  if (!session) throw new Error("ProductSessionProvider is required for product pages.");
+  return session;
+}
+
+function useProductSessionState(): ProductSession {
   const services = useMemo(() => getFirebaseServices(), []);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProductUserProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const currentUser = useRef<User | null>(null);
+  const profileRequest = useRef(0);
 
-  async function loadProfile(userToLoad: User | null) {
+  const loadProfile = useCallback(async (userToLoad: User | null, showLoading = true) => {
+    const requestId = ++profileRequest.current;
     if (!services || !userToLoad) {
       setProfile(null);
+      setError(services ? null : FIREBASE_SETUP_ERROR);
+      setLoading(false);
       return;
     }
 
+    if (showLoading) setLoading(true);
+    setError(null);
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const isCurrentRequest = () => requestId === profileRequest.current &&
+      currentUser.current?.uid === userToLoad.uid;
+
     try {
-      const snapshot = await getDoc(doc(services.db, "users", userToLoad.uid));
+      const snapshot = await Promise.race([
+        getDoc(doc(services.db, "users", userToLoad.uid)),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error("Account loading timed out. Check your connection and try again.")), 10_000);
+        })
+      ]);
+
+      if (!isCurrentRequest()) return;
 
       if (!snapshot.exists()) {
         setProfile({
@@ -50,68 +82,86 @@ export function useProductSession(): ProductSession {
       }
 
       setProfile({
-        id: snapshot.id,
-        ...(snapshot.data() as ProductUserProfile)
+        ...(snapshot.data() as ProductUserProfile),
+        id: snapshot.id
       });
       setError(null);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load user profile.");
+      if (isCurrentRequest()) {
+        setError(loadError instanceof Error ? loadError.message : "Unable to load your account. Please try again.");
+      }
+    } finally {
+      clearTimeout(timeout);
+      if (isCurrentRequest()) setLoading(false);
     }
-  }
+  }, [services]);
 
   useEffect(() => {
     if (!services) {
-      setError("Firebase is not configured for the product app.");
+      setError(FIREBASE_SETUP_ERROR);
       setLoading(false);
       return;
     }
 
+    let disposed = false;
+    const authTimeout = setTimeout(() => {
+      setError("Account loading timed out. Check your connection and try again.");
+      setLoading(false);
+    }, 10_000);
+
     const unsubscribe = onAuthStateChanged(
       services.auth,
-      async (currentUser) => {
-        setUser(currentUser);
-        setLoading(true);
-
-        if (!currentUser) {
-          setProfile(null);
-          setLoading(false);
-          return;
-        }
-
-        await loadProfile(currentUser);
-        setLoading(false);
+      (nextUser) => {
+        if (disposed) return;
+        clearTimeout(authTimeout);
+        if (currentUser.current?.uid !== nextUser?.uid) setProfile(null);
+        currentUser.current = nextUser;
+        setUser(nextUser);
+        void loadProfile(nextUser);
       },
       (authError) => {
-        setError(authError.message);
+        if (disposed) return;
+        clearTimeout(authTimeout);
+        ++profileRequest.current;
+        currentUser.current = null;
+        setUser(null);
+        setProfile(null);
+        setError(firebaseAuthErrorMessage(authError));
         setLoading(false);
       }
     );
 
-    return () => unsubscribe();
-  }, [services]);
+    return () => {
+      disposed = true;
+      currentUser.current = null;
+      clearTimeout(authTimeout);
+      unsubscribe();
+    };
+  }, [services, loadProfile]);
 
   const availableRoles = extractProductRoles(profile);
   const currentRole = getActiveProductRole(profile);
 
-  async function refreshProfile() {
-    if (!user) {
-      setProfile(null);
+  const refreshProfile = useCallback(async () => {
+    const authenticatedUser = services?.auth.currentUser ?? null;
+    if (currentUser.current?.uid !== authenticatedUser?.uid) setProfile(null);
+    currentUser.current = authenticatedUser;
+    setUser(authenticatedUser);
+    await loadProfile(authenticatedUser, !profile);
+  }, [services, loadProfile, profile]);
+
+  const setActiveRole = useCallback(async (role: ProductRole) => {
+    const targetUser = currentUser.current;
+    if (!services || !targetUser) {
       return;
     }
 
-    await loadProfile(user);
-  }
-
-  async function setActiveRole(role: ProductRole) {
-    if (!services || !user) {
-      return;
-    }
-
-    await updateDoc(doc(services.db, "users", user.uid), {
+    await updateDoc(doc(services.db, "users", targetUser.uid), {
       activeRole: role,
       role
     });
 
+    if (currentUser.current?.uid !== targetUser.uid) return;
     setProfile((current) =>
       current
         ? {
@@ -121,7 +171,7 @@ export function useProductSession(): ProductSession {
           }
         : current
     );
-  }
+  }, [services]);
 
   return {
     availableRoles,

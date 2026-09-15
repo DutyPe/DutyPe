@@ -1,34 +1,21 @@
 import type { MetadataRoute } from "next";
 
-import { SITE_URL } from "@/lib/public-site";
+import { SITE_URL, getKnownLegacySlugs } from "@/lib/public-site";
+import { getDiscoverableJobs } from "@/lib/jobs/server";
 
-const lastModified = new Date();
+export const revalidate = 300;
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const canonicalRoutes = [
     "",
     "/jobs",
-    "/jobs-near-me",
-    "/driver-jobs",
-    "/delivery-jobs",
-    "/maid-jobs",
-    "/part-time-jobs",
-    "/warehouse-jobs",
-    "/refer",
-    "/worker",
-    "/privacy",
-    "/terms",
-    "/refund",
-    "/safety",
-    "/contact",
-    "/faq"
+    ...getKnownLegacySlugs().map((slug) => `/${slug}`)
   ];
 
   const routes = [...new Set(canonicalRoutes)];
 
-  return routes.map((route) => ({
+  const staticEntries: MetadataRoute.Sitemap = routes.map((route) => ({
     url: `${SITE_URL}${route}`,
-    lastModified,
     changeFrequency:
       route === ""
         ? "daily"
@@ -44,4 +31,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
           ? 0.9
           : 0.6
   }));
+
+  const jobs = await getDiscoverableJobs();
+  return [...staticEntries, ...jobs.map((job) => ({
+    url: `${SITE_URL}/jobs/${encodeURIComponent(job.id)}`,
+    ...(job.updatedAt ? { lastModified: new Date(job.updatedAt) } : {}),
+    changeFrequency: "daily" as const,
+    priority: 0.8
+  }))];
 }

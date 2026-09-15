@@ -1,17 +1,14 @@
-"use client";
-
-import { WorkerMessagesClient } from "@/components/product/communication-app";
-import { ProductRoleBoundary } from "@/components/product/product-shell";
+import { WorkerAppActions } from "@/components/public/job-discovery";
+import { SiteShell } from "@/components/site-shell";
 
 export default function WorkerMessagesPage() {
   return (
-    <ProductRoleBoundary
-      currentPath="/app/worker/messages"
-      description="Live DutyPe worker conversations with unread state, message history, and reply flow."
-      requiredRole="WORKER"
-      title="Worker messages"
-    >
-      {(session) => <WorkerMessagesClient session={session} />}
-    </ProductRoleBoundary>
+    <SiteShell>
+      <section className="directory-page-header">
+        <h1>Contact employers in the DutyPe app</h1>
+        <p>Continue your job applications and conversations on Android.</p>
+        <WorkerAppActions />
+      </section>
+    </SiteShell>
   );
 }

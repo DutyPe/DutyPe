@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   arrayRemove,
@@ -10,7 +9,6 @@ import {
   doc,
   getDoc,
   getDocs,
-  increment,
   limit,
   orderBy,
   query,
@@ -19,11 +17,9 @@ import {
   where
 } from "firebase/firestore";
 
+import { SiteIcon } from "@/components/site-icon";
 import { getFirebaseServices } from "@/lib/firebase/client";
-import {
-  getOrCreateConversationId,
-  productConversationRoute
-} from "@/lib/firebase/chat-actions";
+import { WorkerAppActions } from "@/components/public/job-discovery";
 import { formatCurrencyRange, formatDateTime } from "@/lib/firebase/firestore-helpers";
 import {
   attachJobDistances,
@@ -34,7 +30,6 @@ import {
   workerLocationFromProfile
 } from "@/lib/product/location";
 import {
-  defaultWorkerName,
   isLiveJob,
   missingWorkerFields,
   normalizeProductApplication,
@@ -44,11 +39,11 @@ import {
   sortByTimestampDesc,
   workerProfileCompletion,
   type ProductApplication,
-  type ProductApplicationStatus,
   type ProductJob
 } from "@/lib/product/marketplace";
 import type { ProductUserProfile } from "@/lib/product/profile";
 
+import { JobDescription } from "./job-description";
 import type { ProductSession } from "./use-product-session";
 
 type SharedProps = {
@@ -170,6 +165,7 @@ function WorkerJobCard({
   onToggleSave?: (jobId: string) => Promise<void>;
   saved: boolean;
 }) {
+  const live = isLiveJob(job);
   return (
     <article className="card market-card">
       <div className="market-card-head">
@@ -177,17 +173,13 @@ function WorkerJobCard({
           <span className="card-kicker">{job.category || "LOCAL JOB"}</span>
           <h3>{job.title}</h3>
         </div>
-        <span className={`status-pill ${job.isFilled ? "danger" : "success"}`}>
-          {job.isFilled ? "Filled" : "Open"}
+        <span className={`status-pill ${live ? "success" : "danger"}`}>
+          {live ? "Open" : job.isFilled || job.vacancyStatus === "FILLED" ? "Filled" : "Closed"}
         </span>
       </div>
 
       <p className="market-card-subtitle">{job.companyName || "DutyPe employer"}</p>
-      <p className="market-card-copy">
-        {job.description?.trim()
-          ? job.description.trim()
-          : "Live DutyPe job card with company, pay, shift, and application flow details."}
-      </p>
+      <JobDescription text={job.description.trim() || "No description provided."} />
 
       <div className="market-card-meta">
         <div className="market-meta-item">
@@ -222,11 +214,14 @@ function WorkerJobCard({
         {onToggleSave ? (
           <button
             type="button"
-            className="button ghost"
+            className={`icon-button save-job-button${saved ? " is-saved" : ""}`}
+            aria-label={saved ? "Unsave" : "Save"}
+            title={saved ? "Unsave" : "Save"}
+            aria-pressed={saved}
             disabled={busy}
             onClick={() => void onToggleSave(job.id)}
           >
-            {saved ? "Unsave" : "Save"}
+            <SiteIcon name="bookmark" />
           </button>
         ) : null}
       </div>
@@ -501,6 +496,7 @@ export function WorkerJobsClient({ session }: SharedProps) {
 
   useEffect(() => {
     if (!services) {
+      setError("Live listings are unavailable right now. Check the DutyPe app for current openings.");
       setLoading(false);
       return;
     }
@@ -564,8 +560,11 @@ export function WorkerJobsClient({ session }: SharedProps) {
 
   async function handleToggleSave(jobId: string) {
     try {
+      setError(null);
       setBusyJobId(jobId);
       await toggleSavedJob(session, jobId);
+    } catch {
+      setError("We couldn't update your saved jobs. Please try again.");
     } finally {
       setBusyJobId(null);
     }
@@ -573,26 +572,7 @@ export function WorkerJobsClient({ session }: SharedProps) {
 
   return (
     <div className="product-section-stack">
-      <section className="detail-panel">
-        <div className="product-summary-grid">
-          <div className="product-summary-card">
-            <span>Live jobs</span>
-            <strong>{filteredJobs.length}</strong>
-          </div>
-          <div className="product-summary-card">
-            <span>Saved jobs</span>
-            <strong>{session.profile?.savedJobs?.length ?? 0}</strong>
-          </div>
-          <div className="product-summary-card">
-            <span>Data source</span>
-            <strong>Firestore</strong>
-          </div>
-          <div className="product-summary-card">
-            <span>Worker location</span>
-            <strong>{workerLocation?.label || "Not saved"}</strong>
-          </div>
-        </div>
-
+      <section className="worker-job-toolbar" aria-label="Job filters">
         <div className="product-top-grid">
           <div className="filter-row">
             <label className="inline-field">
@@ -631,35 +611,31 @@ export function WorkerJobsClient({ session }: SharedProps) {
             </label>
           </div>
 
-          <div className="pill-row">
-            <span className="pill">{filteredJobs.length} live jobs</span>
-            <span className="pill">{session.profile?.savedJobs?.length ?? 0} saved</span>
-            <span className="pill">
-              {workerLocation ? `Nearby base: ${workerLocation.label}` : "Realtime Firestore listings"}
-            </span>
-          </div>
         </div>
 
-        {!workerLocation ? (
-          <div className="callout">
-            Save a worker location first to unlock nearby sorting and radius filters.
-            {" "}
-            <Link href="/app/worker/location">Set location</Link>
+        <div className="worker-results-summary">
+          <div>
+            <span>{loading ? "Finding opportunities..." : `${filteredJobs.length} ${filteredJobs.length === 1 ? "job" : "jobs"}`}</span>
+            <span><SiteIcon name="bookmark" /> {session.profile?.savedJobs?.length ?? 0} saved</span>
           </div>
-        ) : null}
-        <div className="button-row compact">
-          <Link href="/app/worker/map" className="button ghost">
-            Open nearby map
+          <Link href="/app/worker/map" className="text-link"><SiteIcon name="map" /> Map view</Link>
+        </div>
+
+        <div className="worker-location-notice">
+          <SiteIcon name="map-pin" />
+          <span>{workerLocation?.label || "Your location is not set."}</span>
+          <Link href="/app/worker/location" className="text-link">
+            {workerLocation ? "Change location" : "Set location"} <SiteIcon name="arrow-up-right" />
           </Link>
         </div>
-        {error ? <div className="callout">Jobs error: {error}</div> : null}
+        {error ? <div className="callout" role="alert">{error}</div> : null}
       </section>
 
       <section className="section">
         {loading ? (
           <div className="empty-state">Loading live DutyPe jobs.</div>
         ) : filteredJobs.length === 0 ? (
-          <div className="empty-state">No jobs matched the current search.</div>
+          <div className="empty-state">{error || "No jobs matched the current search."}<WorkerAppActions /></div>
         ) : (
           <div className="section-grid">
             {filteredJobs.map(({ distanceKm, job }) => (
@@ -670,7 +646,7 @@ export function WorkerJobsClient({ session }: SharedProps) {
                 directionsHref={directionsUrl(job)}
                 distanceLabel={formatDistanceLabel(distanceKm)}
                 job={job}
-                onToggleSave={handleToggleSave}
+                onToggleSave={session.user ? handleToggleSave : undefined}
                 saved={(session.profile?.savedJobs ?? []).includes(job.id)}
               />
             ))}
@@ -683,24 +659,18 @@ export function WorkerJobsClient({ session }: SharedProps) {
 
 export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientProps) {
   const services = useMemo(() => getFirebaseServices(), []);
-  const router = useRouter();
   const [job, setJob] = useState<ProductJob | null>(null);
-  const [hasApplied, setHasApplied] = useState(false);
-  const [coverLetter, setCoverLetter] = useState("");
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [openingChat, setOpeningChat] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!services || !session.user) {
+    if (!services) {
+      setError("Live job details are unavailable right now. Check the DutyPe app for current openings.");
       setLoading(false);
       return;
     }
 
-    const activeServices = services;
-    const activeUser = session.user;
     let cancelled = false;
 
     async function loadJob() {
@@ -708,15 +678,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
         setLoading(true);
         setError(null);
 
-        const [jobRecord, applicationSnapshot] = await Promise.all([
-          getJobDocument(jobId),
-          getDocs(
-            query(
-              collection(activeServices.db, "job_applications"),
-              where("workerId", "==", activeUser.uid)
-            )
-          )
-        ]);
+        const jobRecord = await getJobDocument(jobId);
 
         if (cancelled) {
           return;
@@ -729,9 +691,6 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
         }
 
         setJob(jobRecord);
-        setHasApplied(
-          applicationSnapshot.docs.some((snapshot) => snapshot.get("jobId") === jobId)
-        );
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : "Failed to load the selected job.");
@@ -748,7 +707,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
     return () => {
       cancelled = true;
     };
-  }, [jobId, services, session.user]);
+  }, [jobId, services]);
 
   async function handleToggleSave() {
     if (!job) {
@@ -765,93 +724,12 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
     }
   }
 
-  async function handleMessageEmployer() {
-    if (!job?.employerId) {
-      setError("Employer info is not available for chat.");
-      return;
-    }
-
-    try {
-      setOpeningChat(true);
-      setError(null);
-
-      const conversationId = await getOrCreateConversationId(job.employerId, job.jobId || job.id);
-      router.push(productConversationRoute("WORKER", conversationId));
-    } catch (conversationError) {
-      setError(
-        conversationError instanceof Error
-          ? conversationError.message
-          : "Failed to open employer chat."
-      );
-    } finally {
-      setOpeningChat(false);
-    }
-  }
-
-  async function handleApply() {
-    if (!services || !session.user || !job || hasApplied) {
-      return;
-    }
-
-    const activeServices = services;
-    const activeUser = session.user;
-
-    try {
-      setSubmitting(true);
-      setError(null);
-
-      const applicationRef = doc(collection(activeServices.db, "job_applications"));
-      const currentTime = Date.now();
-      const workerName = defaultWorkerName(session.profile);
-
-      await setDoc(applicationRef, {
-        active: true,
-        applicationId: applicationRef.id,
-        appliedAt: currentTime,
-        companyName: job.companyName,
-        coverLetter: coverLetter.trim(),
-        employerId: job.employerId,
-        id: applicationRef.id,
-        jobId: job.id,
-        jobLocation: job.location,
-        jobTitle: job.title,
-        source: "WEB_PORTAL",
-        status: "PENDING" as ProductApplicationStatus,
-        statusHistory: [
-          {
-            notes: "Application submitted from web worker flow",
-            status: "PENDING",
-            systemUpdate: true,
-            timestamp: currentTime,
-            updatedAt: currentTime,
-            updatedBy: activeUser.uid
-          }
-        ],
-        updatedAt: currentTime,
-        workerId: activeUser.uid,
-        workerName
-      });
-
-      await updateDoc(doc(activeServices.db, "jobs", job.id), {
-        applicationCount: increment(1),
-        lastApplicationAt: currentTime,
-        updatedAt: currentTime
-      });
-
-      setHasApplied(true);
-    } catch (applyError) {
-      setError(applyError instanceof Error ? applyError.message : "Application failed.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   if (loading) {
     return <div className="empty-state">Loading job details.</div>;
   }
 
   if (!job) {
-    return <div className="empty-state">{error ?? "Job not found."}</div>;
+    return <section><div className="empty-state">{error ?? "Job not found."}</div><WorkerAppActions /></section>;
   }
 
   const isSaved = (session.profile?.savedJobs ?? []).includes(job.id);
@@ -881,7 +759,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
           </div>
           <div className="product-summary-card">
             <span>Status</span>
-            <strong>{hasApplied ? "Already applied" : isLiveJob(job) ? "Ready to apply" : "Closed"}</strong>
+            <strong>{isLiveJob(job) ? "Open" : "Closed"}</strong>
           </div>
           <div className="product-summary-card">
             <span>Distance</span>
@@ -890,21 +768,13 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
         </div>
 
         <p className="page-intro">
-          {job.description || "This job is live in Firestore but does not have a long description yet."}
+          {job.description || "No description provided."}
         </p>
 
         <div className="button-row">
-          <button type="button" className="button ghost" disabled={saving} onClick={() => void handleToggleSave()}>
+          {session.user ? <button type="button" className="button ghost" disabled={saving} onClick={() => void handleToggleSave()}>
             {saving ? "Updating..." : isSaved ? "Unsave job" : "Save job"}
-          </button>
-          <button
-            type="button"
-            className="button ghost"
-            disabled={openingChat || !job.employerId}
-            onClick={() => void handleMessageEmployer()}
-          >
-            {openingChat ? "Opening chat..." : "Message employer"}
-          </button>
+          </button> : null}
           {directionsHref ? (
             <a href={directionsHref} target="_blank" rel="noreferrer" className="button ghost">
               Open directions
@@ -918,7 +788,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
           </Link>
         </div>
 
-        {error ? <div className="callout">Job flow error: {error}</div> : null}
+        {error ? <div className="callout" role="alert">{error}</div> : null}
       </section>
 
       <section className="detail-grid">
@@ -964,42 +834,14 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
       <section className="section">
         <div className="section-header">
           <div>
-            <span className="tag">Apply flow</span>
-            <h2>Apply like the Android worker route</h2>
+            <span className="tag">Application</span>
+            <h2>Apply for this job</h2>
           </div>
-          <p>
-            This creates a real document in `job_applications`, increments the job application
-            count, and stores a status history entry.
-          </p>
         </div>
 
-        {hasApplied ? (
-          <div className="callout">You have already applied for this job. Track it from the My Jobs route.</div>
-        ) : (
-          <div className="editor-form">
-            <label className="editor-form-wide">
-              <span>Cover letter</span>
-              <textarea
-                rows={6}
-                value={coverLetter}
-                onChange={(event) => setCoverLetter(event.target.value)}
-                placeholder="Tell the employer why you are a fit for this role."
-              />
-            </label>
-
-            <div className="editor-form-actions button-row">
-              <button
-                type="button"
-                className="button"
-                disabled={submitting || !isLiveJob(job)}
-                onClick={() => void handleApply()}
-              >
-                {submitting ? "Submitting..." : "Apply now"}
-              </button>
-              {!isLiveJob(job) ? <div className="callout">This job is no longer open for applications.</div> : null}
-            </div>
-          </div>
-        )}
+        <p>Apply and contact employers in the DutyPe Android app.</p>
+        {!isLiveJob(job) ? <p role="status">This job is closed. Check the app for other openings.</p> : null}
+        <WorkerAppActions />
       </section>
     </div>
   );

@@ -1,4 +1,5 @@
 import { AppLaunchCard } from "@/components/public/app-launch-card";
+import { WorkerAppActions } from "@/components/public/job-discovery";
 import { type DeepLinkKind } from "@/lib/public-site";
 
 type Props = {
@@ -59,14 +60,14 @@ export function AppRoutePage({
             </div>
           ) : null}
 
-          <AppLaunchCard
+          {kind === "job" || kind === "employer" ? <WorkerAppActions /> : <AppLaunchCard
             kind={kind}
             entityId={entityId}
             headline={launchHeadline}
             description={launchDescription}
             bullets={bullets}
             badge="Opening in app"
-          />
+          />}
 
           <p className="bridge-note">
             DutyPe connects workers with employers directly. Download the app for the full experience.

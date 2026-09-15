@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 export const PLAY_STORE_URL =
   "https://play.google.com/store/apps/details?id=com.dutype.app";
 export const APP_STORE_URL = "https://apps.apple.com/app/dutype";
@@ -32,11 +34,10 @@ export const coreSeoKeywords = [
 
 export const primaryNav = [
   { href: "/", label: "Home" },
-  { href: "/jobs", label: "Jobs" },
-  { href: "/jobs-near-me", label: "Jobs Near Me" },
+  { href: "/jobs", label: "Find jobs" },
+  { href: "/app/employer/post-job", label: "For employers" },
   { href: "/safety", label: "Safety" },
-  { href: "/faq", label: "FAQ" },
-  { href: "/contact", label: "Contact" }
+  { href: "/faq", label: "Help centre" }
 ];
 
 export const footerGroups = [
@@ -55,7 +56,7 @@ export const footerGroups = [
       { href: "/contact", label: "Contact us" },
       { href: "/faq", label: "FAQ" },
       { href: "/safety", label: "Safety" },
-      { href: `mailto:${SUPPORT_EMAIL}`, label: SUPPORT_EMAIL }
+      { href: `mailto:${SUPPORT_EMAIL}`, label: "Email support" }
     ]
   },
   {
@@ -109,6 +110,48 @@ export const homeCategories = [
   { href: "/part-time-jobs", label: "Part-Time Jobs" },
   { href: "/warehouse-jobs", label: "Warehouse Jobs" }
 ];
+
+export const jobDirectoryCategories = [
+  { slug: "delivery", name: "Delivery", icon: "truck", tone: "mint", description: "Food, groceries & parcels", keywords: "courier rider bike delivery boy" },
+  { slug: "driver", name: "Driving", icon: "car-front", tone: "blue", description: "Personal & commercial drivers", keywords: "driver cab taxi car transport" },
+  { slug: "retail", name: "Retail & sales", icon: "store", tone: "rose", description: "Shops, stores & showrooms", keywords: "cashier shopkeeper sales associate" },
+  { slug: "cook", name: "Cooking", icon: "chef-hat", tone: "yellow", description: "Home kitchens & restaurants", keywords: "cook chef kitchen food hotel" },
+  { slug: "maid", name: "Housekeeping", icon: "house", tone: "rose", description: "Homes & household support", keywords: "maid housekeeper domestic house help" },
+  { slug: "warehouse", name: "Warehouse", icon: "warehouse", tone: "yellow", description: "Packing, sorting & logistics", keywords: "picker packer stock loading dispatch" },
+  { slug: "security", name: "Security", icon: "shield-check", tone: "mint", description: "Offices, stores & communities", keywords: "guard watchman night shift" },
+  { slug: "helper", name: "Helper & support", icon: "wrench", tone: "blue", description: "Shops, offices & everyday support", keywords: "assistant labour labor general helper" },
+  { slug: "cleaner", name: "Cleaning", icon: "sparkles", tone: "blue", description: "Offices & shared spaces", keywords: "cleaner janitor housekeeping hospital" },
+  { slug: "part-time", name: "Part-time", icon: "clock-3", tone: "mint", description: "Flexible hours & weekend shifts", keywords: "part time evening morning weekend student" },
+  { slug: "daily-wage", name: "Daily wage", icon: "wallet", tone: "yellow", description: "Daily shifts & short-term work", keywords: "daily payment construction event staffing labour" },
+  { slug: "peon", name: "Office support", icon: "clipboard-list", tone: "rose", description: "Office assistants & admin support", keywords: "peon runner school documents" }
+] as const;
+
+export type JobDirectoryCategory = (typeof jobDirectoryCategories)[number];
+
+export const jobDirectoryCities = [
+  "Hyderabad", "Bangalore", "Delhi", "Mumbai", "Vijayawada", "Warangal",
+  "Tirupati", "Guntur", "Kakinada", "Karimnagar", "Nellore", "Anantapur",
+  "Nizamabad", "Rajahmundry", "Khammam"
+];
+
+export function getJobDiscovery(searchText = "", requestedCity = "") {
+  const query = searchText.trim().slice(0, 200);
+  const city = jobDirectoryCities.find(
+    (name) => name.toLowerCase() === requestedCity.trim().toLowerCase()
+  ) ?? "";
+  const terms = query.toLowerCase().replace(/\b(jobs?|work|vacancies|vacancy)\b/g, " ").split(/[\s-]+/).filter(Boolean);
+  const categories = jobDirectoryCategories.filter((category) => {
+    const searchable = `${category.name} ${category.description} ${category.keywords}`.toLowerCase();
+    return terms.every((term) => searchable.includes(term));
+  });
+
+  return { query, city, categories };
+}
+
+export function jobCategoryHref(category: JobDirectoryCategory, city = "") {
+  const knownCity = getJobDiscovery("", city).city;
+  return `/${category.slug}-jobs${knownCity ? `-${knownCity.toLowerCase()}` : ""}`;
+}
 
 export const homeStats = [
   { value: "10K+", label: "Active Jobs" },
@@ -171,6 +214,7 @@ export type LegacyPageBlock =
 export type LegacyPageDescriptor = {
   slug: string;
   title: string;
+  city?: string;
   description: string;
   eyebrow: string;
   intro: string;
@@ -180,6 +224,11 @@ export type LegacyPageDescriptor = {
   ctaCopy?: string;
   ctaHref?: string;
   ctaLabel?: string;
+  category?: {
+    slug: string;
+    city: string | null;
+    salary: string;
+  };
 };
 
 export type PublicJobRouteData = {
@@ -1084,9 +1133,11 @@ function getCategorySlug(slug: string) {
       return { category: key, city: null as string | null };
     }
     if (slug.startsWith(`${prefix}-`)) {
+      const city = slug.slice(prefix.length + 1);
+      if (!Object.hasOwn(cityNames, city)) return null;
       return {
         category: key,
-        city: slug.slice(prefix.length + 1)
+        city
       };
     }
   }
@@ -1100,6 +1151,7 @@ function generateCityJobsPage(slug: string): LegacyPageDescriptor {
   return {
     slug,
     title: `Jobs in ${city}`,
+    city,
     description: `Find local jobs in ${city} including delivery, driver, maid, helper, warehouse, and part-time roles with DutyPe.`,
     eyebrow: "City landing page",
     intro:
@@ -1143,8 +1195,8 @@ function generateCityJobsPage(slug: string): LegacyPageDescriptor {
     ],
     ctaTitle: `Open live jobs in ${city}`,
     ctaCopy: "The app is the live source for current openings, trust signals, and application actions.",
-    ctaHref: "/app/worker/jobs",
-    ctaLabel: "Browse live jobs"
+    ctaHref: PLAY_STORE_URL,
+    ctaLabel: "Find jobs in the app"
   };
 }
 
@@ -1279,8 +1331,8 @@ function generateJobsNearMePage(): LegacyPageDescriptor {
     ],
     ctaTitle: "See live nearby jobs",
     ctaCopy: "Download DutyPe and find verified jobs near your location today.",
-    ctaHref: "/app/worker/jobs",
-    ctaLabel: "Open worker jobs"
+    ctaHref: PLAY_STORE_URL,
+    ctaLabel: "Find jobs in the app"
   };
 }
 
@@ -1296,6 +1348,7 @@ function generateCategoryPage(
   return {
     slug,
     title,
+    category: { slug: category, city: cityLabel, salary: details.salary },
     description: cityLabel
       ? `Find ${details.shortLabel.toLowerCase()} openings in ${cityLabel} with DutyPe.`
       : `Find ${details.shortLabel.toLowerCase()} openings near you with DutyPe.`,
@@ -1305,26 +1358,14 @@ function generateCategoryPage(
       : `${details.intro} Browse verified openings and apply directly through DutyPe for free.`,
     highlights: [
       details.salary,
-      "Direct app-open flow matters more than static HTML.",
-      "Workers need trust, safety, and nearby availability signals."
+      "No recruitment fees for workers.",
+      "Pay, hours, and availability vary by employer."
     ],
     blocks: [
       {
         kind: "list",
-        title: cityLabel
-          ? `${details.shortLabel} roles people search in ${cityLabel}`
-          : `Common ${details.shortLabel.toLowerCase()} roles`,
+        title: "Common roles",
         items: details.roles
-      },
-      {
-        kind: "list",
-        title: "Why DutyPe fits this category",
-        items: [
-          "Fast local discovery and application flow.",
-          "Clear role, pay, and shift framing.",
-          "Worker safety messaging around fake jobs and advance fees.",
-          "Clean handoff into the mobile app for live actions."
-        ]
       },
       {
         kind: "list",
@@ -1337,15 +1378,15 @@ function generateCategoryPage(
         ]
       }
     ],
-    ctaTitle: "Continue in the app",
-    ctaCopy: "The live marketplace, applications, and chat all happen in the DutyPe product app.",
-    ctaHref: "/app",
-    ctaLabel: "Open DutyPe"
+    ctaTitle: "Current openings",
+    ctaCopy: "Availability and pay are set by each employer.",
+    ctaHref: PLAY_STORE_URL,
+    ctaLabel: "Find jobs in the app"
   };
 }
 
 export function resolveLegacyPage(slug: string): LegacyPageDescriptor | null {
-  if (staticPages[slug]) {
+  if (Object.hasOwn(staticPages, slug)) {
     return staticPages[slug];
   }
 
@@ -1354,7 +1395,7 @@ export function resolveLegacyPage(slug: string): LegacyPageDescriptor | null {
   }
 
   if (slug.startsWith("jobs-in-")) {
-    return generateCityJobsPage(slug);
+    return Object.hasOwn(cityNames, slug.slice("jobs-in-".length)) ? generateCityJobsPage(slug) : null;
   }
 
   const categoryMatch = getCategorySlug(slug);
@@ -1375,6 +1416,54 @@ export function getKnownLegacySlugs() {
   return Array.from(
     new Set([...Object.keys(staticPages), "jobs-near-me", ...citySlugs, ...categorySlugs])
   ).sort();
+}
+
+export function getPublicPageMetadata(slug: string): Metadata {
+  const page = resolveLegacyPage(slug);
+  if (!page) return {};
+  const indexable = getKnownLegacySlugs().includes(slug);
+  const url = `${SITE_URL}/${slug}`;
+
+  return {
+    title: page.title,
+    description: page.description,
+    alternates: { canonical: url },
+    robots: { index: indexable, follow: true },
+    openGraph: { title: page.title, description: page.description, url, type: "website", siteName: siteMeta.name },
+    twitter: { card: "summary", title: page.title, description: page.description }
+  };
+}
+
+export function getPublicPageStructuredData(slug: string) {
+  const page = resolveLegacyPage(slug);
+  if (!page || (!page.city && !page.category && slug !== "jobs-near-me")) return null;
+  const url = `${SITE_URL}/${slug}`;
+  const city = page.city || page.category?.city;
+  const breadcrumbs = [
+    { name: siteMeta.name, item: SITE_URL },
+    { name: "Jobs", item: `${SITE_URL}/jobs` },
+    ...(page.category?.city ? [{ name: `Jobs in ${city}`, item: `${SITE_URL}/jobs-in-${city!.toLowerCase()}` }] : []),
+    { name: page.title, item: url }
+  ];
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": url,
+        url,
+        name: page.title,
+        description: page.description,
+        inLanguage: "en-IN",
+        isPartOf: { "@type": "WebSite", name: siteMeta.name, url: SITE_URL },
+        ...(city ? { spatialCoverage: { "@type": "Place", name: city, address: { "@type": "PostalAddress", addressLocality: city, addressCountry: "IN" } } } : {})
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: breadcrumbs.map((crumb, index) => ({ "@type": "ListItem", position: index + 1, ...crumb }))
+      }
+    ]
+  };
 }
 
 export function buildDeepLinkBundle(kind: DeepLinkKind, entityId?: string) {

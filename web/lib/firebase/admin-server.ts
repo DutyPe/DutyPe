@@ -83,8 +83,14 @@ function readServiceAccount() {
   );
 }
 
+function hasDefaultCredentials() {
+  return Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+    ((process.env.K_SERVICE || process.env.FUNCTION_TARGET) &&
+      (process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT)));
+}
+
 export function isFirebaseAdminConfigured() {
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+  if (hasDefaultCredentials()) {
     return true;
   }
 
@@ -115,10 +121,10 @@ export function getFirebaseAdminApp() {
     });
   }
 
-  if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+  if (hasDefaultCredentials()) {
     return initializeApp({
       credential: applicationDefault(),
-      projectId: process.env.FIREBASE_ADMIN_PROJECT_ID ?? firebaseConfig.projectId
+      projectId: process.env.FIREBASE_ADMIN_PROJECT_ID || firebaseConfig.projectId || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT || undefined
     });
   }
 

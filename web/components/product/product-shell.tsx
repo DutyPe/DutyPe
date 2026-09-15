@@ -1,10 +1,12 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { signOut } from "firebase/auth";
 
+import { SiteIcon } from "@/components/site-icon";
 import {
   displayProfileName,
   productRoleLabel,
@@ -33,24 +35,24 @@ type ProductAppShellProps = {
 };
 
 const workerLinks = [
-  { href: "/app/worker", label: "Home" },
-  { href: "/app/worker/jobs", label: "All jobs" },
-  { href: "/app/worker/map", label: "Map" },
-  { href: "/app/worker/location", label: "Location" },
-  { href: "/app/worker/my-jobs", label: "My jobs" },
-  { href: "/app/worker/messages", label: "Messages" },
-  { href: "/app/worker/notifications", label: "Notifications" },
-  { href: "/app/worker/profile", label: "Profile" }
+  { href: "/app/worker", label: "Home", icon: "layout-dashboard" },
+  { href: "/app/worker/jobs", label: "All jobs", icon: "search" },
+  { href: "/app/worker/map", label: "Map", icon: "map" },
+  { href: "/app/worker/location", label: "Location", icon: "map-pin" },
+  { href: "/app/worker/my-jobs", label: "My jobs", icon: "bookmark" },
+  { href: "/app/worker/messages", label: "Messages", icon: "messages-square" },
+  { href: "/app/worker/notifications", label: "Notifications", icon: "bell" },
+  { href: "/app/worker/profile", label: "Profile", icon: "user-round" }
 ];
 
 const employerLinks = [
-  { href: "/app/employer", label: "Dashboard" },
-  { href: "/app/employer/post-job", label: "Post job" },
-  { href: "/app/employer/locations", label: "Locations" },
-  { href: "/app/employer/jobs", label: "My jobs" },
-  { href: "/app/employer/applications", label: "Applications" },
-  { href: "/app/employer/messages", label: "Messages" },
-  { href: "/app/employer/notifications", label: "Notifications" }
+  { href: "/app/employer", label: "Dashboard", icon: "layout-dashboard" },
+  { href: "/app/employer/post-job", label: "Post job", icon: "plus" },
+  { href: "/app/employer/locations", label: "Locations", icon: "map-pin" },
+  { href: "/app/employer/jobs", label: "My jobs", icon: "briefcase-business" },
+  { href: "/app/employer/applications", label: "Applications", icon: "clipboard-list" },
+  { href: "/app/employer/messages", label: "Messages", icon: "messages-square" },
+  { href: "/app/employer/notifications", label: "Notifications", icon: "bell" }
 ];
 
 export function ProductRoleBoundary({
@@ -61,40 +63,48 @@ export function ProductRoleBoundary({
   title
 }: ProductRoleBoundaryProps) {
   const session = useProductSession();
-  const [syncingRole, setSyncingRole] = useState(false);
+  const { setActiveRole } = session;
+  const roleAttempt = useRef<string | null>(null);
+  const [roleFailure, setRoleFailure] = useState<{ key: string; message: string } | null>(null);
   const router = useRouter();
+  const pathname = usePathname();
+  const roleKey = `${session.user?.uid ?? "guest"}:${requiredRole}`;
+  const syncingRole = Boolean(
+    session.user && !session.loading && session.availableRoles.includes(requiredRole) &&
+    session.currentRole !== requiredRole
+  );
+  const roleError = roleFailure?.key === roleKey ? roleFailure.message : null;
 
   useEffect(() => {
-    if (!session.user || session.loading) {
+    if (!syncingRole) {
+      roleAttempt.current = null;
       return;
     }
 
-    if (!session.availableRoles.includes(requiredRole)) {
+    if (roleAttempt.current === roleKey) {
       return;
     }
 
-    if (session.currentRole === requiredRole) {
-      return;
-    }
+    roleAttempt.current = roleKey;
+    setRoleFailure(null);
+    void setActiveRole(requiredRole).catch(() => {
+      if (roleAttempt.current === roleKey) {
+        setRoleFailure({ key: roleKey, message: "We couldn't switch your account. Please try again." });
+      }
+    });
+  }, [requiredRole, roleKey, syncingRole, roleError, setActiveRole]);
 
-    setSyncingRole(true);
-    void session
-      .setActiveRole(requiredRole)
-      .catch(() => undefined)
-      .finally(() => setSyncingRole(false));
-  }, [requiredRole, session]);
-
-  if (session.loading || syncingRole) {
+  if (session.loading || (syncingRole && !roleError)) {
     return (
       <div className="page-shell">
         <div className="page-ambient ambient-a" />
         <div className="page-ambient ambient-b" />
         <div className="page-wrap">
           <section className="section">
-            <div className="empty-state">
+            <div className="empty-state" role="status">
               {syncingRole
                 ? `Switching into ${productRoleLabel(requiredRole).toLowerCase()} mode.`
-                : "Loading DutyPe product session."}
+                : "Loading your account."}
             </div>
           </section>
         </div>
@@ -102,29 +112,68 @@ export function ProductRoleBoundary({
     );
   }
 
-  if (!session.user) {
+  if (syncingRole && roleError) {
     return (
       <div className="page-shell">
-        <div className="page-ambient ambient-a" />
-        <div className="page-ambient ambient-b" />
-        <div className="page-wrap">
-          <section className="hero product-hero">
-            <span className="eyebrow">Product sign-in required</span>
-            <h1 className="headline">Open the app routes with a Firebase product session.</h1>
+        <main className="page-wrap">
+          <section className="section">
+            <h1>Unable to switch role</h1>
+            <p role="alert">{roleError}</p>
+            <div className="button-row">
+              <button type="button" className="button" onClick={() => {
+                roleAttempt.current = null;
+                setRoleFailure(null);
+              }}>
+                Try again
+              </button>
+              <Link href="/app" className="button ghost">Back to your account</Link>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  if (session.error && !session.profile) {
+    return (
+      <div className="page-shell">
+        <main className="page-wrap">
+          <section className="section">
+            <h1>Unable to load your account</h1>
+            <p role="alert">{session.error}</p>
+            <div className="button-row">
+              <button type="button" className="button" onClick={() => void session.refreshProfile()}>Try again</button>
+              <Link href="/app/auth" className="button ghost">Sign in</Link>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  if (!session.user) {
+    return (
+      <div className="page-shell auth-page">
+        <main className="auth-gate">
+          <section>
+            <Link href="/" className="brand site-brand" aria-label="DutyPe home">
+              <Image src="/dutype-logo.webp" alt="" width={40} height={40} className="brand-logo" />
+              <strong>Duty<span>Pe</span></strong>
+            </Link>
+            <h1 className="headline">Sign in to continue</h1>
             <p className="lede">
-              Android parity routes are gated because apply, save, post-job, and profile
-              flows need a real authenticated user.
+              Sign in with your {productRoleLabel(requiredRole).toLowerCase()} account.
             </p>
             <div className="button-row">
-              <Link href={`/app/auth?role=${requiredRole}`} className="button">
+              <Link href={`/app/auth?role=${requiredRole}&next=${encodeURIComponent(pathname || currentPath)}`} className="button">
                 Sign in
               </Link>
               <Link href="/app" className="button ghost">
-                Back to app entry
+                Back
               </Link>
             </div>
           </section>
-        </div>
+        </main>
       </div>
     );
   }
@@ -137,15 +186,14 @@ export function ProductRoleBoundary({
         <div className="page-wrap">
           <section className="section">
             <div className="detail-panel">
-              <span className="card-kicker">Role mismatch</span>
-              <h3>Your current Firebase user is not configured for {productRoleLabel(requiredRole)} mode.</h3>
+              <span className="card-kicker">Account access</span>
+              <h3>This account doesn&apos;t have {productRoleLabel(requiredRole).toLowerCase()} access.</h3>
               <p>
-                The web product shell follows the Android role split. This account only
-                has access to: {session.availableRoles.map(productRoleLabel).join(", ") || "no roles"}.
+                Available roles: {session.availableRoles.map(productRoleLabel).join(", ") || "None"}.
               </p>
               <div className="button-row">
                 <button type="button" className="button" onClick={() => router.push("/app")}>
-                  Go to app entry
+                  Back to your account
                 </button>
                 <Link href="/app/auth" className="button ghost">
                   Use another account
@@ -198,39 +246,35 @@ export function ProductAppShell({
   }
 
   return (
-    <div className="page-shell">
-      <div className="page-ambient ambient-a" />
-      <div className="page-ambient ambient-b" />
-      <div className="page-ambient ambient-c" />
-
+    <div className="page-shell product-page">
+      <a href="#workspace-content" className="skip-link">Skip to content</a>
       <div className="page-wrap product-shell">
         <aside className="product-side">
-          <Link href="/app" className="brand">
-            <span className="brand-mark">D</span>
+          <Link href="/app" className="brand site-brand" aria-label="DutyPe account">
+            <Image src="/dutype-logo.webp" alt="" width={40} height={40} className="brand-logo" />
             <span>
-              <strong>DutyPe App</strong>
-              <small>{productRoleLabel(role)} mode</small>
+              <strong>Duty<span>Pe</span></strong>
+              <small>{productRoleLabel(role)} workspace</small>
             </span>
           </Link>
 
           <div className="product-identity">
-            <span className="card-kicker">Current account</span>
-            <h3>{userName}</h3>
-            <p>{session.user?.email ?? "Firebase user"}</p>
-            <div className="pill-row product-badge-row">
-              <span className="pill">{productRoleLabel(role)} mode</span>
-              <span className="pill">{session.availableRoles.length} role access</span>
-              <span className="pill">Live Firebase session</span>
+            <span className="product-account-avatar"><SiteIcon name="user-round" /></span>
+            <div>
+              <strong>{userName}</strong>
+              <small>{session.user?.email ?? productRoleLabel(role)}</small>
             </div>
           </div>
 
-          <nav className="product-nav" aria-label={`${productRoleLabel(role)} routes`}>
+          <nav className="product-nav" aria-label={`${productRoleLabel(role)} navigation`}>
             {navLinks.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 className={currentPath === item.href ? "active" : undefined}
+                aria-current={currentPath === item.href ? "page" : undefined}
               >
+                <SiteIcon name={item.icon} />
                 {item.label}
               </Link>
             ))}
@@ -238,10 +282,11 @@ export function ProductAppShell({
 
           {rolePeers.length > 0 ? (
             <div className="product-switcher">
-              <span className="card-kicker">Switch role</span>
+              <span className="card-kicker">Switch workspace</span>
               <div className="product-chip-row">
                 {rolePeers.map((item) => (
                   <Link key={item} href={productRolePath(item)} className="product-chip">
+                    <SiteIcon name={item === "EMPLOYER" ? "briefcase-business" : "user-round"} />
                     {productRoleLabel(item)}
                   </Link>
                 ))}
@@ -249,53 +294,29 @@ export function ProductAppShell({
             </div>
           ) : null}
 
-          <div className="product-side-note">
-            <span className="card-kicker">Current route</span>
-            <h3>{currentSection}</h3>
-            <p>
-              This web shell mirrors the Android role split while keeping public website
-              and product actions clearly separated.
-            </p>
-          </div>
-
           <div className="product-side-actions">
-            <Link href="/" className="button ghost">
-              Public website
+            <Link href="/" className="button ghost" aria-label="Back to website" title="Back to website">
+              <SiteIcon name="external-link" /><span>Back to website</span>
             </Link>
-            <button type="button" className="button ghost" onClick={() => void handleSignOut()}>
-              Sign out
+            <button type="button" className="button ghost" aria-label="Sign out" title="Sign out" onClick={() => void handleSignOut()}>
+              <SiteIcon name="log-out" /><span>Sign out</span>
             </button>
           </div>
         </aside>
 
-        <div className="product-main">
+        <main className="product-main" id="workspace-content" tabIndex={-1}>
           <section className="product-header">
             <div className="product-header-top">
-              <span className="eyebrow">Android parity slice</span>
-              <span className="product-header-note">App-backed web flow</span>
+              <span className="section-label">{productRoleLabel(role)} workspace</span>
+              <span className="product-header-note">{currentSection}</span>
             </div>
             <h1>{title}</h1>
-            <p>{description}</p>
-
-            <div className="product-summary-grid">
-              <div className="product-summary-card">
-                <span>Mode</span>
-                <strong>{productRoleLabel(role)}</strong>
-              </div>
-              <div className="product-summary-card">
-                <span>Current section</span>
-                <strong>{currentSection}</strong>
-              </div>
-              <div className="product-summary-card">
-                <span>Account state</span>
-                <strong>{session.user ? "Authenticated" : "Guest"}</strong>
-              </div>
-            </div>
+            {description ? <p>{description}</p> : null}
           </section>
 
-          {session.error ? <div className="callout">Session error: {session.error}</div> : null}
+          {session.error ? <div className="callout" role="alert">Session error: {session.error}</div> : null}
           {children}
-        </div>
+        </main>
       </div>
     </div>
   );
