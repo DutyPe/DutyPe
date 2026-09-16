@@ -89,6 +89,26 @@ export function productRolePath(role: ProductRole) {
   return role === "WORKER" ? "/app/worker" : "/app/employer";
 }
 
+export function productReturnPath(role: ProductRole, requestedPath: string | null) {
+  const fallback = productRolePath(role);
+  if (!requestedPath?.startsWith("/") || requestedPath.startsWith("//")) {
+    return fallback;
+  }
+
+  try {
+    const base = "https://dutype.invalid";
+    const target = new URL(requestedPath, base);
+    const isPublicJob = /^\/jobs\/[^/]+$/.test(target.pathname);
+    if (target.origin !== base || /%(2f|5c)/i.test(target.pathname) ||
+      (!isPublicJob && target.pathname !== fallback && !target.pathname.startsWith(`${fallback}/`))) {
+      return fallback;
+    }
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return fallback;
+  }
+}
+
 export function displayProfileName(profile: ProductUserProfile | null | undefined) {
   return (
     profile?.fullName?.trim() ||

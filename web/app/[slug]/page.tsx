@@ -2,13 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { FaqContent } from "@/components/public/faq-content";
+import { CityJobGuide, JobCategoryGuide } from "@/components/public/job-discovery";
+import { LiveJobsSection } from "@/components/jobs/live-jobs-section";
+import { emptyJobSearch } from "@/lib/jobs/public-listings";
+import { SiteIcon } from "@/components/site-icon";
 import { SiteShell } from "@/components/site-shell";
-import { AppConversionCard } from "@/components/public/app-conversion-card";
 import {
-  PLAY_STORE_URL,
-  SITE_URL,
-  coreSeoKeywords,
+  SUPPORT_EMAIL,
   getKnownLegacySlugs,
+  getPublicPageMetadata,
+  getPublicPageStructuredData,
   resolveLegacyPage,
   type LegacyPageBlock
 } from "@/lib/public-site";
@@ -19,127 +23,37 @@ type Props = {
   };
 };
 
-const pageIcons: Record<string, string> = {
-  privacy: "🔒",
-  terms: "📜",
-  refund: "💳",
-  safety: "🛡️",
-  contact: "📧",
-  faq: "❓"
+export const revalidate = 60;
+
+const supportPages = [
+  { href: "/safety", label: "Safety", icon: "shield-check" },
+  { href: "/contact", label: "Contact us", icon: "messages-square" },
+  { href: "/faq", label: "FAQ", icon: "clipboard-list" }
+];
+
+const legalPages = [
+  { href: "/privacy", label: "Privacy", icon: "shield-check" },
+  { href: "/terms", label: "Terms", icon: "clipboard-list" },
+  { href: "/refund", label: "Refunds", icon: "wallet" }
+];
+
+const contactIcons: Record<string, string> = {
+  "General support": "messages-square",
+  "Privacy concerns": "shield-check",
+  "Refunds and billing": "wallet",
+  Legal: "clipboard-list",
+  "Report abuse": "shield-check",
+  Feedback: "sparkles"
 };
 
-const plainPolicySlugs = new Set(["privacy", "terms", "refund", "safety"]);
+function sectionId(title: string) {
+  return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
 
 function renderBlock(block: LegacyPageBlock) {
   if (block.kind === "copy") {
     return (
-      <article key={block.title} className={`detail-panel tone-${block.tone ?? "default"}`}>
-        <span className="card-kicker">{block.title}</span>
-        <h3>{block.title}</h3>
-        {block.paragraphs.map((paragraph) => (
-          <p key={paragraph}>{paragraph}</p>
-        ))}
-      </article>
-    );
-  }
-
-  if (block.kind === "list") {
-    return (
-      <article key={block.title} className={`detail-panel tone-${block.tone ?? "default"}`}>
-        <span className="card-kicker">{block.title}</span>
-        <h3>{block.title}</h3>
-        {block.intro ? <p>{block.intro}</p> : null}
-        <ul className="detail-list detail-list-enhanced">
-          {block.items.map((item) => (
-            <li key={item}>
-              <strong>{item}</strong>
-            </li>
-          ))}
-        </ul>
-      </article>
-    );
-  }
-
-  if (block.kind === "faq") {
-    return (
-      <article key={block.title} className={`detail-panel tone-${block.tone ?? "default"}`}>
-        <span className="card-kicker">{block.title}</span>
-        <h3>{block.title}</h3>
-        <div className="faq-stack">
-          {block.items.map((item) => (
-            <details key={item.question} className="faq-item faq-item-enhanced">
-              <summary><strong>{item.question}</strong></summary>
-              <p>{item.answer}</p>
-            </details>
-          ))}
-        </div>
-      </article>
-    );
-  }
-
-  if (block.kind === "contact") {
-    const contactIcons: Record<string, string> = {
-      "General support": "💬",
-      "Privacy concerns": "🔒",
-      "Refunds and billing": "💳",
-      "Legal": "⚖️",
-      "Report abuse": "🚨",
-      "Feedback": "💡"
-    };
-
-    return (
-      <article key={block.title} className={`detail-panel tone-${block.tone ?? "default"}`}>
-        <span className="card-kicker">{block.title}</span>
-        <h3>{block.title}</h3>
-        <div className="contact-grid contact-grid-enhanced">
-          {block.items.map((item) => (
-            <div key={item.label} className="contact-card contact-card-enhanced">
-              <span className="contact-icon">{contactIcons[item.label] ?? "📧"}</span>
-              <strong>{item.label}</strong>
-              <p>{item.note}</p>
-              {item.href ? (
-                <a href={item.href} className="contact-link">{item.value}</a>
-              ) : (
-                <span className="contact-value">{item.value}</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </article>
-    );
-  }
-
-  return (
-    <article key={block.title} className={`detail-panel tone-${block.tone ?? "default"}`}>
-      <span className="card-kicker">{block.title}</span>
-      <h3>{block.title}</h3>
-      {block.intro ? <p>{block.intro}</p> : null}
-      <div className="table-wrap">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>{block.columns[0]}</th>
-              <th>{block.columns[1]}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {block.rows.map((row) => (
-              <tr key={row[0]}>
-                <td>{row[0]}</td>
-                <td>{row[1]}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </article>
-  );
-}
-
-function renderPlainBlock(block: LegacyPageBlock) {
-  if (block.kind === "copy") {
-    return (
-      <section key={block.title} className="policy-section">
+      <section key={block.title} id={sectionId(block.title)} tabIndex={-1} className={`resource-section resource-tone-${block.tone ?? "default"}`}>
         <h2>{block.title}</h2>
         {block.paragraphs.map((paragraph) => (
           <p key={paragraph}>{paragraph}</p>
@@ -150,10 +64,10 @@ function renderPlainBlock(block: LegacyPageBlock) {
 
   if (block.kind === "list") {
     return (
-      <section key={block.title} className="policy-section">
+      <section key={block.title} id={sectionId(block.title)} tabIndex={-1} className={`resource-section resource-tone-${block.tone ?? "default"}`}>
         <h2>{block.title}</h2>
         {block.intro ? <p>{block.intro}</p> : null}
-        <ul className="policy-list">
+        <ul className="resource-list">
           {block.items.map((item) => (
             <li key={item}>{item}</li>
           ))}
@@ -164,12 +78,12 @@ function renderPlainBlock(block: LegacyPageBlock) {
 
   if (block.kind === "faq") {
     return (
-      <section key={block.title} className="policy-section">
+      <section key={block.title} id={sectionId(block.title)} tabIndex={-1} className="resource-section">
         <h2>{block.title}</h2>
-        <div className="policy-faq-list">
+        <div className="resource-faq-list">
           {block.items.map((item) => (
-            <details key={item.question} className="policy-faq-item">
-              <summary>{item.question}</summary>
+            <details key={item.question} className="resource-faq-item">
+              <summary><span>{item.question}</span><SiteIcon name="chevron-down" /></summary>
               <p>{item.answer}</p>
             </details>
           ))}
@@ -180,31 +94,43 @@ function renderPlainBlock(block: LegacyPageBlock) {
 
   if (block.kind === "contact") {
     return (
-      <section key={block.title} className="policy-section">
+      <section key={block.title} id={sectionId(block.title)} tabIndex={-1} className="resource-section">
         <h2>{block.title}</h2>
-        <div className="policy-contact-list">
-          {block.items.map((item) => (
-            <p key={item.label}>
-              <strong>{item.label}:</strong>{" "}
-              {item.href ? <a href={item.href}>{item.value}</a> : item.value}
-              {item.note ? <span> - {item.note}</span> : null}
-            </p>
-          ))}
+        <div className="resource-contact-list">
+          {block.items.map((item) => {
+            const isPhone = /^\+?\d[\d\s-]*$/.test(item.value);
+            const href = item.href ?? (isPhone ? `tel:${item.value.replace(/[\s-]/g, "")}` : undefined);
+
+            return (
+              <article key={item.label} className="resource-contact-row">
+                <span className="resource-contact-icon"><SiteIcon name={contactIcons[item.label] ?? (isPhone ? "smartphone" : "messages-square")} /></span>
+                <div>
+                  <h3>{item.label}</h3>
+                  <p>{item.note}</p>
+                  {href ? (
+                    <a href={href} className="resource-contact-action" aria-label={`${item.label}: ${item.value}`}>
+                      {item.value}<SiteIcon name="arrow-up-right" />
+                    </a>
+                  ) : <span className="resource-contact-value">{item.value}</span>}
+                </div>
+              </article>
+            );
+          })}
         </div>
       </section>
     );
   }
 
   return (
-    <section key={block.title} className="policy-section">
+    <section key={block.title} id={sectionId(block.title)} tabIndex={-1} className="resource-section">
       <h2>{block.title}</h2>
       {block.intro ? <p>{block.intro}</p> : null}
-      <div className="policy-table-wrap">
-        <table className="policy-table">
+      <div className="resource-table-wrap">
+        <table className="resource-table">
           <thead>
             <tr>
-              <th>{block.columns[0]}</th>
-              <th>{block.columns[1]}</th>
+              <th scope="col">{block.columns[0]}</th>
+              <th scope="col">{block.columns[1]}</th>
             </tr>
           </thead>
           <tbody>
@@ -222,91 +148,7 @@ function renderPlainBlock(block: LegacyPageBlock) {
 }
 
 export function generateMetadata({ params }: Props): Metadata {
-  const page = resolveLegacyPage(params.slug);
-
-  if (!page) {
-    return {};
-  }
-
-  // Build keyword-rich terms from the slug
-  const slugWords = params.slug.split("-").filter(Boolean);
-  const slugPhrase = params.slug.replace(/-/g, " ");
-
-  // Detect city pages and category pages for better keyword targeting
-  const isCityPage = params.slug.startsWith("jobs-in-");
-  const cityName = isCityPage ? slugWords.slice(2).join(" ") : null;
-
-  const categoryMatch = slugWords.find((w) =>
-    ["delivery", "driver", "maid", "cook", "helper", "cleaner", "security", "warehouse", "retail", "peon"].includes(w)
-  );
-
-  const locationKeywords = cityName
-    ? [
-        `jobs in ${cityName}`,
-        `${cityName} jobs`,
-        `jobs near me ${cityName}`,
-        `part time jobs in ${cityName}`,
-        `delivery jobs in ${cityName}`,
-        `driver jobs in ${cityName}`,
-        `maid jobs in ${cityName}`,
-        `daily wage jobs ${cityName}`,
-        `jobs in ${cityName} for freshers`,
-        `jobs in ${cityName} 10th pass`,
-        `night shift jobs ${cityName}`,
-        `${cityName} local hiring`,
-        `${cityName} job vacancy`
-      ]
-    : [];
-
-  const categoryKeywords = categoryMatch
-    ? [
-        `${categoryMatch} jobs near me`,
-        `${categoryMatch} jobs`,
-        `${categoryMatch} jobs for freshers`,
-        `part time ${categoryMatch} jobs`,
-        `${categoryMatch} jobs no experience`,
-        `${categoryMatch} salary`,
-        `${categoryMatch} vacancy`
-      ]
-    : [];
-
-  return {
-    title: page.title,
-    description: page.description,
-    alternates: {
-      canonical: `${SITE_URL}/${params.slug}`
-    },
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: {
-        index: true,
-        follow: true,
-        "max-snippet": -1,
-        "max-image-preview": "large"
-      }
-    },
-    openGraph: {
-      title: page.title,
-      description: page.description,
-      type: "website",
-      url: `${SITE_URL}/${params.slug}`,
-      siteName: "DutyPe",
-      locale: "en_IN"
-    },
-    keywords: [
-      ...coreSeoKeywords,
-      ...locationKeywords,
-      ...categoryKeywords,
-      ...(page.seoKeywords ?? []),
-      `${slugPhrase}`,
-      `${slugPhrase} near me`,
-      "local hiring",
-      "apply free",
-      "no middlemen",
-      "verified employers"
-    ]
-  };
+  return getPublicPageMetadata(params.slug);
 }
 
 export function generateStaticParams() {
@@ -320,172 +162,122 @@ export default function LegacyContentPage({ params }: Props) {
     notFound();
   }
 
-  const isJobSeoPage =
-    params.slug === "jobs-near-me" || params.slug.startsWith("jobs-in-") || page.eyebrow.includes("Jobs");
-  const icon = pageIcons[page.slug] ?? (isJobSeoPage ? "💼" : "📄");
-  const isLegal = page.eyebrow === "Legal";
-  const isSafety = page.eyebrow === "Safety";
-  const isSupport = page.eyebrow === "Support";
+  const structuredData = getPublicPageStructuredData(params.slug);
+  const schema = structuredData ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} /> : null;
+  const jobSearch = { ...emptyJobSearch, city: page.city || page.category?.city || "", category: page.category?.slug || "" };
+  const liveJobs = <LiveJobsSection search={jobSearch} heading={jobSearch.city ? `Live jobs in ${jobSearch.city}` : "Live jobs"} />;
 
-  // Build structured data for every page
-  const faqBlocks = page.blocks.filter(
-    (b): b is Extract<LegacyPageBlock, { kind: "faq" }> => b.kind === "faq"
-  );
-  const faqItems = faqBlocks.flatMap((b) => b.items);
-
-  const structuredData: Record<string, unknown>[] = [
-    {
-      "@type": "BreadcrumbList",
-      itemListElement: [
-        { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
-        {
-          "@type": "ListItem",
-          position: 2,
-          name: page.title,
-          item: `${SITE_URL}/${params.slug}`
-        }
-      ]
-    }
-  ];
-
-  if (faqItems.length > 0) {
-    structuredData.push({
-      "@type": "FAQPage",
-      mainEntity: faqItems.map((faq) => ({
-        "@type": "Question",
-        name: faq.question,
-        acceptedAnswer: { "@type": "Answer", text: faq.answer }
-      }))
-    });
+  if (page.category || page.city) {
+    return <SiteShell>{schema}{page.city ? <CityJobGuide page={page} liveJobs={liveJobs} /> : <JobCategoryGuide page={page} liveJobs={liveJobs} />}</SiteShell>;
   }
 
-  const jsonLd = { "@context": "https://schema.org", "@graph": structuredData };
+  const isLegal = page.eyebrow === "Legal";
+  const isSafety = page.slug === "safety";
+  const isFaq = page.slug === "faq";
+  const isSupport = isSafety || page.eyebrow === "Support";
+  const pageGroup = isLegal ? "Legal" : isSupport ? "Help centre" : "Browse jobs";
+  const relatedPages = isLegal ? legalPages : isSupport ? supportPages : [];
+  const icon = relatedPages.find((item) => item.href === `/${page.slug}`)?.icon ?? "briefcase-business";
+  const contents = (
+    <nav className="resource-toc" aria-label="On this page">
+      {page.blocks.map((block, index) => (
+        <a key={block.title} href={`#${sectionId(block.title)}`}>
+          <span>{String(index + 1).padStart(2, "0")}</span>{block.title}
+        </a>
+      ))}
+    </nav>
+  );
 
-  if (plainPolicySlugs.has(page.slug)) {
-    return (
-      <SiteShell plain>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
-        <article className="policy-page">
-          <header className="policy-header">
-            <p className="policy-eyebrow">{page.eyebrow}</p>
-            <h1>{page.title}</h1>
-            <p>{page.intro}</p>
-            {isLegal ? <span>Last updated: January 11, 2026</span> : null}
-          </header>
+  return (
+    <SiteShell>
+      {schema}
+      <div className={`resource-page resource-${isLegal ? "legal" : isSupport ? "support" : "browse"}`}>
+        <nav className="resource-breadcrumb" aria-label="Breadcrumb">
+          <Link href="/">Home</Link><SiteIcon name="arrow-right" />
+          <span>{pageGroup}</span><SiteIcon name="arrow-right" />
+          <span aria-current="page">{page.title}</span>
+        </nav>
 
-          <div className="policy-content">
-            {page.blocks.map((block) => renderPlainBlock(block))}
+        <header className="resource-header">
+          <div className="resource-header-label">
+            <span className="section-label"><SiteIcon name={icon} /> DUTYPE {pageGroup.toUpperCase()}</span>
+            {isLegal ? <span className="resource-updated">Last updated: January 11, 2026</span> : null}
+          </div>
+          <h1>{page.title}</h1>
+          <p>{page.intro}</p>
+          {isSafety ? (
+            <div className="resource-header-actions">
+              <a href={page.ctaHref} className="button"><SiteIcon name="shield-check" /> {page.ctaLabel}</a>
+              <a href="#emergency-contacts" className="text-link"><SiteIcon name="smartphone" /> Emergency contacts</a>
+            </div>
+          ) : null}
+        </header>
+        {page.slug === "jobs-near-me" ? liveJobs : null}
+
+        {relatedPages.length ? (
+          <nav className="resource-topic-nav" aria-label={`${pageGroup} pages`}>
+            {relatedPages.map((item) => (
+              <Link key={item.href} href={item.href} aria-current={item.href === `/${page.slug}` ? "page" : undefined}>
+                <SiteIcon name={item.icon} />{item.label}
+              </Link>
+            ))}
+          </nav>
+        ) : null}
+
+        {isLegal || isSafety ? (
+          <div className="resource-overview" aria-label="At a glance">
+            <span className="section-label">AT A GLANCE</span>
+            <ul>
+              {page.highlights.map((highlight) => (
+                <li key={highlight}><SiteIcon name="check" /><span>{highlight}</span></li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {!isFaq ? (
+          <details className="resource-mobile-index">
+            <summary>On this page<SiteIcon name="chevron-down" /></summary>
+            {contents}
+          </details>
+        ) : null}
+
+        <div className="resource-layout">
+          <aside className="resource-sidebar">
+            <span className="section-label">{isFaq ? "HELP & SUPPORT" : "ON THIS PAGE"}</span>
+            {isFaq ? (
+              <nav className="resource-toc" aria-label="More help">
+                <Link href="/contact"><SiteIcon name="messages-square" />Contact support</Link>
+                <Link href="/safety"><SiteIcon name="shield-check" />Stay safe on DutyPe</Link>
+                <Link href="/refund"><SiteIcon name="wallet" />Refunds & billing</Link>
+              </nav>
+            ) : contents}
+            <div className="resource-sidebar-help">
+              <SiteIcon name="messages-square" />
+              <strong>{isSafety ? "Something doesn't feel right?" : "Need a hand?"}</strong>
+              <Link href={isSafety || page.slug === "contact" ? `mailto:${SUPPORT_EMAIL}` : "/contact"} className="text-link">
+                {isSafety ? "Report an issue" : page.slug === "contact" ? "Email support" : "Contact support"}<SiteIcon name="arrow-up-right" />
+              </Link>
+            </div>
+          </aside>
+
+          <div className="resource-body">
+            {isFaq ? (
+              <FaqContent groups={page.blocks.flatMap((block) => block.kind === "faq" ? [{ ...block, id: sectionId(block.title) }] : [])} />
+            ) : page.blocks.map((block) => renderBlock(block))}
 
             {page.ctaTitle && page.ctaCopy ? (
-              <section className="policy-section policy-support-section">
-                <h2>{page.ctaTitle}</h2>
-                <p>{page.ctaCopy}</p>
+              <section className="resource-next-step" aria-label={page.ctaTitle}>
+                <span className="resource-contact-icon"><SiteIcon name={isLegal ? "clipboard-list" : "messages-square"} /></span>
+                <div><h2>{page.ctaTitle}</h2><p>{page.ctaCopy}</p></div>
                 {page.ctaHref && page.ctaLabel ? (
-                  page.ctaHref.startsWith("mailto:") ? (
-                    <a href={page.ctaHref} className="policy-action">{page.ctaLabel}</a>
-                  ) : (
-                    <Link href={page.ctaHref} className="policy-action">{page.ctaLabel}</Link>
-                  )
+                  <Link href={page.ctaHref} className="button ghost">{page.ctaLabel}<SiteIcon name="arrow-up-right" /></Link>
                 ) : null}
               </section>
             ) : null}
           </div>
-        </article>
-      </SiteShell>
-    );
-  }
-
-  return (
-    <SiteShell>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-      <section className={`hero ${isJobSeoPage ? "local-seo-hero" : ""}`}>
-        <div className="hero-grid">
-          <div className="hero-copy">
-            <div className="eyebrow-group">
-              <span className="eyebrow">{icon} {page.eyebrow}</span>
-              {isLegal && <span className="hero-note">Last updated: January 11, 2026</span>}
-            </div>
-            <h1 className="headline">{page.title}</h1>
-            <p className="lede">{page.intro}</p>
-            <div className="button-row">
-              {page.ctaHref && page.ctaLabel ? (
-                page.ctaHref.startsWith("mailto:") ? (
-                  <a href={page.ctaHref} className="button">
-                    {page.ctaLabel}
-                  </a>
-                ) : (
-                  <Link href={page.ctaHref} className="button">
-                    {page.ctaLabel}
-                  </Link>
-                )
-              ) : null}
-              {isSafety || isSupport ? (
-                <a href={PLAY_STORE_URL} className="button ghost" target="_blank" rel="noopener noreferrer">
-                  Download app
-                </a>
-              ) : (
-                <Link href="/jobs" className="button ghost">
-                  Browse jobs
-                </Link>
-              )}
-            </div>
-          </div>
-
-          <aside className="hero-panel hero-panel-enhanced">
-            <span className="card-kicker">Key highlights</span>
-            <h3>{page.title}</h3>
-            <ul className="detail-list detail-list-enhanced">
-              {page.highlights.map((highlight) => (
-                <li key={highlight}>
-                  <strong>{highlight}</strong>
-                </li>
-              ))}
-            </ul>
-          </aside>
         </div>
-      </section>
-
-      <section className={`section ${isJobSeoPage ? "local-seo-section" : ""}`}>
-        <div className="section-header">
-          <div>
-            <span className="tag">{page.eyebrow}</span>
-            <h2>{page.title}</h2>
-          </div>
-          <p>{page.description}</p>
-        </div>
-
-        <div className="section-grid legacy-grid">{page.blocks.map((block) => renderBlock(block))}</div>
-
-        {isJobSeoPage ? (
-          <AppConversionCard
-            categoryOrCity={
-              params.slug.startsWith("jobs-in-")
-                ? params.slug.replace("jobs-in-", "").charAt(0).toUpperCase() + params.slug.replace("jobs-in-", "").slice(1)
-                : page.title.replace("Jobs", "").trim()
-            }
-          />
-        ) : null}
-
-        {page.ctaTitle && page.ctaCopy ? (
-          <div className="callout legacy-cta-callout">
-            <strong>{page.ctaTitle}</strong>
-            <span>{page.ctaCopy}</span>
-            {page.ctaHref && page.ctaLabel ? (
-              page.ctaHref.startsWith("mailto:") ? (
-                <a href={page.ctaHref} className="callout-action">{page.ctaLabel}</a>
-              ) : (
-                <Link href={page.ctaHref} className="callout-action">{page.ctaLabel}</Link>
-              )
-            ) : null}
-          </div>
-        ) : null}
-      </section>
+      </div>
     </SiteShell>
   );
 }

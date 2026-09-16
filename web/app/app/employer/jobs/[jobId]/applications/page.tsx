@@ -1,5 +1,3 @@
-"use client";
-
 import { EmployerApplicationsClient } from "@/components/product/employer-app";
 import { ProductRoleBoundary } from "@/components/product/product-shell";
 

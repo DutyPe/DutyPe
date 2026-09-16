@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   collection,
   deleteDoc,
@@ -12,12 +12,20 @@ import {
   limit,
   orderBy,
   query,
+  runTransaction,
   setDoc,
   updateDoc,
-  where
+  where,
+  writeBatch
 } from "firebase/firestore";
 
 import { getFirebaseServices } from "@/lib/firebase/client";
+import { FIREBASE_SETUP_ERROR } from "@/lib/firebase/auth-errors";
+import { jobDirectoryCities } from "@/lib/public-site";
+import {
+  getOrCreateConversationId,
+  productConversationRoute
+} from "@/lib/firebase/chat-actions";
 import { formatCurrencyRange, formatDateTime } from "@/lib/firebase/firestore-helpers";
 import {
   employerBaseLocationFromProfile,
@@ -29,6 +37,7 @@ import {
   canEmployerMoveToUnderReview,
   canEditEmployerJob,
   defaultCompanyName,
+  deriveJobCategory,
   employerJobEditRestrictionMessage,
   employerProfileCompletion,
   isLiveJob,
@@ -38,7 +47,6 @@ import {
   productStatusLabel,
   productStatusTone,
   sortByTimestampDesc,
-  toStorageApplicationStatus,
   type ProductApplication,
   type ProductApplicationStatus,
   type ProductJob
@@ -66,6 +74,8 @@ type EmployerApplicationsClientProps = SharedProps & {
 };
 
 type EmployerJobForm = {
+  city: string;
+  area: string;
   category: string;
   companyName: string;
   contactNumber: string;
@@ -83,6 +93,8 @@ type EmployerJobForm = {
 };
 
 const initialJobForm: EmployerJobForm = {
+  city: "",
+  area: "",
   category: "",
   companyName: "",
   contactNumber: "",
@@ -98,6 +110,8 @@ const initialJobForm: EmployerJobForm = {
   title: "",
   vacancies: "1"
 };
+
+const jobDraftKey = "dutype:employer-job-draft:v1";
 
 function toCoordinateText(value: unknown): string {
   return typeof value === "number" && Number.isFinite(value) && value !== 0
@@ -143,11 +157,17 @@ function getBrowserPosition(): Promise<GeolocationPosition> {
 }
 
 function EmployerJobCard({
+  action,
+  actionLabel,
   applicantsHref,
+  busy,
   editHref,
   job
 }: {
+  action?: () => Promise<void>;
+  actionLabel?: string;
   applicantsHref?: string;
+  busy?: boolean;
   editHref?: string;
   job: ProductJob;
 }) {
@@ -161,8 +181,8 @@ function EmployerJobCard({
           <span className="card-kicker">{job.category || "JOB POST"}</span>
           <h3>{job.title}</h3>
         </div>
-        <span className="status-pill success">
-          {job.isFilled ? "Filled" : "Open"}
+        <span className={`status-pill ${job.isActive ? "success" : "neutral"}`}>
+          {job.isFilled ? "Filled" : job.isActive ? "Live" : "Paused"}
         </span>
       </div>
 
@@ -176,7 +196,7 @@ function EmployerJobCard({
       <div className="market-card-meta">
         <div className="market-meta-item">
           <span>Location</span>
-          <strong>{job.addressText?.trim() || `${job.location.lat}, ${job.location.lng}`}</strong>
+          <strong>{job.location || "Location pending"}</strong>
         </div>
         <div className="market-meta-item">
           <span>Pay</span>
@@ -197,7 +217,21 @@ function EmployerJobCard({
 
       {editRestriction ? <div className="callout">{editRestriction}</div> : null}
 
-      {editHref || applicantsHref ? (
+      {action && actionLabel ? (
+        <div className="button-row compact market-card-actions">
+          {editHref ? (
+            <Link href={editHref} className="button ghost">
+              Edit job
+            </Link>
+          ) : null}
+          <button type="button" className="button ghost" disabled={busy} onClick={() => void action()}>
+            {busy ? "Updating..." : actionLabel}
+          </button>
+          <Link href={applicantsHref ?? "/app/employer/applications"} className="button">
+            {applicantsHref ? "View applicants" : "Review applications"}
+          </Link>
+        </div>
+      ) : editHref || applicantsHref ? (
         <div className="button-row compact market-card-actions">
           {editHref ? (
             <Link href={editHref} className="button ghost">
@@ -229,10 +263,8 @@ function EmployerApplicationCard({
   showActions?: boolean;
 }) {
   const [startingChat, setStartingChat] = useState(false);
-  const statusHistory = Array.isArray(application.statusHistory) ? application.statusHistory : [];
-  const lastHistoryEntry = statusHistory.length > 0 ? statusHistory[statusHistory.length - 1] as { notes?: string } : null;
   const latestUpdate =
-    lastHistoryEntry?.notes ||
+    application.statusHistory[application.statusHistory.length - 1]?.notes ||
     "Application is active in the employer review flow.";
 
   async function handleMessageWorker() {
@@ -365,7 +397,7 @@ export function EmployerDashboardClient({ session }: SharedProps) {
         );
         const applicationsSnapshot = await getDocs(
           query(
-            collection(activeServices.db, "applications"),
+            collection(activeServices.db, "job_applications"),
             where("employerId", "==", activeUser.uid)
           )
         );
@@ -408,12 +440,25 @@ export function EmployerDashboardClient({ session }: SharedProps) {
     };
   }, [services, session.user]);
 
-  async function handleOpenConversation(_application: ProductApplication) {
-    setError("Direct messaging is no longer available. Please reach the worker via the phone number listed on their application.");
+  async function handleOpenConversation(application: ProductApplication) {
+    try {
+      setError(null);
+
+      const conversationId = await getOrCreateConversationId(
+        application.workerId,
+        application.jobId || application.id
+      );
+
+      router.push(productConversationRoute("EMPLOYER", conversationId));
+    } catch (conversationError) {
+      setError(
+        conversationError instanceof Error
+          ? conversationError.message
+          : "Failed to open worker chat."
+      );
+    }
   }
 
-  // Reference unused params to satisfy lint when chat is disabled.
-  void handleOpenConversation;
   const completion = employerProfileCompletion(session.profile);
   const missingFields = missingEmployerFields(session.profile);
   const pendingApplications = applications.filter(
@@ -515,7 +560,7 @@ export function EmployerDashboardClient({ session }: SharedProps) {
             <span className="tag">Hiring pipeline</span>
             <h2>Latest applications</h2>
           </div>
-          <p>Applications are read from `applications`, the same collection used by the Kotlin services.</p>
+          <p>Applications are read from `job_applications`, the same collection used by the Kotlin services.</p>
         </div>
 
         {loading ? (
@@ -542,10 +587,15 @@ export function EmployerDashboardClient({ session }: SharedProps) {
 export function EmployerPostJobClient({ session }: SharedProps) {
   const services = useMemo(() => getFirebaseServices(), []);
   const router = useRouter();
+  const pendingJobId = useRef<string | null>(null);
+  const posting = useRef(false);
+  const [published, setPublished] = useState(false);
   const [form, setForm] = useState<EmployerJobForm>(initialJobForm);
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const canPublish = Boolean(session.user && session.availableRoles.includes("EMPLOYER"));
+  const draftOwnerId = session.user?.uid ?? null;
   const savedBusinessLocation = employerBaseLocationFromProfile(session.profile);
   const savedWorkLocations = useMemo(
     () => normalizeWorkLocations(session.profile?.workLocations),
@@ -558,15 +608,36 @@ export function EmployerPostJobClient({ session }: SharedProps) {
   );
 
   useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(jobDraftKey);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (draft.version !== 1 || typeof draft.savedAt !== "number" || draft.savedAt > Date.now() || Date.now() - draft.savedAt > 3_600_000) {
+        sessionStorage.removeItem(jobDraftKey);
+        return;
+      }
+      if (draft.ownerId && draft.ownerId !== draftOwnerId) return;
+      const fields = Object.keys(initialJobForm) as (keyof EmployerJobForm)[];
+      const savedForm = { ...initialJobForm, ...draft.form };
+      if (!draft.form || !fields.every((field) => typeof savedForm[field] === "string" && savedForm[field].length <= 10_000)) return;
+      const restored = Object.fromEntries(fields.map((field) => [field, savedForm[field]])) as EmployerJobForm;
+      setForm(restored);
+      if (draftOwnerId && !draft.ownerId) sessionStorage.setItem(jobDraftKey, JSON.stringify({ ...draft, ownerId: draftOwnerId }));
+    } catch {
+      setError("Your saved draft could not be restored. Please review the job details before posting.");
+    }
+  }, [draftOwnerId]);
+
+  useEffect(() => {
     setForm((current) => ({
       ...current,
-      companyName: current.companyName || session.profile?.companyName || defaultCompanyName,
+      companyName: current.companyName || session.profile?.companyName || (session.user ? defaultCompanyName(session.profile) : ""),
       contactNumber: current.contactNumber || session.profile?.contactPhone || session.profile?.phone || "",
       latitude: current.latitude || toCoordinateText(session.profile?.businessLatitude),
       location: current.location || session.profile?.businessAddress || "",
       longitude: current.longitude || toCoordinateText(session.profile?.businessLongitude)
     }));
-  }, [session.profile]);
+  }, [session.profile, session.user]);
 
   function handleApplySavedLocation(location: ProductWorkLocation) {
     setError(null);
@@ -600,61 +671,64 @@ export function EmployerPostJobClient({ session }: SharedProps) {
     }
   }
 
-  async function handleSubmit() {
-    if (!services || !session.user) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (posting.current || published || session.loading) {
       return;
     }
+
+    if (![form.title, form.companyName, form.city, form.location, form.contactNumber, form.description].every((value) => value.trim())) {
+      setError("Complete the job title, company, city, location, contact number, and description.");
+      return;
+    }
+    const payAmount = Number(form.payAmount);
+    const vacancies = Number(form.vacancies);
+    if (!Number.isFinite(payAmount) || payAmount <= 0 || !Number.isSafeInteger(vacancies) || vacancies < 1) {
+      setError("Enter a positive pay amount and a whole number of vacancies.");
+      return;
+    }
+    const latitude = Number(form.latitude);
+    const longitude = Number(form.longitude);
+    const hasCoordinates = Boolean(form.latitude.trim() && form.longitude.trim()) &&
+      Number.isFinite(latitude) && Number.isFinite(longitude) && hasValidCoordinates(latitude, longitude);
+    if ((form.latitude.trim() || form.longitude.trim()) && !hasCoordinates) {
+      setError("Enter both valid map coordinates, or leave both blank.");
+      return;
+    }
+
+    if (!canPublish) {
+      try {
+        sessionStorage.setItem(jobDraftKey, JSON.stringify({ version: 1, savedAt: Date.now(), ownerId: session.user?.uid ?? null, form }));
+        router.push("/app/auth?role=EMPLOYER&next=%2Fapp%2Femployer%2Fpost-job");
+      } catch {
+        setError("Your browser could not keep this draft. Allow tab storage before continuing to sign in.");
+      }
+      return;
+    }
+    if (!services || !session.user) { setError(FIREBASE_SETUP_ERROR); return; }
 
     const activeServices = services;
     const activeUser = session.user;
 
     try {
+      posting.current = true;
       setSubmitting(true);
       setError(null);
 
-      // Check daily limit of 3 free jobs if user does not have an active subscription
-      const profileDoc = await getDoc(doc(activeServices.db, "employer_profiles", activeUser.uid));
-      const profileData = profileDoc.exists() ? profileDoc.data() : null;
-      const sub = profileData?.subscription || null;
+      const jobRef = pendingJobId.current
+        ? doc(activeServices.db, "jobs", pendingJobId.current)
+        : doc(collection(activeServices.db, "jobs"));
+      pendingJobId.current = jobRef.id;
+      const batch = writeBatch(activeServices.db);
       const currentTime = Date.now();
-      const isExpired = sub?.expiryDate > 0 && sub?.expiryDate < currentTime;
-      const hasActiveSubscription = sub?.status !== "NONE" && !isExpired && sub?.credits?.normal > 0;
-
-      if (!hasActiveSubscription) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayStart = today.getTime();
-
-        const allJobsSnap = await getDocs(
-          query(
-            collection(activeServices.db, "jobs"),
-            where("employerId", "==", activeUser.uid)
-          )
-        );
-
-        const todayJobsCount = allJobsSnap.docs.filter((doc) => {
-          const data = doc.data();
-          return data.createdAt && data.createdAt >= todayStart;
-        }).length;
-
-        if (todayJobsCount >= 3) {
-          setError("You have reached the daily limit of 3 free job posts. Please try again tomorrow!");
-          setSubmitting(false);
-          return;
-        }
-      }
-
-      const jobRef = doc(collection(activeServices.db, "jobs"));
-      const vacancies = Math.max(1, Number(form.vacancies || "1"));
-      const latitude = Number(form.latitude);
-      const longitude = Number(form.longitude);
-      const hasCoordinates = hasValidCoordinates(latitude, longitude);
+      const normalizedCategory =
+        form.category.trim().toUpperCase() || deriveJobCategory(form.title, form.description);
       const nextWorkLocations =
         matchedSavedLocation?.id
           ? incrementWorkLocationUsage(savedWorkLocations, matchedSavedLocation.id)
           : savedWorkLocations;
 
-      await updateDoc(doc(activeServices.db, "users", activeUser.uid), {
+      batch.update(doc(activeServices.db, "users", activeUser.uid), {
         activeRole: "EMPLOYER",
         businessAddress: form.location.trim(),
         businessLatitude: hasCoordinates ? latitude : 0,
@@ -668,76 +742,62 @@ export function EmployerPostJobClient({ session }: SharedProps) {
         workLocations: nextWorkLocations
       });
 
-      await setDoc(
-        doc(activeServices.db, "employer_profiles", activeUser.uid),
-        {
-          businessAddress: form.location.trim(),
-          businessLatitude: hasCoordinates ? latitude : 0,
-          businessLongitude: hasCoordinates ? longitude : 0,
-          companyName: form.companyName.trim(),
-          contactEmail: activeUser.email ?? session.profile?.email ?? "",
-          contactPhone: form.contactNumber.trim(),
-          updatedAt: currentTime,
-          userId: activeUser.uid,
-          workLocations: nextWorkLocations
-        },
-        { merge: true }
-      );
-
-      await setDoc(doc(activeServices.db, "jobs", jobRef.id), {
+      batch.set(jobRef, {
         acceptedCount: 0,
         applicationCount: 0,
-        addressText: form.location.trim(),
+        city: form.city.trim(),
+        area: form.area.trim(),
+        category: normalizedCategory,
         companyName: form.companyName.trim(),
         contactNumber: form.contactNumber.trim(),
         createdAt: currentTime,
         description: form.description.trim(),
         employerId: activeUser.uid,
         employerTrustTier: session.profile?.trustTier || "NEW",
-        // BUG #4 FIX: Default expiry was 15 days; aligned with the admin tool
-        // and Android post-job default at 30 days.
-        expiryDays: 30,
-        expiresAt: currentTime + 30 * 24 * 60 * 60 * 1000,
+        expiryDays: 15,
+        expiresAt: currentTime + 15 * 24 * 60 * 60 * 1000,
         gender: form.gender,
+        isActive: true,
+        isFilled: false,
         jobId: jobRef.id,
         jobType: form.jobType,
-        location: {
-          lat: hasCoordinates ? latitude : 0,
-          lng: hasCoordinates ? longitude : 0
-        },
-        salary: form.payAmount.trim(),
-        salaryType: form.payType,
+        latitude: hasCoordinates ? latitude : 0,
+        location: form.location.trim(),
+        longitude: hasCoordinates ? longitude : 0,
+        payAmount: form.payAmount.trim(),
+        payType: form.payType,
+        postedAt: currentTime,
         shiftTiming: form.shiftTiming.trim(),
-        status: "open",
         title: form.title.trim(),
         updatedAt: currentTime,
-        vacancies
+        vacancies,
+        vacancyStatus: "OPEN"
       });
 
-      await session.refreshProfile();
+      await batch.commit();
+      setPublished(true);
+      try { sessionStorage.removeItem(jobDraftKey); } catch {}
       router.push("/app/employer/jobs");
       router.refresh();
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to post job.");
     } finally {
+      posting.current = false;
       setSubmitting(false);
     }
   }
 
   return (
     <div className="product-section-stack">
-      {error ? <div className="callout">Post job error: {error}</div> : null}
+      {error ? <div className="callout" role="alert">{error}</div> : null}
+      {!canPublish ? <p className="callout">Sign in with Google or a mobile verification code before publishing.</p> : null}
 
       <section className="section">
         <div className="section-header">
           <div>
-            <span className="tag">Employer post job</span>
-            <h2>Create a live Firestore job</h2>
+            <span className="tag">Hiring</span>
+            <h2>Post a job</h2>
           </div>
-          <p>
-            This uses the same core job shape as the Android `JobFirestoreService`: `jobId`,
-            `employerId`, `createdAt`, `applicationCount`, `vacancies`, `status`, and `salary`.
-          </p>
         </div>
 
         <div className="detail-grid">
@@ -833,10 +893,13 @@ export function EmployerPostJobClient({ session }: SharedProps) {
           </div>
         )}
 
-        <div className="editor-form">
+        <form className="editor-form" onSubmit={handleSubmit}>
+          <label><span>City</span><input required list="employer-job-cities" maxLength={80} autoComplete="address-level2" value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} /><datalist id="employer-job-cities">{jobDirectoryCities.map((city) => <option key={city} value={city} />)}</datalist></label>
+          <label><span>Area or locality</span><input maxLength={100} value={form.area} onChange={(event) => setForm((current) => ({ ...current, area: event.target.value }))} /></label>
           <label>
             <span>Job title</span>
             <input
+              required
               value={form.title}
               onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
             />
@@ -845,6 +908,8 @@ export function EmployerPostJobClient({ session }: SharedProps) {
           <label>
             <span>Company name</span>
             <input
+              required
+              autoComplete="organization"
               value={form.companyName}
               onChange={(event) => setForm((current) => ({ ...current, companyName: event.target.value }))}
             />
@@ -853,6 +918,8 @@ export function EmployerPostJobClient({ session }: SharedProps) {
           <label>
             <span>Location</span>
             <input
+              required
+              autoComplete="street-address"
               value={form.location}
               onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))}
             />
@@ -861,6 +928,10 @@ export function EmployerPostJobClient({ session }: SharedProps) {
           <label>
             <span>Latitude</span>
             <input
+              type="number"
+              min="-90"
+              max="90"
+              step="any"
               value={form.latitude}
               onChange={(event) => setForm((current) => ({ ...current, latitude: event.target.value }))}
               placeholder={savedBusinessLocation ? toCoordinateText(savedBusinessLocation.latitude) : "17.448294"}
@@ -870,6 +941,10 @@ export function EmployerPostJobClient({ session }: SharedProps) {
           <label>
             <span>Longitude</span>
             <input
+              type="number"
+              min="-180"
+              max="180"
+              step="any"
               value={form.longitude}
               onChange={(event) => setForm((current) => ({ ...current, longitude: event.target.value }))}
               placeholder={savedBusinessLocation ? toCoordinateText(savedBusinessLocation.longitude) : "78.391487"}
@@ -879,6 +954,9 @@ export function EmployerPostJobClient({ session }: SharedProps) {
           <label>
             <span>Contact number</span>
             <input
+              required
+              type="tel"
+              autoComplete="tel"
               value={form.contactNumber}
               onChange={(event) => setForm((current) => ({ ...current, contactNumber: event.target.value }))}
             />
@@ -887,6 +965,10 @@ export function EmployerPostJobClient({ session }: SharedProps) {
           <label>
             <span>Pay amount</span>
             <input
+              required
+              type="number"
+              min="0.01"
+              step="0.01"
               value={form.payAmount}
               onChange={(event) => setForm((current) => ({ ...current, payAmount: event.target.value }))}
               placeholder="18000"
@@ -950,8 +1032,10 @@ export function EmployerPostJobClient({ session }: SharedProps) {
           <label>
             <span>Vacancies</span>
             <input
+              required
               type="number"
               min="1"
+              step="1"
               value={form.vacancies}
               onChange={(event) => setForm((current) => ({ ...current, vacancies: event.target.value }))}
             />
@@ -960,6 +1044,7 @@ export function EmployerPostJobClient({ session }: SharedProps) {
           <label className="editor-form-wide">
             <span>Description</span>
             <textarea
+              required
               rows={6}
               value={form.description}
               onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
@@ -968,11 +1053,11 @@ export function EmployerPostJobClient({ session }: SharedProps) {
           </label>
 
           <div className="editor-form-actions button-row">
-            <button type="button" className="button" disabled={submitting} onClick={() => void handleSubmit()}>
-              {submitting ? "Posting..." : "Post job"}
+            <button type="submit" className="button" disabled={submitting || published || session.loading}>
+              {published ? "Published" : submitting ? "Posting..." : canPublish ? "Post job" : "Sign in to post job"}
             </button>
           </div>
-        </div>
+        </form>
       </section>
     </div>
   );
@@ -1014,21 +1099,15 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
         setLoading(true);
         setError(null);
 
-        // BUG #7 FIX: 2-collection job schema. Read jobmetadata (public card)
-        // + job_details (private rich fields), then merge for the form.
-        const [metaSnap, detailsSnap] = await Promise.all([
-          getDoc(doc(activeServices.db, "jobmetadata", jobId)),
-          getDoc(doc(activeServices.db, "job_details", jobId))
-        ]);
-        if (!metaSnap.exists()) {
+        const snapshot = await getDoc(doc(activeServices.db, "jobs", jobId));
+        if (!snapshot.exists()) {
           throw new Error("This job could not be found.");
         }
 
-        const merged: Record<string, unknown> = {
-          ...(metaSnap.data() as Record<string, unknown>),
-          ...((detailsSnap.exists() ? detailsSnap.data() : {}) as Record<string, unknown>)
-        };
-        const nextJob = normalizeProductJob(metaSnap.id, merged);
+        const nextJob = normalizeProductJob(
+          snapshot.id,
+          snapshot.data() as Record<string, unknown>
+        );
 
         if (nextJob.employerId !== activeUser.uid) {
           throw new Error("You can only edit jobs posted by your own employer account.");
@@ -1040,26 +1119,28 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
 
         setJob(nextJob);
         setForm({
-          category: nextJob.category || "General",
+          city: nextJob.city,
+          area: nextJob.area,
+          category: nextJob.category,
           companyName:
             nextJob.companyName ||
             session.profile?.companyName ||
-            defaultCompanyName,
+            defaultCompanyName(session.profile),
           contactNumber:
             nextJob.contactNumber ||
             session.profile?.contactPhone ||
             session.profile?.phone ||
             "",
-          description: nextJob.description || "",
+          description: nextJob.description,
           gender: nextJob.gender || "ANY",
           jobType: nextJob.jobType || "FULL_TIME",
           latitude: toCoordinateText(nextJob.latitude),
-          location: nextJob.addressText || `${nextJob.location.lat}, ${nextJob.location.lng}`,
+          location: nextJob.location,
           longitude: toCoordinateText(nextJob.longitude),
-          payAmount: String(nextJob.payAmount ?? ""),
+          payAmount: nextJob.payAmount,
           payType: nextJob.payType || "MONTHLY",
-          shiftTiming: nextJob.shiftTiming || "",
-          title: nextJob.title || "",
+          shiftTiming: nextJob.shiftTiming,
+          title: nextJob.title,
           vacancies: String(nextJob.vacancies || 1)
         });
       } catch (loadError) {
@@ -1122,11 +1203,14 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
       return;
     }
 
+    if (!form.city.trim()) { setError("Enter the job's city before saving."); return; }
+
     try {
       setSaving(true);
       setError(null);
 
       const currentTime = Date.now();
+      const batch = writeBatch(services.db);
       const typedLatitude = Number(form.latitude);
       const typedLongitude = Number(form.longitude);
       const hasTypedCoordinates = hasValidCoordinates(typedLatitude, typedLongitude);
@@ -1141,40 +1225,46 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
         : hasExistingCoordinates
           ? job.longitude
           : 0;
+      const nextWorkLocations =
+        matchedSavedLocation?.id
+          ? incrementWorkLocationUsage(savedWorkLocations, matchedSavedLocation.id)
+          : savedWorkLocations;
 
-      // BUG #7 FIX: Stop overwriting the user's profile + employer_profiles
-      // from the edit-job submit. Those updates wrote forbidden fields
-      // (`activeRole`, `roles`, `updatedAt`, `businessLatitude`, ...) which
-      // Firestore rules rejected, causing the entire "Save" to fail with
-      // permission-denied. Profile changes belong to the profile screen, not
-      // the per-job editor.
-
-      // BUG #7 FIX: Write per the 2-collection schema:
-      //   jobmetadata = card fields (rule whitelist)
-      //   job_details = private rich fields (rule whitelist)
-      const metadataPayload: Record<string, unknown> = {
-        title: form.title.trim(),
+      batch.update(doc(services.db, "users", session.user.uid), {
+        activeRole: "EMPLOYER",
+        businessAddress: form.location.trim(),
+        businessLatitude: finalLatitude,
+        businessLongitude: finalLongitude,
         companyName: form.companyName.trim(),
-        jobType: form.jobType,
-        salary: form.payAmount.trim(),
-        salaryType: form.payType,
-        location: { lat: finalLatitude, lng: finalLongitude },
-        addressText: form.location.trim()
-      };
+        contactEmail: session.user.email ?? session.profile?.email ?? "",
+        contactPhone: form.contactNumber.trim(),
+        role: "EMPLOYER",
+        roles: [...new Set([...session.availableRoles, "EMPLOYER"])],
+        updatedAt: currentTime,
+        workLocations: nextWorkLocations
+      });
 
-      const detailsPayload: Record<string, unknown> = {
-        description: form.description.trim(),
+      batch.update(doc(services.db, "jobs", job.id), {
+        city: form.city.trim(),
+        area: form.area.trim(),
+        category: form.category.trim().toUpperCase() || deriveJobCategory(form.title, form.description),
+        companyName: form.companyName.trim(),
         contactNumber: form.contactNumber.trim(),
+        description: form.description.trim(),
         gender: form.gender,
+        jobType: form.jobType,
+        latitude: finalLatitude,
+        location: form.location.trim(),
+        longitude: finalLongitude,
+        payAmount: form.payAmount.trim(),
+        payType: form.payType,
         shiftTiming: form.shiftTiming.trim(),
+        title: form.title.trim(),
+        updatedAt: currentTime,
         vacancies: Math.max(1, Number(form.vacancies || "1"))
-      };
+      });
 
-      await Promise.all([
-        updateDoc(doc(services.db, "jobmetadata", job.id), metadataPayload),
-        updateDoc(doc(services.db, "job_details", job.id), detailsPayload)
-      ]);
-
+      await batch.commit();
       await session.refreshProfile();
       router.push("/app/employer/jobs");
       router.refresh();
@@ -1199,8 +1289,7 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
       setDeleting(true);
       setError(null);
 
-      await deleteDoc(doc(services.db, "jobmetadata", job.id));
-      await deleteDoc(doc(services.db, "job_details", job.id));
+      await deleteDoc(doc(services.db, "jobs", job.id));
       router.push("/app/employer/jobs");
       router.refresh();
     } catch (deleteError) {
@@ -1332,7 +1421,7 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
               <span className="pill">{form.companyName || "Company pending"}</span>
               <span className="pill">{form.location || "Location pending"}</span>
               <span className="pill">{form.payAmount || "Pay pending"}</span>
-              <span className="pill">Open</span>
+              <span className="pill">{job.isActive ? "Currently live" : "Currently paused"}</span>
             </div>
             <div className="button-row compact">
               <button
@@ -1352,7 +1441,7 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
           <article className="detail-panel">
             <span className="card-kicker">Original post</span>
             <h3>{job.companyName || "DutyPe employer"}</h3>
-            <p>{job.addressText?.trim() || `${job.location.lat}, ${job.location.lng}`}</p>
+            <p>{job.location || "Location not available."}</p>
             <div className="pill-row">
               <span className="pill">{job.category || "Category pending"}</span>
               <span className="pill">{job.shiftTiming || "Shift pending"}</span>
@@ -1392,6 +1481,8 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
         ) : null}
 
         <div className="editor-form">
+          <label><span>City</span><input disabled={!canEdit} maxLength={80} value={form.city} onChange={(event) => setForm((current) => ({ ...current, city: event.target.value }))} /></label>
+          <label><span>Area or locality</span><input disabled={!canEdit} maxLength={100} value={form.area} onChange={(event) => setForm((current) => ({ ...current, area: event.target.value }))} /></label>
           <label>
             <span>Job title</span>
             <input
@@ -1559,6 +1650,7 @@ export function EmployerJobsClient({ session }: SharedProps) {
   const [jobs, setJobs] = useState<ProductJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [busyJobId, setBusyJobId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!services || !session.user) {
@@ -1609,6 +1701,34 @@ export function EmployerJobsClient({ session }: SharedProps) {
     };
   }, [services, session.user]);
 
+  async function handleToggleActive(job: ProductJob) {
+    if (!services) {
+      return;
+    }
+
+    try {
+      setBusyJobId(job.id);
+      await updateDoc(doc(services.db, "jobs", job.id), {
+        isActive: !job.isActive,
+        updatedAt: Date.now()
+      });
+      setJobs((current) =>
+        current.map((item) =>
+          item.id === job.id
+            ? {
+                ...item,
+                isActive: !item.isActive
+              }
+            : item
+        )
+      );
+    } catch (toggleError) {
+      setError(toggleError instanceof Error ? toggleError.message : "Failed to update job visibility.");
+    } finally {
+      setBusyJobId(null);
+    }
+  }
+
   return (
     <div className="product-section-stack">
       {error ? <div className="callout">Jobs error: {error}</div> : null}
@@ -1625,7 +1745,7 @@ export function EmployerJobsClient({ session }: SharedProps) {
           </div>
           <div className="product-summary-card">
             <span>Total applications</span>
-            <strong>{jobs.reduce((sum, job) => sum + (job.applicationCount ?? 0), 0)}</strong>
+            <strong>{jobs.reduce((sum, job) => sum + job.applicationCount, 0)}</strong>
           </div>
         </div>
       </section>
@@ -1636,7 +1756,7 @@ export function EmployerJobsClient({ session }: SharedProps) {
             <span className="tag">Employer jobs</span>
             <h2>Manage posted jobs</h2>
           </div>
-          <p>Review posted jobs, edit details, and open applicants from one hiring workspace.</p>
+          <p>Use this route to pause or reopen jobs while keeping the Android-compatible document structure.</p>
         </div>
 
         {loading ? (
@@ -1648,7 +1768,10 @@ export function EmployerJobsClient({ session }: SharedProps) {
             {jobs.map((job) => (
               <EmployerJobCard
                 key={job.id}
+                action={() => handleToggleActive(job)}
+                actionLabel={job.isActive ? "Pause job" : "Reopen job"}
                 applicantsHref={`/app/employer/jobs/${job.id}/applications`}
+                busy={busyJobId === job.id}
                 editHref={canEditEmployerJob(job) ? `/app/employer/jobs/${job.id}` : undefined}
                 job={job}
               />
@@ -1733,7 +1856,7 @@ export function EmployerApplicationsClient({
 
         const snapshot = await getDocs(
           query(
-            collection(activeServices.db, "applications"),
+            collection(activeServices.db, "job_applications"),
             where("employerId", "==", activeUser.uid)
           )
         );
@@ -1778,116 +1901,117 @@ export function EmployerApplicationsClient({
       }
 
       const matchesSearch =
-        (application.workerName ?? "").toLowerCase().includes(searchValue) ||
-        (application.jobTitle ?? "").toLowerCase().includes(searchValue) ||
-        (application.coverLetter ?? "").toLowerCase().includes(searchValue);
+        application.workerName.toLowerCase().includes(searchValue) ||
+        application.jobTitle.toLowerCase().includes(searchValue) ||
+        application.companyName.toLowerCase().includes(searchValue) ||
+        application.coverLetter.toLowerCase().includes(searchValue);
 
       return matchesStatus && matchesSearch;
     }
   );
 
-  async function handleOpenConversation(_application: ProductApplication) {
-    setError("Direct messaging is no longer available. Please contact the worker via the phone number on their application.");
-  }
+  async function handleOpenConversation(application: ProductApplication) {
+    try {
+      setError(null);
 
-  void handleOpenConversation;
+      const conversationId = await getOrCreateConversationId(
+        application.workerId,
+        application.jobId || application.id
+      );
+
+      router.push(productConversationRoute("EMPLOYER", conversationId));
+    } catch (conversationError) {
+      setError(
+        conversationError instanceof Error
+          ? conversationError.message
+          : "Failed to open worker chat."
+      );
+    }
+  }
 
   async function handleStatusUpdate(
     application: ProductApplication,
     nextStatus: ProductApplicationStatus
   ) {
-    if (!services || application.status === nextStatus) {
+    if (!services || !session.user || application.status === nextStatus || busyApplicationId) {
       return;
     }
 
+    const employerId = session.user.uid;
     try {
       setBusyApplicationId(application.id);
+      setError(null);
+      const verification = nextStatus === "ACCEPTED"
+        ? await createPendingWorkVerification({
+          applicationId: application.id,
+          db: services.db,
+          employerId,
+          employerName: application.companyName || session.profile?.companyName || "DutyPe employer",
+          jobId: application.jobId,
+          jobTitle: application.jobTitle,
+          workerId: application.workerId,
+          workerName: application.workerName
+        })
+        : null;
 
-      const currentTime = Date.now();
-      const previousHistory = Array.isArray(application.statusHistory)
-        ? application.statusHistory.filter(
-            (entry) => entry !== null && typeof entry === "object"
-          )
-        : [];
-      const nextHistory = [
-        ...previousHistory,
-        {
+      const applicationRef = doc(services.db, "job_applications", application.id);
+      const updatedApplication = await runTransaction(services.db, async (transaction) => {
+        const snapshot = await transaction.get(applicationRef);
+        if (!snapshot.exists()) throw new Error("This application is no longer available.");
+        const current = normalizeProductApplication(snapshot.id, snapshot.data());
+        if (current.employerId !== employerId) throw new Error("You don't have access to this application.");
+        if (current.status === nextStatus) return current;
+
+        const allowed = nextStatus === "UNDER_REVIEW"
+          ? canEmployerMoveToUnderReview(current.status)
+          : (nextStatus === "ACCEPTED" || nextStatus === "REJECTED") && canEmployerAcceptOrReject(current.status);
+        if (!allowed) throw new Error("This application's status has changed. Refresh before trying again.");
+
+        const currentTime = Date.now();
+        const nextHistory = [...current.statusHistory, {
           notes: nextStatusNote(nextStatus),
           status: nextStatus,
           systemUpdate: false,
           timestamp: currentTime,
           updatedAt: currentTime,
-          updatedBy: session.user?.uid ?? ""
-        }
-      ];
-      const storedHistory = nextHistory.map((entry) => {
-        const rawStatus =
-          typeof entry.status === "string" && entry.status.trim().length > 0
-            ? entry.status.toUpperCase()
-            : nextStatus;
-
-        return {
-          ...entry,
-          status: toStorageApplicationStatus(rawStatus as ProductApplicationStatus)
+          updatedBy: employerId
+        }];
+        const updatePayload: Record<string, unknown> = {
+          status: nextStatus,
+          statusHistory: nextHistory,
+          updatedAt: currentTime
         };
-      });
-      const updatePayload: Record<string, unknown> = {
-        status: toStorageApplicationStatus(nextStatus),
-        statusHistory: storedHistory,
-        updatedAt: currentTime
-      };
 
-      if (nextStatus === "ACCEPTED") {
-        const verification = await createPendingWorkVerification({
-          applicationId: application.id,
-          db: services.db,
-          employerId: application.employerId,
-          employerName:
-            session.profile?.companyName ||
-            "DutyPe employer",
-          jobId: application.jobId,
-          jobTitle: application.jobTitle || "Job",
-          workerId: application.workerId,
-          workerName: application.workerName || "Worker"
-        });
-
-        updatePayload.verification = verification;
-        updatePayload.verificationCode = verification.verificationCode;
-        updatePayload.verificationId = verification.verificationId;
-        updatePayload.verificationStatus = verification.status;
-
-        const jobSnapshot = await getDoc(doc(services.db, "jobs", application.jobId));
-        if (jobSnapshot.exists()) {
-          const job = normalizeProductJob(
-            jobSnapshot.id,
-            jobSnapshot.data() as Record<string, unknown>
-          );
-          const acceptedCount = (job.acceptedCount ?? 0) + 1;
-          const isFilled = acceptedCount >= (job.vacancies ?? 1);
-
-          await updateDoc(doc(services.db, "jobs", application.jobId), {
+        if (verification) {
+          if (current.jobId !== application.jobId || current.workerId !== application.workerId) {
+            throw new Error("This application has changed. Refresh before trying again.");
+          }
+          const jobRef = doc(services.db, "jobs", current.jobId);
+          const jobSnapshot = await transaction.get(jobRef);
+          const job = normalizeProductJob(jobSnapshot.id, jobSnapshot.data());
+          if (!jobSnapshot.exists() || job.employerId !== employerId || !isLiveJob(job) || job.acceptedCount >= job.vacancies) {
+            throw new Error("This job has no open vacancies.");
+          }
+          const acceptedCount = job.acceptedCount + 1;
+          const isFilled = acceptedCount >= job.vacancies;
+          transaction.update(jobRef, {
             acceptedCount,
-            status: isFilled ? "closed" : "open",
+            isFilled,
             updatedAt: currentTime,
             vacancyStatus: isFilled ? "FILLED" : "OPEN"
           });
+          Object.assign(updatePayload, {
+            verification,
+            verificationCode: verification.verificationCode,
+            verificationId: verification.verificationId,
+            verificationStatus: verification.status
+          });
         }
-      }
 
-      await updateDoc(doc(services.db, "applications", application.id), updatePayload);
-
-      setApplications((current) =>
-        current.map((item) =>
-          item.id === application.id
-            ? {
-                ...item,
-                status: nextStatus,
-                statusHistory: nextHistory,
-                updatedAt: currentTime
-              }
-            : item
-        )
-      );
+        transaction.update(applicationRef, updatePayload);
+        return { ...current, status: nextStatus, statusHistory: nextHistory, updatedAt: currentTime };
+      });
+      setApplications((current) => current.map((item) => item.id === application.id ? updatedApplication : item));
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Failed to update application status.");
     } finally {
@@ -1905,7 +2029,7 @@ export function EmployerApplicationsClient({
 
   return (
     <div className="product-section-stack">
-      {error ? <div className="callout">Applications error: {error}</div> : null}
+      {error ? <div className="callout" role="alert">{error}</div> : null}
 
       <section className="detail-panel">
         <div className="product-summary-grid">
@@ -1978,7 +2102,7 @@ export function EmployerApplicationsClient({
             <h2>{jobId ? `Applicants for ${viewTitle}` : "Review worker applications"}</h2>
           </div>
           <p>
-            Status changes here write back to `applications`, update job fill state, and
+            Status changes here write back to `job_applications`, update job fill state, and
             generate the worker start-code flow when an application is accepted.
           </p>
         </div>

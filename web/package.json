@@ -20,6 +20,7 @@
     "type-check": "tsc -p tsconfig.typecheck.json --noEmit"
   },
   "dependencies": {
+    "@chenglou/pretext": "^0.0.9",
     "@opentelemetry/api": "^1.9.0",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",

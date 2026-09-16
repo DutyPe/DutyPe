@@ -5,8 +5,6 @@ import { ReactNode } from "react";
 import { SITE_URL, cityLandingTargets, coreSeoKeywords, siteMeta } from "@/lib/public-site";
 
 import "./globals.css";
-import "./immersive.css";
-import "./editorial.css";
 
 const bodyFont = IBM_Plex_Sans({
   subsets: ["latin"],
@@ -19,9 +17,6 @@ const displayFont = Sora({
   variable: "--font-display"
 });
 
-const ADSENSE_CLIENT_ID =
-  process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID ?? "ca-pub-5503082977524600";
-
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
@@ -29,10 +24,6 @@ export const metadata: Metadata = {
     template: "%s | DutyPe"
   },
   description: siteMeta.description,
-  authors: [{ name: siteMeta.companyName }],
-  creator: siteMeta.companyName,
-  publisher: siteMeta.companyName,
-  category: "employment",
   keywords: [
     ...coreSeoKeywords,
     ...cityLandingTargets.map((city) => `jobs in ${city.toLowerCase()}`),
@@ -42,37 +33,17 @@ export const metadata: Metadata = {
   ],
   applicationName: "DutyPe",
   icons: {
-    icon: [
-      {
-        url: "/webappicon.png",
-        type: "image/png",
-        sizes: "512x512"
-      }
-    ],
-    shortcut: "/webappicon.png",
-    apple: "/webappicon.png"
+    icon: "/icon.svg"
   },
   alternates: {
     canonical: "/"
-  },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: {
-      index: true,
-      follow: true,
-      "max-image-preview": "large",
-      "max-snippet": -1,
-      "max-video-preview": -1
-    }
   },
   openGraph: {
     title: "DutyPe",
     description: siteMeta.description,
     type: "website",
     siteName: "DutyPe",
-    url: SITE_URL,
-    locale: "en_IN"
+    url: SITE_URL
   },
   twitter: {
     card: "summary_large_image",
@@ -81,35 +52,13 @@ export const metadata: Metadata = {
   },
   verification: {
     google: process.env.GOOGLE_SITE_VERIFICATION
-  },
-  other: {
-    "google-adsense-account": ADSENSE_CLIENT_ID,
-    "facebook-domain-verification": "pm8w20h5ejx9kch4n7w6ijcbh3gfi8",
-    "google-play-app": "app-id=com.dutype.app",
-    "al:android:package": "com.dutype.app",
-    "al:android:app_name": "DutyPe",
-    "al:android:url": "https://dutype.in"
   }
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <head>
-        <meta name="facebook-domain-verification" content="pm8w20h5ejx9kch4n7w6ijcbh3gfi8" />
-        <meta name="google-play-app" content="app-id=com.dutype.app" />
-        <meta property="al:android:package" content="com.dutype.app" />
-        <meta property="al:android:app_name" content="DutyPe" />
-        <meta property="al:android:url" content="https://dutype.in" />
-        <script
-          async
-          src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT_ID}`}
-          crossOrigin="anonymous"
-        />
-      </head>
-      <body className={`${bodyFont.variable} ${displayFont.variable}`} suppressHydrationWarning>
-        {children}
-      </body>
+      <body className={`${bodyFont.variable} ${displayFont.variable}`}>{children}</body>
     </html>
   );
 }

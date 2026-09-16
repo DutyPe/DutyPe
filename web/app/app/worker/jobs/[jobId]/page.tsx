@@ -1,7 +1,7 @@
 "use client";
 
-import { ProductRoleBoundary } from "@/components/product/product-shell";
-import { WorkerJobDetailClient } from "@/components/product/worker-app";
+import { JobDetailsAccess } from "@/components/jobs/job-details-access";
+import { SiteShell } from "@/components/site-shell";
 
 export default function WorkerJobDetailPage({
   params
@@ -9,13 +9,9 @@ export default function WorkerJobDetailPage({
   params: { jobId: string };
 }) {
   return (
-    <ProductRoleBoundary
-      currentPath="/app/worker/jobs"
-      description="Read job details, save the listing, and apply with a live Firestore write."
-      requiredRole="WORKER"
-      title="Job detail"
-    >
-      {(session) => <WorkerJobDetailClient jobId={params.jobId} session={session} />}
-    </ProductRoleBoundary>
+    <SiteShell>
+      <section className="directory-page-header"><h1>Job details</h1></section>
+      <JobDetailsAccess jobId={params.jobId} />
+    </SiteShell>
   );
 }

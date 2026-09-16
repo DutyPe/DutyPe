@@ -13,10 +13,6 @@ export const metadata = getBridgeMetadata({
   keywords: ["refer and earn", "job referral", "referral code", "earn rewards"]
 });
 
-export function generateStaticParams() {
-  return [{ code: [] }];
-}
-
 export default function ReferPage({ params }: Props) {
   const referralCode = params.code?.[0] ?? "No code";
 

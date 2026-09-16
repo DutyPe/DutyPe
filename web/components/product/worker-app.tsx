@@ -1,15 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
+  arrayRemove,
+  arrayUnion,
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
-  increment,
   limit,
   orderBy,
   query,
@@ -18,7 +17,9 @@ import {
   where
 } from "firebase/firestore";
 
+import { SiteIcon } from "@/components/site-icon";
 import { getFirebaseServices } from "@/lib/firebase/client";
+import { WorkerAppActions } from "@/components/public/job-discovery";
 import { formatCurrencyRange, formatDateTime } from "@/lib/firebase/firestore-helpers";
 import {
   attachJobDistances,
@@ -29,7 +30,6 @@ import {
   workerLocationFromProfile
 } from "@/lib/product/location";
 import {
-  defaultWorkerName,
   isLiveJob,
   missingWorkerFields,
   normalizeProductApplication,
@@ -37,14 +37,13 @@ import {
   productStatusLabel,
   productStatusTone,
   sortByTimestampDesc,
-  toStorageApplicationStatus,
   workerProfileCompletion,
   type ProductApplication,
-  type ProductApplicationStatus,
   type ProductJob
 } from "@/lib/product/marketplace";
 import type { ProductUserProfile } from "@/lib/product/profile";
 
+import { JobDescription } from "./job-description";
 import type { ProductSession } from "./use-product-session";
 
 type SharedProps = {
@@ -90,46 +89,16 @@ async function toggleSavedJob(session: ProductSession, jobId: string) {
   const services = getFirebaseServices();
 
   if (!services || !session.user) {
-    return false;
+    return;
   }
 
-  const saveId = `${session.user.uid}_${jobId}`;
-  const saveRef = doc(services.db, "saved_jobs", saveId);
-  const existing = await getDoc(saveRef);
-
-  if (existing.exists()) {
-    await deleteDoc(saveRef);
-    return false;
-  }
-
-  await setDoc(saveRef, {
-    id: saveId,
-    userId: session.user.uid,
-    jobId,
-    createdAt: Date.now()
+  const savedJobs = session.profile?.savedJobs ?? [];
+  await updateDoc(doc(services.db, "users", session.user.uid), {
+    savedJobs: savedJobs.includes(jobId) ? arrayRemove(jobId) : arrayUnion(jobId),
+    updatedAt: Date.now()
   });
 
-  return true;
-}
-
-async function getSavedJobIds(userId: string): Promise<string[]> {
-  const services = getFirebaseServices();
-  if (!services) {
-    return [];
-  }
-
-  const snapshot = await getDocs(
-    query(
-      collection(services.db, "saved_jobs"),
-      where("userId", "==", userId),
-      orderBy("createdAt", "desc"),
-      limit(200)
-    )
-  );
-
-  return snapshot.docs
-    .map((item) => item.get("jobId"))
-    .filter((jobId): jobId is string => typeof jobId === "string" && jobId.trim().length > 0);
+  await session.refreshProfile();
 }
 
 async function getJobDocument(jobId: string): Promise<ProductJob | null> {
@@ -159,46 +128,23 @@ async function getJobDocument(jobId: string): Promise<ProductJob | null> {
 function buildWorkerProfilePayload(
   profile: ProductUserProfile | null,
   form: WorkerProfileForm,
-  _availableRoles: string[]
+  availableRoles: string[]
 ) {
-  const trimmedName = form.fullName.trim();
-  const trimmedPhone = form.phone.trim();
-
-  // BUG #3 FIX: Firestore rules strictly whitelist fields per collection.
-  // The previous payload mixed users + worker_profiles + legacy fields
-  // (activeRole, roles, name, updatedAt, id, address, bio, ...) which made
-  // the whole updateDoc(users/{uid}, ...) call fail with permission-denied.
-  // The end result: worker name was never saved, so the product-shell
-  // sidebar showed the "DutyPe user" fallback. Split into two narrow payloads.
-  const usersDocPayload: Record<string, unknown> = {
-    fullName: trimmedName,
-    phone: trimmedPhone,
-    role: "WORKER"
+  const mergedProfile: ProductUserProfile = {
+    ...profile,
+    ...form,
+    activeRole: "WORKER",
+    fullName: form.fullName.trim(),
+    name: form.fullName.trim() || (profile?.name ?? ""),
+    phone: form.phone.trim(),
+    role: "WORKER",
+    roles: [...new Set([...availableRoles, "WORKER"])]
   };
-
-  if (profile?.profileImageUrl) {
-    usersDocPayload.profileImageUrl = profile.profileImageUrl;
-  }
-
-  // worker_profiles requires `skills` to be a list (rule: skills is list).
-  const skillsList = form.skills
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .slice(0, 30);
-
-  const workerProfilePayload: Record<string, unknown> = {
-    skills: skillsList
-  };
-  if (form.dateOfBirth.trim()) workerProfilePayload.dateOfBirth = form.dateOfBirth.trim();
-  if (form.gender.trim()) workerProfilePayload.gender = form.gender.trim();
-  if (form.experience.trim()) workerProfilePayload.experience = form.experience.trim();
 
   return {
-    usersDocPayload,
-    workerProfilePayload,
-    trimmedName,
-    trimmedPhone
+    ...mergedProfile,
+    profileCompleted: workerProfileCompletion(mergedProfile) >= 80,
+    updatedAt: Date.now()
   };
 }
 
@@ -219,6 +165,7 @@ function WorkerJobCard({
   onToggleSave?: (jobId: string) => Promise<void>;
   saved: boolean;
 }) {
+  const live = isLiveJob(job);
   return (
     <article className="card market-card">
       <div className="market-card-head">
@@ -226,22 +173,18 @@ function WorkerJobCard({
           <span className="card-kicker">{job.category || "LOCAL JOB"}</span>
           <h3>{job.title}</h3>
         </div>
-        <span className={`status-pill ${job.isFilled ? "danger" : "success"}`}>
-          {job.isFilled ? "Filled" : "Open"}
+        <span className={`status-pill ${live ? "success" : "danger"}`}>
+          {live ? "Open" : job.isFilled || job.vacancyStatus === "FILLED" ? "Filled" : "Closed"}
         </span>
       </div>
 
       <p className="market-card-subtitle">{job.companyName || "DutyPe employer"}</p>
-      <p className="market-card-copy">
-        {job.description?.trim()
-          ? job.description.trim()
-          : "Live DutyPe job card with company, pay, shift, and application flow details."}
-      </p>
+      <JobDescription text={job.description.trim() || "No description provided."} />
 
       <div className="market-card-meta">
         <div className="market-meta-item">
           <span>Location</span>
-          <strong>{job.addressText?.trim() || `${job.location.lat}, ${job.location.lng}`}</strong>
+          <strong>{job.location || "Location pending"}</strong>
         </div>
         <div className="market-meta-item">
           <span>Pay</span>
@@ -254,7 +197,7 @@ function WorkerJobCard({
       </div>
 
       <div className="pill-row">
-        <span className="pill">{job.vacancies ?? 1} vacancies</span>
+        <span className="pill">{job.vacancies} vacancies</span>
         <span className="pill">{job.employerTrustTier || "NEW"} trust tier</span>
         {distanceLabel ? <span className="pill">{distanceLabel}</span> : null}
       </div>
@@ -271,11 +214,14 @@ function WorkerJobCard({
         {onToggleSave ? (
           <button
             type="button"
-            className="button ghost"
+            className={`icon-button save-job-button${saved ? " is-saved" : ""}`}
+            aria-label={saved ? "Unsave" : "Save"}
+            title={saved ? "Unsave" : "Save"}
+            aria-pressed={saved}
             disabled={busy}
             onClick={() => void onToggleSave(job.id)}
           >
-            {saved ? "Unsave" : "Save"}
+            <SiteIcon name="bookmark" />
           </button>
         ) : null}
       </div>
@@ -288,12 +234,8 @@ function WorkerApplicationCard({
 }: {
   application: ProductApplication;
 }) {
-  const statusHistory = Array.isArray(application.statusHistory)
-    ? application.statusHistory
-    : [];
-
   const latestUpdate =
-    (statusHistory[statusHistory.length - 1] as { notes?: string } | undefined)?.notes ||
+    application.statusHistory[application.statusHistory.length - 1]?.notes ||
     "Application is active in the DutyPe workflow.";
 
   return (
@@ -308,7 +250,7 @@ function WorkerApplicationCard({
         </span>
       </div>
 
-      <p className="market-card-subtitle">DutyPe employer</p>
+      <p className="market-card-subtitle">{application.companyName || "DutyPe employer"}</p>
       <p className="market-card-copy">{latestUpdate}</p>
 
       <div className="market-card-meta">
@@ -322,7 +264,7 @@ function WorkerApplicationCard({
         </div>
         <div className="market-meta-item">
           <span>Job route</span>
-          <strong>{application.jobId || "Location in listing"}</strong>
+          <strong>{application.jobLocation || "Location in listing"}</strong>
         </div>
       </div>
     </article>
@@ -333,7 +275,6 @@ export function WorkerDashboardClient({ session }: SharedProps) {
   const services = useMemo(() => getFirebaseServices(), []);
   const [jobs, setJobs] = useState<ProductJob[]>([]);
   const [applications, setApplications] = useState<ProductApplication[]>([]);
-  const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -352,16 +293,15 @@ export function WorkerDashboardClient({ session }: SharedProps) {
         setLoading(true);
         setError(null);
 
-        const [jobsSnapshot, applicationsSnapshot, savedIds] = await Promise.all([
-          getDocs(query(collection(activeServices.db, "jobs"), orderBy("createdAt", "desc"), limit(12))),
-          getDocs(
-            query(
-              collection(activeServices.db, "applications"),
-              where("workerId", "==", activeUser.uid)
-            )
-          ),
-          getSavedJobIds(activeUser.uid)
-        ]);
+        const jobsSnapshot = await getDocs(
+          query(collection(activeServices.db, "jobs"), orderBy("createdAt", "desc"), limit(12))
+        );
+        const applicationsSnapshot = await getDocs(
+          query(
+            collection(activeServices.db, "job_applications"),
+            where("workerId", "==", activeUser.uid)
+          )
+        );
 
         if (cancelled) {
           return;
@@ -383,7 +323,6 @@ export function WorkerDashboardClient({ session }: SharedProps) {
 
         setJobs(recentJobs);
         setApplications(recentApplications);
-        setSavedJobIds(savedIds);
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : "Failed to load worker dashboard.");
@@ -404,7 +343,7 @@ export function WorkerDashboardClient({ session }: SharedProps) {
 
   const completion = workerProfileCompletion(session.profile);
   const missingFields = missingWorkerFields(session.profile);
-  const savedCount = savedJobIds.length;
+  const savedCount = session.profile?.savedJobs?.length ?? 0;
   const workerLocation = useMemo(
     () => workerLocationFromProfile(session.profile),
     [session.profile]
@@ -513,7 +452,7 @@ export function WorkerDashboardClient({ session }: SharedProps) {
                 directionsHref={directionsUrl(job)}
                 distanceLabel={formatDistanceLabel(distanceKm)}
                 job={job}
-                saved={savedJobIds.includes(job.id)}
+                saved={(session.profile?.savedJobs ?? []).includes(job.id)}
               />
             ))}
           </div>
@@ -526,7 +465,7 @@ export function WorkerDashboardClient({ session }: SharedProps) {
             <span className="tag">My activity</span>
             <h2>Latest applications</h2>
           </div>
-          <p>Application history is loaded from the same `applications` collection used by Android.</p>
+          <p>Application history is loaded from the same `job_applications` collection used by Android.</p>
         </div>
 
         {loading ? (
@@ -548,7 +487,6 @@ export function WorkerDashboardClient({ session }: SharedProps) {
 export function WorkerJobsClient({ session }: SharedProps) {
   const services = useMemo(() => getFirebaseServices(), []);
   const [jobs, setJobs] = useState<ProductJob[]>([]);
-  const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -557,13 +495,13 @@ export function WorkerJobsClient({ session }: SharedProps) {
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!services || !session.user) {
+    if (!services) {
+      setError("Live listings are unavailable right now. Check the DutyPe app for current openings.");
       setLoading(false);
       return;
     }
 
     const activeServices = services;
-    const activeUser = session.user;
     let cancelled = false;
 
     async function loadJobs() {
@@ -571,10 +509,9 @@ export function WorkerJobsClient({ session }: SharedProps) {
         setLoading(true);
         setError(null);
 
-        const [snapshot, savedIds] = await Promise.all([
-          getDocs(query(collection(activeServices.db, "jobs"), orderBy("createdAt", "desc"), limit(48))),
-          getSavedJobIds(activeUser.uid)
-        ]);
+        const snapshot = await getDocs(
+          query(collection(activeServices.db, "jobs"), orderBy("createdAt", "desc"), limit(48))
+        );
 
         if (cancelled) {
           return;
@@ -585,7 +522,6 @@ export function WorkerJobsClient({ session }: SharedProps) {
           .filter(isLiveJob);
 
         setJobs(liveJobs);
-        setSavedJobIds(savedIds);
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : "Failed to load jobs.");
@@ -602,26 +538,18 @@ export function WorkerJobsClient({ session }: SharedProps) {
     return () => {
       cancelled = true;
     };
-  }, [services, session.user]);
+  }, [services]);
 
   const workerLocation = useMemo(
     () => workerLocationFromProfile(session.profile),
     [session.profile]
   );
-  const categories = [
-    "ALL",
-    ...new Set(
-      jobs
-        .map((job) => job.category)
-        .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
-    )
-  ];
+  const categories = ["ALL", ...new Set(jobs.map((job) => job.category).filter(Boolean))];
   const radiusKm =
     distanceFilter === "ALL" || !workerLocation ? null : Number(distanceFilter);
   const filteredJobs = useMemo(() => {
     const searchedJobs = jobs.filter((job) => {
-      const locationText = job.addressText || `${job.location.lat}, ${job.location.lng}`;
-      const queryText = `${job.title} ${job.companyName || ""} ${locationText}`.toLowerCase();
+      const queryText = `${job.title} ${job.companyName} ${job.location}`.toLowerCase();
       const matchesSearch = !search.trim() || queryText.includes(search.trim().toLowerCase());
       const matchesCategory = category === "ALL" || job.category === category;
       return matchesSearch && matchesCategory;
@@ -632,13 +560,11 @@ export function WorkerJobsClient({ session }: SharedProps) {
 
   async function handleToggleSave(jobId: string) {
     try {
+      setError(null);
       setBusyJobId(jobId);
-      const isNowSaved = await toggleSavedJob(session, jobId);
-      setSavedJobIds((current) =>
-        isNowSaved
-          ? [...new Set([...current, jobId])]
-          : current.filter((id) => id !== jobId)
-      );
+      await toggleSavedJob(session, jobId);
+    } catch {
+      setError("We couldn't update your saved jobs. Please try again.");
     } finally {
       setBusyJobId(null);
     }
@@ -646,26 +572,7 @@ export function WorkerJobsClient({ session }: SharedProps) {
 
   return (
     <div className="product-section-stack">
-      <section className="detail-panel">
-        <div className="product-summary-grid">
-          <div className="product-summary-card">
-            <span>Live jobs</span>
-            <strong>{filteredJobs.length}</strong>
-          </div>
-          <div className="product-summary-card">
-            <span>Saved jobs</span>
-            <strong>{savedJobIds.length}</strong>
-          </div>
-          <div className="product-summary-card">
-            <span>Data source</span>
-            <strong>Firestore</strong>
-          </div>
-          <div className="product-summary-card">
-            <span>Worker location</span>
-            <strong>{workerLocation?.label || "Not saved"}</strong>
-          </div>
-        </div>
-
+      <section className="worker-job-toolbar" aria-label="Job filters">
         <div className="product-top-grid">
           <div className="filter-row">
             <label className="inline-field">
@@ -704,35 +611,31 @@ export function WorkerJobsClient({ session }: SharedProps) {
             </label>
           </div>
 
-          <div className="pill-row">
-            <span className="pill">{filteredJobs.length} live jobs</span>
-            <span className="pill">{savedJobIds.length} saved</span>
-            <span className="pill">
-              {workerLocation ? `Nearby base: ${workerLocation.label}` : "Realtime Firestore listings"}
-            </span>
-          </div>
         </div>
 
-        {!workerLocation ? (
-          <div className="callout">
-            Save a worker location first to unlock nearby sorting and radius filters.
-            {" "}
-            <Link href="/app/worker/location">Set location</Link>
+        <div className="worker-results-summary">
+          <div>
+            <span>{loading ? "Finding opportunities..." : `${filteredJobs.length} ${filteredJobs.length === 1 ? "job" : "jobs"}`}</span>
+            <span><SiteIcon name="bookmark" /> {session.profile?.savedJobs?.length ?? 0} saved</span>
           </div>
-        ) : null}
-        <div className="button-row compact">
-          <Link href="/app/worker/map" className="button ghost">
-            Open nearby map
+          <Link href="/app/worker/map" className="text-link"><SiteIcon name="map" /> Map view</Link>
+        </div>
+
+        <div className="worker-location-notice">
+          <SiteIcon name="map-pin" />
+          <span>{workerLocation?.label || "Your location is not set."}</span>
+          <Link href="/app/worker/location" className="text-link">
+            {workerLocation ? "Change location" : "Set location"} <SiteIcon name="arrow-up-right" />
           </Link>
         </div>
-        {error ? <div className="callout">Jobs error: {error}</div> : null}
+        {error ? <div className="callout" role="alert">{error}</div> : null}
       </section>
 
       <section className="section">
         {loading ? (
           <div className="empty-state">Loading live DutyPe jobs.</div>
         ) : filteredJobs.length === 0 ? (
-          <div className="empty-state">No jobs matched the current search.</div>
+          <div className="empty-state">{error || "No jobs matched the current search."}<WorkerAppActions /></div>
         ) : (
           <div className="section-grid">
             {filteredJobs.map(({ distanceKm, job }) => (
@@ -743,8 +646,8 @@ export function WorkerJobsClient({ session }: SharedProps) {
                 directionsHref={directionsUrl(job)}
                 distanceLabel={formatDistanceLabel(distanceKm)}
                 job={job}
-                onToggleSave={handleToggleSave}
-                saved={savedJobIds.includes(job.id)}
+                onToggleSave={session.user ? handleToggleSave : undefined}
+                saved={(session.profile?.savedJobs ?? []).includes(job.id)}
               />
             ))}
           </div>
@@ -756,25 +659,18 @@ export function WorkerJobsClient({ session }: SharedProps) {
 
 export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientProps) {
   const services = useMemo(() => getFirebaseServices(), []);
-  const router = useRouter();
   const [job, setJob] = useState<ProductJob | null>(null);
-  const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
-  const [hasApplied, setHasApplied] = useState(false);
-  const [coverLetter, setCoverLetter] = useState("");
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [openingChat, setOpeningChat] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!services || !session.user) {
+    if (!services) {
+      setError("Live job details are unavailable right now. Check the DutyPe app for current openings.");
       setLoading(false);
       return;
     }
 
-    const activeServices = services;
-    const activeUser = session.user;
     let cancelled = false;
 
     async function loadJob() {
@@ -782,16 +678,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
         setLoading(true);
         setError(null);
 
-        const [jobRecord, applicationSnapshot, savedIds] = await Promise.all([
-          getJobDocument(jobId),
-          getDocs(
-            query(
-              collection(activeServices.db, "applications"),
-              where("workerId", "==", activeUser.uid)
-            )
-          ),
-          getSavedJobIds(activeUser.uid)
-        ]);
+        const jobRecord = await getJobDocument(jobId);
 
         if (cancelled) {
           return;
@@ -804,10 +691,6 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
         }
 
         setJob(jobRecord);
-        setSavedJobIds(savedIds);
-        setHasApplied(
-          applicationSnapshot.docs.some((snapshot) => snapshot.get("jobId") === jobId)
-        );
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : "Failed to load the selected job.");
@@ -824,7 +707,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
     return () => {
       cancelled = true;
     };
-  }, [jobId, services, session.user]);
+  }, [jobId, services]);
 
   async function handleToggleSave() {
     if (!job) {
@@ -833,81 +716,11 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
 
     try {
       setSaving(true);
-      const isNowSaved = await toggleSavedJob(session, job.id);
-      setSavedJobIds((current) =>
-        isNowSaved
-          ? [...new Set([...current, job.id])]
-          : current.filter((id) => id !== job.id)
-      );
+      await toggleSavedJob(session, job.id);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to update saved jobs.");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handleMessageEmployer() {
-    // In-app chat has been retired. Workers contact employers via the phone
-    // number revealed on the job detail page after applying.
-    setError("Direct messaging is no longer available. Please contact the employer using the phone number shown after you apply.");
-  }
-
-  async function handleApply() {
-    if (!services || !session.user || !job || hasApplied) {
-      return;
-    }
-
-    const activeServices = services;
-    const activeUser = session.user;
-
-    try {
-      setSubmitting(true);
-      setError(null);
-
-      const applicationRef = doc(collection(activeServices.db, "applications"));
-      const currentTime = Date.now();
-      const workerName = defaultWorkerName(session.profile);
-
-      await setDoc(applicationRef, {
-        active: true,
-        applicationId: applicationRef.id,
-        appliedAt: currentTime,
-        createdAt: currentTime,
-        companyName: job.companyName,
-        coverLetter: coverLetter.trim(),
-        employerId: job.employerId,
-        id: applicationRef.id,
-        jobId: job.id,
-        jobLocation: job.location,
-        jobTitle: job.title,
-        source: "WEB_PORTAL",
-        status: toStorageApplicationStatus("PENDING"),
-        statusHistory: [
-          {
-            notes: "Application submitted from web worker flow",
-            status: toStorageApplicationStatus("PENDING"),
-            systemUpdate: true,
-            timestamp: currentTime,
-            updatedAt: currentTime,
-            updatedBy: activeUser.uid
-          }
-        ],
-        updatedAt: currentTime,
-        workerId: activeUser.uid,
-        workerName
-      });
-
-      await updateDoc(doc(activeServices.db, "jobs", job.id), {
-        applicationCount: increment(1),
-        lastApplicationAt: currentTime,
-        updatedAt: currentTime
-      });
-
-      setHasApplied(true);
-    } catch (applyError) {
-      setError(applyError instanceof Error ? applyError.message : "Application failed.");
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -916,10 +729,10 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
   }
 
   if (!job) {
-    return <div className="empty-state">{error ?? "Job not found."}</div>;
+    return <section><div className="empty-state">{error ?? "Job not found."}</div><WorkerAppActions /></section>;
   }
 
-  const isSaved = savedJobIds.includes(job.id);
+  const isSaved = (session.profile?.savedJobs ?? []).includes(job.id);
   const workerLocation = workerLocationFromProfile(session.profile);
   const distanceKm = jobDistanceKm(job, workerLocation);
   const directionsHref = directionsUrl(job);
@@ -934,7 +747,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
         <div className="product-summary-grid">
           <div className="product-summary-card">
             <span>Location</span>
-            <strong>{job.addressText?.trim() || `${job.location.lat}, ${job.location.lng}`}</strong>
+            <strong>{job.location || "Location pending"}</strong>
           </div>
           <div className="product-summary-card">
             <span>Pay</span>
@@ -946,7 +759,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
           </div>
           <div className="product-summary-card">
             <span>Status</span>
-            <strong>{hasApplied ? "Already applied" : isLiveJob(job) ? "Ready to apply" : "Closed"}</strong>
+            <strong>{isLiveJob(job) ? "Open" : "Closed"}</strong>
           </div>
           <div className="product-summary-card">
             <span>Distance</span>
@@ -955,21 +768,13 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
         </div>
 
         <p className="page-intro">
-          {job.description || "This job is live in Firestore but does not have a long description yet."}
+          {job.description || "No description provided."}
         </p>
 
         <div className="button-row">
-          <button type="button" className="button ghost" disabled={saving} onClick={() => void handleToggleSave()}>
+          {session.user ? <button type="button" className="button ghost" disabled={saving} onClick={() => void handleToggleSave()}>
             {saving ? "Updating..." : isSaved ? "Unsave job" : "Save job"}
-          </button>
-          <button
-            type="button"
-            className="button ghost"
-            disabled={openingChat || !job.employerId}
-            onClick={() => void handleMessageEmployer()}
-          >
-            {openingChat ? "Opening chat..." : "Message employer"}
-          </button>
+          </button> : null}
           {directionsHref ? (
             <a href={directionsHref} target="_blank" rel="noreferrer" className="button ghost">
               Open directions
@@ -983,7 +788,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
           </Link>
         </div>
 
-        {error ? <div className="callout">Job flow error: {error}</div> : null}
+        {error ? <div className="callout" role="alert">{error}</div> : null}
       </section>
 
       <section className="detail-grid">
@@ -992,7 +797,7 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
           <h3>Quick decision signals</h3>
           <ul className="detail-list">
             <li>
-              <strong>{job.vacancies ?? 1} open slot{(job.vacancies ?? 1) > 1 ? "s" : ""}</strong>
+              <strong>{job.vacancies} open slot{job.vacancies > 1 ? "s" : ""}</strong>
               <span>Openings are still available right now.</span>
             </li>
             <li>
@@ -1029,42 +834,14 @@ export function WorkerJobDetailClient({ jobId, session }: WorkerJobDetailClientP
       <section className="section">
         <div className="section-header">
           <div>
-            <span className="tag">Apply flow</span>
-            <h2>Apply like the Android worker route</h2>
+            <span className="tag">Application</span>
+            <h2>Apply for this job</h2>
           </div>
-          <p>
-            This creates a real document in `applications`, increments the job application
-            count, and stores a status history entry.
-          </p>
         </div>
 
-        {hasApplied ? (
-          <div className="callout">You have already applied for this job. Track it from the My Jobs route.</div>
-        ) : (
-          <div className="editor-form">
-            <label className="editor-form-wide">
-              <span>Cover letter</span>
-              <textarea
-                rows={6}
-                value={coverLetter}
-                onChange={(event) => setCoverLetter(event.target.value)}
-                placeholder="Tell the employer why you are a fit for this role."
-              />
-            </label>
-
-            <div className="editor-form-actions button-row">
-              <button
-                type="button"
-                className="button"
-                disabled={submitting || !isLiveJob(job)}
-                onClick={() => void handleApply()}
-              >
-                {submitting ? "Submitting..." : "Apply now"}
-              </button>
-              {!isLiveJob(job) ? <div className="callout">This job is no longer open for applications.</div> : null}
-            </div>
-          </div>
-        )}
+        <p>Apply and contact employers in the DutyPe Android app.</p>
+        {!isLiveJob(job) ? <p role="status">This job is closed. Check the app for other openings.</p> : null}
+        <WorkerAppActions />
       </section>
     </div>
   );
@@ -1074,7 +851,6 @@ export function WorkerMyJobsClient({ session }: SharedProps) {
   const services = useMemo(() => getFirebaseServices(), []);
   const [applications, setApplications] = useState<ProductApplication[]>([]);
   const [savedJobs, setSavedJobs] = useState<ProductJob[]>([]);
-  const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyJobId, setBusyJobId] = useState<string | null>(null);
@@ -1100,14 +876,14 @@ export function WorkerMyJobsClient({ session }: SharedProps) {
 
         const applicationSnapshot = await getDocs(
           query(
-            collection(activeServices.db, "applications"),
+            collection(activeServices.db, "job_applications"),
             where("workerId", "==", activeUser.uid)
           )
         );
 
-        const savedIds = await getSavedJobIds(activeUser.uid);
+        const savedJobIds = session.profile?.savedJobs ?? [];
         const savedSnapshots = await Promise.all(
-          savedIds.map((savedJobId) => getDoc(doc(activeServices.db, "jobs", savedJobId)))
+          savedJobIds.map((jobId) => getDoc(doc(activeServices.db, "jobs", jobId)))
         );
 
         if (cancelled) {
@@ -1128,7 +904,6 @@ export function WorkerMyJobsClient({ session }: SharedProps) {
             .filter((snapshot) => snapshot.exists())
             .map((snapshot) => normalizeProductJob(snapshot.id, snapshot.data() as Record<string, unknown>))
         );
-        setSavedJobIds(savedIds);
       } catch (loadError) {
         if (!cancelled) {
           setError(loadError instanceof Error ? loadError.message : "Failed to load worker jobs.");
@@ -1145,7 +920,7 @@ export function WorkerMyJobsClient({ session }: SharedProps) {
     return () => {
       cancelled = true;
     };
-  }, [services, session.user]);
+  }, [services, session.profile?.savedJobs, session.user]);
 
   const locatedSavedJobs = useMemo(
     () => attachJobDistances(savedJobs, workerLocation),
@@ -1155,11 +930,8 @@ export function WorkerMyJobsClient({ session }: SharedProps) {
   async function handleToggleSave(jobId: string) {
     try {
       setBusyJobId(jobId);
-      const isNowSaved = await toggleSavedJob(session, jobId);
-      if (!isNowSaved) {
-        setSavedJobs((current) => current.filter((savedJob) => savedJob.id !== jobId));
-        setSavedJobIds((current) => current.filter((id) => id !== jobId));
-      }
+      await toggleSavedJob(session, jobId);
+      setSavedJobs((current) => current.filter((job) => job.id !== jobId));
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to update saved jobs.");
     } finally {
@@ -1177,7 +949,7 @@ export function WorkerMyJobsClient({ session }: SharedProps) {
           </div>
           <div className="product-summary-card">
             <span>Saved jobs</span>
-            <strong>{savedJobIds.length}</strong>
+            <strong>{savedJobs.length}</strong>
           </div>
           <div className="product-summary-card">
             <span>Current mode</span>
@@ -1208,7 +980,7 @@ export function WorkerMyJobsClient({ session }: SharedProps) {
             <span className="tag">Applications</span>
             <h2>Applied jobs</h2>
           </div>
-          <p>These rows come from `applications` and match the worker-side application history flow.</p>
+          <p>These rows come from `job_applications` and match the worker-side application history flow.</p>
         </div>
 
         {loading ? (
@@ -1230,7 +1002,7 @@ export function WorkerMyJobsClient({ session }: SharedProps) {
             <span className="tag">Saved jobs</span>
             <h2>Saved for later</h2>
           </div>
-          <p>Saved jobs are read from the `saved_jobs` collection and joined with live jobs.</p>
+          <p>Saved jobs are read from `users.savedJobs`, matching the optimized mobile storage model.</p>
         </div>
 
         {loading ? (
@@ -1300,17 +1072,25 @@ export function WorkerProfileClient({ session }: SharedProps) {
       setMessage(null);
       setError(null);
 
-      const { usersDocPayload, workerProfilePayload } = buildWorkerProfilePayload(
-        session.profile,
-        form,
-        session.availableRoles
-      );
+      const payload = buildWorkerProfilePayload(session.profile, form, session.availableRoles);
 
-      // BUG #3 FIX: write only the schema-whitelisted fields per collection.
-      await updateDoc(doc(activeServices.db, "users", activeUser.uid), usersDocPayload);
+      await updateDoc(doc(activeServices.db, "users", activeUser.uid), payload);
       await setDoc(
         doc(activeServices.db, "worker_profiles", activeUser.uid),
-        workerProfilePayload,
+        {
+          address: payload.address ?? "",
+          bio: payload.bio ?? "",
+          dateOfBirth: payload.dateOfBirth ?? "",
+          email: activeUser.email ?? payload.email ?? "",
+          experience: payload.experience ?? "",
+          fullName: payload.fullName ?? payload.name ?? "",
+          gender: payload.gender ?? "",
+          phone: payload.phone ?? "",
+          profileCompleted: payload.profileCompleted ?? false,
+          skills: payload.skills ?? "",
+          updatedAt: payload.updatedAt ?? Date.now(),
+          userId: activeUser.uid
+        },
         { merge: true }
       );
 

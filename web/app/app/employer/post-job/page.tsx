@@ -1,17 +1,15 @@
 "use client";
 
-import { ProductRoleBoundary } from "@/components/product/product-shell";
+import { useProductSession } from "@/components/product/use-product-session";
 import { EmployerPostJobClient } from "@/components/product/employer-app";
+import { SiteShell } from "@/components/site-shell";
 
 export default function EmployerPostJobPage() {
+  const session = useProductSession();
   return (
-    <ProductRoleBoundary
-      currentPath="/app/employer/post-job"
-      description="Create a live job post with clear pay, location, and role details."
-      requiredRole="EMPLOYER"
-      title="Post a job"
-    >
-      {(session) => <EmployerPostJobClient session={session} />}
-    </ProductRoleBoundary>
+    <SiteShell>
+      <header className="directory-page-header"><h1>Post a job on DutyPe</h1></header>
+      <EmployerPostJobClient key={session.user?.uid ?? "guest"} session={session} />
+    </SiteShell>
   );
 }

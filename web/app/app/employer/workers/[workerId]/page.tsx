@@ -1,5 +1,3 @@
-"use client";
-
 import { EmployerWorkerProfileClient } from "@/components/product/employer-review";
 import { ProductRoleBoundary } from "@/components/product/product-shell";
 

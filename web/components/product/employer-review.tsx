@@ -7,6 +7,10 @@ import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 
 import { getFirebaseServices } from "@/lib/firebase/client";
 import {
+  getOrCreateConversationId,
+  productConversationRoute
+} from "@/lib/firebase/chat-actions";
+import {
   formatCurrencyRange,
   formatDate,
   formatDateTime,
@@ -28,7 +32,6 @@ import {
   normalizeProductJob,
   productStatusLabel,
   productStatusTone,
-  toStorageApplicationStatus,
   type ProductApplicationStatus,
   type ProductJob
 } from "@/lib/product/marketplace";
@@ -231,14 +234,8 @@ function ReviewAvatar({
 }
 
 function TimelineList({ application }: { application: EmployerReviewApplication }) {
-  const statusHistory = Array.isArray(application.statusHistory)
-    ? application.statusHistory.filter(
-        (entry) => entry !== null && typeof entry === "object"
-      )
-    : [];
-
-  const history = statusHistory.length > 0
-    ? [...statusHistory].sort((left, right) => {
+  const history = application.statusHistory.length > 0
+    ? [...application.statusHistory].sort((left, right) => {
         const leftTime = readTimestamp(left.timestamp)?.getTime() ?? 0;
         const rightTime = readTimestamp(right.timestamp)?.getTime() ?? 0;
         return rightTime - leftTime;
@@ -254,18 +251,12 @@ function TimelineList({ application }: { application: EmployerReviewApplication 
       ) : (
         <div className="timeline-stack">
           {history.map((entry, index) => (
-            <div key={`${String(entry.status ?? "UNKNOWN")}-${index}`} className="timeline-item">
-              <span
-                className={`status-pill ${productStatusTone(
-                  (typeof entry.status === "string" ? entry.status : "APPLIED") as ProductApplicationStatus
-                )}`}
-              >
-                {productStatusLabel(
-                  (typeof entry.status === "string" ? entry.status : "APPLIED") as ProductApplicationStatus
-                )}
+            <div key={`${entry.status}-${index}`} className="timeline-item">
+              <span className={`status-pill ${productStatusTone(entry.status)}`}>
+                {productStatusLabel(entry.status)}
               </span>
-              <strong>{formatDateTime(entry.timestamp ?? null)}</strong>
-              <p>{typeof entry.notes === "string" ? entry.notes : "No notes added for this update."}</p>
+              <strong>{formatDateTime(entry.timestamp)}</strong>
+              <p>{entry.notes || "No notes added for this update."}</p>
             </div>
           ))}
         </div>
@@ -518,7 +509,7 @@ export function EmployerApplicationDetailClient({
         setError(null);
 
         const applicationSnapshot = await getDoc(
-          doc(activeServices.db, "applications", applicationId)
+          doc(activeServices.db, "job_applications", applicationId)
         );
 
         if (!applicationSnapshot.exists()) {
@@ -624,7 +615,24 @@ export function EmployerApplicationDetailClient({
   }, [applicationId, services, session.user]);
 
   async function handleOpenConversation() {
-    setError("Direct messaging is no longer available. Please contact the worker via the phone number on their application.");
+    if (!application) {
+      return;
+    }
+
+    try {
+      setError(null);
+      const conversationId = await getOrCreateConversationId(
+        application.workerId,
+        application.jobId || application.id
+      );
+      router.push(productConversationRoute("EMPLOYER", conversationId));
+    } catch (conversationError) {
+      setError(
+        conversationError instanceof Error
+          ? conversationError.message
+          : "Failed to open worker chat."
+      );
+    }
   }
 
   async function createVerification(
@@ -640,22 +648,19 @@ export function EmployerApplicationDetailClient({
       db: services.db,
       employerId: application.employerId,
       employerName:
+        application.companyName ||
         job?.companyName ||
         session.profile?.companyName ||
         "DutyPe employer",
       jobId: application.jobId,
-      jobTitle: application.jobTitle || "Job",
+      jobTitle: application.jobTitle,
       workerId: application.workerId,
-      workerName: application.workerName || "Worker"
+      workerName: application.workerName
     });
-
-    const baseHistory = Array.isArray(application.statusHistory)
-      ? application.statusHistory
-      : [];
 
     const nextHistory = note
       ? [
-          ...baseHistory,
+          ...application.statusHistory,
           {
             notes: note,
             status: application.status,
@@ -665,9 +670,9 @@ export function EmployerApplicationDetailClient({
             updatedBy: session.user?.uid ?? ""
           }
         ]
-      : baseHistory;
+      : application.statusHistory;
 
-    await updateDoc(doc(services.db, "applications", application.id), {
+    await updateDoc(doc(services.db, "job_applications", application.id), {
       statusHistory: nextHistory,
       updatedAt: currentTime,
       verification,
@@ -739,13 +744,8 @@ export function EmployerApplicationDetailClient({
       setError(null);
 
       const currentTime = Date.now();
-      const previousHistory = Array.isArray(application.statusHistory)
-        ? application.statusHistory.filter(
-            (entry) => entry !== null && typeof entry === "object"
-          )
-        : [];
       const nextHistory = [
-        ...previousHistory,
+        ...application.statusHistory,
         {
           notes: nextStatusNote(nextStatus),
           status: nextStatus,
@@ -755,20 +755,9 @@ export function EmployerApplicationDetailClient({
           updatedBy: session.user?.uid ?? ""
         }
       ];
-      const storedHistory = nextHistory.map((entry) => {
-        const rawStatus =
-          typeof entry.status === "string" && entry.status.trim().length > 0
-            ? entry.status.toUpperCase()
-            : nextStatus;
-
-        return {
-          ...entry,
-          status: toStorageApplicationStatus(rawStatus as ProductApplicationStatus)
-        };
-      });
       const updatePayload: Record<string, unknown> = {
-        status: toStorageApplicationStatus(nextStatus),
-        statusHistory: storedHistory,
+        status: nextStatus,
+        statusHistory: nextHistory,
         updatedAt: currentTime
       };
 
@@ -780,13 +769,14 @@ export function EmployerApplicationDetailClient({
           db: services.db,
           employerId: application.employerId,
           employerName:
+            application.companyName ||
             job?.companyName ||
             session.profile?.companyName ||
             "DutyPe employer",
           jobId: application.jobId,
-          jobTitle: application.jobTitle || "Job",
+          jobTitle: application.jobTitle,
           workerId: application.workerId,
-          workerName: application.workerName || "Worker"
+          workerName: application.workerName
         });
 
         updatePayload.verification = nextVerification;
@@ -795,23 +785,26 @@ export function EmployerApplicationDetailClient({
         updatePayload.verificationStatus = nextVerification.status;
       }
 
-      await updateDoc(doc(services.db, "applications", application.id), updatePayload);
+      await updateDoc(doc(services.db, "job_applications", application.id), updatePayload);
 
       if (nextStatus === "ACCEPTED" && job) {
-        // Note: acceptedCount and vacancies should be queried from applications collection.
-        // Writing them redundantly to jobs violates the canonical schema.
-        // For now, we close the job to stop new applications.
+        const acceptedCount = job.acceptedCount + 1;
+        const isFilled = acceptedCount >= job.vacancies;
 
         await updateDoc(doc(services.db, "jobs", job.id), {
-          status: "closed",
-          updatedAt: currentTime
+          acceptedCount,
+          isFilled,
+          updatedAt: currentTime,
+          vacancyStatus: isFilled ? "FILLED" : "OPEN"
         });
 
         setJob((current) =>
           current
             ? {
                 ...current,
-                status: "closed",
+                acceptedCount,
+                isFilled,
+                vacancyStatus: isFilled ? "FILLED" : "OPEN",
                 updatedAt: currentTime
               }
             : current
@@ -880,13 +873,8 @@ export function EmployerApplicationDetailClient({
 
       const currentTime = Date.now();
       const verifiedLocation = await readBrowserVerificationLocation();
-      const previousHistory = Array.isArray(application.statusHistory)
-        ? application.statusHistory.filter(
-            (entry) => entry !== null && typeof entry === "object"
-          )
-        : [];
       const nextHistory = [
-        ...previousHistory,
+        ...application.statusHistory,
         {
           notes: nextStatusNote("IN_PROGRESS"),
           status: "IN_PROGRESS" as const,
@@ -896,17 +884,6 @@ export function EmployerApplicationDetailClient({
           updatedBy: session.user.uid
         }
       ];
-      const storedHistory = nextHistory.map((entry) => {
-        const rawStatus =
-          typeof entry.status === "string" && entry.status.trim().length > 0
-            ? entry.status.toUpperCase()
-            : "IN_PROGRESS";
-
-        return {
-          ...entry,
-          status: toStorageApplicationStatus(rawStatus as ProductApplicationStatus)
-        };
-      });
       const nextVerification = {
         ...application.verification,
         status: "VERIFIED" as const,
@@ -915,9 +892,9 @@ export function EmployerApplicationDetailClient({
         verifiedLocation
       };
 
-      await updateDoc(doc(services.db, "applications", application.id), {
-        status: toStorageApplicationStatus("IN_PROGRESS"),
-        statusHistory: storedHistory,
+      await updateDoc(doc(services.db, "job_applications", application.id), {
+        status: "IN_PROGRESS",
+        statusHistory: nextHistory,
         updatedAt: currentTime,
         verification: nextVerification,
         verificationStatus: "VERIFIED",
@@ -967,13 +944,8 @@ export function EmployerApplicationDetailClient({
       setError(null);
 
       const currentTime = Date.now();
-      const previousHistory = Array.isArray(application.statusHistory)
-        ? application.statusHistory.filter(
-            (entry) => entry !== null && typeof entry === "object"
-          )
-        : [];
       const nextHistory = [
-        ...previousHistory,
+        ...application.statusHistory,
         {
           notes: nextStatusNote("COMPLETED"),
           status: "COMPLETED" as const,
@@ -983,22 +955,11 @@ export function EmployerApplicationDetailClient({
           updatedBy: session.user?.uid ?? ""
         }
       ];
-      const storedHistory = nextHistory.map((entry) => {
-        const rawStatus =
-          typeof entry.status === "string" && entry.status.trim().length > 0
-            ? entry.status.toUpperCase()
-            : "COMPLETED";
 
-        return {
-          ...entry,
-          status: toStorageApplicationStatus(rawStatus as ProductApplicationStatus)
-        };
-      });
-
-      await updateDoc(doc(services.db, "applications", application.id), {
+      await updateDoc(doc(services.db, "job_applications", application.id), {
         completedAt: currentTime,
-        status: toStorageApplicationStatus("COMPLETED"),
-        statusHistory: storedHistory,
+        status: "COMPLETED",
+        statusHistory: nextHistory,
         updatedAt: currentTime
       });
 
@@ -1060,7 +1021,7 @@ export function EmployerApplicationDetailClient({
       const payload = {
         applicationId: application.id,
         communicationRating: ratingForm.communicationRating,
-        companyName: job?.companyName || session.profile?.companyName || "DutyPe employer",
+        companyName: application.companyName || job?.companyName || "DutyPe employer",
         createdAt: Date.now(),
         feedback: ratingForm.feedback.trim(),
         isActive: true,
@@ -1208,18 +1169,15 @@ export function EmployerApplicationDetailClient({
           <ul className="detail-list">
             <li>
               <strong>Company</strong>
-              <span>{job?.companyName || session.profile?.companyName || "DutyPe employer"}</span>
+              <span>{application.companyName || "DutyPe employer"}</span>
             </li>
             <li>
               <strong>Location</strong>
-              <span>
-                {job?.addressText ||
-                  (job?.location ? `${job.location.lat}, ${job.location.lng}` : "Not available")}
-              </span>
+              <span>{application.jobLocation || job?.location || "Not available"}</span>
             </li>
             <li>
               <strong>Pay</strong>
-              <span>{job ? formatCurrencyRange(job.payAmount ?? "", job.payType ?? "") : "Not available"}</span>
+              <span>{job ? formatCurrencyRange(job.payAmount, job.payType) : "Not available"}</span>
             </li>
             <li>
               <strong>Source</strong>
@@ -1551,7 +1509,7 @@ export function EmployerWorkerProfileClient({
 
         if (applicationId) {
           const applicationSnapshot = await getDoc(
-            doc(activeServices.db, "applications", applicationId)
+            doc(activeServices.db, "job_applications", applicationId)
           );
 
           if (!applicationSnapshot.exists()) {
@@ -1610,7 +1568,20 @@ export function EmployerWorkerProfileClient({
   }, [applicationId, services, session.user, workerId]);
 
   async function handleOpenConversation() {
-    setError("Direct messaging is no longer available. Please contact the worker via the phone number on their profile.");
+    try {
+      setError(null);
+      const conversationId = await getOrCreateConversationId(
+        workerId,
+        application?.jobId || application?.id || workerId
+      );
+      router.push(productConversationRoute("EMPLOYER", conversationId));
+    } catch (conversationError) {
+      setError(
+        conversationError instanceof Error
+          ? conversationError.message
+          : "Failed to open worker chat."
+      );
+    }
   }
 
   if (loading) {
@@ -1691,7 +1662,7 @@ export function EmployerWorkerProfileClient({
                 {productStatusLabel(application.status)}
               </span>
               <span className="pill">{formatDate(application.appliedAt)}</span>
-              <span className="pill">{session.profile?.companyName || "DutyPe employer"}</span>
+              <span className="pill">{application.companyName || "DutyPe employer"}</span>
             </div>
           </article>
           <TimelineList application={application} />

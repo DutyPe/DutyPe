@@ -19,10 +19,10 @@ function normalizeNumber(value: unknown): number {
 
   if (typeof value === "string" && value.trim()) {
     const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
+    return Number.isFinite(parsed) ? parsed : Number.NaN;
   }
 
-  return 0;
+  return Number.NaN;
 }
 
 export function hasValidCoordinates(latitude: unknown, longitude: unknown): boolean {
