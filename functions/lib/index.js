@@ -14,9 +14,12 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.notifyApplicationEvent = exports.requestNotification = exports.getApplicationContact = exports.getPublicProfile = exports.syncPublicProfile = exports.submitRating = exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.onUserProfileComplete = exports.updateMetadataOnUserCreate = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.sendPushNotification = exports.sendBroadcastNotification = exports.enforceJobRateLimit = exports.cleanupExpiredNotifications = void 0;
+exports.whatsappWebhook = exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getReferralLeaderboard = exports.getReferralHistory = exports.getReferralStats = exports.detectReferralFraud = exports.requestWithdrawal = exports.expirePendingReferrals = exports.onReferredUserProfileComplete = exports.applyReferralCode = exports.onUserProfileComplete = exports.updateMetadataOnJobDelete = exports.updateMetadataOnJobCreate = exports.updatePlatformMetadata = exports.getReportStats = exports.processJobReport = exports.processModerationDecision = exports.logUserActivity = exports.detectDuplicateJob = exports.expireStaleInstantRequests = exports.syncInstantResponseMetrics = exports.notifyAvailableWorkersForInstantRequest = exports.persistSelfNotification = exports.sendPushNotification = exports.sendBroadcastNotification = exports.cleanupExpiredNotifications = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const validation_1 = require("./validation");
+const notification_i18n_1 = require("./notification-i18n");
+const job_notification_card_1 = require("./job-notification-card");
 // Initialize Firebase Admin SDK
 admin.initializeApp();
 // ============================================
@@ -29,96 +32,146 @@ __exportStar(require("./referral-system"), exports);
 __exportStar(require("./job-landing"), exports);
 __exportStar(require("./worker-landing"), exports);
 __exportStar(require("./employer-landing"), exports);
+__exportStar(require("./auth-callables"), exports);
+__exportStar(require("./metrics-aggregation"), exports);
+__exportStar(require("./identity-mirror"), exports);
+__exportStar(require("./whatsapp-chatbot"), exports);
+__exportStar(require("./job-consensus-closer"), exports);
 const db = admin.firestore();
 const messaging = admin.messaging();
-// ============================================
-// RATE LIMITING CONSTANTS (P0 FIX #2)
-// ============================================
-const RATE_LIMITS = {
-    FREE_USER: {
-        JOBS_PER_HOUR: 2,
-        JOBS_PER_DAY: 5,
-    },
-    PAID_USER: {
-        JOBS_PER_HOUR: 10,
-        JOBS_PER_DAY: 50,
-    },
-};
-const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 // Topic constants (must match Android app)
 const TOPIC_ALL_USERS = "all_users";
 const TOPIC_WORKERS = "workers";
 const TOPIC_EMPLOYERS = "employers";
 const TOPIC_APP_UPDATES = "app_updates";
-// ============================================
-// P0 FIX #2: RATE LIMITING FOR JOB POSTS
-// ============================================
-// Prevents bots from spamming thousands of jobs
-// Free users: 2 jobs/hour, 5 jobs/day
-// Paid users: 10 jobs/hour, 50 jobs/day
-/**
- * Rate Limiter - Triggered when a new job is created
- * Checks if user has exceeded their posting limit
- * If exceeded: Deletes job, flags user, sends alert
- */
-exports.enforceJobRateLimit = functions.firestore
-    .document("jobs/{jobId}")
-    .onCreate(async (snapshot, context) => {
-    const job = snapshot.data();
-    const jobId = context.params.jobId;
-    const employerId = job.employerId;
-    if (!employerId) {
-        functions.logger.warn(`Job ${jobId} has no employerId, skipping rate limit`);
-        return null;
+const SELF_NOTIFICATION_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const MAX_SELF_NOTIFICATION_DATA_KEYS = 25;
+const ALLOWED_SELF_NOTIFICATION_TYPES = new Set([
+    "PROFILE_COMPLETE",
+    "WELCOME",
+    "JOB_POSTED",
+    "WORKER_HIRED",
+    "SYSTEM_UPDATE",
+    "GENERAL",
+]);
+const INSTANT_WORKER_SCAN_LIMIT = 80;
+const INSTANT_WORKER_NOTIFY_LIMIT = 25;
+const MAX_INSTANT_WORK_DISTANCE_KM = 10;
+const CATEGORY_KEYWORDS = [
+    { name: "DELIVERY", display: "Delivery", words: ["delivery", "courier", "rider", "parcel"] },
+    { name: "DRIVER", display: "Driver", words: ["driver", "cab", "taxi", "truck"] },
+    { name: "COOK", display: "Cook", words: ["cook", "chef", "kitchen", "catering"] },
+    { name: "MAID", display: "Housekeeping", words: ["maid", "housekeep", "cleaner", "domestic", "house help"] },
+    { name: "SECURITY", display: "Security", words: ["security", "guard", "watchman"] },
+    { name: "HELPER", display: "Helper", words: ["helper", "assistant", "labour", "labor", "loader", "loading", "unloading"] },
+    { name: "ELECTRICIAN", display: "Electrician", words: ["electric", "wiring"] },
+    { name: "PLUMBER", display: "Plumber", words: ["plumb", "pipe"] },
+    { name: "WAITER", display: "Restaurant Staff", words: ["waiter", "server", "restaurant", "hotel", "steward"] },
+    { name: "SALES", display: "Sales", words: ["sales", "retail", "store"] },
+    { name: "TELECALLER", display: "Telecaller", words: ["telecaller", "calling", "call center", "bpo"] },
+    { name: "OFFICE_STAFF", display: "Office Staff", words: ["office", "admin", "clerk", "peon"] },
+    { name: "PACKER", display: "Packer", words: ["packer", "packing", "warehouse"] },
+    { name: "MECHANIC", display: "Mechanic", words: ["mechanic", "garage", "technician"] },
+];
+function timestampMillis(value) {
+    if (value instanceof admin.firestore.Timestamp) {
+        return value.toMillis();
     }
-    functions.logger.info(`🛡️ RATE LIMIT: Checking job ${jobId} by employer ${employerId}`);
-    try {
-        const now = Date.now();
-        const oneHourAgo = now - ONE_HOUR_MS;
-        const oneDayAgo = now - ONE_DAY_MS;
-        // Check if user is paid (default to free limits - subscriptions collection removed)
-        const isPaidUser = false;
-        const limits = RATE_LIMITS.FREE_USER;
-        functions.logger.info(`🛡️ RATE LIMIT: User ${employerId} is ${isPaidUser ? "PAID" : "FREE"}`);
-        // Count jobs posted in last hour
-        const hourlyJobsSnapshot = await db.collection("jobs")
-            .where("employerId", "==", employerId)
-            .where("postedAt", ">", oneHourAgo)
-            .get();
-        const jobsInHour = hourlyJobsSnapshot.size;
-        // Count jobs posted in last day
-        const dailyJobsSnapshot = await db.collection("jobs")
-            .where("employerId", "==", employerId)
-            .where("postedAt", ">", oneDayAgo)
-            .get();
-        const jobsInDay = dailyJobsSnapshot.size;
-        functions.logger.info(`🛡️ RATE LIMIT: User ${employerId} - Jobs in hour: ${jobsInHour}/${limits.JOBS_PER_HOUR}, Jobs in day: ${jobsInDay}/${limits.JOBS_PER_DAY}`);
-        // Check hourly limit
-        if (jobsInHour > limits.JOBS_PER_HOUR) {
-            functions.logger.warn(`🛡️ RATE LIMIT: ⛔ HOURLY LIMIT EXCEEDED for ${employerId}`);
-            // Delete the job
-            await snapshot.ref.delete();
-            functions.logger.warn(`🛡️ RATE LIMIT: Hourly violation logged for ${employerId}`);
-            return { deleted: true, reason: "HOURLY_LIMIT_EXCEEDED" };
+    if (typeof value === "number") {
+        return value;
+    }
+    if (typeof value === "object" && value !== null && "toMillis" in value) {
+        const maybeTimestamp = value;
+        if (typeof maybeTimestamp.toMillis === "function") {
+            return maybeTimestamp.toMillis();
         }
-        // Check daily limit
-        if (jobsInDay > limits.JOBS_PER_DAY) {
-            functions.logger.warn(`🛡️ RATE LIMIT: ⛔ DAILY LIMIT EXCEEDED for ${employerId}`);
-            // Delete the job
-            await snapshot.ref.delete();
-            functions.logger.warn(`🛡️ RATE LIMIT: Daily violation logged for ${employerId}`);
-            return { deleted: true, reason: "DAILY_LIMIT_EXCEEDED" };
-        }
-        functions.logger.info(`🛡️ RATE LIMIT: ✅ Job ${jobId} passed rate limit check`);
-        return { deleted: false };
     }
-    catch (error) {
-        functions.logger.error(`🛡️ RATE LIMIT: Error checking rate limit for ${employerId}:`, error);
-        // On error, allow the job (fail open) but log for investigation
-        return null;
+    return 0;
+}
+function distanceKm(lat1, lng1, lat2, lng2) {
+    const toRadians = (degrees) => degrees * Math.PI / 180;
+    const earthRadiusKm = 6371;
+    const dLat = toRadians(lat2 - lat1);
+    const dLng = toRadians(lng2 - lng1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+            Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+function validCoordinates(lat, lng) {
+    return typeof lat === "number" && typeof lng === "number" &&
+        lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 &&
+        (lat !== 0 || lng !== 0);
+}
+function normalizeMatchToken(value) {
+    return String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+function stringList(value) {
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => normalizeMatchToken(item))
+            .filter(Boolean);
     }
-});
+    if (typeof value === "string") {
+        return value
+            .split(",")
+            .map((item) => normalizeMatchToken(item))
+            .filter(Boolean);
+    }
+    return [];
+}
+function inferInstantRequestCategory(request) {
+    const explicit = normalizeMatchToken(request.category).replace(/ /g, "_").toUpperCase();
+    const explicitMatch = CATEGORY_KEYWORDS.find((category) => category.name === explicit);
+    if (explicitMatch)
+        return { name: explicitMatch.name, display: explicitMatch.display };
+    const requestText = normalizeMatchToken(`${request.title || ""} ${request.description || ""} ${request.category || ""}`);
+    const inferred = CATEGORY_KEYWORDS.find((category) => category.words.some((word) => requestText.includes(word)));
+    return inferred ? { name: inferred.name, display: inferred.display } : { name: "OTHER", display: "Other" };
+}
+function scoreInstantRoleFit(request, worker) {
+    const requestCategory = inferInstantRequestCategory(request);
+    if (requestCategory.name === "OTHER")
+        return 0;
+    const workerSkills = stringList(worker.skills || worker.jobTypes || worker.categories || worker.primaryJobType);
+    if (workerSkills.length === 0)
+        return 0;
+    const requestText = normalizeMatchToken(`${request.title || ""} ${request.description || ""} ${request.category || ""}`);
+    const categoryRule = CATEGORY_KEYWORDS.find((item) => item.name === requestCategory.name);
+    const categoryWords = (categoryRule === null || categoryRule === void 0 ? void 0 : categoryRule.words) || [requestCategory.display.toLowerCase()];
+    const skillText = workerSkills.join(" ");
+    const categoryMatch = categoryWords.some((word) => skillText.includes(word)) ||
+        workerSkills.some((skill) => skill.length >= 3 && requestText.includes(skill));
+    return categoryMatch ? 18 : -14;
+}
+function chunked(items, size) {
+    const chunks = [];
+    for (let index = 0; index < items.length; index += size) {
+        chunks.push(items.slice(index, index + size));
+    }
+    return chunks;
+}
+function sanitizeNotificationDataMap(rawData) {
+    if (!rawData || typeof rawData !== "object") {
+        return {};
+    }
+    const dataObject = rawData;
+    const cleanData = {};
+    for (const [rawKey, rawValue] of Object.entries(dataObject).slice(0, MAX_SELF_NOTIFICATION_DATA_KEYS)) {
+        const key = String(rawKey).trim().slice(0, 64);
+        if (!key)
+            continue;
+        const value = String(rawValue !== null && rawValue !== void 0 ? rawValue : "").trim().slice(0, 500);
+        cleanData[key] = value;
+    }
+    return cleanData;
+}
 /**
  * Send broadcast notification to all users or specific role
  * Triggered when a document is created in "broadcast_notifications" collection
@@ -136,8 +189,8 @@ exports.sendBroadcastNotification = functions.firestore
     const notification = snapshot.data();
     const notificationId = context.params.notificationId;
     functions.logger.info(`Processing broadcast notification: ${notificationId}`, notification);
-    const title = notification.title || "DutyPe";
-    const message = notification.message || "";
+    const fallbackTitle = notification.title || "DutyPe";
+    const fallbackMessage = notification.message || "";
     const topic = notification.topic || TOPIC_ALL_USERS;
     const type = notification.type || "broadcast";
     // Validate topic
@@ -150,40 +203,61 @@ exports.sendBroadcastNotification = functions.firestore
         });
         return null;
     }
+    // Translations map: { en: { title, message }, te: { title, message } }.
+    // When provided, fan out to per-language topics so each device receives its locale.
+    const translations = (notification.translations && typeof notification.translations === "object")
+        ? notification.translations
+        : null;
     try {
-        // Build the FCM message for topic
-        const topicMessage = {
-            topic: topic,
-            data: {
-                notificationId: notificationId,
-                title: title,
-                message: message,
-                body: message,
-                type: type,
-                click_action: "FLUTTER_NOTIFICATION_CLICK",
-            },
-            android: {
-                priority: "high",
-                notification: {
-                    title: title,
-                    body: message,
-                    icon: "ic_notification",
-                    color: "#3B82F6",
-                    sound: "default",
-                    clickAction: "OPEN_ACTIVITY",
+        const sendToOne = async (sendTopic, sendTitle, sendMessage) => {
+            const topicMessage = {
+                topic: sendTopic,
+                data: {
+                    notificationId: notificationId,
+                    title: sendTitle,
+                    message: sendMessage,
+                    body: sendMessage,
+                    type: type,
+                    click_action: "FLUTTER_NOTIFICATION_CLICK",
                 },
-            },
+                android: {
+                    priority: "high",
+                    notification: {
+                        title: sendTitle,
+                        body: sendMessage,
+                        icon: "ic_notification",
+                        color: "#3B82F6",
+                        sound: "default",
+                        clickAction: "OPEN_ACTIVITY",
+                    },
+                },
+            };
+            return messaging.send(topicMessage);
         };
-        // Send to topic
-        const response = await messaging.send(topicMessage);
-        functions.logger.info(`Broadcast notification sent to topic ${topic}: ${response}`);
+        const responses = {};
+        if (translations) {
+            for (const lang of notification_i18n_1.SUPPORTED_LOCALES) {
+                const t = translations[lang];
+                const localizedTitle = ((t === null || t === void 0 ? void 0 : t.title) && t.title.trim()) || fallbackTitle;
+                const localizedMessage = ((t === null || t === void 0 ? void 0 : t.message) && t.message.trim()) || fallbackMessage;
+                const langTopic = (0, notification_i18n_1.localizedTopic)(topic, lang);
+                const resp = await sendToOne(langTopic, localizedTitle, localizedMessage);
+                responses[lang] = resp;
+                functions.logger.info(`Broadcast (${lang}) sent to ${langTopic}: ${resp}`);
+            }
+        }
+        else {
+            const resp = await sendToOne(topic, fallbackTitle, fallbackMessage);
+            responses["default"] = resp;
+            functions.logger.info(`Broadcast notification sent to topic ${topic}: ${resp}`);
+        }
         // Update document with sent status
         await snapshot.ref.update({
             sentAt: admin.firestore.FieldValue.serverTimestamp(),
-            fcmMessageId: response,
+            fcmMessageIds: responses,
             status: "sent",
         });
-        return response;
+        return responses;
     }
     catch (error) {
         functions.logger.error("Error sending broadcast notification:", error);
@@ -225,6 +299,15 @@ exports.sendPushNotification = functions.firestore
         functions.logger.warn("📬 FCM: No recipientId in notification, skipping");
         return null;
     }
+    if (notification.skipPush === true) {
+        functions.logger.info(`📬 FCM: Skipping push for self-notification ${notificationId}`);
+        await snapshot.ref.update({
+            sentAt: admin.firestore.FieldValue.serverTimestamp(),
+            skipped: true,
+            skipReason: "SKIP_PUSH",
+        });
+        return null;
+    }
     try {
         // DEDUPLICATION CHECK 2: Transaction-based lock to prevent race conditions
         const lockResult = await db.runTransaction(async (transaction) => {
@@ -251,20 +334,42 @@ exports.sendPushNotification = functions.firestore
             functions.logger.info(`📬 FCM: Skipping notification ${notificationId} - ${lockResult.reason}`);
             return null;
         }
-        // DEDUPLICATION CHECK 3: Check for duplicate notifications in last 5 seconds
-        const fiveSecondsAgo = Date.now() - 5000;
-        const duplicateCheck = await db.collection("notifications")
+        // DEDUPLICATION CHECK 3: Best-effort duplicate detection in last 5 seconds.
+        // Use single-field query to avoid composite index failures in production.
+        const fiveSecondsAgoMs = Date.now() - 5000;
+        const candidateNotifications = await db.collection("notifications")
             .where("recipientId", "==", recipientId)
-            .where("title", "==", notification.title)
-            .where("type", "==", notification.type)
-            .where("createdAt", ">", fiveSecondsAgo)
-            .limit(5)
+            .limit(30)
             .get();
-        if (duplicateCheck.size > 1) {
+        const getCreatedAtMs = (rawCreatedAt) => {
+            if (rawCreatedAt instanceof admin.firestore.Timestamp) {
+                return rawCreatedAt.toMillis();
+            }
+            if (typeof rawCreatedAt === "number") {
+                return rawCreatedAt;
+            }
+            if (typeof rawCreatedAt === "object" && rawCreatedAt !== null && "toMillis" in rawCreatedAt) {
+                const maybeTimestamp = rawCreatedAt;
+                if (typeof maybeTimestamp.toMillis === "function") {
+                    return maybeTimestamp.toMillis();
+                }
+            }
+            return 0;
+        };
+        const matchingNotifications = candidateNotifications.docs.filter((doc) => {
+            const data = doc.data();
+            if (data.title !== notification.title)
+                return false;
+            if (data.type !== notification.type)
+                return false;
+            const createdAtMs = getCreatedAtMs(data.createdAt);
+            return createdAtMs >= fiveSecondsAgoMs;
+        });
+        if (matchingNotifications.length > 1) {
             // Found duplicates - only process the first one (oldest)
-            const sortedDocs = duplicateCheck.docs.sort((a, b) => {
-                const aTime = a.data().createdAt || 0;
-                const bTime = b.data().createdAt || 0;
+            const sortedDocs = matchingNotifications.sort((a, b) => {
+                const aTime = getCreatedAtMs(a.data().createdAt);
+                const bTime = getCreatedAtMs(b.data().createdAt);
                 return aTime - bTime;
             });
             const firstDocId = sortedDocs[0].id;
@@ -281,10 +386,10 @@ exports.sendPushNotification = functions.firestore
                 return null;
             }
         }
-        // Get recipient's FCM token from users collection
-        const userDoc = await db.collection("users").doc(recipientId).get();
-        if (!userDoc.exists) {
-            functions.logger.warn(`📬 FCM: No user found for: ${recipientId}`);
+        // Get recipient's FCM token from the canonical token collection.
+        const tokenDoc = await db.collection("user_tokens").doc(recipientId).get();
+        if (!tokenDoc.exists) {
+            functions.logger.warn(`📬 FCM: No token document found for: ${recipientId}`);
             await snapshot.ref.update({
                 processing: false,
                 sentAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -292,8 +397,8 @@ exports.sendPushNotification = functions.firestore
             });
             return null;
         }
-        const userData = userDoc.data();
-        if (!(userData === null || userData === void 0 ? void 0 : userData.fcmToken)) {
+        const tokenData = tokenDoc.data();
+        if (!(tokenData === null || tokenData === void 0 ? void 0 : tokenData.fcmToken)) {
             functions.logger.warn(`📬 FCM: No FCM token for user: ${recipientId}`);
             await snapshot.ref.update({
                 processing: false,
@@ -302,12 +407,28 @@ exports.sendPushNotification = functions.firestore
             });
             return null;
         }
-        const fcmToken = userData.fcmToken;
+        const fcmToken = tokenData.fcmToken;
+        // Localization: if the doc carries a templateId + params, render in the
+        // recipient's preferred language. Otherwise fall back to the literal
+        // title/message that producers wrote (which themselves should already be
+        // localized — see notification-fanout.ts and referral-system.ts).
+        let effectiveTitle = notification.title || "DutyPe";
+        let effectiveMessage = notification.message || "";
+        let effectiveLocale = (0, notification_i18n_1.normalizeLocale)(notification.locale);
+        const templateId = typeof notification.templateId === "string" ? notification.templateId : "";
+        if (templateId) {
+            effectiveLocale = await (0, notification_i18n_1.getUserLanguage)(db, recipientId);
+            const params = (notification.params && typeof notification.params === "object")
+                ? notification.params
+                : undefined;
+            effectiveTitle = (0, notification_i18n_1.tTitle)(templateId, effectiveLocale, params);
+            effectiveMessage = (0, notification_i18n_1.tBody)(templateId, effectiveLocale, params);
+        }
         // Extract deep link from notification data
         const deepLink = ((_a = notification.data) === null || _a === void 0 ? void 0 : _a.deepLink) || "";
         // Map notification type to Android channel ID
         const notificationType = notification.type || "general";
-        const highPriorityTypes = ["BIRTHDAY", "JOB_EXPIRY", "APPLICATION_STATUS", "JOB_ALERT", "NEW_APPLICATION", "APPLICATION_WITHDRAWN", "WORKER_HIRED", "PROFILE_COMPLETE", "JOB_POSTED", "JOB_PAUSED", "SHORTLISTED", "REJECTED", "APPLICATION_STATUS_UPDATE", "WELCOME"];
+        const highPriorityTypes = ["BIRTHDAY", "JOB_EXPIRY", "APPLICATION_STATUS", "JOB_ALERT", "NEW_JOB_ALERT", "EMPLOYER_MESSAGE", "NEW_APPLICATION", "APPLICATION_WITHDRAWN", "WORKER_HIRED", "PROFILE_COMPLETE", "JOB_POSTED", "SHORTLISTED", "REJECTED", "APPLICATION_STATUS_UPDATE", "WELCOME"];
         const mediumPriorityTypes = ["PENDING_APPLICATIONS", "JOB_RECOMMENDATION", "REMINDER", "INTERVIEW_SCHEDULED"];
         let channelId = "low_priority";
         if (highPriorityTypes.includes(notificationType)) {
@@ -316,6 +437,7 @@ exports.sendPushNotification = functions.firestore
         else if (mediumPriorityTypes.includes(notificationType)) {
             channelId = "medium_priority";
         }
+        const payloadData = sanitizeNotificationDataMap(notification.data);
         // Build the FCM message.
         // DATA-ONLY message (no android.notification block) so that onMessageReceived()
         // is ALWAYS called by DutyPeMessagingService regardless of whether the app is
@@ -323,16 +445,7 @@ exports.sendPushNotification = functions.firestore
         // how the notification is displayed and ensures deep-links work correctly.
         const message = {
             token: fcmToken,
-            data: {
-                recipientId: recipientId,
-                notificationId: notificationId,
-                title: notification.title || "DutyPe",
-                message: notification.message || "",
-                body: notification.message || "",
-                type: notificationType,
-                deepLink: deepLink,
-                channel: channelId,
-            },
+            data: Object.assign(Object.assign({}, payloadData), { notificationId: notificationId, title: effectiveTitle, message: effectiveMessage, body: effectiveMessage, type: notificationType, deepLink: deepLink, channel: channelId, locale: effectiveLocale }),
             android: {
                 priority: "high",
             },
@@ -340,12 +453,17 @@ exports.sendPushNotification = functions.firestore
         // Send the notification
         const response = await messaging.send(message);
         functions.logger.info(`📬 FCM: ✅ Notification sent successfully: ${response}`);
-        // Update notification document with sent status
-        await snapshot.ref.update({
+        // Update notification document with sent status (and resolved copy for inbox)
+        const updatePayload = {
             processing: false,
             sentAt: admin.firestore.FieldValue.serverTimestamp(),
             fcmMessageId: response,
-        });
+        };
+        if (templateId) {
+            updatePayload.title = effectiveTitle;
+            updatePayload.message = effectiveMessage;
+        }
+        await snapshot.ref.update(updatePayload);
         return response;
     }
     catch (error) {
@@ -358,6 +476,329 @@ exports.sendPushNotification = functions.firestore
         });
         return null;
     }
+});
+/**
+ * Persists self-targeted notifications for inbox visibility.
+ * Recipient is always the authenticated user; push is skipped to avoid duplicates
+ * because the app already shows an immediate local notification.
+ */
+exports.persistSelfNotification = functions.https.onCall(async (data, context) => {
+    var _a;
+    if (!((_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        throw new functions.https.HttpsError("unauthenticated", "Authentication required");
+    }
+    const userId = context.auth.uid;
+    const title = (0, validation_1.validateString)(data === null || data === void 0 ? void 0 : data.title, "title", {
+        required: true,
+        minLength: 1,
+        maxLength: 120,
+    });
+    const message = (0, validation_1.validateMessage)(data === null || data === void 0 ? void 0 : data.message, 700);
+    const notificationType = (0, validation_1.validateString)(data === null || data === void 0 ? void 0 : data.type, "type", {
+        required: true,
+        minLength: 1,
+        maxLength: 64,
+    }).toUpperCase();
+    if (!ALLOWED_SELF_NOTIFICATION_TYPES.has(notificationType)) {
+        throw new functions.https.HttpsError("invalid-argument", `Unsupported self notification type: ${notificationType}`);
+    }
+    const targetRoleRaw = (0, validation_1.validateString)(data === null || data === void 0 ? void 0 : data.targetRole, "targetRole", {
+        required: false,
+        maxLength: 16,
+    }).toUpperCase();
+    const targetRole = targetRoleRaw === "WORKER" || targetRoleRaw === "EMPLOYER"
+        ? targetRoleRaw
+        : "";
+    const payloadData = sanitizeNotificationDataMap(data === null || data === void 0 ? void 0 : data.data);
+    const requestedNotificationId = typeof (data === null || data === void 0 ? void 0 : data.notificationId) === "string"
+        ? data.notificationId.trim()
+        : "";
+    const notificationId = /^[A-Za-z0-9_-]{8,128}$/.test(requestedNotificationId)
+        ? requestedNotificationId
+        : db.collection("notifications").doc().id;
+    const nowMs = Date.now();
+    const requestedExpiresAt = Number(data === null || data === void 0 ? void 0 : data.expiresAt);
+    const maxAllowedExpiry = nowMs + SELF_NOTIFICATION_RETENTION_MS;
+    const resolvedExpiryMs = Number.isFinite(requestedExpiresAt) && requestedExpiresAt > nowMs
+        ? Math.min(requestedExpiresAt, maxAllowedExpiry)
+        : maxAllowedExpiry;
+    const notificationRef = db.collection("notifications").doc(notificationId);
+    await notificationRef.set(Object.assign(Object.assign({ recipientId: userId, title,
+        message, type: notificationType }, (targetRole ? { targetRole } : {})), { data: payloadData, isRead: false, createdAt: admin.firestore.FieldValue.serverTimestamp(), expiresAt: admin.firestore.Timestamp.fromMillis(resolvedExpiryMs), skipPush: true }));
+    return {
+        success: true,
+        notificationId: notificationRef.id,
+    };
+});
+exports.notifyAvailableWorkersForInstantRequest = functions.firestore
+    .document("instant_requests/{requestId}")
+    .onCreate(async (snapshot, context) => {
+    const request = snapshot.data() || {};
+    const requestId = context.params.requestId;
+    const status = String(request.status || "open").toLowerCase();
+    if (status !== "open")
+        return null;
+    const requestLat = Number(request.lat);
+    const requestLng = Number(request.lng);
+    if (!validCoordinates(requestLat, requestLng)) {
+        functions.logger.warn(`INSTANT: request ${requestId} has no valid coordinates`);
+        return null;
+    }
+    const nowMs = Date.now();
+    const expiresAtMs = timestampMillis(request.expiresAt);
+    if (expiresAtMs > 0 && expiresAtMs <= nowMs) {
+        functions.logger.info(`INSTANT: request ${requestId} already expired, no fanout`);
+        return null;
+    }
+    const requestRadius = Math.max(1, Math.min(MAX_INSTANT_WORK_DISTANCE_KM, Number(request.radiusKm) || MAX_INSTANT_WORK_DISTANCE_KM));
+    const availabilitySnap = await db.collection("worker_availability")
+        .where("isAvailable", "==", true)
+        .limit(INSTANT_WORKER_SCAN_LIMIT)
+        .get();
+    const baseCandidates = availabilitySnap.docs
+        .map((doc) => {
+        var _a, _b, _c, _d, _e, _f;
+        const availability = doc.data() || {};
+        const workerLat = Number(availability.lat);
+        const workerLng = Number(availability.lng);
+        if (!validCoordinates(workerLat, workerLng))
+            return null;
+        const availableUntilMs = timestampMillis(availability.availableUntil);
+        if (availableUntilMs > 0 && availableUntilMs <= nowMs)
+            return null;
+        const distance = distanceKm(requestLat, requestLng, workerLat, workerLng);
+        if (distance > MAX_INSTANT_WORK_DISTANCE_KM || distance > requestRadius)
+            return null;
+        const workerId = String(availability.workerId || doc.id);
+        if (!workerId || workerId === String(request.employerId || ""))
+            return null;
+        const freshnessMs = Math.max(timestampMillis(availability.lastActiveAt), timestampMillis(availability.lastSeenAt), timestampMillis(availability.updatedAt));
+        const hoursSinceFreshness = freshnessMs > 0
+            ? (nowMs - freshnessMs) / (1000 * 60 * 60)
+            : Number.POSITIVE_INFINITY;
+        const accepted = Number((_b = (_a = availability.instantAcceptedCount) !== null && _a !== void 0 ? _a : availability.acceptedRequests) !== null && _b !== void 0 ? _b : 0);
+        const declined = Number((_d = (_c = availability.instantDeclinedCount) !== null && _c !== void 0 ? _c : availability.declinedRequests) !== null && _d !== void 0 ? _d : 0);
+        const noShow = Number((_f = (_e = availability.instantNoShowCount) !== null && _e !== void 0 ? _e : availability.noShowCount) !== null && _f !== void 0 ? _f : 0);
+        const decisionCount = Math.max(0, accepted) + Math.max(0, declined) + Math.max(0, noShow);
+        const acceptanceRate = decisionCount > 0 ? accepted / decisionCount : 0.5;
+        const freshnessScore = hoursSinceFreshness <= 6 ? 16 :
+            hoursSinceFreshness <= 24 ? 10 :
+                hoursSinceFreshness <= 72 ? 5 : 0;
+        const reliabilityScore = decisionCount >= 3
+            ? Math.max(-8, Math.min(12, Math.round((acceptanceRate - 0.5) * 24)))
+            : 0;
+        const distanceScore = Math.max(0, 30 - distance * 2.5);
+        return {
+            workerId,
+            distance,
+            updatedAt: timestampMillis(availability.updatedAt),
+            baseRankScore: Math.round(distanceScore + freshnessScore + reliabilityScore),
+            availability,
+        };
+    })
+        .filter((item) => item !== null);
+    const workerProfiles = new Map();
+    for (const chunk of chunked(baseCandidates.map((candidate) => candidate.workerId), 10)) {
+        if (chunk.length === 0)
+            continue;
+        const profileSnap = await db.collection("worker_profiles")
+            .where(admin.firestore.FieldPath.documentId(), "in", chunk)
+            .get();
+        profileSnap.docs.forEach((doc) => {
+            workerProfiles.set(doc.id, doc.data() || {});
+        });
+    }
+    const requestCategory = inferInstantRequestCategory(request);
+    const candidates = baseCandidates
+        .map((candidate) => {
+        const workerProfile = workerProfiles.get(candidate.workerId) || {};
+        const roleFitScore = scoreInstantRoleFit(request, Object.assign(Object.assign({}, candidate.availability), workerProfile));
+        if (requestCategory.name !== "OTHER" && roleFitScore < 0) {
+            return null;
+        }
+        return {
+            workerId: candidate.workerId,
+            distance: candidate.distance,
+            updatedAt: candidate.updatedAt,
+            rankScore: candidate.baseRankScore + roleFitScore,
+        };
+    })
+        .filter((item) => item !== null)
+        .sort((a, b) => b.rankScore - a.rankScore || a.distance - b.distance || b.updatedAt - a.updatedAt)
+        .slice(0, INSTANT_WORKER_NOTIFY_LIMIT);
+    const batch = db.batch();
+    const expiresAt = expiresAtMs > nowMs
+        ? admin.firestore.Timestamp.fromMillis(expiresAtMs)
+        : admin.firestore.Timestamp.fromMillis(nowMs + 2 * 60 * 60 * 1000);
+    candidates.forEach((candidate) => {
+        const notificationRef = db.collection("notifications").doc(`instant_${requestId}_${candidate.workerId}`);
+        const card = (0, job_notification_card_1.buildJobNotificationCard)({
+            source: "urgent_request",
+            title: request.title || "Urgent work nearby",
+            salary: request.budgetText,
+            addressText: request.addressText,
+            cityText: request.companyCity,
+            distanceKm: candidate.distance,
+            requestId,
+            deepLink: "dutype://worker/home",
+        });
+        batch.set(notificationRef, {
+            recipientId: candidate.workerId,
+            title: card.title,
+            message: card.message,
+            type: "NEW_JOB_ALERT",
+            targetRole: "WORKER",
+            data: Object.assign(Object.assign({}, card.data), { requestId, employerId: String(request.employerId || ""), category: String(request.category || ""), distanceKm: candidate.distance.toFixed(1), deepLink: "dutype://worker/home" }),
+            isRead: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            expiresAt,
+        }, { merge: false });
+    });
+    batch.set(snapshot.ref, {
+        notifiedWorkerCount: candidates.length,
+        notificationFanoutAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    await batch.commit();
+    functions.logger.info(`INSTANT: notified ${candidates.length} workers for ${requestId}`);
+    return { notifiedWorkerCount: candidates.length };
+});
+exports.syncInstantResponseMetrics = functions.firestore
+    .document("instant_responses/{responseId}")
+    .onWrite(async (change, context) => {
+    if (!change.after.exists)
+        return null;
+    const before = change.before.exists ? (change.before.data() || {}) : null;
+    const after = change.after.data() || {};
+    const responseId = context.params.responseId;
+    const requestId = String(after.requestId || "");
+    const employerId = String(after.employerId || "");
+    const workerId = String(after.workerId || "");
+    if (!requestId || !employerId || !workerId)
+        return null;
+    const afterStatus = String(after.status || "").toLowerCase();
+    const beforeStatus = String((before === null || before === void 0 ? void 0 : before.status) || "").toLowerCase();
+    const requestRef = db.collection("instant_requests").doc(requestId);
+    await db.runTransaction(async (tx) => {
+        const requestSnap = await tx.get(requestRef);
+        if (!requestSnap.exists)
+            return;
+        const request = requestSnap.data() || {};
+        const updates = {
+            lastResponseAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
+        if (!before) {
+            updates.responseCount = admin.firestore.FieldValue.increment(1);
+            if (!request.firstResponseAt) {
+                updates.firstResponseAt = admin.firestore.FieldValue.serverTimestamp();
+            }
+        }
+        if (afterStatus === "called" && beforeStatus !== "called") {
+            updates.callCount = admin.firestore.FieldValue.increment(1);
+        }
+        const workersNeededRaw = Number(request.workersNeeded || 1);
+        const workersNeeded = Number.isFinite(workersNeededRaw) ? Math.max(1, Math.floor(workersNeededRaw)) : 1;
+        const selectedWorkerIds = Array.isArray(request.selectedWorkerIds)
+            ? request.selectedWorkerIds.map((value) => String(value || "").trim()).filter(Boolean)
+            : [];
+        const currentSelectedWorkerId = String(request.selectedWorkerId || "").trim();
+        if (currentSelectedWorkerId && !selectedWorkerIds.includes(currentSelectedWorkerId)) {
+            selectedWorkerIds.push(currentSelectedWorkerId);
+        }
+        const completedWorkerIds = Array.isArray(request.completedWorkerIds)
+            ? request.completedWorkerIds.map((value) => String(value || "").trim()).filter(Boolean)
+            : [];
+        const requestStatus = String(request.status || "").toLowerCase();
+        const terminalStatus = ["cancelled", "expired", "completed"].includes(requestStatus);
+        if (afterStatus === "accepted") {
+            const selectedAfter = Array.from(new Set([...selectedWorkerIds, workerId]));
+            updates.selectedWorkerId = workerId;
+            updates.selectedWorkerIds = selectedAfter;
+            if (!terminalStatus) {
+                updates.status = selectedAfter.length >= workersNeeded || requestStatus === "filled" ? "filled" : "open";
+                if (selectedAfter.length >= workersNeeded)
+                    updates.filledAt = admin.firestore.FieldValue.serverTimestamp();
+                updates.failureReason = admin.firestore.FieldValue.delete();
+            }
+        }
+        else if (afterStatus === "completed") {
+            const selectedAfter = Array.from(new Set([...selectedWorkerIds, workerId]));
+            const completedAfter = Array.from(new Set([...completedWorkerIds, workerId]));
+            updates.selectedWorkerId = workerId;
+            updates.selectedWorkerIds = selectedAfter;
+            updates.completedWorkerIds = completedAfter;
+            if (!terminalStatus) {
+                if (completedAfter.length >= workersNeeded) {
+                    updates.status = "completed";
+                    updates.completedAt = admin.firestore.FieldValue.serverTimestamp();
+                }
+                else {
+                    updates.status = selectedAfter.length >= workersNeeded || requestStatus === "filled" ? "filled" : "open";
+                }
+                updates.failureReason = admin.firestore.FieldValue.delete();
+            }
+            if (after.completionProof)
+                updates.completionProof = String(after.completionProof).slice(0, 300);
+        }
+        else if (afterStatus === "no_show") {
+            const selectedAfter = selectedWorkerIds.filter((id) => id !== workerId);
+            const completedAfter = completedWorkerIds.filter((id) => id !== workerId);
+            updates.selectedWorkerId = selectedAfter[selectedAfter.length - 1] || "";
+            updates.selectedWorkerIds = selectedAfter;
+            updates.completedWorkerIds = completedAfter;
+            if (!terminalStatus) {
+                updates.status = selectedAfter.length >= workersNeeded ? "filled" : "open";
+                updates.failureReason = admin.firestore.FieldValue.delete();
+            }
+        }
+        tx.set(requestRef, updates, { merge: true });
+    });
+    // Marks the clock start for the 3-hour instant auto-completion sweep.
+    if (afterStatus === "accepted" && !after.acceptedAt) {
+        await change.after.ref.set({ acceptedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    }
+    if (!before && ["applied", "interested", "called"].includes(afterStatus)) {
+        await db.collection("notifications").doc(`instant_response_${responseId}`).set({
+            recipientId: employerId,
+            title: "Worker responded",
+            message: `${String(after.workerName || "A worker")} responded to your urgent request`,
+            type: "NEW_APPLICATION",
+            targetRole: "EMPLOYER",
+            data: {
+                requestId,
+                workerId,
+                responseId,
+                deepLink: `dutype://employer/urgent/${requestId}`,
+            },
+            isRead: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: false });
+    }
+    return null;
+});
+exports.expireStaleInstantRequests = functions.pubsub
+    .schedule("every 15 minutes")
+    .timeZone("Asia/Kolkata")
+    .onRun(async () => {
+    const now = admin.firestore.Timestamp.now();
+    const snapshot = await db.collection("instant_requests")
+        .where("status", "==", "open")
+        .where("expiresAt", "<=", now)
+        .limit(200)
+        .get();
+    if (snapshot.empty) {
+        return { expired: 0 };
+    }
+    const batch = db.batch();
+    snapshot.docs.forEach((doc) => {
+        batch.set(doc.ref, {
+            status: "expired",
+            expiredAt: admin.firestore.FieldValue.serverTimestamp(),
+            failureReason: "Expired without selection",
+        }, { merge: true });
+    });
+    await batch.commit();
+    functions.logger.info(`INSTANT: expired ${snapshot.size} stale urgent requests`);
+    return { expired: snapshot.size };
 });
 // ============================================
 // P1 FIX #6: DUPLICATE JOB DETECTION
@@ -386,25 +827,52 @@ function calculateTextSimilarity(text1, text2) {
  * 3. Same title + location combination
  */
 exports.detectDuplicateJob = functions.firestore
-    .document("jobs/{jobId}")
+    .document("jobmetadata/{jobId}")
     .onCreate(async (snapshot, context) => {
+    var _a, _b, _c, _d, _e;
     const job = snapshot.data();
     const jobId = context.params.jobId;
-    const employerId = job.employerId;
+    // employerId now lives in job_details (slim jobmetadata schema).
+    const detailsSnap = await db.collection("job_details").doc(jobId).get();
+    const employerId = (detailsSnap.exists ? detailsSnap.get("employerId") : null);
+    if (!employerId) {
+        functions.logger.warn(`🔍 DUPLICATE CHECK: No employerId found in job_details for ${jobId}`);
+        return;
+    }
     functions.logger.info(`🔍 DUPLICATE CHECK: Analyzing job ${jobId}`);
+    // Helper: look up employerId for a set of jobIds via job_details in parallel.
+    const resolveEmployerIds = async (ids) => {
+        if (ids.length === 0)
+            return new Map();
+        const refs = ids.map((id) => db.collection("job_details").doc(id));
+        const snaps = await db.getAll(...refs);
+        const result = new Map();
+        for (const snap of snaps) {
+            const eid = snap.exists ? snap.get("employerId") : undefined;
+            if (eid)
+                result.set(snap.id, eid);
+        }
+        return result;
+    };
     try {
         let fraudScore = 0;
         const signals = [];
         const now = Date.now();
         const twentyFourHoursAgo = now - ONE_DAY_MS;
+        const twentyFourHoursAgoTs = admin.firestore.Timestamp.fromMillis(twentyFourHoursAgo);
         // CHECK 1: Same contact number from DIFFERENT user (HIGH SUSPICION)
         if (job.contactNumber) {
-            const sameContactJobs = await db.collection("jobs")
+            const sameContactJobs = await db.collection("jobmetadata")
                 .where("contactNumber", "==", job.contactNumber)
-                .where("postedAt", ">", twentyFourHoursAgo)
+                .where("createdAt", ">", twentyFourHoursAgoTs)
                 .limit(10)
                 .get();
-            const differentUserSameContact = sameContactJobs.docs.filter(doc => doc.data().employerId !== employerId && doc.id !== jobId);
+            const candidateIds = sameContactJobs.docs.map((d) => d.id).filter((id) => id !== jobId);
+            const employerMap = await resolveEmployerIds(candidateIds);
+            const differentUserSameContact = candidateIds.filter((id) => {
+                const eid = employerMap.get(id);
+                return eid && eid !== employerId;
+            });
             if (differentUserSameContact.length > 0) {
                 fraudScore += 50;
                 signals.push("SAME_CONTACT_DIFFERENT_USER");
@@ -412,15 +880,31 @@ exports.detectDuplicateJob = functions.firestore
             }
         }
         // CHECK 2: Similar description (>70% match)
-        const recentJobs = await db.collection("jobs")
-            .where("postedAt", ">", twentyFourHoursAgo)
-            .where("employerId", "!=", employerId)
+        const recentJobsSnap = await db.collection("jobmetadata")
+            .where("createdAt", ">", twentyFourHoursAgoTs)
             .limit(50)
             .get();
-        for (const recentJob of recentJobs.docs) {
+        const recentIds = recentJobsSnap.docs.map((d) => d.id).filter((id) => id !== jobId);
+        const recentEmployerMap = await resolveEmployerIds(recentIds);
+        const recentDetailsMap = new Map();
+        {
+            const detailRefs = recentIds.map((id) => db.collection("job_details").doc(id));
+            if (detailRefs.length > 0) {
+                const detailSnaps = await db.getAll(...detailRefs);
+                for (const ds of detailSnaps) {
+                    if (ds.exists)
+                        recentDetailsMap.set(ds.id, ds.data() || {});
+                }
+            }
+        }
+        for (const recentJob of recentJobsSnap.docs) {
             if (recentJob.id === jobId)
                 continue;
-            const similarity = calculateTextSimilarity(job.description || "", recentJob.data().description || "");
+            const otherEmployerId = recentEmployerMap.get(recentJob.id);
+            if (!otherEmployerId || otherEmployerId === employerId)
+                continue;
+            const otherDescription = ((_a = recentDetailsMap.get(recentJob.id)) === null || _a === void 0 ? void 0 : _a.description) || "";
+            const similarity = calculateTextSimilarity(job.description || "", otherDescription);
             if (similarity > 0.7) {
                 fraudScore += 40;
                 signals.push(`SIMILAR_DESCRIPTION_${Math.round(similarity * 100)}%`);
@@ -429,22 +913,47 @@ exports.detectDuplicateJob = functions.firestore
             }
         }
         // CHECK 3: Same title + same area (within 1km)
-        if (job.title && job.latitude && job.longitude) {
-            const sameTitleJobs = await db.collection("jobs")
+        const jobLat = typeof job.latitude === "number"
+            ? job.latitude
+            : typeof ((_b = job.location) === null || _b === void 0 ? void 0 : _b.lat) === "number"
+                ? job.location.lat
+                : null;
+        const jobLng = typeof job.longitude === "number"
+            ? job.longitude
+            : typeof ((_c = job.location) === null || _c === void 0 ? void 0 : _c.lng) === "number"
+                ? job.location.lng
+                : null;
+        if (job.title && jobLat !== null && jobLng !== null) {
+            const sameTitleJobs = await db.collection("jobmetadata")
                 .where("title", "==", job.title)
-                .where("postedAt", ">", twentyFourHoursAgo)
+                .where("createdAt", ">", twentyFourHoursAgoTs)
                 .limit(20)
                 .get();
+            const titleCandidateIds = sameTitleJobs.docs.map((d) => d.id).filter((id) => id !== jobId);
+            const titleEmployerMap = await resolveEmployerIds(titleCandidateIds);
             for (const sameTitleJob of sameTitleJobs.docs) {
                 if (sameTitleJob.id === jobId)
                     continue;
                 const otherJob = sameTitleJob.data();
-                if (otherJob.latitude && otherJob.longitude) {
+                const otherEmployerId = titleEmployerMap.get(sameTitleJob.id);
+                if (!otherEmployerId)
+                    continue;
+                const otherLat = typeof otherJob.latitude === "number"
+                    ? otherJob.latitude
+                    : typeof ((_d = otherJob.location) === null || _d === void 0 ? void 0 : _d.lat) === "number"
+                        ? otherJob.location.lat
+                        : null;
+                const otherLng = typeof otherJob.longitude === "number"
+                    ? otherJob.longitude
+                    : typeof ((_e = otherJob.location) === null || _e === void 0 ? void 0 : _e.lng) === "number"
+                        ? otherJob.location.lng
+                        : null;
+                if (otherLat !== null && otherLng !== null) {
                     // Simple distance check (approximate)
-                    const latDiff = Math.abs(job.latitude - otherJob.latitude);
-                    const lngDiff = Math.abs(job.longitude - otherJob.longitude);
+                    const latDiff = Math.abs(jobLat - otherLat);
+                    const lngDiff = Math.abs(jobLng - otherLng);
                     const isNearby = latDiff < 0.01 && lngDiff < 0.01; // ~1km
-                    if (isNearby && otherJob.employerId !== employerId) {
+                    if (isNearby && otherEmployerId !== employerId) {
                         fraudScore += 30;
                         signals.push("SAME_TITLE_SAME_AREA");
                         functions.logger.warn(`🔍 DUPLICATE: Same title "${job.title}" in same area`);
@@ -459,7 +968,7 @@ exports.detectDuplicateJob = functions.firestore
             // HIGH RISK: Auto-reject and hide
             moderationStatus = "AUTO_REJECTED";
             await snapshot.ref.update({
-                isActive: false,
+                status: "closed",
                 moderationStatus: "AUTO_REJECTED",
                 moderationReason: signals.join(", "),
                 fraudScore: fraudScore,
@@ -474,14 +983,19 @@ exports.detectDuplicateJob = functions.firestore
                 moderationReason: signals.join(", "),
                 fraudScore: fraudScore,
             });
-            // Add to moderation queue
-            await db.collection("moderation_queue").add({
-                jobId: jobId,
-                employerId: employerId,
-                type: "DUPLICATE_SUSPECTED",
-                fraudScore: fraudScore,
-                signals: signals,
-                status: "PENDING",
+            // Create an in-app notification for employer review.
+            const modLocale = await (0, notification_i18n_1.getUserLanguage)(db, employerId);
+            const modRecipient = await (0, notification_i18n_1.getUserDisplayName)(db, employerId);
+            await db.collection("notifications").add({
+                recipientId: employerId,
+                title: (0, notification_i18n_1.tTitle)("JOB_UNDER_REVIEW", modLocale, { title: job.title, recipient: modRecipient }),
+                message: (0, notification_i18n_1.tBody)("JOB_UNDER_REVIEW", modLocale, { title: job.title, recipient: modRecipient }),
+                type: "MODERATION_REVIEW_REQUIRED",
+                data: {
+                    jobId: jobId,
+                    fraudScore: fraudScore,
+                },
+                isRead: false,
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
             });
             functions.logger.info(`🔍 DUPLICATE: ⚠️ Job ${jobId} sent to moderation (score: ${fraudScore})`);
@@ -524,79 +1038,9 @@ exports.logUserActivity = functions.https.onCall(async (data, context) => {
  * Called when admin approves or rejects a job in moderation queue
  */
 exports.processModerationDecision = functions.firestore
-    .document("moderation_queue/{queueId}")
-    .onUpdate(async (change, context) => {
-    var _a, _b, _c, _d;
-    const before = change.before.data();
-    const after = change.after.data();
-    const queueId = context.params.queueId;
-    // Only process if status changed from PENDING
-    if (before.status === "PENDING" && after.status !== "PENDING") {
-        const jobId = after.jobId;
-        const decision = after.status; // APPROVED or REJECTED
-        const moderatorId = after.moderatorId || "system";
-        const moderatorNotes = after.moderatorNotes || "";
-        functions.logger.info(`📋 MODERATION: Processing decision for job ${jobId}: ${decision}`);
-        try {
-            const jobRef = db.collection("jobs").doc(jobId);
-            const jobDoc = await jobRef.get();
-            if (!jobDoc.exists) {
-                functions.logger.warn(`📋 MODERATION: Job ${jobId} not found`);
-                return null;
-            }
-            if (decision === "APPROVED") {
-                // Approve the job - make it visible
-                await jobRef.update({
-                    isActive: true,
-                    moderationStatus: "APPROVED",
-                    moderatedBy: moderatorId,
-                    moderatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                    moderatorNotes: moderatorNotes,
-                });
-                // Notify employer
-                await db.collection("notifications").add({
-                    recipientId: (_a = jobDoc.data()) === null || _a === void 0 ? void 0 : _a.employerId,
-                    title: "Job Approved! ✅",
-                    message: `Your job "${(_b = jobDoc.data()) === null || _b === void 0 ? void 0 : _b.title}" has been approved and is now live.`,
-                    type: "JOB_APPROVED",
-                    jobId: jobId,
-                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                    isRead: false,
-                });
-                functions.logger.info(`📋 MODERATION: ✅ Job ${jobId} APPROVED`);
-            }
-            else if (decision === "REJECTED") {
-                // Reject the job - keep it hidden
-                await jobRef.update({
-                    isActive: false,
-                    moderationStatus: "REJECTED",
-                    moderatedBy: moderatorId,
-                    moderatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                    moderatorNotes: moderatorNotes,
-                });
-                // Notify employer
-                await db.collection("notifications").add({
-                    recipientId: (_c = jobDoc.data()) === null || _c === void 0 ? void 0 : _c.employerId,
-                    title: "Job Not Approved",
-                    message: `Your job "${(_d = jobDoc.data()) === null || _d === void 0 ? void 0 : _d.title}" was not approved. Reason: ${moderatorNotes || "Policy violation"}`,
-                    type: "JOB_REJECTED",
-                    jobId: jobId,
-                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                    isRead: false,
-                });
-                functions.logger.info(`📋 MODERATION: ❌ Job ${jobId} REJECTED`);
-            }
-            // Update queue item with completion time
-            await change.after.ref.update({
-                completedAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
-            return { success: true, decision };
-        }
-        catch (error) {
-            functions.logger.error(`📋 MODERATION: Error processing decision:`, error);
-            return null;
-        }
-    }
+    .document("jobmetadata/{jobId}")
+    .onUpdate(async () => {
+    // Moderation decisions are handled by the current job status workflow.
     return null;
 });
 // ============================================
@@ -612,6 +1056,7 @@ const AUTO_HIDE_THRESHOLD = 3;
 exports.processJobReport = functions.firestore
     .document("job_reports/{reportId}")
     .onCreate(async (snapshot, context) => {
+    var _a, _b, _c;
     const report = snapshot.data();
     const reportId = context.params.reportId;
     const jobId = report.jobId;
@@ -622,7 +1067,7 @@ exports.processJobReport = functions.firestore
     functions.logger.info(`🚨 REPORT: Processing report ${reportId} for job ${jobId}`);
     try {
         // Get job document
-        const jobRef = db.collection("jobs").doc(jobId);
+        const jobRef = db.collection("jobmetadata").doc(jobId);
         const jobDoc = await jobRef.get();
         if (!jobDoc.exists) {
             functions.logger.warn(`Job ${jobId} not found`);
@@ -634,38 +1079,91 @@ exports.processJobReport = functions.firestore
             .where("jobId", "==", jobId)
             .get();
         const currentReportCount = reportsSnapshot.size;
+        const reportTypeCounts = {};
+        const sortedReports = reportsSnapshot.docs
+            .map((doc) => {
+            const data = doc.data();
+            const rawCreatedAt = data.createdAt;
+            const createdAtMs = rawCreatedAt instanceof admin.firestore.Timestamp
+                ? rawCreatedAt.toMillis()
+                : (typeof rawCreatedAt === "number" ? rawCreatedAt : 0);
+            return { data, createdAtMs };
+        })
+            .sort((a, b) => b.createdAtMs - a.createdAtMs);
+        for (const item of sortedReports) {
+            const type = typeof item.data.reportType === "string" && item.data.reportType.trim().length > 0
+                ? item.data.reportType
+                : "OTHER";
+            reportTypeCounts[type] = (reportTypeCounts[type] || 0) + 1;
+        }
+        const reportSamples = sortedReports.slice(0, 5).map((item) => {
+            const type = typeof item.data.reportType === "string" && item.data.reportType.trim().length > 0
+                ? item.data.reportType
+                : "OTHER";
+            const rawDescription = typeof item.data.description === "string"
+                ? item.data.description.trim()
+                : "";
+            const description = (rawDescription.length > 220
+                ? `${rawDescription.slice(0, 220)}...`
+                : rawDescription) || "No details provided";
+            const createdAt = item.data.createdAt instanceof admin.firestore.Timestamp
+                ? item.data.createdAt
+                : null;
+            return {
+                reportType: type,
+                description,
+                createdAt,
+            };
+        });
+        const jobAggregateUpdate = {
+            reportCount: currentReportCount,
+            reportTypeCounts,
+            reportSamples,
+            lastReportedAt: admin.firestore.FieldValue.serverTimestamp(),
+        };
         // Check if threshold reached
         if (currentReportCount >= AUTO_HIDE_THRESHOLD) {
             functions.logger.warn(`🚨 REPORT: Job ${jobId} reached ${currentReportCount} reports - AUTO-HIDING`);
             // Deactivate the job
-            await jobRef.update({
-                isActive: false,
-                moderationStatus: "HIDDEN_BY_REPORTS",
-            });
-            // Add to moderation queue for review
-            await db.collection("moderation_queue").add({
-                jobId: jobId,
-                employerId: jobData === null || jobData === void 0 ? void 0 : jobData.employerId,
-                reason: "COMMUNITY_REPORTS",
-                reportCount: currentReportCount,
-                status: "PENDING",
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                priority: "HIGH",
-            });
-            // Notify employer
-            if (jobData === null || jobData === void 0 ? void 0 : jobData.employerId) {
+            jobAggregateUpdate.status = "closed";
+            jobAggregateUpdate.moderationStatus = "HIDDEN_BY_REPORTS";
+            // Notify employer through the current inbox workflow.
+            const detailsSnapForReport = await db.collection("job_details").doc(jobId).get();
+            const reportEmployerId = detailsSnapForReport.exists
+                ? detailsSnapForReport.get("employerId")
+                : undefined;
+            if (reportEmployerId) {
+                const hideLocale = await (0, notification_i18n_1.getUserLanguage)(db, reportEmployerId);
+                const hideRecipient = await (0, notification_i18n_1.getUserDisplayName)(db, reportEmployerId);
                 await db.collection("notifications").add({
-                    userId: jobData.employerId,
-                    title: "Job Hidden for Review",
-                    body: `Your job "${jobData.title}" has been hidden due to community reports. Our team will review it.`,
+                    recipientId: reportEmployerId,
+                    title: (0, notification_i18n_1.tTitle)("JOB_HIDDEN_REPORTS", hideLocale, { title: (_a = jobData === null || jobData === void 0 ? void 0 : jobData.title) !== null && _a !== void 0 ? _a : "", recipient: hideRecipient }),
+                    message: (0, notification_i18n_1.tBody)("JOB_HIDDEN_REPORTS", hideLocale, { title: (_b = jobData === null || jobData === void 0 ? void 0 : jobData.title) !== null && _b !== void 0 ? _b : "", recipient: hideRecipient }),
                     type: "JOB_HIDDEN",
-                    data: { jobId: jobId },
+                    data: {
+                        jobId: jobId,
+                        reportCount: currentReportCount,
+                    },
                     isRead: false,
                     createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 });
             }
         }
+        await jobRef.set(jobAggregateUpdate, { merge: true });
+        const jobDetailsRef = db.collection("job_details").doc(jobId);
+        const jobDetailsDoc = await jobDetailsRef.get();
+        if (jobDetailsDoc.exists) {
+            await jobDetailsRef.set({
+                reportCount: currentReportCount,
+                reportTypeCounts,
+                reportSamples,
+                lastReportedAt: admin.firestore.FieldValue.serverTimestamp(),
+            }, { merge: true });
+        }
         functions.logger.info(`🚨 REPORT: Job ${jobId} now has ${currentReportCount} reports`);
+        if (report.reportType === "NON_PAYMENT") {
+            await recordNonPaymentClaim(reportId, report, (_c = jobData === null || jobData === void 0 ? void 0 : jobData.title) !== null && _c !== void 0 ? _c : "");
+        }
         return { success: true, reportCount: currentReportCount };
     }
     catch (error) {
@@ -673,6 +1171,51 @@ exports.processJobReport = functions.firestore
         return null;
     }
 });
+/**
+ * Non-payment claims are about a finished work relationship, not a bad listing, so
+ * they are aggregated against the employer where support and workers can see them.
+ */
+async function recordNonPaymentClaim(reportId, report, jobTitle) {
+    const employerId = typeof report.employerId === "string" ? report.employerId : "";
+    if (!employerId) {
+        functions.logger.warn(`Non-payment report ${reportId} has no employerId, skipping aggregation`);
+        return;
+    }
+    const amountOwed = typeof report.amountOwed === "number" && Number.isFinite(report.amountOwed)
+        ? report.amountOwed
+        : 0;
+    const claims = await db.collection("job_reports")
+        .where("employerId", "==", employerId)
+        .where("reportType", "==", "NON_PAYMENT")
+        .get();
+    const openClaims = claims.docs.filter((doc) => doc.get("status") === "PENDING").length;
+    const totalClaimed = claims.docs.reduce((sum, doc) => {
+        const value = doc.get("amountOwed");
+        return sum + (typeof value === "number" && Number.isFinite(value) ? value : 0);
+    }, 0);
+    await db.collection("employer_trust").doc(employerId).set({
+        employerId,
+        nonPaymentClaims: claims.size,
+        nonPaymentClaimsOpen: openClaims,
+        nonPaymentAmountClaimed: totalClaimed,
+        lastNonPaymentClaimAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    const locale = await (0, notification_i18n_1.getUserLanguage)(db, employerId);
+    const recipient = await (0, notification_i18n_1.getUserDisplayName)(db, employerId);
+    await db.collection("notifications").add({
+        recipientId: employerId,
+        title: (0, notification_i18n_1.tTitle)("NON_PAYMENT_REPORTED", locale, { title: jobTitle, recipient }),
+        message: (0, notification_i18n_1.tBody)("NON_PAYMENT_REPORTED", locale, { title: jobTitle, recipient }),
+        type: "NON_PAYMENT_REPORTED",
+        data: {
+            jobId: typeof report.jobId === "string" ? report.jobId : "",
+            amountOwed,
+        },
+        isRead: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    functions.logger.warn(`💰 NON-PAYMENT: employer ${employerId} now has ${openClaims} open claim(s), Rs.${totalClaimed} claimed`);
+}
 /**
  * Get report statistics for admin dashboard
  */
@@ -684,22 +1227,20 @@ exports.getReportStats = functions.https.onCall(async (data, context) => {
         const now = Date.now();
         const oneDayAgo = now - (24 * 60 * 60 * 1000);
         const oneWeekAgo = now - (7 * 24 * 60 * 60 * 1000);
+        const oneDayAgoTs = admin.firestore.Timestamp.fromMillis(oneDayAgo);
+        const oneWeekAgoTs = admin.firestore.Timestamp.fromMillis(oneWeekAgo);
         // Get reports from last 24 hours
         const dailyReports = await db.collection("job_reports")
-            .where("timestamp", ">", oneDayAgo)
+            .where("createdAt", ">", oneDayAgoTs)
             .get();
         // Get reports from last week
         const weeklyReports = await db.collection("job_reports")
-            .where("timestamp", ">", oneWeekAgo)
-            .get();
-        // Get pending moderation queue
-        const pendingModeration = await db.collection("moderation_queue")
-            .where("status", "==", "PENDING")
+            .where("createdAt", ">", oneWeekAgoTs)
             .get();
         return {
             dailyReports: dailyReports.size,
             weeklyReports: weeklyReports.size,
-            pendingModeration: pendingModeration.size,
+            pendingModeration: 0,
         };
     }
     catch (error) {
@@ -717,173 +1258,25 @@ exports.getReportStats = functions.https.onCall(async (data, context) => {
 exports.updatePlatformMetadata = functions.pubsub
     .schedule("every 1 hours")
     .onRun(async (context) => {
-    functions.logger.info("📊 METADATA: Starting scheduled metadata update");
-    try {
-        const now = admin.firestore.Timestamp.now();
-        // Count total active jobs
-        const activeJobsSnapshot = await db.collection("jobs")
-            .where("isActive", "==", true)
-            .get();
-        const totalActiveJobs = activeJobsSnapshot.size;
-        // Count total users by role (using roles array field)
-        const workersSnapshot = await db.collection("users")
-            .where("roles", "array-contains", "WORKER")
-            .get();
-        const totalWorkers = workersSnapshot.size;
-        const employersSnapshot = await db.collection("users")
-            .where("roles", "array-contains", "EMPLOYER")
-            .get();
-        const totalEmployers = employersSnapshot.size;
-        // Count total applications
-        const applicationsSnapshot = await db.collection("job_applications").get();
-        const totalApplications = applicationsSnapshot.size;
-        // Update platform_stats document
-        await db.collection("metadata").doc("platform_stats").set({
-            totalJobs: totalActiveJobs,
-            totalWorkers: totalWorkers,
-            totalEmployers: totalEmployers,
-            totalApplications: totalApplications,
-            lastUpdated: now,
-        }, { merge: true });
-        // Calculate category stats
-        const categoryStats = {};
-        activeJobsSnapshot.docs.forEach((doc) => {
-            const job = doc.data();
-            const category = job.category || "OTHER";
-            const pay = parseFloat(job.payAmount) || 0;
-            if (!categoryStats[category]) {
-                categoryStats[category] = { count: 0, totalPay: 0 };
-            }
-            categoryStats[category].count++;
-            categoryStats[category].totalPay += pay;
-        });
-        // Update category_stats document
-        const categoryStatsFormatted = {};
-        Object.keys(categoryStats).forEach((category) => {
-            const stats = categoryStats[category];
-            categoryStatsFormatted[category] = {
-                jobCount: stats.count,
-                averagePay: stats.count > 0 ? Math.round(stats.totalPay / stats.count) : 0,
-            };
-        });
-        await db.collection("metadata").doc("category_stats").set({
-            categories: categoryStatsFormatted,
-            lastUpdated: now,
-        }, { merge: true });
-        // Find trending categories (top 5 by job count)
-        const sortedCategories = Object.entries(categoryStatsFormatted)
-            .sort((a, b) => b[1].jobCount - a[1].jobCount)
-            .slice(0, 5)
-            .map(([category, stats]) => ({
-            category,
-            jobCount: stats.jobCount,
-            averagePay: stats.averagePay,
-        }));
-        await db.collection("metadata").doc("trending").set({
-            trendingCategories: sortedCategories,
-            lastUpdated: now,
-        }, { merge: true });
-        functions.logger.info(`📊 METADATA: Updated - Jobs: ${totalActiveJobs}, Workers: ${totalWorkers}, Employers: ${totalEmployers}`);
-        return null;
-    }
-    catch (error) {
-        functions.logger.error("📊 METADATA: Error updating metadata:", error);
-        return null;
-    }
+    functions.logger.info("📊 METADATA: disabled (metadata collection removed in final schema)");
+    return null;
 });
 /**
  * Trigger to update metadata when a new job is created
  */
 exports.updateMetadataOnJobCreate = functions.firestore
-    .document("jobs/{jobId}")
+    .document("jobmetadata/{jobId}")
     .onCreate(async (snapshot, context) => {
-    const job = snapshot.data();
-    const category = job.category || "OTHER";
-    try {
-        // Increment job count in platform_stats
-        await db.collection("metadata").doc("platform_stats").update({
-            totalJobs: admin.firestore.FieldValue.increment(1),
-            lastUpdated: admin.firestore.Timestamp.now(),
-        });
-        // Update category stats
-        const categoryStatsRef = db.collection("metadata").doc("category_stats");
-        const categoryStatsDoc = await categoryStatsRef.get();
-        if (categoryStatsDoc.exists) {
-            const data = categoryStatsDoc.data();
-            const categories = (data === null || data === void 0 ? void 0 : data.categories) || {};
-            const currentStats = categories[category] || { jobCount: 0, averagePay: 0 };
-            categories[category] = {
-                jobCount: currentStats.jobCount + 1,
-                averagePay: currentStats.averagePay, // Will be recalculated in scheduled job
-            };
-            await categoryStatsRef.update({
-                categories: categories,
-                lastUpdated: admin.firestore.Timestamp.now(),
-            });
-        }
-        functions.logger.info(`📊 METADATA: Incremented job count for category ${category}`);
-    }
-    catch (error) {
-        functions.logger.error("📊 METADATA: Error updating on job create:", error);
-    }
+    functions.logger.info("📊 METADATA: update on job create skipped (metadata removed)");
     return null;
 });
 /**
  * Trigger to update metadata when a job is deleted
  */
 exports.updateMetadataOnJobDelete = functions.firestore
-    .document("jobs/{jobId}")
+    .document("jobmetadata/{jobId}")
     .onDelete(async (snapshot, context) => {
-    const job = snapshot.data();
-    const category = job.category || "OTHER";
-    try {
-        // Decrement job count in platform_stats
-        await db.collection("metadata").doc("platform_stats").update({
-            totalJobs: admin.firestore.FieldValue.increment(-1),
-            lastUpdated: admin.firestore.Timestamp.now(),
-        });
-        // Update category stats
-        const categoryStatsRef = db.collection("metadata").doc("category_stats");
-        const categoryStatsDoc = await categoryStatsRef.get();
-        if (categoryStatsDoc.exists) {
-            const data = categoryStatsDoc.data();
-            const categories = (data === null || data === void 0 ? void 0 : data.categories) || {};
-            const currentStats = categories[category] || { jobCount: 1, averagePay: 0 };
-            categories[category] = {
-                jobCount: Math.max(0, currentStats.jobCount - 1),
-                averagePay: currentStats.averagePay,
-            };
-            await categoryStatsRef.update({
-                categories: categories,
-                lastUpdated: admin.firestore.Timestamp.now(),
-            });
-        }
-        functions.logger.info(`📊 METADATA: Decremented job count for category ${category}`);
-    }
-    catch (error) {
-        functions.logger.error("📊 METADATA: Error updating on job delete:", error);
-    }
-    return null;
-});
-/**
- * Trigger to update user count when a new user registers
- */
-exports.updateMetadataOnUserCreate = functions.firestore
-    .document("users/{userId}")
-    .onCreate(async (snapshot, context) => {
-    const user = snapshot.data();
-    const role = user.role || "WORKER";
-    try {
-        const updateField = role === "EMPLOYER" ? "totalEmployers" : "totalWorkers";
-        await db.collection("metadata").doc("platform_stats").update({
-            [updateField]: admin.firestore.FieldValue.increment(1),
-            lastUpdated: admin.firestore.Timestamp.now(),
-        });
-        functions.logger.info(`📊 METADATA: Incremented ${updateField}`);
-    }
-    catch (error) {
-        functions.logger.error("📊 METADATA: Error updating on user create:", error);
-    }
+    functions.logger.info("📊 METADATA: update on job delete skipped (metadata removed)");
     return null;
 });
 // ============================================
@@ -904,13 +1297,40 @@ Object.defineProperty(exports, "getReferralLeaderboard", { enumerable: true, get
 // EXPORT JOB POSTING FUNCTIONS
 // ============================================
 __exportStar(require("./job-posting"), exports);
-var ratings_1 = require("./ratings");
-Object.defineProperty(exports, "submitRating", { enumerable: true, get: function () { return ratings_1.submitRating; } });
-var profiles_1 = require("./profiles");
-Object.defineProperty(exports, "syncPublicProfile", { enumerable: true, get: function () { return profiles_1.syncPublicProfile; } });
-Object.defineProperty(exports, "getPublicProfile", { enumerable: true, get: function () { return profiles_1.getPublicProfile; } });
-Object.defineProperty(exports, "getApplicationContact", { enumerable: true, get: function () { return profiles_1.getApplicationContact; } });
-var notification_events_1 = require("./notification-events");
-Object.defineProperty(exports, "requestNotification", { enumerable: true, get: function () { return notification_events_1.requestNotification; } });
-Object.defineProperty(exports, "notifyApplicationEvent", { enumerable: true, get: function () { return notification_events_1.notifyApplicationEvent; } });
+// ============================================
+// EXPORT COVER LETTER SIGNED URL
+// ============================================
+__exportStar(require("./cover-letter"), exports);
+// ============================================
+// EXPORT AGGREGATE MAINTAINERS + EXPIRY SWEEP
+// ============================================
+__exportStar(require("./aggregates"), exports);
+__exportStar(require("./employer-cards"), exports);
+__exportStar(require("./job-expiry"), exports);
+// ============================================
+// EXPORT NOTIFICATION FAN-OUT
+// ============================================
+__exportStar(require("./notification-fanout"), exports);
+// ============================================
+// EXPORT AUTO-COMPLETION SWEEP
+// ============================================
+__exportStar(require("./auto-complete"), exports);
+// ============================================
+// EXPORT APP CONFIG (admin-editable referral rewards)
+// ============================================
+var app_config_1 = require("./app-config");
+Object.defineProperty(exports, "updateReferralConfig", { enumerable: true, get: function () { return app_config_1.updateReferralConfig; } });
+Object.defineProperty(exports, "getReferralConfigCallable", { enumerable: true, get: function () { return app_config_1.getReferralConfigCallable; } });
+// ============================================
+// EXPORT WHATSAPP CHATBOT WEBHOOK
+// ============================================
+var whatsapp_chatbot_1 = require("./whatsapp-chatbot");
+Object.defineProperty(exports, "whatsappWebhook", { enumerable: true, get: function () { return whatsapp_chatbot_1.whatsappWebhook; } });
+// ============================================
+// EXPORT NEW MODULES (from GOPi branch)
+// ============================================
+__exportStar(require("./migration"), exports);
+__exportStar(require("./notification-events"), exports);
+__exportStar(require("./profiles"), exports);
+__exportStar(require("./ratings"), exports);
 //# sourceMappingURL=index.js.map
