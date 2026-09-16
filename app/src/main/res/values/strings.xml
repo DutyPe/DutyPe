@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">DutyPe</string>
-    <string name="default_web_client_id" translatable="false">1062348180452-n56rc8anhkscm6cjceurig9jgelrr67s.apps.googleusercontent.com</string>
+    <string name="default_web_client_id" translatable="false">1024525807494-janfcoior02fu9uo22lvb7qudl4ps8i6.apps.googleusercontent.com</string>
     <string name="loading">Loading...</string>
     <string name="error">Error</string>
     <string name="retry">Retry</string>
