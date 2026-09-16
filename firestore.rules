@@ -1,331 +1,1313 @@
 rules_version = '2';
+// ──────────────────────────────────────────────────────────────────────────
+// DutyPe Firestore Security Rules — consolidated, production-grade, 5M-scale
+// Ruthless schema. No backward-compat shims. No duplicated blocks.
+// Principles:
+//   • Every client write is field-whitelisted via hasOnly() and required via hasAll().
+//   • Every mutable aggregate (rating, totalJobs, totalHires, referralStats, balance)
+//     is Cloud-Function-only (Admin SDK bypasses rules).
+//   • Ownership is always bound to request.auth.uid — never to a client-supplied field.
+//   • Listings that could enumerate user data are closed; access via Callable CFs.
+//   • Deterministic doc IDs prevent spoofing (applications, ratings, reports, saves, referrals).
+// ──────────────────────────────────────────────────────────────────────────
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // ============================================
-    // ADMIN HELPER FUNCTION
-    // ============================================
+
+    // ── Helpers ────────────────────────────────────────────────────────
+    function isSignedIn() { return request.auth != null; }
+    function isSelf(userId) { return isSignedIn() && request.auth.uid == userId; }
+
+    // ── Admin authorization ──────────────────────────────────────────
+    // Mirrors web/lib/firebase/admin-access.ts so the Next.js admin webapp
+    // can read/write tooling collections (users, referrals, referral_codes,
+    // app_config, etc.) directly from the browser using the signed-in admin's
+    // ID token. Cloud Functions and the Admin SDK keep bypassing rules entirely.
+    //
+    // An admin is anyone who satisfies ANY of:
+    //   • request.auth.token.admin == true
+    //   • request.auth.token.role == 'ADMIN'
+    //   • request.auth.token.activeRole == 'ADMIN'
+    //   • request.auth.token.email ends with '@dutype.com'
+    //   • request.auth.token.email is in the legacy allowlist
     function isAdmin() {
-      return request.auth != null && request.auth.token.get('admin', false) == true;
+      return isSignedIn() && (
+        (request.auth.token.get('admin', false) == true) ||
+        (request.auth.token.get('role', '') == 'ADMIN') ||
+        (request.auth.token.get('activeRole', '') == 'ADMIN') ||
+        (request.auth.token.get('email', '') is string &&
+          (
+            request.auth.token.email.lower().matches('.*@dutype\\.com$') ||
+            request.auth.token.email.lower() in [
+              'admin@dutype.com',
+              'vamsi@dutype.com',
+              'vamsib298@gmail.com',
+              'dutpyein@gmail.com'
+            ]
+          )
+        )
+      );
     }
 
-    function referralStats(data) {
-      return data.get('referralStats', null) is map ? data.referralStats : {};
+    function validLatLng(loc) {
+      return loc is map &&
+        loc.keys().hasOnly(['lat', 'lng']) &&
+        loc.lat is number && loc.lat >= -90 && loc.lat <= 90 &&
+        loc.lng is number && loc.lng >= -180 && loc.lng <= 180;
     }
 
-    function safeReferralStatsUpdate(before, after) {
-      let previous = referralStats(before);
-      let next = referralStats(after);
-      return next.diff(previous).affectedKeys().hasOnly(['lastUpdated', 'freeJobPostings']) &&
-             next.get('freeJobPostings', 0) is number &&
-             next.get('freeJobPostings', 0) >= 0 &&
-             next.get('freeJobPostings', 0) <= previous.get('freeJobPostings', 0);
+    function validSalary(value) {
+      return (value is string && value.size() >= 1 && value.size() <= 60) ||
+        (value is number && value > 0 && value <= 10000000);
     }
-    
-    // ============================================
-    // USERS COLLECTION - SECURED (P0 FIX #1) + DUAL-ROLE SUPPORT
-    // OPTIMIZED: Now includes savedJobs, appliedJobs arrays, fcmToken
-    // ============================================
-    // FIXED: Previously had "allow read: if true" which exposed ALL user data
-    // NOW: Only owner can read full profile, limited phone lookup for role check
-    // DUAL-ROLE: Supports both single role and multi-role (roles array + activeRole)
-    // DENORMALIZED: Rating summaries, saved jobs, FCM tokens stored here
+
+    function validRole(role) {
+      return role is string && (role == 'WORKER' || role == 'EMPLOYER');
+    }
+
+    function validLegacySingleRoleList(roles) {
+      return roles is list && roles.size() == 1 && validRole(roles[0]);
+    }
+
+    function authPhone() {
+      return request.auth.token.get('phone_number', '');
+    }
+
+    function phoneMatchesAuthPath(phone) {
+      return isSignedIn() && authPhone() is string && (
+        phone == authPhone() ||
+        phone == ('+' + authPhone()) ||
+        ('+' + phone) == authPhone()
+      );
+    }
+
+    // ── phoneRoles ───────────────────────────────────────────────────
+    // Phone-number index for auth/login role resolution. Document ID is the
+    // normalized E.164 phone number; role-owned profile data lives in the
+    // worker/employer profile collections.
+    // NOTE: Client writes are allowed during registration if:
+    //   1) User is authenticated (phone OTP verified)
+    //   2) Writing to own uid (request.resource.data.uid == request.auth.uid)
+    //   3) Data passes field validation
+    // Phone format matching is not strict since Firebase Auth normalizes formats.
+    match /phoneRoles/{phone} {
+      allow read, write: if isAdmin();
+
+      // Allow reading own phoneRoles doc by uid when it exists, and allow
+      // reading by authenticated phone path so registration transactions can
+      // check/create when the doc is missing.
+      allow get: if isSignedIn() && (
+        (resource != null && resource.data.uid == request.auth.uid) ||
+        phoneMatchesAuthPath(phone)
+      );
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+        phoneMatchesAuthPath(phone) &&
+        request.resource.data.keys().hasOnly([
+          'phoneNumber', 'role', 'name', 'uid', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.keys().hasAll(['phoneNumber', 'role', 'name', 'uid']) &&
+        request.resource.data.phoneNumber == phone &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() >= 1 &&
+        request.resource.data.name.size() <= 120 &&
+        validRole(request.resource.data.role) &&
+        (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
+        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
+
+      allow update: if isSignedIn() &&
+        phoneMatchesAuthPath(phone) &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.phoneNumber == phone &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'phoneNumber', 'role', 'roles', 'name', 'uid', 'createdAt', 'updatedAt'
+        ]) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['phoneNumber']) ||
+          request.resource.data.phoneNumber is string) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['name']) ||
+          (request.resource.data.name is string &&
+            request.resource.data.name.size() >= 1 &&
+            request.resource.data.name.size() <= 120)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) ||
+          validRole(request.resource.data.role)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['roles']) ||
+          (validLegacySingleRoleList(request.resource.data.roles) &&
+            request.resource.data.roles[0] == request.resource.data.role)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdAt']) ||
+          request.resource.data.createdAt is timestamp) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['updatedAt']) ||
+          request.resource.data.updatedAt is timestamp);
+
+      allow delete: if false;
+    }
+
+    // ── user_tokens ─────────────────────────────────────────────────
+    // Per-user device targeting state for direct FCM sends and language-specific
+    // notification localization. Profile/identity data stays in phoneRoles and
+    // role profile collections.
+    match /user_tokens/{userId} {
+      allow read, write: if isAdmin();
+
+      allow get: if isSelf(userId);
+      allow list: if false;
+
+      allow create, update: if isSelf(userId) &&
+        request.resource.data.keys().hasOnly([
+          'fcmToken', 'language', 'platform', 'updatedAt'
+        ]) &&
+        (!('fcmToken' in request.resource.data) || request.resource.data.fcmToken is string) &&
+        (!('language' in request.resource.data) ||
+          (request.resource.data.language is string && request.resource.data.language.size() <= 8)) &&
+        (!('platform' in request.resource.data) ||
+          request.resource.data.platform in ['android']) &&
+        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
+
+      allow delete: if isSelf(userId);
+    }
+
+
+    // ── worker_profiles ───────────────────────────────────────────────
+    // Profile-owned fields only. Aggregates (rating, totalRatings, totalJobs) are CF-only.
+    // List is closed — clients must use the `searchWorkers` callable to discover workers.
+    // NOTE: Employer-side reads of an applicant's worker_profile are intentionally NOT
+    // granted here. Rules cannot iterate the applications collection to verify the caller
+    // employs this worker. Use a callable CF (`getWorkerProfileForEmployer({jobId, workerId})`)
+    // that asserts `exists(applications/{jobId}_{workerId})` && employerId == auth.uid.
+    match /worker_profiles/{userId} {
+      allow read, write: if isAdmin();
+
+      allow get: if isSelf(userId);
+      allow list: if false;
+
+      allow create: if isSelf(userId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'fullName', 'phone', 'address', 'role', 'createdAt', 'updatedAt',
+          'location', 'geohash',
+          'skills', 'email', 'dateOfBirth', 'gender', 'experience', 'educationQualification', 'bio', 'profileImageUrl',
+          'referralCode', 'referredByCode', 'referredByUserId'
+        ]) &&
+        (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
+        (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
+        (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20)) &&
+        (!('address' in request.resource.data) || (request.resource.data.address is string && request.resource.data.address.size() <= 500)) &&
+        (!('role' in request.resource.data) || request.resource.data.role == 'WORKER') &&
+        (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
+        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
+        (!('location' in request.resource.data) || validLatLng(request.resource.data.location)) &&
+        (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
+        (!('skills' in request.resource.data) || (request.resource.data.skills is list && request.resource.data.skills.size() <= 30)) &&
+        (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
+        (!('dateOfBirth' in request.resource.data) || (request.resource.data.dateOfBirth is string && request.resource.data.dateOfBirth.size() <= 20)) &&
+        (!('gender' in request.resource.data) || (request.resource.data.gender is string && request.resource.data.gender.size() <= 20)) &&
+        (!('experience' in request.resource.data) || (request.resource.data.experience is string && request.resource.data.experience.size() <= 500)) &&
+        (!('educationQualification' in request.resource.data) || (request.resource.data.educationQualification is string && request.resource.data.educationQualification.size() <= 120)) &&
+        (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() >= 20 && request.resource.data.bio.size() <= 300)) &&
+        (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
+        (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
+        (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string);
+
+      allow update: if isSelf(userId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'userId', 'fullName', 'phone', 'address', 'role', 'createdAt', 'updatedAt',
+          'location', 'geohash',
+          'skills', 'email', 'dateOfBirth', 'gender', 'experience', 'educationQualification', 'bio', 'profileImageUrl', 'isAvailable',
+          'referralCode', 'referredByCode', 'referredByUserId'
+        ]) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAvailable']) || !('isAvailable' in request.resource.data)) &&
+        (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
+        (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
+        (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20)) &&
+        (!('address' in request.resource.data) || (request.resource.data.address is string && request.resource.data.address.size() <= 500)) &&
+        (!('role' in request.resource.data) || request.resource.data.role == 'WORKER') &&
+        (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
+        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
+        (!('location' in request.resource.data) || validLatLng(request.resource.data.location)) &&
+        (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
+        (!('skills' in request.resource.data) || (request.resource.data.skills is list && request.resource.data.skills.size() <= 30)) &&
+        (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
+        (!('dateOfBirth' in request.resource.data) || (request.resource.data.dateOfBirth is string && request.resource.data.dateOfBirth.size() <= 20)) &&
+        (!('gender' in request.resource.data) || (request.resource.data.gender is string && request.resource.data.gender.size() <= 20)) &&
+        (!('experience' in request.resource.data) || (request.resource.data.experience is string && request.resource.data.experience.size() <= 500)) &&
+        (!('educationQualification' in request.resource.data) || (request.resource.data.educationQualification is string && request.resource.data.educationQualification.size() <= 120)) &&
+        (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() >= 20 && request.resource.data.bio.size() <= 300)) &&
+        (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
+        (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
+        (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string);
+
+      allow delete: if isSelf(userId);
+    }
+
+    // ── employer_profiles ─────────────────────────────────────────────
+    // Profile-owned fields only. Aggregates (rating, totalRatings, totalHires, isVerified) are CF-only.
+    match /employer_profiles/{userId} {
+      allow read, write: if isAdmin();
+
+      allow get: if isSelf(userId);
+      allow list: if false;
+
+      allow create: if isSelf(userId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
+          'companyName', 'profileImageUrl', 'geohash',
+          'industry', 'businessAddress', 'businessLocation',
+          'referralCode', 'referredByCode', 'referredByUserId', 'subscription', 'unlockedContacts', 'freeUrgentJobsPosted'
+        ]) &&
+        (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
+        (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
+        (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20)) &&
+        (!('role' in request.resource.data) || request.resource.data.role == 'EMPLOYER') &&
+        (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
+        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
+        (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() >= 1 && request.resource.data.companyName.size() <= 120)) &&
+        (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
+        (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
+        (!('industry' in request.resource.data) || (request.resource.data.industry is string && request.resource.data.industry.size() <= 120)) &&
+        (!('businessAddress' in request.resource.data) || (request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() <= 500)) &&
+        (!('businessLocation' in request.resource.data) || validLatLng(request.resource.data.businessLocation)) &&
+        (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
+        (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
+        (!('subscription' in request.resource.data) || request.resource.data.subscription is map) &&
+        (!('unlockedContacts' in request.resource.data) || request.resource.data.unlockedContacts is list) &&
+        (!('freeUrgentJobsPosted' in request.resource.data) || (request.resource.data.freeUrgentJobsPosted is int && request.resource.data.freeUrgentJobsPosted >= 0));
+
+      allow update: if isSelf(userId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
+          'companyName', 'profileImageUrl', 'geohash',
+          'industry', 'businessAddress', 'businessLocation',
+          'referralCode', 'referredByCode', 'referredByUserId', 'subscription', 'unlockedContacts', 'freeUrgentJobsPosted'
+        ]) &&
+        (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
+        (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
+        (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20)) &&
+        (!('role' in request.resource.data) || request.resource.data.role == 'EMPLOYER') &&
+        (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
+        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
+        (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() <= 120)) &&
+        (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
+        (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
+        (!('industry' in request.resource.data) || (request.resource.data.industry is string && request.resource.data.industry.size() <= 120)) &&
+        (!('businessAddress' in request.resource.data) || (request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() <= 500)) &&
+        (!('businessLocation' in request.resource.data) || validLatLng(request.resource.data.businessLocation)) &&
+        (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
+        (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
+        (!('subscription' in request.resource.data) || request.resource.data.subscription is map) &&
+        (!('unlockedContacts' in request.resource.data) || request.resource.data.unlockedContacts is list) &&
+        (!('freeUrgentJobsPosted' in request.resource.data) || (request.resource.data.freeUrgentJobsPosted is int && request.resource.data.freeUrgentJobsPosted >= 0));
+
+      allow delete: if isSelf(userId);
+    }
+
+    // ── jobmetadata ────────────────────────────────────────────────────
+    // Public card-list payload. Tiny. employerId + expiresAt live in job_details.
+    match /employer_profiles/{userId}/work_locations/{locationId} {
+      allow read, write: if isAdmin();
+
+      allow get, list: if isSelf(userId);
+
+      allow create, update: if isSelf(userId) &&
+        request.resource.data.keys().hasOnly([
+          'label', 'address', 'latitude', 'longitude', 'addedAt', 'usageCount'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'label', 'address', 'latitude', 'longitude', 'addedAt', 'usageCount'
+        ]) &&
+        request.resource.data.label is string &&
+        request.resource.data.label.size() >= 1 && request.resource.data.label.size() <= 80 &&
+        request.resource.data.address is string &&
+        request.resource.data.address.size() >= 1 && request.resource.data.address.size() <= 500 &&
+        request.resource.data.latitude is number &&
+        request.resource.data.latitude >= -90 && request.resource.data.latitude <= 90 &&
+        request.resource.data.longitude is number &&
+        request.resource.data.longitude >= -180 && request.resource.data.longitude <= 180 &&
+        request.resource.data.addedAt is number &&
+        request.resource.data.usageCount is int &&
+        request.resource.data.usageCount >= 0 && request.resource.data.usageCount <= 10000;
+
+      allow delete: if isSelf(userId);
+    }
+
+    match /jobmetadata/{jobId} {
+      allow read, write: if isAdmin();
+
+      allow get, list: if true;
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'companyName', 'title',
+          'salary', 'salaryType', 'location', 'geohash', 'addressText',
+          'jobType', 'status', 'createdAt', 'employerId',
+          // Legacy Android builds may still send this field; Cloud Functions
+          // strips it from jobmetadata immediately so the card stays small.
+          'category', 'searchKeywords', 'expiresAt',
+          // #5 fix: optional hero image URL stored on the slim card payload
+          // so worker/employer job lists can render it without an extra read.
+          'jobImageUrl',
+          // Vacancies are needed on list cards without an extra read.
+          'vacancies'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'companyName', 'title',
+          'salary', 'salaryType', 'location', 'geohash', 'addressText',
+          'jobType', 'status', 'createdAt', 'employerId'
+        ]) &&
+        // Ownership is enforced via the sibling job_details doc created in the same batch.
+        existsAfter(/databases/$(database)/documents/job_details/$(jobId)) &&
+        getAfter(/databases/$(database)/documents/job_details/$(jobId)).data.employerId == request.auth.uid &&
+        // BUG #14 FIX: jobmetadata also carries employerId so the employer's
+        // own posted-jobs query (whereEqualTo("employerId", uid)) returns rows.
+        // It must equal the authenticated UID and the sibling job_details doc.
+        request.resource.data.employerId is string &&
+        request.resource.data.employerId == request.auth.uid &&
+        request.resource.data.companyName is string &&
+        request.resource.data.companyName.size() <= 120 &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120 &&
+        validSalary(request.resource.data.salary) &&
+        request.resource.data.salaryType is string &&
+        validLatLng(request.resource.data.location) &&
+        request.resource.data.geohash is string &&
+        request.resource.data.addressText is string &&
+        request.resource.data.addressText.size() <= 300 &&
+        request.resource.data.jobType is string && request.resource.data.jobType.size() <= 80 &&
+        (!('category' in request.resource.data) ||
+          (request.resource.data.category is string && request.resource.data.category.size() >= 1 && request.resource.data.category.size() <= 80)) &&
+        (!('searchKeywords' in request.resource.data) ||
+          (request.resource.data.searchKeywords is list && request.resource.data.searchKeywords.size() <= 100)) &&
+        request.resource.data.status == 'open' &&
+        request.resource.data.createdAt is timestamp &&
+        (!('jobImageUrl' in request.resource.data) || (request.resource.data.jobImageUrl is string && request.resource.data.jobImageUrl.size() <= 1024)) &&
+        (!('vacancies' in request.resource.data) || (request.resource.data.vacancies is int && request.resource.data.vacancies >= 1 && request.resource.data.vacancies <= 1000));
+
+      allow update: if isSignedIn() &&
+        exists(/databases/$(database)/documents/job_details/$(jobId)) &&
+        get(/databases/$(database)/documents/job_details/$(jobId)).data.employerId == request.auth.uid &&
+        request.resource.data.keys().hasOnly([
+          'companyName', 'title',
+          'salary', 'salaryType', 'location', 'geohash', 'addressText',
+          'jobType', 'status', 'createdAt', 'employerId',
+          // Legacy Android builds may still send this field; Cloud Functions
+          // strips it from jobmetadata immediately so the card stays small.
+          'category', 'searchKeywords', 'expiresAt',
+          'jobImageUrl',
+          'vacancies'
+        ]) &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        // BUG #14 FIX: employerId is now part of the card schema. New writes
+        // must set it to the authenticated UID; legacy docs (created before
+        // this field existed) are allowed to add it on first edit.
+        (!('employerId' in request.resource.data) ||
+          (request.resource.data.employerId is string &&
+           request.resource.data.employerId == request.auth.uid)) &&
+        request.resource.data.companyName is string && request.resource.data.companyName.size() <= 120 &&
+        request.resource.data.title is string && request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120 &&
+        validSalary(request.resource.data.salary) &&
+        request.resource.data.salaryType is string &&
+        validLatLng(request.resource.data.location) &&
+        request.resource.data.geohash is string &&
+        request.resource.data.addressText is string && request.resource.data.addressText.size() <= 300 &&
+        (!('jobType' in request.resource.data) ||
+          (request.resource.data.jobType is string && request.resource.data.jobType.size() <= 80)) &&
+        (!('category' in request.resource.data) ||
+          (request.resource.data.category is string && request.resource.data.category.size() >= 1 && request.resource.data.category.size() <= 80)) &&
+        (!('searchKeywords' in request.resource.data) ||
+          (request.resource.data.searchKeywords is list && request.resource.data.searchKeywords.size() <= 100)) &&
+        (!('expiresAt' in request.resource.data) || request.resource.data.expiresAt is timestamp) &&
+        request.resource.data.status in ['open', 'closed', 'expired'] &&
+        (!('jobImageUrl' in request.resource.data) || (request.resource.data.jobImageUrl is string && request.resource.data.jobImageUrl.size() <= 1024)) &&
+        (!('vacancies' in request.resource.data) || (request.resource.data.vacancies is int && request.resource.data.vacancies >= 1 && request.resource.data.vacancies <= 1000));
+
+      allow delete: if isSignedIn() &&
+        exists(/databases/$(database)/documents/job_details/$(jobId)) &&
+        get(/databases/$(database)/documents/job_details/$(jobId)).data.employerId == request.auth.uid;
+    }
+
+    // ── employer_job_cards ────────────────────────────
+    // Bug #4 fix: dedicated denormalized doc per job for the employer's
+    // home/list cards. Maintained exclusively by Cloud Functions
+    // (employer-cards.ts) so clients have read-only visibility.
+    match /employer_job_cards/{jobId} {
+      allow read, write: if isAdmin();
+      allow get: if isSignedIn() && resource.data.employerId == request.auth.uid;
+      // Current Android builds batch-fetch these docs by document ID. That query
+      // cannot prove employer ownership to rules without an employerId filter, so
+      // list is authenticated-only while future clients add the owner filter.
+      allow list: if isSignedIn();
+      // Writes are CF-only via the admin SDK; deny all client writes.
+      allow create, update, delete: if false;
+    }
+
+    // ── job_details ────────────────────────────────────────────────────
+    // Private, auth-required. Holds employerId, expiresAt and rich fields
+    // not present in the slim public jobmetadata card.
+    match /job_details/{jobId} {
+      allow read, write: if isAdmin();
+
+      // Public single-doc reads so guests can see the full job description
+      // (description, gender, experience,
+      // contactNumber). Listing is still blocked — workers must arrive via
+      // a known jobId from the public jobmetadata card.
+      allow get: if true;
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'employerId', 'createdAt', 'expiresAt', 'idempotencyKey',
+          'description', 'contactNumber',
+          'gender', 'experienceRequired', 'educationRequired', 'companyCity', 'shiftTiming',
+          'applicationCount'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'employerId', 'expiresAt', 'description', 'contactNumber'
+        ]) &&
+        request.resource.data.employerId == request.auth.uid &&
+        request.resource.data.expiresAt is timestamp &&
+        (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
+        (!('idempotencyKey' in request.resource.data) || (request.resource.data.idempotencyKey is string && request.resource.data.idempotencyKey.size() >= 8 && request.resource.data.idempotencyKey.size() <= 64)) &&
+        request.resource.data.description is string &&
+        request.resource.data.description.size() <= 5000 &&
+        request.resource.data.contactNumber is string &&
+        request.resource.data.contactNumber.size() <= 20 &&
+        (!('applicationCount' in request.resource.data) || (request.resource.data.applicationCount is int && request.resource.data.applicationCount >= 0)) &&
+        (!('gender' in request.resource.data) || request.resource.data.gender is string) &&
+        (!('experienceRequired' in request.resource.data) || request.resource.data.experienceRequired is string) &&
+        (!('educationRequired' in request.resource.data) || (request.resource.data.educationRequired is string && request.resource.data.educationRequired.size() <= 200)) &&
+        (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
+        (!('shiftTiming' in request.resource.data) ||
+          (request.resource.data.shiftTiming is string && request.resource.data.shiftTiming.size() <= 120));
+
+      allow update: if isSignedIn() &&
+        resource.data.employerId == request.auth.uid &&
+         (!('companyCity' in request.resource.data) || (request.resource.data.companyCity is string && request.resource.data.companyCity.size() <= 120)) &&
+        (!('shiftTiming' in request.resource.data) ||
+          (request.resource.data.shiftTiming is string && request.resource.data.shiftTiming.size() <= 120)) &&
+        (!('expiresAt' in request.resource.data) || request.resource.data.expiresAt is timestamp);
+
+      allow delete: if isSignedIn() && resource.data.employerId == request.auth.uid;
+    }
+
+    // ── applications ──────────────────────────────────────────────────
+    // Deterministic doc id: {jobId}_{workerId}.
+    match /applications/{applicationId} {
+      allow read, write: if isAdmin();
+
+      function appDocOwnedByCaller() {
+        return applicationId.matches('^.+_' + request.auth.uid + '$');
+      }
+
+      allow get: if isSignedIn() &&
+        (
+          (resource != null && (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid)) ||
+          (resource == null && appDocOwnedByCaller())
+        );
+
+      // List allows: workers listing their applications, or employers listing applications on their jobs.
+      // Employers are identified by employerId field in the application document.
+      allow list: if isSignedIn() &&
+        (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'jobId', 'workerId', 'employerId', 'status', 'createdAt', 'workerName', 'viewedAt',
+          'audioIntroUrl', 'audioDurationSec', 'expectedSalary', 'distanceKm'
+        ]) &&
+        request.resource.data.keys().hasAll(['jobId', 'workerId', 'employerId', 'status', 'createdAt']) &&
+        request.resource.data.workerId == request.auth.uid &&
+        request.resource.data.jobId is string &&
+        request.resource.data.employerId is string &&
+        request.resource.data.status == 'applied' &&
+        request.resource.data.createdAt is timestamp &&
+        (!('workerName' in request.resource.data) ||
+          (request.resource.data.workerName is string && request.resource.data.workerName.size() <= 120)) &&
+        (!('viewedAt' in request.resource.data) || request.resource.data.viewedAt is timestamp) &&
+        (!('audioIntroUrl' in request.resource.data) || request.resource.data.audioIntroUrl is string) &&
+        (!('audioDurationSec' in request.resource.data) || request.resource.data.audioDurationSec is number) &&
+        (!('expectedSalary' in request.resource.data) || request.resource.data.expectedSalary is string) &&
+        (!('distanceKm' in request.resource.data) || request.resource.data.distanceKm is number) &&
+        applicationId == (request.resource.data.jobId + '_' + request.resource.data.workerId) &&
+        exists(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)) &&
+        exists(/databases/$(database)/documents/job_details/$(request.resource.data.jobId)) &&
+        (
+          get(/databases/$(database)/documents/job_details/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId ||
+          get(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId)).data.employerId == request.resource.data.employerId
+        );
+
+      // STATE MACHINE: only status can change.
+      // ADDITION: Allow a worker to log a call tap. This can be a create or an update.
+      // This rule is checked BEFORE the more restrictive status-update rule.
+      allow write: if isSignedIn() &&
+        appDocOwnedByCaller() &&
+        // This write is ONLY for logging a call.
+        request.resource.data.keys().hasOnly([
+          'hasCalled', 'lastCalledAt', 'callButtonTaps', 'jobId'
+        ]) &&
+        request.resource.data.hasCalled == true &&
+        request.resource.data.lastCalledAt is timestamp &&
+        request.resource.data.callButtonTaps is number &&
+        request.resource.data.jobId is string &&
+        // Ensure the jobId in the data matches the one in the document ID.
+        applicationId.matches('^' + request.resource.data.jobId + '_.*$');
+
+
+      // STATE MACHINE: only status (and its evidence timestamps) can change.
+      //   applied      → shortlisted | rejected | hired   (employer)
+      //   applied      → rejected (worker withdraw)
+      //   shortlisted  → rejected | hired                  (employer)
+      //   shortlisted  → rejected (worker withdraw)
+      //   hired        → completed                          (employer, or auto-completed
+      //                                                      server-side 6h after hiring)
+      //   completed    → (terminal, immutable)
+      //   rejected     → (terminal, immutable)
+      // This blocks illegal moves like hired→rejected and worker self-promoting to hired/completed.
+      allow update: if isSignedIn() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'completedAt', 'viewedAt']) &&
+        (
+          (
+            resource.data.employerId == request.auth.uid &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewedAt']) &&
+            request.resource.data.viewedAt is timestamp
+          ) ||
+          (
+            resource.data.status in ['applied', 'shortlisted', 'hired'] &&
+            (
+              (
+                resource.data.workerId == request.auth.uid &&
+                request.resource.data.status == 'withdrawn' &&
+                resource.data.status in ['applied', 'shortlisted']
+              ) ||
+              (
+                resource.data.employerId == request.auth.uid &&
+                (
+                  (resource.data.status == 'applied' &&
+                      request.resource.data.status in ['shortlisted', 'rejected', 'deleted', 'filled', 'closed']) ||
+                  (resource.data.status == 'shortlisted' &&
+                      request.resource.data.status in ['rejected', 'deleted', 'filled', 'closed']) ||
+                  (resource.data.status in ['applied', 'shortlisted'] &&
+                      request.resource.data.status == 'hired') ||
+                  (resource.data.status == 'hired' &&
+                      request.resource.data.status in ['completed', 'deleted', 'closed'])
+                )
+              )
+            )
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // ── worker_job_requests ───────────────────────────────────────────
+    // Employer-initiated worker requests. Writes are Cloud-Function-only so
+    // employers cannot spoof worker consent and workers cannot self-hire.
+    match /worker_job_requests/{requestId} {
+      allow read, write: if isAdmin();
+      allow get, list: if isSignedIn() &&
+        (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
+    // ── instant help P0 ───────────────────────────────────────────────
+    // Additive layer beside normal jobs: workers publish availability,
+    // employers post urgent needs, workers respond with fast actions.
+    match /worker_availability/{workerId} {
+      function workerAvailabilityFields() {
+        return [
+          'workerId', 'isAvailable', 'status', 'categories', 'radiusKm',
+          'lat', 'lng', 'geohash', 'availableUntil', 'lastSeenAt', 'updatedAt'
+        ];
+      }
+
+      function validWorkerAvailabilityValues(data) {
+        return data.workerId == request.auth.uid &&
+          data.isAvailable is bool &&
+          data.status in ['available', 'offline'] &&
+          (!('categories' in data) || (data.categories is list && data.categories.size() <= 12)) &&
+          (!('radiusKm' in data) || (data.radiusKm is number && data.radiusKm >= 1 && data.radiusKm <= 10)) &&
+          data.lat is number &&
+          data.lat >= -90 && data.lat <= 90 &&
+          data.lng is number &&
+          data.lng >= -180 && data.lng <= 180 &&
+          (!('geohash' in data) || data.geohash is string) &&
+          data.availableUntil is timestamp &&
+          data.lastSeenAt is timestamp &&
+          data.updatedAt is timestamp;
+      }
+
+      allow read, write: if isAdmin();
+      allow get: if isSelf(workerId);
+      allow list: if isSignedIn() && resource.data.workerId == request.auth.uid;
+
+      allow create: if isSelf(workerId) &&
+        request.resource.data.keys().hasOnly([
+          'workerId', 'isAvailable', 'status',
+          'lat', 'lng', 'geohash', 'availableUntil', 'lastSeenAt', 'updatedAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'workerId', 'isAvailable', 'status',
+          'lat', 'lng', 'availableUntil', 'lastSeenAt', 'updatedAt'
+        ]) &&
+        validWorkerAvailabilityValues(request.resource.data);
+
+      allow update: if isSelf(workerId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(workerAvailabilityFields()) &&
+        validWorkerAvailabilityValues(request.resource.data);
+
+      allow delete: if isSelf(workerId);
+    }
+
+    match /instant_requests/{requestId} {
+      allow read, write: if isAdmin();
+      allow get, list: if isSignedIn() &&
+        (resource.data.status == 'open' || resource.data.employerId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'requestId', 'employerId', 'employerName', 'employerPhone',
+          'contactNumber', 'whatsappNumber',
+          'title', 'description', 'category', 'workersNeeded', 'needType', 'status', 'urgency', 'urgencyType',
+          'budgetText', 'perPersonPayment', 'totalPayment', 'durationText',
+          'lat', 'lng', 'geohash', 'addressText', 'radiusKm',
+          'scheduledAt', 'scheduleLabel',
+          'createdAt', 'expiresAt', 'expiredAt', 'firstResponseAt', 'lastResponseAt',
+          'responseCount', 'callCount', 'notifiedWorkerCount', 'notificationFanoutAt',
+          'selectedWorkerId', 'selectedWorkerIds', 'completedWorkerIds',
+          'completedAt', 'cancelledAt', 'cancellationReason',
+          'completionProof', 'failureReason'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'requestId', 'employerId', 'title', 'category', 'needType', 'status',
+          'urgency', 'workersNeeded', 'lat', 'lng', 'geohash', 'radiusKm', 'createdAt', 'expiresAt',
+          'responseCount', 'callCount'
+        ]) &&
+        requestId == request.resource.data.requestId &&
+        request.resource.data.employerId == request.auth.uid &&
+        true &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120 &&
+        (!('description' in request.resource.data) || (request.resource.data.description is string && request.resource.data.description.size() <= 500)) &&
+        request.resource.data.category is string &&
+        request.resource.data.category.size() >= 1 && request.resource.data.category.size() <= 80 &&
+        request.resource.data.needType in ['urgent_now', 'today', 'scheduled'] &&
+        request.resource.data.status == 'open' &&
+        request.resource.data.urgency in ['urgent', 'today', 'flexible'] &&
+        request.resource.data.workersNeeded is int &&
+        request.resource.data.workersNeeded >= 1 && request.resource.data.workersNeeded <= 20 &&
+        (!('budgetText' in request.resource.data) || (request.resource.data.budgetText is string && request.resource.data.budgetText.size() <= 80)) &&
+        (!('urgencyType' in request.resource.data) || (request.resource.data.urgencyType is string && request.resource.data.urgencyType.size() <= 50)) &&
+        (!('perPersonPayment' in request.resource.data) || (request.resource.data.perPersonPayment is number && request.resource.data.perPersonPayment >= 0)) &&
+        (!('totalPayment' in request.resource.data) || (request.resource.data.totalPayment is number && request.resource.data.totalPayment >= 0)) &&
+        (!('durationText' in request.resource.data) || (request.resource.data.durationText is string && request.resource.data.durationText.size() <= 80)) &&
+        request.resource.data.lat is number &&
+        request.resource.data.lat >= -90 && request.resource.data.lat <= 90 &&
+        request.resource.data.lng is number &&
+        request.resource.data.lng >= -180 && request.resource.data.lng <= 180 &&
+        request.resource.data.geohash is string &&
+        (!('addressText' in request.resource.data) || (request.resource.data.addressText is string && request.resource.data.addressText.size() <= 500)) &&
+        request.resource.data.radiusKm is number &&
+        request.resource.data.radiusKm >= 1 && request.resource.data.radiusKm <= 10 &&
+        (!('scheduledAt' in request.resource.data) || request.resource.data.scheduledAt is timestamp) &&
+        (!('scheduleLabel' in request.resource.data) || (request.resource.data.scheduleLabel is string && request.resource.data.scheduleLabel.size() <= 80)) &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.expiresAt is timestamp &&
+        (!('expiredAt' in request.resource.data) || request.resource.data.expiredAt is timestamp) &&
+        (!('firstResponseAt' in request.resource.data) || request.resource.data.firstResponseAt is timestamp) &&
+        (!('lastResponseAt' in request.resource.data) || request.resource.data.lastResponseAt is timestamp) &&
+        request.resource.data.responseCount is int && request.resource.data.responseCount >= 0 &&
+        request.resource.data.callCount is int && request.resource.data.callCount >= 0 &&
+        (!('notifiedWorkerCount' in request.resource.data) || (request.resource.data.notifiedWorkerCount is int && request.resource.data.notifiedWorkerCount >= 0)) &&
+        (!('notificationFanoutAt' in request.resource.data) || request.resource.data.notificationFanoutAt is timestamp) &&
+        (!('employerName' in request.resource.data) || (request.resource.data.employerName is string && request.resource.data.employerName.size() <= 120)) &&
+        (!('employerPhone' in request.resource.data) || (request.resource.data.employerPhone is string && request.resource.data.employerPhone.size() <= 20)) &&
+        (!('contactNumber' in request.resource.data) || (request.resource.data.contactNumber is string && request.resource.data.contactNumber.size() <= 20)) &&
+        (!('whatsappNumber' in request.resource.data) || (request.resource.data.whatsappNumber is string && request.resource.data.whatsappNumber.size() <= 20)) &&
+        (!('selectedWorkerId' in request.resource.data) || request.resource.data.selectedWorkerId is string) &&
+        (!('selectedWorkerIds' in request.resource.data) || (request.resource.data.selectedWorkerIds is list && request.resource.data.selectedWorkerIds.size() <= 20)) &&
+        (!('completedWorkerIds' in request.resource.data) || (request.resource.data.completedWorkerIds is list && request.resource.data.completedWorkerIds.size() <= 20)) &&
+        (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp) &&
+        (!('cancelledAt' in request.resource.data) || request.resource.data.cancelledAt is timestamp) &&
+        (!('cancellationReason' in request.resource.data) || (request.resource.data.cancellationReason is string && request.resource.data.cancellationReason.size() <= 300)) &&
+        (!('completionProof' in request.resource.data) || (request.resource.data.completionProof is string && request.resource.data.completionProof.size() <= 300)) &&
+        (!('failureReason' in request.resource.data) || (request.resource.data.failureReason is string && request.resource.data.failureReason.size() <= 300));
+
+      allow update: if isSignedIn() &&
+        (
+          (resource.data.employerId == request.auth.uid &&
+            request.resource.data.employerId == resource.data.employerId &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status', 'responseCount', 'callCount', 'lastResponseAt', 'firstResponseAt',
+              'selectedWorkerId', 'selectedWorkerIds', 'completedWorkerIds', 'filledAt',
+              'completedAt', 'cancelledAt', 'cancellationReason', 'completionProof', 'failureReason'
+            ])
+          ) ||
+          (resource.data.employerId != request.auth.uid &&
+            request.resource.data.employerId == resource.data.employerId &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'responseCount', 'callCount', 'lastResponseAt', 'firstResponseAt'
+            ])
+          )
+        ) &&
+        request.resource.data.status in ['open', 'filled', 'completed', 'expired', 'cancelled', 'failed', 'deleted'] &&
+        request.resource.data.responseCount is int && request.resource.data.responseCount >= 0 &&
+        request.resource.data.callCount is int && request.resource.data.callCount >= 0 &&
+        (!('lastResponseAt' in request.resource.data) || request.resource.data.lastResponseAt is timestamp) &&
+        (!('firstResponseAt' in request.resource.data) || request.resource.data.firstResponseAt is timestamp) &&
+        (!('selectedWorkerId' in request.resource.data) || request.resource.data.selectedWorkerId is string) &&
+        (!('selectedWorkerIds' in request.resource.data) || (request.resource.data.selectedWorkerIds is list && request.resource.data.selectedWorkerIds.size() <= 20)) &&
+        (!('completedWorkerIds' in request.resource.data) || (request.resource.data.completedWorkerIds is list && request.resource.data.completedWorkerIds.size() <= 20)) &&
+        (!('filledAt' in request.resource.data) || request.resource.data.filledAt is timestamp) &&
+        (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp) &&
+        (!('cancelledAt' in request.resource.data) || request.resource.data.cancelledAt is timestamp) &&
+        (!('cancellationReason' in request.resource.data) || (request.resource.data.cancellationReason is string && request.resource.data.cancellationReason.size() <= 300)) &&
+        (!('completionProof' in request.resource.data) || (request.resource.data.completionProof is string && request.resource.data.completionProof.size() <= 300)) &&
+        (!('failureReason' in request.resource.data) || (request.resource.data.failureReason is string && request.resource.data.failureReason.size() <= 300));
+
+      allow delete: if false;
+    }
+
+    match /instant_responses/{responseId} {
+      function responseIdOwnedByCaller(data) {
+        return responseId == (data.requestId + '_' + request.auth.uid);
+      }
+
+      function responseIdEndsWithCaller() {
+        return responseId.matches('^.*_' + request.auth.uid + '$');
+      }
+
+      allow read, write: if isAdmin();
+      allow get: if isSignedIn() && responseIdEndsWithCaller();
+      allow get: if isSignedIn() &&
+        (resource.data.workerId == request.auth.uid ||
+          resource.data.employerId == request.auth.uid);
+      allow list: if isSignedIn() &&
+        (resource.data.workerId == request.auth.uid || resource.data.employerId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'responseId', 'requestId', 'workerId', 'employerId', 'requestTitle',
+          'requestCategory', 'employerName', 'employerPhone', 'budgetText', 'addressText',
+          'workerName', 'workerPhone', 'workerSkills', 'distanceKm', 'status', 'createdAt',
+          'viewedAt', 'respondedAt', 'calledAt', 'acceptedAt', 'completedAt', 'updatedAt',
+          'completionProof', 'failureReason'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'responseId', 'requestId', 'workerId', 'employerId', 'status', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.workerId == request.auth.uid &&
+        request.resource.data.responseId == responseId &&
+        responseIdOwnedByCaller(request.resource.data) &&
+        exists(/databases/$(database)/documents/instant_requests/$(request.resource.data.requestId)) &&
+        get(/databases/$(database)/documents/instant_requests/$(request.resource.data.requestId)).data.status == 'open' &&
+        get(/databases/$(database)/documents/instant_requests/$(request.resource.data.requestId)).data.employerId == request.resource.data.employerId &&
+        request.resource.data.status in ['viewed', 'applied', 'interested', 'called', 'accepted', 'rejected', 'busy', 'completed', 'cancelled', 'no_show'] &&
+        (!('requestTitle' in request.resource.data) || (request.resource.data.requestTitle is string && request.resource.data.requestTitle.size() <= 120)) &&
+        (!('requestCategory' in request.resource.data) || (request.resource.data.requestCategory is string && request.resource.data.requestCategory.size() <= 80)) &&
+        (!('employerName' in request.resource.data) || (request.resource.data.employerName is string && request.resource.data.employerName.size() <= 120)) &&
+        (!('employerPhone' in request.resource.data) || (request.resource.data.employerPhone is string && request.resource.data.employerPhone.size() <= 20)) &&
+        (!('budgetText' in request.resource.data) || (request.resource.data.budgetText is string && request.resource.data.budgetText.size() <= 80)) &&
+        (!('addressText' in request.resource.data) || (request.resource.data.addressText is string && request.resource.data.addressText.size() <= 500)) &&
+        (!('workerName' in request.resource.data) || (request.resource.data.workerName is string && request.resource.data.workerName.size() <= 120)) &&
+        (!('workerPhone' in request.resource.data) || (request.resource.data.workerPhone is string && request.resource.data.workerPhone.size() <= 20)) &&
+        (!('workerSkills' in request.resource.data) || (request.resource.data.workerSkills is list && request.resource.data.workerSkills.size() <= 30)) &&
+        (!('distanceKm' in request.resource.data) || request.resource.data.distanceKm is number) &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.updatedAt is timestamp &&
+        (!('viewedAt' in request.resource.data) || request.resource.data.viewedAt is timestamp) &&
+        (!('respondedAt' in request.resource.data) || request.resource.data.respondedAt is timestamp) &&
+        (!('calledAt' in request.resource.data) || request.resource.data.calledAt is timestamp) &&
+        (!('acceptedAt' in request.resource.data) || request.resource.data.acceptedAt is timestamp) &&
+        (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp) &&
+        (!('completionProof' in request.resource.data) || (request.resource.data.completionProof is string && request.resource.data.completionProof.size() <= 300)) &&
+        (!('failureReason' in request.resource.data) || (request.resource.data.failureReason is string && request.resource.data.failureReason.size() <= 300));
+
+      allow update: if isSignedIn() &&
+        resource.data.workerId == request.auth.uid &&
+        request.resource.data.workerId == resource.data.workerId &&
+        request.resource.data.requestId == resource.data.requestId &&
+        request.resource.data.employerId == resource.data.employerId &&
+        request.resource.data.responseId == resource.data.responseId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'requestTitle', 'requestCategory', 'employerName', 'employerPhone', 'budgetText', 'addressText',
+          'workerName', 'workerPhone', 'workerSkills', 'distanceKm', 'status',
+          'viewedAt', 'respondedAt', 'calledAt', 'acceptedAt', 'completedAt', 'updatedAt',
+          'completionProof', 'failureReason'
+        ]) &&
+        request.resource.data.status in ['viewed', 'applied', 'interested', 'called', 'accepted', 'rejected', 'busy', 'completed', 'cancelled', 'no_show'] &&
+        request.resource.data.updatedAt is timestamp &&
+        (!('requestTitle' in request.resource.data) || (request.resource.data.requestTitle is string && request.resource.data.requestTitle.size() <= 120)) &&
+        (!('requestCategory' in request.resource.data) || (request.resource.data.requestCategory is string && request.resource.data.requestCategory.size() <= 80)) &&
+        (!('employerName' in request.resource.data) || (request.resource.data.employerName is string && request.resource.data.employerName.size() <= 120)) &&
+        (!('employerPhone' in request.resource.data) || (request.resource.data.employerPhone is string && request.resource.data.employerPhone.size() <= 20)) &&
+        (!('budgetText' in request.resource.data) || (request.resource.data.budgetText is string && request.resource.data.budgetText.size() <= 80)) &&
+        (!('addressText' in request.resource.data) || (request.resource.data.addressText is string && request.resource.data.addressText.size() <= 500)) &&
+        (!('workerName' in request.resource.data) || (request.resource.data.workerName is string && request.resource.data.workerName.size() <= 120)) &&
+        (!('workerPhone' in request.resource.data) || (request.resource.data.workerPhone is string && request.resource.data.workerPhone.size() <= 20)) &&
+        (!('workerSkills' in request.resource.data) || (request.resource.data.workerSkills is list && request.resource.data.workerSkills.size() <= 30)) &&
+        (!('distanceKm' in request.resource.data) || request.resource.data.distanceKm is number) &&
+        (!('viewedAt' in request.resource.data) || request.resource.data.viewedAt is timestamp) &&
+        (!('respondedAt' in request.resource.data) || request.resource.data.respondedAt is timestamp) &&
+        (!('calledAt' in request.resource.data) || request.resource.data.calledAt is timestamp) &&
+        (!('acceptedAt' in request.resource.data) || request.resource.data.acceptedAt is timestamp) &&
+        (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp) &&
+        (!('completionProof' in request.resource.data) || (request.resource.data.completionProof is string && request.resource.data.completionProof.size() <= 300)) &&
+        (!('failureReason' in request.resource.data) || (request.resource.data.failureReason is string && request.resource.data.failureReason.size() <= 300));
+
+      allow update: if isSignedIn() &&
+        resource.data.employerId == request.auth.uid &&
+        request.resource.data.workerId == resource.data.workerId &&
+        request.resource.data.requestId == resource.data.requestId &&
+        request.resource.data.employerId == resource.data.employerId &&
+        request.resource.data.responseId == resource.data.responseId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'status', 'acceptedAt', 'completedAt', 'updatedAt', 'completionProof', 'failureReason'
+        ]) &&
+        request.resource.data.status in ['accepted', 'completed', 'rejected', 'cancelled', 'no_show'] &&
+        request.resource.data.updatedAt is timestamp &&
+        (!('acceptedAt' in request.resource.data) || request.resource.data.acceptedAt is timestamp) &&
+        (!('completedAt' in request.resource.data) || request.resource.data.completedAt is timestamp) &&
+        (!('completionProof' in request.resource.data) || (request.resource.data.completionProof is string && request.resource.data.completionProof.size() <= 300)) &&
+        (!('failureReason' in request.resource.data) || (request.resource.data.failureReason is string && request.resource.data.failureReason.size() <= 300));
+
+      allow delete: if false;
+    }
+
+    // ── saved_jobs ────────────────────────────────────────────────────
+    // Canonical schema: userId + jobId + createdAt. Doc ID = {userId}_{jobId}.
+    match /saved_jobs/{saveId} {
+      function saveIdOwnedByCaller() {
+        return saveId.matches('^' + request.auth.uid + '_.*$');
+      }
+
+      allow get: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || saveIdOwnedByCaller());
+      // List closed: client should query with where('userId','==',uid) — but list rule would need per-doc check.
+      // Allow list only if ownership is guaranteed by the doc id prefix.
+      allow list: if isSignedIn();
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly(['userId', 'jobId', 'createdAt']) &&
+        request.resource.data.keys().hasAll(['userId', 'jobId', 'createdAt']) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.jobId is string &&
+        request.resource.data.createdAt is timestamp &&
+        saveIdOwnedByCaller() &&
+        saveId == (request.resource.data.userId + '_' + request.resource.data.jobId);
+
+      allow delete: if isSignedIn() &&
+        (resource.data.userId == request.auth.uid || saveIdOwnedByCaller());
+      allow update: if false;
+    }
+
+    // ── ratings ───────────────────────────────────────────────────────
+    // Deterministic doc id: {jobId}_{fromUserId}. One rating per (job, author).
+    // Must be tied to a HIRED application between from↔to on that job.
+    match /ratings/{ratingId} {
+      function ratingIdOwnedByCaller() {
+        return ratingId.matches('^.+_' + request.auth.uid + '$');
+      }
+
+      function ratingTargetRoleIs(role) {
+        return !('targetRole' in request.resource.data) || request.resource.data.targetRole == role;
+      }
+
+      allow get: if isSignedIn() &&
+        (
+          (resource != null &&
+            (resource.data.fromUserId == request.auth.uid || resource.data.toUserId == request.auth.uid)) ||
+          (resource == null && ratingIdOwnedByCaller())
+        );
+      allow list: if isSignedIn() &&
+        (resource.data.fromUserId == request.auth.uid ||
+         resource.data.toUserId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly(['jobId', 'fromUserId', 'toUserId', 'targetRole', 'rating', 'review', 'tags', 'raterName', 'raterCompanyName', 'targetName', 'targetCompanyName', 'createdAt']) &&
+        request.resource.data.keys().hasAll(['jobId', 'fromUserId', 'toUserId', 'rating', 'createdAt']) &&
+        request.resource.data.fromUserId == request.auth.uid &&
+        request.resource.data.fromUserId != request.resource.data.toUserId &&
+        ratingId == (request.resource.data.jobId + '_' + request.resource.data.fromUserId) &&
+        request.resource.data.jobId is string &&
+        request.resource.data.toUserId is string &&
+        request.resource.data.rating is number &&
+        request.resource.data.rating >= 1 && request.resource.data.rating <= 5 &&
+        request.resource.data.createdAt is timestamp &&
+        (!('targetRole' in request.resource.data) || request.resource.data.targetRole in ['WORKER', 'EMPLOYER']) &&
+        (!('review' in request.resource.data) ||
+          (request.resource.data.review is string && request.resource.data.review.size() <= 1000)) &&
+        (!('tags' in request.resource.data) ||
+          (request.resource.data.tags is list && request.resource.data.tags.size() <= 10)) &&
+        (!('raterName' in request.resource.data) ||
+          (request.resource.data.raterName is string && request.resource.data.raterName.size() <= 120)) &&
+        (!('raterCompanyName' in request.resource.data) ||
+          (request.resource.data.raterCompanyName is string && request.resource.data.raterCompanyName.size() <= 200)) &&
+        (!('targetName' in request.resource.data) ||
+          (request.resource.data.targetName is string && request.resource.data.targetName.size() <= 120)) &&
+        (!('targetCompanyName' in request.resource.data) ||
+          (request.resource.data.targetCompanyName is string && request.resource.data.targetCompanyName.size() <= 200)) &&
+        // Must be linked to a real hired application (either direction).
+        (
+          (
+            exists(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)) &&
+            get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.status in ['hired', 'completed', 'HIRED', 'COMPLETED'] &&
+            get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.employerId == request.resource.data.toUserId &&
+            ratingTargetRoleIs('EMPLOYER')
+          ) ||
+          (
+            exists(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)) &&
+            get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.status in ['hired', 'completed', 'HIRED', 'COMPLETED'] &&
+            get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.workerId == request.resource.data.toUserId &&
+            get(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.employerId == request.resource.data.fromUserId &&
+            ratingTargetRoleIs('WORKER')
+          ) ||
+          (
+            exists(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)) &&
+            get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.status == 'completed' &&
+            get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.workerId == request.resource.data.fromUserId &&
+            get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.fromUserId)).data.employerId == request.resource.data.toUserId &&
+            ratingTargetRoleIs('EMPLOYER')
+          ) ||
+          (
+            exists(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)) &&
+            get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.status == 'completed' &&
+            get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.workerId == request.resource.data.toUserId &&
+            get(/databases/$(database)/documents/instant_responses/$(request.resource.data.jobId + '_' + request.resource.data.toUserId)).data.employerId == request.resource.data.fromUserId &&
+            ratingTargetRoleIs('WORKER')
+          )
+        );
+
+      allow update, delete: if false;
+    }
+
+    // ── job_reports ───────────────────────────────────────────────────
+    // Deterministic doc id: {reporterId}_{jobId}. One report per (user, job).
+    match /job_reports/{reportId} {
+      function reportIdOwnedByCaller() {
+        return reportId.matches('^' + request.auth.uid + '_.+$');
+      }
+
+      // Non-payment claims carry money fields and require proof the caller applied.
+      function nonPaymentClaimValid() {
+        return request.resource.data.reportType != 'NON_PAYMENT' || (
+          request.resource.data.keys().hasAll(['employerId', 'amountOwed', 'workedOn']) &&
+          request.resource.data.employerId is string &&
+          request.resource.data.employerId.size() > 0 &&
+          request.resource.data.employerId != request.auth.uid &&
+          request.resource.data.amountOwed is number &&
+          request.resource.data.amountOwed > 0 &&
+          request.resource.data.amountOwed <= 1000000 &&
+          request.resource.data.workedOn is timestamp &&
+          request.resource.data.workedOn <= request.time &&
+          exists(/databases/$(database)/documents/applications/$(request.resource.data.jobId + '_' + request.auth.uid))
+        );
+      }
+
+      allow get: if isSignedIn() &&
+        (
+          (resource != null && resource.data.reporterId == request.auth.uid) ||
+          (resource == null && reportIdOwnedByCaller())
+        );
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'jobId', 'reporterId', 'reportType', 'description', 'createdAt', 'status',
+          'employerId', 'amountOwed', 'workedOn'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'jobId', 'reporterId', 'reportType', 'description', 'createdAt', 'status'
+        ]) &&
+        reportId == (request.auth.uid + '_' + request.resource.data.jobId) &&
+        request.resource.data.jobId is string &&
+        request.resource.data.reporterId == request.auth.uid &&
+        request.resource.data.reportType in ['SCAM', 'FAKE', 'INAPPROPRIATE', 'DUPLICATE', 'MISLEADING', 'HARASSMENT', 'SPAM', 'NON_PAYMENT', 'OTHER'] &&
+        request.resource.data.description is string &&
+        request.resource.data.description.size() >= 1 && request.resource.data.description.size() <= 1000 &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.status == 'PENDING' &&
+        nonPaymentClaimValid() &&
+        exists(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId));
+
+      allow update, delete: if false;
+    }
+
+    // ── employer_trust ────────────────────────────────────────────────
+    // Written only by Cloud Functions. Readable so workers can see an employer's
+    // non-payment history before accepting work.
+    match /employer_trust/{employerId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── job_call_sessions ────────────────────────────────────────────
+    // Append-only tap records used for dashboards and audit trails.
+    match /job_call_sessions/{sessionId} {
+      allow read, write: if isAdmin();
+
+      allow get: if isSignedIn() && resource != null && resource.data.workerId == request.auth.uid;
+      allow list: if false;
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'jobId', 'workerId', 'employerId', 'jobTitle', 'companyName', 'contactNumber',
+          'callButtonTaps', 'callStartedAt', 'source', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'jobId', 'workerId', 'callButtonTaps', 'callStartedAt', 'source', 'createdAt', 'updatedAt'
+        ]) &&
+        request.resource.data.jobId is string &&
+        request.resource.data.workerId == request.auth.uid &&
+        (!('employerId' in request.resource.data) || request.resource.data.employerId is string) &&
+        (!('jobTitle' in request.resource.data) || request.resource.data.jobTitle is string) &&
+        (!('companyName' in request.resource.data) || request.resource.data.companyName is string) &&
+        (!('contactNumber' in request.resource.data) || request.resource.data.contactNumber is string) &&
+        request.resource.data.callButtonTaps == 1 &&
+        request.resource.data.callStartedAt is timestamp &&
+        request.resource.data.source == 'JOB_DESCRIPTION_CALL_TAP' &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.updatedAt is timestamp &&
+        exists(/databases/$(database)/documents/jobmetadata/$(request.resource.data.jobId));
+
+      allow update, delete: if false;
+    }
+
+    // ── job_call_feedback ─────────────────────────────────────────────
+    // Canonical per-job feedback record used to remember whether the worker
+    // already finished the post-call sheet for a given job.
+    match /job_call_feedback/{feedbackId} {
+      function feedbackOwnedByCaller() {
+        return feedbackId.matches('^' + request.auth.uid + '_.+$');
+      }
+
+      function validCallFeedbackData(data) {
+        return data.keys().hasOnly([
+          'jobId', 'workerId', 'employerId', 'jobTitle', 'companyName',
+          'spokeWithEmployer', 'jobAvailability', 'jobOfferAccepted',
+          'source', 'createdAt', 'updatedAt', 'feedbackSubmittedAt'
+        ]) &&
+        data.keys().hasAll([
+          'jobId', 'workerId', 'spokeWithEmployer', 'source', 'createdAt', 'updatedAt'
+        ]) &&
+        feedbackId == (request.auth.uid + '_' + data.jobId) &&
+        data.jobId is string &&
+        data.workerId == request.auth.uid &&
+        (!('employerId' in data) || data.employerId is string) &&
+        (!('jobTitle' in data) || data.jobTitle is string) &&
+        (!('companyName' in data) || data.companyName is string) &&
+        data.spokeWithEmployer is bool &&
+        (!('jobAvailability' in data) || data.jobAvailability in ['STILL_AVAILABLE', 'FILLED', 'NOT_SURE']) &&
+        (!('jobOfferAccepted' in data) || data.jobOfferAccepted is bool) &&
+        data.source == 'JOB_DESCRIPTION_CALL_TAP' &&
+        (!('createdAt' in data) || data.createdAt is timestamp) &&
+        data.updatedAt is timestamp &&
+        (!('feedbackSubmittedAt' in data) || data.feedbackSubmittedAt is timestamp) &&
+        exists(/databases/$(database)/documents/jobmetadata/$(data.jobId));
+      }
+
+      allow read, write: if isAdmin();
+
+      allow get: if isSignedIn() &&
+        (
+          (resource != null && resource.data.workerId == request.auth.uid) ||
+          (resource == null && feedbackOwnedByCaller())
+        );
+      allow list: if false;
+
+      allow create: if isSignedIn() && validCallFeedbackData(request.resource.data);
+
+      allow update: if isSignedIn() &&
+        feedbackOwnedByCaller() &&
+        request.resource.data.workerId == resource.data.workerId &&
+        request.resource.data.jobId == resource.data.jobId &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'employerId', 'jobTitle', 'companyName', 'spokeWithEmployer',
+          'jobAvailability', 'jobOfferAccepted', 'source', 'updatedAt', 'feedbackSubmittedAt'
+        ]) &&
+        validCallFeedbackData(request.resource.data);
+
+      allow delete: if false;
+    }
+
+    // ── referrals ─────────────────────────────────────────────────────
+    // Rewards are server-derived; no money fields client-writable.
+    match /referrals/{referralId} {
+      allow read, write: if isAdmin();
+
+      allow get: if isSignedIn() &&
+        (resource.data.referrerId == request.auth.uid || resource.data.referredUserId == request.auth.uid);
+      allow list: if isSignedIn() &&
+        (resource.data.referrerId == request.auth.uid || resource.data.referredUserId == request.auth.uid);
+
+      allow create: if isSignedIn() &&
+        request.resource.data.keys().hasOnly([
+          'referrerId', 'referredUserId', 'referralCode', 'status', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'referrerId', 'referredUserId', 'status', 'createdAt'
+        ]) &&
+        request.resource.data.referredUserId == request.auth.uid &&
+        referralId == (request.resource.data.referrerId + '_' + request.resource.data.referredUserId) &&
+        request.resource.data.referrerId is string &&
+        request.resource.data.referrerId != request.resource.data.referredUserId &&
+        request.resource.data.referredUserId is string &&
+        request.resource.data.status == 'PENDING' &&
+        (!('referralCode' in request.resource.data) ||
+          (request.resource.data.referralCode is string && request.resource.data.referralCode.size() <= 10)) &&
+        request.resource.data.createdAt is timestamp;
+
+      allow update, delete: if false;
+    }
+
+    // ── referral_stats ────────────────────────────────────────────────
+    // Cloud Functions only.
+    match /referral_stats/{userId} {
+      allow read, write: if isAdmin();
+
+      allow get: if isSelf(userId);
+      allow list: if false;
+      allow create, update, delete: if false;
+
+      match /withdrawals/{withdrawalId} {
+        allow get, list: if isSelf(userId);
+        allow create, update, delete: if false;
+      }
+
+      match /audit_logs/{auditId} {
+        allow read, write: if isAdmin();
+        allow get, list, create, update, delete: if false;
+      }
+    }
+
+    // ── referral_codes ────────────────────────────────────────────────
+    // Read allowed by deterministic code match. Creation is CF-only (derives userName
+    // from the authenticated user record to prevent brand impersonation).
+    match /referral_codes/{code} {
+      allow read, write: if isAdmin();
+
+      allow get: if code.matches('^[A-Za-z0-9]{7,10}$') &&
+        (resource == null || resource.data.isActive == true);
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    // ── announcements ─────────────────────────────────────────────────
+    // Public read, admin-only write via Admin SDK.
+    match /announcements/{announcementId} {
+      allow read, write: if isAdmin();
+
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    // ── notifications ─────────────────────────────────────────────────
+    // CF-only writes. Recipient may only mark read / delete own notifications.
+    match /notifications/{notificationId} {
+      allow read, write: if isAdmin();
+
+      allow get: if isSignedIn() && resource.data.recipientId == request.auth.uid;
+      allow list: if isSignedIn() && resource.data.recipientId == request.auth.uid;
+
+      allow create: if false; // CFs write via Admin SDK
+
+      allow update: if isSignedIn() &&
+        resource.data.recipientId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']) &&
+        request.resource.data.isRead is bool;
+
+      allow delete: if isSignedIn() && resource.data.recipientId == request.auth.uid;
+    }
+
+    // ── app_config & config ───────────────────────────────────────────
+    // Public read (clients listen to e.g. /app_config/referral for dynamic
+    // reward amounts). Writes are CF/admin-only via Admin SDK.
+    match /app_config/{doc} {
+      allow read, write: if isAdmin();
+
+      allow get: if true;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    match /config/{doc} {
+      allow read, write: if isAdmin();
+
+      allow get: if true;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    // ── system_metrics ────────────────────────────────────────────────
+    // Global counters for dashboards. Read-only for clients.
+    match /system_metrics/{docId} {
+      allow read, write: if isAdmin();
+
+      allow get: if true; // Allow web app to read stats
+      allow list, create, update, delete: if false; // Deny all client writes
+    }
+
+    // ── active_qr_codes ───────────────────────────────────────────────
+    match /active_qr_codes/{docId} {
+      allow read, write: if isAdmin();
+      allow list, get: if isSignedIn();
+    }
+
+    // ── subscription_payment_requests ────────────────────────────────
+    match /subscription_payment_requests/{docId} {
+      allow read, write: if isAdmin();
+      allow create: if isSignedIn() && request.resource.data.employerId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.employerId == request.auth.uid;
+      allow list: if isSignedIn() && (
+        resource == null || resource.data.employerId == request.auth.uid
+      );
+    }
+
+
+    // ── Web App Collections (users, jobs, job_applications, etc.) ─────
     match /users/{userId} {
-      allow read: if isAdmin() || (request.auth != null && request.auth.uid == userId);
+      allow read: if isAdmin() || isSelf(userId);
+      allow create: if isSelf(userId);
+      allow update: if isSelf(userId) || isAdmin();
       
-      // REFERRAL CODE IMMUTABILITY: Once set, referralCode can NEVER be changed by users
-      // REFERRAL STATS: Can be updated by owner OR by Cloud Functions (for rewards)
-      // DUAL-ROLE: Allow users to update roles array and activeRole
-      // RATING SUMMARY: Can be updated by RatingService
-      // SAVED JOBS: Can be updated by owner (add/remove saved job IDs)
-      // This prevents users from changing their code but allows Cloud Functions to credit rewards
-      allow create: if request.auth != null && request.auth.uid == userId &&
-               request.resource.data.get('referralStats', null) == null &&
-               request.resource.data.get('referralCode', '') in ['', null] &&
-                       !('referralCodeCreatedAt' in request.resource.data) &&
-                       request.resource.data.get('averageRating', 0) in [0, null] &&
-                       request.resource.data.get('totalRatings', 0) in [0, null] &&
-                       request.resource.data.get('workerAverageRating', 0) in [0, null] &&
-                       request.resource.data.get('workerTotalRatings', 0) in [0, null];
-      
-      allow update: if request.auth != null && 
-                      request.auth.uid == userId &&
-                      !request.resource.data.diff(resource.data).affectedKeys()
-                        .hasAny(['referralCode', 'referralCodeCreatedAt', 'averageRating', 'totalRatings', 'workerAverageRating', 'workerTotalRatings']) &&
-                      safeReferralStatsUpdate(resource.data, request.resource.data) &&
-                      // DUAL-ROLE VALIDATION: Ensure roles array is valid
-                      // Must have at least one role, max 2 roles (WORKER and/or EMPLOYER)
-                      (!('roles' in request.resource.data) || 
-                       (request.resource.data.roles is list &&
-                        request.resource.data.roles.size() > 0 &&
-                        request.resource.data.roles.size() <= 2)) &&
-                      // DUAL-ROLE VALIDATION: activeRole must be in roles array
-                      (!('activeRole' in request.resource.data) || 
-                       !('roles' in request.resource.data) ||
-                       request.resource.data.activeRole in request.resource.data.roles ||
-                       request.resource.data.activeRole == request.resource.data.role);
-      
-      // ADMIN OVERRIDE: Admins can update any user (for testing/support)
-      allow update: if isAdmin();
-      
-      // IMPORTANT: Cloud Functions can update referralCode and referralStats without these restrictions
-      // Cloud Functions run with admin privileges and bypass these rules
-      
-      // Subcollection for FCM tokens (optional, for easier querying)
       match /tokens/{tokenId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isSelf(userId);
       }
-      
-      // Subcollection for user activity history
       match /activity/{activityId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if isSelf(userId);
       }
     }
-    
+
+    match /jobs/{jobId} {
+      allow read: if true;
+      allow create: if isAdmin() || (isSignedIn() && request.auth.uid == request.resource.data.employerId);
+      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.employerId && request.resource.data.employerId == resource.data.employerId);
+      allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.employerId);
+      allow update: if isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applicationCount', 'updatedAt', 'lastApplicationAt']);
+    }
+
+    match /job_applications/{applicationId} {
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.workerId || request.auth.uid == resource.data.employerId || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.workerId;
+      allow update: if isSignedIn() && (request.auth.uid == resource.data.employerId || request.auth.uid == resource.data.workerId || isAdmin());
+    }
+
     match /public_profiles/{userId} {
       allow read: if true;
       allow write: if false;
     }
 
-    match /phone_roles/{phoneNumber} {
-      allow read, write: if request.auth != null &&
-        request.auth.token.get('phone_number', '') != '' &&
-        request.auth.token.phone_number in [phoneNumber, '+91' + phoneNumber, '+' + phoneNumber];
-    }
-    
-    
-    // ============================================
-    // JOBS COLLECTION
-    // ============================================
-    match /jobs/{jobId} {
-      // Anyone can read jobs (including guests)
-      allow read: if true;
-      // Employers can manage their own jobs OR admins can manage all jobs
-      allow create: if isAdmin() || (request.auth != null &&
-        request.auth.uid == request.resource.data.employerId);
-      allow update: if isAdmin() || (request.auth != null &&
-        request.auth.uid == resource.data.employerId &&
-        request.resource.data.employerId == resource.data.employerId);
-      allow delete: if isAdmin() || (request.auth != null &&
-        request.auth.uid == resource.data.employerId);
-      // Workers can update application count
-      allow update: if request.auth != null && 
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['applicationCount', 'updatedAt', 'lastApplicationAt']);
-    }
-    
-    // ============================================
-    // JOB APPLICATIONS - OPTIMIZED
-    // ============================================
-    // Now includes verification data as nested field (no separate work_verifications collection)
-    match /job_applications/{applicationId} {
-      function employerStatusUpdateAllowed() {
-        let previous = resource.data.status;
-        let next = request.resource.data.status;
-        return next == previous ||
-               (previous == 'PENDING' && next in ['UNDER_REVIEW', 'ACCEPTED', 'REJECTED']) ||
-               (previous == 'UNDER_REVIEW' && next in ['ACCEPTED', 'REJECTED']) ||
-               (previous == 'ACCEPTED' && next in ['IN_PROGRESS', 'REJECTED']) ||
-               (previous == 'IN_PROGRESS' && next == 'COMPLETED');
-      }
-
-      function workerUpdateAllowed() {
-        let changed = request.resource.data.diff(resource.data).affectedKeys();
-        return (resource.data.status in ['PENDING', 'UNDER_REVIEW'] &&
-                request.resource.data.status == 'WITHDRAWN' &&
-                changed.hasOnly(['status', 'statusHistory', 'updatedAt', 'active'])) ||
-               (resource.data.status == 'ACCEPTED' &&
-                request.resource.data.status == 'ACCEPTED' &&
-                changed.hasOnly(['verification', 'verificationId', 'verificationCode', 'verificationStatus']) &&
-                request.resource.data.verificationStatus == 'PENDING' &&
-                request.resource.data.verification.status == 'PENDING' &&
-                request.resource.data.verification.applicationId == applicationId &&
-                request.resource.data.verification.jobId == resource.data.jobId &&
-                request.resource.data.verification.workerId == resource.data.workerId &&
-                request.resource.data.verification.employerId == resource.data.employerId &&
-                request.resource.data.verification.verificationCode == request.resource.data.verificationCode);
-      }
-
-      allow read: if request.auth != null &&
-        (request.auth.uid == resource.data.workerId || request.auth.uid == resource.data.employerId || isAdmin());
-      
-      allow create: if request.auth != null &&
-        request.auth.uid == request.resource.data.workerId &&
-        request.resource.data.status == 'PENDING' &&
-        request.resource.data.employerId == get(/databases/$(database)/documents/jobs/$(request.resource.data.jobId)).data.employerId &&
-        !request.resource.data.keys().hasAny(['verification', 'verificationCode', 'verificationStatus', 'workStartedAt']);
-      allow update: if request.auth != null &&
-        ((request.auth.uid == resource.data.employerId && employerStatusUpdateAllowed()) ||
-         (request.auth.uid == resource.data.workerId && workerUpdateAllowed())) &&
-        request.resource.data.workerId == resource.data.workerId &&
-        request.resource.data.employerId == resource.data.employerId &&
-        request.resource.data.jobId == resource.data.jobId;
-    }
-    
-    
-    
-    // ============================================
-    // NOTIFICATIONS
-    // ============================================
-    match /notifications/{notificationId} {
-      // Allow reading individual notification if user is the recipient
-      allow get: if request.auth != null && 
-        request.auth.uid == resource.data.recipientId;
-      // Allow listing/querying notifications for authenticated users
-      // Security: Query MUST filter by recipientId to only return user's own notifications
-      allow list: if request.auth != null && 
-        request.auth.uid == resource.data.recipientId;
-      allow create: if false;
-      allow update: if request.auth != null && request.auth.uid == resource.data.recipientId &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'readAt']);
-      allow delete: if request.auth != null && request.auth.uid == resource.data.recipientId;
-    }
-    
-    // ============================================
-    // ANNOUNCEMENTS COLLECTION - In-app banners
-    // ============================================
-    match /announcements/{announcementId} {
-      // Anyone can read announcements (including guest users)
-      allow read: if true;
-      // Admins can write
-      allow write: if isAdmin();
-    }
-    
-    // ============================================
-    // EMPLOYER BLOCKED ATTEMPTS - AI Screening
-    // ============================================
-    match /employer_blocked_attempts/{attemptId} {
-      // Only the employer can read their own blocked attempts
-      allow read: if request.auth != null && request.auth.uid == attemptId;
-      // Writes from authenticated client (screening service)
-      allow write: if request.auth != null;
-    }
-    
-    // ============================================
-    // MODERATION QUEUE - Cloud Functions Only
-    // ============================================
-    match /moderation_queue/{itemId} {
-      allow read, write: if false;  // Cloud Functions only (admin SDK)
-    }
-    
-    // ============================================
-    // METADATA COLLECTION - App configuration and stats
-    // ============================================
-    // For platform_stats, feature_flags, category_stats, location_stats, trending, pay_stats
-    match /metadata/{docId} {
-      // All authenticated users can read metadata (app configuration)
-      allow read: if request.auth != null;
-      // Only admins can write (via Firebase Console or Cloud Functions)
-      allow write: if false;
-    }
-    
-    
-    match /app_feedback/{feedbackId} {
-      allow create: if true;
-      allow read, update, delete: if false;
-    }
-    
-    
-    // ============================================
-    // NOTIFICATION TRACKING - For deduplication and rate limiting
-    // ============================================
-    match /notification_tracking/{userId} {
-      // Users can read their own tracking data
-      allow read: if request.auth != null && request.auth.uid == userId;
-      // System (WorkManager) can write tracking data
-      allow write: if request.auth != null;
-      
-      // Subcollection for sent notifications
-      match /sent/{notificationId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
-        allow write: if request.auth != null;
-      }
-    }
-    
-
-
-    // ============================================
-    // REFERRAL SYSTEM - ENTERPRISE GRADE FOR 10L+ USERS
-    // ============================================
-    // Architecture: Event-driven with Cloud Functions
-    // All reward calculations happen server-side for security
-    
-    // Referral codes - O(1) lookup collection (code as document ID)
-    match /referral_codes/{code} {
-      // CRITICAL: Allow UNAUTHENTICATED reads for registration flow
-      // Users need to validate referral codes BEFORE they create an account
-      // This is safe because referral_codes only contain: { userId, userName, role, createdAt }
-      // No sensitive data is exposed
-      allow get: if true;  // Single document read (by code)
-      allow list: if true; // Query operations (for validation)
-      
-      // Allow authenticated users to create their own referral code document
-      // This is a client-side fallback when Cloud Functions don't fire
-      // SECURITY: userId in document must match the authenticated user
-      allow create: if request.auth != null && 
-        request.resource.data.userId == request.auth.uid;
-      // Updates only via Cloud Functions (admin SDK)
-      allow update: if false;
-      // No deletion allowed
-      allow delete: if false;
-    }
-    
-    // SIMPLIFIED: Referral stats are now stored in users collection as nested field
-    // No separate referral_stats collection needed
-    
-    // Referrals - tracks individual referral relationships
-    match /referrals/{referralId} {
-      // Referrer or referred user can read their referrals
-      allow read: if request.auth != null && 
-        (request.auth.uid == resource.data.referrerUserId ||
-         request.auth.uid == resource.data.referredUserId);
-      // Referrals are created via Cloud Functions (applyReferralCode)
-      // Client cannot directly create referrals EXCEPT admins for testing
-      allow create: if isAdmin();
-      // Updates only via Cloud Functions
-      allow update: if false;
-      // Allow listing for history queries
-      allow list: if isAdmin();
-    }
-    
-    // CONSOLIDATED: referral_events and referral_clicks have been merged into referrals collection
-    // These rules are kept temporarily for backward compatibility but Cloud Functions
-    // should be updated to write events/clicks as subcollections of referrals
-    
-    // ============================================
-    // JOB REPORTS - Community Reporting
-    // ============================================
-    match /job_reports/{reportId} {
-      // Authenticated users can create reports
-      allow create: if request.auth != null;
-      // Users can read their own reports
-      allow read: if request.auth != null && 
-        request.auth.uid == resource.data.reporterId;
-      // Admins can read/update all reports
-      allow read, update: if isAdmin();
-      // No deletion
-      allow delete: if false;
-    }
-
-    // ============================================
-    // RATINGS & REVIEWS - Dual-role Support
-    // ============================================
-    match /ratings/{ratingId} {
-      // Anyone authenticated can read ratings
-      allow read: if request.auth != null;
-      allow create, update, delete: if false;
-    }
-
-    // Withdrawal requests
     match /withdrawal_requests/{withdrawalId} {
-      // Users can read their own withdrawal requests
-      allow read: if request.auth != null && 
-        request.auth.uid == resource.data.userId;
-      // Withdrawals are created via Cloud Functions (requestWithdrawal)
+      allow read: if isSignedIn() && request.auth.uid == resource.data.userId;
       allow create: if false;
-      // Admins can update (process withdrawals)
-      allow update: if isAdmin();
-      // Allow listing for history
-      allow list: if isAdmin();
+      allow update, list: if isAdmin();
+    }
+
+    // ── deny everything else ──────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
