@@ -20,7 +20,6 @@
     "type-check": "tsc -p tsconfig.typecheck.json --noEmit"
   },
   "dependencies": {
-    "@chenglou/pretext": "file:vendor/chenglou-pretext-0.0.9.tgz",
     "@opentelemetry/api": "^1.9.0",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.18.0",
@@ -33,7 +32,7 @@
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "server-only": "file:vendor/server-only-0.0.1.tgz",
+    "server-only": "^0.0.1",
     "three": "^0.169.0"
   },
   "devDependencies": {
