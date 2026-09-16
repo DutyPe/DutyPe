@@ -8,7 +8,7 @@
  * 
  * Industry Standard: LinkedIn, Indeed, Naukri pattern
  * 
- * URL Pattern: https://dutype-860ac.web.app/employer/{employerId}
+ * URL Pattern: https://dutypeapp.web.app/employer/{employerId}
  */
 
 import * as functions from "firebase-functions";
@@ -34,8 +34,8 @@ export const employerLanding = functions.https.onRequest(async (req, res) => {
       return;
     }
 
-    // Fetch employer data from the canonical profile collection.
-    const employerDoc = await db.collection("employer_profiles").doc(employerId).get();
+    // Fetch employer data from Firestore
+    const employerDoc = await db.collection("users").doc(employerId).get();
 
     if (!employerDoc.exists) {
       res.status(404).send("Employer not found");
@@ -50,7 +50,7 @@ export const employerLanding = functions.https.onRequest(async (req, res) => {
 
     // Extract employer details
     const companyName = employerData.companyName || employerData.fullName || "Company";
-    const companyPhone = employerData.phone || "";
+    const companyPhone = employerData.phone || employerData.phoneNumber || "";
     const trustTier = employerData.trustTier || "NEW";
     const profileImageUrl = employerData.profileImageUrl || "";
     const postedJobsCount = employerData.postedJobsCount || 0;
@@ -77,7 +77,6 @@ export const employerLanding = functions.https.onRequest(async (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="facebook-domain-verification" content="pm8w20h5ejx9kch4n7w6ijcbh3gfi8" />
     
     <!-- Primary Meta Tags -->
     <title>${companyName} - ${trustBadgeText} | DutyPe</title>
@@ -86,14 +85,14 @@ export const employerLanding = functions.https.onRequest(async (req, res) => {
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="business.business">
-    <meta property="og:url" content="https://dutype-860ac.web.app/employer/${employerId}">
+    <meta property="og:url" content="https://dutypeapp.web.app/employer/${employerId}">
     <meta property="og:title" content="${companyName} - ${trustBadgeText}">
     <meta property="og:description" content="${description}">
     ${profileImageUrl ? `<meta property="og:image" content="${profileImageUrl}">` : ""}
     
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:url" content="https://dutype-860ac.web.app/employer/${employerId}">
+    <meta name="twitter:url" content="https://dutypeapp.web.app/employer/${employerId}">
     <meta name="twitter:title" content="${companyName} - ${trustBadgeText}">
     <meta name="twitter:description" content="${description}">
     ${profileImageUrl ? `<meta name="twitter:image" content="${profileImageUrl}">` : ""}

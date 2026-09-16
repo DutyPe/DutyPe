@@ -27,7 +27,7 @@ exports.jobLanding = functions.https.onRequest(async (req, res) => {
             res.send(getGenericJobsPage());
             return;
         }
-        const jobDoc = await admin.firestore().collection("jobmetadata").doc(jobId).get();
+        const jobDoc = await admin.firestore().collection("jobs").doc(jobId).get();
         if (!jobDoc.exists) {
             res.status(404).send(get404Page());
             return;
@@ -51,19 +51,18 @@ exports.jobLanding = functions.https.onRequest(async (req, res) => {
 });
 function generateJobLandingPage(job, jobId) {
     const title = `${job.title} - ${job.companyName}`;
-    const salary = job.salary ? `₹${job.salary}/${job.salaryType || "FIXED"}` : "Salary Negotiable";
+    const salary = job.payAmount ? `₹${job.payAmount}/${job.payType}` : "Salary Negotiable";
     const description = `💰 ${salary} | 📍 ${job.location}`;
-    const url = `https://dutype-860ac.web.app/jobs/${jobId}`;
-    const imageUrl = job.jobImageUrl || "https://dutype-860ac.web.app/logo.png";
+    const url = `https://dutypeapp.web.app/jobs/${jobId}`;
+    const imageUrl = job.imageUrl || "https://dutypeapp.web.app/logo.png";
     // CRITICAL FIX: Use App Link (not Intent URL) for INSTANT opening
     // App Links are verified and open instantly without any dialog or webpage
-    const appLink = `https://dutype-860ac.web.app/jobs/${jobId}`;
+    const appLink = `https://dutypeapp.web.app/jobs/${jobId}`;
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="facebook-domain-verification" content="pm8w20h5ejx9kch4n7w6ijcbh3gfi8" />
     
     <!-- Clean WhatsApp Preview - Custom site name -->
     <meta property="og:type" content="article">

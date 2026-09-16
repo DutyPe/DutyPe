@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+
 export const PLAY_STORE_URL =
   "https://play.google.com/store/apps/details?id=com.dutype.app";
 export const APP_STORE_URL = "https://apps.apple.com/app/dutype";
@@ -7,57 +9,37 @@ export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://dutype.in";
 
 export const siteMeta = {
   name: "DutyPe",
-  companyName: "KGPV INNOVATION SOLUTIONS PRIVATE LIMITED",
+  companyName: "DutyPe Technologies Private Limited",
+  supportEmail: "dutypein@gmail.com",
   strapline: "Local jobs near you",
   description:
-    "Find local jobs near you. Connect workers with employers instantly. No middlemen, no fees.",
-  supportEmail: SUPPORT_EMAIL,
-  registeredOffice: "India"
+    "Find local jobs near you. Connect workers with employers instantly. No middlemen, no fees."
 };
 
 export const coreSeoKeywords = [
   "jobs near me",
-  "jobs near me hiring now",
-  "jobs near me for freshers",
-  "jobs near me no experience",
-  "jobs near me 10th pass",
-  "jobs near me 12th pass",
-  "part time jobs near me",
-  "night shift jobs near me",
-  "daily wage jobs near me",
   "local jobs",
-  "local jobs hiring immediately",
-  "delivery jobs near me",
-  "driver jobs near me",
-  "maid jobs near me",
-  "cook jobs near me",
-  "helper jobs near me",
-  "security guard jobs near me",
-  "warehouse jobs near me",
-  "cleaner jobs near me",
-  "peon jobs near me",
-  "retail jobs near me",
-  "blue collar jobs india",
+  "part time jobs",
+  "full time jobs",
+  "delivery jobs",
+  "driver jobs",
+  "maid jobs",
+  "warehouse jobs",
+  "daily wage jobs",
+  "blue collar jobs",
   "worker hiring app",
   "hire workers near me",
   "job search app india",
-  "free job app",
-  "no middleman jobs",
-  "verified employer jobs",
-  "instant job apply",
-  "job vacancy near me",
-  "DutyPe",
-  "DutyPe app",
-  "dutype jobs"
+  "hyperlocal hiring",
+  "DutyPe"
 ];
 
 export const primaryNav = [
   { href: "/", label: "Home" },
-  { href: "/jobs", label: "Jobs" },
-  { href: "/jobs-near-me", label: "Jobs Near Me" },
+  { href: "/jobs", label: "Find jobs" },
+  { href: "/app/employer/post-job", label: "For employers" },
   { href: "/safety", label: "Safety" },
-  { href: "/faq", label: "FAQ" },
-  { href: "/contact", label: "Contact" }
+  { href: "/faq", label: "Help centre" }
 ];
 
 export const footerGroups = [
@@ -76,7 +58,7 @@ export const footerGroups = [
       { href: "/contact", label: "Contact us" },
       { href: "/faq", label: "FAQ" },
       { href: "/safety", label: "Safety" },
-      { href: `mailto:${SUPPORT_EMAIL}`, label: SUPPORT_EMAIL }
+      { href: `mailto:${SUPPORT_EMAIL}`, label: "Email support" }
     ]
   },
   {
@@ -84,8 +66,7 @@ export const footerGroups = [
     links: [
       { href: "/privacy", label: "Privacy" },
       { href: "/terms", label: "Terms" },
-      { href: "/refund", label: "Refunds" },
-      { href: "/accountdeletion", label: "Delete Account" }
+      { href: "/refund", label: "Refunds" }
     ]
   }
 ];
@@ -132,6 +113,48 @@ export const homeCategories = [
   { href: "/warehouse-jobs", label: "Warehouse Jobs" }
 ];
 
+export const jobDirectoryCategories = [
+  { slug: "delivery", name: "Delivery", icon: "truck", tone: "mint", description: "Food, groceries & parcels", keywords: "courier rider bike delivery boy" },
+  { slug: "driver", name: "Driving", icon: "car-front", tone: "blue", description: "Personal & commercial drivers", keywords: "driver cab taxi car transport" },
+  { slug: "retail", name: "Retail & sales", icon: "store", tone: "rose", description: "Shops, stores & showrooms", keywords: "cashier shopkeeper sales associate" },
+  { slug: "cook", name: "Cooking", icon: "chef-hat", tone: "yellow", description: "Home kitchens & restaurants", keywords: "cook chef kitchen food hotel" },
+  { slug: "maid", name: "Housekeeping", icon: "house", tone: "rose", description: "Homes & household support", keywords: "maid housekeeper domestic house help" },
+  { slug: "warehouse", name: "Warehouse", icon: "warehouse", tone: "yellow", description: "Packing, sorting & logistics", keywords: "picker packer stock loading dispatch" },
+  { slug: "security", name: "Security", icon: "shield-check", tone: "mint", description: "Offices, stores & communities", keywords: "guard watchman night shift" },
+  { slug: "helper", name: "Helper & support", icon: "wrench", tone: "blue", description: "Shops, offices & everyday support", keywords: "assistant labour labor general helper" },
+  { slug: "cleaner", name: "Cleaning", icon: "sparkles", tone: "blue", description: "Offices & shared spaces", keywords: "cleaner janitor housekeeping hospital" },
+  { slug: "part-time", name: "Part-time", icon: "clock-3", tone: "mint", description: "Flexible hours & weekend shifts", keywords: "part time evening morning weekend student" },
+  { slug: "daily-wage", name: "Daily wage", icon: "wallet", tone: "yellow", description: "Daily shifts & short-term work", keywords: "daily payment construction event staffing labour" },
+  { slug: "peon", name: "Office support", icon: "clipboard-list", tone: "rose", description: "Office assistants & admin support", keywords: "peon runner school documents" }
+] as const;
+
+export type JobDirectoryCategory = (typeof jobDirectoryCategories)[number];
+
+export const jobDirectoryCities = [
+  "Hyderabad", "Bangalore", "Delhi", "Mumbai", "Vijayawada", "Warangal",
+  "Tirupati", "Guntur", "Kakinada", "Karimnagar", "Nellore", "Anantapur",
+  "Nizamabad", "Rajahmundry", "Khammam"
+];
+
+export function getJobDiscovery(searchText = "", requestedCity = "") {
+  const query = searchText.trim().slice(0, 200);
+  const city = jobDirectoryCities.find(
+    (name) => name.toLowerCase() === requestedCity.trim().toLowerCase()
+  ) ?? "";
+  const terms = query.toLowerCase().replace(/\b(jobs?|work|vacancies|vacancy)\b/g, " ").split(/[\s-]+/).filter(Boolean);
+  const categories = jobDirectoryCategories.filter((category) => {
+    const searchable = `${category.name} ${category.description} ${category.keywords}`.toLowerCase();
+    return terms.every((term) => searchable.includes(term));
+  });
+
+  return { query, city, categories };
+}
+
+export function jobCategoryHref(category: JobDirectoryCategory, city = "") {
+  const knownCity = getJobDiscovery("", city).city;
+  return `/${category.slug}-jobs${knownCity ? `-${knownCity.toLowerCase()}` : ""}`;
+}
+
 export const homeStats = [
   { value: "10K+", label: "Active Jobs" },
   { value: "50K+", label: "Workers" },
@@ -144,14 +167,6 @@ export const cityLandingTargets = [
   "Bangalore",
   "Delhi",
   "Mumbai",
-  "Pune",
-  "Chennai",
-  "Kolkata",
-  "Ahmedabad",
-  "Jaipur",
-  "Lucknow",
-  "Noida",
-  "Gurgaon",
   "Vijayawada",
   "Warangal"
 ];
@@ -201,6 +216,7 @@ export type LegacyPageBlock =
 export type LegacyPageDescriptor = {
   slug: string;
   title: string;
+  city?: string;
   description: string;
   eyebrow: string;
   intro: string;
@@ -211,6 +227,11 @@ export type LegacyPageDescriptor = {
   ctaCopy?: string;
   ctaHref?: string;
   ctaLabel?: string;
+  category?: {
+    slug: string;
+    city: string | null;
+    salary: string;
+  };
 };
 
 export type PublicJobRouteData = {
@@ -267,23 +288,8 @@ type CategoryDetails = {
 const cityNames: Record<string, string> = {
   hyderabad: "Hyderabad",
   bangalore: "Bangalore",
-  bengaluru: "Bengaluru",
   delhi: "Delhi",
   mumbai: "Mumbai",
-  pune: "Pune",
-  chennai: "Chennai",
-  kolkata: "Kolkata",
-  ahmedabad: "Ahmedabad",
-  jaipur: "Jaipur",
-  lucknow: "Lucknow",
-  chandigarh: "Chandigarh",
-  indore: "Indore",
-  bhopal: "Bhopal",
-  nagpur: "Nagpur",
-  surat: "Surat",
-  kochi: "Kochi",
-  coimbatore: "Coimbatore",
-  visakhapatnam: "Visakhapatnam",
   vijayawada: "Vijayawada",
   warangal: "Warangal",
   anantapur: "Anantapur",
@@ -294,147 +300,7 @@ const cityNames: Record<string, string> = {
   nellore: "Nellore",
   nizamabad: "Nizamabad",
   rajahmundry: "Rajahmundry",
-  tirupati: "Tirupati",
-  noida: "Noida",
-  gurgaon: "Gurgaon",
-  ghaziabad: "Ghaziabad",
-  faridabad: "Faridabad",
-  thane: "Thane",
-  "navi-mumbai": "Navi Mumbai",
-  mysore: "Mysore",
-  mangalore: "Mangalore",
-  hubli: "Hubli",
-  madurai: "Madurai",
-  trichy: "Trichy",
-  vadodara: "Vadodara",
-  rajkot: "Rajkot",
-  patna: "Patna",
-  ranchi: "Ranchi",
-  bhubaneswar: "Bhubaneswar",
-  dehradun: "Dehradun"
-};
-
-const cityLocalAreas: Record<string, string[]> = {
-  hyderabad: [
-    "Madhapur",
-    "Gachibowli",
-    "Kondapur",
-    "Kukatpally",
-    "Miyapur",
-    "Ameerpet",
-    "LB Nagar",
-    "Uppal",
-    "Secunderabad",
-    "Banjara Hills",
-    "Jubilee Hills",
-    "Manikonda"
-  ],
-  vijayawada: [
-    "Benz Circle",
-    "Auto Nagar",
-    "Governorpet",
-    "Patamata",
-    "Moghalrajpuram",
-    "Kanuru",
-    "Poranki",
-    "Bhavanipuram"
-  ],
-  warangal: [
-    "Hanamkonda",
-    "Kazipet",
-    "Subedari",
-    "Nakkalagutta",
-    "Kothawada",
-    "Fort Warangal"
-  ],
-  khammam: [
-    "Wyra Road",
-    "Mamillagudem",
-    "Khanapuram Haveli",
-    "Burhanpuram",
-    "Mustafa Nagar",
-    "Nehru Nagar"
-  ],
-  karimnagar: [
-    "Mukrampura",
-    "Kothirampur",
-    "Jyothi Nagar",
-    "Mankammathota",
-    "Srinagar Colony",
-    "Rekurthi"
-  ],
-  kurnool: [
-    "Nandyal Road",
-    "Kallur",
-    "Ashok Nagar",
-    "B Camp",
-    "Budhwar Peta",
-    "Joharapuram"
-  ],
-  visakhapatnam: [
-    "Dwaraka Nagar",
-    "MVP Colony",
-    "Gajuwaka",
-    "Madhurawada",
-    "Akkayyapalem",
-    "Seethammadhara"
-  ],
-  guntur: [
-    "Brodipet",
-    "Arundelpet",
-    "Lakshmipuram",
-    "Kothapeta",
-    "Nallapadu",
-    "Amaravathi Road"
-  ],
-  tirupati: [
-    "Tiruchanur",
-    "Renigunta Road",
-    "Korlagunta",
-    "M R Palli",
-    "Leela Mahal Circle",
-    "Alipiri"
-  ],
-  kakinada: [
-    "Jagannaickpur",
-    "Sarpavaram",
-    "Bhanugudi",
-    "Ramanayyapeta",
-    "Indrapalem",
-    "Port Area"
-  ],
-  nellore: [
-    "Dargamitta",
-    "Balaji Nagar",
-    "Stonehouse Pet",
-    "Magunta Layout",
-    "Haranathapuram",
-    "Nawabpet"
-  ],
-  nizamabad: [
-    "Bodhan Road",
-    "Kanteshwar",
-    "Dichpally",
-    "Armoor Road",
-    "Subhash Nagar",
-    "Vinayak Nagar"
-  ],
-  rajahmundry: [
-    "Danavaipeta",
-    "AV Appa Rao Road",
-    "Kambala Cheruvu",
-    "Morampudi",
-    "Alcot Gardens",
-    "Seethampeta"
-  ],
-  anantapur: [
-    "Sapthagiri Circle",
-    "Ram Nagar",
-    "Old Town",
-    "Rudrampeta",
-    "Srinivas Nagar",
-    "Housing Board"
-  ]
+  tirupati: "Tirupati"
 };
 
 const categoryDetails: Record<string, CategoryDetails> = {
@@ -1247,93 +1113,6 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
     ctaCopy: `Reach ${SUPPORT_EMAIL} if your question is not covered here.`,
     ctaHref: "/contact",
     ctaLabel: "Contact DutyPe"
-  },
-  "account-deletion": {
-    slug: "account-deletion",
-    title: "Request Account Deletion",
-    description:
-      "Request deletion of your DutyPe account and all associated personal data. We process deletion requests within 7 business days.",
-    eyebrow: "Privacy",
-    intro:
-      "You have the right to request deletion of your DutyPe account and personal data at any time. Send us an email and we will process your request.",
-    highlights: [
-      "Your data deletion request will be processed within 7 business days.",
-      "All personal data including profile, applications, and chat history will be permanently removed.",
-      "This action cannot be undone."
-    ],
-    blocks: [
-      {
-        kind: "copy",
-        title: "How to request account deletion",
-        paragraphs: [
-          `To request deletion of your account and all associated data, send an email to ${SUPPORT_EMAIL} with the subject line "Account Deletion Request".`,
-          "Include the phone number registered with your DutyPe account so we can locate and verify your account.",
-          "You will receive a confirmation email once your request has been received and another when the deletion is complete."
-        ],
-        tone: "highlight"
-      },
-      {
-        kind: "list",
-        title: "What gets deleted",
-        intro: "When your account is deleted, the following data is permanently removed:",
-        items: [
-          "Your profile information (name, phone number, photo, skills, and preferences).",
-          "All job applications and application history.",
-          "Chat messages and communication history.",
-          "Referral data and earnings history.",
-          "Saved jobs and notification preferences.",
-          "Any employer-posted jobs and associated applicant data (for employer accounts)."
-        ]
-      },
-      {
-        kind: "list",
-        title: "What we may retain",
-        intro: "Certain data may be retained for legal and compliance purposes:",
-        items: [
-          "Transaction records as required by Indian tax and financial regulations.",
-          "Abuse and safety reports to protect the community.",
-          "Aggregated, anonymised analytics that cannot identify you."
-        ],
-        tone: "neutral"
-      },
-      {
-        kind: "table",
-        title: "Deletion timeline",
-        columns: ["Step", "Timeframe"],
-        rows: [
-          ["Request received", "Confirmation email within 24 hours"],
-          ["Account verification", "1 to 2 business days"],
-          ["Data deletion", "3 to 5 business days after verification"],
-          ["Final confirmation", "Email sent once deletion is complete"]
-        ]
-      },
-      {
-        kind: "copy",
-        title: "Important notes",
-        paragraphs: [
-          "Account deletion is permanent and cannot be reversed. You will need to create a new account if you wish to use DutyPe again.",
-          "If you have any pending payments or active disputes, those must be resolved before your account can be deleted.",
-          "For employer accounts, all active job postings will be closed and applicants will be notified."
-        ],
-        tone: "warning"
-      },
-      {
-        kind: "contact",
-        title: "Send your deletion request",
-        items: [
-          {
-            label: "Account deletion",
-            value: SUPPORT_EMAIL,
-            note: "Email with subject: Account Deletion Request. Include your registered phone number.",
-            href: `mailto:${SUPPORT_EMAIL}?subject=Account%20Deletion%20Request`
-          }
-        ]
-      }
-    ],
-    ctaTitle: "Ready to delete your account?",
-    ctaCopy: `Send an email to ${SUPPORT_EMAIL} with the subject \"Account Deletion Request\" and your registered phone number.`,
-    ctaHref: `mailto:${SUPPORT_EMAIL}?subject=Account%20Deletion%20Request`,
-    ctaLabel: "Request deletion"
   }
 };
 
@@ -1349,66 +1128,6 @@ function normalizeCity(citySlug: string) {
   return cityNames[citySlug] ?? titleCaseFromSlug(citySlug);
 }
 
-function getCityLocalAreas(citySlug: string) {
-  return cityLocalAreas[citySlug] ?? [];
-}
-
-function buildCitySeoKeywords(city: string, areas: string[]) {
-  return [
-    `jobs in ${city}`,
-    `${city} jobs near me`,
-    `part time jobs in ${city}`,
-    `local jobs in ${city}`,
-    `job vacancy in ${city}`,
-    `daily wage jobs in ${city}`,
-    `delivery jobs in ${city}`,
-    `driver jobs in ${city}`,
-    `maid jobs in ${city}`,
-    `cook jobs in ${city}`,
-    `security guard jobs in ${city}`,
-    `warehouse jobs in ${city}`,
-    ...areas.flatMap((area) => [
-      `jobs near ${area}`,
-      `part time jobs in ${area}`,
-      `delivery jobs in ${area}`,
-      `driver jobs in ${area}`,
-      `maid jobs in ${area}`,
-      `cook jobs in ${area}`
-    ])
-  ];
-}
-
-function buildCategorySeoKeywords(details: CategoryDetails, cityLabel: string | null, areas: string[]) {
-  const roleTerms = details.roles.flatMap((role) => [
-    `${role.toLowerCase()} jobs`,
-    `${role.toLowerCase()} vacancy`
-  ]);
-
-  if (!cityLabel) {
-    return [
-      `${details.shortLabel.toLowerCase()} jobs near me`,
-      `${details.shortLabel.toLowerCase()} vacancy near me`,
-      `part time ${details.shortLabel.toLowerCase()} jobs near me`,
-      `${details.shortLabel.toLowerCase()} jobs for freshers`,
-      ...roleTerms
-    ];
-  }
-
-  return [
-    `${details.shortLabel.toLowerCase()} jobs in ${cityLabel}`,
-    `${details.shortLabel.toLowerCase()} vacancy in ${cityLabel}`,
-    `${details.shortLabel.toLowerCase()} jobs near me ${cityLabel}`,
-    `part time ${details.shortLabel.toLowerCase()} jobs in ${cityLabel}`,
-    `${details.shortLabel.toLowerCase()} jobs for freshers in ${cityLabel}`,
-    ...roleTerms.map((term) => `${term} in ${cityLabel}`),
-    ...areas.flatMap((area) => [
-      `${details.shortLabel.toLowerCase()} jobs in ${area}`,
-      `${details.shortLabel.toLowerCase()} vacancy near ${area}`,
-      `part time ${details.shortLabel.toLowerCase()} jobs in ${area}`
-    ])
-  ];
-}
-
 function getCategorySlug(slug: string) {
   const keys = Object.keys(categoryDetails).sort((left, right) => right.length - left.length);
   for (const key of keys) {
@@ -1417,9 +1136,11 @@ function getCategorySlug(slug: string) {
       return { category: key, city: null as string | null };
     }
     if (slug.startsWith(`${prefix}-`)) {
+      const city = slug.slice(prefix.length + 1);
+      if (!Object.hasOwn(cityNames, city)) return null;
       return {
         category: key,
-        city: slug.slice(prefix.length + 1)
+        city
       };
     }
   }
@@ -1429,122 +1150,56 @@ function getCategorySlug(slug: string) {
 function generateCityJobsPage(slug: string): LegacyPageDescriptor {
   const citySlug = slug.replace(/^jobs-in-/, "");
   const city = normalizeCity(citySlug);
-  const localAreas = getCityLocalAreas(citySlug);
-
-  const categoryList = Object.entries(categoryDetails);
-  const topCategories = categoryList.slice(0, 8);
 
   return {
     slug,
-    title: `Jobs in ${city} — Local Hiring Near You`,
-    description: `Find ${topCategories.map(([, d]) => d.shortLabel.toLowerCase()).join(", ")} and other local jobs in ${city}. Apply free on DutyPe — no middlemen, no fees, verified employers.`,
-    eyebrow: `${city} Jobs`,
+    title: `Jobs in ${city}`,
+    city,
+    description: `Find local jobs in ${city} including delivery, driver, maid, helper, warehouse, and part-time roles with DutyPe.`,
+    eyebrow: "City landing page",
     intro:
-      `Looking for work in ${city}? DutyPe lists delivery, driver, maid, cook, helper, security, warehouse, retail, part-time, and daily-wage jobs posted by verified local employers in ${city}. Apply directly from your phone — 100% free for workers.`,
+      `Browse local work in ${city} across delivery, driving, housekeeping, cooking, helper, security, and warehouse roles. Apply directly through DutyPe for free.`,
     highlights: [
-      `Jobs within 1 km, 5 km, and 10 km of your location in ${city}.`,
-      "No registration fees. No middlemen. Direct employer contact.",
-      "Get notified instantly when a new job is posted near you."
+      `${city} workers want nearby roles with clear pay and clear location.`,
+      "Hyperlocal search, safe contact, and trust cues matter more than generic job boards.",
+      "Open the app for live listings and application status."
     ],
-    seoKeywords: buildCitySeoKeywords(city, localAreas),
     blocks: [
       {
-        kind: "table",
-        title: `Jobs in ${city} by category`,
-        intro: `Popular job categories and typical salary ranges in ${city}:`,
-        columns: ["Category", "Typical salary & common roles"],
-        rows: topCategories.map(([, d]) => [
-          `${d.label} in ${city}`,
-          `${d.salary} — ${d.roles.join(", ")}`
-        ])
-      },
-      {
         kind: "list",
-        title: `Why workers in ${city} use DutyPe`,
+        title: `Popular roles in ${city}`,
         items: [
-          `Hyperlocal search shows only jobs near your area in ${city} — not generic nationwide listings.`,
-          "One-tap apply sends your profile to the employer instantly — no forms, no calls, no agency fees.",
-          "Verified employers with clear pay, shift timings, and location details on every listing.",
-          `Many employers in ${city} respond within 24 hours and hire within 48 hours.`,
-          "In-app chat lets you message employers directly before and after applying.",
-          `Daily-wage and part-time options for workers in ${city} who need flexible schedules.`
-        ]
-      },
-      {
-        kind: "faq",
-        title: `Jobs in ${city} — frequently asked questions`,
-        items: [
-          {
-            question: `How do I find jobs near me in ${city}?`,
-            answer: `Download DutyPe, enable location, and browse jobs within 1 km, 5 km, or 10 km of your area in ${city}. Apply with one tap.`
-          },
-          {
-            question: `Is DutyPe free for workers in ${city}?`,
-            answer: "Yes. DutyPe is 100% free for job seekers. You will never be asked to pay to apply or get hired."
-          },
-          {
-            question: `What types of jobs are available in ${city}?`,
-            answer: `DutyPe lists delivery, driver, maid, cook, helper, security, cleaner, warehouse, retail, part-time, daily-wage, and peon jobs in ${city}.`
-          },
-          {
-            question: `Can freshers find jobs in ${city}?`,
-            answer: "Yes. Many employers on DutyPe hire freshers and 10th/12th pass candidates for entry-level roles."
-          },
-          {
-            question: `Are there night shift or weekend jobs in ${city}?`,
-            answer: `Yes. Filter by shift type in the app to find night shift, weekend, evening, and morning jobs in ${city}.`
-          }
-        ]
-      },
-      {
-        kind: "list",
-        title: `Popular job searches in ${city}`,
-        items: [
-          `Part time jobs in ${city}`,
           `Delivery jobs in ${city}`,
           `Driver jobs in ${city}`,
-          `Maid jobs in ${city}`,
-          `Jobs in ${city} for freshers`,
-          `Night shift jobs in ${city}`,
-          `Jobs in ${city} no experience`,
-          `Jobs in ${city} 10th pass`,
-          `Daily wage jobs in ${city}`,
-          `Jobs in ${city} for women`
+          `Maid and cleaning jobs in ${city}`,
+          `Cook and helper jobs in ${city}`,
+          `Warehouse and part-time jobs in ${city}`
         ]
       },
-      ...(localAreas.length
-        ? [
-            {
-              kind: "list" as const,
-              title: `Jobs by local area in ${city}`,
-              intro: `Use these area searches to find jobs closer to your commute in ${city}:`,
-              items: localAreas.flatMap((area) => [
-                `Jobs near ${area}`,
-                `Part time jobs in ${area}`,
-                `Delivery, driver, cook, maid, helper, retail, and security jobs in ${area}`
-              ])
-            },
-            {
-              kind: "faq" as const,
-              title: `${city} local job search FAQ`,
-              items: [
-                {
-                  question: `Can I search jobs by area in ${city}?`,
-                  answer: `Yes. DutyPe is built for nearby hiring, so workers can search around local areas like ${localAreas.slice(0, 4).join(", ")} and other neighborhoods in ${city}.`
-                },
-                {
-                  question: `Which ${city} areas are useful for local job search?`,
-                  answer: `Popular search areas include ${localAreas.join(", ")}. Open the app and enable location to see the closest verified openings.`
-                }
-              ]
-            }
-          ]
-        : [])
+      {
+        kind: "list",
+        title: `Why workers choose DutyPe in ${city}`,
+        items: [
+          "Nearby jobs instead of broad nationwide listings.",
+          "Direct worker-employer connection without middlemen.",
+          "Safety messaging around fake jobs and fee scams.",
+          "Fast app-based application flow and status tracking."
+        ]
+      },
+      {
+        kind: "list",
+        title: "Typical pay ranges",
+        items: [
+          "Entry support roles often start near Rs 10,000 to Rs 14,000 per month.",
+          "Delivery and driving roles can move into higher monthly totals with incentives.",
+          "Part-time and daily-wage roles vary based on shift length and area."
+        ]
+      }
     ],
-    ctaTitle: `Find jobs in ${city} now`,
-    ctaCopy: `Download DutyPe and see live job openings near you in ${city}. Free for all workers.`,
-    ctaHref: "/app/worker/jobs",
-    ctaLabel: "Browse live jobs"
+    ctaTitle: `Open live jobs in ${city}`,
+    ctaCopy: "The app is the live source for current openings, trust signals, and application actions.",
+    ctaHref: PLAY_STORE_URL,
+    ctaLabel: "Find jobs in the app"
   };
 }
 
@@ -1561,20 +1216,6 @@ function generateJobsNearMePage(): LegacyPageDescriptor {
       "Nearby roles reduce commute friction.",
       "Workers need clear pay, location, and trust cues.",
       "100 percent free for job seekers."
-    ],
-    seoKeywords: [
-      "jobs near me",
-      "part time jobs near me",
-      "delivery jobs near me",
-      "driver jobs near me",
-      "maid jobs near me",
-      "cook jobs near me",
-      "security jobs near me",
-      "warehouse jobs near me",
-      "daily wage jobs near me",
-      "jobs hiring immediately near me",
-      "10th pass jobs near me",
-      "freshers jobs near me"
     ],
     blocks: [
       {
@@ -1693,8 +1334,8 @@ function generateJobsNearMePage(): LegacyPageDescriptor {
     ],
     ctaTitle: "See live nearby jobs",
     ctaCopy: "Download DutyPe and find verified jobs near your location today.",
-    ctaHref: "/app/worker/jobs",
-    ctaLabel: "Open worker jobs"
+    ctaHref: PLAY_STORE_URL,
+    ctaLabel: "Find jobs in the app"
   };
 }
 
@@ -1705,126 +1346,50 @@ function generateCategoryPage(
 ): LegacyPageDescriptor {
   const details = categoryDetails[category];
   const cityLabel = city ? normalizeCity(city) : null;
-  const cityAreas = city ? getCityLocalAreas(city) : [];
-  const title = cityLabel
-    ? `${details.label} in ${cityLabel} — Apply Free`
-    : `${details.label} — Find ${details.shortLabel} Work Near You`;
-  const locationLabel = cityLabel ?? "your area";
+  const title = cityLabel ? `${details.label} in ${cityLabel}` : details.label;
 
   return {
     slug,
     title,
+    category: { slug: category, city: cityLabel, salary: details.salary },
     description: cityLabel
-      ? `Find ${details.shortLabel.toLowerCase()} jobs in ${cityLabel}. ${details.salary} Apply free on DutyPe — verified employers, no middlemen, instant apply.`
-      : `Find ${details.shortLabel.toLowerCase()} jobs near you. ${details.salary} Apply free on DutyPe — verified employers, no fees for workers.`,
-    eyebrow: cityLabel ? `${details.shortLabel} Jobs · ${cityLabel}` : `${details.shortLabel} Jobs`,
+      ? `Find ${details.shortLabel.toLowerCase()} openings in ${cityLabel} with DutyPe.`
+      : `Find ${details.shortLabel.toLowerCase()} openings near you with DutyPe.`,
+    eyebrow: cityLabel ? "Category and city page" : "Category page",
     intro: cityLabel
-      ? `${details.intro} Browse the latest ${details.shortLabel.toLowerCase()} openings in ${cityLabel} and apply directly through DutyPe — free for all workers, no agencies, no fees.`
-      : `${details.intro} Browse verified ${details.shortLabel.toLowerCase()} openings near your location and apply with one tap through DutyPe.`,
+      ? `${details.intro} Find the latest ${details.shortLabel.toLowerCase()} openings in ${cityLabel} and apply directly through DutyPe.`
+      : `${details.intro} Browse verified openings and apply directly through DutyPe for free.`,
     highlights: [
       details.salary,
-      `Apply to ${details.shortLabel.toLowerCase()} jobs in ${locationLabel} with one tap — no forms, no calls.`,
-      "100% free for workers. Verified employers only."
+      "No recruitment fees for workers.",
+      "Pay, hours, and availability vary by employer."
     ],
-    seoKeywords: buildCategorySeoKeywords(details, cityLabel, cityAreas),
     blocks: [
       {
-        kind: "table",
-        title: cityLabel
-          ? `${details.shortLabel} roles and pay in ${cityLabel}`
-          : `${details.shortLabel} roles and typical pay`,
-        intro: `Common ${details.shortLabel.toLowerCase()} positions available on DutyPe:`,
-        columns: ["Role", "Details"],
-        rows: details.roles.map((role) => [
-          cityLabel ? `${role} in ${cityLabel}` : role,
-          `${details.salary} Direct employer contact, verified listings.`
-        ])
+        kind: "list",
+        title: "Common roles",
+        items: details.roles
       },
       {
         kind: "list",
-        title: `Why choose DutyPe for ${details.shortLabel.toLowerCase()} jobs`,
+        title: "What to check before applying",
         items: [
-          `Hyperlocal search — see only ${details.shortLabel.toLowerCase()} jobs near your exact location, not city-wide spam.`,
-          "One-tap apply — your profile goes directly to the employer. No paperwork, no agency calls.",
-          "Verified employers — every job listing shows clear pay, shift, and location details.",
-          `Daily, weekly, and monthly pay options for ${details.shortLabel.toLowerCase()} roles.`,
-          "In-app chat — message employers directly before and after applying.",
-          "Safety first — report suspicious listings and DutyPe reviews within 24 hours."
-        ]
-      },
-      ...(cityLabel && cityAreas.length
-        ? [
-            {
-              kind: "list" as const,
-              title: `${details.shortLabel} jobs by area in ${cityLabel}`,
-              intro: `Search by neighborhood to find ${details.shortLabel.toLowerCase()} work closer to your commute in ${cityLabel}:`,
-              items: cityAreas.flatMap((area) => [
-                `${details.shortLabel} jobs in ${area}`,
-                `Part time ${details.shortLabel.toLowerCase()} jobs in ${area}`,
-                `${details.shortLabel} vacancy near ${area}`
-              ])
-            },
-            {
-              kind: "copy" as const,
-              title: `Common ${cityLabel} ${details.shortLabel.toLowerCase()} searches`,
-              paragraphs: [
-                `Common searches include ${details.shortLabel.toLowerCase()} jobs near me in ${cityLabel}, ${details.shortLabel.toLowerCase()} vacancy in ${cityLabel}, and part time ${details.shortLabel.toLowerCase()} jobs near ${cityAreas.slice(0, 3).join(", ")}.`,
-                `Workers can compare nearby openings by pay, shift, and area before applying. Employers can reach candidates who already want this role in the same city.`
-              ],
-              tone: "highlight" as const
-            }
-          ]
-        : []),
-      {
-        kind: "faq",
-        title: `${details.shortLabel} jobs — common questions`,
-        items: [
-          {
-            question: `How much do ${details.shortLabel.toLowerCase()} jobs pay?`,
-            answer: details.salary
-          },
-          {
-            question: `Do I need experience for ${details.shortLabel.toLowerCase()} jobs?`,
-            answer: `Many ${details.shortLabel.toLowerCase()} jobs on DutyPe do not require prior experience. Employers often hire freshers and train on the job.`
-          },
-          {
-            question: `How do I apply for ${details.shortLabel.toLowerCase()} jobs${cityLabel ? ` in ${cityLabel}` : ""}?`,
-            answer: `Download DutyPe, create your profile, enable location, and apply to ${details.shortLabel.toLowerCase()} jobs with one tap. It's 100% free.`
-          },
-          {
-            question: `Are there part-time ${details.shortLabel.toLowerCase()} jobs?`,
-            answer: `Yes. DutyPe lists full-time, part-time, daily-wage, and flexible ${details.shortLabel.toLowerCase()} openings. Filter by shift type in the app.`
-          },
-          {
-            question: `Is DutyPe free for ${details.shortLabel.toLowerCase()} job seekers?`,
-            answer: "Yes. DutyPe is completely free for all workers. You will never be charged to browse, apply, or get hired."
-          }
-        ]
-      },
-      {
-        kind: "list",
-        title: `Popular ${details.shortLabel.toLowerCase()} job searches`,
-        items: [
-          `${details.shortLabel} jobs near me`,
-          `${details.shortLabel} jobs ${cityLabel ?? "in my city"}`,
-          `Part time ${details.shortLabel.toLowerCase()} jobs`,
-          `${details.shortLabel} jobs for freshers`,
-          `${details.shortLabel} jobs no experience`,
-          `Night shift ${details.shortLabel.toLowerCase()} jobs`,
-          `${details.shortLabel} jobs for women`,
-          `${details.shortLabel} jobs 10th pass`
+          "Exact area and travel distance.",
+          "Shift timing and weekly off details.",
+          "Whether pay is monthly, daily, or incentive-based.",
+          "Employer credibility and communication quality."
         ]
       }
     ],
-    ctaTitle: `Find ${details.shortLabel.toLowerCase()} jobs${cityLabel ? ` in ${cityLabel}` : ""} now`,
-    ctaCopy: `Download DutyPe and see live ${details.shortLabel.toLowerCase()} job openings near you. Free for all workers.`,
-    ctaHref: "/app/worker/jobs",
-    ctaLabel: "Browse live jobs"
+    ctaTitle: "Current openings",
+    ctaCopy: "Availability and pay are set by each employer.",
+    ctaHref: PLAY_STORE_URL,
+    ctaLabel: "Find jobs in the app"
   };
 }
 
 export function resolveLegacyPage(slug: string): LegacyPageDescriptor | null {
-  if (staticPages[slug]) {
+  if (Object.hasOwn(staticPages, slug)) {
     return staticPages[slug];
   }
 
@@ -1833,7 +1398,7 @@ export function resolveLegacyPage(slug: string): LegacyPageDescriptor | null {
   }
 
   if (slug.startsWith("jobs-in-")) {
-    return generateCityJobsPage(slug);
+    return Object.hasOwn(cityNames, slug.slice("jobs-in-".length)) ? generateCityJobsPage(slug) : null;
   }
 
   const categoryMatch = getCategorySlug(slug);
@@ -1854,6 +1419,54 @@ export function getKnownLegacySlugs() {
   return Array.from(
     new Set([...Object.keys(staticPages), "jobs-near-me", ...citySlugs, ...categorySlugs])
   ).sort();
+}
+
+export function getPublicPageMetadata(slug: string): Metadata {
+  const page = resolveLegacyPage(slug);
+  if (!page) return {};
+  const indexable = getKnownLegacySlugs().includes(slug);
+  const url = `${SITE_URL}/${slug}`;
+
+  return {
+    title: page.title,
+    description: page.description,
+    alternates: { canonical: url },
+    robots: { index: indexable, follow: true },
+    openGraph: { title: page.title, description: page.description, url, type: "website", siteName: siteMeta.name },
+    twitter: { card: "summary", title: page.title, description: page.description }
+  };
+}
+
+export function getPublicPageStructuredData(slug: string) {
+  const page = resolveLegacyPage(slug);
+  if (!page || (!page.city && !page.category && slug !== "jobs-near-me")) return null;
+  const url = `${SITE_URL}/${slug}`;
+  const city = page.city || page.category?.city;
+  const breadcrumbs = [
+    { name: siteMeta.name, item: SITE_URL },
+    { name: "Jobs", item: `${SITE_URL}/jobs` },
+    ...(page.category?.city ? [{ name: `Jobs in ${city}`, item: `${SITE_URL}/jobs-in-${city!.toLowerCase()}` }] : []),
+    { name: page.title, item: url }
+  ];
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": url,
+        url,
+        name: page.title,
+        description: page.description,
+        inLanguage: "en-IN",
+        isPartOf: { "@type": "WebSite", name: siteMeta.name, url: SITE_URL },
+        ...(city ? { spatialCoverage: { "@type": "Place", name: city, address: { "@type": "PostalAddress", addressLocality: city, addressCountry: "IN" } } } : {})
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: breadcrumbs.map((crumb, index) => ({ "@type": "ListItem", position: index + 1, ...crumb }))
+      }
+    ]
+  };
 }
 
 export function buildDeepLinkBundle(kind: DeepLinkKind, entityId?: string) {

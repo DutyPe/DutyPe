@@ -1,55 +1,42 @@
 import type { MetadataRoute } from "next";
 
 import { SITE_URL, getKnownLegacySlugs } from "@/lib/public-site";
+import { getDiscoverableJobs } from "@/lib/jobs/server";
 
-const lastModified = new Date();
+export const revalidate = 300;
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const canonicalRoutes = [
     "",
     "/jobs",
-    "/jobs-near-me",
-    "/refer",
-    "/worker",
-    "/employer",
-    "/contact",
-    "/faq",
-    "/safety",
-    "/privacy",
-    "/terms",
-    "/refund",
-    "/accountdeletion",
     ...getKnownLegacySlugs().map((slug) => `/${slug}`)
   ];
 
   const routes = [...new Set(canonicalRoutes)];
 
-  return routes.map((route) => ({
+  const staticEntries: MetadataRoute.Sitemap = routes.map((route) => ({
     url: `${SITE_URL}${route}`,
-    lastModified,
     changeFrequency:
       route === ""
         ? "daily"
-        : route === "/jobs" || route === "/jobs-near-me"
+        : route === "/jobs" || route.startsWith("/jobs-in-")
           ? "daily"
-          : route.startsWith("/jobs-in-") || route.endsWith("-jobs")
-            ? "daily"
-            : route === "/privacy" || route === "/terms" || route === "/refund" || route === "/accountdeletion"
-              ? "yearly"
-              : "weekly",
+          : route === "/privacy" || route === "/terms" || route === "/refund"
+            ? "yearly"
+            : "weekly",
     priority:
       route === ""
-        ? 1.0
-        : route === "/jobs" || route === "/jobs-near-me"
-          ? 0.95
-          : route.startsWith("/jobs-in-")
-            ? 0.9
-            : route.endsWith("-jobs")
-              ? 0.85
-              : route.includes("-jobs-")
-                ? 0.8
-                : route === "/contact" || route === "/faq" || route === "/safety"
-                  ? 0.6
-                  : 0.5
+        ? 1
+        : route === "/jobs" || route.startsWith("/jobs-in-") || route.endsWith("-jobs")
+          ? 0.9
+          : 0.6
   }));
+
+  const jobs = await getDiscoverableJobs();
+  return [...staticEntries, ...jobs.map((job) => ({
+    url: `${SITE_URL}/jobs/${encodeURIComponent(job.id)}`,
+    ...(job.updatedAt ? { lastModified: new Date(job.updatedAt) } : {}),
+    changeFrequency: "daily" as const,
+    priority: 0.8
+  }))];
 }

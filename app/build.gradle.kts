@@ -58,6 +58,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        buildConfigField("boolean", "LOCAL_STAGING", "false")
+
         // Release-size guardrail: DutyPe ships English, Telugu, and Hindi.
         resourceConfigurations += listOf("en", "te", "hi")
         
@@ -131,7 +133,21 @@ android {
             isMinifyEnabled = false
             isShrinkResources = false
         }
+
+        create("staging") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".staging"
+            versionNameSuffix = "-local-staging"
+            matchingFallbacks += listOf("debug")
+            buildConfigField("boolean", "LOCAL_STAGING", "true")
+            buildConfigField("String", "AI_BACKEND_URL", "\"\"")
+            buildConfigField("String", "AI_BACKEND_API_KEY", "\"\"")
+            buildConfigField("String", "MAPS_API_KEY", "\"\"")
+            buildConfigField("String", "AZURE_MAPS_KEY", "\"\"")
+            manifestPlaceholders["MAPS_API_KEY"] = ""
+        }
     }
+    testBuildType = if (providers.gradleProperty("localStagingTests").orNull == "true") "staging" else "debug"
     
     // JNI Libraries packaging - 16KB page size compatibility
     packaging {
@@ -214,7 +230,7 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = false
+        buildConfig = true
     }
     
     // Lint configuration - disable problematic checks

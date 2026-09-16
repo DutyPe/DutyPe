@@ -2,6 +2,7 @@ package com.example.dutype
 
 import android.app.Application
 import android.content.Context
+import com.dutype.app.BuildConfig
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import coil.ImageLoader
@@ -309,6 +310,7 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
      * Handles errors gracefully - OTP still works without App Check in most cases
      */
     private fun initializeAppCheck() {
+        if (BuildConfig.LOCAL_STAGING) return
         try {
             val firebaseAppCheck = FirebaseAppCheck.getInstance()
             

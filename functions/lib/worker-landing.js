@@ -9,7 +9,7 @@
  *
  * Industry Standard: LinkedIn, Indeed, Naukri pattern
  *
- * URL Pattern: https://dutype-860ac.web.app/worker/{workerId}
+ * URL Pattern: https://dutypeapp.web.app/worker/{workerId}
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.workerLanding = void 0;
@@ -35,8 +35,8 @@ exports.workerLanding = functions.https.onRequest(async (req, res) => {
             res.status(400).send("Worker ID is required");
             return;
         }
-        // Fetch worker data from the canonical profile collection.
-        const workerDoc = await db.collection("worker_profiles").doc(workerId).get();
+        // Fetch worker data from Firestore
+        const workerDoc = await db.collection("users").doc(workerId).get();
         if (!workerDoc.exists) {
             res.status(404).send("Worker not found");
             return;
@@ -47,8 +47,8 @@ exports.workerLanding = functions.https.onRequest(async (req, res) => {
             return;
         }
         // Extract worker details
-        const workerName = workerData.fullName || "Professional Worker";
-        const workerPhone = workerData.phone || "";
+        const workerName = workerData.fullName || workerData.name || "Professional Worker";
+        const workerPhone = workerData.phone || workerData.phoneNumber || "";
         const workerSkills = workerData.skills || "";
         const workerExperience = workerData.experience || "";
         const profileImageUrl = workerData.profileImageUrl || "";
@@ -56,9 +56,9 @@ exports.workerLanding = functions.https.onRequest(async (req, res) => {
         const completedJobs = workerData.completedJobsCount || 0;
         const rating = workerData.averageRating || 0;
         // Format skills for display
-        const skillsList = Array.isArray(workerSkills)
-            ? workerSkills.map((s) => String(s).trim()).filter(Boolean).slice(0, 3)
-            : String(workerSkills || "").split(",").map((s) => s.trim()).filter(Boolean).slice(0, 3);
+        const skillsList = workerSkills
+            ? workerSkills.split(",").map((s) => s.trim()).filter((s) => s).slice(0, 3)
+            : [];
         const primarySkill = skillsList[0] || "Professional Worker";
         const skillsText = skillsList.join(", ");
         // Create description
@@ -73,7 +73,6 @@ exports.workerLanding = functions.https.onRequest(async (req, res) => {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="facebook-domain-verification" content="pm8w20h5ejx9kch4n7w6ijcbh3gfi8" />
     
     <!-- Primary Meta Tags -->
     <title>${workerName} - ${primarySkill} | DutyPe</title>
@@ -82,14 +81,14 @@ exports.workerLanding = functions.https.onRequest(async (req, res) => {
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="profile">
-    <meta property="og:url" content="https://dutype-860ac.web.app/worker/${workerId}">
+    <meta property="og:url" content="https://dutypeapp.web.app/worker/${workerId}">
     <meta property="og:title" content="${workerName} - ${primarySkill}">
     <meta property="og:description" content="${description}">
     ${profileImageUrl ? `<meta property="og:image" content="${profileImageUrl}">` : ""}
     
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:url" content="https://dutype-860ac.web.app/worker/${workerId}">
+    <meta name="twitter:url" content="https://dutypeapp.web.app/worker/${workerId}">
     <meta name="twitter:title" content="${workerName} - ${primarySkill}">
     <meta name="twitter:description" content="${description}">
     ${profileImageUrl ? `<meta name="twitter:image" content="${profileImageUrl}">` : ""}
