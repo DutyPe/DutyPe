@@ -452,12 +452,33 @@ exports.lookupPhoneRole = (0, secure_callable_1.onCallSecured)({ requireAuth: fa
         ? requestedRoleRaw
         : "";
     const snap = await db().collection("phoneRoles").doc(phoneE164).get();
-    if (!snap.exists) {
+    let existingRole = "";
+    let name = "";
+    let exists = false;
+    if (snap.exists) {
+        const d = snap.data() || {};
+        existingRole = String(d.role || "").toUpperCase();
+        name = String(d.name || "");
+        exists = true;
+    }
+    else {
+        const rawDigits = phoneE164.replace(/^\+91/, "");
+        const userSnaps = await db()
+            .collection("users")
+            .where("phone", "in", [phoneE164, rawDigits, `+${rawDigits}`])
+            .limit(1)
+            .get()
+            .catch(() => null);
+        if (userSnaps && !userSnaps.empty) {
+            const u = userSnaps.docs[0].data() || {};
+            existingRole = String(u.role || u.activeRole || "").toUpperCase();
+            name = String(u.fullName || u.name || "");
+            exists = true;
+        }
+    }
+    if (!exists) {
         return { exists: false, roleConflict: false };
     }
-    const d = snap.data() || {};
-    const existingRole = String(d.role || "").toUpperCase();
-    const name = String(d.name || "");
     const roleConflict = !!requestedRole && !!existingRole && requestedRole !== existingRole;
     return {
         exists: true,

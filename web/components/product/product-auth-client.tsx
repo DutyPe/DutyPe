@@ -48,7 +48,7 @@ export function ProductAuthClient() {
   const defaultRole = requestedRole === "EMPLOYER" ? "EMPLOYER" : "WORKER";
 
   const [mode, setMode] = useState<AuthMode>("signin");
-  const [method, setMethod] = useState<"phone" | "email">(searchParams.get("method") === "email" || defaultRole === "WORKER" ? "email" : "phone");
+  const [method, setMethod] = useState<"phone" | "email">(searchParams.get("method") === "email" ? "email" : "phone");
   const [selectedRole, setSelectedRole] = useState<ProductRole>(defaultRole);
   const [form, setForm] = useState(initialState);
   const [submitting, setSubmitting] = useState(false);
@@ -71,9 +71,12 @@ export function ProductAuthClient() {
     heading.current?.focus();
   }
 
-  async function completeProviderSignIn(user: User) {
+  async function completeProviderSignIn(
+    user: User,
+    extraDetails?: { fullName?: string; companyName?: string }
+  ) {
     if (!services) return;
-    await ensureProductAccount(services.db, user, selectedRole);
+    await ensureProductAccount(services.db, user, selectedRole, extraDetails);
     await refreshProfile();
     router.replace(productReturnPath(selectedRole, returnPath));
   }
@@ -248,7 +251,17 @@ export function ProductAuthClient() {
               <button type="button" className={`product-tab ${method === "email" ? "active" : ""}`} aria-pressed={method === "email"} disabled={submitting} onClick={() => { setMethod("email"); setError(null); }}>Email</button>
             </div>
             {method === "phone" ? <label className="provider-role"><span>I am a</span><select value={selectedRole} disabled={submitting} onChange={(event) => setSelectedRole(event.target.value as ProductRole)}>{PRODUCT_ROLES.map((role) => <option key={role} value={role}>{productRoleLabel(role)}</option>)}</select></label> : null}
-            <ProviderSignIn disabled={submitting || !services} showPhone={method === "phone"} onBusyChange={(busy) => { submitInFlight.current = busy; setSubmitting(busy); }} onAuthenticated={completeProviderSignIn} />
+            <ProviderSignIn
+              disabled={submitting || !services}
+              showPhone={method === "phone"}
+              role={selectedRole}
+              returnPath={returnPath}
+              onBusyChange={(busy) => {
+                submitInFlight.current = busy;
+                setSubmitting(busy);
+              }}
+              onAuthenticated={completeProviderSignIn}
+            />
           </> : null}
 
           {mode !== "reset" && method === "email" ? (

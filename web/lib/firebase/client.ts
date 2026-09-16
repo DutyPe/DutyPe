@@ -35,7 +35,7 @@ export function getFirebaseServices(): FirebaseServices | null {
     app,
     auth: getAuth(app),
     db: getFirestore(app),
-    functions: getFunctions(app),
+    functions: getFunctions(app, "asia-south1"),
     storage: getStorage(app)
   };
 
