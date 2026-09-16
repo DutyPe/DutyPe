@@ -350,7 +350,7 @@ fun EmployerProfileScreen(
                                         else -> {
                                             Icon(
                                                 imageVector = Icons.Default.Business,
-                                                contentDescription = null,
+                                                contentDescription = "Profile Picture",
                                                 tint = WorkerColors.IconSecondary,
                                                 modifier = Modifier.size(28.dp)
                                             )
@@ -413,8 +413,8 @@ fun EmployerProfileScreen(
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = EmployerColors.Primary
                                         ),
-                                        shape = RoundedCornerShape(0.dp),
-                                        modifier = Modifier.height(38.dp)
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.height(48.dp)
                                     ) {
                                         Text(
                                             text = stringResource(R.string.auto_log_in_sign_up),

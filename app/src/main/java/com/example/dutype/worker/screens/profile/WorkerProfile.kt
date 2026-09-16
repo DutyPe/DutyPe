@@ -661,7 +661,7 @@ fun WorkerProfileScreen(
                                 shape = RoundedCornerShape(10.dp),
                                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
                                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
-                                modifier = Modifier.height(38.dp)
+                                modifier = Modifier.height(48.dp)
                             ) {
                                 Text(
                                     text = stringResource(R.string.profile_login_signup),

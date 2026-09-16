@@ -1704,4 +1704,12 @@
     <string name="guest_profile_desc">1-टैप में नौकरियों के लिए आवेदन करने, पसंदीदा सहेजने और कमाई ट्रैक करने के लिए अपना प्रोफ़ाइल बनाएं।</string>
     <string name="guest_history_desc">अपने नौकरी आवेदनों और स्थिति को ट्रैक करने के लिए लॉगिन करें।</string>
     <string name="guest_notifications_desc">तुरंत नौकरी अलर्ट और नियोक्ता शॉर्टलिस्ट सूचनाएं प्राप्त करने के लिए लॉगिन करें।</string>
+
+    <!-- Notification Channel Strings in Hindi -->
+    <string name="notification_channel_high_name">महत्वपूर्ण अलर्ट</string>
+    <string name="notification_channel_high_desc">नौकरी अलर्ट, आवेदन अपडेट और विशेष सूचनाएं</string>
+    <string name="notification_channel_medium_name">रिमाइंडर</string>
+    <string name="notification_channel_medium_desc">नौकरी रिमाइंडर और सुझाव</string>
+    <string name="notification_channel_low_name">अपडेट और टिप्स</string>
+    <string name="notification_channel_low_desc">ऐप अपडेट, टिप्स और उपयोगी जानकारियां</string>
 </resources>

@@ -358,18 +358,26 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
                     Timber.e(e, "❌ Debug App Check provider unavailable; fell back to Play Integrity")
                 }
             } else {
-                // Use Play Integrity for production builds
-                firebaseAppCheck.installAppCheckProviderFactory(
-                    PlayIntegrityAppCheckProviderFactory.getInstance()
-                )
-                Timber.i("✅ Firebase App Check initialized (Play Integrity)")
-                firebaseAppCheck.getAppCheckToken(false)
-                    .addOnSuccessListener {
-                        Timber.i("✅ App Check token acquired (release) - expiresAt=%d", it.expireTimeMillis)
-                    }
-                    .addOnFailureListener { tokenError ->
-                        Timber.e(tokenError, "❌ App Check token fetch failed in release")
-                    }
+                val isTestLab = runCatching {
+                    android.provider.Settings.System.getString(contentResolver, "firebase.test.lab") == "true"
+                }.getOrDefault(false)
+
+                if (isTestLab) {
+                    Timber.i("🧪 Running in Firebase Test Lab / Pre-launch report - skipping Play Integrity App Check")
+                } else {
+                    // Use Play Integrity for production builds
+                    firebaseAppCheck.installAppCheckProviderFactory(
+                        PlayIntegrityAppCheckProviderFactory.getInstance()
+                    )
+                    Timber.i("✅ Firebase App Check initialized (Play Integrity)")
+                    firebaseAppCheck.getAppCheckToken(false)
+                        .addOnSuccessListener {
+                            Timber.i("✅ App Check token acquired (release) - expiresAt=%d", it.expireTimeMillis)
+                        }
+                        .addOnFailureListener { tokenError ->
+                            Timber.e(tokenError, "❌ App Check token fetch failed in release")
+                        }
+                }
             }
         } catch (e: Exception) {
             // App Check initialization failed - this is non-fatal

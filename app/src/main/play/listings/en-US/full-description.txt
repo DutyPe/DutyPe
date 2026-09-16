@@ -1,41 +1,52 @@
-DutyPe — India's fastest local jobs and hiring app for daily wage workers, helpers, drivers, delivery, cleaning, cooking, construction, security, retail and more. Whether you are looking for a job near you or need to hire workers urgently, DutyPe connects you to verified people in your city in minutes — not days.
+Looking for jobs near your home or need to hire verified workers urgently? DutyPe is India’s hyper-local hiring and job discovery platform connecting workers and employers directly — with zero agency fees and no middleman commission.
 
-🔍 FOR JOB SEEKERS — Find Work Near You
-• Browse 1000s of part-time, full-time and daily wage jobs nearby
-• Smart location matching — closest jobs always appear first
-• Filter by salary, job type, distance and shift timing
-• Apply with one tap — no resume required
-• Call or WhatsApp the employer directly from any job card
-• Save jobs you like and apply later
-• Get instant notifications when matching jobs are posted
+Whether you need full-time, part-time, daily wage, or urgent contract work, DutyPe helps you find verified local opportunities within 1 km to 10 km walking distance of where you live.
 
-💼 FOR EMPLOYERS — Hire in Minutes
-• Post a job in under 60 seconds — completely free
-• Get applications from verified workers near your location
-• Review profiles, call shortlisted candidates instantly
-• Manage all applications from a single dashboard
-• Same-as-phone WhatsApp option for faster contact
-• Renew or repost expired jobs in one tap
+KEY FEATURES FOR JOB SEEKERS
+• Hyper-Local Map Discovery: Browse nearby jobs on an interactive map. Closest vacancies appear first.
+• 15-Second Voice Intro: No resume or CV needed. Simply record a 15-second voice intro introducing your experience and apply in 1 tap.
+• Direct WhatsApp & Call: Connect directly with employers through phone calls or WhatsApp without waiting days for an interview callback.
+• Zero Commission: Workers never pay any registration fees or job placement cuts.
+• Instant Job Alerts: Get immediate push notifications when matching vacancies open in your neighborhood.
+• Save Jobs: Bookmark jobs to review salaries, shift timings, and apply when ready.
 
-🎁 REFER & EARN
-• Invite friends with your DutyPe code
-• Earn ₹ instantly when they sign up and get verified
-• Bigger bonuses unlock as you refer more people
-• Withdraw cash directly to your bank account
+KEY FEATURES FOR EMPLOYERS & BUSINESSES
+• Post Jobs in 2 Minutes: Enter title, salary, location, and vacancies to start receiving applicants immediately.
+• Candidate Passbook: View applicant profiles, experience, and listen to their 15-second audio intros before calling.
+• Direct Communication: Contact applicants via phone or WhatsApp directly from your employer dashboard.
+• 3-Worker Consensus Auto-Closer: When jobs are filled, workers can mark them closed so you are never spammed with unwanted calls.
+• QR Work Verification: Verify job start and completion with digital attendance.
+• Repost in 1 Tap: Reactivate previous listings with one click.
 
-🌐 BUILT FOR INDIA
-• Full Telugu (తెలుగు) language support — UI and notifications
-• Designed for low-data networks and small storage
-• Works in Khammam, Hyderabad, Warangal and across Andhra Pradesh & Telangana
-• Expanding to more cities every week
+POPULAR JOB CATEGORIES
+• Domestic & Household: Cook, Maid, House Help, Babysitter, Caretaker, Elderly Care, Gardener
+• Logistics & Transport: Delivery Rider, Courier Partner, Driver (Car, Auto, Truck), Loader, Warehouse Packer
+• Skilled Trades: Electrician, Plumber, Painter, Carpenter, Welder, Mechanic, AC Technician
+• Retail & Hospitality: Waiter, Kitchen Staff, Counter Sales, Cashier, Billing Executive, Store Helper
+• Office & Security: Security Guard, Watchman, Peon, Office Boy, Receptionist, Telecaller, Data Entry
 
-🔒 TRUSTED & SAFE
-• Phone number verification for every user
-• Verified employer badges
-• Report and block tools to keep the community safe
-• Your number stays private until you choose to apply
+AVAILABLE CITIES & REGIONS
+Active across Hyderabad, Secunderabad, Cyberabad, Warangal, Khammam, Karimnagar, Nizamabad, Vijayawada, Visakhapatnam, Guntur, Tirupati, Kurnool, Pune, and expanding to more cities across India every week.
 
-CATEGORIES YOU CAN FIND OR POST
-Drivers • Delivery • Helpers • Cleaners • Cooks • Maids • Security • Construction • Electricians • Plumbers • Painters • Carpenters • Salon • Retail • Office assistants • Tailors • Mechanics • Warehouse • And many more
+SAFETY & PRIVACY GUARANTEE
+• Phone OTP verification for every employer and worker.
+• Active scam-keyword detection and automated fraud filtering.
+• Your contact number is protected and only shared when you choose to connect.
+• 100% Ad-Free Experience — no intrusive popup ads or spam banners.
 
-Download DutyPe today — your next job (or your next worker) is just a tap away.
+FREQUENTLY ASKED QUESTIONS
+Q: Is DutyPe free for workers?
+A: Yes! DutyPe is 100% free for job seekers. We never charge registration fees or job commissions.
+
+Q: Do I need a resume to apply?
+A: No! You can apply with a 1-tap profile or record a quick 15-second voice intro.
+
+Q: In which languages is DutyPe available?
+A: DutyPe is fully available in English, Telugu (తెలుగు), and Hindi (हिंदी).
+
+HELP & DIRECT SUPPORT
+WhatsApp Support: +91-8500717800
+Email: dutypein@gmail.com
+Website: https://dutype.in
+
+Download DutyPe today — your next local job or trusted worker is just one tap away!

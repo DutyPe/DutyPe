@@ -494,7 +494,7 @@ private fun OtpLoginScreen(
                                         text = stringResource(R.string.auto_phone_number),
                                         style = MaterialTheme.typography.bodyLarge.copy(
                                             fontSize = 15.sp,
-                                            color = Ink400
+                                            color = Ink600
                                         )
                                     )
                                 }
@@ -542,8 +542,8 @@ private fun OtpLoginScreen(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = BrandBluePrimary,
                         contentColor = Color.White,
-                        disabledContainerColor = BrandBlueBorder,
-                        disabledContentColor = Color.White
+                        disabledContainerColor = Color(0xFFE2E8F0),
+                        disabledContentColor = Color(0xFF475569)
                     )
                 ) {
                     if (isCheckingPhone || otpState.isLoading) {
@@ -711,8 +711,8 @@ private fun OtpInputSection(
             colors = ButtonDefaults.buttonColors(
                 containerColor = BrandBluePrimary,
                 contentColor = Color.White,
-                disabledContainerColor = Color(0xFFCBD5E1),
-                disabledContentColor = Color.White
+                disabledContainerColor = Color(0xFFE2E8F0),
+                disabledContentColor = Color(0xFF475569)
             )
         ) {
             if (otpState.isLoading) {
@@ -723,7 +723,7 @@ private fun OtpInputSection(
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = if (otpValue.length == 6 && !otpState.isLoading) Color.White else Color(0xFF475569)
                     )
                 )
             }

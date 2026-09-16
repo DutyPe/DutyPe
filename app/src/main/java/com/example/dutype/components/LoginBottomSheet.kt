@@ -1100,7 +1100,7 @@ private fun PhoneInputContent(
                     },
                     style = AppTypography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = WorkerColors.Info
+                        color = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF60A5FA) else Color(0xFF1D4ED8)
                     )
                 )
             }

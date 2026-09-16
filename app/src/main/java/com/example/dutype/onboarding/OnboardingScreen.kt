@@ -279,7 +279,7 @@ private fun OnboardingHeader(
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontWeight = FontWeight.SemiBold
                     ),
-                    color = Color(0xFF64748B)
+                    color = Color(0xFF475569)
                 )
             }
         }
@@ -318,7 +318,7 @@ private fun OnboardingPageContent(
         ) {
             Image(
                 painter = painterResource(id = pageData.imageRes),
-                contentDescription = stringResource(id = pageData.titleRes),
+                contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxSize()
@@ -432,9 +432,9 @@ private fun OnboardingFooter(
                 Button(
                     onClick = onNextClick,
                     modifier = Modifier
-                        .height(45.0.dp)
+                        .height(48.dp)
                         .padding(start = 16.dp),
-                    shape = RoundedCornerShape(23.dp),
+                    shape = RoundedCornerShape(24.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -451,7 +451,7 @@ private fun OnboardingFooter(
             } else {
                 FilledIconButton(
                     onClick = onNextClick,
-                    modifier = Modifier.size(45.0.dp),
+                    modifier = Modifier.size(48.dp),
                     shape = CircleShape,
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primary,

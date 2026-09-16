@@ -2709,7 +2709,7 @@ fun WorkTypeSelection(
                     FilterChip(
                         selected = selected,
                         onClick = { onPayTypeChange(type) },
-                        modifier = Modifier.height(34.dp),
+                        modifier = Modifier.height(44.dp),
                         label = {
                             Text(
                                 text = type.displayName,
@@ -3205,19 +3205,19 @@ fun RequirementsSection(
                     FilterChip(
                         modifier = Modifier
                             .padding(end = 4.dp)
-                            .height(34.dp),
+                            .height(44.dp),
                         onClick = { onGenderChange(genderOption) },
                         label = {
                             Text(
                                 genderOption,
                                 fontWeight = if (gender == genderOption) FontWeight.Medium else FontWeight.Normal,
-                                fontSize = 11.sp
+                                fontSize = 12.sp
                             )
                         },
                         selected = gender == genderOption,
                         shape = RoundedCornerShape(8.dp),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF8B5CF6),
+                            selectedContainerColor = Color(0xFF6D28D9),
                             selectedLabelColor = Color.White,
                             containerColor = EmployerColors.ChipBackground,
                             labelColor = EmployerColors.TextSecondary
@@ -3276,13 +3276,13 @@ private fun RequirementChipSection(
             FilterChip(
                 modifier = Modifier
                     .padding(end = 4.dp)
-                    .height(34.dp),
+                    .height(44.dp),
                 onClick = { onOptionSelected(option) },
                 label = { 
                     Text(
                         option,
                         fontWeight = if (selectedOption == option) FontWeight.Medium else FontWeight.Normal,
-                        fontSize = 11.sp
+                        fontSize = 12.sp
                     ) 
                 },
                 selected = selectedOption == option,
@@ -3307,7 +3307,7 @@ private fun RequirementChipSection(
                 FilterChip(
                     modifier = Modifier
                         .padding(end = 4.dp)
-                        .height(34.dp),
+                        .height(44.dp),
                     onClick = { showCustomInput = !showCustomInput },
                     label = {
                         Text(

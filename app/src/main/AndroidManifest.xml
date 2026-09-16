@@ -94,14 +94,6 @@
             android:name="com.google.android.gms.phenotype.service.DISABLE"
             android:value="true" />
         
-        <!-- Disable unnecessary Google Play Services features to reduce startup time -->
-        <meta-data
-            android:name="com.google.android.gms.cast.framework.OPTIONS_PROVIDER_CLASS_NAME"
-            android:value="" />
-        <meta-data
-            android:name="com.google.android.gms.games.APP_ID"
-            android:value="" />
-        
         <!-- Disable WebView camera/media access on startup (saves 500ms) -->
         <!-- Camera is only needed in profile setup screens, not on app launch -->
         <meta-data

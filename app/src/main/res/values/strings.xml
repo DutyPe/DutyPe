@@ -1743,4 +1743,12 @@
     <string name="guest_profile_desc">Create your profile to apply for jobs with 1-tap, save favorites, and track earnings.</string>
     <string name="guest_history_desc">Sign in to track your job applications and hiring status.</string>
     <string name="guest_notifications_desc">Sign in to receive instant job alerts and employer shortlist notifications.</string>
+
+    <!-- Notification Channel Strings -->
+    <string name="notification_channel_high_name">Important Alerts</string>
+    <string name="notification_channel_high_desc">Job alerts, application updates, and special occasions</string>
+    <string name="notification_channel_medium_name">Reminders</string>
+    <string name="notification_channel_medium_desc">Job reminders and recommendations</string>
+    <string name="notification_channel_low_name">Updates &amp; Tips</string>
+    <string name="notification_channel_low_desc">App updates, tips, and re-engagement messages</string>
 </resources>

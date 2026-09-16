@@ -12,6 +12,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -731,7 +733,7 @@ private fun RegisterEntrySection(
                                 text = stringResource(R.string.auto_phone_number),
                                 style = MaterialTheme.typography.bodyLarge.copy(
                                     fontSize = 16.sp,
-                                    color = Ink400
+                                    color = Ink600
                                 )
                             )
                         }
@@ -761,17 +763,21 @@ private fun RegisterEntrySection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onTermsToggle(!termsAccepted) }
-                .padding(vertical = 2.dp),
+                .defaultMinSize(minHeight = 48.dp)
+                .toggleable(
+                    value = termsAccepted,
+                    role = Role.Checkbox,
+                    onValueChange = onTermsToggle
+                )
+                .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Checkbox(
                 checked = termsAccepted,
-                onCheckedChange = onTermsToggle,
-                modifier = Modifier.scale(0.85f),
+                onCheckedChange = null,
                 colors = CheckboxDefaults.colors(
                     checkedColor = BrandBluePrimary,
-                    uncheckedColor = Ink400,
+                    uncheckedColor = Ink600,
                     checkmarkColor = Color.White
                 )
             )
@@ -787,7 +793,7 @@ private fun RegisterEntrySection(
                     }
                 },
                 style = MaterialTheme.typography.bodySmall.copy(color = Ink600, lineHeight = 18.sp),
-                modifier = Modifier.padding(start = 2.dp)
+                modifier = Modifier.padding(start = 6.dp)
             )
         }
 
@@ -814,8 +820,8 @@ private fun RegisterEntrySection(
             colors = ButtonDefaults.buttonColors(
                 containerColor = BrandBluePrimary,
                 contentColor = Color.White,
-                disabledContainerColor = BrandBlueBorder,
-                disabledContentColor = Color.White
+                disabledContainerColor = Color(0xFFE2E8F0),
+                disabledContentColor = Color(0xFF475569)
             )
         ) {
             if (isCheckingPhone || otpState.isLoading) {
@@ -905,7 +911,7 @@ private fun RegisterNameField(
                 } else {
                     if (isTelugu) "మీ పూర్తి పేరు నమోదు చేయండి" else "Enter full name"
                 },
-                style = MaterialTheme.typography.bodyMedium.copy(color = Ink400)
+                style = MaterialTheme.typography.bodyMedium.copy(color = Ink600)
             )
         },
         leadingIcon = {

@@ -6,6 +6,7 @@ import android.content.Context
 import android.graphics.Color
 import android.os.Build
 import androidx.annotation.RequiresApi
+import com.dutype.app.R
 
 /**
  * Notification Channel Manager - Enterprise Grade
@@ -25,16 +26,6 @@ object NotificationChannelManager {
     const val CHANNEL_MEDIUM_PRIORITY = "medium_priority"
     const val CHANNEL_LOW_PRIORITY = "low_priority"
     
-    // Channel Names (user-visible)
-    private const val CHANNEL_HIGH_NAME = "Important Alerts"
-    private const val CHANNEL_MEDIUM_NAME = "Reminders"
-    private const val CHANNEL_LOW_NAME = "Updates & Tips"
-    
-    // Channel Descriptions (user-visible)
-    private const val CHANNEL_HIGH_DESC = "Job alerts, application updates, and special occasions"
-    private const val CHANNEL_MEDIUM_DESC = "Job reminders and recommendations"
-    private const val CHANNEL_LOW_DESC = "App updates, tips, and re-engagement messages"
-    
     /**
      * Create all notification channels
      * Call this once during app initialization
@@ -45,9 +36,9 @@ object NotificationChannelManager {
             
             // Create all channels
             val channels = listOf(
-                createHighPriorityChannel(),
-                createMediumPriorityChannel(),
-                createLowPriorityChannel()
+                createHighPriorityChannel(context),
+                createMediumPriorityChannel(context),
+                createLowPriorityChannel(context)
             )
             
             notificationManager.createNotificationChannels(channels)
@@ -62,13 +53,15 @@ object NotificationChannelManager {
      * Behavior: Sound + Vibration + LED + Badge
      */
     @RequiresApi(Build.VERSION_CODES.O)
-    private fun createHighPriorityChannel(): NotificationChannel {
+    private fun createHighPriorityChannel(context: Context): NotificationChannel {
+        val channelName = context.getString(R.string.notification_channel_high_name)
+        val channelDesc = context.getString(R.string.notification_channel_high_desc)
         return NotificationChannel(
             CHANNEL_HIGH_PRIORITY,
-            CHANNEL_HIGH_NAME,
+            channelName,
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = CHANNEL_HIGH_DESC
+            description = channelDesc
             
             // Visual indicators
             enableLights(true)
@@ -99,13 +92,15 @@ object NotificationChannelManager {
      * Behavior: Sound + Badge (no vibration)
      */
     @RequiresApi(Build.VERSION_CODES.O)
-    private fun createMediumPriorityChannel(): NotificationChannel {
+    private fun createMediumPriorityChannel(context: Context): NotificationChannel {
+        val channelName = context.getString(R.string.notification_channel_medium_name)
+        val channelDesc = context.getString(R.string.notification_channel_medium_desc)
         return NotificationChannel(
             CHANNEL_MEDIUM_PRIORITY,
-            CHANNEL_MEDIUM_NAME,
+            channelName,
             NotificationManager.IMPORTANCE_DEFAULT
         ).apply {
-            description = CHANNEL_MEDIUM_DESC
+            description = channelDesc
             
             // Visual indicators
             enableLights(true)
@@ -135,13 +130,15 @@ object NotificationChannelManager {
      * Behavior: Silent (no sound, no vibration)
      */
     @RequiresApi(Build.VERSION_CODES.O)
-    private fun createLowPriorityChannel(): NotificationChannel {
+    private fun createLowPriorityChannel(context: Context): NotificationChannel {
+        val channelName = context.getString(R.string.notification_channel_low_name)
+        val channelDesc = context.getString(R.string.notification_channel_low_desc)
         return NotificationChannel(
             CHANNEL_LOW_PRIORITY,
-            CHANNEL_LOW_NAME,
+            channelName,
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = CHANNEL_LOW_DESC
+            description = channelDesc
             
             // No visual indicators
             enableLights(false)

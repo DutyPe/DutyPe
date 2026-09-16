@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import com.dutype.app.R
 import androidx.compose.foundation.background
@@ -517,7 +517,7 @@ fun StatCard(
                     .background(color.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(icon, contentDescription = title, tint = color, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
             }
             Text(
                 text = value,
@@ -554,7 +554,7 @@ fun AnalyticsItem(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(icon, contentDescription = label, tint = color, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
             Text(
                 text = value,
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),

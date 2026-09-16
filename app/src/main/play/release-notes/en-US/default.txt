@@ -1,6 +1,5 @@
-What's New in DutyPe 4.3:
-• ⚡ Ultra-Fast Performance: Blazing-fast app launch and smoother navigation.
-• 🔔 Real-Time Job & Call Alerts: Instant notifications when employers shortlist you or candidates apply.
-• 📍 Hyper-Local Vacancies: Discover verified jobs within 5–25 km with accurate commute distances.
-• 📞 Direct Call & 0% Fee: Connect directly with employers and workers without middlemen.
-• 🏢 Enhanced Hiring Room: Fast hiring for Drivers, Cooks, Delivery, Housekeeping & Staff!
+What's new in this release:
+• Improved nearby job discovery and map accuracy.
+• Faster, direct contact between employers and job seekers via call and WhatsApp.
+• Enhanced profile management and smoother application tracking.
+• Performance improvements and bug fixes for a faster, more reliable experience.

@@ -1706,4 +1706,12 @@
     <string name="guest_profile_desc">1-ట్యాప్‌తో జాబ్స్‌కి అప్లై చేయడానికి, ఫేవరెట్‌లను సేవ్ చేయడానికి మరియు సంపాదనను ట్రాక్ చేయడానికి మీ ప్రొఫైల్‌ను సృష్టించండి.</string>
     <string name="guest_history_desc">మీ జాబ్ అప్లికేషన్లు మరియు నియామక స్థితిని ట్రాక్ చేయడానికి లాగిన్ అవ్వండి.</string>
     <string name="guest_notifications_desc">తక్షణ ఉద్యోగ అలర్ట్‌లు మరియు యజమాని షార్ట్‌లిస్ట్ నోటిఫికేషన్‌లను పొందడానికి లాగిన్ అవ్వండి.</string>
+
+    <!-- Notification Channel Strings in Telugu -->
+    <string name="notification_channel_high_name">ముఖ్యమైన అలర్ట్‌లు</string>
+    <string name="notification_channel_high_desc">ఉద్యోగ హెచ్చరికలు, దరఖాస్తు అప్‌డేట్‌లు మరియు ముఖ్యమైన సమాచారం</string>
+    <string name="notification_channel_medium_name">రిమైండర్‌లు</string>
+    <string name="notification_channel_medium_desc">ఉద్యోగ రిమైండర్‌లు మరియు సిఫార్సులు</string>
+    <string name="notification_channel_low_name">అప్‌డేట్‌లు &amp; చిట్కాలు</string>
+    <string name="notification_channel_low_desc">యాప్ అప్‌డేట్‌లు, సలహాలు మరియు సూచనలు</string>
 </resources>

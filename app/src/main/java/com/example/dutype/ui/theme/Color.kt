@@ -111,7 +111,7 @@ object WorkerColors {
             if (isAppInDarkTheme()) Color(0xFF064E3B) else Color(0xFFD1FAE5)
     val Warning: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFFFBBF24) else Color(0xFFF59E0B)
+            if (isAppInDarkTheme()) Color(0xFFFBBF24) else Color(0xFFB45309)
     val WarningLight: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFF4A2E05) else Color(0xFFFEF3C7)
@@ -226,10 +226,10 @@ object EmployerColors {
             if (isAppInDarkTheme()) Color(0xFFF1F5F9) else Color(0xFF1E293B)
     val TextSecondary: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFFB6C0CC) else Color(0xFF64748B)
+            if (isAppInDarkTheme()) Color(0xFFCBD5E1) else Color(0xFF475569)
     val TextTertiary: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF8794A4) else Color(0xFF94A3B8)
+            if (isAppInDarkTheme()) Color(0xFF94A3B8) else Color(0xFF475569)
     val TextDisabled: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFF475569) else Color(0xFFCBD5E1)
@@ -258,7 +258,7 @@ object EmployerColors {
             if (isAppInDarkTheme()) Color(0xFF064E3B) else Color(0xFFD1FAE5)
     val Warning: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFFFBBF24) else Color(0xFFF59E0B)
+            if (isAppInDarkTheme()) Color(0xFFFBBF24) else Color(0xFFB45309)
     val WarningLight: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFF4A2E05) else Color(0xFFFEF3C7)

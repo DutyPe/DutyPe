@@ -74,16 +74,7 @@ fun LanguageSelectionBottomSheet(
         sheetState = sheetState,
         containerColor = Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .padding(top = 10.dp, bottom = 6.dp)
-                    .width(40.dp)
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color(0xFFCBD5E1))
-            )
-        }
+        dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
         Column(
             modifier = Modifier
@@ -154,7 +145,7 @@ private fun LanguageCardItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .clickable(role = androidx.compose.ui.semantics.Role.RadioButton, onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) SelectedBg else Color.White
@@ -190,7 +181,7 @@ private fun LanguageCardItem(
             if (isSelected) {
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Selected",
+                    contentDescription = null,
                     tint = BrandBluePrimary,
                     modifier = Modifier.size(24.dp)
                 )

@@ -332,7 +332,7 @@ internal fun PostUrgentNeedContent(
                             label = { Text(option.second) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = EmployerColors.WarningLight,
-                                selectedLabelColor = EmployerColors.Warning
+                                selectedLabelColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFFFDE68A) else Color(0xFF78350F)
                             )
                         )
                     }
@@ -490,7 +490,7 @@ internal fun PostUrgentNeedContent(
                         enabled = !isAutoPickingLocation,
                         colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary),
                         shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
                     ) {
                         if (isAutoPickingLocation) {
                             CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp).size(20.dp), strokeWidth = 2.dp, color = Color.White)

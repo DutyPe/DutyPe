@@ -53,14 +53,13 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 816
-        versionName = "4.9"
+        versionCode = 818
+        versionName = "4.11"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Release-size guardrail: DutyPe ships English + Telugu only. Filtering
-        // split churn small for tiny Play hotfixes.
-        resourceConfigurations += listOf("en", "te")
+        // Release-size guardrail: DutyPe ships English, Telugu, and Hindi.
+        resourceConfigurations += listOf("en", "te", "hi")
         
         // Manifest placeholders for API keys
         manifestPlaceholders["MAPS_API_KEY"] = localProperties.getProperty("MAPS_API_KEY", "")

@@ -270,6 +270,8 @@ export function AdminUsersClient() {
       user.id.toLowerCase().includes(normalizedSearch) ||
       (user.phoneRoleDocId ?? "").includes(searchTerm) ||
       normalizedRoles(user).some((role) => role.toLowerCase().includes(normalizedSearch)) ||
+      (user.state ?? "").toLowerCase().includes(normalizedSearch) ||
+      (user.city ?? "").toLowerCase().includes(normalizedSearch) ||
       searchableFirebaseFields.includes(normalizedSearch);
 
     const matchesRole = roleFilter === "ALL" ||
@@ -414,14 +416,20 @@ export function AdminUsersClient() {
           value={stateFilter}
           onChange={(e) => setStateFilter(e.target.value)}
         >
-          <option value="ALL">All States</option>
-          <option value="Telangana">Telangana</option>
-          <option value="Andhra Pradesh">Andhra Pradesh</option>
-          <option value="Karnataka">Karnataka</option>
-          <option value="Tamil Nadu">Tamil Nadu</option>
-          <option value="Maharashtra">Maharashtra</option>
-          <option value="Delhi NCR">Delhi NCR</option>
-          <option value="Other / Unknown">Other / Unknown</option>
+          <option value="ALL">All States ({users.length})</option>
+          {Object.entries(stateCounts)
+            .filter(([st]) => st !== "Other / Unknown")
+            .sort((a, b) => b[1].total - a[1].total)
+            .map(([st, counts]) => (
+              <option key={st} value={st}>
+                {st} ({counts.total})
+              </option>
+            ))}
+          {stateCounts["Other / Unknown"] ? (
+            <option value="Other / Unknown">
+              Other / Unknown ({stateCounts["Other / Unknown"].total})
+            </option>
+          ) : null}
         </select>
         <span className="admin-count">{filteredUsers.length} users</span>
       </div>

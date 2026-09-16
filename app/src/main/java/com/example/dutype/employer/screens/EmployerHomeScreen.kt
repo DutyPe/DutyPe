@@ -1290,7 +1290,7 @@ private fun EmployerPostJobSection(
                 
                 Button(
                     onClick = onPostUrgentNeed,
-                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isDark) Color(0xFFF43F5E) else Color(0xFFEF4444),
@@ -1333,7 +1333,7 @@ private fun EmployerPostJobSection(
                         Icon(
                             imageVector = Icons.Default.Work,
                             contentDescription = null,
-                            tint = if (isDark) Color(0xFFA78BFA) else Color(0xFF8B5CF6),
+                            tint = if (isDark) Color(0xFFA78BFA) else Color(0xFF6D28D9),
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -1364,7 +1364,7 @@ private fun EmployerPostJobSection(
                             ) {
                                 Text(
                                     text = stringResource(R.string.standard_job_tag),
-                                    color = if (isDark) Color(0xFFA78BFA) else Color(0xFF8B5CF6),
+                                    color = if (isDark) Color(0xFFA78BFA) else Color(0xFF6D28D9),
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -1380,10 +1380,10 @@ private fun EmployerPostJobSection(
                 
                 Button(
                     onClick = onPostNormalJob,
-                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isDark) Color(0xFFA78BFA) else Color(0xFF8B5CF6),
+                        containerColor = if (isDark) Color(0xFFA78BFA) else Color(0xFF6D28D9),
                         contentColor = if (isDark) Color.Black else Color.White
                     )
                 ) {
@@ -1986,20 +1986,20 @@ fun EmptyJobsState(onPostJob: () -> Unit) {
         ) {
             Icon(
                 Icons.Default.Work,
-                contentDescription = "No jobs",
+                contentDescription = null,
                 modifier = Modifier.size(64.dp),
-                tint = Color.Gray.copy(alpha = 0.6f)
+                tint = EmployerColors.TextSecondary
             )
             Text(
                 text = stringResource(R.string.auto_no_recent_jobs),
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                color = Color.Gray,
+                color = EmployerColors.TextPrimary,
                 textAlign = TextAlign.Center
             )
             Text(
                 text = stringResource(R.string.auto_start_by_posting_your_first_job_to_find_gr),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.Gray,
+                color = EmployerColors.TextSecondary,
                 textAlign = TextAlign.Center
             )
         }

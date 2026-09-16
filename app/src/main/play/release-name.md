@@ -1,11 +1,15 @@
-# Release Name
+# Release Name & Details
 
-Version code: 810
-Version name: 4.3
+**Version Code**: 818
+**Version Name**: 4.11
 
-English: DutyPe v4.3 - Hyper-Local Jobs & Fast Staff Hiring (Zero Fees)
-Telugu: DutyPe v4.3 - లోకల్ జాబ్స్ & వేగవంతమైన స్టాఫ్ హైరింగ్ (ఉచితం)
-Hindi: DutyPe v4.3 - लोकल जॉब्स और फास्ट स्टाफ हायरिंग (जीरो फीस)
+## Google Play Console Release Name:
+`4.11 (818) - Performance & Local Hiring Improvements`
 
-## Play Console Recommended Title:
-Hire Local Staff & Find Jobs Nearby (0% Commission)
+---
+
+## Localized Release Names:
+- **English**: DutyPe 4.11 - Hyperlocal Jobs & Fast Staff Hiring
+- **Telugu**: DutyPe 4.11 - లోకల్ జాబ్స్ & వేగవంతమైన స్టాఫ్ హైరింగ్
+- **Hindi**: DutyPe 4.11 - लोकल जॉब्स और फास्ट स्टाफ हायरिंग
+
