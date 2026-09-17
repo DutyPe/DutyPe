@@ -11,7 +11,6 @@ import {
   updateProfile
 } from "firebase/auth";
 import type { User } from "firebase/auth";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 
 import { SiteIcon } from "@/components/site-icon";
 import { FIREBASE_SETUP_ERROR, firebaseAuthErrorMessage } from "@/lib/firebase/auth-errors";
@@ -20,6 +19,7 @@ import { ensureProductAccount } from "@/lib/firebase/account-actions";
 import {
   extractProductRoles,
   getActiveProductRole,
+  normalizeProductRole,
   productReturnPath,
   productRoleLabel,
   PRODUCT_ROLES,
@@ -40,7 +40,7 @@ const initialState = {
 
 export function ProductAuthClient() {
   const services = useMemo(() => getFirebaseServices(), []);
-  const { refreshProfile } = useProductSession();
+  const session = useProductSession();
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedRole = searchParams.get("role");
@@ -52,11 +52,21 @@ export function ProductAuthClient() {
   const [selectedRole, setSelectedRole] = useState<ProductRole>(defaultRole);
   const [form, setForm] = useState(initialState);
   const [submitting, setSubmitting] = useState(false);
+  const [providerPending, setProviderPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [useAnotherAccount, setUseAnotherAccount] = useState(false);
   const submitInFlight = useRef(false);
   const heading = useRef<HTMLHeadingElement>(null);
+  const pageActive = useRef(true);
+  const completionVersion = useRef(0);
+  const showSignIn = !session.user || useAnotherAccount || mode === "reset" || providerPending;
+
+  useEffect(() => {
+    pageActive.current = true;
+    return () => { pageActive.current = false; completionVersion.current += 1; };
+  }, []);
 
   useEffect(() => {
     if (resetSent) heading.current?.focus();
@@ -71,44 +81,57 @@ export function ProductAuthClient() {
     heading.current?.focus();
   }
 
-  async function completeProviderSignIn(
+  async function completeSignIn(
     user: User,
     extraDetails?: { fullName?: string; companyName?: string }
   ) {
-    if (!services) return;
-    await ensureProductAccount(services.db, user, selectedRole, extraDetails);
-    await refreshProfile();
-    router.replace(productReturnPath(selectedRole, returnPath));
-  }
-
-  async function redirectToRoleHome(userId: string, fallbackRole: ProductRole) {
-    if (!services) {
-      return;
-    }
-
-    let timeout: ReturnType<typeof setTimeout> | undefined;
+    if (!services || !pageActive.current) return;
+    const version = ++completionVersion.current;
+    const isCurrent = () => pageActive.current && completionVersion.current === version && services.auth.currentUser?.uid === user.uid;
     try {
-      const snapshot = await Promise.race([
-        getDoc(doc(services.db, "users", userId)),
-        new Promise<never>((_, reject) => {
-          timeout = setTimeout(() => reject(Object.assign(new Error("Account loading timed out."), {
-            code: "app/account-timeout"
-          })), 10_000);
-        })
-      ]);
-
-      if (!snapshot.exists()) {
-        router.replace(productReturnPath(fallbackRole, returnPath));
+      const existingProfile = await session.refreshProfile();
+      if (!isCurrent()) return;
+      if (!existingProfile || existingProfile.id !== user.uid) {
+        setError("Your account details could not be loaded. Please try again.");
         return;
       }
-
-      const profile = snapshot.data();
-      const role = extractProductRoles(profile).includes(fallbackRole)
-        ? fallbackRole
-        : getActiveProductRole(profile) ?? fallbackRole;
+      if (existingProfile.isActive === false) {
+        setError("This account is inactive. Please contact support.");
+        return;
+      }
+      const hasOtherRoles = [
+        existingProfile.activeRole,
+        existingProfile.role,
+        ...(Array.isArray(existingProfile.roles) ? existingProfile.roles : [])
+      ].some((role) => typeof role === "string" && role.trim() !== "" && !normalizeProductRole(role));
+      if (hasOtherRoles && !extractProductRoles(existingProfile).includes(selectedRole)) {
+        setError("This account's existing roles cannot be changed here. Please contact support.");
+        return;
+      }
+      if (!hasOtherRoles) {
+        await ensureProductAccount(services.db, user, selectedRole, extraDetails);
+      }
+      if (!isCurrent()) return;
+      const hydratedProfile = await session.refreshProfile();
+      if (!isCurrent()) return;
+      if (!hydratedProfile || hydratedProfile.id !== user.uid) {
+        setError("Your account details could not be loaded. Please try again.");
+        return;
+      }
+      if (hydratedProfile.isActive === false) {
+        setError("This account is inactive. Please contact support.");
+        return;
+      }
+      const role = extractProductRoles(hydratedProfile).includes(selectedRole)
+        ? selectedRole
+        : getActiveProductRole(hydratedProfile);
+      if (!role) {
+        setError("Your account does not have a configured workspace yet. Please try again.");
+        return;
+      }
       router.replace(productReturnPath(role, returnPath));
-    } finally {
-      clearTimeout(timeout);
+    } catch (failure) {
+      if (isCurrent()) setError(firebaseAuthErrorMessage(failure));
     }
   }
 
@@ -133,6 +156,11 @@ export function ProductAuthClient() {
         return;
       }
 
+      if (!showSignIn && session.user) {
+        await completeSignIn(session.user);
+        return;
+      }
+
       if (mode === "signin") {
         const credential = await signInWithEmailAndPassword(
           services.auth,
@@ -140,13 +168,7 @@ export function ProductAuthClient() {
           form.password
         );
 
-        void updateDoc(doc(services.db, "users", credential.user.uid), {
-          isActive: true,
-          lastLoginAt: Date.now(),
-          updatedAt: Date.now()
-        }).catch(() => undefined);
-
-        await redirectToRoleHome(credential.user.uid, selectedRole);
+        await completeSignIn(credential.user);
         return;
       }
 
@@ -162,50 +184,10 @@ export function ProductAuthClient() {
         });
       }
 
-      const currentTime = Date.now();
-      const userProfile = {
-        activeRole: selectedRole,
-        address: "",
-        bio: "",
-        businessAddress: "",
-        businessLatitude: 0,
-        businessLongitude: 0,
-        companyName: selectedRole === "EMPLOYER" ? form.companyName.trim() : "",
-        companySize: "",
-        contactEmail: form.email.trim(),
-        contactPhone: "",
-        createdAt: currentTime,
-        currentLocationAddress: "",
-        currentLocationLabel: "",
-        dateOfBirth: "",
-        email: form.email.trim(),
-        experience: "",
+      await completeSignIn(credential.user, {
         fullName: form.fullName.trim(),
-        gender: "",
-        id: credential.user.uid,
-        industry: "",
-        isActive: true,
-        lastLoginAt: currentTime,
-        latitude: 0,
-        longitude: 0,
-        name: form.fullName.trim(),
-        phone: "",
-        profileCompleted: false,
-        profileImageUrl: "",
-        role: selectedRole,
-        roles: [selectedRole],
-        savedJobs: [],
-        skills: "",
-        trustTier: "NEW",
-        updatedAt: currentTime,
-        website: "",
-        workLocations: []
-      };
-
-      await setDoc(doc(services.db, "users", credential.user.uid), userProfile);
-
-      await refreshProfile();
-      router.replace(productReturnPath(selectedRole, returnPath));
+        companyName: selectedRole === "EMPLOYER" ? form.companyName.trim() : undefined
+      });
     } catch (submitError) {
       if (mode === "reset") {
         const code = submitError && typeof submitError === "object" && "code" in submitError
@@ -242,29 +224,49 @@ export function ProductAuthClient() {
       <main className="auth-layout" id="account-content" tabIndex={-1}>
         <section className="auth-content">
           <span className="section-label">YOUR NEXT CHAPTER STARTS HERE</span>
-          <h1 ref={heading} tabIndex={-1}>{mode === "reset" ? resetSent ? "Check your email" : "Reset your password" : mode === "signin" ? "Welcome back" : "Create your account"}</h1>
-          <p className="auth-intro">{mode === "reset" ? "Get back to your DutyPe account." : mode === "signin" ? "Sign in to your DutyPe account." : "Join DutyPe as a worker or employer."}</p>
+          <h1 ref={heading} tabIndex={-1}>{mode === "reset" ? resetSent ? "Check your email" : "Reset your password" : !showSignIn ? "Your DutyPe account" : mode === "signin" ? "Welcome back" : "Create your account"}</h1>
+          <p className="auth-intro">{mode === "reset" ? "Get back to your DutyPe account." : !showSignIn ? "Signed in to DutyPe." : mode === "signin" ? "Sign in to your DutyPe account." : "Join DutyPe as a worker or employer."}</p>
 
-          {mode !== "reset" ? <>
+          {session.loading ? <div className="callout" role="status">Loading your account...</div> : null}
+          {!showSignIn ? (
+            <form className="product-form" onSubmit={handleSubmit} aria-busy={submitting || session.loading}>
+              <p className="product-form-wide">{session.user?.email || session.user?.phoneNumber || session.profile?.fullName}</p>
+              <label>
+                <span>I am a</span>
+                <select value={selectedRole} disabled={submitting} onChange={(event) => setSelectedRole(event.target.value as ProductRole)}>
+                  {PRODUCT_ROLES.map((role) => <option key={role} value={role}>{productRoleLabel(role)}</option>)}
+                </select>
+              </label>
+              <div className="product-form-wide auth-submit-row">
+                <button type="submit" className="button" disabled={submitting || session.loading || !services}>
+                  {submitting ? "Working..." : `Continue as ${productRoleLabel(selectedRole)}`}<SiteIcon name="arrow-right" />
+                </button>
+                <button type="button" className="auth-text-button" disabled={submitting} onClick={() => setUseAnotherAccount(true)}>Use another account</button>
+              </div>
+            </form>
+          ) : null}
+
+          {showSignIn && mode !== "reset" ? <>
             <div className="product-tab-row" role="group" aria-label="Sign-in method">
               <button type="button" className={`product-tab ${method === "phone" ? "active" : ""}`} aria-pressed={method === "phone"} disabled={submitting} onClick={() => { setMethod("phone"); setError(null); }}>Phone OTP</button>
               <button type="button" className={`product-tab ${method === "email" ? "active" : ""}`} aria-pressed={method === "email"} disabled={submitting} onClick={() => { setMethod("email"); setError(null); }}>Email</button>
             </div>
             {method === "phone" ? <label className="provider-role"><span>I am a</span><select value={selectedRole} disabled={submitting} onChange={(event) => setSelectedRole(event.target.value as ProductRole)}>{PRODUCT_ROLES.map((role) => <option key={role} value={role}>{productRoleLabel(role)}</option>)}</select></label> : null}
             <ProviderSignIn
-              disabled={submitting || !services}
+              disabled={submitting || session.loading || !services}
               showPhone={method === "phone"}
               role={selectedRole}
               returnPath={returnPath}
               onBusyChange={(busy) => {
                 submitInFlight.current = busy;
+                setProviderPending(busy);
                 setSubmitting(busy);
               }}
-              onAuthenticated={completeProviderSignIn}
+              onAuthenticated={completeSignIn}
             />
           </> : null}
 
-          {mode !== "reset" && method === "email" ? (
+          {showSignIn && mode !== "reset" && method === "email" ? (
           <div className="product-tab-row" role="group" aria-label="Account access">
             <button type="button" className={`product-tab ${mode === "signin" ? "active" : ""}`} aria-pressed={mode === "signin"} disabled={submitting} onClick={() => changeMode("signin")}>
               Sign in
@@ -275,7 +277,7 @@ export function ProductAuthClient() {
           </div>
           ) : null}
 
-          {method === "email" || mode === "reset" ? (mode === "reset" && resetSent ? (
+          {showSignIn && (method === "email" || mode === "reset") ? (mode === "reset" && resetSent ? (
             <div className="auth-reset-confirmation" role="status">
               <span className="category-icon tone-mint"><SiteIcon name="check" /></span>
               <p>If an account exists for <strong>{form.email.trim()}</strong>, you&apos;ll receive a password reset link.</p>
@@ -335,7 +337,7 @@ export function ProductAuthClient() {
             ) : null}
 
             <div className="product-form-wide auth-submit-row">
-              <button type="submit" className="button" disabled={submitting || !services}>
+              <button type="submit" className="button" disabled={submitting || session.loading || !services}>
                 {submitting ? "Working..." : mode === "reset" ? "Send reset link" : mode === "signin" ? "Sign in" : `Create ${productRoleLabel(selectedRole)} account`}
                 <SiteIcon name="arrow-right" />
               </button>
@@ -350,7 +352,7 @@ export function ProductAuthClient() {
             </div>
           ) : null}
 
-          {!services || error ? <div className="callout" role="alert">{!services ? FIREBASE_SETUP_ERROR : error}</div> : null}
+          {!services || error || session.error ? <div className="callout" role="alert">{!services ? FIREBASE_SETUP_ERROR : error || session.error}</div> : null}
           <div className="auth-legal"><Link href="/terms">Terms of service</Link><Link href="/privacy">Privacy policy</Link></div>
         </section>
 

@@ -12,6 +12,136 @@ const { firebaseAuthErrorMessage } = loadSource("lib/firebase/auth-errors.ts");
 const { normalizeSignInPhone } = loadSource("lib/firebase/account-actions.ts");
 const { publicJobSummary, matchingJobSummary, emptyJobSearch, parseJobSearch, jobSearchParams, queryLiveJobPage } = loadSource("lib/jobs/public-listings.ts");
 
+test("Android jobmetadata records appear in public city and nearby search without exposing private fields", () => {
+  const record = { id: "android-live-job", data: {
+    title: "Delivery partner", status: "open", category: "DELIVERY", companyName: "Test employer",
+    salary: 18000, salaryType: "MONTHLY", addressText: "Madhapur, Hyderabad, Telangana",
+    location: { lat: 17.44, lng: 78.39 }, createdAt: 1789600000000,
+    description: "PRIVATE_DESCRIPTION", contactPhone: "PRIVATE_PHONE", employerId: "PRIVATE_ID"
+  } };
+  const summary = publicJobSummary(record);
+  assert.ok(summary, "Current Android records must not require legacy isActive");
+  assert.equal(summary.city, "Hyderabad");
+  assert.equal(summary.payAmount, "18000");
+  assert.equal(summary.payType, "MONTHLY");
+  assert.ok(matchingJobSummary(record, { ...emptyJobSearch, city: "Hyderabad", area: "Madhapur" }));
+  assert.ok(matchingJobSummary(record, { ...emptyJobSearch, location: { latitude: 17.44, longitude: 78.39, radiusKm: 5 } }));
+  assert.doesNotMatch(JSON.stringify(summary), /PRIVATE_|17\.44|78\.39|addressText/);
+});
+
+test("canonical closed status cannot be overridden by an old active flag", () => {
+  for (const status of ["closed", "filled", "expired", "cancelled", "draft", "pending"]) {
+    assert.equal(publicJobSummary({ id: "closed-job", data: { title: "Closed role", status, isActive: true } }), null, status);
+  }
+});
+
+test("canonical listing timestamps support seconds milliseconds and microseconds without false expiry", () => {
+  const now = 1789600000000;
+  for (const scale of [0.001, 1, 1000]) {
+    const record = { id: "time-test", data: { title: "Helper", status: "open", createdAt: (now - 1000) * scale, expiresAt: (now + 1000) * scale } };
+    const summary = publicJobSummary(record, now);
+    assert.ok(summary);
+    assert.equal(summary.postedAt, now - 1000);
+    assert.equal(summary.expiresAt, now + 1000);
+    assert.equal(publicJobSummary({ ...record, data: { ...record.data, expiresAt: (now - 1000) * scale } }, now), null);
+  }
+});
+
+test("server reads Android collections, joins safe detail fields and suppresses stale legacy duplicates", async () => {
+  const documents = {
+    jobmetadata: Object.fromEntries(Array.from({ length: 25 }, (_, index) => [String(index).padStart(3, "0"), {
+      title: `Driver ${index}`, status: "open", salary: "18000", salaryType: "MONTHLY",
+      location: { lat: 17.44, lng: 78.39 }, addressText: "Madhapur, Hyderabad, Telangana, India", vacancies: 1
+    }]).concat([["closed", { title: "Closed Android role", status: "closed" }]])),
+    job_details: Object.fromEntries(Array.from({ length: 25 }, (_, index) => [String(index).padStart(3, "0"), {
+      companyCity: "Telangana", description: "PRIVATE_FULL_DESCRIPTION", contactNumber: "PRIVATE_PHONE",
+      shiftTiming: "Morning", expiresAt: Date.now() + 3600000
+    }])),
+    jobs: {
+      "000": { title: "Stale legacy duplicate", jobId: "old-open-link", isActive: true, city: "Hyderabad" },
+      closed: { title: "Do not revive closed Android role", jobId: "old-closed-link", isActive: true, city: "Hyderabad" },
+      "legacy-only": { title: "Older website role", jobId: "old-legacy-link", isActive: true, city: "Hyderabad", payAmount: 20000 }
+    }
+  };
+  const queried = [];
+  const masks = [];
+  const fullReads = [];
+  const projectFields = (data, fields) => !data ? undefined : fields ? Object.fromEntries(fields.filter(field => Object.hasOwn(data, field)).map(field => [field, data[field]])) : data;
+  const snapshot = (collection, id, fields) => ({
+    id, exists: Object.hasOwn(documents[collection] || {}, id),
+    data: () => projectFields(documents[collection]?.[id], fields)
+  });
+  function collection(name) {
+    let filter;
+    let after;
+    let count = 100;
+    let fields;
+    const query = {
+      where(field, operator, value) { assert.equal(operator, "=="); filter = { field, value }; return query; },
+      orderBy() { return query; }, limit(value) { count = value; return query; },
+      startAfter(value) { after = value; return query; }, select(...selected) { fields = selected; return query; },
+      doc(id) { return { collection: name, id, get: async () => { fullReads.push({ collection: name, id }); return snapshot(name, id); } }; },
+      async get() {
+        queried.push({ collection: name, filter, fields });
+        return { docs: Object.entries(documents[name] || {}).filter(([id, data]) => (!after || id > after) && (!filter || data[filter.field] === filter.value)).sort(([left], [right]) => left.localeCompare(right)).slice(0, count).map(([id]) => snapshot(name, id, fields)) };
+      }
+    };
+    return query;
+  }
+  const server = loadSource("lib/jobs/server.ts", {
+    "server-only": {}, "next/cache": { unstable_cache: callback => callback },
+    "@/lib/firebase/admin-server": { isFirebaseAdminConfigured: () => true, getFirebaseAdminApp: () => ({}) },
+    "firebase-admin/firestore": { FieldPath: { documentId: () => "__name__" }, getFirestore: () => ({ collection, getAll: async (...args) => {
+      const options = args.pop();
+      masks.push({ collection: args[0]?.collection, fields: options.fieldMask });
+      return args.map(reference => snapshot(reference.collection, reference.id, options.fieldMask));
+    } }) }
+  });
+  const first = await server.getLiveJobPage({ ...emptyJobSearch, city: "Hyderabad" });
+  assert.equal(first.status, "ready");
+  assert.equal(first.jobs.length, 20);
+  assert.ok(first.nextCursor.startsWith("v2:"));
+  const second = await server.getLiveJobPage({ ...emptyJobSearch, city: "Hyderabad" }, first.nextCursor);
+  assert.equal(second.jobs.length, 6);
+  assert.equal(second.nextCursor, null);
+  const ids = [...first.jobs, ...second.jobs].map(job => job.id);
+  assert.equal(new Set(ids).size, 26);
+  assert.equal(ids.includes("closed"), false);
+  assert.equal(first.jobs[0].city, "Hyderabad");
+  assert.equal(first.jobs[0].payAmount, "18000");
+  assert.doesNotMatch(JSON.stringify([first, second]), /PRIVATE_/);
+  assert.deepEqual(queried[0].filter, { field: "status", value: "open" });
+  assert.ok(queried.some(query => query.collection === "jobmetadata"));
+  assert.ok(masks.filter(mask => mask.collection === "job_details").every(mask => mask.fields.join(",") === "companyCity,expiresAt"));
+  const detail = await server.getJobRecord("000");
+  assert.equal(detail.data.description, "PRIVATE_FULL_DESCRIPTION");
+  assert.equal(detail.data.status, "open");
+  const publicRecord = await server.getPublicJob("000");
+  assert.equal(publicRecord.job.id, "000");
+  assert.doesNotMatch(JSON.stringify(publicRecord), /PRIVATE_/);
+  assert.equal((await server.getPublicJob("closed")).job, null);
+  const privateReadsBeforeAliases = fullReads.filter(read => read.collection === "job_details").length;
+  const closedAlias = await server.getPublicJob("old-closed-link");
+  assert.equal(closedAlias.status, "ready");
+  assert.equal(closedAlias.job, null, "A legacy alias must respect its migrated canonical closed record");
+  const openAlias = await server.getPublicJob("old-open-link");
+  assert.equal(openAlias.status, "ready");
+  assert.equal(openAlias.job.id, "000");
+  assert.equal(openAlias.job.title, "Driver 0");
+  assert.equal(openAlias.job.payAmount, "18000");
+  assert.doesNotMatch(JSON.stringify(openAlias), /PRIVATE_/);
+  assert.equal(fullReads.filter(read => read.collection === "job_details").length, privateReadsBeforeAliases);
+  assert.ok(masks.filter(mask => mask.collection === "job_details").every(mask => mask.fields.join(",") === "companyCity,expiresAt"));
+  const aliasDetails = await server.getJobRecord("old-open-link");
+  assert.equal(aliasDetails.id, "000");
+  assert.equal(aliasDetails.data.description, "PRIVATE_FULL_DESCRIPTION");
+  const legacyAlias = await server.getPublicJob("old-legacy-link");
+  assert.equal(legacyAlias.status, "ready");
+  assert.equal(legacyAlias.job.id, "legacy-only");
+  assert.equal(legacyAlias.job.title, "Older website role");
+  await assert.rejects(() => server.getLiveJobPage(emptyJobSearch, "v2:invalid"));
+});
+
 test("public jobs pagination finds matching cities beyond the first 48 records without gaps", async () => {
   const records = Array.from({ length: 145 }, (_, index) => ({ id: String(index).padStart(4, "0"), data: {
     title: "Delivery associate", isActive: true, city: index < 80 ? "Delhi" : "Hyderabad"
@@ -148,7 +278,7 @@ test("location guides use truthful page schema and reject unsupported location U
   }
 });
 
-test("Firebase configuration never silently falls back to an embedded key or another project", () => {
+test("Firebase defaults match the Android project and explicit overrides require valid core fields", () => {
   const fs = require("node:fs");
   const path = require("node:path");
   const vm = require("node:vm");
@@ -163,9 +293,13 @@ test("Firebase configuration never silently falls back to an embedded key or ano
   };
   const variables = ["API_KEY", "AUTH_DOMAIN", "PROJECT_ID", "STORAGE_BUCKET", "MESSAGING_SENDER_ID", "APP_ID"];
   const configured = Object.fromEntries(variables.map((name) => [`NEXT_PUBLIC_FIREBASE_${name}`, `test-${name}`]));
-  assert.equal(evaluate({}).hasFirebaseConfig, false);
-  assert.equal(evaluate({}).firebaseConfig.apiKey, "");
+  const android = JSON.parse(fs.readFileSync(path.join(__dirname, "../../app/google-services.json"), "utf8"));
+  assert.equal(evaluate({}).hasFirebaseConfig, true);
+  assert.equal(evaluate({}).firebaseConfig.projectId, android.project_info.project_id);
+  assert.equal(typeof evaluate({}).firebaseConfig.apiKey, "string");
   assert.equal(evaluate(configured).hasFirebaseConfig, true);
+  assert.equal(evaluate(configured).firebaseConfig.projectId, "test-PROJECT_ID");
+  assert.equal(evaluate(configured).firebaseConfig.authDomain, "test-AUTH_DOMAIN");
   for (const variable of ["API_KEY", "AUTH_DOMAIN", "PROJECT_ID", "APP_ID"]) {
     assert.equal(evaluate({ ...configured, [`NEXT_PUBLIC_FIREBASE_${variable}`]: "  " }).hasFirebaseConfig, false, variable);
   }
@@ -347,7 +481,8 @@ test("full job details require a verified token before any record is read", asyn
         verifies += 1;
         assert.equal(revoked, true);
         if (token === "anonymous-token") return { uid: "guest", firebase: { sign_in_provider: "anonymous" } };
-        if (token !== "synthetic-valid-token") throw new Error("Rejected");
+        if (token === "service-error") throw Object.assign(new Error("PRIVATE_SERVER_ERROR"), { code: "app/invalid-credential" });
+        if (token !== "synthetic-valid-token") throw Object.assign(new Error("Rejected"), { code: "auth/id-token-expired" });
         return { uid: "test-worker" };
       } })
     },
@@ -364,6 +499,10 @@ test("full job details require a verified token before any record is read", asyn
   assert.equal(reads, 0);
   assert.equal((await GET(request("Bearer anonymous-token"), { params: { jobId: "job" } })).status, 401);
   assert.equal(reads, 0);
+  const outage = await GET(request("Bearer service-error"), { params: { jobId: "job" } });
+  assert.equal(outage.status, 503);
+  assert.equal(reads, 0);
+  assert.doesNotMatch(JSON.stringify(await outage.json()), /PRIVATE_SERVER_ERROR|expired/);
   const response = await GET(request("Bearer synthetic-valid-token"), { params: { jobId: "job" } });
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "private, no-store");
@@ -452,7 +591,7 @@ test("public job pages render real summaries and never put gated details into HT
 });
 
 test("server job access uses managed credentials only in an identified Google runtime", () => {
-  const fields = ["GOOGLE_APPLICATION_CREDENTIALS", "FIREBASE_ADMIN_SERVICE_ACCOUNT_PATH", "FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON", "FIREBASE_ADMIN_PROJECT_ID", "FIREBASE_ADMIN_CLIENT_EMAIL", "FIREBASE_ADMIN_PRIVATE_KEY", "K_SERVICE", "FUNCTION_TARGET", "GOOGLE_CLOUD_PROJECT", "GCLOUD_PROJECT"];
+  const fields = ["GOOGLE_APPLICATION_CREDENTIALS", "FIREBASE_ADMIN_SERVICE_ACCOUNT_PATH", "FIREBASE_ADMIN_SERVICE_ACCOUNT_JSON", "FIREBASE_ADMIN_PROJECT_ID", "FIREBASE_ADMIN_CLIENT_EMAIL", "FIREBASE_ADMIN_PRIVATE_KEY", "K_SERVICE", "FUNCTION_TARGET", "GAE_ENV", "GOOGLE_CLOUD_PROJECT", "GCLOUD_PROJECT"];
   const previous = Object.fromEntries(fields.map((field) => [field, process.env[field]]));
   try {
     for (const field of fields) delete process.env[field];
@@ -467,11 +606,28 @@ test("server job access uses managed credentials only in an identified Google ru
     assert.equal(admin.isFirebaseAdminConfigured(), false);
     process.env.K_SERVICE = "synthetic-next-server";
     assert.equal(admin.isFirebaseAdminConfigured(), true);
-    assert.deepEqual(admin.getFirebaseAdminApp(), { credential: "managed-credential", projectId: "synthetic-project" });
+    assert.deepEqual(admin.getFirebaseAdminApp(), { credential: "managed-credential", projectId: "synthetic-project", storageBucket: undefined });
   } finally {
     for (const field of fields) {
       if (previous[field] === undefined) delete process.env[field];
       else process.env[field] = previous[field];
     }
   }
+});
+
+test("natural city job queries match canonical work type and category synonyms", () => {
+  const record = { id: "canonical-query", data: { title: "Kitchen assistant", status: "open", category: "COOKING", jobType: "Part-time", salaryType: "DAILY", companyCity: "Hyderabad" } };
+  for (const query of ["local jobs in Hyderabad", "part-time jobs Hyderabad", "cook jobs in Hyderabad", "available cooking vacancies near me"]) {
+    assert.ok(matchingJobSummary(record, { ...emptyJobSearch, query }), query);
+  }
+  assert.equal(matchingJobSummary(record, { ...emptyJobSearch, query: "driver jobs Hyderabad" }), null);
+  assert.equal(matchingJobSummary(record, { ...emptyJobSearch, query: "local jobs Delhi" }), null);
+});
+
+test("Android companyCity state values do not hide recognizable address cities", () => {
+  const record = { id: "address-city", data: { title: "Helper", status: "open", companyCity: "Telangana", addressText: "Madhapur, Hyderabad, Telangana, India", location: { lat: 17.44, lng: 78.39 } } };
+  assert.equal(publicJobSummary(record).city, "Hyderabad");
+  assert.ok(matchingJobSummary(record, { ...emptyJobSearch, city: "Hyderabad" }));
+  assert.ok(matchingJobSummary(record, { ...emptyJobSearch, city: "Hyderabad", location: { latitude: 17.44, longitude: 78.39, radiusKm: 5 } }));
+  assert.equal(publicJobSummary({ ...record, data: { ...record.data, city: "Explicit City" } }).city, "Explicit City");
 });

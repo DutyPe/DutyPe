@@ -21,6 +21,7 @@ import {
 
 import { getFirebaseServices } from "@/lib/firebase/client";
 import { FIREBASE_SETUP_ERROR } from "@/lib/firebase/auth-errors";
+import { validJobId } from "@/lib/jobs/public-listings";
 import { jobDirectoryCities } from "@/lib/public-site";
 import {
   getOrCreateConversationId,
@@ -587,14 +588,18 @@ export function EmployerDashboardClient({ session }: SharedProps) {
 export function EmployerPostJobClient({ session }: SharedProps) {
   const services = useMemo(() => getFirebaseServices(), []);
   const router = useRouter();
-  const pendingJobId = useRef<string | null>(null);
+  const pendingJob = useRef<{ id: string; employerId: string } | null>(null);
+  const pageActive = useRef(true);
   const posting = useRef(false);
   const [published, setPublished] = useState(false);
   const [form, setForm] = useState<EmployerJobForm>(initialJobForm);
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const canPublish = Boolean(session.user && session.availableRoles.includes("EMPLOYER"));
+  const [retryingProfile, setRetryingProfile] = useState(false);
+  const inactiveAccount = Boolean(session.user && session.profile?.isActive === false);
+  const profileUnavailable = Boolean(session.user && (session.error || !session.profile));
+  const canPublish = Boolean(session.user && !session.loading && !profileUnavailable && !inactiveAccount && session.availableRoles.includes("EMPLOYER"));
   const draftOwnerId = session.user?.uid ?? null;
   const savedBusinessLocation = employerBaseLocationFromProfile(session.profile);
   const savedWorkLocations = useMemo(
@@ -606,6 +611,11 @@ export function EmployerPostJobClient({ session }: SharedProps) {
       savedWorkLocations.find((location) => matchesEmployerLocationForm(form, location)) ?? null,
     [form, savedWorkLocations]
   );
+
+  useEffect(() => {
+    pageActive.current = true;
+    return () => { pageActive.current = false; };
+  }, []);
 
   useEffect(() => {
     try {
@@ -621,6 +631,9 @@ export function EmployerPostJobClient({ session }: SharedProps) {
       const savedForm = { ...initialJobForm, ...draft.form };
       if (!draft.form || !fields.every((field) => typeof savedForm[field] === "string" && savedForm[field].length <= 10_000)) return;
       const restored = Object.fromEntries(fields.map((field) => [field, savedForm[field]])) as EmployerJobForm;
+      if (draftOwnerId && draft.ownerId === draftOwnerId && validJobId(draft.pendingJobId)) {
+        pendingJob.current = { id: draft.pendingJobId, employerId: draftOwnerId };
+      }
       setForm(restored);
       if (draftOwnerId && !draft.ownerId) sessionStorage.setItem(jobDraftKey, JSON.stringify({ ...draft, ownerId: draftOwnerId }));
     } catch {
@@ -676,6 +689,8 @@ export function EmployerPostJobClient({ session }: SharedProps) {
     if (posting.current || published || session.loading) {
       return;
     }
+    if (inactiveAccount) { setError("This account is inactive. Contact support before posting."); return; }
+    if (profileUnavailable) { setError("You are signed in, but your profile could not be loaded. Retry the account check."); return; }
 
     if (![form.title, form.companyName, form.city, form.location, form.contactNumber, form.description].every((value) => value.trim())) {
       setError("Complete the job title, company, city, location, contact number, and description.");
@@ -709,88 +724,118 @@ export function EmployerPostJobClient({ session }: SharedProps) {
 
     const activeServices = services;
     const activeUser = session.user;
+    const isCurrentSubmission = () => pageActive.current && activeServices.auth.currentUser?.uid === activeUser.uid;
 
     try {
       posting.current = true;
       setSubmitting(true);
       setError(null);
 
-      const jobRef = pendingJobId.current
-        ? doc(activeServices.db, "jobs", pendingJobId.current)
+      const jobRef = pendingJob.current?.employerId === activeUser.uid
+        ? doc(activeServices.db, "jobs", pendingJob.current.id)
         : doc(collection(activeServices.db, "jobs"));
-      pendingJobId.current = jobRef.id;
-      const batch = writeBatch(activeServices.db);
+      pendingJob.current = { id: jobRef.id, employerId: activeUser.uid };
       const currentTime = Date.now();
+      try {
+        sessionStorage.setItem(jobDraftKey, JSON.stringify({
+          version: 1, savedAt: currentTime, ownerId: activeUser.uid, form, pendingJobId: jobRef.id
+        }));
+      } catch {
+        throw new Error("Your browser could not keep this posting request. Allow tab storage before publishing.");
+      }
       const normalizedCategory =
         form.category.trim().toUpperCase() || deriveJobCategory(form.title, form.description);
-      const nextWorkLocations =
-        matchedSavedLocation?.id
-          ? incrementWorkLocationUsage(savedWorkLocations, matchedSavedLocation.id)
-          : savedWorkLocations;
 
-      batch.update(doc(activeServices.db, "users", activeUser.uid), {
-        activeRole: "EMPLOYER",
-        businessAddress: form.location.trim(),
-        businessLatitude: hasCoordinates ? latitude : 0,
-        businessLongitude: hasCoordinates ? longitude : 0,
-        companyName: form.companyName.trim(),
-        contactEmail: activeUser.email ?? session.profile?.email ?? "",
-        contactPhone: form.contactNumber.trim(),
-        role: "EMPLOYER",
-        roles: [...new Set([...session.availableRoles, "EMPLOYER"])],
-        updatedAt: currentTime,
-        workLocations: nextWorkLocations
-      });
-
-      batch.set(jobRef, {
-        acceptedCount: 0,
-        applicationCount: 0,
+      const jobDetails = {
         city: form.city.trim(),
         area: form.area.trim(),
         category: normalizedCategory,
         companyName: form.companyName.trim(),
         contactNumber: form.contactNumber.trim(),
-        createdAt: currentTime,
         description: form.description.trim(),
         employerId: activeUser.uid,
-        employerTrustTier: session.profile?.trustTier || "NEW",
-        expiryDays: 15,
-        expiresAt: currentTime + 15 * 24 * 60 * 60 * 1000,
         gender: form.gender,
-        isActive: true,
-        isFilled: false,
-        jobId: jobRef.id,
         jobType: form.jobType,
         latitude: hasCoordinates ? latitude : 0,
         location: form.location.trim(),
         longitude: hasCoordinates ? longitude : 0,
         payAmount: form.payAmount.trim(),
         payType: form.payType,
-        postedAt: currentTime,
         shiftTiming: form.shiftTiming.trim(),
         title: form.title.trim(),
-        updatedAt: currentTime,
-        vacancies,
-        vacancyStatus: "OPEN"
+        vacancies
+      };
+
+      await runTransaction(activeServices.db, async (transaction) => {
+        const existingJob = await transaction.get(jobRef);
+        if (existingJob.exists()) {
+          const savedJob = existingJob.data();
+          if (savedJob.employerId !== activeUser.uid) {
+            throw new Error("The original posting could not be verified for this account.");
+          }
+          if (Object.entries(jobDetails).some(([field, value]) => savedJob[field] !== value)) {
+            throw new Error("This job was already published with different details. Review it in My jobs.");
+          }
+          return;
+        }
+
+        const userRef = doc(activeServices.db, "users", activeUser.uid);
+        const currentProfile = await transaction.get(userRef);
+        const currentWorkLocations = normalizeWorkLocations(currentProfile.data()?.workLocations);
+        transaction.update(userRef, {
+          businessAddress: form.location.trim(),
+          businessLatitude: hasCoordinates ? latitude : 0,
+          businessLongitude: hasCoordinates ? longitude : 0,
+          companyName: form.companyName.trim(),
+          contactEmail: activeUser.email ?? session.profile?.email ?? "",
+          contactPhone: form.contactNumber.trim(),
+          updatedAt: currentTime,
+          workLocations: matchedSavedLocation?.id
+            ? incrementWorkLocationUsage(currentWorkLocations, matchedSavedLocation.id)
+            : currentWorkLocations
+        });
+
+        transaction.set(jobRef, {
+          ...jobDetails,
+          acceptedCount: 0,
+          applicationCount: 0,
+          createdAt: currentTime,
+          employerTrustTier: session.profile?.trustTier || "NEW",
+          expiryDays: 15,
+          expiresAt: currentTime + 15 * 24 * 60 * 60 * 1000,
+          isActive: true,
+          isFilled: false,
+          jobId: jobRef.id,
+          postedAt: currentTime,
+          updatedAt: currentTime,
+          vacancyStatus: "OPEN"
+        });
       });
 
-      await batch.commit();
+      if (!isCurrentSubmission()) return;
       setPublished(true);
-      try { sessionStorage.removeItem(jobDraftKey); } catch {}
+      try {
+        const draft = JSON.parse(sessionStorage.getItem(jobDraftKey) ?? "null");
+        if (draft?.ownerId === activeUser.uid && draft.pendingJobId === jobRef.id) sessionStorage.removeItem(jobDraftKey);
+      } catch {}
       router.push("/app/employer/jobs");
       router.refresh();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Failed to post job.");
+      if (isCurrentSubmission()) setError(submitError instanceof Error ? submitError.message : "Failed to post job.");
     } finally {
       posting.current = false;
-      setSubmitting(false);
+      if (isCurrentSubmission()) setSubmitting(false);
     }
   }
 
   return (
     <div className="product-section-stack">
       {error ? <div className="callout" role="alert">{error}</div> : null}
-      {!canPublish ? <p className="callout">Sign in with Google or a mobile verification code before publishing.</p> : null}
+      {session.loading ? <p role="status">Loading your account...</p>
+        : inactiveAccount ? <p className="callout" role="alert">This account is inactive. <Link href="/contact">Contact support</Link>.</p>
+          : profileUnavailable ? <div className="callout" role="alert"><p>You are signed in, but your profile is unavailable. Your draft is still here.</p><button type="button" className="button ghost" disabled={retryingProfile} onClick={async () => { setRetryingProfile(true); try { await session.refreshProfile(); setError(null); } catch { setError("Your profile is still unavailable. Please try again later."); } finally { setRetryingProfile(false); } }}>{retryingProfile ? "Checking account..." : "Retry account check"}</button></div>
+            : !session.user ? <p className="callout">Sign in with Google, email or a mobile verification code before publishing.</p>
+              : !canPublish ? <p className="callout">You are signed in. Continue to set up employer access before publishing.</p> : null}
 
       <section className="section">
         <div className="section-header">
@@ -1053,8 +1098,8 @@ export function EmployerPostJobClient({ session }: SharedProps) {
           </label>
 
           <div className="editor-form-actions button-row">
-            <button type="submit" className="button" disabled={submitting || published || session.loading}>
-              {published ? "Published" : submitting ? "Posting..." : canPublish ? "Post job" : "Sign in to post job"}
+            <button type="submit" className="button" disabled={submitting || published || session.loading || inactiveAccount || profileUnavailable}>
+              {published ? "Published" : submitting ? "Posting..." : session.loading ? "Loading account..." : canPublish ? "Post job" : session.user ? "Continue as employer" : "Sign in to post job"}
             </button>
           </div>
         </form>
@@ -1231,15 +1276,12 @@ export function EmployerEditJobClient({ jobId, session }: EmployerEditJobClientP
           : savedWorkLocations;
 
       batch.update(doc(services.db, "users", session.user.uid), {
-        activeRole: "EMPLOYER",
         businessAddress: form.location.trim(),
         businessLatitude: finalLatitude,
         businessLongitude: finalLongitude,
         companyName: form.companyName.trim(),
         contactEmail: session.user.email ?? session.profile?.email ?? "",
         contactPhone: form.contactNumber.trim(),
-        role: "EMPLOYER",
-        roles: [...new Set([...session.availableRoles, "EMPLOYER"])],
         updatedAt: currentTime,
         workLocations: nextWorkLocations
       });

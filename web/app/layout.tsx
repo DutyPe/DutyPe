@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { IBM_Plex_Sans, Sora } from "next/font/google";
 import { ReactNode } from "react";
 
+import { ProductSessionProvider } from "@/components/product/use-product-session";
 import { SITE_URL, cityLandingTargets, coreSeoKeywords, siteMeta } from "@/lib/public-site";
 
 import "./globals.css";
@@ -58,7 +59,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${bodyFont.variable} ${displayFont.variable}`}>{children}</body>
+      <body className={`${bodyFont.variable} ${displayFont.variable}`}>
+        <ProductSessionProvider>{children}</ProductSessionProvider>
+      </body>
     </html>
   );
 }

@@ -3,22 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import {
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  signOut
-} from "firebase/auth";
+import { signInWithEmailAndPassword } from "firebase/auth";
 
+import { useProductSession } from "@/components/product/use-product-session";
 import { getFirebaseServices } from "@/lib/firebase/client";
 
 export function AdminLoginClient() {
   const router = useRouter();
+  const session = useProductSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const servicesRef = useRef(getFirebaseServices());
+  const submitInFlight = useRef(false);
 
   async function createServerSession(idToken: string) {
     const response = await fetch("/api/admin/session", {
@@ -35,32 +34,35 @@ export function AdminLoginClient() {
   }
 
   useEffect(() => {
-    const services = servicesRef.current;
-    if (!services) return;
+    const user = session.user;
+    if (!user || submitInFlight.current) return;
+    let disposed = false;
 
-    const unsubscribe = onAuthStateChanged(services.auth, async (user) => {
-      if (!user) return;
-
+    async function resumeAdminSession() {
       try {
-        const idToken = await user.getIdToken(true);
+        const idToken = await user!.getIdToken();
+        if (disposed) return;
         await createServerSession(idToken);
+        if (disposed || servicesRef.current?.auth.currentUser?.uid !== user!.uid) return;
         setRedirecting(true);
         router.replace("/admin");
       } catch (sessionError) {
+        if (disposed) return;
         setError(
           sessionError instanceof Error
             ? sessionError.message
             : "Unable to create admin session."
         );
-        void signOut(services.auth);
       }
-    });
+    }
+    void resumeAdminSession();
 
-    return () => unsubscribe();
-  }, [router]);
+    return () => { disposed = true; };
+  }, [session.user, router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitInFlight.current) return;
     const services = servicesRef.current;
 
     if (!services) {
@@ -69,6 +71,7 @@ export function AdminLoginClient() {
     }
 
     try {
+      submitInFlight.current = true;
       setSubmitting(true);
       setError(null);
       const credential = await signInWithEmailAndPassword(
@@ -76,16 +79,15 @@ export function AdminLoginClient() {
         email.trim(),
         password
       );
-      const idToken = await credential.user.getIdToken(true);
+      const idToken = await credential.user.getIdToken();
       await createServerSession(idToken);
+      if (services.auth.currentUser?.uid !== credential.user.uid) return;
       setRedirecting(true);
       router.replace("/admin");
     } catch (signInError) {
-      if (services.auth.currentUser) {
-        await signOut(services.auth);
-      }
       setError(signInError instanceof Error ? signInError.message : "Unable to sign in.");
     } finally {
+      submitInFlight.current = false;
       setSubmitting(false);
     }
   }
@@ -141,7 +143,7 @@ export function AdminLoginClient() {
             </label>
 
             <div className="button-row">
-              <button type="submit" className="button" disabled={submitting}>
+              <button type="submit" className="button" disabled={submitting || (session.loading && !session.user)}>
                 {submitting ? "Signing in..." : "Sign in"}
               </button>
               <Link href="/" className="button ghost">
@@ -150,7 +152,8 @@ export function AdminLoginClient() {
             </div>
           </form>
 
-          {error ? <div className="callout">Sign-in error: {error}</div> : null}
+          {session.loading && !session.user ? <div className="callout" role="status">Loading your account...</div> : null}
+          {error || session.error ? <div className="callout" role="alert">Sign-in error: {error || session.error}</div> : null}
         </section>
       </div>
     </div>

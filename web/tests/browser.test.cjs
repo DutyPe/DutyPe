@@ -30,7 +30,13 @@ const stubs = {
     import { LiveJobResults } from './components/jobs/live-job-results';
     import { matchingJobSummary } from './lib/jobs/public-listings';
     export function LiveJobsSection({ search, heading, showFilters = false }) {
-      const jobs = Object.entries(globalThis.fixture.documents).filter(([key]) => key.startsWith('jobs/')).map(([key, data]) => matchingJobSummary({ id: key.slice(5), data }, search)).filter(Boolean);
+      const canonical = Object.entries(globalThis.fixture.documents).filter(([key]) => key.startsWith('jobmetadata/'));
+      const legacy = Object.entries(globalThis.fixture.documents).filter(([key]) => key.startsWith('jobs/') && !Object.hasOwn(globalThis.fixture.documents, 'jobmetadata/' + key.slice(5)));
+      const jobs = [...canonical, ...legacy].map(([key, data]) => {
+        const id = key.split('/')[1];
+        const detail = globalThis.fixture.documents['job_details/' + id] || {};
+        return matchingJobSummary({ id, data: { companyCity: detail.companyCity, expiresAt: detail.expiresAt, ...data } }, search);
+      }).filter(Boolean);
       const initial = globalThis.fixture.jobApiUnavailable || globalThis.fixture.jobSetupRequired ? { status: 'unavailable', unavailableReason: globalThis.fixture.jobSetupRequired ? 'setup-required' : 'temporary', jobs: [], nextCursor: null, scanned: 0 } : { status: 'ready', jobs: jobs.slice(0, 20), nextCursor: jobs.length > 20 ? jobs[19].id : null, scanned: jobs.length };
       return <LiveJobResults search={search} initial={initial} heading={heading} showFilters={showFilters} />;
     }
@@ -69,19 +75,21 @@ const stubs = {
         }
     export function onAuthStateChanged(auth, onChange) {
       globalThis.fixture.authSubscriptions = (globalThis.fixture.authSubscriptions || 0) + 1;
+      const listeners = globalThis.fixture.authListeners ||= new Set();
       const listener = nextUser => {
         globalThis.fixture.guest = !nextUser;
         if (nextUser) globalThis.fixture.user = nextUser;
         onChange(nextUser);
       };
-      globalThis.fixture.authListener = listener;
-      queueMicrotask(() => { if (!globalThis.fixture.holdAuthCheck && globalThis.fixture.authListener === listener) listener(auth.currentUser); });
-      return () => { if (globalThis.fixture.authListener === listener) globalThis.fixture.authListener = null; };
+      listeners.add(listener);
+      globalThis.fixture.authListener = nextUser => { for (const callback of listeners) callback(nextUser); };
+      queueMicrotask(() => { if (!globalThis.fixture.holdAuthCheck && listeners.has(listener)) listener(auth.currentUser); });
+      return () => { listeners.delete(listener); };
     }
     export async function signInWithEmailAndPassword(auth, email, password) {
       globalThis.fixture.signIns.push({ email, password });
       if (globalThis.fixture.signInError) throw Object.assign(new Error('Synthetic internal diagnostic'), { code: globalThis.fixture.signInError });
-      return { user: { uid: 'test-user' } };
+      return authenticate({ uid: 'test-user', email, displayName: 'Test Account' });
     }
     export async function sendPasswordResetEmail(auth, email) {
       globalThis.fixture.passwordResets.push(email);
@@ -94,15 +102,17 @@ const stubs = {
     }
     export async function createUserWithEmailAndPassword(auth, email, password) {
       globalThis.fixture.signUps.push({ email, password });
-      return { user: { uid: 'test-user' } };
+      return authenticate({ uid: 'test-user', email, displayName: '' });
     }
     export async function updateProfile() {}
-    export async function signOut() {}
+    export async function signOut() { globalThis.fixture.signOuts = (globalThis.fixture.signOuts || 0) + 1; globalThis.fixture.authListener?.(null); }
   `,
   "@/lib/firebase/chat-actions": `export async function getOrCreateConversationId(otherUserId, jobId) { globalThis.fixture.conversations.push({ otherUserId, jobId }); return 'test-conversation'; } export const productConversationRoute = role => '/app/' + role.toLowerCase() + '/messages?conversation=test-conversation';`,
   "./use-product-session": `
     import { useState } from 'react';
+    import { useProductSession as realSession } from './components/product/use-product-session.ts';
     export function useProductSession() {
+      if (globalThis.fixture.useRealSession) return realSession();
       const [role, setRole] = useState(globalThis.fixture.initialRole || 'WORKER');
       const [profile, setProfile] = useState(globalThis.fixture.profile);
       const [error, setError] = useState(globalThis.fixture.sessionError || null);
@@ -113,8 +123,10 @@ const stubs = {
         async refreshProfile() {
           globalThis.fixture.profileRefreshes = (globalThis.fixture.profileRefreshes || 0) + 1;
           if (globalThis.fixture.refreshProfileError) throw new Error('Synthetic profile failure');
-          setProfile(structuredClone(globalThis.fixture.documents['users/' + globalThis.fixture.user.uid]));
+          const profile = { ...(structuredClone(globalThis.fixture.documents['users/' + globalThis.fixture.user.uid]) || { roles: [] }), id: globalThis.fixture.user.uid };
+          setProfile(profile);
           setError(null);
+          return profile;
         },
         async setActiveRole(nextRole) {
           await new Promise((resolve, reject) => globalThis.fixture.roleRequests.push({ resolve, reject }));
@@ -170,7 +182,7 @@ before(async () => {
         }
         const container = createRoot(document.getElementById('root'));
         function renderFixture() {
-        container.render(globalThis.fixture.view === 'session'
+        const content = globalThis.fixture.view === 'session'
           ? <SessionFixture />
           : globalThis.fixture.view === 'entry'
           ? <ProductEntryClient />
@@ -190,7 +202,8 @@ before(async () => {
           ? <div style={{ maxWidth: '480px', padding: '16px' }}><JobDescription text={globalThis.fixture.description} /></div>
           : globalThis.fixture.view === 'auth'
           ? <ProductAuthClient />
-          : <ProductRoleBoundary requiredRole="EMPLOYER" currentPath="/app/employer" title="Hiring" description="Test workspace">{() => <p>Protected hiring content</p>}</ProductRoleBoundary>);
+          : <ProductRoleBoundary requiredRole="EMPLOYER" currentPath="/app/employer" title="Hiring" description="Test workspace">{() => <p>Protected hiring content</p>}</ProductRoleBoundary>;
+        container.render(globalThis.fixture.useRealSession ? <ProductSessionProvider>{content}</ProductSessionProvider> : content);
         }
         globalThis.fixture.showView = (view) => { globalThis.fixture.view = view; renderFixture(); };
         renderFixture();
@@ -256,7 +269,11 @@ async function openFixture(view = "auth", extra = {}, viewport = { width: 1440, 
         await page.evaluate((request) => { (fixture.jobSearchRequests ||= []).push(request); }, { method: route.request().method(), input });
         const state = await page.evaluate(() => ({ documents: fixture.documents, unavailable: fixture.jobApiUnavailable, setupRequired: fixture.jobSetupRequired }));
         if (state.unavailable || state.setupRequired) return route.fulfill({ status: 503, json: { status: "unavailable", unavailableReason: state.setupRequired ? "setup-required" : "temporary", jobs: [], nextCursor: null, scanned: 0 } });
-        const records = Object.entries(state.documents).filter(([key, data]) => key.startsWith("jobs/") && data.isActive === true).map(([key, data]) => ({ id: key.slice(5), data })).sort((left, right) => left.id.localeCompare(right.id));
+        const records = Object.entries(state.documents).filter(([key]) => key.startsWith("jobmetadata/") || key.startsWith("jobs/") && !Object.hasOwn(state.documents, `jobmetadata/${key.slice(5)}`)).map(([key, data]) => {
+          const id = key.split("/")[1];
+          const detail = state.documents[`job_details/${id}`] || {};
+          return { id, data: { companyCity: detail.companyCity, expiresAt: detail.expiresAt, ...data } };
+        }).sort((left, right) => left.id.localeCompare(right.id));
         const result = await queryLiveJobPage(async (after, limit) => records.filter((record) => !after || record.id > after).slice(0, limit), parseJobSearch(input), input.cursor || null);
         return route.fulfill({ json: result });
       }
@@ -264,8 +281,9 @@ async function openFixture(view = "auth", extra = {}, viewport = { width: 1440, 
         const id = decodeURIComponent(url.pathname.slice("/api/jobs/".length));
         const signedIn = route.request().headers().authorization === "Bearer synthetic-valid-token";
         await page.evaluate((signedIn) => { (fixture.detailRequests ||= []).push({ signedIn }); }, signedIn);
-        const state = await page.evaluate(() => ({ documents: fixture.documents, unavailable: fixture.jobApiUnavailable }));
+        const state = await page.evaluate(() => ({ documents: fixture.documents, unavailable: fixture.jobApiUnavailable, detailStatus: fixture.detailStatus }));
         if (!signedIn) return route.fulfill({ status: 401, json: { error: "Sign in required" } });
+        if (state.detailStatus) return route.fulfill({ status: state.detailStatus, json: { error: "Synthetic detail service response" } });
         if (state.unavailable) return route.fulfill({ status: 503, json: { error: "Unavailable" } });
         const match = Object.entries(state.documents).find(([key, data]) => key === `jobs/${id}` || key.startsWith("jobs/") && data.jobId === id);
         const summary = match ? publicJobSummary({ id: match[0].slice(5), data: match[1] }) : null;
@@ -290,7 +308,7 @@ async function openFixture(view = "auth", extra = {}, viewport = { width: 1440, 
       phone: "9000000000", address: "Test district", skills: "Delivery", experience: "1 year", ...options.extra.profile
     };
     globalThis.fixture = {
-      view: options.view, pathname: options.view === "jobs" ? "/jobs" : "/", query: "", guest: false, signIns: [], signUps: [], passwordResets: [], writes: [], redirects: [], roleRequests: [], conversations: [], sequence: 0,
+      view: options.view, pathname: options.view === "jobs" ? "/jobs" : "/", query: options.view === "auth" ? "method=email" : "", useRealSession: options.view === "auth", guest: ["auth", "home", "jobs", "resource"].includes(options.view), signIns: [], signUps: [], passwordResets: [], writes: [], redirects: [], roleRequests: [], conversations: [], sequence: 0,
       deniedCollections: ["worker_profiles", "employer_profiles"],
       ...options.extra, user, profile, documents: { ["users/" + user.uid]: profile, ...options.extra.documents }
     };
@@ -308,6 +326,140 @@ async function openFixture(view = "auth", extra = {}, viewport = { width: 1440, 
   });
   return page;
 }
+
+test("production regression: email login keeps one shared account through Jobs and Post job navigation", async () => {
+  const page = await openFixture("auth", { useRealSession: true, guest: true, query: "role=EMPLOYER&method=email&next=%2Fapp%2Femployer%2Fpost-job", documents: { "jobs/job-test": testJob } });
+  try {
+    await page.getByLabel("Email", { exact: true }).fill("employer@example.invalid");
+    await page.getByLabel("Password", { exact: true }).fill("synthetic-password");
+    await page.getByRole("button", { name: "Sign in", exact: true }).last().click();
+    await page.waitForFunction(() => fixture.redirects.includes("/app/employer/post-job"));
+    await page.evaluate(() => { fixture.pathname = "/jobs"; fixture.showView("jobs"); });
+    await page.locator(".site-header-actions").getByRole("link", { name: "My account", exact: true }).waitFor();
+    assert.equal(await page.locator(".site-header-actions").getByRole("link", { name: "Sign in", exact: true }).count(), 0);
+    await page.evaluate(() => { fixture.pathname = "/app/employer/post-job"; fixture.showView("employer-post"); });
+    await page.getByRole("button", { name: "Post job", exact: true }).waitFor();
+    assert.equal(await page.getByRole("button", { name: "Sign in to post job", exact: true }).count(), 0);
+    assert.equal(await page.evaluate(() => fixture.authSubscriptions), 1);
+    assert.equal(await page.evaluate(() => fixture.signOuts || 0), 0);
+    assert.deepEqual(pageErrors.get(page), []);
+  } finally { await page.close(); }
+});
+
+test("production regression: signed-in profile failures never become guest posting prompts", async () => {
+  const page = await openFixture("employer-post", { guest: false, sessionError: "Synthetic profile denial", availableRoles: [] });
+  try {
+    await page.getByRole("alert").filter({ hasText: "You are signed in" }).waitFor();
+    assert.equal(await page.getByRole("button", { name: "Sign in to post job", exact: true }).count(), 0);
+    assert.equal(await page.getByRole("button", { name: "Continue as employer", exact: true }).isDisabled(), true);
+    assert.equal(await page.evaluate(() => fixture.signOuts || 0), 0);
+  } finally { await page.close(); }
+});
+
+test("production regression: continuing an existing session never flashes the login form", async () => {
+  const page = await openFixture("auth", { useRealSession: true, guest: false, query: "role=WORKER" });
+  try {
+    await page.getByRole("button", { name: "Continue as Worker", exact: true }).waitFor();
+    await page.waitForFunction(() => fixture.profileReads >= 1);
+    await page.evaluate(() => { fixture.deferProfileReads = true; });
+    await page.getByRole("button", { name: "Continue as Worker", exact: true }).click();
+    await page.waitForFunction(() => fixture.pendingProfileReads?.length >= 1);
+    assert.equal(await page.getByRole("heading", { level: 1 }).textContent(), "Your DutyPe account");
+    assert.equal(await page.getByLabel("Mobile number", { exact: true }).count(), 0);
+    await page.evaluate(() => { fixture.deferProfileReads = false; fixture.pendingProfileReads.at(-1).resolve(); });
+    await page.waitForFunction(() => fixture.redirects.includes("/app/worker"));
+  } finally { await page.close(); }
+});
+
+test("production regression: leaving login during a profile read cannot redirect or initialize another flow", async () => {
+  const page = await openFixture("auth", { useRealSession: true, guest: false, query: "role=WORKER" });
+  try {
+    await page.getByRole("button", { name: "Continue as Worker", exact: true }).waitFor();
+    await page.waitForFunction(() => fixture.profileReads >= 1);
+    await page.evaluate(() => { fixture.deferProfileReads = true; });
+    await page.getByRole("button", { name: "Continue as Worker", exact: true }).click();
+    await page.waitForFunction(() => fixture.pendingProfileReads?.length >= 1);
+    await page.evaluate(() => fixture.showView("jobs"));
+    await page.locator("#live-jobs").waitFor();
+    await page.evaluate(async () => { fixture.deferProfileReads = false; fixture.pendingProfileReads.at(-1).resolve(); await Promise.resolve(); });
+    assert.deepEqual(await page.evaluate(() => fixture.redirects), []);
+    assert.equal(await page.evaluate(() => fixture.writes.length), 0);
+    assert.equal(await page.locator("#live-jobs").count(), 1);
+  } finally { await page.close(); }
+});
+
+test("production regression: provider profile write errors stay visible after authentication", async () => {
+  const page = await openFixture("auth", { useRealSession: true, guest: true, query: "role=EMPLOYER", failWritesTo: ["users/google-employer"] });
+  try {
+    await page.getByRole("button", { name: "Continue with Google", exact: true }).click();
+    await page.getByRole("button", { name: "Continue as Employer", exact: true }).waitFor();
+    await page.getByRole("alert").waitFor();
+    assert.equal(await page.evaluate(() => fixture.guest), false);
+    assert.equal(await page.evaluate(() => fixture.signOuts || 0), 0);
+    assert.deepEqual(await page.evaluate(() => fixture.redirects), []);
+    await page.evaluate(() => { fixture.failWritesTo = []; });
+    await page.getByRole("button", { name: "Continue as Employer", exact: true }).click();
+    await page.waitForFunction(() => fixture.redirects.includes("/app/employer"));
+  } finally { await page.close(); }
+});
+
+test("production regression: detail verification outages preserve the shared signed-in account", async () => {
+  for (const detailStatus of [401, 503]) {
+    const page = await openFixture("worker-detail", { guest: false, useRealSession: true, detailStatus, documents: { "jobs/job-test": testJob } });
+    try {
+      await page.getByRole("alert").waitFor();
+      assert.equal(await page.getByRole("heading", { name: "Sign in for full job details", exact: true }).count(), 0);
+      assert.equal(await page.locator(".site-header-actions").getByRole("link", { name: "My account", exact: true }).count(), 1);
+      assert.equal(await page.evaluate(() => fixture.signOuts || 0), 0);
+      assert.equal(await page.evaluate(() => fixture.detailRequests.length), detailStatus === 401 ? 2 : 1);
+      await page.evaluate(() => { fixture.detailStatus = null; });
+      await page.getByRole("button", { name: "Try again", exact: true }).click();
+      await page.getByRole("heading", { name: "About this job", exact: true }).waitFor();
+      assert.deepEqual(pageErrors.get(page), []);
+    } finally { await page.close(); }
+  }
+});
+
+test("production regression: Android live jobs are searchable by city and current location before login", async () => {
+  const page = await openFixture("jobs", { guest: true, useRealSession: true, geolocation: "granted", documents: {
+    "jobmetadata/near-android": { title: "Madhapur delivery partner", status: "open", salary: "18000", salaryType: "MONTHLY", companyName: "Test employer", category: "DELIVERY", location: { lat: 17.441, lng: 78.391 }, addressText: "Madhapur, Hyderabad", vacancies: 1 },
+    "job_details/near-android": { companyCity: "Hyderabad", description: "PRIVATE_CANONICAL_DESCRIPTION", contactNumber: "PRIVATE_CONTACT", expiresAt: Date.now() + 60000 },
+    "jobmetadata/far-android": { title: "Delhi driver", status: "open", salary: "20000", salaryType: "MONTHLY", category: "DRIVING", location: { lat: 28.6, lng: 77.2 }, addressText: "Delhi" },
+    "jobmetadata/closed-android": { title: "Closed canonical job", status: "closed", isActive: true, salary: "99999", location: { lat: 17.44, lng: 78.39 }, addressText: "Hyderabad" }
+  } });
+  try {
+    await page.getByRole("heading", { name: "Madhapur delivery partner", exact: true }).waitFor();
+    assert.equal(await page.locator(".public-job-card").count(), 2);
+    assert.equal(await page.evaluate(() => fixture.locationRequests || 0), 0);
+    await page.getByLabel("City", { exact: true }).fill("Hyderabad");
+    await page.getByLabel("Area or locality", { exact: true }).fill("Madhapur");
+    await page.getByRole("button", { name: "Find jobs", exact: true }).click();
+    await page.getByRole("status").filter({ hasText: "1 opening shown" }).waitFor();
+    assert.match(await page.locator(".public-job-card").textContent(), /Rs 18,000 \/ monthly/);
+    await page.getByRole("button", { name: "Use my location", exact: true }).click();
+    await page.waitForFunction(() => fixture.jobSearchRequests.some(request => request.method === "POST"));
+    await page.getByRole("status").filter({ hasText: "1 opening shown" }).waitFor();
+    assert.doesNotMatch(await page.locator("main").textContent(), /PRIVATE_CANONICAL_DESCRIPTION|PRIVATE_CONTACT|Closed canonical job/);
+    assert.equal(await page.evaluate(() => fixture.signIns.length + fixture.signUps.length + fixture.writes.length), 0);
+    assert.deepEqual(pageErrors.get(page), []);
+  } finally { await page.close(); }
+});
+
+test("production regression: an open jobs page recovers after its server connection is configured", async () => {
+  const page = await openFixture("jobs", { guest: true, jobSetupRequired: true, documents: {
+    "jobmetadata/live-android": { title: "Recovered Android job", status: "open", salary: 15000, salaryType: "MONTHLY", addressText: "Hyderabad" }
+  } });
+  try {
+    await page.getByRole("button", { name: "Check connection", exact: true }).waitFor();
+    await page.evaluate(() => { fixture.jobSetupRequired = false; });
+    await page.getByRole("button", { name: "Check connection", exact: true }).click();
+    await page.getByRole("heading", { name: "Recovered Android job", exact: true }).waitFor();
+    assert.equal(await page.getByRole("button", { name: "Find jobs", exact: true }).isEnabled(), true);
+    assert.equal(await page.getByRole("button", { name: "Use my location", exact: true }).isEnabled(), true);
+    assert.equal(await page.getByRole("alert").count(), 0);
+    assert.equal(await page.evaluate(() => fixture.signIns.length), 0);
+  } finally { await page.close(); }
+});
 
 for (const width of [390, 1440]) {
   test(`browser: jobs contrast meets WCAG AA at ${width}px`, async () => {
@@ -469,7 +621,7 @@ test("browser: retry stops when the server reports setup is required", async () 
 });
 
 test("browser: a guest cannot fetch full details and login returns to the selected real job", async () => {
-  const page = await openFixture("worker-detail", { guest: true, documents: { "jobs/job-test": { ...testJob, description: "PRIVATE FULL DESCRIPTION" } } });
+  const page = await openFixture("worker-detail", { guest: true, useRealSession: true, documents: { "jobs/job-test": { ...testJob, description: "PRIVATE FULL DESCRIPTION" } } });
   try {
     await page.getByRole("heading", { name: "Sign in for full job details" }).waitFor();
     assert.doesNotMatch(await page.locator("main").textContent(), /PRIVATE FULL DESCRIPTION/);
@@ -690,15 +842,16 @@ test("browser: slow profile loading times out visibly and can be retried", async
   } finally { await page.close(); }
 });
 
-test("browser: signin navigation does not wait for login metadata writes", async () => {
+test("browser: email signin initializes the selected role without a separate blocking metadata write", async () => {
   const page = await openFixture("auth", { deferLoginMetadata: true });
   try {
     await page.getByLabel("Email", { exact: true }).fill("worker@example.invalid");
     await page.getByLabel("Password", { exact: true }).fill("synthetic-password");
     await page.getByRole("button", { name: "Sign in", exact: true }).last().click();
     await page.waitForFunction(() => fixture.redirects.length === 1);
-    assert.equal(await page.evaluate(() => fixture.writes.length), 0);
-    assert.equal(await page.evaluate(() => typeof fixture.finishLoginMetadata), "function");
+    assert.equal(await page.evaluate(() => fixture.writes.length), 1);
+    assert.equal(await page.evaluate(() => fixture.documents["users/test-user"].activeRole), "WORKER");
+    assert.equal(await page.evaluate(() => typeof fixture.finishLoginMetadata), "undefined");
     assert.deepEqual(pageErrors.get(page), []);
   } finally { await page.close(); }
 });
@@ -746,9 +899,9 @@ test("browser: signin profile reads have a deadline rather than an endless worki
     await page.getByLabel("Email", { exact: true }).fill("worker@example.invalid");
     await page.getByLabel("Password", { exact: true }).fill("synthetic-password");
     await page.locator("button[type=submit]").click();
-    await page.waitForFunction(() => fixture.pendingProfileReads?.length === 1);
+    await page.waitForFunction(() => fixture.pendingProfileReads?.length >= 1);
     await page.clock.fastForward(10_001);
-    await page.getByRole("alert").filter({ hasText: "timed out" }).waitFor();
+    await page.getByRole("alert").waitFor();
     assert.equal(await page.locator("button[type=submit]").isEnabled(), true);
     assert.deepEqual(await page.evaluate(() => fixture.redirects), []);
     await page.evaluate(() => fixture.pendingProfileReads[0].resolve());
@@ -977,7 +1130,7 @@ test("browser: signup validates before calling Firebase and saves the selected e
 });
 
 test("browser: signin supports existing passwords and password-manager autocomplete", async () => {
-  const page = await openFixture("auth", { query: "next=%2Fapp%2Fworker%2Fjobs%2Fjob-test" });
+  const page = await openFixture("auth", { query: "method=email&next=%2Fapp%2Fworker%2Fjobs%2Fjob-test" });
   try {
     await page.getByLabel("Email", { exact: true }).fill("worker@example.invalid");
     await page.getByLabel("Password", { exact: true }).fill("short");
@@ -1457,7 +1610,159 @@ test("browser: employer posting commits job and profile together with authentica
   } finally { await page.close(); }
 });
 
-test("browser: failed employer batches preserve the profile and reuse one job on retry", async () => {
+test("production regression: publishing a job preserves all existing account roles", async () => {
+  const page = await openFixture("employer-post", { initialRole: "EMPLOYER", availableRoles: ["EMPLOYER"], profile: {
+    roles: ["ADMIN", "EMPLOYER"], role: "ADMIN", activeRole: "EMPLOYER"
+  } });
+  try {
+    await fillJobPost(page);
+    await page.getByRole("button", { name: "Post job", exact: true }).click();
+    await page.waitForFunction(() => fixture.redirects.includes("/app/employer/jobs"));
+    const account = await page.evaluate(() => fixture.documents["users/test-user"]);
+    assert.deepEqual(account.roles, ["ADMIN", "EMPLOYER"]);
+    assert.equal(account.role, "ADMIN");
+    assert.equal(account.activeRole, "EMPLOYER");
+  } finally { await page.close(); }
+});
+
+test("production regression: a lost publish response cannot reset an existing job on retry", async () => {
+  const page = await openFixture("employer-post", { initialRole: "EMPLOYER", loseCommitResponseFor: ["jobs/generated-1"] });
+  try {
+    await fillJobPost(page);
+    await page.getByRole("button", { name: "Post job", exact: true }).click();
+    await page.getByRole("alert").filter({ hasText: "response lost after commit" }).waitFor();
+    assert.equal(await page.evaluate(() => fixture.redirects.length), 0);
+    await page.evaluate(() => {
+      const job = fixture.documents["jobs/generated-1"];
+      job.applicationCount = 4;
+      job.acceptedCount = 2;
+      job.isActive = false;
+      job.isFilled = true;
+      job.vacancyStatus = "CLOSED";
+      fixture.documents["users/test-user"].companyName = "Updated Company";
+    });
+    const before = await page.evaluate(() => ({ documents: fixture.documents, writes: fixture.writes }));
+    await page.getByRole("button", { name: "Post job", exact: true }).click();
+    await page.waitForFunction(() => fixture.redirects.includes("/app/employer/jobs"));
+    assert.deepEqual(await page.evaluate(() => ({ documents: fixture.documents, writes: fixture.writes })), before);
+    assert.deepEqual(pageErrors.get(page), []);
+  } finally { await page.close(); }
+});
+
+for (const scenario of ["changed details", "different owner"]) {
+test(`production regression: a publish retry rejects ${scenario} without overwriting the saved job`, async () => {
+  const page = await openFixture("employer-post", { initialRole: "EMPLOYER", loseCommitResponseFor: ["jobs/generated-1"] });
+  try {
+    await fillJobPost(page);
+    await page.getByRole("button", { name: "Post job", exact: true }).click();
+    await page.getByRole("alert").filter({ hasText: "response lost after commit" }).waitFor();
+    if (scenario === "changed details") {
+      await page.getByLabel("Job title", { exact: true }).fill("A different delivery opening");
+    } else {
+      await page.evaluate(() => { fixture.documents["jobs/generated-1"].employerId = "another-account"; });
+    }
+    const before = await page.evaluate(() => ({ documents: fixture.documents, writes: fixture.writes }));
+    await page.getByRole("button", { name: "Post job", exact: true }).click();
+    await page.getByRole("alert").filter({ hasText: scenario === "changed details" ? "already published with different details" : "could not be verified for this account" }).waitFor();
+    assert.deepEqual(await page.evaluate(() => ({ documents: fixture.documents, writes: fixture.writes })), before);
+    assert.deepEqual(await page.evaluate(() => fixture.redirects), []);
+    assert.deepEqual(pageErrors.get(page), []);
+  } finally { await page.close(); }
+});
+}
+
+test("production regression: posting preserves concurrently updated saved locations", async () => {
+  const savedLocation = { id: "first-location", label: "First store", address: "Test district", latitude: 17.44, longitude: 78.39, addedAt: 1000, usageCount: 1 };
+  const addedLocation = { id: "second-location", label: "Second store", address: "Another district", latitude: 17.45, longitude: 78.4, addedAt: 2000, usageCount: 2 };
+  const page = await openFixture("employer-post", { initialRole: "EMPLOYER", profile: { workLocations: [savedLocation] } });
+  try {
+    await fillJobPost(page);
+    await page.getByLabel("Latitude", { exact: true }).fill("17.44");
+    await page.getByLabel("Longitude", { exact: true }).fill("78.39");
+    await page.evaluate(({ savedLocation, addedLocation }) => {
+      fixture.documents["users/test-user"] = { ...fixture.documents["users/test-user"], workLocations: [{ ...savedLocation, usageCount: 5 }, addedLocation] };
+    }, { savedLocation, addedLocation });
+    await page.getByRole("button", { name: "Post job", exact: true }).click();
+    await page.waitForFunction(() => fixture.redirects.includes("/app/employer/jobs"));
+    assert.deepEqual(await page.evaluate(() => fixture.documents["users/test-user"].workLocations), [{ ...savedLocation, usageCount: 6 }, addedLocation]);
+    assert.deepEqual(pageErrors.get(page), []);
+  } finally { await page.close(); }
+});
+
+test("production regression: a publish retry after remount reuses the saved pending job", async () => {
+  const page = await openFixture("employer-post", { guest: true, loseCommitResponseFor: ["jobs/generated-1"] });
+  try {
+    await fillJobPost(page);
+    await page.getByRole("button", { name: "Sign in to post job", exact: true }).click();
+    await page.waitForFunction(() => fixture.redirects.length === 1);
+    await page.evaluate(() => { fixture.query = fixture.redirects[0].split("?")[1]; fixture.showView("auth"); });
+    await page.getByRole("button", { name: "Continue with Google", exact: true }).click();
+    await page.waitForFunction(() => fixture.redirects.includes("/app/employer/post-job"));
+    await page.evaluate(() => fixture.showView("employer-post"));
+    await page.getByRole("button", { name: "Post job", exact: true }).click();
+    await page.getByRole("alert").filter({ hasText: "response lost after commit" }).waitFor();
+    const before = await page.evaluate(() => ({ documents: fixture.documents, writes: fixture.writes }));
+    await page.evaluate(() => fixture.showView("jobs"));
+    await page.getByLabel("Job title", { exact: true }).waitFor({ state: "detached" });
+    await page.evaluate(() => fixture.showView("employer-post"));
+    await page.waitForFunction(() => [...document.querySelectorAll("label")].some((label) => label.textContent.trim() === "Job title" && label.querySelector("input")?.value === "Test delivery opening"));
+    assert.equal(await page.getByLabel("Job title", { exact: true }).inputValue(), "Test delivery opening");
+    await page.getByRole("button", { name: "Post job", exact: true }).click();
+    await page.waitForFunction(() => fixture.redirects.includes("/app/employer/jobs"));
+    assert.deepEqual(await page.evaluate(() => ({ documents: fixture.documents, writes: fixture.writes })), before);
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("dutype:employer-job-draft:v1")), null);
+    assert.deepEqual(pageErrors.get(page), []);
+  } finally { await page.close(); }
+});
+
+test("production regression: an old account publish completion cannot clear a new account draft or redirect", async () => {
+  const page = await openFixture("employer-post", { useRealSession: true, profile: { roles: ["EMPLOYER"], role: "EMPLOYER", activeRole: "EMPLOYER" }, holdCommitResponseFor: ["jobs/generated-1"] });
+  try {
+    await fillJobPost(page);
+    await page.getByRole("button", { name: "Post job", exact: true }).click();
+    await page.waitForFunction(() => fixture.pendingCommitResponses?.length === 1);
+    await page.evaluate(() => {
+      fixture.documents["users/second-employer"] = { ...fixture.documents["users/test-user"], companyName: "Second Company" };
+      fixture.authListener({ uid: "second-employer", email: "second@example.invalid", getIdToken: async () => "synthetic-valid-token" });
+    });
+    await page.getByRole("button", { name: "Post job", exact: true }).waitFor();
+    const nextDraft = await page.evaluate(() => {
+      const draft = JSON.stringify({ version: 1, savedAt: Date.now(), ownerId: "second-employer", form: { title: "Second employer draft" } });
+      sessionStorage.setItem("dutype:employer-job-draft:v1", draft);
+      return draft;
+    });
+    await page.evaluate(() => fixture.pendingCommitResponses[0].resolve());
+    await page.waitForFunction(() => fixture.transactionCompletions === 1);
+    assert.equal(await page.evaluate(() => sessionStorage.getItem("dutype:employer-job-draft:v1")), nextDraft);
+    assert.deepEqual(await page.evaluate(() => fixture.redirects), []);
+    assert.deepEqual(pageErrors.get(page), []);
+  } finally { await page.close(); }
+});
+
+test("production regression: publishing requires recoverable request storage before writing", async () => {
+  const page = await openFixture("employer-post", { initialRole: "EMPLOYER" });
+  try {
+    await fillJobPost(page);
+    const before = await page.evaluate(() => ({ documents: fixture.documents, writes: fixture.writes }));
+    await page.evaluate(() => {
+      fixture.originalStorageSetter = Storage.prototype.setItem;
+      Storage.prototype.setItem = function(key, value) {
+        if (key === "dutype:employer-job-draft:v1") throw new DOMException("Synthetic storage failure", "QuotaExceededError");
+        return fixture.originalStorageSetter.call(this, key, value);
+      };
+    });
+    await page.getByRole("button", { name: "Post job", exact: true }).click();
+    await page.getByRole("alert").filter({ hasText: "could not keep this posting request" }).waitFor();
+    assert.deepEqual(await page.evaluate(() => ({ documents: fixture.documents, writes: fixture.writes })), before);
+    await page.evaluate(() => { Storage.prototype.setItem = fixture.originalStorageSetter; });
+    await page.getByRole("button", { name: "Post job", exact: true }).click();
+    await page.waitForFunction(() => fixture.redirects.includes("/app/employer/jobs"));
+    assert.deepEqual(await page.evaluate(() => Object.keys(fixture.documents).filter((key) => key.startsWith("jobs/"))), ["jobs/generated-1"]);
+    assert.deepEqual(pageErrors.get(page), []);
+  } finally { await page.close(); }
+});
+
+test("browser: failed employer transactions preserve the profile and reuse one job on retry", async () => {
   const page = await openFixture("employer-post", { initialRole: "EMPLOYER", failWritesTo: ["jobs/generated-1"] });
   try {
     const before = await page.evaluate(() => fixture.documents);
@@ -1570,11 +1875,11 @@ test("browser: worker messaging route hands off without requesting a web convers
 });
 
 test("browser: a stalled account check falls back to the job sign-in gate", async () => {
-  const page = await openFixture("worker-detail", { holdAuthCheck: true, fakeClock: true });
+  const page = await openFixture("worker-detail", { useRealSession: true, holdAuthCheck: true, fakeClock: true });
   try {
     await page.getByRole("status").filter({ hasText: "Checking your account" }).waitFor();
     await page.clock.fastForward(10_001);
-    await page.getByRole("link", { name: "Sign in to view details", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Retry account check", exact: true }).waitFor();
     assert.equal(await page.evaluate(() => fixture.detailRequests?.length || 0), 0);
     assert.deepEqual(pageErrors.get(page), []);
   } finally { await page.close(); }

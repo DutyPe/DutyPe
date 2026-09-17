@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getFirebaseAdminAuth, isFirebaseAdminConfigured } from "@/lib/firebase/admin-server";
+import { isRejectedIdToken } from "@/lib/firebase/server-auth-errors";
 import { getJobRecord } from "@/lib/jobs/server";
-import { publicJobSummary, validJobId } from "@/lib/jobs/public-listings";
+import { jobAddress, publicJobSummary, validJobId } from "@/lib/jobs/public-listings";
 
 export const runtime = "nodejs";
 
@@ -19,8 +20,10 @@ export async function GET(request: NextRequest, { params }: { params: { jobId: s
     if (account.firebase?.sign_in_provider === "anonymous") {
       return NextResponse.json({ error: "Sign in to your account to see full details." }, { status: 401, headers });
     }
-  } catch {
-    return NextResponse.json({ error: "Your session has expired. Please sign in again." }, { status: 401, headers });
+  } catch (error) {
+    return isRejectedIdToken(error)
+      ? NextResponse.json({ error: "We couldn't verify your session. Please sign in again." }, { status: 401, headers })
+      : NextResponse.json({ error: "The account verification service is temporarily unavailable. Please try again." }, { status: 503, headers });
   }
   try {
     const record = await getJobRecord(params.jobId);
@@ -28,7 +31,7 @@ export async function GET(request: NextRequest, { params }: { params: { jobId: s
     if (!summary || !record) return NextResponse.json({ error: "This job is no longer available." }, { status: 410, headers });
     const text = (field: string) => typeof record.data[field] === "string" ? record.data[field] : "";
     return NextResponse.json({ job: {
-      ...summary, description: text("description"), location: text("location"), shiftTiming: text("shiftTiming"),
+      ...summary, description: text("description"), location: jobAddress(record.data), shiftTiming: text("shiftTiming"),
       vacancies: Number(record.data.vacancies) || null
     } }, { headers });
   } catch {

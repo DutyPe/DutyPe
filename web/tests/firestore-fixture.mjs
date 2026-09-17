@@ -32,6 +32,14 @@ function commit(operations) {
   }
   state().documents = documents;
   state().writes.push(...operations.map(({ reference, data }) => ({ path: reference.path, data })));
+  if (operations.some(({ reference }) => state().loseCommitResponseFor?.includes(reference.path))) {
+    state().loseCommitResponseFor = [];
+    throw new Error("Synthetic response lost after commit");
+  }
+  if (operations.some(({ reference }) => state().holdCommitResponseFor?.includes(reference.path))) {
+    state().holdCommitResponseFor = [];
+    return new Promise((resolve) => { (state().pendingCommitResponses ||= []).push({ resolve }); });
+  }
 }
 
 export const collection = (database, name) => ({ path: name, collection: true });
@@ -111,6 +119,7 @@ export async function runTransaction(database, callback) {
     set: (reference, data, options) => operations.push({ reference, data, merge: options?.merge }),
     update: (reference, data) => operations.push({ reference, data, update: true })
   });
-  commit(operations);
+  await commit(operations);
+  state().transactionCompletions = (state().transactionCompletions || 0) + 1;
   return result;
 }

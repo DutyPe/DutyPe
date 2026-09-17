@@ -60,3 +60,4 @@ out/
 .turbo/
 .env.local
 web/.env.local
+/web/test-results/

@@ -98,8 +98,7 @@ function isRunningOnGoogleManagedRuntime() {
   return Boolean(
     process.env.K_SERVICE ||
       process.env.FUNCTION_TARGET ||
-      process.env.GOOGLE_CLOUD_PROJECT ||
-      process.env.GCLOUD_PROJECT
+      process.env.GAE_ENV
   );
 }
 

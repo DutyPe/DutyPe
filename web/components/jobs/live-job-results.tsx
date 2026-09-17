@@ -68,7 +68,6 @@ export function LiveJobResults({ initial, search, heading = "Live jobs", showFil
   useEffect(() => () => { pending.current?.abort(); locationAttempt.current += 1; }, []);
 
   const load = useCallback(async (nextSearch: JobSearch, cursor: string | null = null, background = false) => {
-    if (setupRequired) return;
     pending.current?.abort();
     const controller = new AbortController();
     pending.current = controller;
@@ -101,7 +100,7 @@ export function LiveJobResults({ initial, search, heading = "Live jobs", showFil
       clearTimeout(timer);
       if (pending.current === controller) { pending.current = null; setBusy(false); }
     }
-  }, [setupRequired]);
+  }, []);
 
   useEffect(() => {
     if (setupRequired) return;
@@ -181,7 +180,7 @@ export function LiveJobResults({ initial, search, heading = "Live jobs", showFil
       {locationNotice ? <p className="location-feedback" role="status">{locationNotice}</p> : null}
       {!busy && (error || result.status === "unavailable") ? <div className="callout live-job-alert" role="alert">
         <p>{setupRequired ? "Live job listings aren't connected yet. Please check back later." : jobs.length ? "We couldn't refresh these listings. The results shown may be out of date." : error || "Live listings are temporarily unavailable."}</p>
-        {setupRequired ? <Link href="/contact" className="text-link">Contact support<SiteIcon name="messages-square" /></Link> : <button type="button" className="button ghost" onClick={() => void load(activeSearch)}>Try again</button>}
+        {setupRequired ? <div className="button-row compact"><button type="button" className="button ghost" onClick={() => void load(activeSearch)} disabled={busy}>Check connection</button><Link href="/contact" className="text-link">Contact support<SiteIcon name="messages-square" /></Link></div> : <button type="button" className="button ghost" onClick={() => void load(activeSearch)}>Try again</button>}
       </div> : null}
       {busy || jobs.length > 0 || (result.status === "ready" && !error) ? <p className="live-job-count" role="status">{busy && !jobs.length ? "Finding live jobs..." : jobs.length ? `${jobs.length} ${jobs.length === 1 ? "opening" : "openings"} shown${activeSearch.city ? ` in ${activeSearch.city}` : ""}${activeSearch.area ? `, ${activeSearch.area}` : ""}` : result.nextCursor ? "No matches in this batch. Continue to search more listings." : "No current openings match this search."}</p> : null}
       {jobs.length ? <div className="public-job-grid">{jobs.map((job) => <PublicJobCard key={job.id} job={job} />)}</div> : null}

@@ -16,6 +16,9 @@
     "start:standalone": "node .next/standalone/server.js",
     "lint": "next lint",
     "test": "vitest run",
+    "test:contracts": "node --test tests/product.test.cjs",
+    "test:browser": "node --test --test-skip-pattern=\"fits a\" tests/browser.test.cjs",
+    "test:browser:layout": "node --test --test-name-pattern=\"fits a\" tests/browser.test.cjs",
     "test:watch": "vitest",
     "type-check": "tsc -p tsconfig.typecheck.json --noEmit"
   },
@@ -34,6 +37,7 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "server-only": "^0.0.1",
+    "sharp": "0.34.5",
     "three": "^0.169.0"
   },
   "devDependencies": {
@@ -41,9 +45,11 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@types/three": "^0.169.0",
+    "axe-core": "4.12.1",
     "esbuild": "^0.27.4",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.35",
+    "playwright": "1.60.0",
     "typescript": "^5.5.4",
     "vitest": "^2.1.9",
     "which": "^6.0.1"

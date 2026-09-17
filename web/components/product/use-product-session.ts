@@ -19,7 +19,7 @@ export type ProductSession = {
   error: string | null;
   loading: boolean;
   profile: ProductUserProfile | null;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<ProductUserProfile | null>;
   setActiveRole: (role: ProductRole) => Promise<void>;
   user: User | null;
 };
@@ -38,7 +38,14 @@ export function useProductSession(): ProductSession {
 }
 
 function useProductSessionState(): ProductSession {
-  const services = useMemo(() => getFirebaseServices(), []);
+  const { services, setupError } = useMemo(() => {
+    if (typeof window === "undefined") return { services: null, setupError: null };
+    try {
+      return { services: getFirebaseServices(), setupError: null };
+    } catch (initializationError) {
+      return { services: null, setupError: firebaseAuthErrorMessage(initializationError) };
+    }
+  }, []);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<ProductUserProfile | null>(null);
@@ -50,9 +57,9 @@ function useProductSessionState(): ProductSession {
     const requestId = ++profileRequest.current;
     if (!services || !userToLoad) {
       setProfile(null);
-      setError(services ? null : FIREBASE_SETUP_ERROR);
+      setError(services ? null : setupError ?? FIREBASE_SETUP_ERROR);
       setLoading(false);
-      return;
+      return null;
     }
 
     if (showLoading) setLoading(true);
@@ -69,36 +76,34 @@ function useProductSessionState(): ProductSession {
         })
       ]);
 
-      if (!isCurrentRequest()) return;
+      if (!isCurrentRequest()) return null;
 
-      if (!snapshot.exists()) {
-        setProfile({
-          email: userToLoad.email,
-          fullName: userToLoad.displayName ?? "",
-          id: userToLoad.uid,
-          roles: []
-        });
-        return;
-      }
-
-      setProfile({
-        ...(snapshot.data() as ProductUserProfile),
-        id: snapshot.id
-      });
+      const loadedProfile: ProductUserProfile = snapshot.exists()
+        ? { ...(snapshot.data() as ProductUserProfile), id: userToLoad.uid }
+        : {
+            email: userToLoad.email,
+            fullName: userToLoad.displayName ?? "",
+            id: userToLoad.uid,
+            roles: []
+          };
+      setProfile(loadedProfile);
       setError(null);
+      return loadedProfile;
     } catch (loadError) {
       if (isCurrentRequest()) {
+        setProfile(null);
         setError(loadError instanceof Error ? loadError.message : "Unable to load your account. Please try again.");
       }
+      return null;
     } finally {
       clearTimeout(timeout);
       if (isCurrentRequest()) setLoading(false);
     }
-  }, [services]);
+  }, [services, setupError]);
 
   useEffect(() => {
     if (!services) {
-      setError(FIREBASE_SETUP_ERROR);
+      setError(setupError ?? FIREBASE_SETUP_ERROR);
       setLoading(false);
       return;
     }
@@ -137,17 +142,18 @@ function useProductSessionState(): ProductSession {
       clearTimeout(authTimeout);
       unsubscribe();
     };
-  }, [services, loadProfile]);
+  }, [services, loadProfile, setupError]);
 
   const availableRoles = extractProductRoles(profile);
   const currentRole = getActiveProductRole(profile);
 
   const refreshProfile = useCallback(async () => {
     const authenticatedUser = services?.auth.currentUser ?? null;
-    if (currentUser.current?.uid !== authenticatedUser?.uid) setProfile(null);
+    const sameAccount = currentUser.current?.uid === authenticatedUser?.uid;
+    if (!sameAccount) setProfile(null);
     currentUser.current = authenticatedUser;
     setUser(authenticatedUser);
-    await loadProfile(authenticatedUser, !profile);
+    return loadProfile(authenticatedUser, !sameAccount || !profile);
   }, [services, loadProfile, profile]);
 
   const setActiveRole = useCallback(async (role: ProductRole) => {

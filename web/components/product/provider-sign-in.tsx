@@ -2,13 +2,12 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { GoogleAuthProvider, RecaptchaVerifier, signInWithPhoneNumber, signInWithPopup, type ConfirmationResult, type User } from "firebase/auth";
-import { httpsCallable } from "firebase/functions";
 
 import { SiteIcon } from "@/components/site-icon";
 import { normalizeSignInPhone } from "@/lib/firebase/account-actions";
 import { firebaseAuthErrorMessage } from "@/lib/firebase/auth-errors";
 import { getFirebaseServices } from "@/lib/firebase/client";
-import { productRoleLabel, type ProductRole } from "@/lib/product/profile";
+import type { ProductRole } from "@/lib/product/profile";
 
 type Props = {
   disabled: boolean;
@@ -30,7 +29,7 @@ export function ProviderSignIn({ disabled, showPhone, role, onBusyChange, onAuth
   const [busy, setBusy] = useState<"google" | "send" | "verify" | null>(null);
   const [cooldown, setCooldown] = useState(0);
   const resendAt = useRef(0);
-  const [consent, setConsent] = useState(true);
+  const [consent, setConsent] = useState(false);
   const captchaId = useId();
   const captchaContainer = useRef<HTMLDivElement>(null);
   const captcha = useRef<RecaptchaVerifier | null>(null);
@@ -40,34 +39,20 @@ export function ProviderSignIn({ disabled, showPhone, role, onBusyChange, onAuth
   const codeInput = useRef<HTMLInputElement>(null);
   const phoneInput = useRef<HTMLInputElement>(null);
 
-  const [lookup, setLookup] = useState<{
-    loading: boolean;
-    checkedPhone: string;
-    exists: boolean | null;
-    existingRole: string | null;
-    name: string | null;
-    roleConflict: boolean;
-  }>({
-    loading: false,
-    checkedPhone: "",
-    exists: null,
-    existingRole: null,
-    name: null,
-    roleConflict: false
-  });
-
   useEffect(() => {
     if (role !== "EMPLOYER") return;
     try {
-      const raw = sessionStorage.getItem("dutype_job_draft_v1");
+      const raw = sessionStorage.getItem("dutype:employer-job-draft:v1");
       if (!raw) return;
       const draft = JSON.parse(raw);
+      if (draft.version !== 1 || typeof draft.savedAt !== "number" || draft.savedAt > Date.now() || Date.now() - draft.savedAt > 3_600_000) return;
+      if (draft.ownerId && draft.ownerId !== getFirebaseServices()?.auth.currentUser?.uid) return;
       if (draft.form) {
-        if (draft.form.companyName && !companyName) {
-          setCompanyName(draft.form.companyName);
+        if (typeof draft.form.companyName === "string") {
+          setCompanyName((current) => current || draft.form.companyName.slice(0, 120));
         }
-        if (draft.form.contactNumber && !phone) {
-          setPhone(draft.form.contactNumber);
+        if (typeof draft.form.contactNumber === "string") {
+          setPhone((current) => current || draft.form.contactNumber.slice(0, 24));
         }
       }
     } catch {
@@ -98,64 +83,6 @@ export function ProviderSignIn({ disabled, showPhone, role, onBusyChange, onAuth
     const timer = setTimeout(() => setCooldown(Math.max(0, Math.ceil((resendAt.current - Date.now()) / 1000))), 1000);
     return () => clearTimeout(timer);
   }, [cooldown]);
-
-  useEffect(() => {
-    const normalized = normalizeSignInPhone(phone);
-    if (!normalized || normalized.length < 12) {
-      if (lookup.exists !== null) {
-        setLookup({
-          loading: false,
-          checkedPhone: "",
-          exists: null,
-          existingRole: null,
-          name: null,
-          roleConflict: false
-        });
-      }
-      return;
-    }
-
-    if (lookup.checkedPhone === normalized) return;
-
-    const timer = setTimeout(async () => {
-      const services = getFirebaseServices();
-      if (!services) return;
-      setLookup((prev) => ({ ...prev, loading: true, checkedPhone: normalized }));
-      try {
-        const lookupFn = httpsCallable<
-          { phone: string; requestedRole: string },
-          { exists: boolean; existingRole?: string | null; name?: string | null; roleConflict?: boolean }
-        >(services.functions, "lookupPhoneRole");
-        const res = await lookupFn({ phone: normalized, requestedRole: role });
-        if (mounted.current) {
-          setLookup({
-            loading: false,
-            checkedPhone: normalized,
-            exists: Boolean(res.data.exists),
-            existingRole: res.data.existingRole || null,
-            name: res.data.name || null,
-            roleConflict: Boolean(res.data.roleConflict)
-          });
-          if (res.data.exists && res.data.name && !fullName) {
-            setFullName(res.data.name);
-          }
-        }
-      } catch {
-        if (mounted.current) {
-          setLookup({
-            loading: false,
-            checkedPhone: normalized,
-            exists: null,
-            existingRole: null,
-            name: null,
-            roleConflict: false
-          });
-        }
-      }
-    }, 450);
-
-    return () => clearTimeout(timer);
-  }, [phone, role, lookup.checkedPhone, fullName]);
 
   async function perform(action: "google" | "send" | "verify", operation: () => Promise<void>) {
     if (pending.current || disabled) return;
@@ -201,27 +128,15 @@ export function ProviderSignIn({ disabled, showPhone, role, onBusyChange, onAuth
       return;
     }
 
-    if (lookup.exists === false) {
-      if (!fullName.trim()) {
-        setError("Please enter your full name to create your account.");
-        return;
-      }
-      if (role === "EMPLOYER" && !companyName.trim()) {
-        setError("Please enter your company or business name to post jobs.");
-        return;
-      }
-    }
-
     const services = getFirebaseServices();
     if (!services || !captchaContainer.current) return;
 
     await perform("send", async () => {
       try {
-        if (!captcha.current && captchaContainer.current) {
-          captcha.current = new RecaptchaVerifier(services.auth, captchaContainer.current, {
+        captcha.current?.clear();
+        captcha.current = new RecaptchaVerifier(services.auth, captchaContainer.current!, {
             size: "invisible"
           });
-        }
         const result = await signInWithPhoneNumber(services.auth, normalized, captcha.current!);
         if (mounted.current) {
           verifiedUser.current = null;
@@ -231,14 +146,13 @@ export function ProviderSignIn({ disabled, showPhone, role, onBusyChange, onAuth
           resendAt.current = Date.now() + 60_000;
           setCooldown(60);
         }
-      } catch (sendErr) {
+      } finally {
         try {
           captcha.current?.clear();
         } catch {
           // ignore
         }
         captcha.current = null;
-        throw sendErr;
       }
     });
   }
@@ -287,6 +201,7 @@ export function ProviderSignIn({ disabled, showPhone, role, onBusyChange, onAuth
                 <span>6-digit OTP code</span>
                 <input
                   ref={codeInput}
+                  aria-label="Verification code"
                   value={code}
                   onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
                   type="text"
@@ -319,26 +234,8 @@ export function ProviderSignIn({ disabled, showPhone, role, onBusyChange, onAuth
                 />
               </label>
 
-              {lookup.loading ? (
-                <div className="auth-account-badge" style={{ background: "#f3f4f6", color: "#4b5563" }}>
-                  <span>Checking mobile number...</span>
-                </div>
-              ) : lookup.exists === true ? (
-                <div className={`auth-account-badge ${lookup.roleConflict ? "conflict" : "found"}`}>
-                  {lookup.roleConflict ? (
-                    <span>⚠️ Account registered as <strong>{lookup.existingRole}</strong>. Signing in will switch to your active account.</span>
-                  ) : (
-                    <span>✓ Account found for <strong>{lookup.name || "DutyPe member"}</strong> ({lookup.existingRole || productRoleLabel(role)}).</span>
-                  )}
-                </div>
-              ) : lookup.exists === false ? (
-                <div className="auth-account-badge new">
-                  <span>New {productRoleLabel(role)} account. Enter your details to register.</span>
-                </div>
-              ) : null}
-
-              {lookup.exists === false ? (
-                <>
+              <details className="product-form-wide">
+                <summary>Account details (optional)</summary>
                   <label className="product-form-wide">
                     <span>Full name</span>
                     <input
@@ -347,7 +244,6 @@ export function ProviderSignIn({ disabled, showPhone, role, onBusyChange, onAuth
                       placeholder="Your full name"
                       value={fullName}
                       onChange={(event) => setFullName(event.target.value)}
-                      required
                       disabled={Boolean(busy)}
                     />
                   </label>
@@ -361,13 +257,11 @@ export function ProviderSignIn({ disabled, showPhone, role, onBusyChange, onAuth
                         placeholder="e.g. Acme Enterprises or Shop Name"
                         value={companyName}
                         onChange={(event) => setCompanyName(event.target.value)}
-                        required
                         disabled={Boolean(busy)}
                       />
                     </label>
                   ) : null}
-                </>
-              ) : null}
+              </details>
 
               <label className="phone-consent product-form-wide">
                 <input

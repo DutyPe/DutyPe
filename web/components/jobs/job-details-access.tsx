@@ -1,44 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { onAuthStateChanged, type User } from "firebase/auth";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { WorkerAppActions } from "@/components/public/job-discovery";
-import { getFirebaseServices } from "@/lib/firebase/client";
+import { useProductSession } from "@/components/product/use-product-session";
 import { formatCurrencyRange } from "@/lib/firebase/firestore-helpers";
 import type { PublicJobSummary } from "@/lib/jobs/public-listings";
 
 type Details = PublicJobSummary & { description: string; location: string; shiftTiming: string; vacancies: number | null };
 
 export function JobDetailsAccess({ jobId }: { jobId: string }) {
-  const services = useMemo(() => getFirebaseServices(), []);
-  const [user, setUser] = useState<User | null>(null);
-  const [authReady, setAuthReady] = useState(false);
+  const session = useProductSession();
+  const user = session.user;
   const [result, setResult] = useState<{ uid: string; id: string; job: Details } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [closed, setClosed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [retry, setRetry] = useState(0);
+  const [reauthenticate, setReauthenticate] = useState(false);
   const nextPath = `/jobs/${encodeURIComponent(jobId)}`;
   const signInPath = `/app/auth?role=WORKER&next=${encodeURIComponent(nextPath)}`;
 
   useEffect(() => {
-    if (!services) { setAuthReady(true); return; }
-    const timer = setTimeout(() => setAuthReady(true), 10_000);
-    const unsubscribe = onAuthStateChanged(services.auth, (currentUser) => {
-      clearTimeout(timer);
-      setUser(currentUser);
-      setResult(null);
-      setError(null);
-      setAuthReady(true);
-    }, () => { clearTimeout(timer); setUser(null); setResult(null); setAuthReady(true); });
-    return () => { clearTimeout(timer); unsubscribe(); };
-  }, [services]);
-
-  useEffect(() => {
     setResult(null);
     setError(null);
+    setReauthenticate(false);
     setClosed(false);
     if (!user) { setLoading(false); return; }
     let cancelled = false;
@@ -51,14 +38,22 @@ export function JobDetailsAccess({ jobId }: { jobId: string }) {
     void (async () => {
       try {
         const response = await Promise.race([(async () => {
-          const token = await user.getIdToken();
-          if (cancelled || controller.signal.aborted) throw new Error("Request cancelled");
-          return fetch(`/api/jobs/${encodeURIComponent(jobId)}`, {
-            headers: { Authorization: `Bearer ${token}` }, signal: controller.signal, cache: "no-store"
-          });
+          const requestDetails = async (refresh: boolean) => {
+            const token = await user.getIdToken(refresh);
+            if (cancelled || controller.signal.aborted) throw new Error("Request cancelled");
+            return fetch(`/api/jobs/${encodeURIComponent(jobId)}`, {
+              headers: { Authorization: `Bearer ${token}` }, signal: controller.signal, cache: "no-store"
+            });
+          };
+          const firstResponse = await requestDetails(false);
+          return firstResponse.status === 401 ? requestDetails(true) : firstResponse;
         })(), deadline]);
         if (cancelled) return;
-        if (response.status === 401) { setUser(null); return; }
+        if (response.status === 401) {
+          setReauthenticate(true);
+          setError("We couldn't verify your session for job details. Your account has not been signed out.");
+          return;
+        }
         if (response.status === 404 || response.status === 410) { setClosed(true); return; }
         if (!response.ok) throw new Error("Full job details are temporarily unavailable. Please try again.");
         const payload = await Promise.race([response.json(), deadline]);
@@ -75,7 +70,8 @@ export function JobDetailsAccess({ jobId }: { jobId: string }) {
     return () => { cancelled = true; clearTimeout(timeout); controller.abort(); };
   }, [jobId, user, retry]);
 
-  if (!authReady) return <p role="status">Checking your account...</p>;
+  if (session.loading && !user) return <p role="status">Checking your account...</p>;
+  if (session.error && !user) return <div className="callout" role="alert"><p>Your account could not be checked. Please try again.</p><button type="button" className="button ghost" onClick={() => void session.refreshProfile()}>Retry account check</button><Link href={signInPath} className="text-link">Sign in</Link></div>;
   if (!user) return (
     <section className="job-detail-gate" aria-labelledby="job-signin-heading">
       <h2 id="job-signin-heading">Sign in for full job details</h2>
@@ -86,7 +82,7 @@ export function JobDetailsAccess({ jobId }: { jobId: string }) {
   );
   if (loading) return <p role="status">Loading full job details...</p>;
   if (closed) return <section className="job-detail-gate"><h2>This job is no longer available</h2><Link className="button" href="/jobs">Find other live jobs</Link></section>;
-  if (error) return <div className="callout" role="alert">{error}<button type="button" className="button ghost" onClick={() => setRetry((current) => current + 1)}>Try again</button></div>;
+  if (error) return <div className="callout" role="alert"><p>{error}</p><button type="button" className="button ghost" onClick={() => setRetry((current) => current + 1)}>Try again</button>{reauthenticate ? <Link href={signInPath} className="text-link">Sign in again</Link> : null}</div>;
   const job = result?.uid === user.uid && result.id === jobId ? result.job : null;
   if (!job) return null;
   return (
