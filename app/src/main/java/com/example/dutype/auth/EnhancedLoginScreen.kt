@@ -519,10 +519,43 @@ private fun OtpLoginScreen(
                                     phoneNumber = fullPhoneNumber,
                                     requestedRole = role.name
                                 )
-                                if (phoneCheck.exists == FirestoreUtils.PhoneExistenceResult.NOT_EXISTS) {
-                                    isCheckingPhone = false
-                                    Toast.makeText(context, if (isTelugu) "ఈ నంబర్‌కు ఖాతా లేదు. దయచేసి నమోదు చేయండి." else "No account found with this number. Please Register first.", Toast.LENGTH_LONG).show()
-                                    return@launch
+                                when (phoneCheck.exists) {
+                                    FirestoreUtils.PhoneExistenceResult.NOT_EXISTS -> {
+                                        isCheckingPhone = false
+                                        Toast.makeText(
+                                            context,
+                                            if (isTelugu) "ఈ నంబర్‌కు ఖాతా లేదు. దయచేసి నమోదు చేయండి." else "No account found with this number. Please Register first.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        return@launch
+                                    }
+                                    FirestoreUtils.PhoneExistenceResult.EXISTS -> {
+                                        if (phoneCheck.roleConflict) {
+                                            isCheckingPhone = false
+                                            val existingRoleLabel = when (phoneCheck.existingRole?.uppercase()) {
+                                                "WORKER" -> if (isTelugu) "వర్కర్" else "worker"
+                                                "EMPLOYER" -> if (isTelugu) "ఎంప్లాయర్" else "employer"
+                                                else -> if (isTelugu) "వేరే పాత్ర" else "different role"
+                                            }
+                                            Toast.makeText(
+                                                context,
+                                                if (isTelugu) "ఈ నంబర్ $existingRoleLabel గా నమోదు అయింది. దయచేసి $existingRoleLabel గా లాగిన్ చేయండి."
+                                                else "This number is registered as a $existingRoleLabel. Please log in as a $existingRoleLabel.",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                            return@launch
+                                        }
+                                    }
+                                    FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
+                                        isCheckingPhone = false
+                                        Toast.makeText(
+                                            context,
+                                            if (isTelugu) "ఖాతా ధృవీకరణ విఫలమైంది. దయచేసి ఇంటర్నెట్ కనెక్షన్ తనిఖీ చేసి మళ్లీ ప్రయత్నించండి."
+                                            else "Could not verify account. Please check your internet connection and try again.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        return@launch
+                                    }
                                 }
                                 isCheckingPhone = false
                                 profileCompletionViewModel.saveAuthMethod("PHONE_OTP")

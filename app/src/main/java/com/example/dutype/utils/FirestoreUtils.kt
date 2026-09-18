@@ -152,43 +152,78 @@ object FirestoreUtils {
      * precise error ("This number is registered as an employer").
      */
     suspend fun checkPhoneForRole(phoneNumber: String, requestedRole: String?): PhoneCheckResult {
+        val normalized = PhoneNumberUtils.normalize(phoneNumber)
+
+        // 1. Direct Firestore check on phoneRoles collection
+        // Enabled by firestore.rules (allow get: if true; allow list: if false;)
+        // Extremely fast (~30-50ms), zero cold starts, works before OTP authentication.
+        try {
+            val firestore = FirebaseFirestore.getInstance()
+            val phoneDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES)
+                .document(normalized)
+                .get()
+                .await()
+
+            if (phoneDoc.exists()) {
+                val existingRole = phoneDoc.getString("role")?.trim()?.uppercase()
+                    ?: (phoneDoc.get("roles") as? List<*>)?.firstOrNull()?.toString()?.trim()?.uppercase()
+                val conflict = !requestedRole.isNullOrBlank() &&
+                    !existingRole.isNullOrBlank() &&
+                    existingRole != requestedRole.uppercase()
+                return PhoneCheckResult(
+                    exists = PhoneExistenceResult.EXISTS,
+                    existingRole = existingRole,
+                    roleConflict = conflict
+                )
+            } else {
+                // Check other common variants in phoneRoles (e.g. without +91 or raw 10 digits)
+                val variants = PhoneNumberUtils.getVariants(phoneNumber).filter { it != normalized }
+                for (variant in variants) {
+                    try {
+                        val variantDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES)
+                            .document(variant)
+                            .get()
+                            .await()
+                        if (variantDoc.exists()) {
+                            val existingRole = variantDoc.getString("role")?.trim()?.uppercase()
+                                ?: (variantDoc.get("roles") as? List<*>)?.firstOrNull()?.toString()?.trim()?.uppercase()
+                            val conflict = !requestedRole.isNullOrBlank() &&
+                                !existingRole.isNullOrBlank() &&
+                                existingRole != requestedRole.uppercase()
+                            return PhoneCheckResult(
+                                exists = PhoneExistenceResult.EXISTS,
+                                existingRole = existingRole,
+                                roleConflict = conflict
+                            )
+                        }
+                    } catch (e: Exception) {
+                        Timber.d("Variant lookup ignored for $variant: ${e.message}")
+                    }
+                }
+
+                // If not found directly in phoneRoles, check callable CF (which also checks legacy users collection)
+                val callableResult = checkPhoneForRoleViaCallable(phoneNumber, requestedRole)
+                if (callableResult.exists != PhoneExistenceResult.UNKNOWN) {
+                    return callableResult
+                }
+
+                // If callable returns UNKNOWN but phoneRoles direct get returned false,
+                // this phone is definitively NOT registered.
+                return PhoneCheckResult(PhoneExistenceResult.NOT_EXISTS)
+            }
+        } catch (e: FirebaseFirestoreException) {
+            Timber.w(e, "Direct phoneRoles lookup encountered Firestore error: ${e.code}")
+        } catch (e: Exception) {
+            Timber.w(e, "Direct phoneRoles lookup failed")
+        }
+
+        // 2. Fallback to Cloud Function lookupPhoneRole
         val callableResult = checkPhoneForRoleViaCallable(phoneNumber, requestedRole)
         if (callableResult.exists != PhoneExistenceResult.UNKNOWN) {
             return callableResult
         }
 
-        if (FirebaseAuth.getInstance().currentUser == null) {
-            Timber.d("Phone existence fallback skipped for guest user (users query requires auth)")
-            return PhoneCheckResult(PhoneExistenceResult.UNKNOWN)
-        }
-
-        return try {
-            val userDoc = checkUserExistsByPhoneNumber(phoneNumber)
-            if (userDoc == null) {
-                PhoneCheckResult(PhoneExistenceResult.NOT_EXISTS)
-            } else {
-                val existingRole = extractRole(userDoc)
-                val conflict = !requestedRole.isNullOrBlank() &&
-                    !existingRole.isNullOrBlank() &&
-                    existingRole.uppercase() != requestedRole.uppercase()
-                PhoneCheckResult(
-                    exists = PhoneExistenceResult.EXISTS,
-                    existingRole = existingRole,
-                    roleConflict = conflict
-                )
-            }
-        } catch (e: FirebaseFirestoreException) {
-            if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                Timber.w("Phone existence check blocked by rules. Continuing with UNKNOWN.")
-                PhoneCheckResult(PhoneExistenceResult.UNKNOWN)
-            } else {
-                Timber.e(e, "Phone existence check failed")
-                PhoneCheckResult(PhoneExistenceResult.UNKNOWN)
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Phone existence check failed")
-            PhoneCheckResult(PhoneExistenceResult.UNKNOWN)
-        }
+        return PhoneCheckResult(PhoneExistenceResult.UNKNOWN)
     }
 
     private fun extractRole(userDoc: Map<String, Any?>): String? {

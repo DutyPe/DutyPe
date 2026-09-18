@@ -460,13 +460,21 @@ private fun RegisterContent(
                                         }
                                         Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                                     }
-                                    FirestoreUtils.PhoneExistenceResult.NOT_EXISTS,
-                                    FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
+                                    FirestoreUtils.PhoneExistenceResult.NOT_EXISTS -> {
                                         isCheckingPhone = false
                                         profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
                                         profileCompletionViewModel.savePhoneNumber(fullPhoneNumber)
                                         profileCompletionViewModel.saveUserInfoToLocalStorage(email = "", name = fullName.trim(), role = role)
                                         otpViewModel.sendOtp(fullPhoneNumber, context)
+                                    }
+                                    FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
+                                        isCheckingPhone = false
+                                        Toast.makeText(
+                                            context,
+                                            if (isTelugu) "ఖాతా ధృవీకరణ విఫలమైంది. దయచేసి ఇంటర్నెట్ కనెక్షన్ తనిఖీ చేసి మళ్లీ ప్రయత్నించండి."
+                                            else "Could not verify account. Please check your internet connection and try again.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
                                     }
                                 }
                             } catch (e: Exception) {

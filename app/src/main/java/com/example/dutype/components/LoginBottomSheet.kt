@@ -478,7 +478,14 @@ fun LoginBottomSheet(
                                             }
                                         }
                                         com.example.dutype.utils.FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
-                                            Timber.w("📱 Phone pre-check unavailable; continuing to OTP and enforcing account state after auth: $fullPhoneNumber (mode=${if (isRegistrationMode) "register" else "login"})")
+                                            isCheckingPhone = false
+                                            Toast.makeText(
+                                                context,
+                                                if (isTelugu) "ఖాతా ధృవీకరణ విఫలమైంది. దయచేసి ఇంటర్నెట్ కనెక్షన్ తనిఖీ చేసి మళ్లీ ప్రయత్నించండి."
+                                                else "Could not verify account. Please check your internet connection and try again.",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                            return@launch
                                         }
                                     }
                                     

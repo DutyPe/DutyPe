@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { GoogleAuthProvider, RecaptchaVerifier, signInWithPhoneNumber, signInWithPopup, type ConfirmationResult, type User } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 
 import { SiteIcon } from "@/components/site-icon";
 import { normalizeSignInPhone } from "@/lib/firebase/account-actions";
@@ -133,6 +134,22 @@ export function ProviderSignIn({ disabled, showPhone, role, onBusyChange, onAuth
 
     const services = getFirebaseServices();
     if (!services || !captchaContainer.current) return;
+
+    // Pre-OTP role conflict check (single-role-per-phone defense)
+    try {
+      const snap = await getDoc(doc(services.db, "phoneRoles", normalized));
+      if (snap.exists()) {
+        const data = snap.data() as Record<string, unknown> | undefined;
+        const existingRole = String(data?.role || "").toUpperCase();
+        if (existingRole && existingRole !== role) {
+          const roleLabel = existingRole.toLowerCase();
+          setError(`This number is already registered as a ${roleLabel}. Please log in as a ${roleLabel}.`);
+          return;
+        }
+      }
+    } catch (checkErr) {
+      console.warn("Pre-OTP phone check warning:", checkErr);
+    }
 
     await perform("send", async () => {
       try {

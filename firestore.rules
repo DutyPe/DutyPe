@@ -92,13 +92,10 @@ service cloud.firestore {
     match /phoneRoles/{phone} {
       allow read, write: if isAdmin();
 
-      // Allow reading own phoneRoles doc by uid when it exists, and allow
-      // reading by authenticated phone path so registration transactions can
-      // check/create when the doc is missing.
-      allow get: if isSignedIn() && (
-        (resource != null && resource.data.uid == request.auth.uid) ||
-        phoneMatchesAuthPath(phone)
-      );
+      // Allow reading phoneRoles doc by exact phone number document ID for pre-auth verification
+      // (checking if user exists and their role before triggering OTP)
+      // Listing is strictly false to prevent scraping / enumeration
+      allow get: if true;
       allow list: if false;
 
       allow create: if isSignedIn() &&
