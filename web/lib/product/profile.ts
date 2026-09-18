@@ -10,6 +10,8 @@ export type ProductWorkLocation = {
   usageCount?: number;
 };
 
+export type EmployerType = "INDIVIDUAL" | "COMPANY";
+
 export type ProductUserProfile = {
   id?: string;
   activeRole?: string;
@@ -27,6 +29,7 @@ export type ProductUserProfile = {
   currentLocationLabel?: string;
   dateOfBirth?: string;
   email?: string | null;
+  employerType?: EmployerType;
   experience?: string;
   fullName?: string;
   gender?: string;
@@ -118,3 +121,27 @@ export function displayProfileName(profile: ProductUserProfile | null | undefine
     "DutyPe user"
   );
 }
+
+export function getEmployerType(profile: ProductUserProfile | null | undefined): EmployerType {
+  if (profile?.employerType === "INDIVIDUAL" || profile?.employerType === "COMPANY") {
+    return profile.employerType;
+  }
+  if (
+    profile?.companyName &&
+    profile.companyName.trim() &&
+    profile.companyName.trim().toLowerCase() !== "personal" &&
+    profile.companyName.trim().toLowerCase() !== "individual"
+  ) {
+    return "COMPANY";
+  }
+  return "INDIVIDUAL";
+}
+
+export function isIndividualEmployer(profile: ProductUserProfile | null | undefined): boolean {
+  return getEmployerType(profile) === "INDIVIDUAL";
+}
+
+export function isCompanyEmployer(profile: ProductUserProfile | null | undefined): boolean {
+  return getEmployerType(profile) === "COMPANY";
+}
+

@@ -23,6 +23,7 @@ import {
   productReturnPath,
   productRoleLabel,
   PRODUCT_ROLES,
+  type EmployerType,
   type ProductRole
 } from "@/lib/product/profile";
 
@@ -50,6 +51,7 @@ export function ProductAuthClient() {
   const [mode, setMode] = useState<AuthMode>("signin");
   const [method, setMethod] = useState<"phone" | "email">(searchParams.get("method") === "email" ? "email" : "phone");
   const [selectedRole, setSelectedRole] = useState<ProductRole>(defaultRole);
+  const [employerType, setEmployerType] = useState<EmployerType>("INDIVIDUAL");
   const [form, setForm] = useState(initialState);
   const [submitting, setSubmitting] = useState(false);
   const [providerPending, setProviderPending] = useState(false);
@@ -83,7 +85,7 @@ export function ProductAuthClient() {
 
   async function completeSignIn(
     user: User,
-    extraDetails?: { fullName?: string; companyName?: string }
+    extraDetails?: { fullName?: string; companyName?: string; employerType?: EmployerType }
   ) {
     if (!services || !pageActive.current) return;
     const version = ++completionVersion.current;
@@ -109,7 +111,10 @@ export function ProductAuthClient() {
         return;
       }
       if (!hasOtherRoles) {
-        await ensureProductAccount(services.db, user, selectedRole, extraDetails);
+        await ensureProductAccount(services.db, user, selectedRole, {
+          ...extraDetails,
+          employerType: selectedRole === "EMPLOYER" ? (extraDetails?.employerType || employerType) : undefined
+        });
       }
       if (!isCurrent()) return;
       const hydratedProfile = await session.refreshProfile();
@@ -186,7 +191,8 @@ export function ProductAuthClient() {
 
       await completeSignIn(credential.user, {
         fullName: form.fullName.trim(),
-        companyName: selectedRole === "EMPLOYER" ? form.companyName.trim() : undefined
+        companyName: selectedRole === "EMPLOYER" && employerType === "COMPANY" ? form.companyName.trim() : undefined,
+        employerType: selectedRole === "EMPLOYER" ? employerType : undefined
       });
     } catch (submitError) {
       if (mode === "reset") {
@@ -251,7 +257,48 @@ export function ProductAuthClient() {
               <button type="button" className={`product-tab ${method === "phone" ? "active" : ""}`} aria-pressed={method === "phone"} disabled={submitting} onClick={() => { setMethod("phone"); setError(null); }}>Phone OTP</button>
               <button type="button" className={`product-tab ${method === "email" ? "active" : ""}`} aria-pressed={method === "email"} disabled={submitting} onClick={() => { setMethod("email"); setError(null); }}>Email</button>
             </div>
-            {method === "phone" ? <label className="provider-role"><span>I am a</span><select value={selectedRole} disabled={submitting} onChange={(event) => setSelectedRole(event.target.value as ProductRole)}>{PRODUCT_ROLES.map((role) => <option key={role} value={role}>{productRoleLabel(role)}</option>)}</select></label> : null}
+            {method === "phone" ? (
+              <>
+                <label className="provider-role">
+                  <span>I am a</span>
+                  <select value={selectedRole} disabled={submitting} onChange={(event) => setSelectedRole(event.target.value as ProductRole)}>
+                    {PRODUCT_ROLES.map((role) => <option key={role} value={role}>{productRoleLabel(role)}</option>)}
+                  </select>
+                </label>
+                {selectedRole === "EMPLOYER" ? (
+                  <div className="employer-type-selector product-form-wide" style={{ marginBottom: "0.75rem" }}>
+                    <span style={{ fontSize: "0.85rem", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>
+                      Employer account type
+                    </span>
+                    <div className="product-tab-row compact" role="group" aria-label="Employer account type">
+                      <button
+                        type="button"
+                        className={`product-tab ${employerType === "INDIVIDUAL" ? "active" : ""}`}
+                        aria-pressed={employerType === "INDIVIDUAL"}
+                        disabled={submitting}
+                        onClick={() => setEmployerType("INDIVIDUAL")}
+                      >
+                        👤 Personal / Individual
+                      </button>
+                      <button
+                        type="button"
+                        className={`product-tab ${employerType === "COMPANY" ? "active" : ""}`}
+                        aria-pressed={employerType === "COMPANY"}
+                        disabled={submitting}
+                        onClick={() => setEmployerType("COMPANY")}
+                      >
+                        🏢 Company / Business
+                      </button>
+                    </div>
+                    <small style={{ color: "#64748b", display: "block", marginTop: "0.25rem" }}>
+                      {employerType === "INDIVIDUAL"
+                        ? "Personal: Hire for home, personal tasks, quick chores, or private assistance using your name."
+                        : "Company: Hire for your company, shop, restaurant, or enterprise with vacancy listings."}
+                    </small>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
             <ProviderSignIn
               disabled={submitting || session.loading || !services}
               showPhone={method === "phone"}
@@ -285,25 +332,59 @@ export function ProductAuthClient() {
           ) : (
           <form className="product-form" onSubmit={handleSubmit} aria-busy={submitting}>
             {mode !== "reset" ? (
-            <label>
-              <span>I am a</span>
-              <select value={selectedRole} disabled={submitting} onChange={(event) => setSelectedRole(event.target.value as ProductRole)}>
-                {PRODUCT_ROLES.map((role) => <option key={role} value={role}>{productRoleLabel(role)}</option>)}
-              </select>
-            </label>
+              <>
+                <label>
+                  <span>I am a</span>
+                  <select value={selectedRole} disabled={submitting} onChange={(event) => setSelectedRole(event.target.value as ProductRole)}>
+                    {PRODUCT_ROLES.map((role) => <option key={role} value={role}>{productRoleLabel(role)}</option>)}
+                  </select>
+                </label>
+                {selectedRole === "EMPLOYER" ? (
+                  <div className="employer-type-selector product-form-wide" style={{ marginBottom: "0.75rem" }}>
+                    <span style={{ fontSize: "0.85rem", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>
+                      Employer account type
+                    </span>
+                    <div className="product-tab-row compact" role="group" aria-label="Employer account type">
+                      <button
+                        type="button"
+                        className={`product-tab ${employerType === "INDIVIDUAL" ? "active" : ""}`}
+                        aria-pressed={employerType === "INDIVIDUAL"}
+                        disabled={submitting}
+                        onClick={() => setEmployerType("INDIVIDUAL")}
+                      >
+                        👤 Personal / Individual
+                      </button>
+                      <button
+                        type="button"
+                        className={`product-tab ${employerType === "COMPANY" ? "active" : ""}`}
+                        aria-pressed={employerType === "COMPANY"}
+                        disabled={submitting}
+                        onClick={() => setEmployerType("COMPANY")}
+                      >
+                        🏢 Company / Business
+                      </button>
+                    </div>
+                    <small style={{ color: "#64748b", display: "block", marginTop: "0.25rem" }}>
+                      {employerType === "INDIVIDUAL"
+                        ? "Personal: Hire for home, personal tasks, quick chores, or private assistance using your name."
+                        : "Company: Hire for your company, shop, restaurant, or enterprise with vacancy listings."}
+                    </small>
+                  </div>
+                ) : null}
+              </>
             ) : null}
 
             {mode === "signup" ? (
               <label>
-                <span>Full name</span>
+                <span>{selectedRole === "EMPLOYER" && employerType === "INDIVIDUAL" ? "Your full name (Personal)" : "Full name"}</span>
                 <input autoComplete="name" value={form.fullName} onChange={(event) => setForm((current) => ({ ...current, fullName: event.target.value }))} placeholder="Your full name" required />
               </label>
             ) : null}
 
-            {mode === "signup" && selectedRole === "EMPLOYER" ? (
+            {mode === "signup" && selectedRole === "EMPLOYER" && employerType === "COMPANY" ? (
               <label>
-                <span>Company name</span>
-                <input autoComplete="organization" value={form.companyName} onChange={(event) => setForm((current) => ({ ...current, companyName: event.target.value }))} placeholder="Your company or business" required />
+                <span>Company or Business name</span>
+                <input autoComplete="organization" value={form.companyName} onChange={(event) => setForm((current) => ({ ...current, companyName: event.target.value }))} placeholder="Your company or business name" required />
               </label>
             ) : null}
 

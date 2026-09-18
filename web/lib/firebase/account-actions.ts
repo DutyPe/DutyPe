@@ -1,7 +1,7 @@
 import type { User } from "firebase/auth";
 import { doc, runTransaction, type Firestore } from "firebase/firestore";
 
-import { extractProductRoles, type ProductRole } from "@/lib/product/profile";
+import { extractProductRoles, type EmployerType, type ProductRole } from "@/lib/product/profile";
 
 export function normalizeSignInPhone(value: string): string | null {
   if (!value) return null;
@@ -21,7 +21,7 @@ export async function ensureProductAccount(
   db: Firestore,
   user: User,
   role: ProductRole,
-  extraDetails?: { fullName?: string; companyName?: string }
+  extraDetails?: { fullName?: string; companyName?: string; employerType?: EmployerType }
 ) {
   if (!user.uid) throw new Error("An authenticated account is required.");
   const userRef = doc(db, "users", user.uid);
@@ -31,10 +31,19 @@ export async function ensureProductAccount(
     const existing = accountSnapshot.data() ?? {};
     const now = Date.now();
     const fullName = extraDetails?.fullName?.trim() || existing.fullName || existing.name || user.displayName || "";
-    const companyName = extraDetails?.companyName?.trim() || existing.companyName || "";
+    const rawCompanyName = extraDetails?.companyName?.trim() || existing.companyName || "";
+    const employerType: EmployerType | undefined = role === "EMPLOYER"
+      ? (extraDetails?.employerType || existing.employerType || (rawCompanyName ? "COMPANY" : "INDIVIDUAL"))
+      : undefined;
+    const companyName = role === "EMPLOYER"
+      ? (employerType === "INDIVIDUAL" ? (rawCompanyName || fullName || "Personal") : rawCompanyName)
+      : "";
     const email = existing.email || user.email || "";
     const phone = existing.phone || user.phoneNumber || "";
     const roles = [...new Set([...extractProductRoles(existing), role])];
+    const profileCompleted = Boolean(
+      fullName && (role !== "EMPLOYER" || employerType === "INDIVIDUAL" || companyName)
+    );
 
     if (accountSnapshot.exists()) {
       transaction.update(userRef, {
@@ -44,7 +53,7 @@ export async function ensureProductAccount(
         lastLoginAt: now,
         updatedAt: now,
         ...(fullName ? { fullName, name: fullName } : {}),
-        ...(role === "EMPLOYER" && companyName ? { companyName } : {}),
+        ...(role === "EMPLOYER" ? { companyName, employerType } : {}),
         ...(!existing.email && email ? { email } : {}),
         ...(!existing.phone && phone ? { phone } : {})
       });
@@ -60,7 +69,8 @@ export async function ensureProductAccount(
         phone,
         contactEmail: email,
         contactPhone: phone,
-        companyName: role === "EMPLOYER" ? companyName : "",
+        companyName,
+        ...(role === "EMPLOYER" ? { employerType } : {}),
         businessAddress: "",
         address: "",
         latitude: 0,
@@ -68,7 +78,7 @@ export async function ensureProductAccount(
         businessLatitude: 0,
         businessLongitude: 0,
         profileImageUrl: user.photoURL || "",
-        profileCompleted: Boolean(fullName && (role !== "EMPLOYER" || companyName)),
+        profileCompleted,
         savedJobs: [],
         workLocations: [],
         trustTier: "NEW",

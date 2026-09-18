@@ -7,7 +7,7 @@ import { SiteIcon } from "@/components/site-icon";
 import { normalizeSignInPhone } from "@/lib/firebase/account-actions";
 import { firebaseAuthErrorMessage } from "@/lib/firebase/auth-errors";
 import { getFirebaseServices } from "@/lib/firebase/client";
-import type { ProductRole } from "@/lib/product/profile";
+import type { EmployerType, ProductRole } from "@/lib/product/profile";
 
 type Props = {
   disabled: boolean;
@@ -15,13 +15,14 @@ type Props = {
   role: ProductRole;
   returnPath?: string | null;
   onBusyChange: (busy: boolean) => void;
-  onAuthenticated: (user: User, extraDetails?: { fullName?: string; companyName?: string }) => Promise<void>;
+  onAuthenticated: (user: User, extraDetails?: { fullName?: string; companyName?: string; employerType?: EmployerType }) => Promise<void>;
 };
 
 export function ProviderSignIn({ disabled, showPhone, role, onBusyChange, onAuthenticated }: Props) {
   const [phone, setPhone] = useState("");
   const [fullName, setFullName] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [employerType, setEmployerType] = useState<EmployerType>("INDIVIDUAL");
   const [sentPhone, setSentPhone] = useState("");
   const [code, setCode] = useState("");
   const [confirmation, setConfirmation] = useState<ConfirmationResult | null>(null);
@@ -48,8 +49,9 @@ export function ProviderSignIn({ disabled, showPhone, role, onBusyChange, onAuth
       if (draft.version !== 1 || typeof draft.savedAt !== "number" || draft.savedAt > Date.now() || Date.now() - draft.savedAt > 3_600_000) return;
       if (draft.ownerId && draft.ownerId !== getFirebaseServices()?.auth.currentUser?.uid) return;
       if (draft.form) {
-        if (typeof draft.form.companyName === "string") {
+        if (typeof draft.form.companyName === "string" && draft.form.companyName.trim()) {
           setCompanyName((current) => current || draft.form.companyName.slice(0, 120));
+          setEmployerType("COMPANY");
         }
         if (typeof draft.form.contactNumber === "string") {
           setPhone((current) => current || draft.form.contactNumber.slice(0, 24));
@@ -109,7 +111,8 @@ export function ProviderSignIn({ disabled, showPhone, role, onBusyChange, onAuth
       const result = await signInWithPopup(services.auth, provider);
       const extraDetails = {
         fullName: fullName.trim() || result.user.displayName || undefined,
-        companyName: role === "EMPLOYER" ? companyName.trim() || undefined : undefined
+        companyName: role === "EMPLOYER" && employerType === "COMPANY" ? companyName.trim() || undefined : undefined,
+        employerType: role === "EMPLOYER" ? employerType : undefined
       };
       if (mounted.current) await onAuthenticated(result.user, extraDetails);
     });
@@ -165,7 +168,8 @@ export function ProviderSignIn({ disabled, showPhone, role, onBusyChange, onAuth
       verifiedUser.current = user;
       const extraDetails = {
         fullName: fullName.trim() || undefined,
-        companyName: role === "EMPLOYER" ? companyName.trim() || undefined : undefined
+        companyName: role === "EMPLOYER" && employerType === "COMPANY" ? companyName.trim() || undefined : undefined,
+        employerType: role === "EMPLOYER" ? employerType : undefined
       };
       if (mounted.current) await onAuthenticated(user, extraDetails);
     });
@@ -236,31 +240,60 @@ export function ProviderSignIn({ disabled, showPhone, role, onBusyChange, onAuth
 
               <details className="product-form-wide">
                 <summary>Account details (optional)</summary>
+                {role === "EMPLOYER" ? (
+                  <div className="employer-type-selector product-form-wide" style={{ marginBottom: "0.75rem" }}>
+                    <span style={{ fontSize: "0.85rem", fontWeight: 600, display: "block", marginBottom: "0.25rem" }}>
+                      Employer account type
+                    </span>
+                    <div className="product-tab-row compact" role="group" aria-label="Employer account type">
+                      <button
+                        type="button"
+                        className={`product-tab ${employerType === "INDIVIDUAL" ? "active" : ""}`}
+                        onClick={() => setEmployerType("INDIVIDUAL")}
+                      >
+                        👤 Personal / Individual
+                      </button>
+                      <button
+                        type="button"
+                        className={`product-tab ${employerType === "COMPANY" ? "active" : ""}`}
+                        onClick={() => setEmployerType("COMPANY")}
+                      >
+                        🏢 Company / Business
+                      </button>
+                    </div>
+                    <small style={{ color: "#64748b", display: "block", marginTop: "0.25rem" }}>
+                      {employerType === "INDIVIDUAL"
+                        ? "Personal profile for household needs, private help, or instant chores."
+                        : "Company profile for shops, restaurants, commercial firms, or multiple vacancies."}
+                    </small>
+                  </div>
+                ) : null}
+
+                <label className="product-form-wide">
+                  <span>{role === "EMPLOYER" && employerType === "INDIVIDUAL" ? "Your full name (Personal)" : "Full name"}</span>
+                  <input
+                    type="text"
+                    autoComplete="name"
+                    placeholder="Your full name"
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
+                    disabled={Boolean(busy)}
+                  />
+                </label>
+
+                {role === "EMPLOYER" && employerType === "COMPANY" ? (
                   <label className="product-form-wide">
-                    <span>Full name</span>
+                    <span>Company or Business name</span>
                     <input
                       type="text"
-                      autoComplete="name"
-                      placeholder="Your full name"
-                      value={fullName}
-                      onChange={(event) => setFullName(event.target.value)}
+                      autoComplete="organization"
+                      placeholder="e.g. Acme Enterprises or Shop Name"
+                      value={companyName}
+                      onChange={(event) => setCompanyName(event.target.value)}
                       disabled={Boolean(busy)}
                     />
                   </label>
-
-                  {role === "EMPLOYER" ? (
-                    <label className="product-form-wide">
-                      <span>Company or Business name</span>
-                      <input
-                        type="text"
-                        autoComplete="organization"
-                        placeholder="e.g. Acme Enterprises or Shop Name"
-                        value={companyName}
-                        onChange={(event) => setCompanyName(event.target.value)}
-                        disabled={Boolean(busy)}
-                      />
-                    </label>
-                  ) : null}
+                ) : null}
               </details>
 
               <label className="phone-consent product-form-wide">

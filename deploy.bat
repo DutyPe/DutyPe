@@ -18,7 +18,7 @@ if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Firebase deploy failed.
     REM pause
     exit /b 1
-
+)
 echo.
 echo [2/3] Setting Firebase Admin SDK env vars on Cloud Run...
 powershell -NoProfile -Command ^
@@ -39,7 +39,7 @@ powershell -NoProfile -Command ^
    Write-Host 'Admin SDK env vars set. Waiting for rollout...'; ^
    Start-Sleep -Seconds 30; ^
    $s = Invoke-RestMethod 'https://run.googleapis.com/v2/projects/dutype-860ac/locations/us-central1/services/ssrdutype860ac' -Headers $h -UseBasicParsing; ^
-   Write-Host "Ready revision: $($s.latestReadyRevision.Split('/')[-1])""
+   Write-Host "Ready revision: $($s.latestReadyRevision.Split('/')[-1])"
 
 echo.
 echo [3/3] Setting Cloud Run public access...
