@@ -78,6 +78,7 @@ fun MandatoryEmployerProfileSetupScreen(
     val fcmTokenManager = profileCompletionViewModel.fcmTokenManager
 
     // Form state - using rememberSaveable to survive activity recreation (camera launch)
+    var employerType by rememberSaveable { mutableStateOf("INDIVIDUAL") }
     var companyName by rememberSaveable { mutableStateOf("") }
     var contactPhone by rememberSaveable { mutableStateOf("") }
     var businessAddress by rememberSaveable { mutableStateOf("") }
@@ -153,6 +154,14 @@ fun MandatoryEmployerProfileSetupScreen(
                     val savedIndustry = existingData["industry"] as? String
                     val savedBusinessAddress = existingData["businessAddress"] as? String
                     val savedBusinessLocation = existingData["businessLocation"] as? Map<*, *>
+                    val savedEmployerType = existingData["employerType"] as? String
+                    
+                    if (!savedEmployerType.isNullOrBlank()) {
+                        employerType = savedEmployerType
+                        Timber.d("📦 PREFILL: employerType = $employerType")
+                    } else if (!savedCompanyName.isNullOrBlank() && savedCompanyName != currentUser.displayName) {
+                        employerType = "COMPANY"
+                    }
                     
                     // Apply prefilled values (only if current field is empty)
                     if (companyName.isBlank() && !savedCompanyName.isNullOrBlank()) {
@@ -314,7 +323,9 @@ fun MandatoryEmployerProfileSetupScreen(
                     
                     val employerProfileData = mutableMapOf<String, Any>(
                         "companyName" to companyName,
-                        "phone" to contactPhone
+                        "fullName" to companyName,
+                        "phone" to contactPhone,
+                        "employerType" to employerType
                     )
 
                     if (industry.isNotBlank()) {
@@ -480,6 +491,7 @@ fun MandatoryEmployerProfileSetupScreen(
     }
 
     MandatoryEmployerProfileSetupContent(
+        employerType = employerType,
         companyName = companyName,
         contactPhone = contactPhone,
         businessAddress = businessAddress,
@@ -507,6 +519,7 @@ fun MandatoryEmployerProfileSetupScreen(
         showReferralSection = showReferralSection,
         hasAlreadyUsedReferral = hasAlreadyUsedReferral,
         locationService = locationService,
+        onEmployerTypeChange = { employerType = it },
         onCompanyNameChange = { companyName = it },
         onContactPhoneChange = { contactPhone = it },
         onBusinessAddressChange = { businessAddress = it },
@@ -605,6 +618,7 @@ fun MandatoryEmployerProfileSetupScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MandatoryEmployerProfileSetupContent(
+    employerType: String,
     companyName: String,
     contactPhone: String,
     businessAddress: String,
@@ -632,6 +646,7 @@ fun MandatoryEmployerProfileSetupContent(
     showReferralSection: Boolean,
     hasAlreadyUsedReferral: Boolean,
     locationService: com.example.dutype.utils.LocationService,
+    onEmployerTypeChange: (String) -> Unit,
     onCompanyNameChange: (String) -> Unit,
     onContactPhoneChange: (String) -> Unit,
     onBusinessAddressChange: (String) -> Unit,
@@ -679,6 +694,7 @@ fun MandatoryEmployerProfileSetupContent(
                         verticalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
                         CompanyInformationStep(
+                            employerType = employerType,
                             companyName = companyName,
                             industry = industry,
                             gstin = gstin,
@@ -690,6 +706,7 @@ fun MandatoryEmployerProfileSetupContent(
                             referralValidationResult = referralValidationResult,
                             showReferralSection = showReferralSection,
                             hasAlreadyUsedReferral = hasAlreadyUsedReferral,
+                            onEmployerTypeChange = onEmployerTypeChange,
                             onCompanyNameChange = onCompanyNameChange,
                             onIndustryChange = onIndustryChange,
                             onGstinChange = onGstinChange,
@@ -806,6 +823,7 @@ fun MandatoryEmployerProfileSetupContent(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CompanyInformationStep(
+    employerType: String,
     companyName: String,
     industry: String,
     gstin: String,
@@ -817,12 +835,15 @@ private fun CompanyInformationStep(
     referralValidationResult: ReferralValidationResult?,
     showReferralSection: Boolean,
     hasAlreadyUsedReferral: Boolean,
+    onEmployerTypeChange: (String) -> Unit,
     onCompanyNameChange: (String) -> Unit,
     onIndustryChange: (String) -> Unit,
     onGstinChange: (String) -> Unit,
     onReferralCodeChange: (String) -> Unit,
     onValidateReferral: (String) -> Unit
 ) {
+    val isIndividual = employerType == "INDIVIDUAL"
+
     Column(
         modifier = Modifier.padding(top = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -830,7 +851,7 @@ private fun CompanyInformationStep(
         // Step header
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 12.dp)
+            modifier = Modifier.padding(bottom = 8.dp)
         ) {
             Box(
                 modifier = Modifier
@@ -847,7 +868,7 @@ private fun CompanyInformationStep(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    Icons.Default.Business,
+                    if (isIndividual) Icons.Default.Person else Icons.Default.Business,
                     contentDescription = null,
                     tint = EmployerColors.Primary,
                     modifier = Modifier.size(28.dp)
@@ -858,7 +879,7 @@ private fun CompanyInformationStep(
 
             Column {
                 Text(
-                    text = stringResource(R.string.auto_company_information),
+                    text = if (isIndividual) "Personal Profile" else stringResource(R.string.auto_company_information),
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
@@ -866,7 +887,7 @@ private fun CompanyInformationStep(
                     )
                 )
                 Text(
-                    text = stringResource(R.string.auto_tell_us_about_your_company),
+                    text = if (isIndividual) "Tell us your name to post instant personal tasks" else stringResource(R.string.auto_tell_us_about_your_company),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = EmployerColors.TextSecondary,
                         fontWeight = FontWeight.Medium
@@ -875,13 +896,132 @@ private fun CompanyInformationStep(
             }
         }
 
+        // Account Type Selector Cards
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "Select Account Profile Type",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = EmployerColors.TextPrimary
+                )
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Personal / Individual Card
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onEmployerTypeChange("INDIVIDUAL") },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (isIndividual) EmployerColors.Primary.copy(alpha = 0.10f) else EmployerColors.CardBackground
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = if (isIndividual) 2.dp else 1.dp,
+                        color = if (isIndividual) EmployerColors.Primary else EmployerColors.Border
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("👤", fontSize = 20.sp)
+                            if (isIndividual) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = EmployerColors.Primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Personal",
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (isIndividual) EmployerColors.Primary else EmployerColors.TextPrimary
+                            )
+                        )
+                        Text(
+                            text = "Home chores, cook, maid, driver, personal tasks",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = EmployerColors.TextSecondary,
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp
+                            )
+                        )
+                    }
+                }
+
+                // Company / Business Card
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onEmployerTypeChange("COMPANY") },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (!isIndividual) EmployerColors.Primary.copy(alpha = 0.10f) else EmployerColors.CardBackground
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(
+                        width = if (!isIndividual) 2.dp else 1.dp,
+                        color = if (!isIndividual) EmployerColors.Primary else EmployerColors.Border
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("🏢", fontSize = 20.sp)
+                            if (!isIndividual) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = EmployerColors.Primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Company",
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = if (!isIndividual) EmployerColors.Primary else EmployerColors.TextPrimary
+                            )
+                        )
+                        Text(
+                            text = "Shop, office, restaurant, hotel, commercial hiring",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = EmployerColors.TextSecondary,
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        // Name input (Personal Name vs Company Name)
         Column {
             OutlinedTextField(
                 value = companyName,
                 onValueChange = onCompanyNameChange,
-                label = { Text(stringResource(R.string.company_name_required)) },
-                placeholder = { Text(stringResource(R.string.enter_company_name)) },
-                leadingIcon = { Icon(Icons.Default.Business, contentDescription = null) },
+                label = { Text(if (isIndividual) "Your Full Name *" else stringResource(R.string.company_name_required)) },
+                placeholder = { Text(if (isIndividual) "Enter your personal full name" else stringResource(R.string.enter_company_name)) },
+                leadingIcon = { Icon(if (isIndividual) Icons.Default.Person else Icons.Default.Business, contentDescription = null) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 isError = companyNameError != null,
@@ -901,16 +1041,17 @@ private fun CompanyInformationStep(
             }
         }
 
+        // Industry / Category needed
         Column {
             OutlinedTextField(
                 value = industry,
                 onValueChange = { onIndustryChange(it.take(120)) },
-                label = { Text(stringResource(R.string.hiring_categories_optional)) },
-                placeholder = { Text(stringResource(R.string.hiring_categories_hint)) },
-                leadingIcon = { Icon(Icons.Default.Business, contentDescription = null) },
+                label = { Text(if (isIndividual) "Help Needed (Optional)" else stringResource(R.string.hiring_categories_optional)) },
+                placeholder = { Text(if (isIndividual) "e.g. Cook, Maid, Driver, Electrician" else stringResource(R.string.hiring_categories_hint)) },
+                leadingIcon = { Icon(if (isIndividual) Icons.Default.Work else Icons.Default.Business, contentDescription = null) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 10.dp),
+                    .padding(top = 6.dp),
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -921,33 +1062,36 @@ private fun CompanyInformationStep(
             )
         }
 
-        Column {
-            OutlinedTextField(
-                value = gstin,
-                onValueChange = { onGstinChange(it.uppercase().take(15)) },
-                label = { Text("GSTIN (Optional)") },
-                placeholder = { Text("Enter 15-character GSTIN") },
-                leadingIcon = { Icon(Icons.Default.VerifiedUser, contentDescription = null) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 10.dp),
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                isError = gstinError != null,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (gstinError != null) EmployerColors.Error else EmployerColors.Primary,
-                    unfocusedBorderColor = if (gstinError != null) EmployerColors.Error else EmployerColors.Border,
-                    cursorColor = EmployerColors.Primary,
-                    errorBorderColor = EmployerColors.Error
+        // GSTIN (Shown only for Company / Business)
+        if (!isIndividual) {
+            Column {
+                OutlinedTextField(
+                    value = gstin,
+                    onValueChange = { onGstinChange(it.uppercase().take(15)) },
+                    label = { Text("GSTIN (Optional)") },
+                    placeholder = { Text("Enter 15-character GSTIN") },
+                    leadingIcon = { Icon(Icons.Default.VerifiedUser, contentDescription = null) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp),
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    isError = gstinError != null,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = if (gstinError != null) EmployerColors.Error else EmployerColors.Primary,
+                        unfocusedBorderColor = if (gstinError != null) EmployerColors.Error else EmployerColors.Border,
+                        cursorColor = EmployerColors.Primary,
+                        errorBorderColor = EmployerColors.Error
+                    )
                 )
-            )
-            if (gstinError != null) {
-                Text(
-                    text = gstinError,
-                    color = EmployerColors.Error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                )
+                if (gstinError != null) {
+                    Text(
+                        text = gstinError,
+                        color = EmployerColors.Error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                    )
+                }
             }
         }
 

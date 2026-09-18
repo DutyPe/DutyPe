@@ -67,6 +67,7 @@ fun EmployerCompanyDetailsScreen(
     var currentUserId by remember { mutableStateOf("") }
 
     // Form state — basic info
+    var employerType by remember { mutableStateOf("COMPANY") }
     var companyName by remember { mutableStateOf("") }
     var contactPhone by remember { mutableStateOf("") }
     var businessAddress by remember { mutableStateOf("") }
@@ -162,6 +163,7 @@ fun EmployerCompanyDetailsScreen(
                     profileCompletionViewModel.getEmployerProfileData(currentUser.uid)
                 employerProfileData.fold(
                     onSuccess = { data ->
+                        employerType = data["employerType"] as? String ?: "COMPANY"
                         companyName = data["companyName"] as? String ?: ""
                         contactPhone = data["contactPhone"] as? String
                             ?: data["phone"] as? String ?: ""
@@ -297,6 +299,85 @@ fun EmployerCompanyDetailsScreen(
                     }
                 }
 
+                // Account Profile Type
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    AnimatedVisibility(
+                        visible = isVisible,
+                        enter = fadeIn(tween(750, 80)) + slideInVertically(tween(750, 80))
+                    ) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Border)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(if (employerType == "INDIVIDUAL") "👤" else "🏢", fontSize = 18.sp)
+                                    Text(
+                                        text = "Account Profile Type",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = EmployerColors.TextPrimary
+                                        )
+                                    )
+                                }
+
+                                if (isEditMode) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        FilterChip(
+                                            selected = employerType == "INDIVIDUAL",
+                                            onClick = { employerType = "INDIVIDUAL" },
+                                            label = { Text("👤 Personal") },
+                                            modifier = Modifier.weight(1f),
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = EmployerColors.Primary.copy(alpha = 0.15f),
+                                                selectedLabelColor = EmployerColors.Primary
+                                            )
+                                        )
+                                        FilterChip(
+                                            selected = employerType == "COMPANY",
+                                            onClick = { employerType = "COMPANY" },
+                                            label = { Text("🏢 Company") },
+                                            modifier = Modifier.weight(1f),
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = EmployerColors.Primary.copy(alpha = 0.15f),
+                                                selectedLabelColor = EmployerColors.Primary
+                                            )
+                                        )
+                                    }
+                                } else {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = EmployerColors.Primary.copy(alpha = 0.1f)
+                                    ) {
+                                        Text(
+                                            text = if (employerType == "INDIVIDUAL") "Personal / Individual Profile (Defaults to Instant Tasks)" else "Company / Business Profile (Defaults to Regular Vacancies)",
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = EmployerColors.Primary
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Basic Information
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
@@ -362,8 +443,10 @@ fun EmployerCompanyDetailsScreen(
                                 if (currentUser != null) {
                                     val data = mutableMapOf<String, Any>(
                                         "companyName" to companyName,
+                                        "fullName" to companyName,
                                         "businessAddress" to businessAddress,
-                                        "industry" to industry
+                                        "industry" to industry,
+                                        "employerType" to employerType
                                     )
                                     profileImageUrl?.takeIf { it.isNotBlank() }?.let {
                                         data["profileImageUrl"] = it
@@ -371,7 +454,7 @@ fun EmployerCompanyDetailsScreen(
                                     profileCompletionViewModel.saveEmployerProfileData(data)
                                     Toast.makeText(
                                         context,
-                                        "Company details saved successfully!",
+                                        "Profile details saved successfully!",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 }
@@ -380,7 +463,7 @@ fun EmployerCompanyDetailsScreen(
                                 Timber.e(e, "Error saving company details")
                                 Toast.makeText(
                                     context,
-                                    "Failed to save company details",
+                                    "Failed to save profile details",
                                     Toast.LENGTH_SHORT
                                 ).show()
                             } finally {

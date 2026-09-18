@@ -50,6 +50,7 @@ class EmployerProfileCache @Inject constructor(
         val contactPhone: String,
         val trustTier: String,
         val profileImageUrl: String,
+        val employerType: String = "COMPANY",
         val timestamp: Long
     ) {
         fun isValid(): Boolean = System.currentTimeMillis() - timestamp < CACHE_TTL_MS
@@ -91,6 +92,7 @@ class EmployerProfileCache @Inject constructor(
                         contactPhone = employerProfileDoc.getString("phone") ?: "",
                         trustTier = "VERIFIED",
                         profileImageUrl = employerProfileDoc.getString("profileImageUrl") ?: "",
+                        employerType = employerProfileDoc.getString("employerType") ?: "COMPANY",
                         timestamp = System.currentTimeMillis()
                     )
                     
@@ -99,6 +101,7 @@ class EmployerProfileCache @Inject constructor(
                     Timber.d("📦 EMPLOYER_CACHE: Cached profile for $employerId")
                     Timber.d("📦   - Company: ${profile.companyName}")
                     Timber.d("📦   - Name: ${profile.employerName}")
+                    Timber.d("📦   - Type: ${profile.employerType}")
                     Timber.d("📦   - Trust Tier: ${profile.trustTier}")
                     
                     profile
@@ -136,6 +139,13 @@ class EmployerProfileCache @Inject constructor(
     suspend fun getContactPhone(employerId: String): String {
         return getProfile(employerId)?.contactPhone ?: ""
     }
+
+    /**
+     * Get employer type (COMPANY vs INDIVIDUAL) with cache-first approach
+     */
+    suspend fun getEmployerType(employerId: String): String {
+        return getProfile(employerId)?.employerType ?: "COMPANY"
+    }
     
     /**
      * Get trust tier with cache-first approach
@@ -152,7 +162,8 @@ class EmployerProfileCache @Inject constructor(
         companyName: String? = null,
         employerName: String? = null,
         contactPhone: String? = null,
-        trustTier: String? = null
+        trustTier: String? = null,
+        employerType: String? = null
     ) = mutex.withLock {
         val existing = profileCache[employerId]
         if (existing != null) {
@@ -161,6 +172,7 @@ class EmployerProfileCache @Inject constructor(
                 employerName = employerName ?: existing.employerName,
                 contactPhone = contactPhone ?: existing.contactPhone,
                 trustTier = trustTier ?: existing.trustTier,
+                employerType = employerType ?: existing.employerType,
                 timestamp = System.currentTimeMillis()
             )
             Timber.d("📦 EMPLOYER_CACHE: Updated cache for $employerId")

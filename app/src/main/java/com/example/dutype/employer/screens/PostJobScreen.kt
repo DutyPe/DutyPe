@@ -56,6 +56,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -213,6 +214,9 @@ fun PostJobScreen(
     var vacancies by remember { mutableStateOf("") }
     var employerName by remember { mutableStateOf("") }
     var companyName by remember { mutableStateOf("") }
+    var employerType by remember { mutableStateOf("COMPANY") }
+    var hasUserManuallySwitchedTab by remember { mutableStateOf(false) }
+    var postingMode by remember { mutableStateOf("vacancy") }
     
     // Enhanced fields for hyper-local jobs
     var workType by remember { mutableStateOf("Full-time") }
@@ -520,6 +524,13 @@ fun PostJobScreen(
                             employerTrustTier = cachedProfile.trustTier
                             Timber.d("✅ Trust tier loaded from CACHE: $employerTrustTier")
                         }
+                        if (cachedProfile.employerType.isNotBlank()) {
+                            employerType = cachedProfile.employerType
+                            if (!hasUserManuallySwitchedTab) {
+                                postingMode = if (employerType == "INDIVIDUAL") "urgent" else "vacancy"
+                            }
+                            Timber.d("✅ Employer type loaded from CACHE: $employerType, default postingMode: $postingMode")
+                        }
                     } else {
                         // Fallback to direct Firestore fetch (cache miss)
                         Timber.d(" Cache miss, fetching from Firestore...")
@@ -539,6 +550,14 @@ fun PostJobScreen(
                             if (!savedContactPhone.isNullOrBlank()) {
                                 contactNumber = savedContactPhone
                             }
+                            val savedEmployerType = employerDoc.getString("employerType")
+                                ?: phoneRoleDoc?.getString("employerType")
+                                ?: "COMPANY"
+                            employerType = savedEmployerType
+                            if (!hasUserManuallySwitchedTab) {
+                                postingMode = if (employerType == "INDIVIDUAL") "urgent" else "vacancy"
+                            }
+                            Timber.d("✅ Employer type loaded from Firestore: $employerType, default postingMode: $postingMode")
                         }
                         if (employerDoc.exists()) {
                             val savedCompanyName = employerDoc.getString("companyName")
@@ -938,7 +957,6 @@ fun PostJobScreen(
     //   1 ? Pay & where   (compensation + location)
     //   2 ? Requirements & contact (people, schedule, perks, contact, review)
     var currentStep by remember { mutableIntStateOf(0) }
-    var postingMode by remember { mutableStateOf("vacancy") }
     var showAdvancedJobDetails by remember { mutableStateOf(false) }
     var showAdvancedRequirements by remember { mutableStateOf(false) }
     val totalSteps = 3
@@ -1328,11 +1346,16 @@ fun PostJobScreen(
 
                 PostingTypeTabs(
                     selectedType = postingMode,
+                    isIndividual = employerType == "INDIVIDUAL",
                     onVacancyClick = {
+                        hasUserManuallySwitchedTab = true
                         postingMode = "vacancy"
                         currentStep = 0
                     },
-                    onUrgentNeedClick = { postingMode = "urgent" },
+                    onUrgentNeedClick = {
+                        hasUserManuallySwitchedTab = true
+                        postingMode = "urgent"
+                    },
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
 
@@ -2383,11 +2406,20 @@ fun PolishedCard(
 @Composable
 private fun PostingTypeTabs(
     selectedType: String,
+    isIndividual: Boolean,
     onVacancyClick: () -> Unit,
     onUrgentNeedClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val selectedIndex = if (selectedType == "vacancy") 0 else 1
+    // Dynamic tab ordering:
+    // Individual: Tab 0 is Instant (urgent), Tab 1 is Vacancy (vacancy)
+    // Company: Tab 0 is Vacancy (vacancy), Tab 1 is Instant (urgent)
+    val selectedIndex = if (isIndividual) {
+        if (selectedType == "urgent") 0 else 1
+    } else {
+        if (selectedType == "vacancy") 0 else 1
+    }
+
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -2404,30 +2436,63 @@ private fun PostingTypeTabs(
                 containerColor = EmployerColors.CardBackground,
                 contentColor = EmployerColors.Primary
             ) {
-                Tab(
-                    selected = selectedIndex == 0,
-                    onClick = onVacancyClick,
-                    icon = { Icon(Icons.Default.Work, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    text = { Text(stringResource(R.string.normal_job), fontWeight = if (selectedIndex == 0) FontWeight.Bold else FontWeight.Medium) }
-                )
-                Tab(
-                    selected = selectedIndex == 1,
-                    onClick = onUrgentNeedClick,
-                    icon = { Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    text = { Text(stringResource(R.string.urgent_need), fontWeight = if (selectedIndex == 1) FontWeight.Bold else FontWeight.Medium) }
-                )
+                if (isIndividual) {
+                    Tab(
+                        selected = selectedIndex == 0,
+                        onClick = onUrgentNeedClick,
+                        icon = { Icon(Icons.Default.FlashOn, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        text = { Text("⚡ Instant Task", fontWeight = if (selectedIndex == 0) FontWeight.Bold else FontWeight.Medium) }
+                    )
+                    Tab(
+                        selected = selectedIndex == 1,
+                        onClick = onVacancyClick,
+                        icon = { Icon(Icons.Default.Work, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        text = { Text("📋 Job Vacancy", fontWeight = if (selectedIndex == 1) FontWeight.Bold else FontWeight.Medium) }
+                    )
+                } else {
+                    Tab(
+                        selected = selectedIndex == 0,
+                        onClick = onVacancyClick,
+                        icon = { Icon(Icons.Default.Work, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        text = { Text(stringResource(R.string.normal_job), fontWeight = if (selectedIndex == 0) FontWeight.Bold else FontWeight.Medium) }
+                    )
+                    Tab(
+                        selected = selectedIndex == 1,
+                        onClick = onUrgentNeedClick,
+                        icon = { Icon(Icons.Default.FlashOn, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        text = { Text(stringResource(R.string.urgent_need), fontWeight = if (selectedIndex == 1) FontWeight.Bold else FontWeight.Medium) }
+                    )
+                }
             }
         }
 
-        Text(
-            text = if (selectedIndex == 0) {
-                stringResource(R.string.post_job_normal_tab_desc)
-            } else {
-                stringResource(R.string.post_job_urgent_tab_desc)
-            },
-            style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
-            modifier = Modifier.padding(horizontal = 4.dp)
-        )
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = EmployerColors.Primary.copy(alpha = 0.08f)
+        ) {
+            Text(
+                text = if (selectedType == "urgent") {
+                    if (isIndividual) {
+                        "⚡ Instant Task (Personal Profile Default): Find immediate helpers for household chores, cooking, cleaning, or personal tasks today."
+                    } else {
+                        "⚡ Instant Urgent Need: Request quick workers for immediate business shifts or peak hours today."
+                    }
+                } else {
+                    if (isIndividual) {
+                        "📋 Regular Vacancy: Post a standard vacancy for ongoing or part-time personal assistance."
+                    } else {
+                        "📋 Regular Vacancy (Company Default): Post commercial vacancies for full-time, part-time, or shift roles."
+                    }
+                },
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = EmployerColors.TextPrimary,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp
+                ),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+            )
+        }
     }
 }
 

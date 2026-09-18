@@ -779,11 +779,16 @@ class ProfileCompletionService @Inject constructor(
 
             val isNewProfile = existingEmployer.isEmpty()
 
+            val employerType = (profileData["employerType"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+                ?: (existingEmployer["employerType"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+                ?: "COMPANY"
+
             val employerProfile = mutableMapOf<String, Any>(
                 "userId" to currentUser.uid,
                 "fullName" to fullName,
                 "phone" to PhoneNumberUtils.normalize(phone),
                 "role" to "EMPLOYER",
+                "employerType" to employerType,
                 "updatedAt" to now,
                 "companyName" to companyName
 
@@ -836,8 +841,20 @@ class ProfileCompletionService @Inject constructor(
                 mapOf(
                     "phoneNumber" to PhoneNumberUtils.normalize(phone),
                     "role" to "EMPLOYER",
+                    "employerType" to employerType,
                     "name" to fullName,
                     "uid" to currentUser.uid,
+                    "updatedAt" to now
+                ),
+                com.google.firebase.firestore.SetOptions.merge()
+            )
+            batch.set(
+                firestore.collection("users").document(currentUser.uid),
+                mapOf(
+                    "employerType" to employerType,
+                    "companyName" to companyName,
+                    "fullName" to fullName,
+                    "role" to "EMPLOYER",
                     "updatedAt" to now
                 ),
                 com.google.firebase.firestore.SetOptions.merge()
@@ -845,7 +862,7 @@ class ProfileCompletionService @Inject constructor(
             batch.set(employerRef, employerProfile, com.google.firebase.firestore.SetOptions.merge())
             batch.commit().await()
             
-            Timber.d("🔍 ProfileCompletionService.saveEmployerProfileData - Saved profile data: ${profileData.keys}")
+            Timber.d("🔍 ProfileCompletionService.saveEmployerProfileData - Saved profile data: ${profileData.keys} (type: $employerType)")
             Result.success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "❌ ProfileCompletionService.saveEmployerProfileData - Error: ${e.message}")

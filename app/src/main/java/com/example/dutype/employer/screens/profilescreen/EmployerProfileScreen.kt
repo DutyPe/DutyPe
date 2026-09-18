@@ -103,6 +103,7 @@ fun EmployerProfileScreen(
     
     var companyName by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
+    var employerType by remember { mutableStateOf("COMPANY") }
     var isLoadingProfile by remember { mutableStateOf(true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showAccountDeletionDialog by remember { mutableStateOf(false) }
@@ -128,8 +129,13 @@ fun EmployerProfileScreen(
 
                 // Use metadata for profile image URL
                 profileImageUrl = userStats.profileImageUrl.ifEmpty { null }
+
+                val employerData = profileCompletionViewModel.getEmployerProfileData(currentUser.uid)
+                employerData.onSuccess { data ->
+                    employerType = data["employerType"] as? String ?: "COMPANY"
+                }
                 
-                Timber.i("Employer profile (lightweight) - Name: ${userStats.fullName}, Phone: ${userStats.phone}")
+                Timber.i("Employer profile (lightweight) - Name: ${userStats.fullName}, Phone: ${userStats.phone}, Type: $employerType")
             } catch (e: Exception) {
                 Timber.e("Error loading lightweight profile: ${e.message}")
             }
@@ -402,6 +408,19 @@ fun EmployerProfileScreen(
                                             style = AppTypography.bodyMedium.copy(
                                                 color = WorkerColors.TextSecondary
                                             )
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = EmployerColors.Primary.copy(alpha = 0.12f)
+                                    ) {
+                                        Text(
+                                            text = if (employerType == "INDIVIDUAL") "👤 Personal Profile" else "🏢 Company Profile",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = EmployerColors.Primary,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                         )
                                     }
                                 } else {
