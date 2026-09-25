@@ -24,6 +24,7 @@ function loadServiceAccount() {
   const scriptsRoot = path.join(__dirname, '..');
   const candidatePaths = [
     explicitPath,
+    path.join(repoRoot, 'serviceAccountKey.json.json'),
     path.join(repoRoot, 'serviceAccountKey.json'),
     path.join(scriptsRoot, 'serviceAccountKey.json'),
     path.join(scriptsRoot, 'dutype-860ac-firebase-adminsdk.json')

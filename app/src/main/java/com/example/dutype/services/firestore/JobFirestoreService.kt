@@ -453,9 +453,9 @@ class JobFirestoreService @Inject constructor(
                     throw IllegalStateException("Employer profile not found")
                 }
                 val companyName = activeProfileSnap.getString("companyName").orEmpty().trim()
-                if (companyName.isBlank()) {
-                    throw IllegalArgumentException("Employer company name is required")
-                }
+                    .ifBlank { activeProfileSnap.getString("fullName").orEmpty().trim() }
+                    .ifBlank { FirebaseAuth.getInstance().currentUser?.displayName.orEmpty().trim() }
+                    .ifBlank { "DutyPe Employer" }
 
                 val activeSubMap = activeProfileSnap.get("subscription") as? Map<String, Any?>
                 val activeSub = com.example.dutype.models.EmployerSubscription.fromMap(activeSubMap)
@@ -1057,15 +1057,22 @@ class JobFirestoreService @Inject constructor(
                 }
             }.await()
             
-            // Update all applications for this job to 'deleted' status
+            // Update active applications for this job to 'deleted' status
             val applicationsRef = firestore.collection("applications")
             val snapshot = applicationsRef.whereEqualTo("jobId", jobId).get().await()
             if (!snapshot.isEmpty) {
                 val batch = firestore.batch()
+                var hasUpdates = false
                 for (doc in snapshot.documents) {
-                    batch.update(doc.reference, "status", "deleted")
+                    val appStatus = doc.getString("status")
+                    if (appStatus in listOf("applied", "shortlisted", "hired")) {
+                        batch.update(doc.reference, "status", "deleted")
+                        hasUpdates = true
+                    }
                 }
-                batch.commit().await()
+                if (hasUpdates) {
+                    runCatching { batch.commit().await() }
+                }
             }
             
             Result.success(Unit)

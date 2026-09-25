@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,11 +24,21 @@ import com.example.dutype.employer.models.JobPostingModel
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.EmployerColors
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.example.dutype.models.JobApplication
+import com.example.dutype.models.ApplicationStatus
+import java.util.Locale
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmployerJobCard(
     modifier: Modifier = Modifier,
     jobPosting: JobPostingModel,
+    applications: List<JobApplication> = emptyList(),
+    onCallWorker: (String) -> Unit = {},
+    onHireWorker: (JobApplication) -> Unit = {},
     onEditClick: (String) -> Unit = {},
     onViewApplicationsClick: (String) -> Unit = {},
     onShareClick: (String) -> Unit = {},
@@ -167,15 +178,173 @@ fun EmployerJobCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Button(
-                onClick = { onViewApplicationsClick(jobPosting.jobId) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
-            ) {
-                Icon(Icons.Default.People, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.view_applications))
+            if (applications.isNotEmpty()) {
+                // High-visibility green banner for Tier 2/3 employers
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFDCFCE7),
+                    border = BorderStroke(1.dp, Color(0xFF86EFAC)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF16A34A),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = "${applications.size} ${if (applications.size == 1) "Worker" else "Workers"} Applied! Call & Hire Directly",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = Color(0xFF15803D)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Render latest 1 or 2 applicants directly on the card
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    applications.take(2).forEach { applicant ->
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFFF8FAFC),
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(EmployerColors.Primary.copy(alpha = 0.1f), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = applicant.workerName.trim().take(1).uppercase().ifBlank { "W" },
+                                        fontWeight = FontWeight.Bold,
+                                        color = EmployerColors.Primary,
+                                        fontSize = 14.sp
+                                    )
+                                }
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = applicant.workerName.ifBlank { "Verified Worker" },
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp,
+                                        color = EmployerColors.TextPrimary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    val detailParts = mutableListOf<String>()
+                                    if (applicant.distanceKm != null && applicant.distanceKm > 0) {
+                                        detailParts.add(String.format(Locale.getDefault(), "%.1f km away", applicant.distanceKm))
+                                    }
+                                    if (applicant.workerExperience.isNotBlank()) {
+                                        detailParts.add(applicant.workerExperience)
+                                    }
+                                    Text(
+                                        text = if (detailParts.isNotEmpty()) detailParts.joinToString(" • ") else "Available to work",
+                                        fontSize = 11.sp,
+                                        color = EmployerColors.TextSecondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                // 1-Tap Direct Call Button
+                                Button(
+                                    onClick = { onCallWorker(applicant.workerPhone.orEmpty()) },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                    modifier = Modifier.height(34.dp)
+                                ) {
+                                    Icon(Icons.Default.Phone, contentDescription = "Call", modifier = Modifier.size(14.dp), tint = Color.White)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Call", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                }
+
+                                // 1-Tap Hire Button
+                                if (applicant.status != ApplicationStatus.HIRED) {
+                                    OutlinedButton(
+                                        onClick = { onHireWorker(applicant) },
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                                        modifier = Modifier.height(34.dp)
+                                    ) {
+                                        Text("Hire", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
+                                    }
+                                } else {
+                                    Text("✅ Hired", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF16A34A))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = { onViewApplicationsClick(jobPosting.jobId) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                ) {
+                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Open Hiring Room (${applications.size} ${if (applications.size == 1) "Applicant" else "Applicants"})",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                    Spacer(modifier = Modifier.weight(1f))
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                }
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFF1F5F9),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(Icons.Default.Person, contentDescription = null, tint = EmployerColors.TextSecondary, modifier = Modifier.size(16.dp))
+                        Text(
+                            text = "0 Applied yet • Tap below to find & call nearby matching workers",
+                            fontSize = 12.sp,
+                            color = EmployerColors.TextSecondary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = { onViewApplicationsClick(jobPosting.jobId) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                ) {
+                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Open Hiring Room (View Matches)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.weight(1f))
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                }
             }
 
         // Extension button for expired jobs removed

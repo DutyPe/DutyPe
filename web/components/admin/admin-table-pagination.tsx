@@ -18,7 +18,7 @@ type AdminTablePaginationProps = {
   totalItems: number;
 };
 
-export const ADMIN_PAGE_SIZE_OPTIONS = [15, 25, 50, 100];
+export const ADMIN_PAGE_SIZE_OPTIONS = [15, 25, 50, 100, 200, 500];
 
 export function paginateRows<T>(rows: T[], page: number, pageSize: number): PaginationResult<T> {
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));

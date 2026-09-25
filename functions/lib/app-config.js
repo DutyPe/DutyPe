@@ -79,10 +79,79 @@ function text(v, d, maxLength) {
     const raw = typeof v === "string" ? v.trim() : "";
     return raw ? raw.slice(0, maxLength) : d;
 }
+const ADMIN_DOMAIN = "@dutype.com";
+const ADMIN_ROLE = "ADMIN";
+const LEGACY_ADMIN_EMAILS = new Set([
+    "admin@dutype.com",
+    "vamsi@dutype.com",
+    "vamsib298@gmail.com",
+    "dutypein@gmail.com",
+    "dutpyein@gmail.com",
+]);
+async function isCallerAdmin(context) {
+    if (!context.auth)
+        return false;
+    const claims = (context.auth.token || {});
+    // 1. Check custom claim 'admin'
+    if (claims.admin === true)
+        return true;
+    // 2. Check role / activeRole in claims
+    const role = String(claims.role || "").trim().toUpperCase();
+    const activeRole = String(claims.activeRole || "").trim().toUpperCase();
+    if (role === ADMIN_ROLE || activeRole === ADMIN_ROLE)
+        return true;
+    // 3. Check email in claims (Firebase Auth ID token)
+    const email = String(claims.email || "").trim().toLowerCase();
+    if (email) {
+        if (email.endsWith(ADMIN_DOMAIN) || LEGACY_ADMIN_EMAILS.has(email)) {
+            // Opportunistically persist custom claim so future calls carry admin: true
+            try {
+                await admin.auth().setCustomUserClaims(context.auth.uid, Object.assign(Object.assign({}, claims), { admin: true }));
+            }
+            catch (err) {
+                functions.logger.warn("isCallerAdmin: failed setting custom claim", { uid: context.auth.uid, err });
+            }
+            return true;
+        }
+    }
+    // 4. Check Firestore users or admins document
+    try {
+        const db = admin.firestore();
+        const uid = context.auth.uid;
+        const userSnap = await db.collection("users").doc(uid).get();
+        if (userSnap.exists) {
+            const uData = userSnap.data() || {};
+            const uRole = String(uData.role || "").trim().toUpperCase();
+            const uActiveRole = String(uData.activeRole || "").trim().toUpperCase();
+            const uEmail = String(uData.email || "").trim().toLowerCase();
+            if (uData.isAdmin === true ||
+                uRole === ADMIN_ROLE ||
+                uActiveRole === ADMIN_ROLE ||
+                (uEmail && (uEmail.endsWith(ADMIN_DOMAIN) || LEGACY_ADMIN_EMAILS.has(uEmail)))) {
+                try {
+                    await admin.auth().setCustomUserClaims(uid, Object.assign(Object.assign({}, claims), { admin: true }));
+                }
+                catch (_a) { }
+                return true;
+            }
+        }
+        const adminSnap = await db.collection("admins").doc(uid).get();
+        if (adminSnap.exists) {
+            try {
+                await admin.auth().setCustomUserClaims(uid, Object.assign(Object.assign({}, claims), { admin: true }));
+            }
+            catch (_b) { }
+            return true;
+        }
+    }
+    catch (err) {
+        functions.logger.warn("isCallerAdmin: error checking firestore", { err: err === null || err === void 0 ? void 0 : err.message });
+    }
+    return false;
+}
 /**
  * Admin-only callable to update /app_config/referral.
- * Authorised via the `admin` custom claim on the caller. Set the claim with:
- *   admin.auth().setCustomUserClaims(uid, { admin: true });
+ * Authorised via admin claim, ADMIN role, or allowlisted admin email.
  */
 exports.updateReferralConfig = functions
     .region("asia-south1")
@@ -90,8 +159,8 @@ exports.updateReferralConfig = functions
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "login required");
     }
-    const claims = (context.auth.token || {});
-    if (!claims.admin) {
+    const authorized = await isCallerAdmin(context);
+    if (!authorized) {
         throw new functions.https.HttpsError("permission-denied", "admin only");
     }
     const patch = {};

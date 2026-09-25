@@ -4,6 +4,8 @@ import com.dutype.app.R
 import android.app.Activity
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -85,7 +87,6 @@ fun MandatoryEmployerProfileSetupScreen(
     var businessLatitude by rememberSaveable { mutableStateOf(0.0) }
     var businessLongitude by rememberSaveable { mutableStateOf(0.0) }
     var industry by rememberSaveable { mutableStateOf("") }
-    var gstin by rememberSaveable { mutableStateOf("") }
     
     // Selfie state - Uri cannot be saved directly, so we save the string representation
     var selfieUriString by rememberSaveable { mutableStateOf<String?>(null) }
@@ -181,11 +182,6 @@ fun MandatoryEmployerProfileSetupScreen(
                         businessAddress = savedBusinessAddress
                         Timber.d("PREFILL: businessAddress loaded")
                     }
-                    val savedGstin = existingData["gstin"] as? String
-                    if (gstin.isBlank() && !savedGstin.isNullOrBlank()) {
-                        gstin = savedGstin
-                        Timber.d("PREFILL: gstin = $gstin")
-                    }
                     if (businessLatitude == 0.0 && businessLongitude == 0.0 && savedBusinessLocation != null) {
                         val savedLat = (savedBusinessLocation["lat"] as? Number)?.toDouble()
                         val savedLng = (savedBusinessLocation["lng"] as? Number)?.toDouble()
@@ -241,15 +237,15 @@ fun MandatoryEmployerProfileSetupScreen(
     var companyNameError by remember { mutableStateOf<String?>(null) }
     var industryError by remember { mutableStateOf<String?>(null) }
     var addressError by remember { mutableStateOf<String?>(null) }
-    var gstinError by remember { mutableStateOf<String?>(null) }
 
     // Update errors only when showValidationErrors is true
+    val isIndividual = employerType == "INDIVIDUAL"
     val phoneNumberRequiredError = stringResource(R.string.phone_number_required_error)
     val validPhoneError = stringResource(R.string.valid_10_digit_phone_error)
-    val companyNameRequiredError = stringResource(R.string.company_name_required_error)
-    val workLocationRequiredError = stringResource(R.string.work_location_required_error)
+    val companyNameRequiredError = if (isIndividual) "Your full name is required" else stringResource(R.string.company_name_required_error)
+    val workLocationRequiredError = if (isIndividual) "Home or task location is required" else stringResource(R.string.work_location_required_error)
 
-    LaunchedEffect(contactPhone, companyName, industry, businessAddress, showValidationErrors) {
+    LaunchedEffect(contactPhone, companyName, industry, businessAddress, employerType, showValidationErrors) {
         if (showValidationErrors) {
             phoneError = when {
                 contactPhone.isBlank() -> phoneNumberRequiredError
@@ -259,13 +255,11 @@ fun MandatoryEmployerProfileSetupScreen(
             companyNameError = if (companyName.isBlank()) companyNameRequiredError else null
             industryError = null
             addressError = if (businessAddress.isBlank()) workLocationRequiredError else null
-            gstinError = if (gstin.isNotBlank() && gstin.length != 15) "GSTIN must be 15 characters" else null
         } else {
             phoneError = null
             companyNameError = null
             industryError = null
             addressError = null
-            gstinError = null
         }
     }
 
@@ -334,9 +328,6 @@ fun MandatoryEmployerProfileSetupScreen(
                     if (businessAddress.isNotBlank()) {
                         employerProfileData["businessAddress"] = businessAddress.trim()
                     }
-                    if (gstin.isNotBlank()) {
-                        employerProfileData["gstin"] = gstin.trim()
-                    }
                     if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(businessLatitude, businessLongitude)) {
                         employerProfileData["businessLocation"] = mapOf(
                             "lat" to businessLatitude,
@@ -357,6 +348,8 @@ fun MandatoryEmployerProfileSetupScreen(
                     // "saving" sheet dismisses promptly. Failure here only
                     // affects bonus crediting; the profile itself is saved.
                     val savedReferralCode = profileCompletionViewModel.getReferralCode()
+                        ?.takeIf { it.isNotBlank() }
+                        ?: (employerProfileData["referredByCode"] as? String)?.takeIf { it.isNotBlank() }
                     if (!savedReferralCode.isNullOrBlank()) {
                         scope.launch {
                             runCatching {
@@ -498,7 +491,6 @@ fun MandatoryEmployerProfileSetupScreen(
         businessLatitude = businessLatitude,
         businessLongitude = businessLongitude,
         industry = industry,
-        gstin = gstin,
         selfieUri = selfieUri,
         isUploadingSelfie = isUploadingSelfie,
         selfieError = selfieError,
@@ -512,7 +504,6 @@ fun MandatoryEmployerProfileSetupScreen(
         companyNameError = if (showValidationErrors) companyNameError else null,
         industryError = if (showValidationErrors) industryError else null,
         addressError = if (showValidationErrors) addressError else null,
-        gstinError = if (showValidationErrors) gstinError else null,
         referralCode = referralCode,
         isValidatingReferral = isValidatingReferral,
         referralValidationResult = referralValidationResult,
@@ -528,7 +519,6 @@ fun MandatoryEmployerProfileSetupScreen(
             businessLongitude = lng
         },
         onIndustryChange = { industry = it },
-        onGstinChange = { gstin = it },
         onReferralCodeChange = { newCode ->
             referralCode = newCode
             if (referralValidationResult != null) {
@@ -625,7 +615,6 @@ fun MandatoryEmployerProfileSetupContent(
     businessLatitude: Double,
     businessLongitude: Double,
     industry: String,
-    gstin: String,
     selfieUri: Uri?,
     isUploadingSelfie: Boolean,
     selfieError: String?,
@@ -639,7 +628,6 @@ fun MandatoryEmployerProfileSetupContent(
     companyNameError: String?,
     industryError: String?,
     addressError: String?,
-    gstinError: String?,
     referralCode: String,
     isValidatingReferral: Boolean,
     referralValidationResult: ReferralValidationResult?,
@@ -652,7 +640,6 @@ fun MandatoryEmployerProfileSetupContent(
     onBusinessAddressChange: (String) -> Unit,
     onBusinessLocationChange: (Double, Double) -> Unit,
     onIndustryChange: (String) -> Unit,
-    onGstinChange: (String) -> Unit,
     onReferralCodeChange: (String) -> Unit,
     onValidateReferral: (String) -> Unit,
     onSelfieCapture: (Uri) -> Unit,
@@ -697,10 +684,8 @@ fun MandatoryEmployerProfileSetupContent(
                             employerType = employerType,
                             companyName = companyName,
                             industry = industry,
-                            gstin = gstin,
                             companyNameError = companyNameError,
                             industryError = industryError,
-                            gstinError = gstinError,
                             referralCode = referralCode,
                             isValidatingReferral = isValidatingReferral,
                             referralValidationResult = referralValidationResult,
@@ -709,12 +694,12 @@ fun MandatoryEmployerProfileSetupContent(
                             onEmployerTypeChange = onEmployerTypeChange,
                             onCompanyNameChange = onCompanyNameChange,
                             onIndustryChange = onIndustryChange,
-                            onGstinChange = onGstinChange,
                             onReferralCodeChange = onReferralCodeChange,
                             onValidateReferral = onValidateReferral
                         )
 
                         ContactDetailsStep(
+                            isIndividual = employerType == "INDIVIDUAL",
                             contactPhone = contactPhone,
                             businessAddress = businessAddress,
                             businessLatitude = businessLatitude,
@@ -794,7 +779,7 @@ fun MandatoryEmployerProfileSetupContent(
                                 onCompleteClick()
                             }
                         },
-                        enabled = isCurrentStepValid && !isLoading,
+                        enabled = !isLoading,
                         modifier = Modifier
                             .height(52.dp)
                             .weight(1f),
@@ -826,10 +811,8 @@ private fun CompanyInformationStep(
     employerType: String,
     companyName: String,
     industry: String,
-    gstin: String,
     companyNameError: String?,
     industryError: String?,
-    gstinError: String?,
     referralCode: String,
     isValidatingReferral: Boolean,
     referralValidationResult: ReferralValidationResult?,
@@ -838,7 +821,6 @@ private fun CompanyInformationStep(
     onEmployerTypeChange: (String) -> Unit,
     onCompanyNameChange: (String) -> Unit,
     onIndustryChange: (String) -> Unit,
-    onGstinChange: (String) -> Unit,
     onReferralCodeChange: (String) -> Unit,
     onValidateReferral: (String) -> Unit
 ) {
@@ -1062,39 +1044,6 @@ private fun CompanyInformationStep(
             )
         }
 
-        // GSTIN (Shown only for Company / Business)
-        if (!isIndividual) {
-            Column {
-                OutlinedTextField(
-                    value = gstin,
-                    onValueChange = { onGstinChange(it.uppercase().take(15)) },
-                    label = { Text("GSTIN (Optional)") },
-                    placeholder = { Text("Enter 15-character GSTIN") },
-                    leadingIcon = { Icon(Icons.Default.VerifiedUser, contentDescription = null) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 6.dp),
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    isError = gstinError != null,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (gstinError != null) EmployerColors.Error else EmployerColors.Primary,
-                        unfocusedBorderColor = if (gstinError != null) EmployerColors.Error else EmployerColors.Border,
-                        cursorColor = EmployerColors.Primary,
-                        errorBorderColor = EmployerColors.Error
-                    )
-                )
-                if (gstinError != null) {
-                    Text(
-                        text = gstinError,
-                        color = EmployerColors.Error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                    )
-                }
-            }
-        }
-
         // Referral Code Input - REMOVED: Now handled in login/signup flow
         // Referral codes must be entered DURING registration (EnhancedLoginScreen), not in profile setup
         // This follows best practices from Uber, Airbnb, PayPal - code entry happens BEFORE account creation
@@ -1116,6 +1065,7 @@ private fun CompanyInformationStep(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ContactDetailsStep(
+    isIndividual: Boolean,
     contactPhone: String,
     businessAddress: String,
     businessLatitude: Double,
@@ -1129,6 +1079,40 @@ private fun ContactDetailsStep(
 ) {
     var isFetchingLocation by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            coroutineScope.launch {
+                isFetchingLocation = true
+                try {
+                    val locationInfo = locationService.getHighAccuracyLocation(
+                        timeoutMs = 8000L,
+                        minAccuracyMeters = 35f
+                    ) ?: locationService.getCurrentLocation()
+                    if (locationInfo != null) {
+                        onBusinessAddressChange(locationInfo.getFullAddress())
+                        onBusinessLocationChange(locationInfo.latitude, locationInfo.longitude)
+                    } else {
+                        Toast.makeText(context, "Could not get current location. Please enter manually or try again.", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "Error fetching location")
+                    Toast.makeText(context, "Error fetching location: ${e.message}", Toast.LENGTH_SHORT).show()
+                } finally {
+                    isFetchingLocation = false
+                }
+            }
+        } else {
+            Toast.makeText(context, context.getString(R.string.location_permission_fetch_address), Toast.LENGTH_SHORT).show()
+            isFetchingLocation = false
+        }
+    }
+
     Column(
         modifier = Modifier.padding(top = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -1172,7 +1156,7 @@ private fun ContactDetailsStep(
                     )
                 )
                 Text(
-                    text = stringResource(R.string.auto_how_can_we_reach_you),
+                    text = if (isIndividual) "Where you need help (for matching nearby workers)" else stringResource(R.string.auto_how_can_we_reach_you),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = EmployerColors.TextSecondary,
                         fontWeight = FontWeight.Medium
@@ -1224,7 +1208,7 @@ private fun ContactDetailsStep(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = stringResource(R.string.work_location_required_label),
+                    text = if (isIndividual) "Home / Task Location *" else stringResource(R.string.work_location_required_label),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
@@ -1233,23 +1217,35 @@ private fun ContactDetailsStep(
                 
                 Button(
                     onClick = {
-                        isFetchingLocation = true
                         if (locationService.hasLocationPermission()) {
                             coroutineScope.launch {
-                                // Use getHighAccuracyLocation for GPS-level precision (5-10m)
-                                val locationInfo = locationService.getHighAccuracyLocation(
-                                    timeoutMs = 15000L,
-                                    minAccuracyMeters = 10f
-                                )
-                                if (locationInfo != null) {
-                                    // Use detailed full address for business profile
-                                    onBusinessAddressChange(locationInfo.getFullAddress())
-                                    onBusinessLocationChange(locationInfo.latitude, locationInfo.longitude)
+                                isFetchingLocation = true
+                                try {
+                                    val locationInfo = locationService.getHighAccuracyLocation(
+                                        timeoutMs = 8000L,
+                                        minAccuracyMeters = 35f
+                                    ) ?: locationService.getCurrentLocation()
+                                    if (locationInfo != null) {
+                                        // Use detailed full address for business profile
+                                        onBusinessAddressChange(locationInfo.getFullAddress())
+                                        onBusinessLocationChange(locationInfo.latitude, locationInfo.longitude)
+                                    } else {
+                                        Toast.makeText(context, "Could not get current location. Please enter manually or try again.", Toast.LENGTH_SHORT).show()
+                                    }
+                                } catch (e: Exception) {
+                                    Timber.e(e, "Error fetching location")
+                                    Toast.makeText(context, "Error fetching location: ${e.message}", Toast.LENGTH_SHORT).show()
+                                } finally {
+                                    isFetchingLocation = false
                                 }
-                                isFetchingLocation = false
                             }
                         } else {
-                            isFetchingLocation = false
+                            locationPermissionLauncher.launch(
+                                arrayOf(
+                                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
                         }
                     },
                     modifier = Modifier.height(36.dp),
@@ -1282,8 +1278,8 @@ private fun ContactDetailsStep(
                     onBusinessLocationChange(latitude, longitude)
                 },
                 locationService = locationService,
-                label = stringResource(R.string.business_address),
-                placeholder = stringResource(R.string.search_or_enter_work_location),
+                label = if (isIndividual) "Location / Address *" else stringResource(R.string.business_address),
+                placeholder = if (isIndividual) "Search or enter your area / landmark" else stringResource(R.string.search_or_enter_work_location),
                 maxLines = 3,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = if (addressError != null) EmployerColors.Error else EmployerColors.Primary,

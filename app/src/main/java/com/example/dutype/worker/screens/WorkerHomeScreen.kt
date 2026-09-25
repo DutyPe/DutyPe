@@ -96,6 +96,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.components.AnnouncementList
 import com.example.dutype.components.AppUpdatePrompt
+import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.example.dutype.components.BirthdayBanner
 import com.example.dutype.components.WelcomeCelebrationOverlay
 import com.example.dutype.components.consumeWelcomeCelebrationFlag
@@ -200,6 +201,7 @@ fun WorkerHomeScreen(
     // P1-2: BirthdayService kept (passed to HomeSectionsContent); the local birthdayInfo/showBirthdayBanner
     // mutableState pair previously declared here was dead (never assigned, never read) and was deleted.
     val birthdayService: BirthdayService = com.example.dutype.di.rememberBirthdayService()
+    val inAppReviewTriggerService = rememberInAppReviewTriggerService()
 
     // PERFORMANCE FIX P0: Use ViewModel's filtered jobs instead of computing in Composable
     val filteredJobs by jobViewModel.filteredJobs.collectAsStateWithLifecycle()
@@ -244,6 +246,7 @@ fun WorkerHomeScreen(
                     hasLocationPermission = true
                     isLocationLoading = true
                 }
+                jobViewModel.loadJobsSummaryForHome()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -540,6 +543,14 @@ fun WorkerHomeScreen(
     // Load announcements immediately so guests and logged-in users both see them.
     LaunchedEffect(Unit) {
         announcementViewModel.loadAnnouncements("worker")
+    }
+
+    // Review prompt: Prompt worker to rate on Google Play after spending some active time (35 seconds)
+    LaunchedEffect(Unit) {
+        delay(35_000)
+        context.findActivity()?.let { activity ->
+            inAppReviewTriggerService.onAppUsedForSomeTime(activity)
+        }
     }
 
     // Location permission will be requested via the bottom sheet when user taps the empty state.

@@ -213,7 +213,6 @@ fun SelectRoleScreen(
                             val targetRole = com.example.dutype.models.UserRole.WORKER
                             scope.launch {
                                 profileCompletionViewModel.saveUserInfoToLocalStorage("", "", targetRole)
-                                com.example.dutype.navigation.StartDestinationCache.save(context, Routes.WORKER_HOME)
                             }
                             if (onRoleSelected != null) {
                                 onRoleSelected.invoke("WORKER")
@@ -236,7 +235,6 @@ fun SelectRoleScreen(
                             val targetRole = com.example.dutype.models.UserRole.EMPLOYER
                             scope.launch {
                                 profileCompletionViewModel.saveUserInfoToLocalStorage("", "", targetRole)
-                                com.example.dutype.navigation.StartDestinationCache.save(context, Routes.EMPLOYER_HOME)
                             }
                             if (onRoleSelected != null) {
                                 onRoleSelected.invoke("EMPLOYER")

@@ -18,6 +18,11 @@ type ReferralRow = {
   referrerReferralCode?: string;
   referredByCode?: string;
   currentReferralCode?: string;
+  profileCompleted?: boolean;
+  pendingReason?: string;
+  isProfileComplete?: boolean;
+  canFix?: boolean;
+  missingFields?: string[];
   status?: string;
   rewardAmount?: number | string;
   bonusAmount?: number | string;
@@ -43,8 +48,12 @@ type WithdrawalRow = {
   accountHolderName?: string;
   status?: string;
   transactionId?: string;
+  failureReason?: string;
+  adminNote?: string;
   createdAt?: unknown;
   processedAt?: unknown;
+  completedAt?: unknown;
+  approvedAt?: unknown;
 };
 
 type ReferralLookupResult = {
@@ -78,6 +87,8 @@ export function AdminReferralsClient() {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupResult, setLookupResult] = useState<ReferralLookupResult | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
+  const [fixingReferralId, setFixingReferralId] = useState<string | null>(null);
+  const [syncingAll, setSyncingAll] = useState(false);
 
   async function loadData() {
     try {
@@ -142,6 +153,72 @@ export function AdminReferralsClient() {
     }
   }
 
+  async function handleFixReferral(referralId: string) {
+    try {
+      setFixingReferralId(referralId);
+      setError(null);
+      const response = await adminApiFetch("/api/admin/referrals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "fix-pending-referral", referralId })
+      });
+      const payload = (await response.json()) as { ok?: boolean; error?: string; message?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to fix referral.");
+      }
+      alert(payload.message || "Referral fixed and credited successfully!");
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to fix referral.");
+    } finally {
+      setFixingReferralId(null);
+    }
+  }
+
+  async function handleSyncAllPending() {
+    try {
+      setSyncingAll(true);
+      setError(null);
+      const response = await adminApiFetch("/api/admin/referrals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "sync-all-pending" })
+      });
+      const payload = (await response.json()) as { ok?: boolean; error?: string; message?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to sync pending referrals.");
+      }
+      alert(payload.message || "Processed pending referrals.");
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to sync pending referrals.");
+    } finally {
+      setSyncingAll(false);
+    }
+  }
+
+  async function handleAuditMilestones() {
+    try {
+      setSyncingAll(true);
+      setError(null);
+      const response = await adminApiFetch("/api/admin/referrals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "audit-and-credit-milestones" })
+      });
+      const payload = (await response.json()) as { ok?: boolean; error?: string; message?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to audit milestone bonuses.");
+      }
+      alert(payload.message || "Audited milestone bonuses successfully!");
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to audit milestone bonuses.");
+    } finally {
+      setSyncingAll(false);
+    }
+  }
+
   async function handleWithdrawalUpdate(
     id: string,
     userId: string | undefined,
@@ -155,17 +232,21 @@ export function AdminReferralsClient() {
     let transactionId = "";
     let adminNote = "";
     const confirmationMessage = status === "PROCESSING"
-      ? "Approve this withdrawal and move it to payment processing?"
+      ? "Approve this withdrawal and move it to processing for bank transfer?"
       : status === "COMPLETED"
-        ? "Mark this withdrawal as paid after payment is done?"
-        : "Reject this withdrawal and refund the amount to available balance?";
+        ? "Confirm this withdrawal as paid from bank/UPI?"
+        : "Reject this withdrawal? The amount will be automatically refunded to the user's available balance.";
 
     if (status === "COMPLETED") {
-      transactionId = window.prompt("Payment transaction ID or note (optional):")?.trim() ?? "";
+      const promptVal = window.prompt("Enter Bank/UPI Transaction ID / UTR reference (optional):");
+      if (promptVal === null) return;
+      transactionId = promptVal.trim();
     }
 
     if (status === "FAILED") {
-      adminNote = window.prompt("Reject reason (optional):")?.trim() ?? "";
+      const promptVal = window.prompt("Enter reason for rejecting this withdrawal (amount will be refunded to user):");
+      if (promptVal === null) return;
+      adminNote = promptVal.trim() || "Rejected by admin";
     }
 
     if (!window.confirm(confirmationMessage)) {
@@ -296,15 +377,54 @@ export function AdminReferralsClient() {
       </section>
 
       <section className="section">
-        <div className="section-header">
+        <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
           <div>
             <span className="tag">Referrals</span>
             <h2>Who referred whom</h2>
+            <p>
+              Shows each completed and pending referral with referrer, referred user, profile completion status, and rewards.
+            </p>
           </div>
-          <p>
-            Shows each completed referral with referrer, referred user, current code,
-            base reward, milestone bonus, and signup bonus.
-          </p>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              className="table-action"
+              style={{
+                padding: "8px 16px",
+                fontSize: "13px",
+                fontWeight: 600,
+                background: "#2563eb",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer"
+              }}
+              onClick={() => void handleSyncAllPending()}
+              disabled={syncingAll}
+              title="Audit and complete all pending referrals whose profile is complete"
+            >
+              {syncingAll ? "Syncing..." : "⚡ Sync All Pending"}
+            </button>
+            <button
+              type="button"
+              className="table-action"
+              style={{
+                padding: "8px 16px",
+                fontSize: "13px",
+                fontWeight: 600,
+                background: "#059669",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer"
+              }}
+              onClick={() => void handleAuditMilestones()}
+              disabled={syncingAll}
+              title="Audit all referrers and credit any missed milestone bonuses (5, 10, 15, 25, 50, 100 referrals)"
+            >
+              {syncingAll ? "Auditing..." : "🏆 Audit & Credit Milestones"}
+            </button>
+          </div>
         </div>
 
         {!loading && !error && referrals.length === 0 ? (
@@ -319,7 +439,7 @@ export function AdminReferralsClient() {
                   <th>Referral Code</th>
                   <th>Referrer</th>
                   <th>Referred User</th>
-                  <th>Status</th>
+                  <th>Status & Profile Details</th>
                   <th>Base Reward</th>
                   <th>Milestone</th>
                   <th>Friend Bonus</th>
@@ -347,6 +467,44 @@ export function AdminReferralsClient() {
                       <span className={`status-pill ${statusTone(referral.status)}`}>
                         {referral.status ?? "PENDING"}
                       </span>
+                      {referral.status === "PENDING" ? (
+                        <div style={{ marginTop: "4px" }}>
+                          {referral.pendingReason ? (
+                            <div
+                              className="route-note"
+                              style={{
+                                color: referral.canFix ? "#059669" : "#d97706",
+                                fontWeight: referral.canFix ? 600 : 500,
+                                fontSize: "11px",
+                                lineHeight: "1.3"
+                              }}
+                            >
+                              {referral.pendingReason}
+                            </div>
+                          ) : null}
+                          {referral.canFix ? (
+                            <button
+                              type="button"
+                              className="table-action"
+                              style={{
+                                marginTop: "6px",
+                                padding: "3px 8px",
+                                fontSize: "11px",
+                                fontWeight: 600,
+                                background: "#059669",
+                                color: "#ffffff",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: "pointer"
+                              }}
+                              onClick={() => void handleFixReferral(referral.id)}
+                              disabled={fixingReferralId === referral.id}
+                            >
+                              {fixingReferralId === referral.id ? "Fixing..." : "⚡ Fix & Credit (₹25)"}
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </td>
                     <td>{formatCurrency(referral.rewardAmount)}</td>
                     <td>{formatCurrency(referral.bonusAmount)}</td>
@@ -419,50 +577,73 @@ export function AdminReferralsClient() {
                       {withdrawal.transactionId ? (
                         <div className="route-note">Txn: {withdrawal.transactionId}</div>
                       ) : null}
+                      {withdrawal.failureReason || withdrawal.adminNote ? (
+                        <div className="route-note" style={{ color: "#ef4444" }}>
+                          Reason: {withdrawal.failureReason || withdrawal.adminNote}
+                        </div>
+                      ) : null}
                     </td>
                     <td>{formatDate(withdrawal.createdAt)}</td>
-                    <td>{formatDate(withdrawal.processedAt)}</td>
+                    <td>{formatDate(withdrawal.processedAt || withdrawal.completedAt || withdrawal.approvedAt)}</td>
                     <td>
                       {withdrawal.status === "PENDING" ? (
-                        <div className="button-row compact">
+                        <div className="button-row compact" style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                           <button
                             type="button"
                             className="table-action"
+                            style={{ background: "#2563eb", color: "#ffffff" }}
                             onClick={() => void handleWithdrawalUpdate(withdrawal.id, withdrawal.userId, "PROCESSING")}
                             disabled={pendingActionId === withdrawal.id}
+                            title="Approve and mark as PROCESSING"
                           >
                             {pendingActionId === withdrawal.id ? "Working..." : "Approve"}
                           </button>
                           <button
                             type="button"
+                            className="table-action"
+                            style={{ background: "#059669", color: "#ffffff" }}
+                            onClick={() => void handleWithdrawalUpdate(withdrawal.id, withdrawal.userId, "COMPLETED")}
+                            disabled={pendingActionId === withdrawal.id}
+                            title="Mark directly as Paid after bank transfer"
+                          >
+                            Mark Paid
+                          </button>
+                          <button
+                            type="button"
                             className="table-action danger"
                             onClick={() => void handleWithdrawalUpdate(withdrawal.id, withdrawal.userId, "FAILED")}
                             disabled={pendingActionId === withdrawal.id}
+                            title="Reject request and refund amount to user's wallet"
                           >
                             Reject
                           </button>
                         </div>
                       ) : withdrawal.status === "PROCESSING" ? (
-                        <div className="button-row compact">
+                        <div className="button-row compact" style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                           <button
                             type="button"
                             className="table-action"
+                            style={{ background: "#059669", color: "#ffffff" }}
                             onClick={() => void handleWithdrawalUpdate(withdrawal.id, withdrawal.userId, "COMPLETED")}
                             disabled={pendingActionId === withdrawal.id}
+                            title="Confirm payment done from bank/UPI"
                           >
-                            {pendingActionId === withdrawal.id ? "Working..." : "Mark paid"}
+                            {pendingActionId === withdrawal.id ? "Working..." : "Mark Paid"}
                           </button>
                           <button
                             type="button"
                             className="table-action danger"
                             onClick={() => void handleWithdrawalUpdate(withdrawal.id, withdrawal.userId, "FAILED")}
                             disabled={pendingActionId === withdrawal.id}
+                            title="Reject and refund amount to user's wallet"
                           >
-                            Reject/refund
+                            Reject & Refund
                           </button>
                         </div>
+                      ) : withdrawal.status === "COMPLETED" ? (
+                        <span className="route-note" style={{ color: "#059669", fontWeight: 600 }}>✓ Paid</span>
                       ) : (
-                        <span className="route-note">Processed</span>
+                        <span className="route-note" style={{ color: "#dc2626", fontWeight: 600 }}>✗ Refunded</span>
                       )}
                     </td>
                   </tr>
@@ -637,7 +818,14 @@ function ReferralHistoryTable({ title, rows }: { title: string; rows: ReferralRo
                 <td>{referral.referredUserName || referral.referredUserPhone || shortId(referral.referredUserId)}</td>
                 <td>{referral.referralCode || referral.referredByCode || "N/A"}</td>
                 <td>{formatCurrency(referral.bonusAmount)}</td>
-                <td><span className={`status-pill ${statusTone(referral.status)}`}>{referral.status || "N/A"}</span></td>
+                <td>
+                  <span className={`status-pill ${statusTone(referral.status)}`}>{referral.status || "N/A"}</span>
+                  {referral.status === "PENDING" && referral.profileCompleted === false ? (
+                    <div style={{ color: "#d97706", fontSize: "0.75rem", fontWeight: 500, marginTop: "2px" }}>
+                      Profile Incomplete
+                    </div>
+                  ) : null}
+                </td>
                 <td>{formatDateTime(referral.createdAt)}</td>
               </tr>
             ))
@@ -660,12 +848,70 @@ function shortId(value: string | undefined) {
 
 function paymentDetails(withdrawal: WithdrawalRow) {
   if (withdrawal.paymentMethod === "BANK_TRANSFER") {
-    return [withdrawal.accountHolderName, withdrawal.bankAccountNumber, withdrawal.ifscCode]
-      .filter(Boolean)
-      .join(" / ") || "N/A";
+    const acc = withdrawal.bankAccountNumber || "";
+    const ifsc = withdrawal.ifscCode || "";
+    const holder = withdrawal.accountHolderName || "";
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: "2px", fontSize: "12px" }}>
+        <div><strong>A/C:</strong> {acc || "N/A"}</div>
+        <div><strong>IFSC:</strong> {ifsc || "N/A"}</div>
+        <div><strong>Name:</strong> {holder || "N/A"}</div>
+        {acc ? (
+          <button
+            type="button"
+            style={{
+              marginTop: "4px",
+              padding: "2px 8px",
+              fontSize: "11px",
+              fontWeight: 500,
+              cursor: "pointer",
+              borderRadius: "4px",
+              border: "1px solid #cbd5e1",
+              background: "#f1f5f9",
+              width: "fit-content"
+            }}
+            onClick={() => {
+              const text = `A/C: ${acc}\nIFSC: ${ifsc}\nHolder: ${holder}`;
+              void navigator.clipboard.writeText(text);
+              alert("Bank details copied to clipboard!");
+            }}
+          >
+            📋 Copy Bank Info
+          </button>
+        ) : null}
+      </div>
+    );
   }
 
-  return withdrawal.upiId || "N/A";
+  const upi = withdrawal.upiId || "";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "3px", fontSize: "12px" }}>
+      <div><strong>UPI:</strong> {upi || "N/A"}</div>
+      {upi ? (
+        <button
+          type="button"
+          style={{
+            marginTop: "2px",
+            padding: "2px 8px",
+            fontSize: "11px",
+            fontWeight: 500,
+            cursor: "pointer",
+            borderRadius: "4px",
+            border: "1px solid #cbd5e1",
+            background: "#f1f5f9",
+            width: "fit-content"
+          }}
+          onClick={() => {
+            void navigator.clipboard.writeText(upi);
+            alert(`Copied UPI ID: ${upi}`);
+          }}
+        >
+          📋 Copy UPI ID
+        </button>
+      ) : null}
+    </div>
+  );
 }
 
 function statusTone(status: string | undefined) {
@@ -674,7 +920,7 @@ function statusTone(status: string | undefined) {
     case "ACCEPTED":
       return "success";
     case "PROCESSING":
-      return "warning";
+      return "info";
     case "FAILED":
     case "REJECTED":
       return "danger";

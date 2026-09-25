@@ -54,26 +54,85 @@ class WorkerMatchingService @Inject constructor(
             }
 
             // 3. Direct Firestore Fallback: Query worker_profiles and users collections for all nearby workers
-            val jobDoc = runCatching {
+            var jobDoc = runCatching {
                 firestore.collection(FirestoreCollections.JOBS).document(jobId).get().await()
             }.getOrNull()
             
-            val jobLat = (jobDoc?.get("lat") as? Number)?.toDouble() ?: 0.0
-            val jobLng = (jobDoc?.get("lng") as? Number)?.toDouble() ?: 0.0
+            var jobLat = (jobDoc?.get("lat") as? Number)?.toDouble()
+                ?: ((jobDoc?.get("location") as? Map<*, *>)?.get("lat") as? Number)?.toDouble()
+                ?: 0.0
+            var jobLng = (jobDoc?.get("lng") as? Number)?.toDouble()
+                ?: ((jobDoc?.get("location") as? Map<*, *>)?.get("lng") as? Number)?.toDouble()
+                ?: 0.0
+            var jobCategory = jobDoc?.getString("category") ?: jobDoc?.getString("jobCategory").orEmpty()
 
-            val candidateSnapshot = try {
-                firestore.collection(FirestoreCollections.WORKER_PROFILES)
-                    .limit(50)
-                    .get()
-                    .await()
-            } catch (_: Exception) {
-                firestore.collection("users")
-                    .limit(50)
-                    .get()
-                    .await()
+            // If not found in JOBS or missing coordinates, check INSTANT_REQUESTS
+            if (jobDoc == null || !jobDoc.exists() || !com.example.dutype.utils.GeoUtils.hasValidCoordinates(jobLat, jobLng)) {
+                val instantDoc = runCatching {
+                    firestore.collection(FirestoreCollections.INSTANT_REQUESTS).document(jobId).get().await()
+                }.getOrNull()
+                if (instantDoc != null && instantDoc.exists()) {
+                    jobLat = (instantDoc.get("lat") as? Number)?.toDouble() ?: 0.0
+                    jobLng = (instantDoc.get("lng") as? Number)?.toDouble() ?: 0.0
+                    if (jobCategory.isBlank()) {
+                        jobCategory = instantDoc.getString("category").orEmpty()
+                    }
+                }
             }
 
-            val fallbackWorkers = candidateSnapshot.documents.mapNotNull { doc ->
+            // Fallback: If still no coordinates, attempt to use employer businessLocation
+            if (!com.example.dutype.utils.GeoUtils.hasValidCoordinates(jobLat, jobLng)) {
+                val currentUid = auth.currentUser?.uid
+                if (!currentUid.isNullOrBlank()) {
+                    val empDoc = runCatching {
+                        firestore.collection(FirestoreCollections.EMPLOYER_PROFILES).document(currentUid).get().await()
+                    }.getOrNull()
+                    val businessLoc = empDoc?.get("businessLocation") as? Map<*, *>
+                    val bLat = (businessLoc?.get("lat") as? Number)?.toDouble() ?: 0.0
+                    val bLng = (businessLoc?.get("lng") as? Number)?.toDouble() ?: 0.0
+                    if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(bLat, bLng)) {
+                        jobLat = bLat
+                        jobLng = bLng
+                    }
+                }
+            }
+
+            val candidateDocuments = mutableListOf<DocumentSnapshot>()
+            if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(jobLat, jobLng)) {
+                val bounds = com.example.dutype.utils.GeoUtils.getGeohashQueryBounds(jobLat, jobLng, 30.0)
+                for (bound in bounds) {
+                    try {
+                        val geoSnap = firestore.collection(FirestoreCollections.WORKER_PROFILES)
+                            .whereGreaterThanOrEqualTo("geohash", bound.startHash)
+                            .whereLessThanOrEqualTo("geohash", bound.endHash)
+                            .limit(20)
+                            .get()
+                            .await()
+                        candidateDocuments.addAll(geoSnap.documents)
+                    } catch (e: Exception) {
+                        timber.log.Timber.w("WorkerMatchingService geohash query failed: ${e.message}")
+                    }
+                }
+            }
+
+            if (candidateDocuments.size < 15) {
+                try {
+                    val generalSnapshot = firestore.collection(FirestoreCollections.WORKER_PROFILES)
+                        .limit(50)
+                        .get()
+                        .await()
+                    candidateDocuments.addAll(generalSnapshot.documents)
+                } catch (_: Exception) {
+                    try {
+                        val usersSnap = firestore.collection("users").limit(50).get().await()
+                        candidateDocuments.addAll(usersSnap.documents)
+                    } catch (_: Exception) { }
+                }
+            }
+
+            val distinctCandidates = candidateDocuments.distinctBy { it.id }
+
+            val fallbackWorkers = distinctCandidates.mapNotNull { doc ->
                 val data = doc.data ?: return@mapNotNull null
                 val name = data["fullName"]?.toString()
                     ?: data["name"]?.toString()
@@ -97,14 +156,24 @@ class WorkerMatchingService @Inject constructor(
                     else -> listOf("General Work")
                 }
 
-                val workerLat = (data["lat"] as? Number)?.toDouble() ?: (data["latitude"] as? Number)?.toDouble() ?: 0.0
-                val workerLng = (data["lng"] as? Number)?.toDouble() ?: (data["longitude"] as? Number)?.toDouble() ?: 0.0
+                val workerLocationMap = data["location"] as? Map<*, *>
+                val workerLat = (data["lat"] as? Number)?.toDouble()
+                    ?: (data["latitude"] as? Number)?.toDouble()
+                    ?: (workerLocationMap?.get("lat") as? Number)?.toDouble()
+                    ?: 0.0
+                val workerLng = (data["lng"] as? Number)?.toDouble()
+                    ?: (data["longitude"] as? Number)?.toDouble()
+                    ?: (workerLocationMap?.get("lng") as? Number)?.toDouble()
+                    ?: 0.0
 
                 val distanceKm = if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(jobLat, jobLng) && com.example.dutype.utils.GeoUtils.hasValidCoordinates(workerLat, workerLng)) {
                     com.example.dutype.utils.GeoUtils.calculateHaversineDistance(jobLat, jobLng, workerLat, workerLng)
                 } else {
                     4.5
                 }
+
+                val categoryMatches = jobCategory.isNotBlank() && skillsList.any { it.contains(jobCategory, ignoreCase = true) }
+                val score = (if (categoryMatches) 98 else 92) - (distanceKm.toInt().coerceAtMost(30))
 
                 MatchedWorker(
                     workerId = doc.id,
@@ -117,9 +186,19 @@ class WorkerMatchingService @Inject constructor(
                     completedJobs = (data["completedJobs"] as? Number)?.toInt() ?: (data["jobsDone"] as? Number)?.toInt() ?: 12,
                     isAvailable = true,
                     distanceKm = distanceKm,
-                    matchScore = 95 - (distanceKm.toInt().coerceAtMost(30))
+                    matchScore = score.coerceIn(60, 99)
                 )
-            }.sortedBy { it.distanceKm ?: 999.0 }
+            }.sortedWith(
+                compareBy<MatchedWorker> { worker ->
+                    val dist = worker.distanceKm ?: 999.0
+                    when {
+                        dist <= 10.0 -> 0
+                        dist <= 25.0 -> 1
+                        dist <= 50.0 -> 2
+                        else -> 3
+                    }
+                }.thenBy { it.distanceKm ?: 999.0 }
+            )
 
             emit(Result.success(fallbackWorkers))
         } catch (e: Exception) {
@@ -145,7 +224,23 @@ class WorkerMatchingService @Inject constructor(
             val data = result.data as? Map<String, Any?> ?: emptyMap()
             Result.success(data["requestId"]?.toString().orEmpty())
         } catch (e: Exception) {
-            Result.failure(e)
+            timber.log.Timber.w(e, "WorkerMatchingService - Cloud Function requestWorkerForJob failed, using Firestore direct request")
+            try {
+                val currentUid = auth.currentUser?.uid.orEmpty()
+                val reqDoc = firestore.collection(FirestoreCollections.WORKER_JOB_REQUESTS).document()
+                val reqData = mapOf(
+                    "id" to reqDoc.id,
+                    "jobId" to jobId,
+                    "workerId" to workerId,
+                    "employerId" to currentUid,
+                    "status" to "pending",
+                    "createdAt" to Timestamp.now()
+                )
+                reqDoc.set(reqData).await()
+                Result.success(reqDoc.id)
+            } catch (fallbackError: Exception) {
+                Result.failure(fallbackError)
+            }
         }
     }
 

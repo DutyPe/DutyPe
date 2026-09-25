@@ -209,6 +209,7 @@ class AuthFlowService @Inject constructor(
                 val profileRef = firestore.collection(
                     if (role == "WORKER") COLLECTION_WORKER_PROFILES else COLLECTION_EMPLOYER_PROFILES
                 ).document(currentUser.uid)
+                val userRef = firestore.collection("users").document(currentUser.uid)
                 val existingPhoneRole = transaction.get(phoneRoleRef)
                 val existingProfile = transaction.get(profileRef)
                 val existingData = existingPhoneRole.data.orEmpty()
@@ -305,6 +306,7 @@ class AuthFlowService @Inject constructor(
                 )
                 transaction.set(phoneRoleRef, phoneRoleData)
                 transaction.set(profileRef, profileData, com.google.firebase.firestore.SetOptions.merge())
+                transaction.set(userRef, userData, com.google.firebase.firestore.SetOptions.merge())
 
                 // Referral reward attachment is handled by Cloud Function applyReferralCode
                 // from the registration flow, with profile-setup fallback for retries.

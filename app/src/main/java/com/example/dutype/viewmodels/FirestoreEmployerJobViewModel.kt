@@ -282,11 +282,8 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                             // P2 FIX: Clear draft on successful post
                             clearDraft()
                             
-                            // REMOVED: Notification sending moved to FirestoreJobRepository.createJob()
-                            // to prevent duplicate notifications from multiple code paths
-                            
-                            // Real-time listener will automatically update the jobs list
-                            // No need to call loadMyJobs() - it causes duplicate loads
+                            // Reload employer jobs immediately so newly created vacancy job is present in myJobs
+                            loadMyJobs()
                             callback(true, jobId, null)
                         },
                         onFailure = { exception ->
@@ -378,6 +375,7 @@ class FirestoreEmployerJobViewModel @Inject constructor(
                 
                 if (submitted) {
                     _uiState.value = _uiState.value.copy(isCreatingJob = false)
+                    loadMyJobs()
                     callback(true, null, false)
                 } else {
                     // Queue for background submission

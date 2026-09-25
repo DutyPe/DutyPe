@@ -861,6 +861,7 @@
     <string name="refer_you_earned">You: Rs.%1$s</string>
     <string name="refer_milestone_earned">पड़ाव: रु.%1$s</string>
     <string name="refer_status_pending">लंबित</string>
+    <string name="refer_status_profile_pending">प्रोफ़ाइल सेटअप बाकी • पूरा होने पर ₹25 मिलेंगे</string>
     <string name="refer_status_expired">समाप्त</string>
     <string name="refer_status_cancelled">रद्द</string>
     <string name="refer_available_balance">उपलब्ध: रु.%1$d</string>

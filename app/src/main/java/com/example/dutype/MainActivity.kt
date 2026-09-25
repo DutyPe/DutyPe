@@ -54,6 +54,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.example.dutype.navigation.MainNavGraph
 import com.example.dutype.services.FCMTokenManager
+import com.example.dutype.components.PlayStoreRatingPrompt
+import com.example.dutype.di.rememberInAppReviewManager
 import com.example.dutype.ui.theme.LocalDarkMode
 import com.example.dutype.ui.theme.dutypeTheme
 import com.example.dutype.ui.theme.ResponsiveTheme
@@ -450,6 +452,10 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+
+                        // Google Play Rating & Review Prompt (forcefully triggered on job application, posting, or active usage)
+                        val reviewManager = rememberInAppReviewManager()
+                        PlayStoreRatingPrompt(reviewManager = reviewManager)
                     }
 
                     // Report fully drawn when the main navigation graph is composed.

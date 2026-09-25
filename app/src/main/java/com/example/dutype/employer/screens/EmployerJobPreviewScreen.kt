@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.Button
@@ -28,6 +29,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -169,7 +171,21 @@ fun EmployerJobPreviewScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             CommonHeader(
                 title = stringResource(R.string.preview),
-                navController = navController
+                navController = navController,
+                actions = {
+                    IconButton(onClick = {
+                        navController.navigate(Routes.EMPLOYER_DASHBOARD) {
+                            popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                            launchSingleTop = true
+                        }
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Home,
+                            contentDescription = "Home",
+                            tint = EmployerColors.TextPrimary
+                        )
+                    }
+                }
             )
 
             when {
@@ -244,6 +260,12 @@ fun EmployerJobPreviewScreen(
 
             Box(modifier = Modifier.align(Alignment.BottomCenter)) {
                 StickyEditBar(
+                    onHome = {
+                        navController.navigate(Routes.EMPLOYER_DASHBOARD) {
+                            popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                            launchSingleTop = true
+                        }
+                    },
                     onEdit = {
                         if (JobEditPolicy.canEdit(j.createdAt)) {
                             navController.navigate(Routes.editJobRoute(j.id))
@@ -619,6 +641,7 @@ private fun DescriptionCard(description: String) {
 
 @Composable
 private fun StickyEditBar(
+    onHome: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     showDelete: Boolean = true,
@@ -701,11 +724,35 @@ private fun StickyEditBar(
                     }
                 }
             }
-            // Bottom row: Delete + Edit
+            // Bottom row: Home + Delete + Edit
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                OutlinedButton(
+                    onClick = onHome,
+                    modifier = Modifier.height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, EmployerColors.Primary),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = EmployerColors.Primary
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Home,
+                        contentDescription = "Home",
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Home",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
                 if (showDelete) {
                     OutlinedButton(
                         onClick = onDelete,
@@ -716,18 +763,20 @@ private fun StickyEditBar(
                         border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Error),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = EmployerColors.Error
-                        )
+                        ),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(6.dp))
                         Text(
                             text = stringResource(R.string.auto_delete),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1
                         )
                     }
                 }
@@ -735,24 +784,26 @@ private fun StickyEditBar(
                 Button(
                     onClick = onEdit,
                     modifier = Modifier
-                        .weight(if (showDelete) 1f else 2f)
+                        .weight(1f)
                         .height(52.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = EmployerColors.Primary,
                         contentColor = Color.White
-                    )
+                    ),
+                    contentPadding = PaddingValues(horizontal = 8.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp)
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(6.dp))
                     Text(
                         text = stringResource(R.string.auto_edit_job),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
                     )
                 }
             }

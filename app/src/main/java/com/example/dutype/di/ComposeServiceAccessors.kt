@@ -28,3 +28,11 @@ fun rememberInAppReviewTriggerService(): InAppReviewTriggerService {
         ComposeServiceEntryPoint.from(context).inAppReviewTriggerService()
     }
 }
+
+@Composable
+fun rememberInAppReviewManager(): com.example.dutype.utils.InAppReviewManager {
+    val context = LocalContext.current
+    return androidx.compose.runtime.remember(context) {
+        ComposeServiceEntryPoint.from(context).inAppReviewManager()
+    }
+}

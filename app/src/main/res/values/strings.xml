@@ -863,6 +863,7 @@
     <string name="refer_you_earned">You: Rs.%1$s</string>
     <string name="refer_milestone_earned">Milestone: Rs.%1$s</string>
     <string name="refer_status_pending">Pending</string>
+    <string name="refer_status_profile_pending">Profile setup pending • ₹25 unlocks on completion</string>
     <string name="refer_status_expired">Expired</string>
     <string name="refer_status_cancelled">Cancelled</string>
     <string name="refer_available_balance">Available: Rs.%1$d</string>

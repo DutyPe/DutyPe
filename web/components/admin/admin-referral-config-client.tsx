@@ -91,9 +91,7 @@ export function AdminReferralConfigClient() {
     setError(null);
     setMessage(null);
     try {
-      const functions = getFunctions(getApp(), "asia-south1");
-      const update = httpsCallable(functions, "updateReferralConfig");
-      await update({
+      const payload = {
         rewardPerReferral: config.rewardPerReferral,
         signupBonus: config.signupBonus,
         employerSignupBonus: config.employerSignupBonus,
@@ -104,7 +102,30 @@ export function AdminReferralConfigClient() {
         maxWithdrawalPerDay: config.maxWithdrawalPerDay,
         milestones: config.milestones,
         withdrawalMilestones: config.withdrawalMilestones,
-      });
+      };
+
+      try {
+        const functions = getFunctions(getApp(), "asia-south1");
+        const update = httpsCallable(functions, "updateReferralConfig");
+        await update(payload);
+      } catch (cfErr: unknown) {
+        // Fallback to internal Next.js admin API with admin session/token
+        const idToken = await services.auth.currentUser?.getIdToken();
+        const res = await fetch("/api/admin/referral-config", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(idToken ? { Authorization: `Bearer ${idToken}` } : {})
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null);
+          throw new Error(errData?.error || (cfErr instanceof Error ? cfErr.message : "Failed to save"));
+        }
+      }
+
       setMessage("Saved. Android app users will see the new values within a few seconds.");
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Failed to save";

@@ -526,10 +526,13 @@ fun PostJobScreen(
                         }
                         if (cachedProfile.employerType.isNotBlank()) {
                             employerType = cachedProfile.employerType
-                            if (!hasUserManuallySwitchedTab) {
-                                postingMode = if (employerType == "INDIVIDUAL") "urgent" else "vacancy"
+                            Timber.d("✅ Employer type loaded from CACHE: $employerType")
+                        }
+                        if (companyName.isBlank()) {
+                            val fallbackName = cachedProfile.companyName.ifBlank { cachedProfile.employerName }
+                            if (fallbackName.isNotBlank()) {
+                                companyName = fallbackName
                             }
-                            Timber.d("✅ Employer type loaded from CACHE: $employerType, default postingMode: $postingMode")
                         }
                     } else {
                         // Fallback to direct Firestore fetch (cache miss)
@@ -554,13 +557,11 @@ fun PostJobScreen(
                                 ?: phoneRoleDoc?.getString("employerType")
                                 ?: "COMPANY"
                             employerType = savedEmployerType
-                            if (!hasUserManuallySwitchedTab) {
-                                postingMode = if (employerType == "INDIVIDUAL") "urgent" else "vacancy"
-                            }
-                            Timber.d("✅ Employer type loaded from Firestore: $employerType, default postingMode: $postingMode")
+                            Timber.d("✅ Employer type loaded from Firestore: $employerType")
                         }
                         if (employerDoc.exists()) {
                             val savedCompanyName = employerDoc.getString("companyName")
+                                ?: employerDoc.getString("fullName")
                             if (!savedCompanyName.isNullOrBlank()) {
                                 companyName = savedCompanyName
                             }
@@ -830,27 +831,22 @@ fun PostJobScreen(
                 
                 Timber.d("✅ PROFILE CHECK: Employer can post jobs - ${checkResult.completionPercentage}% complete")
                 
-                // Validate that company name is available (MANDATORY)
+                // Validate that employer / company name is available
                 if (companyName.isBlank()) {
-                    // Try to load company name from profile
+                    // Try to load company name or full name from profile
                     val profileResult = profileCompletionService.getEmployerProfileData(currentUser.uid)
                     profileResult.onSuccess { profileData ->
-                        val savedCompanyName = profileData["companyName"] as? String
-                        if (!savedCompanyName.isNullOrBlank()) {
-                            companyName = savedCompanyName
+                        val savedName = (profileData["companyName"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+                            ?: (profileData["fullName"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+                        if (!savedName.isNullOrBlank()) {
+                            companyName = savedName
                         }
                     }
                     
                     if (companyName.isBlank()) {
-                        Timber.w("� JOB POSTING DEBUG: Company name is blank - redirecting to profile")
-                        // SENIOR FIX: ViewModel state resets automatically; no need for local flag
-                        val navToUse = rootNavController ?: navController
-                        navToUse.navigate(
-                            Routes.employerProfileSetupWithReturnRoute(Routes.EMPLOYER_POST_JOB)
-                        ) {
-                            launchSingleTop = true
+                        companyName = employerName.ifBlank {
+                            currentUser.displayName?.trim().orEmpty().ifBlank { "DutyPe Employer" }
                         }
-                        return@launch
                     }
                 }
                 
@@ -2411,14 +2407,10 @@ private fun PostingTypeTabs(
     onUrgentNeedClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Dynamic tab ordering:
-    // Individual: Tab 0 is Instant (urgent), Tab 1 is Vacancy (vacancy)
-    // Company: Tab 0 is Vacancy (vacancy), Tab 1 is Instant (urgent)
-    val selectedIndex = if (isIndividual) {
-        if (selectedType == "urgent") 0 else 1
-    } else {
-        if (selectedType == "vacancy") 0 else 1
-    }
+    // Both Company and Personal employers have a consistent tab layout:
+    // Tab 0: Job Vacancy (vacancy)
+    // Tab 1: Instant Task (urgent)
+    val selectedIndex = if (selectedType == "urgent") 1 else 0
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -2436,33 +2428,18 @@ private fun PostingTypeTabs(
                 containerColor = EmployerColors.CardBackground,
                 contentColor = EmployerColors.Primary
             ) {
-                if (isIndividual) {
-                    Tab(
-                        selected = selectedIndex == 0,
-                        onClick = onUrgentNeedClick,
-                        icon = { Icon(Icons.Default.FlashOn, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                        text = { Text("⚡ Instant Task", fontWeight = if (selectedIndex == 0) FontWeight.Bold else FontWeight.Medium) }
-                    )
-                    Tab(
-                        selected = selectedIndex == 1,
-                        onClick = onVacancyClick,
-                        icon = { Icon(Icons.Default.Work, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                        text = { Text("📋 Job Vacancy", fontWeight = if (selectedIndex == 1) FontWeight.Bold else FontWeight.Medium) }
-                    )
-                } else {
-                    Tab(
-                        selected = selectedIndex == 0,
-                        onClick = onVacancyClick,
-                        icon = { Icon(Icons.Default.Work, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                        text = { Text(stringResource(R.string.normal_job), fontWeight = if (selectedIndex == 0) FontWeight.Bold else FontWeight.Medium) }
-                    )
-                    Tab(
-                        selected = selectedIndex == 1,
-                        onClick = onUrgentNeedClick,
-                        icon = { Icon(Icons.Default.FlashOn, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                        text = { Text(stringResource(R.string.urgent_need), fontWeight = if (selectedIndex == 1) FontWeight.Bold else FontWeight.Medium) }
-                    )
-                }
+                Tab(
+                    selected = selectedIndex == 0,
+                    onClick = onVacancyClick,
+                    icon = { Icon(Icons.Default.Work, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    text = { Text(if (isIndividual) "📋 Regular Vacancy" else stringResource(R.string.normal_job), fontWeight = if (selectedIndex == 0) FontWeight.Bold else FontWeight.Medium) }
+                )
+                Tab(
+                    selected = selectedIndex == 1,
+                    onClick = onUrgentNeedClick,
+                    icon = { Icon(Icons.Default.FlashOn, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    text = { Text(if (isIndividual) "⚡ Instant Task" else stringResource(R.string.urgent_need), fontWeight = if (selectedIndex == 1) FontWeight.Bold else FontWeight.Medium) }
+                )
             }
         }
 
@@ -2473,15 +2450,15 @@ private fun PostingTypeTabs(
             Text(
                 text = if (selectedType == "urgent") {
                     if (isIndividual) {
-                        "⚡ Instant Task (Personal Profile Default): Find immediate helpers for household chores, cooking, cleaning, or personal tasks today."
+                        "⚡ Instant Task: Find immediate helpers nearby for household chores, cooking, cleaning, or urgent tasks today."
                     } else {
-                        "⚡ Instant Urgent Need: Request quick workers for immediate business shifts or peak hours today."
+                        "⚡ Instant Urgent Need: Request quick workers nearby for immediate business shifts or peak hours today."
                     }
                 } else {
                     if (isIndividual) {
-                        "📋 Regular Vacancy: Post a standard vacancy for ongoing or part-time personal assistance."
+                        "📋 Regular Vacancy: Post a standard vacancy for ongoing or part-time personal/household assistance."
                     } else {
-                        "📋 Regular Vacancy (Company Default): Post commercial vacancies for full-time, part-time, or shift roles."
+                        "📋 Regular Vacancy: Post commercial vacancies for full-time, part-time, or shift roles at your company."
                     }
                 },
                 style = MaterialTheme.typography.bodySmall.copy(

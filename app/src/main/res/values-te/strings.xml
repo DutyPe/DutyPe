@@ -839,6 +839,7 @@
     <string name="refer_you_earned">మీరు: Rs.%1$s</string>
     <string name="refer_milestone_earned">మైలురాయి: Rs.%1$s</string>
     <string name="refer_status_pending">పెండింగ్</string>
+    <string name="refer_status_profile_pending">ప్రొఫైల్ పూర్తికాలేదు • పూర్తయిన తర్వాత ₹25 వస్తుంది</string>
     <string name="refer_status_expired">గడువు ముగిసింది</string>
     <string name="refer_status_cancelled">రద్దు చేయబడింది</string>
     <string name="refer_available_balance">అందుబాటులో: Rs.%1$d</string>

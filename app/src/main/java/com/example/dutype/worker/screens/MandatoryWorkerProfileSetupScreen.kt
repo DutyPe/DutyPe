@@ -893,25 +893,31 @@ fun MandatoryWorkerProfileSetupScreen(
                                                     .getOrThrow()
 
                                                 val savedReferralCode = profileCompletionViewModel.getReferralCode()
+                                                    ?.takeIf { it.isNotBlank() }
+                                                    ?: (workerProfileData["referredByCode"] as? String)?.takeIf { it.isNotBlank() }
                                                 if (!savedReferralCode.isNullOrBlank()) {
-                                                    val referralApplyResult = profileCompletionViewModel.applyReferralCode(
-                                                        referralCode = savedReferralCode,
-                                                        newUserId = currentUser.uid,
-                                                        newUserRole = UserRole.WORKER.name,
-                                                        newUserName = fullName.ifBlank { phoneNumber },
-                                                        newUserPhone = phoneNumber
-                                                    )
+                                                    scope.launch {
+                                                        runCatching {
+                                                            val referralApplyResult = profileCompletionViewModel.applyReferralCode(
+                                                                referralCode = savedReferralCode,
+                                                                newUserId = currentUser.uid,
+                                                                newUserRole = UserRole.WORKER.name,
+                                                                newUserName = fullName.ifBlank { phoneNumber },
+                                                                newUserPhone = phoneNumber
+                                                            )
 
-                                                    if (referralApplyResult.isSuccess) {
-                                                        Toast.makeText(
-                                                            context,
-                                                            context.getString(R.string.referral_code_applied_success),
-                                                            Toast.LENGTH_LONG
-                                                        ).show()
-                                                    } else {
-                                                        Timber.w(
-                                                            "🎁 REFERRAL: Worker fallback apply failed: ${referralApplyResult.exceptionOrNull()?.message}"
-                                                        )
+                                                            if (referralApplyResult.isSuccess) {
+                                                                Toast.makeText(
+                                                                    context,
+                                                                    context.getString(R.string.referral_code_applied_success),
+                                                                    Toast.LENGTH_LONG
+                                                                ).show()
+                                                            } else {
+                                                                Timber.w(
+                                                                    "🎁 REFERRAL: Worker fallback apply failed: ${referralApplyResult.exceptionOrNull()?.message}"
+                                                                )
+                                                            }
+                                                        }.onFailure { Timber.w(it, "🎁 REFERRAL: Worker background apply error") }
                                                     }
                                                 }
                                             }
@@ -1381,7 +1387,7 @@ private fun AdditionalDetailsStep(
                 val coroutineScope = rememberCoroutineScope()
 
                 suspend fun fetchAddressFast() {
-                    val cachedLocation = locationPreferences.getSavedLocationIfFresh(10 * 60 * 1000L)
+                    val cachedLocation = locationPreferences.getSavedLocationIfFresh(24 * 60 * 60 * 1000L)
                     if (cachedLocation != null) {
                         Timber.d("📍 Fetch button - Using recent cached location immediately")
                         onAddressChange(cachedLocation.getFullAddress())
@@ -1389,9 +1395,9 @@ private fun AdditionalDetailsStep(
                     }
 
                     val refinedLocation = locationService.getHighAccuracyLocationData(
-                        timeoutMs = if (cachedLocation != null) 4000L else 6000L,
-                        minAccuracyMeters = 35f
-                    )
+                        timeoutMs = if (cachedLocation != null) 5000L else 10000L,
+                        minAccuracyMeters = 40f
+                    ) ?: locationService.getCurrentLocation()?.let { locationService.toLocationData(it) }
 
                     val finalLocation = refinedLocation ?: cachedLocation
                     if (finalLocation != null) {
@@ -1401,10 +1407,10 @@ private fun AdditionalDetailsStep(
                         locationPreferences.setPermissionGranted(true)
                     } else {
                         Timber.w("📍 Fetch button - Could not resolve location")
-                        fetchError = "Could not get location quickly. Please try again."
+                        fetchError = "Could not get location. Please enter address manually or try again."
                         android.widget.Toast.makeText(
                             context,
-                            "Could not get location quickly. Please try again.",
+                            "Could not get location. Please enter address manually or try again.",
                             android.widget.Toast.LENGTH_SHORT
                         ).show()
                     }
@@ -1496,8 +1502,19 @@ private fun AdditionalDetailsStep(
             com.example.dutype.components.LocationAutocompleteField(
                 value = address,
                 onValueChange = onAddressChange,
-                onLocationSelected = { selectedAddress, _, _ ->
+                onLocationSelected = { selectedAddress, lat, lng ->
                     onAddressChange(selectedAddress)
+                    if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(lat, lng)) {
+                        locationPreferences.savePreferredLocation(
+                            com.example.dutype.models.LocationData(
+                                latitude = lat,
+                                longitude = lng,
+                                city = null,
+                                address = selectedAddress
+                            )
+                        )
+                        locationPreferences.setPermissionGranted(true)
+                    }
                 },
                 locationService = locationService,
                 label = stringResource(R.string.address_label),

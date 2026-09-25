@@ -28,7 +28,7 @@ class InstantHelpService @Inject constructor(
     private val auth: FirebaseAuth
 ) {
     private companion object {
-        const val MAX_INSTANT_WORK_DISTANCE_KM = 10.0
+        const val MAX_INSTANT_WORK_DISTANCE_KM = 30.0
     }
 
     suspend fun getWorkerAvailability(): Result<WorkerAvailability?> = withContext(Dispatchers.IO) {

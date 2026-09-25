@@ -50,7 +50,7 @@ service cloud.firestore {
 
     function validLatLng(loc) {
       return loc is map &&
-        loc.keys().hasOnly(['lat', 'lng']) &&
+        ('lat' in loc) && ('lng' in loc) &&
         loc.lat is number && loc.lat >= -90 && loc.lat <= 90 &&
         loc.lng is number && loc.lng >= -180 && loc.lng <= 180;
     }
@@ -101,36 +101,52 @@ service cloud.firestore {
       allow create: if isSignedIn() &&
         phoneMatchesAuthPath(phone) &&
         request.resource.data.keys().hasOnly([
-          'phoneNumber', 'role', 'name', 'uid', 'createdAt', 'updatedAt'
+          'phoneNumber', 'phone', 'role', 'roles', 'name', 'fullName', 'uid', 'createdAt', 'updatedAt', 'employerType'
         ]) &&
-        request.resource.data.keys().hasAll(['phoneNumber', 'role', 'name', 'uid']) &&
-        request.resource.data.phoneNumber == phone &&
+        request.resource.data.keys().hasAll(['role', 'uid']) &&
+        (
+          (request.resource.data.get('phoneNumber', '') == phone) ||
+          (request.resource.data.get('phone', '') == phone)
+        ) &&
         request.resource.data.uid == request.auth.uid &&
-        request.resource.data.name is string &&
-        request.resource.data.name.size() >= 1 &&
-        request.resource.data.name.size() <= 120 &&
+        (
+          (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 120)) &&
+          (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120))
+        ) &&
         validRole(request.resource.data.role) &&
+        (!('employerType' in request.resource.data) || (request.resource.data.employerType in ['INDIVIDUAL', 'COMPANY'])) &&
         (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
         (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
 
       allow update: if isSignedIn() &&
         phoneMatchesAuthPath(phone) &&
         request.resource.data.uid == request.auth.uid &&
-        request.resource.data.phoneNumber == phone &&
+        (
+          (!('phoneNumber' in request.resource.data) || request.resource.data.phoneNumber == phone) &&
+          (!('phone' in request.resource.data) || request.resource.data.phone == phone)
+        ) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'phoneNumber', 'role', 'roles', 'name', 'uid', 'createdAt', 'updatedAt'
+          'phoneNumber', 'phone', 'role', 'roles', 'name', 'fullName', 'uid', 'createdAt', 'updatedAt', 'employerType'
         ]) &&
         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['phoneNumber']) ||
           request.resource.data.phoneNumber is string) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['phone']) ||
+          request.resource.data.phone is string) &&
         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['name']) ||
           (request.resource.data.name is string &&
             request.resource.data.name.size() >= 1 &&
             request.resource.data.name.size() <= 120)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['fullName']) ||
+          (request.resource.data.fullName is string &&
+            request.resource.data.fullName.size() >= 1 &&
+            request.resource.data.fullName.size() <= 120)) &&
         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) ||
           validRole(request.resource.data.role)) &&
         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['roles']) ||
           (validLegacySingleRoleList(request.resource.data.roles) &&
             request.resource.data.roles[0] == request.resource.data.role)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['employerType']) ||
+          (request.resource.data.employerType in ['INDIVIDUAL', 'COMPANY'])) &&
         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['createdAt']) ||
           request.resource.data.createdAt is timestamp) &&
         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['updatedAt']) ||
@@ -179,14 +195,16 @@ service cloud.firestore {
 
       allow create: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
-          'userId', 'fullName', 'phone', 'address', 'role', 'createdAt', 'updatedAt',
+          'userId', 'fullName', 'name', 'phone', 'phoneNumber', 'address', 'role', 'createdAt', 'updatedAt',
           'location', 'geohash',
-          'skills', 'email', 'dateOfBirth', 'gender', 'experience', 'educationQualification', 'bio', 'profileImageUrl',
-          'referralCode', 'referredByCode', 'referredByUserId'
+          'skills', 'jobTypes', 'email', 'dateOfBirth', 'gender', 'experience', 'educationQualification', 'bio', 'profileImageUrl',
+          'referralCode', 'referredByCode', 'referredByUserId', 'profileCompleted', 'isProfileComplete', 'isAvailable'
         ]) &&
         (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
         (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
+        (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 120)) &&
         (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20)) &&
+        (!('phoneNumber' in request.resource.data) || (request.resource.data.phoneNumber is string && request.resource.data.phoneNumber.size() >= 10 && request.resource.data.phoneNumber.size() <= 20)) &&
         (!('address' in request.resource.data) || (request.resource.data.address is string && request.resource.data.address.size() <= 500)) &&
         (!('role' in request.resource.data) || request.resource.data.role == 'WORKER') &&
         (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
@@ -194,28 +212,33 @@ service cloud.firestore {
         (!('location' in request.resource.data) || validLatLng(request.resource.data.location)) &&
         (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
         (!('skills' in request.resource.data) || (request.resource.data.skills is list && request.resource.data.skills.size() <= 30)) &&
+        (!('jobTypes' in request.resource.data) || (request.resource.data.jobTypes is list && request.resource.data.jobTypes.size() <= 30)) &&
         (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
         (!('dateOfBirth' in request.resource.data) || (request.resource.data.dateOfBirth is string && request.resource.data.dateOfBirth.size() <= 20)) &&
         (!('gender' in request.resource.data) || (request.resource.data.gender is string && request.resource.data.gender.size() <= 20)) &&
         (!('experience' in request.resource.data) || (request.resource.data.experience is string && request.resource.data.experience.size() <= 500)) &&
         (!('educationQualification' in request.resource.data) || (request.resource.data.educationQualification is string && request.resource.data.educationQualification.size() <= 120)) &&
-        (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() >= 20 && request.resource.data.bio.size() <= 300)) &&
+        (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() <= 500)) &&
         (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
         (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
         (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
-        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string);
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
+        (!('profileCompleted' in request.resource.data) || request.resource.data.profileCompleted is bool) &&
+        (!('isProfileComplete' in request.resource.data) || request.resource.data.isProfileComplete is bool);
 
       allow update: if isSelf(userId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'userId', 'fullName', 'phone', 'address', 'role', 'createdAt', 'updatedAt',
+          'userId', 'fullName', 'name', 'phone', 'phoneNumber', 'address', 'role', 'createdAt', 'updatedAt',
           'location', 'geohash',
-          'skills', 'email', 'dateOfBirth', 'gender', 'experience', 'educationQualification', 'bio', 'profileImageUrl', 'isAvailable',
-          'referralCode', 'referredByCode', 'referredByUserId'
+          'skills', 'jobTypes', 'email', 'dateOfBirth', 'gender', 'experience', 'educationQualification', 'bio', 'profileImageUrl', 'isAvailable',
+          'referralCode', 'referredByCode', 'referredByUserId', 'profileCompleted', 'isProfileComplete'
         ]) &&
         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['isAvailable']) || !('isAvailable' in request.resource.data)) &&
         (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
         (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
+        (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 120)) &&
         (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20)) &&
+        (!('phoneNumber' in request.resource.data) || (request.resource.data.phoneNumber is string && request.resource.data.phoneNumber.size() >= 10 && request.resource.data.phoneNumber.size() <= 20)) &&
         (!('address' in request.resource.data) || (request.resource.data.address is string && request.resource.data.address.size() <= 500)) &&
         (!('role' in request.resource.data) || request.resource.data.role == 'WORKER') &&
         (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
@@ -223,16 +246,19 @@ service cloud.firestore {
         (!('location' in request.resource.data) || validLatLng(request.resource.data.location)) &&
         (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
         (!('skills' in request.resource.data) || (request.resource.data.skills is list && request.resource.data.skills.size() <= 30)) &&
+        (!('jobTypes' in request.resource.data) || (request.resource.data.jobTypes is list && request.resource.data.jobTypes.size() <= 30)) &&
         (!('email' in request.resource.data) || (request.resource.data.email is string && request.resource.data.email.size() <= 120)) &&
         (!('dateOfBirth' in request.resource.data) || (request.resource.data.dateOfBirth is string && request.resource.data.dateOfBirth.size() <= 20)) &&
         (!('gender' in request.resource.data) || (request.resource.data.gender is string && request.resource.data.gender.size() <= 20)) &&
         (!('experience' in request.resource.data) || (request.resource.data.experience is string && request.resource.data.experience.size() <= 500)) &&
         (!('educationQualification' in request.resource.data) || (request.resource.data.educationQualification is string && request.resource.data.educationQualification.size() <= 120)) &&
-        (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() >= 20 && request.resource.data.bio.size() <= 300)) &&
+        (!('bio' in request.resource.data) || (request.resource.data.bio is string && request.resource.data.bio.size() <= 500)) &&
         (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
         (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
         (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
-        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string);
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
+        (!('profileCompleted' in request.resource.data) || request.resource.data.profileCompleted is bool) &&
+        (!('isProfileComplete' in request.resource.data) || request.resource.data.isProfileComplete is bool);
 
       allow delete: if isSelf(userId);
     }
@@ -247,41 +273,20 @@ service cloud.firestore {
 
       allow create: if isSelf(userId) &&
         request.resource.data.keys().hasOnly([
-          'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
+          'userId', 'fullName', 'name', 'phone', 'phoneNumber', 'role', 'createdAt', 'updatedAt',
           'companyName', 'profileImageUrl', 'geohash',
           'industry', 'businessAddress', 'businessLocation',
-          'referralCode', 'referredByCode', 'referredByUserId', 'subscription', 'unlockedContacts', 'freeUrgentJobsPosted'
+          'referralCode', 'referredByCode', 'referredByUserId', 'subscription', 'unlockedContacts', 'freeUrgentJobsPosted', 'profileCompleted', 'isProfileComplete',
+          'employerType', 'gstin'
         ]) &&
         (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
         (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
+        (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 120)) &&
         (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20)) &&
+        (!('phoneNumber' in request.resource.data) || (request.resource.data.phoneNumber is string && request.resource.data.phoneNumber.size() >= 10 && request.resource.data.phoneNumber.size() <= 20)) &&
         (!('role' in request.resource.data) || request.resource.data.role == 'EMPLOYER') &&
-        (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
-        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
-        (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() >= 1 && request.resource.data.companyName.size() <= 120)) &&
-        (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
-        (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
-        (!('industry' in request.resource.data) || (request.resource.data.industry is string && request.resource.data.industry.size() <= 120)) &&
-        (!('businessAddress' in request.resource.data) || (request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() <= 500)) &&
-        (!('businessLocation' in request.resource.data) || validLatLng(request.resource.data.businessLocation)) &&
-        (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
-        (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
-        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
-        (!('subscription' in request.resource.data) || request.resource.data.subscription is map) &&
-        (!('unlockedContacts' in request.resource.data) || request.resource.data.unlockedContacts is list) &&
-        (!('freeUrgentJobsPosted' in request.resource.data) || (request.resource.data.freeUrgentJobsPosted is int && request.resource.data.freeUrgentJobsPosted >= 0));
-
-      allow update: if isSelf(userId) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'userId', 'fullName', 'phone', 'role', 'createdAt', 'updatedAt',
-          'companyName', 'profileImageUrl', 'geohash',
-          'industry', 'businessAddress', 'businessLocation',
-          'referralCode', 'referredByCode', 'referredByUserId', 'subscription', 'unlockedContacts', 'freeUrgentJobsPosted'
-        ]) &&
-        (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
-        (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
-        (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20)) &&
-        (!('role' in request.resource.data) || request.resource.data.role == 'EMPLOYER') &&
+        (!('employerType' in request.resource.data) || (request.resource.data.employerType in ['INDIVIDUAL', 'COMPANY'])) &&
+        (!('gstin' in request.resource.data) || (request.resource.data.gstin is string && request.resource.data.gstin.size() <= 20)) &&
         (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
         (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
         (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() <= 120)) &&
@@ -295,7 +300,42 @@ service cloud.firestore {
         (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
         (!('subscription' in request.resource.data) || request.resource.data.subscription is map) &&
         (!('unlockedContacts' in request.resource.data) || request.resource.data.unlockedContacts is list) &&
-        (!('freeUrgentJobsPosted' in request.resource.data) || (request.resource.data.freeUrgentJobsPosted is int && request.resource.data.freeUrgentJobsPosted >= 0));
+        (!('freeUrgentJobsPosted' in request.resource.data) || (request.resource.data.freeUrgentJobsPosted is int && request.resource.data.freeUrgentJobsPosted >= 0)) &&
+        (!('profileCompleted' in request.resource.data) || request.resource.data.profileCompleted is bool) &&
+        (!('isProfileComplete' in request.resource.data) || request.resource.data.isProfileComplete is bool);
+
+      allow update: if isSelf(userId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'userId', 'fullName', 'name', 'phone', 'phoneNumber', 'role', 'createdAt', 'updatedAt',
+          'companyName', 'profileImageUrl', 'geohash',
+          'industry', 'businessAddress', 'businessLocation',
+          'referralCode', 'referredByCode', 'referredByUserId', 'subscription', 'unlockedContacts', 'freeUrgentJobsPosted', 'profileCompleted', 'isProfileComplete',
+          'employerType', 'gstin'
+        ]) &&
+        (!('userId' in request.resource.data) || request.resource.data.userId == request.auth.uid) &&
+        (!('fullName' in request.resource.data) || (request.resource.data.fullName is string && request.resource.data.fullName.size() >= 1 && request.resource.data.fullName.size() <= 120)) &&
+        (!('name' in request.resource.data) || (request.resource.data.name is string && request.resource.data.name.size() >= 1 && request.resource.data.name.size() <= 120)) &&
+        (!('phone' in request.resource.data) || (request.resource.data.phone is string && request.resource.data.phone.size() >= 10 && request.resource.data.phone.size() <= 20)) &&
+        (!('phoneNumber' in request.resource.data) || (request.resource.data.phoneNumber is string && request.resource.data.phoneNumber.size() >= 10 && request.resource.data.phoneNumber.size() <= 20)) &&
+        (!('role' in request.resource.data) || request.resource.data.role == 'EMPLOYER') &&
+        (!('employerType' in request.resource.data) || (request.resource.data.employerType in ['INDIVIDUAL', 'COMPANY'])) &&
+        (!('gstin' in request.resource.data) || (request.resource.data.gstin is string && request.resource.data.gstin.size() <= 20)) &&
+        (!('createdAt' in request.resource.data) || request.resource.data.createdAt is timestamp) &&
+        (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp) &&
+        (!('companyName' in request.resource.data) || (request.resource.data.companyName is string && request.resource.data.companyName.size() <= 120)) &&
+        (!('profileImageUrl' in request.resource.data) || request.resource.data.profileImageUrl is string) &&
+        (!('geohash' in request.resource.data) || request.resource.data.geohash is string) &&
+        (!('industry' in request.resource.data) || (request.resource.data.industry is string && request.resource.data.industry.size() <= 120)) &&
+        (!('businessAddress' in request.resource.data) || (request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() <= 500)) &&
+        (!('businessLocation' in request.resource.data) || validLatLng(request.resource.data.businessLocation)) &&
+        (!('referralCode' in request.resource.data) || request.resource.data.referralCode is string) &&
+        (!('referredByCode' in request.resource.data) || request.resource.data.referredByCode is string) &&
+        (!('referredByUserId' in request.resource.data) || request.resource.data.referredByUserId is string) &&
+        (!('subscription' in request.resource.data) || request.resource.data.subscription is map) &&
+        (!('unlockedContacts' in request.resource.data) || request.resource.data.unlockedContacts is list) &&
+        (!('freeUrgentJobsPosted' in request.resource.data) || (request.resource.data.freeUrgentJobsPosted is int && request.resource.data.freeUrgentJobsPosted >= 0)) &&
+        (!('profileCompleted' in request.resource.data) || request.resource.data.profileCompleted is bool) &&
+        (!('isProfileComplete' in request.resource.data) || request.resource.data.isProfileComplete is bool);
 
       allow delete: if isSelf(userId);
     }
@@ -382,8 +422,11 @@ service cloud.firestore {
         (!('vacancies' in request.resource.data) || (request.resource.data.vacancies is int && request.resource.data.vacancies >= 1 && request.resource.data.vacancies <= 1000));
 
       allow update: if isSignedIn() &&
-        exists(/databases/$(database)/documents/job_details/$(jobId)) &&
-        get(/databases/$(database)/documents/job_details/$(jobId)).data.employerId == request.auth.uid &&
+        (
+          resource.data.employerId == request.auth.uid ||
+          (exists(/databases/$(database)/documents/job_details/$(jobId)) &&
+           get(/databases/$(database)/documents/job_details/$(jobId)).data.employerId == request.auth.uid)
+        ) &&
         request.resource.data.keys().hasOnly([
           'companyName', 'title',
           'salary', 'salaryType', 'location', 'geohash', 'addressText',
@@ -392,7 +435,8 @@ service cloud.firestore {
           // strips it from jobmetadata immediately so the card stays small.
           'category', 'searchKeywords', 'expiresAt',
           'jobImageUrl',
-          'vacancies'
+          'vacancies',
+          'deletedAt', 'deletedBy'
         ]) &&
         request.resource.data.createdAt == resource.data.createdAt &&
         // BUG #14 FIX: employerId is now part of the card schema. New writes
@@ -415,13 +459,18 @@ service cloud.firestore {
         (!('searchKeywords' in request.resource.data) ||
           (request.resource.data.searchKeywords is list && request.resource.data.searchKeywords.size() <= 100)) &&
         (!('expiresAt' in request.resource.data) || request.resource.data.expiresAt is timestamp) &&
-        request.resource.data.status in ['open', 'closed', 'expired'] &&
+        request.resource.data.status in ['open', 'closed', 'expired', 'paused', 'deleted', 'filled'] &&
+        (!('deletedAt' in request.resource.data) || (request.resource.data.deletedAt is number || request.resource.data.deletedAt is timestamp)) &&
+        (!('deletedBy' in request.resource.data) || (request.resource.data.deletedBy is string && request.resource.data.deletedBy.size() <= 128)) &&
         (!('jobImageUrl' in request.resource.data) || (request.resource.data.jobImageUrl is string && request.resource.data.jobImageUrl.size() <= 1024)) &&
         (!('vacancies' in request.resource.data) || (request.resource.data.vacancies is int && request.resource.data.vacancies >= 1 && request.resource.data.vacancies <= 1000));
 
       allow delete: if isSignedIn() &&
-        exists(/databases/$(database)/documents/job_details/$(jobId)) &&
-        get(/databases/$(database)/documents/job_details/$(jobId)).data.employerId == request.auth.uid;
+        (
+          resource.data.employerId == request.auth.uid ||
+          (exists(/databases/$(database)/documents/job_details/$(jobId)) &&
+           get(/databases/$(database)/documents/job_details/$(jobId)).data.employerId == request.auth.uid)
+        );
     }
 
     // ── employer_job_cards ────────────────────────────
@@ -624,7 +673,7 @@ service cloud.firestore {
           data.isAvailable is bool &&
           data.status in ['available', 'offline'] &&
           (!('categories' in data) || (data.categories is list && data.categories.size() <= 12)) &&
-          (!('radiusKm' in data) || (data.radiusKm is number && data.radiusKm >= 1 && data.radiusKm <= 10)) &&
+          (!('radiusKm' in data) || (data.radiusKm is number && data.radiusKm >= 1 && data.radiusKm <= 30)) &&
           data.lat is number &&
           data.lat >= -90 && data.lat <= 90 &&
           data.lng is number &&
@@ -706,7 +755,7 @@ service cloud.firestore {
         request.resource.data.geohash is string &&
         (!('addressText' in request.resource.data) || (request.resource.data.addressText is string && request.resource.data.addressText.size() <= 500)) &&
         request.resource.data.radiusKm is number &&
-        request.resource.data.radiusKm >= 1 && request.resource.data.radiusKm <= 10 &&
+        request.resource.data.radiusKm >= 1 && request.resource.data.radiusKm <= 30 &&
         (!('scheduledAt' in request.resource.data) || request.resource.data.scheduledAt is timestamp) &&
         (!('scheduleLabel' in request.resource.data) || (request.resource.data.scheduleLabel is string && request.resource.data.scheduleLabel.size() <= 80)) &&
         request.resource.data.createdAt is timestamp &&
@@ -1135,9 +1184,15 @@ service cloud.firestore {
       allow read, write: if isAdmin();
 
       allow get: if isSignedIn() &&
-        (resource.data.referrerId == request.auth.uid || resource.data.referredUserId == request.auth.uid);
+        (resource.data.referrerId == request.auth.uid ||
+         resource.data.referrerUserId == request.auth.uid ||
+         resource.data.referredUserId == request.auth.uid ||
+         resource.data.referredId == request.auth.uid);
       allow list: if isSignedIn() &&
-        (resource.data.referrerId == request.auth.uid || resource.data.referredUserId == request.auth.uid);
+        (resource.data.referrerId == request.auth.uid ||
+         resource.data.referrerUserId == request.auth.uid ||
+         resource.data.referredUserId == request.auth.uid ||
+         resource.data.referredId == request.auth.uid);
 
       allow create: if isSignedIn() &&
         request.resource.data.keys().hasOnly([

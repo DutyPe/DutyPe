@@ -128,7 +128,7 @@ fun WorkerReferEarnScreen(
         )
         
         when {
-            isCheckingProfileStatus || (isProfileCompleted && uiState.isLoading) -> {
+            uiState.isLoading -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -136,7 +136,7 @@ fun WorkerReferEarnScreen(
                     CircularProgressIndicator(color = com.example.dutype.ui.theme.WorkerColors.TextPrimary, strokeWidth = 3.dp)
                 }
             }
-            isProfileCompleted && uiState.error != null -> {
+            uiState.error != null -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -160,105 +160,64 @@ fun WorkerReferEarnScreen(
                     }
                 }
             }
-            !isProfileCompleted -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
-                        ),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            // Icon
-                            Box(
-                                modifier = Modifier
-                                    .size(80.dp)
-                                    .background(
-                                        WorkerColors.ChipBackground,
-                                        CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = WorkerColors.TextSecondary,
-                                    modifier = Modifier.size(40.dp)
-                                )
-                            }
-                            
-                            Spacer(modifier = Modifier.height(24.dp))
-                            
-                            // Title
-                            Text(
-                                text = stringResource(R.string.refer_complete_profile_title),
-                                style = MaterialTheme.typography.headlineSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                                ),
-                                textAlign = TextAlign.Center
-                            )
-                            
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            // Description
-                            Text(
-                                text = stringResource(R.string.refer_worker_complete_profile_desc),
-                                style = MaterialTheme.typography.bodyLarge.copy(
-                                    color = WorkerColors.TextSecondary,
-                                    lineHeight = 24.sp
-                                ),
-                                textAlign = TextAlign.Center
-                            )
-                            
-                            Spacer(modifier = Modifier.height(24.dp))
-                            
-                            // Complete Profile Button
-                            Button(
-                                onClick = { navController.navigate(Routes.WORKER_PROFILE_DETAILS) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(50.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = WorkerColors.Primary
-                                ),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Edit,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    stringResource(R.string.refer_complete_profile_button),
-                                    style = MaterialTheme.typography.bodyLarge.copy(
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
-            }
             else -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(20.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
+                    if (!isProfileCompleted) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = WorkerColors.ChipBackground
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Info,
+                                        contentDescription = null,
+                                        tint = WorkerColors.Primary,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = stringResource(R.string.refer_complete_profile_title),
+                                            style = MaterialTheme.typography.bodyMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = WorkerColors.TextPrimary
+                                            )
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.refer_complete_profile_to_withdraw),
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                color = WorkerColors.TextSecondary
+                                            )
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    TextButton(
+                                        onClick = { navController.navigate(Routes.WORKER_PROFILE_DETAILS) }
+                                    ) {
+                                        Text(
+                                            stringResource(R.string.refer_complete_profile_button),
+                                            color = WorkerColors.Primary,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Tier Badge
                     item {
                         AnimatedVisibility(
@@ -352,16 +311,23 @@ fun WorkerReferEarnScreen(
                                     if (balance < minWithdrawal) return@WithdrawCard
                                     // Re-check profile completion before opening withdraw dialog
                                     coroutineScope.launch {
-                                        val profileOk = runCatching {
+                                        val localOk = runCatching {
                                             profileCompletionViewModel.isProfileComplete(UserRole.WORKER)
                                         }.getOrDefault(false)
-                                        if (!profileOk) {
+                                        val remoteOk = isProfileCompleted || (FirebaseAuth.getInstance().currentUser?.uid?.let { uid ->
+                                            profileCompletionViewModel.isProfileComplete(uid, UserRole.WORKER).getOrDefault(false)
+                                        } ?: false)
+
+                                        if (!localOk && !remoteOk) {
                                             Toast.makeText(
                                                 context,
                                                 context.getString(R.string.refer_complete_profile_to_withdraw),
                                                 Toast.LENGTH_LONG
                                             ).show()
                                         } else {
+                                            if (remoteOk && !localOk) {
+                                                profileCompletionViewModel.markProfileComplete(UserRole.WORKER)
+                                            }
                                             showWithdrawDialog = true
                                         }
                                     }
@@ -1043,12 +1009,17 @@ private fun ReferralHistoryItem(referral: Referral) {
     }
     val rewardBreakdown = remember(
         referral.status,
+        referral.profileCompleted,
         referral.rewardAmount,
         referral.bonusAmount,
         referral.referredUserReward
     ) {
         if (referral.status != ReferralStatus.COMPLETED) {
-            ""
+            if (referral.status == ReferralStatus.PENDING && !referral.profileCompleted) {
+                context.getString(R.string.refer_status_profile_pending)
+            } else {
+                ""
+            }
         } else {
             buildList {
                 add(context.getString(R.string.refer_you_earned, String.format("%.0f", referral.rewardAmount)))
@@ -1070,7 +1041,11 @@ private fun ReferralHistoryItem(referral: Referral) {
                 else -> Icons.Default.Person
             },
             null,
-            tint = WorkerColors.TextPrimary,
+            tint = when (referral.status) {
+                ReferralStatus.COMPLETED -> WorkerColors.Success
+                ReferralStatus.PENDING -> WorkerColors.Warning
+                else -> WorkerColors.TextSecondary
+            },
             modifier = Modifier.size(20.dp)
         )
         Spacer(Modifier.width(12.dp))
@@ -1087,7 +1062,12 @@ private fun ReferralHistoryItem(referral: Referral) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = rewardBreakdown,
-                    style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary)
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = if (referral.status == ReferralStatus.PENDING && !referral.profileCompleted)
+                            WorkerColors.Warning
+                        else
+                            WorkerColors.TextSecondary
+                    )
                 )
             }
         }
@@ -1101,7 +1081,11 @@ private fun ReferralHistoryItem(referral: Referral) {
                 },
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                    color = when (referral.status) {
+                        ReferralStatus.COMPLETED -> WorkerColors.Success
+                        ReferralStatus.PENDING -> WorkerColors.Warning
+                        else -> com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                    }
                 )
             )
         }
@@ -1163,10 +1147,24 @@ private fun WithdrawalHistoryItem(withdrawal: WithdrawalRequest) {
             )
             Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary))
         }
-        Text(
-            text = withdrawal.status.name.lowercase().replaceFirstChar { char -> char.titlecase(java.util.Locale.getDefault()) },
-            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
-        )
+        val statusColor = when (withdrawal.status) {
+            WithdrawalStatus.COMPLETED -> Color(0xFF10B981)
+            WithdrawalStatus.PROCESSING -> Color(0xFF3B82F6)
+            WithdrawalStatus.FAILED, WithdrawalStatus.CANCELLED -> Color(0xFFEF4444)
+            WithdrawalStatus.PENDING -> Color(0xFFF59E0B)
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = withdrawal.status.name.lowercase().replaceFirstChar { char -> char.titlecase(java.util.Locale.getDefault()) },
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = statusColor)
+            )
+            if (!withdrawal.transactionId.isNullOrBlank()) {
+                Text(
+                    text = "Ref: ${withdrawal.transactionId}",
+                    style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary)
+                )
+            }
+        }
     }
 }
 

@@ -54,7 +54,8 @@ data class Referral(
     val deviceFingerprint: String? = null,
     // Denormalized for display
     val referredUserName: String = "",
-    val referredUserRole: String = ""
+    val referredUserRole: String = "",
+    val profileCompleted: Boolean = false
 ) {
     fun getExpiresAt(): Long = createdAt + (30 * 24 * 60 * 60 * 1000L)
     fun isExpired(): Boolean = System.currentTimeMillis() > getExpiresAt()
@@ -69,8 +70,12 @@ data class Referral(
 
             return Referral(
                 id = data["id"] as? String ?: "",
-                referrerUserId = data["referrerId"] as? String ?: "",
-                referredUserId = data["referredUserId"] as? String ?: "",
+                referrerUserId = data["referrerUserId"] as? String
+                    ?: data["referrerId"] as? String
+                    ?: "",
+                referredUserId = data["referredUserId"] as? String
+                    ?: data["referredId"] as? String
+                    ?: "",
                 referralCode = data["referralCode"] as? String ?: "",
                 status = try {
                     ReferralStatus.valueOf(normalizedStatus)
@@ -84,7 +89,10 @@ data class Referral(
                 completedAt = data["completedAt"].toEpochMillis(),
                 deviceFingerprint = data["deviceFingerprint"] as? String,
                 referredUserName = data["referredUserName"] as? String ?: "",
-                referredUserRole = data["referredUserRole"] as? String ?: ""
+                referredUserRole = data["referredUserRole"] as? String ?: "",
+                profileCompleted = (data["profileCompleted"] as? Boolean)
+                    ?: (data["isProfileCompleted"] as? Boolean)
+                    ?: false
             )
         }
     }

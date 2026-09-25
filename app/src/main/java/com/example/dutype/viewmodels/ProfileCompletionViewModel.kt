@@ -213,9 +213,10 @@ class ProfileCompletionViewModel @Inject constructor(
                 val employerProfileResult = profileCompletionService.getEmployerProfileData(currentUser.uid)
                 val hasEmployerProfile = employerProfileResult.fold(
                     onSuccess = { data ->
-                        val companyName = data["companyName"] as? String
+                        val companyName = (data["companyName"] as? String)?.takeIf { it.isNotBlank() }
+                            ?: (data["fullName"] as? String)?.takeIf { it.isNotBlank() }
                         val hasCompanyName = !companyName.isNullOrBlank()
-                        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: EMPLOYER - companyName: $companyName, hasCompanyName: $hasCompanyName")
+                        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: EMPLOYER - name/company: $companyName, hasName: $hasCompanyName")
                         hasCompanyName
                     },
                     onFailure = { 

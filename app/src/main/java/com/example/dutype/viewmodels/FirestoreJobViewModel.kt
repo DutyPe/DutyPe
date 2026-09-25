@@ -606,7 +606,7 @@ class FirestoreJobViewModel @Inject constructor(
             try {
                 val hasLocation = useLocationQuery &&
                     com.example.dutype.utils.GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
-                val effectiveRadiusKm = if (hasLocation) 10.0 else 0.0
+                val effectiveRadiusKm = if (hasLocation) 50.0 else 0.0
                 Timber.d(
                     "📦 Loading home job summaries (displayLimit=$limit, useLocationQuery=$useLocationQuery, hasLocation=$hasLocation)..."
                 )

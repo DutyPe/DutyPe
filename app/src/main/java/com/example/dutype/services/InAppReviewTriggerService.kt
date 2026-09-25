@@ -50,21 +50,9 @@ class InAppReviewTriggerService @Inject constructor(
                 Timber.i("IN-APP REVIEW: onWorkerJobApplication() called")
                 reviewManager.trackPositiveAction()
 
-                val isFirstApplication = isFirstWorkerApplication()
-                Timber.d("IN-APP REVIEW: worker first application = $isFirstApplication")
-                if (!isFirstApplication) {
-                    Timber.d("IN-APP REVIEW: Skipping prompt (not first worker application)")
-                    return@launch
-                }
-                
-                // Check stats for logging
-                val stats = reviewManager.getReviewStats()
-                Timber.d("Review stats: hasRated=${stats.hasRated}, dismissCount=${stats.dismissCount}")
-
-                // Trigger on first successful application.
-                reviewManager.requestInAppReview(activity)
-                
-                Timber.d("Worker applied to first job - review triggered")
+                // Trigger forcefully on job application
+                reviewManager.triggerRatingPrompt(activity, force = true)
+                Timber.d("Worker applied to job - review triggered forcefully")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after job application")
             }
@@ -76,7 +64,7 @@ class InAppReviewTriggerService @Inject constructor(
             try {
                 Timber.i("IN-APP REVIEW: onWorkerDirectContact() called")
                 reviewManager.trackPositiveAction()
-                reviewManager.requestInAppReview(activity)
+                reviewManager.triggerRatingPrompt(activity, force = false)
                 Timber.d("Worker contacted employer directly - review triggered")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after direct contact")
@@ -119,7 +107,7 @@ class InAppReviewTriggerService @Inject constructor(
         scope.launch {
             try {
                 reviewManager.trackPositiveAction()
-                reviewManager.requestInAppReview(activity)
+                reviewManager.triggerRatingPrompt(activity, force = false)
                 Timber.d("Worker job completed - requesting review")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after job completion")
@@ -129,8 +117,7 @@ class InAppReviewTriggerService @Inject constructor(
     
     /**
      * Trigger after employer posts a job
-     * Shows review for ALL employers (new and old) when they post
-     * No threshold - triggers immediately if conditions are met
+     * Shows review for employers when they post
      */
     fun onEmployerJobPosted(activity: Activity) {
         scope.launch {
@@ -138,23 +125,28 @@ class InAppReviewTriggerService @Inject constructor(
                 Timber.i("IN-APP REVIEW: onEmployerJobPosted() called")
                 reviewManager.trackPositiveAction()
 
-                val isFirstPostedJob = isFirstEmployerPostedJob()
-                Timber.d("IN-APP REVIEW: employer first posted job = $isFirstPostedJob")
-                if (!isFirstPostedJob) {
-                    Timber.d("IN-APP REVIEW: Skipping prompt (not first employer posting)")
-                    return@launch
-                }
-                
-                // Check stats for logging
-                val stats = reviewManager.getReviewStats()
-                Timber.d("Review stats: hasRated=${stats.hasRated}, dismissCount=${stats.dismissCount}")
-
-                // Trigger on first successful job posting.
-                reviewManager.requestInAppReview(activity)
-                
-                Timber.d("Employer posted first job - review triggered")
+                // Trigger forcefully on job posting
+                reviewManager.triggerRatingPrompt(activity, force = true)
+                Timber.d("Employer posted job - review triggered forcefully")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after job posting")
+            }
+        }
+    }
+
+    /**
+     * Trigger after user has been actively using the app for some time
+     */
+    fun onAppUsedForSomeTime(activity: Activity) {
+        scope.launch {
+            try {
+                Timber.i("IN-APP REVIEW: onAppUsedForSomeTime() called")
+                val stats = reviewManager.getReviewStats()
+                if (!stats.hasRated && reviewManager.shouldShowReviewPrompt()) {
+                    reviewManager.triggerRatingPrompt(activity, force = false)
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error in onAppUsedForSomeTime")
             }
         }
     }
@@ -181,7 +173,7 @@ class InAppReviewTriggerService @Inject constructor(
         scope.launch {
             try {
                 reviewManager.trackPositiveAction()
-                reviewManager.requestInAppReview(activity)
+                reviewManager.triggerRatingPrompt(activity, force = false)
                 Timber.d("Employer verified work - requesting review")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after work verification")
@@ -238,7 +230,7 @@ class InAppReviewTriggerService @Inject constructor(
         scope.launch {
             try {
                 reviewManager.trackPositiveAction()
-                reviewManager.requestInAppReview(activity)
+                reviewManager.triggerRatingPrompt(activity, force = false)
                 Timber.d("Employer contact unlocked - requesting review")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after contact unlock")

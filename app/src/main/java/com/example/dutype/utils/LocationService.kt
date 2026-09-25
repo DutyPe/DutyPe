@@ -550,7 +550,7 @@ class LocationService(private val context: Context) {
                 .setMinUpdateIntervalMillis(50L) // Fastest possible update interval
                 .setMaxUpdateDelayMillis(200L) // Minimal delay for batching
                 .setMinUpdateDistanceMeters(0f) // Update even for tiny movements
-                .setWaitForAccurateLocation(true) // Wait for GPS fix
+                .setWaitForAccurateLocation(false) // Allow fast initial fix; refine if GPS available
                 .setMaxUpdates(150) // Allow many updates within timeout window
                 .build()
             
@@ -755,11 +755,11 @@ class LocationService(private val context: Context) {
         }
         
         fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-            if (location != null && isUsableLocation(location, MAX_LAST_KNOWN_AGE_MS)) {
-                Timber.d("📍 LOCATION SERVICE: Using last known location - lat: ${location.latitude}, lon: ${location.longitude}")
+            if (location != null && isValidCoordinates(location.latitude, location.longitude)) {
+                Timber.d("📍 LOCATION SERVICE: Using last known location - lat: ${location.latitude}, lon: ${location.longitude}, ageMs=${System.currentTimeMillis() - location.time}")
                 processLocation(location.latitude, location.longitude, callback)
             } else {
-                Timber.w("📍 LOCATION SERVICE: No recent last known location available")
+                Timber.w("📍 LOCATION SERVICE: No valid last known location available")
                 callback(null)
             }
         }.addOnFailureListener { e ->

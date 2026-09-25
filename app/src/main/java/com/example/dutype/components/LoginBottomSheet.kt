@@ -212,6 +212,19 @@ fun LoginBottomSheet(
                                     role = role
                                 )
 
+                                if (!pendingReferralCode.isNullOrBlank()) {
+                                    val resolvedPhone = currentUser.phoneNumber ?: otpState.phoneNumber ?: ""
+                                    scope.launch {
+                                        profileCompletionViewModel.applyReferralCode(
+                                            referralCode = pendingReferralCode,
+                                            newUserId = currentUser.uid,
+                                            newUserRole = role.name,
+                                            newUserName = registerName.trim().ifBlank { resolvedPhone.ifBlank { "DutyPe User" } },
+                                            newUserPhone = resolvedPhone
+                                        )
+                                    }
+                                }
+
                                 otpViewModel.resetState()
                                 isCheckingProfile = false
 

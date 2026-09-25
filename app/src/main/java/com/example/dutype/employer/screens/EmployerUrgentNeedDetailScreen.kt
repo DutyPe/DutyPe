@@ -45,7 +45,9 @@ fun EmployerUrgentNeedDetailScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
+    val applicationViewModel: com.example.dutype.viewmodels.EmployerApplicationViewModel = hiltViewModel()
     val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
+    val matchedWorkersState by applicationViewModel.matchedWorkersState.collectAsStateWithLifecycle()
     val ratingService = remember {
         com.example.dutype.services.RatingService(
             com.example.dutype.di.firestoreFromHilt(context),
@@ -63,6 +65,7 @@ fun EmployerUrgentNeedDetailScreen(
 
     LaunchedEffect(requestId) {
         instantHelpViewModel.loadEmployerUrgentNeeds()
+        applicationViewModel.loadMatchedWorkers(requestId, force = true)
     }
 
     val request = instantHelpState.employerInstantRequests.firstOrNull { it.requestId == requestId }
@@ -206,8 +209,8 @@ fun EmployerUrgentNeedDetailScreen(
             .background(EmployerColors.ScreenBackground)
     ) {
         CommonHeader(
-            title = stringResource(R.string.urgent_request_title),
-            subtitle = request?.title ?: stringResource(R.string.urgent_responses_actions_subtitle),
+            title = "⚡ Instant Hiring Room",
+            subtitle = request?.title ?: "Review workers, call directly & hire instantly",
             navController = navController,
             onBackClick = onNavigateBack,
             backgroundColor = EmployerColors.ScreenBackground
@@ -220,6 +223,27 @@ fun EmployerUrgentNeedDetailScreen(
             isRequestUpdating = instantHelpState.updatingEmployerRequestId == requestId,
             updatingResponseId = instantHelpState.updatingEmployerResponseId,
             ratedResponseIds = ratedResponseIds,
+            matchedWorkersState = matchedWorkersState,
+            onRefreshMatchedWorkers = { applicationViewModel.loadMatchedWorkers(requestId, force = true) },
+            onCallMatchedWorker = { worker ->
+                if (worker.phone.isNotBlank()) {
+                    openDialer(context, worker.phone)
+                } else {
+                    applicationViewModel.fetchPhoneNumberForWorker(
+                        jobId = requestId,
+                        workerId = worker.workerId,
+                        onSuccess = { phone -> openDialer(context, phone) },
+                        onFailure = { Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), Toast.LENGTH_SHORT).show() }
+                    )
+                }
+            },
+            onRequestMatchedWorker = { worker ->
+                applicationViewModel.requestMatchedWorker(requestId, worker.workerId)
+                Toast.makeText(context, "Request sent to ${worker.fullName}!", Toast.LENGTH_SHORT).show()
+            },
+            onOpenMatchedWorkerProfile = { worker ->
+                navController.navigate(Routes.workerProfileViewRoute(worker.workerId))
+            },
             onOpenWorkerProfile = { response -> navController.navigate(Routes.workerProfileViewRoute(response.workerId)) },
             onCallWorker = { phone -> openDialer(context, phone) },
             onSelectResponse = { response -> instantHelpViewModel.acceptEmployerInstantResponse(response) },

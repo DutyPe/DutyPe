@@ -63,7 +63,7 @@ class ReferralService @Inject constructor(
         private const val COLLECTION_EMPLOYER_PROFILES = FirestoreCollections.EMPLOYER_PROFILES
         private const val COLLECTION_PHONE_ROLES = FirestoreCollections.PHONE_ROLES
         private const val SUBCOLLECTION_WITHDRAWALS = FirestoreCollections.WITHDRAWALS
-        private const val FIELD_REFERRER_ID = "referrerId"
+        private const val FIELD_REFERRER_ID = "referrerUserId"
         private const val FIELD_CREATED_AT = "createdAt"
         private const val FIELD_STATUS = "status"
         private const val STATUS_COMPLETED = "COMPLETED"
@@ -265,13 +265,18 @@ class ReferralService @Inject constructor(
                 return profileCode
             }
 
-            callEnsureUserReferralCode(
+            val remoteCode = callEnsureUserReferralCode(
                 userRole = profile.role,
                 userName = displayNameFromProfile(profile)
             )
+            if (remoteCode.isNotBlank()) {
+                return remoteCode
+            }
+
+            generateReferralCode()
         } catch (e: Exception) {
             Timber.w(e, "🎁 REFERRAL: Unable to resolve referral code for user $userId")
-            ""
+            generateReferralCode()
         }
     }
 
@@ -689,13 +694,18 @@ class ReferralService @Inject constructor(
                     )
                 }
                 
+                if (referralCode.isBlank()) {
+                    referralCode = generateReferralCode()
+                }
+
                 // If no stats yet, return default empty stats
                 if (statsMap.isEmpty() && referralCode.isEmpty()) {
                     Timber.d("🎁 REFERRAL: User has no referral_stats yet, returning empty stats")
+                    val fallbackCode = generateReferralCode()
                     return ReferralStats(
                         userId = userId,
                         userRole = userRole,
-                        referralCode = "",
+                        referralCode = fallbackCode,
                         totalReferrals = 0,
                         successfulReferrals = 0,
                         totalEarnings = 0.0,
@@ -723,7 +733,7 @@ class ReferralService @Inject constructor(
                     userRole = userRole,
                     userName = displayNameFromProfile(profile),
                     existingUserCode = referralCodeFromProfile(profile)
-                )
+                ).ifBlank { generateReferralCode() }
 
                 Timber.d("🎁 REFERRAL: No referral_stats doc for user $userId, returning empty stats fallback")
                 val fallback = ReferralStats(
@@ -859,16 +869,42 @@ class ReferralService @Inject constructor(
                 .get()
                 .await()
 
-            referrals.documents.mapNotNull { doc ->
+            if (!referrals.isEmpty) {
+                referrals.documents.mapNotNull { doc ->
+                    try {
+                        Referral.fromMap((doc.data ?: emptyMap()) + ("id" to doc.id))
+                    } catch (e: Exception) {
+                        Timber.e(e, "🎁 REFERRAL: Error parsing referral ${doc.id}")
+                        null
+                    }
+                }
+            } else {
+                fetchReferralHistoryFromCallable(limit)
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "🎁 REFERRAL: Error getting history directly, falling back to callable")
+            fetchReferralHistoryFromCallable(limit)
+        }
+    }
+
+    private suspend fun fetchReferralHistoryFromCallable(limit: Int = 100): List<Referral> {
+        return try {
+            val result = functions.getHttpsCallable("getReferralHistory")
+                .call(mapOf("limit" to limit))
+                .await()
+            @Suppress("UNCHECKED_CAST")
+            val data = result.data as? Map<String, Any?> ?: emptyMap()
+            @Suppress("UNCHECKED_CAST")
+            val list = data["referrals"] as? List<Map<String, Any>> ?: emptyList()
+            list.mapNotNull {
                 try {
-                    Referral.fromMap((doc.data ?: emptyMap()) + ("id" to doc.id))
+                    Referral.fromMap(it)
                 } catch (e: Exception) {
-                    Timber.e(e, "🎁 REFERRAL: Error parsing referral ${doc.id}")
                     null
                 }
             }
         } catch (e: Exception) {
-            Timber.e(e, "🎁 REFERRAL: Error getting history")
+            Timber.w(e, "🎁 REFERRAL: Failed to fetch referral history via callable")
             emptyList()
         }
     }
@@ -890,8 +926,11 @@ class ReferralService @Inject constructor(
             .limit(limit.toLong())
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    Timber.e(error, "🎁 REFERRAL: Error listening to history")
-                    trySend(emptyList())
+                    Timber.w(error, "🎁 REFERRAL: Error listening to history, falling back to callable")
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val fallback = fetchReferralHistoryFromCallable(limit)
+                        trySend(fallback)
+                    }
                     return@addSnapshotListener
                 }
 
@@ -923,7 +962,9 @@ class ReferralService @Inject constructor(
         bankDetails: BankDetails? = null
     ): Result<WithdrawalResult> {
         return try {
+            val requestId = java.util.UUID.randomUUID().toString()
             val data = hashMapOf<String, Any?>(
+                "requestId" to requestId,
                 "amount" to amount,
                 "paymentMethod" to paymentMethod.name,
                 "upiId" to upiId,
@@ -1263,11 +1304,11 @@ https://play.google.com/store/apps/details?id=com.example.dutype
                 return ensuredCode
             }
 
-            Timber.d("REFERRAL: Referral code missing for $userId, waiting for backend generation")
-            null
+            Timber.d("REFERRAL: Generating client fallback referral code for $userId")
+            generateReferralCode()
         } catch (e: Exception) {
             Timber.e(e, "REFERRAL: Error ensuring referral code exists")
-            null
+            generateReferralCode()
         }
     }
 }

@@ -42,9 +42,9 @@ const ALLOWED_SELF_NOTIFICATION_TYPES = new Set([
   "SYSTEM_UPDATE",
   "GENERAL",
 ]);
-const INSTANT_WORKER_SCAN_LIMIT = 80;
-const INSTANT_WORKER_NOTIFY_LIMIT = 25;
-const MAX_INSTANT_WORK_DISTANCE_KM = 10;
+const INSTANT_WORKER_SCAN_LIMIT = 100;
+const INSTANT_WORKER_NOTIFY_LIMIT = 50;
+const MAX_INSTANT_WORK_DISTANCE_KM = 30;
 
 const CATEGORY_KEYWORDS: Array<{ name: string; display: string; words: string[] }> = [
   { name: "DELIVERY", display: "Delivery", words: ["delivery", "courier", "rider", "parcel"] },
@@ -640,99 +640,180 @@ export const notifyAvailableWorkersForInstantRequest = functions.firestore
       1,
       Math.min(MAX_INSTANT_WORK_DISTANCE_KM, Number(request.radiusKm) || MAX_INSTANT_WORK_DISTANCE_KM),
     );
-    const availabilitySnap = await db.collection("worker_availability")
-      .where("isAvailable", "==", true)
-      .limit(INSTANT_WORKER_SCAN_LIMIT)
-      .get();
 
-    const baseCandidates = availabilitySnap.docs
-      .map((doc) => {
+    // Map of candidate workers keyed by workerId to deduplicate
+    const candidateMap = new Map<string, {
+      workerId: string;
+      lat: number;
+      lng: number;
+      updatedAt: number;
+      isExplicitlyAvailable: boolean;
+      availability?: Record<string, unknown>;
+      workerProfile?: Record<string, unknown>;
+    }>();
+
+    // 1. Scan workers with explicit active availability
+    try {
+      const availabilitySnap = await db.collection("worker_availability")
+        .where("isAvailable", "==", true)
+        .limit(INSTANT_WORKER_SCAN_LIMIT)
+        .get();
+
+      for (const doc of availabilitySnap.docs) {
         const availability = doc.data() || {};
+        const workerId = String(availability.workerId || doc.id);
+        if (!workerId || workerId === String(request.employerId || "")) continue;
+
         const workerLat = Number(availability.lat);
         const workerLng = Number(availability.lng);
-        if (!validCoordinates(workerLat, workerLng)) return null;
+        if (!validCoordinates(workerLat, workerLng)) continue;
 
         const availableUntilMs = timestampMillis(availability.availableUntil);
-        if (availableUntilMs > 0 && availableUntilMs <= nowMs) return null;
+        if (availableUntilMs > 0 && availableUntilMs <= nowMs) continue;
 
-        const distance = distanceKm(requestLat, requestLng, workerLat, workerLng);
-        if (distance > MAX_INSTANT_WORK_DISTANCE_KM || distance > requestRadius) return null;
-
-        const workerId = String(availability.workerId || doc.id);
-        if (!workerId || workerId === String(request.employerId || "")) return null;
-
-        const freshnessMs = Math.max(
-          timestampMillis(availability.lastActiveAt),
-          timestampMillis(availability.lastSeenAt),
-          timestampMillis(availability.updatedAt)
-        );
-        const hoursSinceFreshness = freshnessMs > 0
-          ? (nowMs - freshnessMs) / (1000 * 60 * 60)
-          : Number.POSITIVE_INFINITY;
-
-        const accepted = Number(availability.instantAcceptedCount ?? availability.acceptedRequests ?? 0);
-        const declined = Number(availability.instantDeclinedCount ?? availability.declinedRequests ?? 0);
-        const noShow = Number(availability.instantNoShowCount ?? availability.noShowCount ?? 0);
-        const decisionCount = Math.max(0, accepted) + Math.max(0, declined) + Math.max(0, noShow);
-        const acceptanceRate = decisionCount > 0 ? accepted / decisionCount : 0.5;
-
-        const freshnessScore =
-          hoursSinceFreshness <= 6 ? 16 :
-          hoursSinceFreshness <= 24 ? 10 :
-          hoursSinceFreshness <= 72 ? 5 : 0;
-        const reliabilityScore =
-          decisionCount >= 3
-            ? Math.max(-8, Math.min(12, Math.round((acceptanceRate - 0.5) * 24)))
-            : 0;
-        const distanceScore = Math.max(0, 30 - distance * 2.5);
-
-        return {
+        candidateMap.set(workerId, {
           workerId,
-          distance,
-          updatedAt: timestampMillis(availability.updatedAt),
-          baseRankScore: Math.round(distanceScore + freshnessScore + reliabilityScore),
+          lat: workerLat,
+          lng: workerLng,
+          updatedAt: Math.max(
+            timestampMillis(availability.lastActiveAt),
+            timestampMillis(availability.lastSeenAt),
+            timestampMillis(availability.updatedAt)
+          ),
+          isExplicitlyAvailable: true,
           availability,
-        };
-      })
-      .filter((item): item is {
-        workerId: string;
-        distance: number;
-        updatedAt: number;
-        baseRankScore: number;
-        availability: Record<string, unknown>;
-      } => item !== null);
+        });
+      }
+    } catch (err) {
+      functions.logger.warn("INSTANT: error querying worker_availability", err);
+    }
 
-    const workerProfiles = new Map<string, Record<string, unknown>>();
-    for (const chunk of chunked(baseCandidates.map((candidate) => candidate.workerId), 10)) {
+    // 2. Scan worker_profiles to ensure nearby registered workers are discovered
+    // even if they haven't explicitly set the availability toggle today
+    try {
+      const profilesSnap = await db.collection("worker_profiles")
+        .limit(200)
+        .get();
+
+      for (const doc of profilesSnap.docs) {
+        const workerId = doc.id;
+        if (!workerId || workerId === String(request.employerId || "")) continue;
+        const profile = doc.data() || {};
+
+        let workerLat = Number(profile.lat);
+        let workerLng = Number(profile.lng);
+        if (!validCoordinates(workerLat, workerLng) && profile.location && typeof profile.location === "object") {
+          const loc = profile.location as Record<string, unknown>;
+          workerLat = Number(loc.lat);
+          workerLng = Number(loc.lng);
+        }
+        if (!validCoordinates(workerLat, workerLng) && profile.businessLocation && typeof profile.businessLocation === "object") {
+          const bloc = profile.businessLocation as Record<string, unknown>;
+          workerLat = Number(bloc.lat);
+          workerLng = Number(bloc.lng);
+        }
+        if (!validCoordinates(workerLat, workerLng)) continue;
+
+        const existing = candidateMap.get(workerId);
+        if (existing) {
+          existing.workerProfile = profile;
+        } else {
+          candidateMap.set(workerId, {
+            workerId,
+            lat: workerLat,
+            lng: workerLng,
+            updatedAt: timestampMillis(profile.updatedAt || profile.createdAt),
+            isExplicitlyAvailable: false,
+            workerProfile: profile,
+          });
+        }
+      }
+    } catch (err) {
+      functions.logger.warn("INSTANT: error querying worker_profiles", err);
+    }
+
+    // 3. For any workers from worker_availability who don't have workerProfile yet, fetch profiles
+    const missingProfileWorkerIds = Array.from(candidateMap.values())
+      .filter((c) => !c.workerProfile)
+      .map((c) => c.workerId);
+
+    for (const chunk of chunked(missingProfileWorkerIds, 10)) {
       if (chunk.length === 0) continue;
       const profileSnap = await db.collection("worker_profiles")
         .where(admin.firestore.FieldPath.documentId(), "in", chunk)
         .get();
       profileSnap.docs.forEach((doc) => {
-        workerProfiles.set(doc.id, doc.data() || {});
+        const candidate = candidateMap.get(doc.id);
+        if (candidate) {
+          candidate.workerProfile = doc.data() || {};
+        }
       });
     }
 
+    // 4. Calculate distances, assign distance rings/tiers, and score candidates
+    // Ring Tiers:
+    //   Tier 1: <= 10 km (Near workers - highest priority)
+    //   Tier 2: 10 km - 15 km
+    //   Tier 3: 15 km - 20 km
+    //   Tier 4: 20 km - 30 km (Max distance)
     const requestCategory = inferInstantRequestCategory(request);
-    const candidates = baseCandidates
+
+    const candidates = Array.from(candidateMap.values())
       .map((candidate) => {
-        const workerProfile = workerProfiles.get(candidate.workerId) || {};
-        const roleFitScore = scoreInstantRoleFit(request, {
-          ...candidate.availability,
-          ...workerProfile,
-        });
-        if (requestCategory.name !== "OTHER" && roleFitScore < 0) {
+        const distance = distanceKm(requestLat, requestLng, candidate.lat, candidate.lng);
+        if (distance > MAX_INSTANT_WORK_DISTANCE_KM || distance > requestRadius) {
           return null;
         }
 
+        let tier = 4;
+        let tierBaseScore = 1000;
+        if (distance <= 10.0) {
+          tier = 1;
+          tierBaseScore = 10000;
+        } else if (distance <= 15.0) {
+          tier = 2;
+          tierBaseScore = 5000;
+        } else if (distance <= 20.0) {
+          tier = 3;
+          tierBaseScore = 2500;
+        }
+
+        const workerCombined = {
+          ...(candidate.availability || {}),
+          ...(candidate.workerProfile || {}),
+        };
+
+        const roleFitScore = scoreInstantRoleFit(request, workerCombined);
+        // Bonus for matching role/skills, but do NOT disqualify if not matching so employers never get 0 notified
+        const fitBonus = roleFitScore > 0 ? 50 : 0;
+        const availabilityBonus = candidate.isExplicitlyAvailable ? 30 : 0;
+        const distanceScore = Math.max(0, 30 - distance);
+
+        const hoursSinceFreshness = candidate.updatedAt > 0
+          ? (nowMs - candidate.updatedAt) / (1000 * 60 * 60)
+          : Number.POSITIVE_INFINITY;
+        const freshnessScore =
+          hoursSinceFreshness <= 6 ? 16 :
+          hoursSinceFreshness <= 24 ? 10 :
+          hoursSinceFreshness <= 72 ? 5 : 0;
+
+        const rankScore = tierBaseScore + fitBonus + availabilityBonus + distanceScore + freshnessScore;
+
         return {
           workerId: candidate.workerId,
-          distance: candidate.distance,
+          distance,
+          tier,
           updatedAt: candidate.updatedAt,
-          rankScore: candidate.baseRankScore + roleFitScore,
+          rankScore,
         };
       })
-      .filter((item): item is { workerId: string; distance: number; updatedAt: number; rankScore: number } => item !== null)
+      .filter((item): item is {
+        workerId: string;
+        distance: number;
+        tier: number;
+        updatedAt: number;
+        rankScore: number;
+      } => item !== null)
       .sort((a, b) => b.rankScore - a.rankScore || a.distance - b.distance || b.updatedAt - a.updatedAt)
       .slice(0, INSTANT_WORKER_NOTIFY_LIMIT);
 
@@ -765,6 +846,7 @@ export const notifyAvailableWorkersForInstantRequest = functions.firestore
           employerId: String(request.employerId || ""),
           category: String(request.category || ""),
           distanceKm: candidate.distance.toFixed(1),
+          distanceTier: String(candidate.tier),
           deepLink: "dutype://worker/home",
         },
         isRead: false,
@@ -779,7 +861,7 @@ export const notifyAvailableWorkersForInstantRequest = functions.firestore
     }, { merge: true });
     await batch.commit();
 
-    functions.logger.info(`INSTANT: notified ${candidates.length} workers for ${requestId}`);
+    functions.logger.info(`INSTANT: notified ${candidates.length} workers for ${requestId} (Tier 1 <= 10km: ${candidates.filter((c) => c.tier === 1).length}, Tier 2 <= 15km: ${candidates.filter((c) => c.tier === 2).length}, Tier 3 <= 20km: ${candidates.filter((c) => c.tier === 3).length}, Tier 4 <= 30km: ${candidates.filter((c) => c.tier === 4).length})`);
     return { notifiedWorkerCount: candidates.length };
   });
 
@@ -1498,6 +1580,8 @@ export const updateMetadataOnJobDelete = functions.firestore
 // Import and re-export referral system functions
 export {
   onUserProfileComplete,
+  ensureUserReferralCode,
+  claimWelcomeBonus,
   applyReferralCode,
   onReferredUserProfileComplete,
   expirePendingReferrals,

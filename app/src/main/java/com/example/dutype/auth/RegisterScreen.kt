@@ -320,38 +320,6 @@ private fun RegisterContent(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Continue as Guest / Skip Button
-                        Surface(
-                            onClick = {
-                                val targetHome = if (role == UserRole.EMPLOYER) Routes.EMPLOYER_HOME else Routes.WORKER_HOME
-                                navController.navigate(targetHome) {
-                                    popUpTo(Routes.SELECT_ROLE) { inclusive = false }
-                                }
-                            },
-                            shape = RoundedCornerShape(20.dp),
-                            color = Color(0xFFEFF6FF),
-                            border = BorderStroke(1.dp, BrandBlueBorder)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = if (isTelugu) "స్కిప్ చేయండి" else "Skip",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = BrandBluePrimary
-                                    )
-                                )
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = null,
-                                    tint = BrandBluePrimary,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                            }
-                        }
 
                         // WhatsApp Help Button
                         Surface(
@@ -993,7 +961,29 @@ private fun RegisterReferralSection(
             referralCode = filtered
             codeValidationError = null
             validatedReferrerName = null
-            onValidatedCodeChanged(null)
+            if (filtered.length in 7..10) {
+                onValidatedCodeChanged(filtered)
+                scope.launch {
+                    try {
+                        val referralService = com.example.dutype.di.referralServiceFromHilt(appContext)
+                        val validation = referralService.validateReferralCode(filtered)
+                        if (referralCode == filtered) {
+                            if (validation.isValid) {
+                                validatedReferrerName = validation.referrerName
+                                codeValidationError = null
+                                onValidatedCodeChanged(filtered)
+                            } else {
+                                codeValidationError = validation.errorMessage
+                                validatedReferrerName = null
+                            }
+                        }
+                    } catch (_: Exception) {
+                        // Keep candidate code, let server handle during registration
+                    }
+                }
+            } else {
+                onValidatedCodeChanged(null)
+            }
         },
         onClear = {
             referralCode = ""

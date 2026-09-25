@@ -215,21 +215,35 @@ export function normalizeApplicationRecord(id: string, application: AnyRecord, w
   const workerName = pickFirstNonEmptyString(
     application.workerName,
     application.applicantName,
+    application.name,
     worker?.fullName,
     application.workerId
   );
 
   const workerPhone = pickFirstNonEmptyString(
     application.workerPhone,
+    application.applicantPhone,
+    application.contactPhone,
+    application.phoneNumber,
+    application.phone,
     worker?.phone
   );
 
   const workerEmail = pickFirstNonEmptyString(
     application.workerEmail,
+    application.applicantEmail,
+    application.contactEmail,
+    application.email,
     worker?.email
   );
 
-  const jobTitle = pickFirstNonEmptyString(application.jobTitle, application.title);
+  const jobTitle = pickFirstNonEmptyString(
+    application.jobTitle,
+    application.title,
+    application.jobName,
+    application.roleTitle,
+    application.role
+  );
 
   const status = normalizeApplicationStatusText(application.status);
 
@@ -241,6 +255,12 @@ export function normalizeApplicationRecord(id: string, application: AnyRecord, w
     workerEmail,
     jobTitle,
     status,
-    appliedAt: application.appliedAt ?? application.createdAt ?? application.updatedAt
+    appliedAt:
+      application.appliedAt ??
+      application.createdAt ??
+      application.timestamp ??
+      application.updatedAt ??
+      application.created_at ??
+      application.date
   } satisfies NormalizedApplication;
 }

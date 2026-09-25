@@ -753,12 +753,11 @@ fun RoleSelectionWithNavigation(
                     }
                 }
             } else {
-                // Guest mode: route directly to the selected role's home screen
-                val targetRole = if (role == "EMPLOYER") com.example.dutype.models.UserRole.EMPLOYER else com.example.dutype.models.UserRole.WORKER
-                val targetHome = if (targetRole == com.example.dutype.models.UserRole.EMPLOYER) Routes.EMPLOYER_HOME else Routes.WORKER_HOME
-                Timber.i("Guest mode: navigating to $targetHome")
-                navController.navigate(targetHome) {
-                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                // Navigate to Login screen with selected role (Guest mode removed)
+                val loginRoute = "${Routes.ENHANCED_LOGIN}?role=$role"
+                Timber.i("Unauthenticated user selected $role -> navigating to $loginRoute")
+                navController.navigate(loginRoute) {
+                    popUpTo(Routes.SELECT_ROLE) { inclusive = false }
                     launchSingleTop = true
                 }
             }
@@ -772,14 +771,13 @@ fun RoleSelectionWithNavigation(
     SelectRoleScreen(
         navController = navController,
         onRoleSelected = { role ->
-            val targetRole = if (role == "EMPLOYER") com.example.dutype.models.UserRole.EMPLOYER else com.example.dutype.models.UserRole.WORKER
-            val targetHome = if (targetRole == com.example.dutype.models.UserRole.EMPLOYER) Routes.EMPLOYER_HOME else Routes.WORKER_HOME
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser == null) {
-                // Guest mode: navigate directly to Home
-                Timber.i("Guest selected $role -> routing directly to $targetHome")
-                navController.navigate(targetHome) {
-                    popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                // Guest mode removed: navigate directly to Login screen
+                val loginRoute = "${Routes.ENHANCED_LOGIN}?role=$role"
+                Timber.i("Unauthenticated user selected $role -> routing to $loginRoute")
+                navController.navigate(loginRoute) {
+                    popUpTo(Routes.SELECT_ROLE) { inclusive = false }
                     launchSingleTop = true
                 }
             } else {

@@ -30,6 +30,7 @@ import dagger.hilt.components.SingletonComponent
 interface ComposeServiceEntryPoint {
     fun birthdayService(): BirthdayService
     fun inAppReviewTriggerService(): InAppReviewTriggerService
+    fun inAppReviewManager(): com.example.dutype.utils.InAppReviewManager
     fun deepLinkBus(): com.example.dutype.navigation.DeepLinkBus
 
     companion object {

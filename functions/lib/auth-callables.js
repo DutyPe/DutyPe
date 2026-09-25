@@ -25,6 +25,7 @@ const secure_callable_1 = require("./secure-callable");
 const idempotency_1 = require("./idempotency");
 const validation_1 = require("./validation");
 const job_notification_card_1 = require("./job-notification-card");
+const referral_system_1 = require("./referral-system");
 const db = () => admin.firestore();
 const VALID_ROLES = ["WORKER", "EMPLOYER"];
 // ────────────────────────────────────────────────────────────────────────
@@ -280,16 +281,75 @@ function scoreWorkerForJob(workerId, worker, job, details, isAvailableNow = fals
     }
     return { score: Math.max(0, Math.min(100, Math.round(score))), reasons: reasons.slice(0, 4), distance: dist };
 }
+function encodeGeohash(lat, lng, precision = 4) {
+    const BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
+    let minLat = -90, maxLat = 90;
+    let minLng = -180, maxLng = 180;
+    let hash = "";
+    let isEven = true;
+    let bit = 0;
+    let ch = 0;
+    while (hash.length < precision) {
+        if (isEven) {
+            const mid = (minLng + maxLng) / 2;
+            if (lng > mid) {
+                ch |= (1 << (4 - bit));
+                minLng = mid;
+            }
+            else {
+                maxLng = mid;
+            }
+        }
+        else {
+            const mid = (minLat + maxLat) / 2;
+            if (lat > mid) {
+                ch |= (1 << (4 - bit));
+                minLat = mid;
+            }
+            else {
+                maxLat = mid;
+            }
+        }
+        isEven = !isEven;
+        if (bit < 4) {
+            bit++;
+        }
+        else {
+            hash += BASE32[ch];
+            bit = 0;
+            ch = 0;
+        }
+    }
+    return hash;
+}
 async function loadOwnedJob(uid, jobId) {
-    const [jobSnap, detailSnap] = await Promise.all([
+    const [jobSnap, detailSnap, rawJobSnap, instantSnap] = await Promise.all([
         db().collection("jobmetadata").doc(jobId).get(),
         db().collection("job_details").doc(jobId).get(),
+        db().collection("jobs").doc(jobId).get(),
+        db().collection("instant_requests").doc(jobId).get(),
     ]);
-    if (!jobSnap.exists) {
+    let job = {};
+    let details = {};
+    if (jobSnap.exists) {
+        job = (jobSnap.data() || {});
+        details = (detailSnap.data() || {});
+    }
+    else if (rawJobSnap.exists) {
+        job = (rawJobSnap.data() || {});
+        details = (detailSnap.data() || {});
+    }
+    else if (instantSnap.exists) {
+        job = (instantSnap.data() || {});
+        details = {
+            description: job.description || "",
+            jobType: job.category || job.title || "",
+            employerId: job.employerId || "",
+        };
+    }
+    else {
         throw new functions.https.HttpsError("not-found", "Job not found");
     }
-    const job = (jobSnap.data() || {});
-    const details = (detailSnap.data() || {});
     const employerId = String(job.employerId || details.employerId || "");
     if (employerId !== uid) {
         throw new functions.https.HttpsError("permission-denied", "Caller does not own this job");
@@ -309,11 +369,42 @@ async function writeNotification(recipientId, title, message, type, targetRole, 
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 }
+function generateRandomReferralCode() {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let suffix = "";
+    for (let i = 0; i < 4; i++) {
+        suffix += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+    }
+    return `DUTY${suffix}`;
+}
 async function fireAndForgetReferral(uid, role, fullName, referralCode) {
     // Best-effort post-registration referral application. Failure here must
     // not break registration; the existing applyReferralCode callable will
     // also be invoked by the client as a fallback.
     try {
+        const normalizedCode = referralCode.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+        if (!normalizedCode)
+            return;
+        // Self-heal referrer code in referral_codes if missing but present in users
+        let codeDoc = await db().collection("referral_codes").doc(normalizedCode).get();
+        if (!codeDoc.exists) {
+            const uSnap = await db().collection("users").where("referralCode", "==", normalizedCode).limit(1).get();
+            if (!uSnap.empty) {
+                const u = uSnap.docs[0];
+                const uData = u.data();
+                await db().collection("referral_codes").doc(normalizedCode).set({
+                    code: normalizedCode,
+                    userId: u.id,
+                    userRole: uData.activeRole || uData.role || "WORKER",
+                    userName: uData.fullName || uData.name || uData.companyName || "DutyPe User",
+                    isActive: true,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    totalUsed: 0,
+                    successfulReferrals: 0,
+                }, { merge: true });
+                codeDoc = await db().collection("referral_codes").doc(normalizedCode).get();
+            }
+        }
         await db()
             .collection("pending_referral_applications")
             .doc(uid)
@@ -321,9 +412,9 @@ async function fireAndForgetReferral(uid, role, fullName, referralCode) {
             uid,
             role,
             fullName,
-            referralCode,
+            referralCode: normalizedCode,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            status: "queued",
+            status: codeDoc.exists ? "ready" : "queued",
         });
     }
     catch (e) {
@@ -343,7 +434,7 @@ function alreadyExistedToEvent(alreadyExisted, _role) {
 //     EMPLOYER, please log in as employer" toast instead of silently merging.
 //   • On success, write the extended snapshot {phone, uid, role, name, createdAt}.
 exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (data, context) => {
-    var _a;
+    var _a, _b;
     const uid = context.auth.uid;
     const phoneE164 = normalizePhoneE164((_a = context.auth.token) === null || _a === void 0 ? void 0 : _a.phone_number);
     const fullName = (0, validation_1.validateString)(data === null || data === void 0 ? void 0 : data.fullName, "fullName", {
@@ -400,8 +491,46 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (d
         };
         if (role === "EMPLOYER")
             profileData.companyName = existing.companyName || fullName;
-        if (existing.referralCode)
-            profileData.referralCode = existing.referralCode;
+        let userReferralCode = existing.referralCode;
+        if (!userReferralCode) {
+            userReferralCode = generateRandomReferralCode();
+            tx.set(db().collection("referral_codes").doc(userReferralCode), {
+                code: userReferralCode,
+                userId: uid,
+                userRole: role,
+                userName: profileData.fullName || "DutyPe User",
+                isActive: true,
+                createdAt: now,
+                totalUsed: 0,
+                successfulReferrals: 0,
+            }, { merge: true });
+            tx.set(db().collection("referral_stats").doc(uid), {
+                userId: uid,
+                userRole: role,
+                referralCode: userReferralCode,
+                totalReferrals: 0,
+                successfulReferrals: 0,
+                pendingReferrals: 0,
+                expiredReferrals: 0,
+                rejectedReferrals: 0,
+                totalEarnings: 0,
+                pendingEarnings: 0,
+                withdrawnAmount: 0,
+                availableBalance: 0,
+                canWithdraw: false,
+                nextMilestone: 5,
+                currentTier: "BRONZE",
+                freeJobPostings: 0,
+                freeJobPostingsExpiry: null,
+                signupBonusReceived: false,
+                signupBonusAmount: 0,
+                totalWithdrawals: 0,
+                isBlocked: false,
+                blockReason: null,
+                lastUpdated: now,
+            }, { merge: true });
+        }
+        profileData.referralCode = userReferralCode;
         if (referralCode && !existing.referredByCode) {
             profileData.referredByCode = referralCode;
         }
@@ -425,6 +554,20 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (d
         return { alreadyExisted };
     });
     if (referralCode) {
+        try {
+            const applyRes = await (0, referral_system_1.executeReferralApplication)({
+                newUserId: uid,
+                referralCode,
+                newUserRole: role,
+                newUserName: fullName,
+                newUserPhone: phoneE164,
+                ipAddress: ((_b = context.rawRequest) === null || _b === void 0 ? void 0 : _b.ip) || "unknown",
+            });
+            functions.logger.info("completeRegistration: referral applied instantly for " + uid, applyRes);
+        }
+        catch (refErr) {
+            functions.logger.warn("completeRegistration: instant referral apply failed (fallback will run)", refErr);
+        }
         await fireAndForgetReferral(uid, role, fullName, referralCode);
     }
     const out = {
@@ -616,24 +759,40 @@ exports.matchWorkersForJob = (0, secure_callable_1.onCallSecured)({ timeoutSecon
         const request = doc.data();
         requestByWorker.set(String(request.workerId || ""), Object.assign(Object.assign({}, request), { requestId: doc.id }));
     });
-    let workersSnap;
-    try {
-        workersSnap = await db()
-            .collection("worker_profiles")
-            .where("role", "==", "WORKER")
-            .limit(500)
-            .get();
-        if (workersSnap.empty) {
-            workersSnap = await db().collection("worker_profiles").limit(500).get();
+    const jobLoc = readRecordLocation(job);
+    const jobGeohash = String(job.geohash || (jobLoc ? encodeGeohash(jobLoc.lat, jobLoc.lng, 4) : ""));
+    const geohashPrefix = jobGeohash.slice(0, 3);
+    const workerDocsMap = new Map();
+    if (geohashPrefix) {
+        try {
+            const geoSnap = await db()
+                .collection("worker_profiles")
+                .where("geohash", ">=", geohashPrefix)
+                .where("geohash", "<=", geohashPrefix + "\uf8ff")
+                .limit(100)
+                .get();
+            geoSnap.docs.forEach((doc) => workerDocsMap.set(doc.id, doc));
+        }
+        catch (e) {
+            functions.logger.warn("matchWorkersForJob geohash query failed, falling back", e);
         }
     }
-    catch (e) {
-        functions.logger.warn("matchWorkersForJob role query failed, falling back", e);
-        workersSnap = await db().collection("worker_profiles").limit(500).get();
+    if (workerDocsMap.size < 40) {
+        try {
+            const generalSnap = await db()
+                .collection("worker_profiles")
+                .limit(200)
+                .get();
+            generalSnap.docs.forEach((doc) => workerDocsMap.set(doc.id, doc));
+        }
+        catch (e) {
+            functions.logger.warn("matchWorkersForJob general query failed", e);
+        }
     }
+    const workerDocs = Array.from(workerDocsMap.values());
     const nowMs = Date.now();
-    const availabilityByWorker = await loadWorkerAvailabilityMap(workersSnap.docs.map((doc) => doc.id));
-    const rankedWorkers = workersSnap.docs
+    const availabilityByWorker = await loadWorkerAvailabilityMap(workerDocs.map((doc) => doc.id));
+    const rankedWorkers = workerDocs
         .map((doc) => {
         var _a, _b, _c, _d, _e, _f, _g;
         const worker = (doc.data() || {});
@@ -662,11 +821,26 @@ exports.matchWorkersForJob = (0, secure_callable_1.onCallSecured)({ timeoutSecon
     })
         .sort((a, b) => {
         var _a, _b;
-        if (b.matchScore !== a.matchScore)
+        const aDist = (_a = a.distanceKm) !== null && _a !== void 0 ? _a : 9999;
+        const bDist = (_b = b.distanceKm) !== null && _b !== void 0 ? _b : 9999;
+        // Band 0: <= 10km (hyperlocal / walking / bike distance)
+        // Band 1: <= 25km (local commute)
+        // Band 2: <= 50km (regional)
+        // Band 3: > 50km (far)
+        const aBand = aDist <= 10 ? 0 : aDist <= 25 ? 1 : aDist <= 50 ? 2 : 3;
+        const bBand = bDist <= 10 ? 0 : bDist <= 25 ? 1 : bDist <= 50 ? 2 : 3;
+        if (aBand !== bBand) {
+            return aBand - bBand;
+        }
+        // Within same distance band, closer distance is primary if difference > 2km
+        if (Math.abs(aDist - bDist) > 2) {
+            return aDist - bDist;
+        }
+        // If distances are roughly equal (within 2km), rank by match score
+        if (b.matchScore !== a.matchScore) {
             return b.matchScore - a.matchScore;
-        const aDistance = (_a = a.distanceKm) !== null && _a !== void 0 ? _a : Number.MAX_SAFE_INTEGER;
-        const bDistance = (_b = b.distanceKm) !== null && _b !== void 0 ? _b : Number.MAX_SAFE_INTEGER;
-        return aDistance - bDistance;
+        }
+        return aDist - bDist;
     });
     const strongMatches = rankedWorkers.filter((worker) => worker.matchScore >= 20 || worker.requestStatus);
     const selectedWorkerIds = new Set(strongMatches.map((worker) => worker.workerId));

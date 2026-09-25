@@ -72,22 +72,12 @@ class AppStartupViewModel @Inject constructor(
                     return@launch
                 }
 
-                // 2. Check Role & Auth (Supports Guest Mode)
+                // 2. Check Role & Auth (Guest Mode removed)
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 val dataStoreRole = profileSetupStateManager.getUserRole()
 
                 if (currentUser == null) {
-                    // Guest user: If user already picked a role before, route directly to Home
-                    if (dataStoreRole == UserRole.WORKER) {
-                        Timber.d("🚀 AppStartupViewModel -> Guest WORKER_HOME")
-                        updateDestination(Routes.WORKER_HOME)
-                        return@launch
-                    } else if (dataStoreRole == UserRole.EMPLOYER) {
-                        Timber.d("🚀 AppStartupViewModel -> Guest EMPLOYER_HOME")
-                        updateDestination(Routes.EMPLOYER_HOME)
-                        return@launch
-                    }
-                    Timber.d("🚀 AppStartupViewModel -> SELECT_ROLE")
+                    Timber.d("🚀 AppStartupViewModel -> SELECT_ROLE (User not authenticated)")
                     updateDestination(Routes.SELECT_ROLE)
                     return@launch
                 }

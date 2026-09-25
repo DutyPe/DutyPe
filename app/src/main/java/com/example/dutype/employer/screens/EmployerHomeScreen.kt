@@ -45,6 +45,9 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
+import android.net.Uri
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.AlertDialog
@@ -154,6 +157,9 @@ import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.utils.appVersionInfo
 import com.example.dutype.viewmodels.AppConfigViewModel
 import com.example.dutype.utils.JobEditPolicy
+import com.example.dutype.utils.findActivity
+import com.example.dutype.di.rememberInAppReviewTriggerService
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -195,6 +201,7 @@ fun EmployerHomeScreen(
     // Announcement ViewModel for in-app announcements
     val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
     val announcements by announcementViewModel.announcements.collectAsStateWithLifecycle()
+    val reviewTriggerService = rememberInAppReviewTriggerService()
     
     // Unread notification count for badge (lightweight - only count, not full notifications)
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
@@ -258,6 +265,9 @@ fun EmployerHomeScreen(
                     val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                     if (user != null && !user.isAnonymous) {
                         profileCompletionViewModel.metadataManager.userMetadata.refresh(com.example.dutype.models.UserRole.EMPLOYER)
+                        viewModel.loadMyJobs()
+                        instantHelpViewModel.loadEmployerUrgentNeeds()
+                        applicationViewModel.loadEmployerApplications()
                     }
                 }
             }
@@ -265,6 +275,14 @@ fun EmployerHomeScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // Review prompt: Prompt employer to rate on Google Play after spending some active time (35 seconds)
+    LaunchedEffect(Unit) {
+        delay(35_000)
+        context.findActivity()?.let { activity ->
+            reviewTriggerService.onAppUsedForSomeTime(activity)
         }
     }
         
@@ -621,6 +639,46 @@ fun DashboardContent(
     var showNudgeStopCallsDialog by remember { mutableStateOf(false) }
     var pendingNudgeHiredApp by remember { mutableStateOf<com.example.dutype.models.JobApplication?>(null) }
 
+    val applicationsByJobId = remember(applicationUiState.applications) {
+        applicationUiState.applications.groupBy { it.jobId }
+    }
+    val uncontactedApplications = remember(applicationUiState.applications) {
+        applicationUiState.applications.filter { it.status == com.example.dutype.models.ApplicationStatus.APPLIED }
+    }
+    val totalUrgentResponses = remember(urgentResponsesByRequestId) {
+        urgentResponsesByRequestId.values.flatten()
+    }
+    val unacceptedUrgentResponses = remember(totalUrgentResponses) {
+        totalUrgentResponses.filter {
+            it.status.equals("pending", ignoreCase = true) ||
+            it.status.equals("applied", ignoreCase = true) ||
+            it.status.equals("interested", ignoreCase = true)
+        }
+    }
+    val totalPendingWorkers = uncontactedApplications.size + unacceptedUrgentResponses.size
+
+    fun openPhoneDialer(phone: String?) {
+        if (phone.isNullOrBlank()) {
+            android.widget.Toast.makeText(context, "Worker phone number not available", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        runCatching {
+            val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
+            context.startActivity(intent)
+        }.onFailure {
+            android.widget.Toast.makeText(context, "Unable to open phone dialer", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun handleHireWorker(application: com.example.dutype.models.JobApplication) {
+        applicationViewModel.updateApplicationStatus(
+            applicationId = application.id,
+            newStatus = com.example.dutype.models.ApplicationStatus.HIRED,
+            notes = "Hired directly from home screen"
+        )
+        android.widget.Toast.makeText(context, "🎉 ${application.workerName.ifBlank { "Worker" }} marked as Hired!", android.widget.Toast.LENGTH_SHORT).show()
+    }
+
     val recentNudgeCandidate = remember(applicationUiState.applications, dismissedNudgeApplicationId) {
         applicationUiState.applications
             .filter { it.status == com.example.dutype.models.ApplicationStatus.APPLIED && it.id != dismissedNudgeApplicationId }
@@ -650,10 +708,75 @@ fun DashboardContent(
                     onNotificationClick = onNotificationClick
                 )
             }
+
+            // Option 2: Proactive / Sticky Hiring Alert Banner for Tier 2/3 employers
+            if (totalPendingWorkers > 0) {
+                item(key = "hiring_alert_banner") {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val targetJobId = uncontactedApplications.firstOrNull()?.jobId
+                                if (targetJobId != null) {
+                                    navController.navigate(com.example.dutype.navigation.Routes.employerApplicationsJobRoute(targetJobId))
+                                } else {
+                                    val targetRequestId = unacceptedUrgentResponses.firstOrNull()?.requestId
+                                    if (targetRequestId != null) {
+                                        navController.navigate(com.example.dutype.navigation.Routes.employerUrgentNeedDetailRoute(targetRequestId))
+                                    }
+                                }
+                            },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF16A34A)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(Color.White.copy(alpha = 0.2f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Call,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "🎉 $totalPendingWorkers Workers Ready to Work!",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = Color.White
+                                )
+                                Text(
+                                    text = "Tap here to call workers directly & hire",
+                                    fontSize = 12.sp,
+                                    color = Color.White.copy(alpha = 0.9f)
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
             if (recentNudgeCandidate != null) {
                 item {
                     CandidateHiringNudgeCard(
                         candidate = recentNudgeCandidate,
+                        onCallClick = { openPhoneDialer(recentNudgeCandidate.workerPhone) },
                         onHiredClick = {
                             pendingNudgeHiredApp = recentNudgeCandidate
                             showNudgeStopCallsDialog = true
@@ -970,7 +1093,10 @@ fun DashboardContent(
                     onTabSwitch = { /* No longer needed */ },
                     onShareJob = onShareJob,
                     context = context,
-                    applicationCountsByJobId = applicationCountsByJobId
+                    applicationCountsByJobId = applicationCountsByJobId,
+                    applicationsByJobId = applicationsByJobId,
+                    onCallWorker = { phone -> openPhoneDialer(phone) },
+                    onHireWorker = { app -> handleHireWorker(app) }
                 )
             }
 
@@ -1803,7 +1929,10 @@ fun RecentJobsSection(
     onTabSwitch: (Int) -> Unit,
     onShareJob: (String, String) -> Unit = { _, _ -> },
     context: android.content.Context,
-    applicationCountsByJobId: Map<String, Int> = emptyMap()
+    applicationCountsByJobId: Map<String, Int> = emptyMap(),
+    applicationsByJobId: Map<String, List<com.example.dutype.models.JobApplication>> = emptyMap(),
+    onCallWorker: (String) -> Unit = {},
+    onHireWorker: (com.example.dutype.models.JobApplication) -> Unit = {}
 ) {
     Column {
         Row(
@@ -1919,6 +2048,9 @@ fun RecentJobsSection(
                     
                     EmployerJobCard(
                         jobPosting = jobPosting,
+                        applications = applicationsByJobId[job.id].orEmpty(),
+                        onCallWorker = onCallWorker,
+                        onHireWorker = onHireWorker,
                         onEditClick = { jobId ->
                             try {
                                 Timber.d("EmployerHomeScreen - Edit clicked for job ID: $jobId")
@@ -2271,6 +2403,7 @@ fun ApplicationAnalyticsSection(
 @Composable
 fun CandidateHiringNudgeCard(
     candidate: com.example.dutype.models.JobApplication,
+    onCallClick: () -> Unit = {},
     onHiredClick: () -> Unit,
     onShortlistClick: () -> Unit,
     onRejectClick: () -> Unit,
@@ -2375,9 +2508,31 @@ fun CandidateHiringNudgeCard(
                 }
             }
 
+            // Primary Action: 1-Tap Direct Phone Call (Tier 2/3 optimized)
+            Button(
+                onClick = onCallClick,
+                modifier = Modifier.fillMaxWidth().height(44.dp),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Call,
+                    contentDescription = "Call",
+                    modifier = Modifier.size(18.dp),
+                    tint = Color.White
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "📞 Call ${candidate.workerName.ifBlank { "Worker" }} Now",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+
             Text(
-                text = "Did you hire this person?",
-                fontSize = 13.sp,
+                text = "Already spoke with ${candidate.workerName.ifBlank { "them" }}?",
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFF334155)
             )

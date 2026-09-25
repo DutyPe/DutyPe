@@ -230,11 +230,22 @@ class ProfileCompletionService @Inject constructor(
             
             var completion = 0
             
-            if (employerData["fullName"] != null && employerData["fullName"].toString().isNotBlank()) completion += 30
-            if (employerData["phone"] != null && employerData["phone"].toString().isNotBlank()) completion += 30
+            val isIndividual = (employerData["employerType"] as? String) == "INDIVIDUAL"
+            val hasFullName = employerData["fullName"] != null && employerData["fullName"].toString().isNotBlank()
+            val hasPhone = employerData["phone"] != null && employerData["phone"].toString().isNotBlank()
+            val hasCompanyName = employerData["companyName"] != null && employerData["companyName"].toString().isNotBlank()
 
-            // Strict employer profile fields
-            if (employerData["companyName"] != null && employerData["companyName"].toString().isNotBlank()) completion += 35
+            if (hasPhone) completion += 30
+
+            if (isIndividual) {
+                // Personal (Individual) employer: personal full name is the primary identity
+                if (hasFullName || hasCompanyName) completion += 65
+            } else {
+                // Company / Business employer:
+                if (hasFullName) completion += 30
+                if (hasCompanyName) completion += 35
+                else if (hasFullName) completion += 35 // Fallback if personal name was entered
+            }
 
             // Optional display field
             if (employerData["profileImageUrl"] != null && employerData["profileImageUrl"].toString().isNotBlank()) completion += 5
@@ -659,21 +670,27 @@ class ProfileCompletionService @Inject constructor(
 
             val email = (profileData["email"] as? String)?.trim()?.takeIf { it.isNotBlank() }
 
+            val isNewProfile = existingWorker.isEmpty()
             val workerProfile = mutableMapOf<String, Any>(
                 "userId" to currentUser.uid,
                 "fullName" to fullName,
                 "phone" to PhoneNumberUtils.normalize(phone),
                 "role" to "WORKER",
                 "updatedAt" to now,
-                "skills" to skills,
-                "isAvailable" to FieldValue.delete()
-                // Notes:
-                //  - `userId` removed: redundant with doc ID (no readers use the body field).
-                //  - `lastActiveAt` removed: profile freshness is tracked through `updatedAt`.
-                //  - `jobTypes` was a legacy duplicate of `skills`; readers already fall back via skills.
-                //  - rating / totalRatings / totalJobs are CF-only aggregates (never client-written).
-                //  - availability lives in worker_availability, not worker_profiles.
+                "skills" to skills
             )
+            if (isNewProfile) {
+                workerProfile["createdAt"] = now
+            }
+            if (existingWorker.containsKey("isAvailable")) {
+                workerProfile["isAvailable"] = FieldValue.delete()
+            }
+            // Notes:
+            //  - `userId` removed: redundant with doc ID (no readers use the body field).
+            //  - `lastActiveAt` removed: profile freshness is tracked through `updatedAt`.
+            //  - `jobTypes` was a legacy duplicate of `skills`; readers already fall back via skills.
+            //  - rating / totalRatings / totalJobs are CF-only aggregates (never client-written).
+            //  - availability lives in worker_availability, not worker_profiles.
             if (!address.isNullOrBlank()) {
                 workerProfile["address"] = address
             }
@@ -725,7 +742,29 @@ class ProfileCompletionService @Inject constructor(
                 )
             }
             
+            workerProfile["profileCompleted"] = true
+            workerProfile["isProfileComplete"] = true
             batch.set(workerRef, workerProfile, com.google.firebase.firestore.SetOptions.merge())
+
+            val userUpdates = mutableMapOf<String, Any>(
+                "userId" to currentUser.uid,
+                "fullName" to fullName,
+                "name" to fullName,
+                "phone" to PhoneNumberUtils.normalize(phone),
+                "role" to "WORKER",
+                "activeRole" to "WORKER",
+                "profileCompleted" to true,
+                "isProfileComplete" to true,
+                "updatedAt" to now
+            )
+            if (!profileImageUrl.isNullOrBlank()) {
+                userUpdates["profileImageUrl"] = profileImageUrl
+            }
+            batch.set(
+                firestore.collection("users").document(currentUser.uid),
+                userUpdates,
+                com.google.firebase.firestore.SetOptions.merge()
+            )
             batch.commit().await()
             
             Timber.d("🔍 ProfileCompletionService.saveWorkerProfileData - Saved profile data: ${profileData.keys}")
@@ -820,6 +859,7 @@ class ProfileCompletionService @Inject constructor(
             }
 
             if (isNewProfile) {
+                employerProfile["createdAt"] = now
                 // Grant NONE subscription on new employer registration
                 employerProfile["subscription"] = mapOf(
                     "status" to "NONE",
@@ -836,29 +876,44 @@ class ProfileCompletionService @Inject constructor(
             }
 
             val batch = firestore.batch()
-            batch.set(
-                firestore.collection(COLLECTION_PHONE_ROLES).document(PhoneNumberUtils.normalize(phone)),
-                mapOf(
-                    "phoneNumber" to PhoneNumberUtils.normalize(phone),
-                    "role" to "EMPLOYER",
-                    "employerType" to employerType,
-                    "name" to fullName,
-                    "uid" to currentUser.uid,
-                    "updatedAt" to now
-                ),
-                com.google.firebase.firestore.SetOptions.merge()
+            val authPhone = currentUser.phoneNumber?.trim()?.takeIf { it.isNotBlank() }
+            if (authPhone != null) {
+                batch.set(
+                    firestore.collection(COLLECTION_PHONE_ROLES).document(PhoneNumberUtils.normalize(authPhone)),
+                    mapOf(
+                        "phoneNumber" to PhoneNumberUtils.normalize(authPhone),
+                        "role" to "EMPLOYER",
+                        "employerType" to employerType,
+                        "name" to fullName,
+                        "uid" to currentUser.uid,
+                        "updatedAt" to now
+                    ),
+                    com.google.firebase.firestore.SetOptions.merge()
+                )
+            }
+            val userUpdates = mutableMapOf<String, Any>(
+                "userId" to currentUser.uid,
+                "employerType" to employerType,
+                "companyName" to companyName,
+                "fullName" to fullName,
+                "name" to fullName,
+                "phone" to PhoneNumberUtils.normalize(phone),
+                "role" to "EMPLOYER",
+                "activeRole" to "EMPLOYER",
+                "profileCompleted" to true,
+                "isProfileComplete" to true,
+                "updatedAt" to now
             )
+            if (!profileImageUrl.isNullOrBlank()) {
+                userUpdates["profileImageUrl"] = profileImageUrl
+            }
             batch.set(
                 firestore.collection("users").document(currentUser.uid),
-                mapOf(
-                    "employerType" to employerType,
-                    "companyName" to companyName,
-                    "fullName" to fullName,
-                    "role" to "EMPLOYER",
-                    "updatedAt" to now
-                ),
+                userUpdates,
                 com.google.firebase.firestore.SetOptions.merge()
             )
+            employerProfile["profileCompleted"] = true
+            employerProfile["isProfileComplete"] = true
             batch.set(employerRef, employerProfile, com.google.firebase.firestore.SetOptions.merge())
             batch.commit().await()
             
@@ -882,6 +937,7 @@ class ProfileCompletionService @Inject constructor(
             (phoneRoleData["phoneNumber"] as? String)?.takeIf { it.isNotBlank() }?.let { merged["phone"] = merged["phone"] ?: it }
             (phoneRoleData["name"] as? String)?.takeIf { it.isNotBlank() }?.let { merged["fullName"] = merged["fullName"] ?: it }
             merged["role"] = merged["role"] ?: "EMPLOYER"
+            merged["employerType"] = (merged["employerType"] as? String)?.takeIf { it.isNotBlank() } ?: "COMPANY"
             
             // SECURITY FIX: Don't log sensitive data
             Timber.d("🔍 ProfileCompletionService.getEmployerProfileData - keys: ${merged.keys}")
@@ -1097,9 +1153,10 @@ class ProfileCompletionService @Inject constructor(
             } else {
                 // Check for missing employer fields (target schema only)
                 val employerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(userId).get().await().data.orEmpty()
+                val isIndividual = (employerData["employerType"] as? String) == "INDIVIDUAL"
                 if (employerData["fullName"] == null || employerData["fullName"].toString().isBlank())
                     missingFields.add("Full Name")
-                if (employerData["companyName"] == null || employerData["companyName"].toString().isBlank()) 
+                if (!isIndividual && (employerData["companyName"] == null || employerData["companyName"].toString().isBlank())) 
                     missingFields.add("Company Name")
                 if (employerData["phone"] == null || employerData["phone"].toString().isBlank())
                     missingFields.add("Phone Number")

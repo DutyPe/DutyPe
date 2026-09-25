@@ -10,7 +10,13 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -27,10 +33,42 @@ class InAppReviewManager @Inject constructor(
         private val KEY_REVIEW_DISMISSED_COUNT = longPreferencesKey("review_dismissed_count")
         private val KEY_POSITIVE_ACTIONS_COUNT = longPreferencesKey("positive_actions_count")
 
-        private const val MIN_DAYS_BETWEEN_REQUESTS = 30
-        private const val MAX_DISMISS_COUNT = 5
+        private const val MIN_HOURS_BETWEEN_REQUESTS = 24L
+        private const val MAX_DISMISS_COUNT = 10
 
         const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.dutype.app"
+    }
+
+    private val _showRatingPromptFlow = MutableStateFlow(false)
+    val showRatingPromptFlow: StateFlow<Boolean> = _showRatingPromptFlow.asStateFlow()
+
+    fun triggerRatingPrompt(activity: Activity? = null, force: Boolean = false) {
+        CoroutineScope(Dispatchers.Main).launch {
+            if (force || shouldShowReviewPrompt()) {
+                _showRatingPromptFlow.value = true
+                if (activity != null) {
+                    requestInAppReview(activity, force = false)
+                }
+            }
+        }
+    }
+
+    fun dismissRatingPrompt() {
+        _showRatingPromptFlow.value = false
+        CoroutineScope(Dispatchers.IO).launch {
+            trackDismissal()
+        }
+    }
+
+    fun rateOnPlayStore(context: Context) {
+        _showRatingPromptFlow.value = false
+        CoroutineScope(Dispatchers.IO).launch {
+            context.reviewDataStore.edit { prefs ->
+                prefs[KEY_HAS_RATED] = true
+                prefs[KEY_LAST_REVIEW_REQUEST] = System.currentTimeMillis()
+            }
+        }
+        openPlayStore(context)
     }
 
     suspend fun trackPositiveAction() {
@@ -43,6 +81,9 @@ class InAppReviewManager @Inject constructor(
 
     suspend fun shouldShowReviewPrompt(): Boolean {
         val prefs = context.reviewDataStore.data.first()
+        val hasRated = prefs[KEY_HAS_RATED] ?: false
+        if (hasRated) return false
+
         val dismissCount = prefs[KEY_REVIEW_DISMISSED_COUNT] ?: 0
         if (dismissCount >= MAX_DISMISS_COUNT) return false
 
@@ -50,8 +91,8 @@ class InAppReviewManager @Inject constructor(
         if (lastRequest == 0L) {
             return true
         }
-        val daysSinceLastRequest = (System.currentTimeMillis() - lastRequest) / (1000 * 60 * 60 * 24)
-        return daysSinceLastRequest >= MIN_DAYS_BETWEEN_REQUESTS
+        val hoursSinceLastRequest = (System.currentTimeMillis() - lastRequest) / (1000 * 60 * 60)
+        return hoursSinceLastRequest >= MIN_HOURS_BETWEEN_REQUESTS
     }
 
     suspend fun requestInAppReview(activity: Activity, force: Boolean = false) {
@@ -79,7 +120,6 @@ class InAppReviewManager @Inject constructor(
             }
             context.reviewDataStore.edit { prefs ->
                 prefs[KEY_LAST_REVIEW_REQUEST] = System.currentTimeMillis()
-                prefs[KEY_HAS_RATED] = true
             }
         } catch (e: Exception) {
             Timber.e(e, "Error launching in-app review")
@@ -121,6 +161,7 @@ class InAppReviewManager @Inject constructor(
         context.reviewDataStore.edit { prefs ->
             val current = prefs[KEY_REVIEW_DISMISSED_COUNT] ?: 0
             prefs[KEY_REVIEW_DISMISSED_COUNT] = current + 1
+            prefs[KEY_LAST_REVIEW_REQUEST] = System.currentTimeMillis()
         }
         Timber.d("Review dismissed")
     }
