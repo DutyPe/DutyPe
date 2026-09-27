@@ -215,8 +215,7 @@ fun PostJobScreen(
     var employerName by remember { mutableStateOf("") }
     var companyName by remember { mutableStateOf("") }
     var employerType by remember { mutableStateOf("COMPANY") }
-    var hasUserManuallySwitchedTab by remember { mutableStateOf(false) }
-    var postingMode by remember { mutableStateOf("vacancy") }
+
     
     // Enhanced fields for hyper-local jobs
     var workType by remember { mutableStateOf("Full-time") }
@@ -1290,29 +1289,23 @@ fun PostJobScreen(
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
-            // Apr 2026: stepper restored. Bottom bar morphs based on step:
-            // step 0   ? [Next]
-            // step 1   ? [Back] [Next]
-            // step 2   ? [Back] [Post job]
-            if (postingMode == "vacancy") {
-                Surface(
-                    modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-                    shadowElevation = 8.dp,
-                    color = EmployerColors.CardBackground
-                ) {
-                    Box(modifier = Modifier.padding(16.dp)) {
-                        Button(
-                            onClick = { attemptPublishJob() },
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                            enabled = publishEnabled && !employerJobUiState.isCreatingJob && !isSubmittingJob,
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
-                        ) {
-                            if (employerJobUiState.isCreatingJob || isSubmittingJob) {
-                                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
-                            } else {
-                                Text(stringResource(R.string.post_job), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            }
+            Surface(
+                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
+                shadowElevation = 8.dp,
+                color = EmployerColors.CardBackground
+            ) {
+                Box(modifier = Modifier.padding(16.dp)) {
+                    Button(
+                        onClick = { attemptPublishJob() },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        enabled = publishEnabled && !employerJobUiState.isCreatingJob && !isSubmittingJob,
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
+                    ) {
+                        if (employerJobUiState.isCreatingJob || isSubmittingJob) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
+                        } else {
+                            Text(stringResource(R.string.post_job), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                     }
                 }
@@ -1340,42 +1333,60 @@ fun PostJobScreen(
                     titleColor = EmployerColors.TextPrimary
                 )
 
-                PostingTypeTabs(
-                    selectedType = postingMode,
-                    isIndividual = employerType == "INDIVIDUAL",
-                    onVacancyClick = {
-                        hasUserManuallySwitchedTab = true
-                        postingMode = "vacancy"
-                        currentStep = 0
-                    },
-                    onUrgentNeedClick = {
-                        hasUserManuallySwitchedTab = true
-                        postingMode = "urgent"
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-
-                if (postingMode == "vacancy") {
-
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     state = listState,
                     contentPadding = PaddingValues(
-                        top = 0.dp,
+                        top = 8.dp,
                         start = 16.dp,
                         end = 16.dp,
                         bottom = 96.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
                     ),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    item {
-                        // Apr 2026: removed leading spacer so step content
-                        // starts right under the stepper instead of leaving
-                        // a tall empty band at the top.
+                    // Hero banner — quick summary of what this screen does
+                    item(key = "post_job_hero", contentType = "hero") {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            color = EmployerColors.Primary,
+                            tonalElevation = 0.dp
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Post a Job Vacancy",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Verified workers will apply directly",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.8f)
+                                    )
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color.White.copy(alpha = 0.18f)
+                                ) {
+                                    Text(
+                                        text = "📝 Draft auto-saved",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
 
-                    // Group 1: Job Details (title, work type, description, image) — STEP 0
+                    // Group 1: Job Details (title, work type, description, image)
                     item(key = "post_job_group_1", contentType = "form_group") {
                         StudioGroupCard(
                             stepNumber = 1,
@@ -1385,8 +1396,7 @@ fun PostJobScreen(
                             accentColor = EmployerColors.Primary
                         ) {
                                 Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth(),
+                                    modifier = Modifier.fillMaxWidth(),
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     EnhancedJobTitleSection(
@@ -1483,12 +1493,11 @@ fun PostJobScreen(
                                             Text(stringResource(R.string.add_description_photo_optional))
                                         }
                                     }
-                                    // Group 1 close
                                 }
                         }
                     }
 
-                    // Group 2: Pay & Location — STEP 1
+                    // Group 2: Pay & Location
                     item(key = "post_job_group_2", contentType = "form_group") {
                         StudioGroupCard(
                             stepNumber = 2,
@@ -1498,8 +1507,7 @@ fun PostJobScreen(
                             accentColor = EmployerColors.Success
                         ) {
                                 Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth(),
+                                    modifier = Modifier.fillMaxWidth(),
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     EnhancedLocationSection(
@@ -1540,16 +1548,8 @@ fun PostJobScreen(
                                         savedLocations = savedWorkLocations
                                     )
                                     Divider(color = EmployerColors.Border, thickness = 1.dp)
-                                    // Apr 2026: shift timing moved here from
-                                    // Step 3 so the employer sets pay AND
-                                    // shift in one place; Step 3 now focuses
-                                    // purely on candidate requirements + contact.
-                                    Column(
-                                        modifier = Modifier.padding(20.dp)
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
+                                    Column(modifier = Modifier.padding(20.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
                                             Box(
                                                 modifier = Modifier
                                                     .size(36.dp)
@@ -1581,12 +1581,11 @@ fun PostJobScreen(
                                             onCustomEndChange = { customShiftEnd = it }
                                         )
                                     }
-                                    // Group 2 close
                                 }
                         }
                     }
 
-                    // Group 3: People, Schedule & Perks — STEP 2
+                    // Group 3: Who You Want
                     item(key = "post_job_group_3", contentType = "form_group") {
                         StudioGroupCard(
                             stepNumber = 3,
@@ -1596,8 +1595,7 @@ fun PostJobScreen(
                             accentColor = Color(0xFFD946EF)
                         ) {
                                 Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth(),
+                                    modifier = Modifier.fillMaxWidth(),
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     VacanciesSection(
@@ -1635,12 +1633,11 @@ fun PostJobScreen(
                                             Text(stringResource(R.string.add_requirements_optional))
                                         }
                                     }
-                                    // Group 3 close
                                 }
                         }
                     }
 
-                    // Standalone: Contact details — STEP 2
+                    // Contact details
                     item(key = "post_job_contact_group", contentType = "form_group") {
                         ContactSection(
                             contactNumber = contactNumber,
@@ -1650,29 +1647,9 @@ fun PostJobScreen(
                         )
                     }
 
-                item {
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-                }
-                } else {
-                    PostUrgentNeedContent(
-                        viewModel = instantHelpViewModel,
-                        onPosted = { requestId ->
-                            navController.navigate(Routes.employerUrgentNeedDetailRoute(requestId)) {
-                                launchSingleTop = true
-                            }
-                        },
-                        onInsufficientCredits = {
-                            // Backend enforces the 3-free limit and subscription checks.
-                            false
-                        },
-                        contentPadding = PaddingValues(
-                            top = 6.dp,
-                            start = 16.dp,
-                            end = 16.dp,
-                            bottom = 24.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-                        )
-                    )
+                    item {
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
                 }
             }
         }
@@ -2488,14 +2465,61 @@ fun StudioGroupCard(
     accentColor: Color,
     content: @Composable () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        androidx.compose.runtime.CompositionLocalProvider(
-            com.example.dutype.employer.components.LocalSectionInGroup provides true
-        ) {
-            Column(
+    androidx.compose.material3.Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = com.example.dutype.ui.theme.EmployerColors.CardBackground,
+        shadowElevation = 2.dp,
+        tonalElevation = 0.dp
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            // ── Header row ──────────────────────────────────────────────────
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(com.example.dutype.ui.theme.EmployerColors.CardBackground)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Numbered circle badge
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .background(accentColor, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "$stepNumber",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                // Emoji icon
+                Text(text = icon, fontSize = 18.sp)
+                Spacer(Modifier.width(8.dp))
+                // Title + subtitle
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = com.example.dutype.ui.theme.EmployerColors.TextSecondary
+                    )
+                }
+            }
+            Divider(
+                color = com.example.dutype.ui.theme.EmployerColors.Border,
+                thickness = 1.dp
+            )
+            // ── Content (PolishedCards inside render flat) ──────────────────
+            androidx.compose.runtime.CompositionLocalProvider(
+                com.example.dutype.employer.components.LocalSectionInGroup provides true
             ) {
                 content()
             }
