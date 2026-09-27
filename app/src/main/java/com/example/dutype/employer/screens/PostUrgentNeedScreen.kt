@@ -1,26 +1,26 @@
 package com.example.dutype.employer.screens
 
-import com.dutype.app.R
 import android.Manifest
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,15 +28,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.example.dutype.components.CommonHeader
+import com.dutype.app.R
 import com.example.dutype.firestore.FirestoreCollections
 import com.example.dutype.models.QuickUrgentNeedInput
 import com.example.dutype.navigation.Routes
@@ -52,55 +55,52 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+
+private data class UrgentCategoryItem(
+    val id: String,
+    val title: String,
+    val subtitle: String,
+    val emoji: String,
+    val defaultPay: Int = 600
+)
+
+private val URGENT_CATEGORIES = listOf(
+    UrgentCategoryItem("loading_helper", "Loading Helper", "Godown & loading", "📦", 600),
+    UrgentCategoryItem("driver", "Driver", "Auto, tempo, car", "🚚", 700),
+    UrgentCategoryItem("cleaner", "Cleaner / Maid", "Shop & house clean", "🧹", 500),
+    UrgentCategoryItem("cook", "Cook", "Hotel & home cook", "🍳", 600),
+    UrgentCategoryItem("electrician", "Electrician", "Repair & wiring", "⚡", 800),
+    UrgentCategoryItem("other", "Other Work", "Specify manually", "➕", 600)
+)
 
 @Composable
 fun PostUrgentNeedScreen(
     navController: NavController,
     viewModel: InstantHelpViewModel = hiltViewModel()
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(EmployerColors.ScreenBackground)
-    ) {
-        CommonHeader(
-            title = stringResource(R.string.post_urgent_need_title),
-            navController = navController,
-            subtitle = stringResource(R.string.post_urgent_need_subtitle),
-            backgroundColor = EmployerColors.ScreenBackground,
-            titleColor = EmployerColors.TextPrimary,
-            subtitleColor = EmployerColors.TextSecondary
-        )
-
-        val context = LocalContext.current
-        val subscriptionViewModel: com.example.dutype.viewmodels.SubscriptionViewModel = hiltViewModel()
-        val employerSubscription by subscriptionViewModel.activeSubscription.collectAsStateWithLifecycle()
-
-        PostUrgentNeedContent(
-            viewModel = viewModel,
-            onPosted = { requestId ->
-                navController.navigate(Routes.employerUrgentNeedDetailRoute(requestId)) {
-                    popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
-                    launchSingleTop = true
-                }
-            },
-            onInsufficientCredits = {
-                false
+    PostUrgentNeedContent(
+        viewModel = viewModel,
+        onPosted = { requestId ->
+            navController.navigate(Routes.employerUrgentNeedDetailRoute(requestId)) {
+                popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                launchSingleTop = true
             }
-        )
-    }
+        },
+        showTopBar = true,
+        onBackClick = { navController.popBackStack() },
+        modifier = Modifier.fillMaxSize()
+    )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun PostUrgentNeedContent(
+fun PostUrgentNeedContent(
     viewModel: InstantHelpViewModel,
     onPosted: (String) -> Unit,
     onInsufficientCredits: () -> Boolean = { false },
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(16.dp),
-    showIntroCard: Boolean = true
+    showTopBar: Boolean = false,
+    onBackClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -108,36 +108,34 @@ internal fun PostUrgentNeedContent(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     // Form fields
-    val categories = stringArrayResource(R.array.urgent_work_categories).toList()
-    var selectedCategory by rememberSaveable { mutableStateOf(categories.first()) }
+    var selectedCategoryItem by rememberSaveable { mutableStateOf("loading_helper") }
     var otherCategory by rememberSaveable { mutableStateOf("") }
-    var categoryExpanded by rememberSaveable { mutableStateOf(false) }
 
-    val urgencyOptions = listOf(
-        "1_day" to "1 Day",
-        "2_days" to "2 Days",
-        "right_now" to "Right Now",
-        "custom" to "Select Date"
+    var urgencyType by rememberSaveable { mutableStateOf("right_now") }
+    var workersNeeded by rememberSaveable { mutableStateOf(2) }
+
+    val durationOptions = listOf(
+        "Half Day (4 hrs)",
+        "Full Day (8 hrs)",
+        "2-3 Days",
+        "1 Week",
+        "Monthly"
     )
-    var urgencyType by rememberSaveable { mutableStateOf("1_day") }
-    var scheduledAtMillis by rememberSaveable { mutableStateOf(0L) }
-    var showDatePicker by rememberSaveable { mutableStateOf(false) }
-    
-    var workersNeeded by rememberSaveable { mutableStateOf(1) }
-    
-    val durationOptions = stringArrayResource(R.array.urgent_work_durations).toList()
-    var selectedDuration by rememberSaveable { mutableStateOf(durationOptions.first()) }
+    var selectedDuration by rememberSaveable { mutableStateOf("Full Day (8 hrs)") }
     var durationExpanded by rememberSaveable { mutableStateOf(false) }
 
-    var perPersonPaymentText by rememberSaveable { mutableStateOf("") }
-    
+    var perPersonPaymentText by rememberSaveable { mutableStateOf("600") }
+
     var hasEmployerLocation by rememberSaveable { mutableStateOf(false) }
     var isAutoPickingLocation by rememberSaveable { mutableStateOf(false) }
     var urgentLocationError by rememberSaveable { mutableStateOf<String?>(null) }
-    
+
     var addressText by rememberSaveable { mutableStateOf("") }
     var notes by rememberSaveable { mutableStateOf("") }
     var contactNumber by rememberSaveable { mutableStateOf("") }
+
+    var showLocationDialog by rememberSaveable { mutableStateOf(false) }
+    var tempManualAddress by rememberSaveable { mutableStateOf("") }
 
     suspend fun refreshEmployerLocationState(): Boolean {
         val userId = FirebaseAuth.getInstance().currentUser?.uid
@@ -157,9 +155,14 @@ internal fun PostUrgentNeedContent(
         val longitude = (location?.get("lng") as? Number)?.toDouble() ?: 0.0
         val valid = GeoUtils.hasValidCoordinates(latitude, longitude)
         hasEmployerLocation = valid
-        
+
         if (addressText.isBlank()) {
-            addressText = snapshot?.getString("businessAddress").orEmpty()
+            val addr = snapshot?.getString("businessAddress")
+                ?: snapshot?.getString("address")
+                ?: ""
+            if (addr.isNotBlank()) {
+                addressText = addr
+            }
         }
         return valid
     }
@@ -182,6 +185,7 @@ internal fun PostUrgentNeedContent(
                 urgentLocationError = context.getString(R.string.worker_location_fetch_failed)
                 false
             } else {
+                val addr = locationInfo.getFullAddress()
                 val updateData = mutableMapOf<String, Any>(
                     "businessLocation" to mapOf(
                         "lat" to locationInfo.latitude,
@@ -190,12 +194,11 @@ internal fun PostUrgentNeedContent(
                     "geohash" to GeoUtils.encodeGeohash(locationInfo.latitude, locationInfo.longitude),
                     "updatedAt" to Timestamp.now()
                 )
-                if (addressText.isBlank()) {
-                    val addr = locationInfo.getFullAddress()
+                if (addr.isNotBlank()) {
                     updateData["businessAddress"] = addr
                     addressText = addr
                 }
-                
+
                 FirebaseFirestore.getInstance()
                     .collection(FirestoreCollections.EMPLOYER_PROFILES)
                     .document(userId)
@@ -218,7 +221,7 @@ internal fun PostUrgentNeedContent(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+                permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
         if (granted) {
             scope.launch { autoPickEmployerLocation() }
         } else {
@@ -253,231 +256,900 @@ internal fun PostUrgentNeedContent(
         }
     }
 
-    val effectiveCategory = if (selectedCategory == "Other") otherCategory.trim() else selectedCategory
-    val canPost = effectiveCategory.length >= 3 &&
-        contactNumber.isNotBlank() &&
-        hasEmployerLocation &&
-        !isAutoPickingLocation
+    val currentCategoryItem = URGENT_CATEGORIES.firstOrNull { it.id == selectedCategoryItem }
+        ?: URGENT_CATEGORIES.first()
+    val effectiveCategory = if (selectedCategoryItem == "other") {
+        otherCategory.trim().ifBlank { "General Helper" }
+    } else {
+        currentCategoryItem.title
+    }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = contentPadding,
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+    val canPost = (selectedCategoryItem != "other" || otherCategory.trim().length >= 2) &&
+            contactNumber.isNotBlank() &&
+            !isAutoPickingLocation
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8FAFC))
     ) {
-        // Section 1: Category
-        item {
-            UrgentNeedSectionCard(title = "What work do you need?") {
-                ExposedDropdownMenuBox(
-                    expanded = categoryExpanded,
-                    onExpandedChange = { categoryExpanded = !categoryExpanded },
-                    modifier = Modifier.fillMaxWidth()
+        // Top App Bar
+        if (showTopBar) {
+            Surface(
+                color = Color.White,
+                shadowElevation = 1.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .height(56.dp)
+                        .padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedTextField(
-                        value = selectedCategory,
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = categoryExpanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
-                        shape = RoundedCornerShape(14.dp)
-                    )
-                    ExposedDropdownMenu(
-                        expanded = categoryExpanded,
-                        onDismissRequest = { categoryExpanded = false }
-                    ) {
-                        categories.forEach { cat ->
-                            DropdownMenuItem(
-                                text = { Text(cat) },
-                                onClick = {
-                                    selectedCategory = cat
-                                    categoryExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-                
-                if (selectedCategory == "Other") {
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        value = otherCategory,
-                        onValueChange = { otherCategory = it },
-                        label = { Text("What work do you need?") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp)
-                    )
-                }
-            }
-        }
-
-        // Section 2: Timing
-        item {
-            UrgentNeedSectionCard(title = "When do you need them?") {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    urgencyOptions.forEach { option ->
-                        FilterChip(
-                            selected = urgencyType == option.first,
-                            onClick = { 
-                                urgencyType = option.first
-                                if (option.first == "custom") {
-                                    showDatePicker = true
-                                }
-                            },
-                            label = { Text(option.second) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = EmployerColors.WarningLight,
-                                selectedLabelColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFFFDE68A) else Color(0xFF78350F)
-                            )
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFF0F172A)
                         )
                     }
-                }
-                
-                if (urgencyType == "custom" && scheduledAtMillis > 0) {
-                    val dateStr = LocalDate.ofEpochDay(scheduledAtMillis / (24 * 60 * 60 * 1000L)).format(DateTimeFormatter.ofPattern("EEE, dd MMM yyyy"))
-                    Text("Selected Date: $dateStr", style = MaterialTheme.typography.bodyMedium, color = EmployerColors.Primary)
-                }
 
-                if (showDatePicker) {
-                    val datePickerState = rememberDatePickerState(
-                        initialSelectedDateMillis = if (scheduledAtMillis > 0) scheduledAtMillis else System.currentTimeMillis()
+                    Text(
+                        text = "Post Urgent Need",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A),
+                        modifier = Modifier.padding(start = 4.dp)
                     )
-                    DatePickerDialog(
-                        onDismissRequest = { showDatePicker = false },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                scheduledAtMillis = datePickerState.selectedDateMillis ?: 0L
-                                showDatePicker = false
-                            }) {
-                                Text("OK")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = {
-                                showDatePicker = false
-                                if (scheduledAtMillis == 0L) urgencyType = "right_now"
-                            }) {
-                                Text("Cancel")
-                            }
-                        }
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // ⚡ 2-Hour Match Pill Badge
+                    Surface(
+                        shape = RoundedCornerShape(50),
+                        color = Color(0xFFFEF2F2),
+                        border = BorderStroke(1.dp, Color(0xFFFECACA))
                     ) {
-                        DatePicker(state = datePickerState)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FlashOn,
+                                contentDescription = null,
+                                tint = Color(0xFFDC2626),
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = "2-Hour Match",
+                                color = Color(0xFFDC2626),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
         }
 
-        // Section 3 & 4: Workers and Duration
-        item {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                UrgentNeedSectionCard(title = "Workers", modifier = Modifier.weight(1f)) {
+        // Scrollable Body
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            contentPadding = PaddingValues(
+                start = 16.dp,
+                end = 16.dp,
+                top = 14.dp,
+                bottom = 20.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // 1. Urgency Hero Banner
+            item(key = "urgent_banner") {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFFFEF2F2),
+                    border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(Color(0xFFDC2626), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FlashOn,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Need Workers Immediately?",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF991B1B)
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Text(
+                                text = "Your requirement is broadcasted to verified workers within 5 km. Interested workers will call you directly.",
+                                fontSize = 11.5.sp,
+                                color = Color(0xFF7F1D1D),
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 2. Select Work Category
+            item(key = "work_category_section") {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = { if (workersNeeded > 1) workersNeeded-- }) {
-                            Icon(Icons.Default.Remove, contentDescription = "Decrease")
-                        }
                         Text(
-                            text = workersNeeded.toString(),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            text = "Select Work Category",
+                            fontSize = 14.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
                         )
-                        IconButton(onClick = { if (workersNeeded < 20) workersNeeded++ }) {
-                            Icon(Icons.Default.Add, contentDescription = "Increase")
+                        Text(
+                            text = "Tap to choose",
+                            fontSize = 12.sp,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+
+                    // 2-Column Grid (3 rows)
+                    for (i in URGENT_CATEGORIES.indices step 2) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            val item1 = URGENT_CATEGORIES[i]
+                            UrgentCategoryCard(
+                                item = item1,
+                                isSelected = selectedCategoryItem == item1.id,
+                                onClick = {
+                                    selectedCategoryItem = item1.id
+                                    perPersonPaymentText = item1.defaultPay.toString()
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            if (i + 1 < URGENT_CATEGORIES.size) {
+                                val item2 = URGENT_CATEGORIES[i + 1]
+                                UrgentCategoryCard(
+                                    item = item2,
+                                    isSelected = selectedCategoryItem == item2.id,
+                                    onClick = {
+                                        selectedCategoryItem = item2.id
+                                        perPersonPaymentText = item2.defaultPay.toString()
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            } else {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
                         }
                     }
-                }
-                
-                UrgentNeedSectionCard(title = "Duration", modifier = Modifier.weight(1.5f)) {
-                    ExposedDropdownMenuBox(
-                        expanded = durationExpanded,
-                        onExpandedChange = { durationExpanded = !durationExpanded },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
+
+                    // Manual input for "Other Work"
+                    if (selectedCategoryItem == "other") {
                         OutlinedTextField(
-                            value = selectedDuration,
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = durationExpanded) },
+                            value = otherCategory,
+                            onValueChange = { otherCategory = it },
+                            placeholder = {
+                                Text(
+                                    "Specify work (e.g. Plumber, Carpenter, Security)",
+                                    fontSize = 12.5.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .menuAnchor(),
-                            shape = RoundedCornerShape(14.dp)
+                                .padding(top = 4.dp),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFFDC2626),
+                                unfocusedBorderColor = Color(0xFFCBD5E1),
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White
+                            )
                         )
-                        ExposedDropdownMenu(
-                            expanded = durationExpanded,
-                            onDismissRequest = { durationExpanded = false }
+                    }
+                }
+            }
+
+            // 3. When do you need workers?
+            item(key = "timing_section") {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "When do you need workers?",
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Card 1: Right Now (with FASTEST badge)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(top = 6.dp)
                         ) {
-                            durationOptions.forEach { dur ->
-                                DropdownMenuItem(
-                                    text = { Text(dur) },
-                                    onClick = {
-                                        selectedDuration = dur
-                                        durationExpanded = false
-                                    }
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { urgencyType = "right_now" },
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (urgencyType == "right_now") Color(0xFFFEF2F2) else Color.White,
+                                border = BorderStroke(
+                                    if (urgencyType == "right_now") 1.5.dp else 1.dp,
+                                    if (urgencyType == "right_now") Color(0xFFEF4444) else Color(0xFFE2E8F0)
                                 )
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "Right Now",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (urgencyType == "right_now") Color(0xFFDC2626) else Color(0xFF0F172A)
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Within 2 hrs",
+                                        fontSize = 10.5.sp,
+                                        color = if (urgencyType == "right_now") Color(0xFF7F1D1D) else Color(0xFF64748B)
+                                    )
+                                }
+                            }
+                            Surface(
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .offset(y = (-6).dp),
+                                shape = RoundedCornerShape(4.dp),
+                                color = Color(0xFFDC2626)
+                            ) {
+                                Text(
+                                    text = "FASTEST",
+                                    color = Color.White,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+
+                        // Card 2: Today
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(top = 6.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { urgencyType = "today" },
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (urgencyType == "today") Color(0xFFFEF2F2) else Color.White,
+                                border = BorderStroke(
+                                    if (urgencyType == "today") 1.5.dp else 1.dp,
+                                    if (urgencyType == "today") Color(0xFFEF4444) else Color(0xFFE2E8F0)
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "Today",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (urgencyType == "today") Color(0xFFDC2626) else Color(0xFF0F172A)
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Later today",
+                                        fontSize = 10.5.sp,
+                                        color = if (urgencyType == "today") Color(0xFF7F1D1D) else Color(0xFF64748B)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Card 3: Tomorrow
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(top = 6.dp)
+                        ) {
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { urgencyType = "tomorrow" },
+                                shape = RoundedCornerShape(12.dp),
+                                color = if (urgencyType == "tomorrow") Color(0xFFFEF2F2) else Color.White,
+                                border = BorderStroke(
+                                    if (urgencyType == "tomorrow") 1.5.dp else 1.dp,
+                                    if (urgencyType == "tomorrow") Color(0xFFEF4444) else Color(0xFFE2E8F0)
+                                )
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "Tomorrow",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (urgencyType == "tomorrow") Color(0xFFDC2626) else Color(0xFF0F172A)
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Morning shift",
+                                        fontSize = 10.5.sp,
+                                        color = if (urgencyType == "tomorrow") Color(0xFF7F1D1D) else Color(0xFF64748B)
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-        }
 
-        // Section 5: Payment
-        item {
-            UrgentNeedSectionCard(title = "Payment") {
+            // 4. Workers Needed & Work Duration
+            item(key = "workers_duration_row") {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    OutlinedTextField(
-                        value = perPersonPaymentText,
-                        onValueChange = { value -> perPersonPaymentText = value.filter { it.isDigit() } },
-                        label = { Text("₹ per person") },
-                        modifier = Modifier.weight(1f),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        shape = RoundedCornerShape(14.dp)
-                    )
-                    
-                    val pp = perPersonPaymentText.toDoubleOrNull() ?: 0.0
-                    val total = pp * workersNeeded
-                    
+                    // Left Column: Workers Needed Stepper
                     Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(EmployerColors.PrimaryLight, RoundedCornerShape(14.dp))
-                            .padding(12.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text("Total Amount", style = MaterialTheme.typography.bodySmall, color = EmployerColors.TextSecondary)
                         Text(
-                            text = "₹${total.toInt()}",
-                            style = MaterialTheme.typography.titleMedium,
+                            text = "Workers Needed",
+                            fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold,
-                            color = EmployerColors.TextPrimary
+                            color = Color(0xFF0F172A)
+                        )
+
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .background(Color(0xFFF1F5F9), RoundedCornerShape(8.dp))
+                                        .clickable { if (workersNeeded > 1) workersNeeded-- },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("-", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF475569))
+                                }
+
+                                Text(
+                                    text = if (workersNeeded == 1) "1 Worker" else "$workersNeeded Workers",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF0F172A)
+                                )
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .background(Color(0xFFF1F5F9), RoundedCornerShape(8.dp))
+                                        .clickable { if (workersNeeded < 20) workersNeeded++ },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("+", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color(0xFF475569))
+                                }
+                            }
+                        }
+                    }
+
+                    // Right Column: Work Duration Dropdown
+                    Column(
+                        modifier = Modifier.weight(1.15f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Work Duration",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color.White,
+                                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                                    .clickable { durationExpanded = true }
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = selectedDuration,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color(0xFF0F172A),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowDown,
+                                        contentDescription = null,
+                                        tint = Color(0xFF64748B),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+
+                            DropdownMenu(
+                                expanded = durationExpanded,
+                                onDismissRequest = { durationExpanded = false }
+                            ) {
+                                durationOptions.forEach { dur ->
+                                    DropdownMenuItem(
+                                        text = { Text(dur, fontSize = 13.sp) },
+                                        onClick = {
+                                            selectedDuration = dur
+                                            durationExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 5. Pay per worker (Cash or UPI)
+            item(key = "payment_section") {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Pay per worker (Cash or UPI)",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+                        Text(
+                            text = "Standard APMC Rate",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF059669)
                         )
                     }
+
+                    // Main Rate Display Card
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "₹ ",
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF0F172A)
+                                )
+                                BasicTextField(
+                                    value = perPersonPaymentText,
+                                    onValueChange = { input ->
+                                        val digits = input.filter { it.isDigit() }.take(5)
+                                        perPersonPaymentText = digits
+                                    },
+                                    textStyle = TextStyle(
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF0F172A)
+                                    ),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    singleLine = true,
+                                    modifier = Modifier.width(110.dp)
+                                )
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Color(0xFFF1F5F9)
+                            ) {
+                                Text(
+                                    text = "per day / worker",
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                    fontSize = 11.5.sp,
+                                    color = Color(0xFF64748B),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+
+                    // Quick Suggestion Chips
+                    val paySuggestions = listOf(500, 600, 800, 1000)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        paySuggestions.forEach { amount ->
+                            val isSelected = perPersonPaymentText == amount.toString()
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { perPersonPaymentText = amount.toString() },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSelected) Color(0xFFFEF2F2) else Color.White,
+                                border = BorderStroke(
+                                    if (isSelected) 1.5.dp else 1.dp,
+                                    if (isSelected) Color(0xFFEF4444) else Color(0xFFE2E8F0)
+                                )
+                            ) {
+                                Box(
+                                    modifier = Modifier.padding(vertical = 9.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (amount == 1000) {
+                                            if (isSelected) "₹1,000 ✓" else "₹1,000"
+                                        } else {
+                                            if (isSelected) "₹$amount ✓" else "₹$amount"
+                                        },
+                                        fontSize = 12.5.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) Color(0xFFDC2626) else Color(0xFF64748B)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 6. Where should workers reach?
+            item(key = "reach_section") {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Where should workers reach?",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column {
+                            // Location Row
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(Color(0xFFFEF2F2), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.LocationOn,
+                                        contentDescription = null,
+                                        tint = Color(0xFFEF4444),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    val displayLine1 = addressText.substringBefore(",").trim().ifBlank {
+                                        if (hasEmployerLocation) "Current Worksite Location" else "Worksite Location"
+                                    }
+                                    val displayLine2 = addressText.substringAfter(",", "").trim().ifBlank {
+                                        if (hasEmployerLocation) "GPS Verified · Nearby Broadcast" else "Tap change to detect GPS or set address"
+                                    }
+                                    Text(
+                                        text = displayLine1,
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF0F172A),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = displayLine2,
+                                        fontSize = 11.5.sp,
+                                        color = Color(0xFF64748B),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Change",
+                                    color = Color(0xFF2563EB),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.clickable {
+                                        tempManualAddress = addressText
+                                        showLocationDialog = true
+                                    }
+                                )
+                            }
+
+                            HorizontalDivider(
+                                thickness = 1.dp,
+                                color = Color(0xFFF1F5F9),
+                                modifier = Modifier.padding(horizontal = 14.dp)
+                            )
+
+                            // Contact Row
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .background(Color(0xFFDCFCE7), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Phone,
+                                        contentDescription = null,
+                                        tint = Color(0xFF16A34A),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Workers will call directly on:",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF64748B)
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = contactNumber.ifBlank { "+91 98765 43210" },
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF0F172A)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFFDCFCE7),
+                                    border = BorderStroke(1.dp, Color(0xFF86EFAC))
+                                ) {
+                                    Text(
+                                        text = "Verified Owner",
+                                        fontSize = 10.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF15803D),
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.5.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Error display if any
+            if (!state.error.isNullOrBlank()) {
+                item(key = "error_msg") {
+                    Text(
+                        text = state.error ?: "",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.Error),
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
                 }
             }
         }
 
-        // Section 6 & 7: Location and Address
-        item {
-            UrgentNeedSectionCard(title = "Exact Address") {
-                if (!hasEmployerLocation) {
+        // Docked Bottom Action Bar (Trust Strip + Big Red CTA)
+        Surface(
+            color = Color.White,
+            shadowElevation = 8.dp,
+            border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Trust line
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF10B981),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Zero advance commission · Pay worker directly on completion",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF047857),
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Big Red CTA Button
+                Button(
+                    onClick = {
+                        val pp = perPersonPaymentText.toDoubleOrNull() ?: 600.0
+                        val total = pp * workersNeeded
+
+                        if (!hasEmployerLocation) {
+                            if (locationService.hasLocationPermission()) {
+                                scope.launch {
+                                    autoPickEmployerLocation()
+                                }
+                            } else {
+                                locationPermissionLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.ACCESS_FINE_LOCATION,
+                                        Manifest.permission.ACCESS_COARSE_LOCATION
+                                    )
+                                )
+                                return@Button
+                            }
+                        }
+
+                        val zone = ZoneId.systemDefault()
+                        val scheduledMillis = when (urgencyType) {
+                            "tomorrow" -> LocalDate.now(zone).plusDays(1).atTime(9, 0).atZone(zone).toInstant().toEpochMilli()
+                            "today" -> System.currentTimeMillis() + 24L * 60 * 60 * 1000L
+                            else -> 0L
+                        }
+
+                        viewModel.createUrgentNeed(
+                            QuickUrgentNeedInput(
+                                title = effectiveCategory,
+                                description = notes.ifBlank { "$effectiveCategory needed - $selectedDuration" },
+                                category = effectiveCategory,
+                                workersNeeded = workersNeeded,
+                                needType = if (urgencyType == "tomorrow") "scheduled" else "urgent_now",
+                                urgencyType = urgencyType,
+                                contactNumber = contactNumber,
+                                budgetText = "₹${pp.toInt()} per worker",
+                                perPersonPayment = pp,
+                                totalPayment = total,
+                                durationText = selectedDuration,
+                                addressText = addressText.ifBlank { "Worksite Location" },
+                                radiusKm = 10.0,
+                                scheduledAtMillis = scheduledMillis,
+                                scheduledAtLabel = when (urgencyType) {
+                                    "tomorrow" -> "Tomorrow"
+                                    "today" -> "Today"
+                                    else -> "Right Now"
+                                }
+                            )
+                        ) { requestId ->
+                            Toast.makeText(context, "Urgent need broadcasted!", Toast.LENGTH_SHORT).show()
+                            onPosted(requestId)
+                        }
+                    },
+                    enabled = !state.isPostingUrgentNeed && canPost,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFDC2626),
+                        disabledContainerColor = Color(0xFFFCA5A5)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                ) {
+                    if (state.isPostingUrgentNeed || isAutoPickingLocation) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
+                    Text(
+                        text = "Broadcast Urgent Need Now ⚡",
+                        fontSize = 15.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+    }
+
+    // Change Address Dialog
+    if (showLocationDialog) {
+        AlertDialog(
+            onDismissRequest = { showLocationDialog = false },
+            title = {
+                Text(
+                    text = "Worksite Location",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Button(
                         onClick = {
                             if (locationService.hasLocationPermission()) {
-                                scope.launch { autoPickEmployerLocation() }
+                                scope.launch {
+                                    autoPickEmployerLocation()
+                                    showLocationDialog = false
+                                }
                             } else {
                                 locationPermissionLauncher.launch(
                                     arrayOf(
@@ -487,176 +1159,118 @@ internal fun PostUrgentNeedContent(
                                 )
                             }
                         },
-                        enabled = !isAutoPickingLocation,
-                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        if (isAutoPickingLocation) {
-                            CircularProgressIndicator(modifier = Modifier.padding(end = 8.dp).size(20.dp), strokeWidth = 2.dp, color = Color.White)
-                        } else {
-                            Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                        }
-                        Text(text = stringResource(R.string.auto_use_current_location))
+                        Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Detect Current GPS Location")
                     }
-                    if (!urgentLocationError.isNullOrBlank()) {
-                        Text(
-                            text = urgentLocationError ?: "",
-                            style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Error)
-                        )
-                    }
-                } else {
+
+                    Text("Or enter manual address:", fontSize = 12.sp, color = Color(0xFF64748B))
+
                     OutlinedTextField(
-                        value = addressText,
-                        onValueChange = { addressText = it },
-                        placeholder = { Text("e.g. Near Bus Stand, House No 12-3") },
+                        value = tempManualAddress,
+                        onValueChange = { tempManualAddress = it },
+                        placeholder = { Text("e.g. APMC Market Yard, Gate 2, Hubli") },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2,
-                        shape = RoundedCornerShape(14.dp)
+                        shape = RoundedCornerShape(10.dp)
                     )
                 }
-            }
-        }
-
-        // Section 8: Description
-        item {
-            UrgentNeedSectionCard(title = "Description (Optional)") {
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { if (it.length <= 150) notes = it },
-                    placeholder = { Text("e.g. Need two helpers to shift furniture.") },
-                    modifier = Modifier.fillMaxWidth(),
-                    supportingText = { Text("${notes.length}/150") },
-                    shape = RoundedCornerShape(14.dp)
-                )
-            }
-        }
-
-        // Section 9: Contact Preference (Read only)
-        item {
-            UrgentNeedSectionCard(title = "Contact Preference") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Check, contentDescription = null, tint = EmployerColors.Success)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Call (Workers will call you directly)")
-                }
-            }
-        }
-
-        if (!state.error.isNullOrBlank()) {
-            item {
-                Text(
-                    text = state.error ?: "",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.Error),
-                    modifier = Modifier.padding(horizontal = 4.dp)
-                )
-            }
-        }
-
-        item {
-            Button(
-                onClick = {
-                    // Free Strategy: No credit check for Urgent Work
-                    val pp = perPersonPaymentText.toDoubleOrNull() ?: 0.0
-                    val total = pp * workersNeeded
-                    
-                    viewModel.createUrgentNeed(
-                        QuickUrgentNeedInput(
-                            title = effectiveCategory, // Use category as title for quick display
-                            description = notes,
-                            category = effectiveCategory,
-                            workersNeeded = workersNeeded,
-                            needType = if (urgencyType == "custom" || urgencyType == "tomorrow" || urgencyType == "2_days") "scheduled" else "urgent_now",
-                            urgencyType = urgencyType,
-                            contactNumber = contactNumber,
-                            budgetText = "₹${pp.toInt()} per person",
-                            perPersonPayment = pp,
-                            totalPayment = total,
-                            durationText = selectedDuration,
-                            addressText = addressText,
-                            radiusKm = 10.0,
-                            scheduledAtMillis = if (urgencyType == "tomorrow" || urgencyType == "2_days") {
-                                val zone = ZoneId.systemDefault()
-                                LocalDate.now(zone).plusDays(1).atTime(9, 0).atZone(zone).toInstant().toEpochMilli()
-                            } else if (urgencyType == "1_day" || urgencyType == "today") {
-                                System.currentTimeMillis() + 24L * 60 * 60 * 1000L
-                            } else if (urgencyType == "custom") {
-                                scheduledAtMillis
-                            } else 0L,
-                            scheduledAtLabel = when (urgencyType) {
-                                "2_days", "tomorrow" -> "2 Days"
-                                "1_day", "today" -> "1 Day"
-                                else -> ""
-                            }
-                        )
-                    ) { requestId ->
-                        Toast.makeText(context, "Urgent need posted", Toast.LENGTH_SHORT).show()
-                        onPosted(requestId)
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (tempManualAddress.isNotBlank()) {
+                            addressText = tempManualAddress.trim()
+                            hasEmployerLocation = true
+                        }
+                        showLocationDialog = false
                     }
-                },
-                enabled = !state.isPostingUrgentNeed && canPost,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
-            ) {
-                if (state.isPostingUrgentNeed) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.padding(end = 8.dp).size(24.dp),
-                        strokeWidth = 2.dp,
-                        color = Color.White
-                    )
+                ) {
+                    Text("Save Address", fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
                 }
-                Text("Post Urgent Need")
+            },
+            dismissButton = {
+                TextButton(onClick = { showLocationDialog = false }) {
+                    Text("Cancel", color = Color(0xFF64748B))
+                }
             }
-        }
-
-        item { Spacer(modifier = Modifier.height(24.dp)) }
+        )
     }
 }
 
 @Composable
-private fun UrgentNeedSectionCard(
-    title: String,
-    modifier: Modifier = Modifier,
-    content: @Composable ColumnScope.() -> Unit
+private fun UrgentCategoryCard(
+    item: UrgentCategoryItem,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    Surface(
+        modifier = modifier
+            .height(72.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        color = if (isSelected) Color(0xFFFEF2F2) else Color.White,
+        border = BorderStroke(
+            if (isSelected) 1.5.dp else 1.dp,
+            if (isSelected) Color(0xFFEF4444) else Color(0xFFE2E8F0)
+        )
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    color = EmployerColors.TextPrimary,
-                    fontWeight = FontWeight.Bold
-                )
+                text = item.emoji,
+                fontSize = 22.sp
             )
-            content()
-        }
-    }
-}
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun FlowRow(
-    modifier: Modifier = Modifier,
-    horizontalArrangement: Arrangement.Horizontal = Arrangement.Start,
-    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
-    content: @Composable () -> Unit
-) {
-    androidx.compose.foundation.layout.FlowRow(
-        modifier = modifier,
-        horizontalArrangement = horizontalArrangement,
-        verticalArrangement = verticalArrangement
-    ) {
-        content()
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = item.title,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isSelected) Color(0xFF991B1B) else Color(0xFF0F172A),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = item.subtitle,
+                    fontSize = 10.5.sp,
+                    color = if (isSelected) Color(0xFF7F1D1D) else Color(0xFF64748B),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (isSelected) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Box(
+                    modifier = Modifier
+                        .size(18.dp)
+                        .background(Color(0xFFDC2626), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
+            }
+        }
     }
 }
