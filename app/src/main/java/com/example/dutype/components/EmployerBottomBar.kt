@@ -30,6 +30,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PersonSearch
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -70,9 +73,43 @@ fun EmployerBottomBar(
         navigateTo(Routes.EMPLOYER_POST_JOB)
     }
 
-    val sideItems = listOf(
-        Triple(Routes.EMPLOYER_DASHBOARD, R.string.bottom_nav_home, Pair(R.drawable.ic_home_unfilled, R.drawable.ic_home_filled)),
-        Triple(Routes.EMPLOYER_PROFILE, R.string.profile, Pair(R.drawable.ic_person_unfilled, R.drawable.ic_person_filled))
+    data class EmployerNavTab(
+        val route: String,
+        val title: String,
+        val vernacular: String,
+        val iconResUnfilled: Int? = null,
+        val iconResFilled: Int? = null,
+        val vectorIcon: androidx.compose.ui.graphics.vector.ImageVector? = null
+    )
+
+    val navTabs = listOf(
+        EmployerNavTab(
+            route = Routes.EMPLOYER_DASHBOARD,
+            title = "Home",
+            vernacular = "होम",
+            iconResUnfilled = R.drawable.ic_home_unfilled,
+            iconResFilled = R.drawable.ic_home_filled
+        ),
+        EmployerNavTab(
+            route = Routes.EMPLOYER_MY_JOBS,
+            title = "My Jobs",
+            vernacular = "मेरे काम",
+            iconResUnfilled = R.drawable.myjobs,
+            iconResFilled = R.drawable.myjobs
+        ),
+        EmployerNavTab(
+            route = Routes.EMPLOYER_POST_JOB,
+            title = "Find Workers",
+            vernacular = "कारीगर खोजें",
+            vectorIcon = Icons.Default.PersonSearch
+        ),
+        EmployerNavTab(
+            route = Routes.EMPLOYER_PROFILE,
+            title = "Account",
+            vernacular = "खाता",
+            iconResUnfilled = R.drawable.ic_person_unfilled,
+            iconResFilled = R.drawable.ic_person_filled
+        )
     )
 
     Box(
@@ -80,7 +117,7 @@ fun EmployerBottomBar(
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = backgroundColor,
+            color = Color.White,
             shadowElevation = 0.dp,
             tonalElevation = 0.dp
         ) {
@@ -93,8 +130,8 @@ fun EmployerBottomBar(
                 Spacer(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(0.5.dp)
-                        .background(WorkerColors.Border)
+                        .height(1.dp)
+                        .background(Color(0xFFE2E8F0))
                 )
 
                 Row(
@@ -104,103 +141,55 @@ fun EmployerBottomBar(
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Home tab
-                    val homeItem = sideItems[0]
-                    EmployerBottomTab(
-                        route = homeItem.first,
-                        labelResId = homeItem.second,
-                        iconUnfilled = homeItem.third.first,
-                        iconFilled = homeItem.third.second,
-                        isSelected = currentRoute == homeItem.first,
-                        selectedItemColor = selectedItemColor,
-                        unselectedItemColor = unselectedItemColor,
-                        onClick = { navigateTo(homeItem.first) }
-                    )
-
-                    // Post Job tab — middle position
-                    val postSelected = currentRoute == Routes.EMPLOYER_POST_JOB
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = ::openPostJob
+                    navTabs.forEach { tab ->
+                        val isSelected = currentRoute == tab.route
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                    onClick = { navigateTo(tab.route) }
+                                )
+                        ) {
+                            if (tab.vectorIcon != null) {
+                                Icon(
+                                    imageVector = tab.vectorIcon,
+                                    contentDescription = tab.title,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = if (isSelected) Color(0xFF0F172A) else Color(0xFF64748B)
+                                )
+                            } else {
+                                val iconRes = if (isSelected) tab.iconResFilled ?: tab.iconResUnfilled!! else tab.iconResUnfilled!!
+                                Icon(
+                                    painter = painterResource(id = iconRes),
+                                    contentDescription = tab.title,
+                                    modifier = Modifier.size(22.dp),
+                                    tint = if (isSelected) Color(0xFF0F172A) else Color(0xFF64748B)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = tab.title,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium,
+                                color = if (isSelected) Color(0xFF0F172A) else Color(0xFF64748B),
+                                maxLines = 1
                             )
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.post_job),
-                            contentDescription = stringResource(id = R.string.bottom_nav_post),
-                            modifier = Modifier.size(IconSizes.Standard),
-                            tint = if (postSelected) selectedItemColor else unselectedItemColor
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = stringResource(id = R.string.bottom_nav_post),
-                            style = if (postSelected) AppTypography.bottomNavLabelSelected else AppTypography.bottomNavLabel,
-                            color = if (postSelected) selectedItemColor else unselectedItemColor,
-                            maxLines = 1
-                        )
+                            Text(
+                                text = tab.vernacular,
+                                fontSize = 9.5.sp,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
+                                color = if (isSelected) Color(0xFF0F172A) else Color(0xFF94A3B8),
+                                maxLines = 1
+                            )
+                        }
                     }
-
-                    // Profile tab
-                    val profileItem = sideItems[1]
-                    EmployerBottomTab(
-                        route = profileItem.first,
-                        labelResId = profileItem.second,
-                        iconUnfilled = profileItem.third.first,
-                        iconFilled = profileItem.third.second,
-                        isSelected = currentRoute == profileItem.first,
-                        selectedItemColor = selectedItemColor,
-                        unselectedItemColor = unselectedItemColor,
-                        onClick = { navigateTo(profileItem.first) }
-                    )
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun RowScope.EmployerBottomTab(
-    route: String,
-    labelResId: Int,
-    iconUnfilled: Int,
-    iconFilled: Int,
-    isSelected: Boolean,
-    selectedItemColor: Color,
-    unselectedItemColor: Color,
-    onClick: () -> Unit,
-) {
-    val label = stringResource(id = labelResId)
-    val iconRes = if (isSelected) iconFilled else iconUnfilled
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-        modifier = Modifier
-            .weight(1f)
-            .fillMaxHeight()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onClick
-            )
-    ) {
-        Icon(
-            painter = painterResource(id = iconRes),
-            contentDescription = label,
-            modifier = Modifier.size(IconSizes.Standard),
-            tint = if (isSelected) selectedItemColor else unselectedItemColor
-        )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = label,
-            style = if (isSelected) AppTypography.bottomNavLabelSelected else AppTypography.bottomNavLabel,
-            color = if (isSelected) selectedItemColor else unselectedItemColor,
-            maxLines = 1
-        )
     }
 }

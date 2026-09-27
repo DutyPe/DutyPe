@@ -430,10 +430,8 @@ fun EmployerHomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFEFF6FF))
+            .background(Color(0xFFF8FAFC))
     ) {
-        EmployerHomeBackdropDecor(modifier = Modifier.fillMaxSize())
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -701,411 +699,94 @@ fun DashboardContent(
             scrollStateManager = scrollStateManager
         ) {
             item {
-                WelcomeHeader(
-                    companyName = companyName.ifEmpty { "" },
-                    unreadCount = unreadCount,
-                    headerLottieUrl = headerLottieUrl,
-                    onNotificationClick = onNotificationClick
-                )
-            }
-
-            // Option 2: Proactive / Sticky Hiring Alert Banner for Tier 2/3 employers
-            if (totalPendingWorkers > 0) {
-                item(key = "hiring_alert_banner") {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                val targetJobId = uncontactedApplications.firstOrNull()?.jobId
-                                if (targetJobId != null) {
-                                    navController.navigate(com.example.dutype.navigation.Routes.employerApplicationsJobRoute(targetJobId))
-                                } else {
-                                    val targetRequestId = unacceptedUrgentResponses.firstOrNull()?.requestId
-                                    if (targetRequestId != null) {
-                                        navController.navigate(com.example.dutype.navigation.Routes.employerUrgentNeedDetailRoute(targetRequestId))
-                                    }
-                                }
-                            },
-                        shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF16A34A)),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(Color.White.copy(alpha = 0.2f), CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Call,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "🎉 $totalPendingWorkers Workers Ready to Work!",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp,
-                                    color = Color.White
-                                )
-                                Text(
-                                    text = "Tap here to call workers directly & hire",
-                                    fontSize = 12.sp,
-                                    color = Color.White.copy(alpha = 0.9f)
-                                )
-                            }
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (recentNudgeCandidate != null) {
-                item {
-                    CandidateHiringNudgeCard(
-                        candidate = recentNudgeCandidate,
-                        onCallClick = { openPhoneDialer(recentNudgeCandidate.workerPhone) },
-                        onHiredClick = {
-                            pendingNudgeHiredApp = recentNudgeCandidate
-                            showNudgeStopCallsDialog = true
-                        },
-                        onShortlistClick = {
-                            applicationViewModel.updateApplicationStatus(
-                                recentNudgeCandidate.id,
-                                com.example.dutype.models.ApplicationStatus.APPLIED,
-                                "Shortlisted from home nudge"
-                            )
-                            dismissedNudgeApplicationId = recentNudgeCandidate.id
-                            Toast.makeText(context, "Candidate shortlisted!", Toast.LENGTH_SHORT).show()
-                        },
-                        onRejectClick = {
-                            applicationViewModel.updateApplicationStatus(
-                                recentNudgeCandidate.id,
-                                com.example.dutype.models.ApplicationStatus.REJECTED,
-                                "Not hired from home nudge"
-                            )
-                            dismissedNudgeApplicationId = recentNudgeCandidate.id
-                            Toast.makeText(context, "Feedback recorded", Toast.LENGTH_SHORT).show()
-                        },
-                        onDismiss = {
-                            dismissedNudgeApplicationId = recentNudgeCandidate.id
-                        }
-                    )
-                }
-            }
-            if (showGuestWelcomeCard) {
-                item {
-                    GuestWelcomeBonusCard(
-                        title = guestWelcomeTitle,
-                        message = guestWelcomeMessage,
-                        buttonText = stringResource(R.string.guest_welcome_claim_gift),
-                        onClick = onGuestWelcomeClick,
-                        onVariantImpression = { variant ->
-                            Timber.d("Welcome gift impression (employer) variant=%s", variant.name)
-                        },
-                        onVariantClick = { variant ->
-                            Timber.d("Welcome gift click (employer) variant=%s", variant.name)
-                        }
-                    )
-                }
-            }
-
-            if (employerPromoBannerUrl.isNotBlank() || announcements.isNotEmpty()) {
-                item {
-                    AnnouncementList(
-                        announcements = announcements,
-                        promoBannerUrl = employerPromoBannerUrl,
-                        onDismiss = { announcementId -> onDismissAnnouncement(announcementId) },
-                        onAction = { announcement ->
-                            announcement.actionRoute?.let { route ->
-                                DeepLinkHandler.handleAnnouncementAction(route, navController, context)
-                            }
-                        }
-                    )
-                }
-            }
-
-            val totalCredits = subscription.normalCredits
-            val hasActiveSub = subscription.status == "ACTIVE" || subscription.status == "TRIAL"
-            
-            // Check if subscription is expiring within 5 days
-            val isExpiringSoon = hasActiveSub && subscription.expiryDate > 0L && 
-                (subscription.expiryDate - System.currentTimeMillis()) in 0L..(5L * 24L * 60L * 60L * 1000L)
-
-            val expiringJobs = recentJobs.filter { job ->
-                val daysUntilExpiry = if (job.expiresAt > System.currentTimeMillis()) {
-                    (job.expiresAt - System.currentTimeMillis()) / (24L * 60L * 60L * 1000L)
-                } else {
-                    -1L
-                }
-                job.status.lowercase() == "open" && daysUntilExpiry in 0..2
-            }
-
-            if (expiringJobs.isNotEmpty()) {
-                item {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        expiringJobs.forEach { job ->
-                            val daysRemaining = ((job.expiresAt - System.currentTimeMillis()) / (24L * 60L * 60L * 1000L)).coerceAtLeast(0)
-                            val dayText = if (daysRemaining == 0L) "1 day" else "$daysRemaining days"
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MY_JOBS) }, // Navigate to My Jobs to manage
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)), // Red tint
-                                border = BorderStroke(1.dp, Color(0xFFFECACA)),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .background(Color(0xFFFEE2E2), CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Warning,
-                                            contentDescription = null,
-                                            tint = Color(0xFFDC2626),
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = "Job Expiring: ${job.title}",
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFF991B1B)
-                                        )
-                                        Spacer(modifier = Modifier.height(1.dp))
-                                        Text(
-                                            text = "Expires in $dayText. Click to extend job.",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            color = Color(0xFFB91C1C)
-                                        )
-                                    }
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                        contentDescription = null,
-                                        tint = Color(0xFFDC2626),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            /*
-            item {
-                val isErrorState = !hasActiveSub || totalCredits <= 0
-                val bgColor = when {
-                    isErrorState -> Color(0xFFF9FAFB)
-                    isExpiringSoon -> Color(0xFFFEF9C3)
-                    else -> Color(0xFFF5F3FF)
-                }
-                val borderColor = when {
-                    isErrorState -> Color(0xFFE5E7EB)
-                    isExpiringSoon -> Color(0xFFFEF08A)
-                    else -> Color(0xFFDDD6FE)
-                }
-                val iconBgColor = when {
-                    isErrorState -> Color(0xFFFEE2E2)
-                    isExpiringSoon -> Color(0xFFFEF3C7)
-                    else -> Color(0xFFEDE9FE)
-                }
-                val iconColor = when {
-                    isErrorState -> Color(0xFFEF4444)
-                    isExpiringSoon -> Color(0xFFD97706)
-                    else -> Color(0xFF8B5CF6)
-                }
-                val titleColor = when {
-                    isErrorState -> Color(0xFF111827)
-                    isExpiringSoon -> Color(0xFF92400E)
-                    else -> Color(0xFF5B21B6)
-                }
-                val subtitleColor = when {
-                    isErrorState -> Color(0xFF6B7280)
-                    isExpiringSoon -> Color(0xFFB45309)
-                    else -> Color(0xFF7C3AED)
-                }
-                val vectorIcon = when {
-                    isErrorState -> Icons.Default.Warning
-                    isExpiringSoon -> Icons.Default.Warning
-                    else -> Icons.Default.CheckCircle
-                }
-
-                val titleText = when {
-                    isErrorState -> "Subscription Required"
-                    isExpiringSoon -> "Subscription Expiring Soon!"
-                    else -> "Subscription Active: ${subscription.planId.replace("_", " ").uppercase()}"
-                }
-                
-                val subtitleText = when {
-                    isErrorState -> "Get a plan to unlock job posting"
-                    isExpiringSoon -> {
-                        val daysRemaining = ((subscription.expiryDate - System.currentTimeMillis()) / (24L * 60L * 60L * 1000L)).coerceAtLeast(0)
-                        "Your plan expires in $daysRemaining days. Click to renew."
-                    }
-                    else -> "$totalCredits posts remaining (Normal or Urgent)"
-                }
-
-                Card(
+                EmployerTopHeader(
+                    companyName = companyName,
+                    locationText = recentJobs.firstOrNull()?.addressText?.ifBlank { "Hubli, Karnataka" } ?: "Hubli, Karnataka",
+                    onLocationClick = {
+                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MANAGE_ADDRESSES)
+                    },
+                    onSupportClick = {
+                        openPhoneDialer("18001234567")
+                    },
+                    onProfileClick = {
+                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_PROFILE)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_SUBSCRIPTION) },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = bgColor),
-                    border = BorderStroke(width = 1.dp, color = borderColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(color = iconBgColor, shape = CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = vectorIcon,
-                                    contentDescription = null,
-                                    tint = iconColor,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                            Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = titleText,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = titleColor
-                                    )
-                                    if (isErrorState) {
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Box(
-                                            modifier = Modifier
-                                                .background(Color(0xFFFEF2F2), RoundedCornerShape(4.dp))
-                                                .border(1.dp, Color(0xFFFECDD3), RoundedCornerShape(4.dp))
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                        ) {
-                                            Text(stringResource(R.string.action_due), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE11D48))
-                                        }
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(1.dp))
-                                Text(
-                                    text = subtitleText,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = subtitleColor
-                                )
-                            }
-                        }
-                        
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = null,
-                            tint = iconColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-            */
-
-            item {
-                EnhancedStatsGrid(updatedStats, onViewAnalytics = { navController.navigate(com.example.dutype.navigation.Routes.ANALYTICS) })
-            }
-
-
-            /*
-            if (isGuestEmployer) {
-                item {
-                    InviteEarnEmployerCard(
-                        inviteEarnAmount = referralConfig.rewardPerReferral.toInt().coerceAtLeast(1)
-                    )
-                }
-            }
-            */
-
-            if (updatedStats.totalJobs == 0) {
-                item {
-                    EmployerPostJobSection(
-                        onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) },
-                        onPostNormalJob = { navController.navigate(Routes.EMPLOYER_POST_JOB) }
-                    )
-                }
-            }
-
-            if (hasUrgentNeeds || isLoadingUrgentRequests) {
-                item {
-                    EmployerUrgentNeedSummarySection(
-                        requests = urgentRequests,
-                        responsesByRequestId = urgentResponsesByRequestId,
-                        isLoading = isLoadingUrgentRequests,
-                        onViewAll = { navController.navigate(Routes.employerHistoryRoute("urgent")) },
-                        onOpenRequest = { request -> navController.navigate(Routes.employerUrgentNeedDetailRoute(request.requestId)) },
-                        onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
-                    )
-                }
-            }
-            
-            // Job Analytics Card removed per task list requirement
-
-            item {
-                RecentJobsSection(
-                    jobs = recentJobs,
-                    navController = navController,
-                    onRefresh = { viewModel.refreshMyJobs() },
-                    isRefreshing = isRefreshing,
-                    onViewAllClick = { 
-                        // Navigate to posted jobs screen
-                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MY_JOBS)
-                    },
-                    onTabSwitch = { /* No longer needed */ },
-                    onShareJob = onShareJob,
-                    context = context,
-                    applicationCountsByJobId = applicationCountsByJobId,
-                    applicationsByJobId = applicationsByJobId,
-                    onCallWorker = { phone -> openPhoneDialer(phone) },
-                    onHireWorker = { app -> handleHireWorker(app) }
+                        .padding(horizontal = (-16).dp)
                 )
             }
 
             item {
-                EmployerTrustSignalsCard()
+                NeedWorkersSplitCard(
+                    onUrgentClick = {
+                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_URGENT_NEED)
+                    },
+                    onRegularJobClick = {
+                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)
+                    }
+                )
             }
 
             item {
-                com.example.dutype.components.MadeWithLoveFooter()
+                val activeJob = recentJobs.firstOrNull { it.status.equals("open", ignoreCase = true) } ?: recentJobs.firstOrNull()
+                val activeJobId = activeJob?.id.orEmpty()
+                val jobAppCount = applicationCountsByJobId[activeJobId] ?: uncontactedApplications.size
+                ActivePostingsCard(
+                    activeJob = activeJob,
+                    applicantCount = jobAppCount,
+                    totalActiveJobsCount = recentJobs.count { it.status.equals("open", ignoreCase = true) }.coerceAtLeast(1),
+                    onViewAllClick = {
+                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MY_JOBS)
+                    },
+                    onViewApplicantsClick = {
+                        if (activeJobId.isNotBlank()) {
+                            navController.navigate(com.example.dutype.navigation.Routes.employerApplicationsJobRoute(activeJobId))
+                        } else {
+                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MY_JOBS)
+                        }
+                    }
+                )
+            }
+
+            item {
+                QuickRoleTemplatesSection(
+                    onRoleSelected = { _ ->
+                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)
+                    }
+                )
+            }
+
+            item {
+                val candidateItems = uncontactedApplications.take(5).map { app ->
+                    CandidateDisplayItem(
+                        id = app.id,
+                        name = app.workerName.ifBlank { "Ramesh K." },
+                        initials = app.workerName.trim().split("\\s+".toRegex()).mapNotNull { it.firstOrNull()?.uppercase() }.take(2).joinToString("").ifBlank { "RK" },
+                        trade = app.jobTitle.ifBlank { "Electrician" },
+                        distanceText = "1.5 km away",
+                        rating = "4.8",
+                        jobsDone = 34,
+                        phone = app.workerPhone.orEmpty()
+                    )
+                }
+                RecentCallRequestsSection(
+                    candidates = candidateItems,
+                    onCallClick = { phone -> openPhoneDialer(phone) },
+                    onWhatsAppClick = { phone -> openWhatsAppChat(context, phone, "Hello, saw your application on DutyPe!") }
+                )
+            }
+
+            item {
+                HelplineTrustStrip(
+                    onCallNow = {
+                        openPhoneDialer("18001234567")
+                    }
+                )
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
             }
             
         }
