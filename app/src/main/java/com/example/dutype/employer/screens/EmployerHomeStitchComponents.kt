@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,15 +57,15 @@ fun EmployerTopHeader(
     onProfileClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val displayCompanyName = companyName.ifBlank { "Sri Sai Traders" }
-    val displayLocation = locationText.ifBlank { "Hubli, Karnataka" }
+    val displayCompanyName = companyName.ifBlank { "My Business" }
+    val displayLocation = locationText.ifBlank { "Select Location" }
     val initials = displayCompanyName
         .trim()
         .split("\\s+".toRegex())
         .mapNotNull { it.firstOrNull()?.uppercase() }
         .take(2)
         .joinToString("")
-        .ifBlank { "SS" }
+        .ifBlank { "MB" }
 
     Row(
         modifier = modifier
@@ -163,7 +164,7 @@ fun EmployerTopHeader(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Support / मदद",
+                        text = "Support",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF047857)
@@ -191,8 +192,8 @@ fun EmployerTopHeader(
 }
 
 /**
- * Top Card: "Need workers for your shop or home? / काम के लिए तुरंत कारीगर चाहिए?"
- * Contains two split action cards: Urgent vs Regular Job
+ * Top Section: "Need workers for your shop or home?"
+ * Two direct action cards: Urgent vs Regular Job (flatter hierarchy, no nested outer card)
  */
 @Composable
 fun NeedWorkersSplitCard(
@@ -200,182 +201,159 @@ fun NeedWorkersSplitCard(
     onRegularJobClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = "Need workers for your shop or home?",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF0F172A)
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = "Hire verified local staff in minutes",
+            fontSize = 13.sp,
+            color = Color(0xFF64748B)
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = "Need workers for your shop or home?",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A)
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "काम के लिए तुरंत कारीगर चाहिए?",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF3B82F6)
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            // Card 1: Urgent (FAST)
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onUrgentClick() },
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+                border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
+                elevation = CardDefaults.cardElevation(0.dp)
             ) {
-                // Card 1: Urgent (FAST)
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onUrgentClick() },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
-                    border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
-                    elevation = CardDefaults.cardElevation(0.dp)
+                Column(
+                    modifier = Modifier.padding(14.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .background(Color.White),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.FlashOn,
-                                    contentDescription = null,
-                                    tint = Color(0xFFDC2626),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = Color.White,
-                                border = BorderStroke(1.dp, Color(0xFFFECACA))
-                            ) {
-                                Text(
-                                    text = "FAST",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFDC2626),
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Default.FlashOn,
+                                contentDescription = null,
+                                tint = Color(0xFFDC2626),
+                                modifier = Modifier.size(17.dp)
+                            )
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Text(
-                            text = "Urgent",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFDC2626)
-                        )
-                        Text(
-                            text = "आज ही चाहिए",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFDC2626)
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Text(
-                            text = "Worker reaches in 2 hours",
-                            fontSize = 11.sp,
-                            color = Color(0xFF64748B),
-                            lineHeight = 14.sp
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, Color(0xFFFECACA))
+                        ) {
+                            Text(
+                                text = "FAST",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFDC2626),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "Urgent",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFDC2626)
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "Worker reaches in 2 hours",
+                        fontSize = 12.sp,
+                        color = Color(0xFF64748B),
+                        lineHeight = 15.sp
+                    )
                 }
+            }
 
-                // Card 2: Regular Job (REGULAR)
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onRegularJobClick() },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)),
-                    border = BorderStroke(1.dp, Color(0xFF6EE7B7)),
-                    elevation = CardDefaults.cardElevation(0.dp)
+            // Card 2: Regular Job (REGULAR)
+            Card(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onRegularJobClick() },
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)),
+                border = BorderStroke(1.dp, Color(0xFF6EE7B7)),
+                elevation = CardDefaults.cardElevation(0.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .background(Color.White),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.Assignment,
-                                    contentDescription = null,
-                                    tint = Color(0xFF059669),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = Color.White,
-                                border = BorderStroke(1.dp, Color(0xFFA7F3D0))
-                            ) {
-                                Text(
-                                    text = "REGULAR",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF047857),
-                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Assignment,
+                                contentDescription = null,
+                                tint = Color(0xFF059669),
+                                modifier = Modifier.size(17.dp)
+                            )
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Text(
-                            text = "Regular Job",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF047857)
-                        )
-                        Text(
-                            text = "नया काम",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF047857)
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Text(
-                            text = "Daily, weekly or monthly staff",
-                            fontSize = 11.sp,
-                            color = Color(0xFF64748B),
-                            lineHeight = 14.sp
-                        )
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, Color(0xFFA7F3D0))
+                        ) {
+                            Text(
+                                text = "REGULAR",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF047857),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "Regular Job",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF047857)
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "Daily, weekly or monthly staff",
+                        fontSize = 12.sp,
+                        color = Color(0xFF64748B),
+                        lineHeight = 15.sp
+                    )
                 }
             }
         }
@@ -383,8 +361,8 @@ fun NeedWorkersSplitCard(
 }
 
 /**
- * Active Postings / चालू काम Card
- * Shows current live job summary, applicant badge, and big call CTA
+ * Active Postings Section
+ * Shows current live job summary, applicant badge, and call CTA (single clean card, no nested outer card)
  */
 @Composable
 fun ActivePostingsCard(
@@ -395,35 +373,22 @@ fun ActivePostingsCard(
     onViewApplicantsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val jobTitle = activeJob?.title?.ifBlank { "Loading Helper" } ?: "Loading Helper"
-    val openings = 2
-    val salaryText = if (activeJob != null && activeJob.salary.isNotBlank()) activeJob.salary else "600"
-    val payPeriod = if (activeJob?.salaryType?.equals("MONTHLY", ignoreCase = true) == true) "month" else "day"
-    val count = if (applicantCount > 0) applicantCount else 5
     val viewAllLabel = if (totalActiveJobsCount > 1) "View All ($totalActiveJobsCount) →" else "View All →"
 
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Active Postings / चालू काम",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A)
-                )
+            Text(
+                text = "Active Postings",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F172A)
+            )
 
+            if (activeJob != null) {
                 Text(
                     text = viewAllLabel,
                     fontSize = 13.sp,
@@ -432,20 +397,25 @@ fun ActivePostingsCard(
                     modifier = Modifier.clickable { onViewAllClick() }
                 )
             }
+        }
 
-            Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
-            // Inner Job Box
+        if (activeJob != null) {
+            val jobTitle = activeJob.title.ifBlank { "Job Vacancy" }
+            val openings = if (activeJob.vacancies > 0) activeJob.vacancies else 1
+            val salaryText = activeJob.salary.ifBlank { "Negotiable" }
+            val payPeriod = if (activeJob.salaryType.equals("MONTHLY", ignoreCase = true)) "month" else "day"
+            val openingsText = "$jobTitle · $openings ${if (openings == 1) "Opening" else "Openings"}"
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(14.dp)
-                ) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -453,7 +423,7 @@ fun ActivePostingsCard(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "$jobTitle · $openings Openings",
+                                text = openingsText,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF0F172A),
@@ -462,7 +432,7 @@ fun ActivePostingsCard(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "₹$salaryText / $payPeriod",
+                                text = if (salaryText.startsWith("₹")) "$salaryText / $payPeriod" else "₹$salaryText / $payPeriod",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF10B981)
@@ -471,28 +441,43 @@ fun ActivePostingsCard(
 
                         Spacer(modifier = Modifier.width(8.dp))
 
-                        // Pulsing Live Badge
-                        Surface(
-                            shape = RoundedCornerShape(14.dp),
-                            color = Color.White,
-                            border = BorderStroke(1.dp, Color(0xFF10B981))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                        if (applicantCount > 0) {
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = Color(0xFFECFDF5),
+                                border = BorderStroke(1.dp, Color(0xFFA7F3D0))
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF10B981))
-                                )
-                                Spacer(modifier = Modifier.width(5.dp))
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF10B981))
+                                    )
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Text(
+                                        text = "$applicantCount Applied",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF047857)
+                                    )
+                                }
+                            }
+                        } else {
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = Color(0xFFF1F5F9),
+                                border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                            ) {
                                 Text(
-                                    text = "$count Applied",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF0F172A)
+                                    text = "Live Now",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF475569),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                 )
                             }
                         }
@@ -500,7 +485,6 @@ fun ActivePostingsCard(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Full-width Black Action Button
                     Button(
                         onClick = onViewApplicantsClick,
                         modifier = Modifier
@@ -510,9 +494,58 @@ fun ActivePostingsCard(
                         shape = RoundedCornerShape(23.dp),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                     ) {
+                        val ctaLabel = if (applicantCount > 0) {
+                            "View $applicantCount ${if (applicantCount == 1) "Applicant" else "Applicants"} & Call Directly →"
+                        } else {
+                            "View Vacancy & Call Workers →"
+                        }
                         Text(
-                            text = "View $count Applicants & Call Directly →",
+                            text = ctaLabel,
                             fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+        } else {
+            // Actual working zero state when no jobs are posted yet
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                elevation = CardDefaults.cardElevation(0.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "No active job vacancies",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Post a vacancy in 2 minutes to start receiving candidate applications and calls.",
+                        fontSize = 12.sp,
+                        color = Color(0xFF64748B),
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Button(
+                        onClick = onViewApplicantsClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+                        shape = RoundedCornerShape(22.dp)
+                    ) {
+                        Text(
+                            text = "Post Your First Vacancy →",
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
                         )
@@ -525,7 +558,7 @@ fun ActivePostingsCard(
 
 /**
  * Quick Role Templates Section: "HIRE IN 1 MINUTE (POPULAR ROLES)"
- * Driver, Helper, Cook / Maid, Shop Assistant
+ * Driver, Helper, Cook / Maid, Shop Assistant (clean English descriptions)
  */
 @Composable
 fun QuickRoleTemplatesSection(
@@ -533,10 +566,10 @@ fun QuickRoleTemplatesSection(
     modifier: Modifier = Modifier
 ) {
     val roles = listOf(
-        Triple("🚚", "Driver", "(ड्राइवर)"),
-        Triple("📦", "Helper", "(हेल्पर)"),
-        Triple("🍳", "Cook / Maid", "(कुक / मेड)"),
-        Triple("🏪", "Shop Assistant", "(दुकान सहायक)")
+        Triple("🚚", "Driver", "Delivery & drive"),
+        Triple("📦", "Helper", "Loading & packing"),
+        Triple("🍳", "Cook / Maid", "Cooking & home"),
+        Triple("🏪", "Shop Assistant", "Retail & counter")
     )
 
     Column(modifier = modifier.fillMaxWidth()) {
@@ -600,8 +633,9 @@ fun QuickRoleTemplatesSection(
 }
 
 /**
- * Recent Call Requests / तैयार कारीगर
+ * Recent Call Requests
  * Horizontal cards of verified candidates with direct Call and WhatsApp buttons
+ * If candidates list is empty, displays clean real empty state
  */
 @Composable
 fun RecentCallRequestsSection(
@@ -610,31 +644,6 @@ fun RecentCallRequestsSection(
     onWhatsAppClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val displayCandidates = candidates.ifEmpty {
-        listOf(
-            CandidateDisplayItem(
-                id = "1",
-                name = "Ramesh K.",
-                initials = "RK",
-                trade = "Electrician",
-                distanceText = "1.5 km away",
-                rating = "4.8",
-                jobsDone = 34,
-                phone = "+919876543210"
-            ),
-            CandidateDisplayItem(
-                id = "2",
-                name = "Suresh M.",
-                initials = "SM",
-                trade = "Loading Helper",
-                distanceText = "800m away",
-                rating = "4.9",
-                jobsDone = 52,
-                phone = "+919876543211"
-            )
-        )
-    }
-
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -642,144 +651,187 @@ fun RecentCallRequestsSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Recent Call Requests / तैयार कारीगर",
+                text = "Recent Call Requests",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF0F172A)
             )
 
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = Color(0xFFECFDF5),
-                border = BorderStroke(1.dp, Color(0xFFA7F3D0))
-            ) {
-                Text(
-                    text = "Live",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF059669),
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                )
+            if (candidates.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color(0xFFECFDF5),
+                    border = BorderStroke(1.dp, Color(0xFFA7F3D0))
+                ) {
+                    Text(
+                        text = "Live",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF059669),
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            items(displayCandidates) { candidate ->
-                Card(
-                    modifier = Modifier.width(285.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    elevation = CardDefaults.cardElevation(0.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+        if (candidates.isNotEmpty()) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(candidates) { candidate ->
+                    Card(
+                        modifier = Modifier.width(285.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        elevation = CardDefaults.cardElevation(0.dp)
                     ) {
-                        // Avatar Box with Verified Badge
-                        Box(modifier = Modifier.size(44.dp)) {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(Color(0xFF0F172A)),
-                                contentAlignment = Alignment.Center
-                            ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Avatar Box with Verified Badge
+                            Box(modifier = Modifier.size(44.dp)) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFF0F172A)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = candidate.initials,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                }
+
+                                // Green check badge
+                                Box(
+                                    modifier = Modifier
+                                        .size(15.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF10B981))
+                                        .align(Alignment.BottomEnd),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(9.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(10.dp))
+
+                            // Candidate Details
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = candidate.initials,
+                                    text = candidate.name,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                                    color = Color(0xFF0F172A),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(1.dp))
+                                Text(
+                                    text = "${candidate.trade} · ${candidate.distanceText}",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF64748B),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "★ ${candidate.rating} (${candidate.jobsDone} jobs)",
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFD97706)
                                 )
                             }
 
-                            // Green check badge
-                            Box(
-                                modifier = Modifier
-                                    .size(15.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF10B981))
-                                    .align(Alignment.BottomEnd),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(9.dp)
-                                )
-                            }
-                        }
+                            Spacer(modifier = Modifier.width(8.dp))
 
-                        Spacer(modifier = Modifier.width(10.dp))
-
-                        // Candidate Details
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = candidate.name,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(modifier = Modifier.height(1.dp))
-                            Text(
-                                text = "${candidate.trade} · ${candidate.distanceText}",
-                                fontSize = 12.sp,
-                                color = Color(0xFF64748B),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "★ ${candidate.rating} (${candidate.jobsDone} jobs)",
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFD97706)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        // Action Buttons: Call & WhatsApp
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Surface(
-                                onClick = { onCallClick(candidate.phone) },
-                                shape = RoundedCornerShape(10.dp),
-                                color = Color(0xFF10B981),
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.Call,
-                                        contentDescription = "Call",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                            // Action Buttons: Call & WhatsApp
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Surface(
+                                    onClick = { onCallClick(candidate.phone) },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFF10B981),
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.Call,
+                                            contentDescription = "Call",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
-                            }
 
-                            Surface(
-                                onClick = { onWhatsAppClick(candidate.phone) },
-                                shape = RoundedCornerShape(10.dp),
-                                color = Color(0xFF22C55E),
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.Chat,
-                                        contentDescription = "WhatsApp",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                Surface(
+                                    onClick = { onWhatsAppClick(candidate.phone) },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = Color(0xFF22C55E),
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.Chat,
+                                            contentDescription = "WhatsApp",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
+                    }
+                }
+            }
+        } else {
+            // Actual Empty State when no candidates have called yet
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                elevation = CardDefaults.cardElevation(0.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFEFF6FF)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("📞", fontSize = 18.sp)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "No candidate requests yet",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "When workers apply or call, they will show here for instant 1-tap callback.",
+                            fontSize = 11.5.sp,
+                            color = Color(0xFF64748B)
+                        )
                     }
                 }
             }
@@ -788,7 +840,7 @@ fun RecentCallRequestsSection(
 }
 
 /**
- * Helpline Trust Strip: "Trouble creating a job? Call Hindi/English help desk | Call Now"
+ * Helpline Trust Strip: "Trouble creating a job? Call our support desk | Call Now"
  */
 @Composable
 fun HelplineTrustStrip(
@@ -824,7 +876,7 @@ fun HelplineTrustStrip(
             Spacer(modifier = Modifier.width(10.dp))
 
             Text(
-                text = "Trouble creating a job? Call Hindi/English...",
+                text = "Trouble creating a job? Call our support desk",
                 fontSize = 12.sp,
                 color = Color(0xFF475569),
                 modifier = Modifier.weight(1f),

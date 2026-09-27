@@ -694,12 +694,12 @@ fun DashboardContent(
         ) {
             EmployerTopHeader(
                 companyName = companyName,
-                locationText = recentJobs.firstOrNull()?.addressText?.ifBlank { "Hubli, Karnataka" } ?: "Hubli, Karnataka",
+                locationText = recentJobs.firstOrNull()?.addressText?.ifBlank { "Select Location" } ?: "Select Location",
                 onLocationClick = {
                     navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MANAGE_ADDRESSES)
                 },
                 onSupportClick = {
-                    openPhoneDialer("18001234567")
+                    navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_HELP)
                 },
                 onProfileClick = {
                     navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_PROFILE)
@@ -746,7 +746,7 @@ fun DashboardContent(
                             if (activeJobId.isNotBlank()) {
                                 navController.navigate(com.example.dutype.navigation.Routes.employerApplicationsJobRoute(activeJobId))
                             } else {
-                                navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MY_JOBS)
+                                navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)
                             }
                         }
                     )
@@ -764,12 +764,12 @@ fun DashboardContent(
                     val candidateItems = uncontactedApplications.take(5).map { app ->
                         CandidateDisplayItem(
                             id = app.id,
-                            name = app.workerName.ifBlank { "Ramesh K." },
-                            initials = app.workerName.trim().split("\\s+".toRegex()).mapNotNull { it.firstOrNull()?.uppercase() }.take(2).joinToString("").ifBlank { "RK" },
-                            trade = app.jobTitle.ifBlank { "Electrician" },
-                            distanceText = "1.5 km away",
+                            name = app.workerName.ifBlank { "Worker" },
+                            initials = app.workerName.trim().split("\\s+".toRegex()).mapNotNull { it.firstOrNull()?.uppercase() }.take(2).joinToString("").ifBlank { "W" },
+                            trade = app.jobTitle.ifBlank { "General Worker" },
+                            distanceText = if (app.distanceKm != null && app.distanceKm > 0.0) "${"%.1f".format(app.distanceKm)} km away" else "Nearby",
                             rating = "4.8",
-                            jobsDone = 34,
+                            jobsDone = 15,
                             phone = app.workerPhone.orEmpty()
                         )
                     }
@@ -783,7 +783,7 @@ fun DashboardContent(
                 item {
                     HelplineTrustStrip(
                         onCallNow = {
-                            openPhoneDialer("18001234567")
+                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_HELP)
                         }
                     )
                 }

@@ -76,7 +76,6 @@ fun EmployerBottomBar(
     data class EmployerNavTab(
         val route: String,
         val title: String,
-        val vernacular: String,
         val iconResUnfilled: Int? = null,
         val iconResFilled: Int? = null,
         val vectorIcon: androidx.compose.ui.graphics.vector.ImageVector? = null
@@ -85,28 +84,24 @@ fun EmployerBottomBar(
     val navTabs = listOf(
         EmployerNavTab(
             route = Routes.EMPLOYER_DASHBOARD,
-            title = "Home",
-            vernacular = "होम",
+            title = stringResource(R.string.bottom_nav_home),
             iconResUnfilled = R.drawable.ic_home_unfilled,
             iconResFilled = R.drawable.ic_home_filled
         ),
         EmployerNavTab(
             route = Routes.EMPLOYER_MY_JOBS,
-            title = "My Jobs",
-            vernacular = "मेरे काम",
+            title = stringResource(R.string.bottom_nav_my_jobs),
             iconResUnfilled = R.drawable.myjobs,
             iconResFilled = R.drawable.myjobs
         ),
         EmployerNavTab(
             route = Routes.EMPLOYER_POST_JOB,
             title = "Find Workers",
-            vernacular = "कारीगर खोजें",
             vectorIcon = Icons.Default.PersonSearch
         ),
         EmployerNavTab(
             route = Routes.EMPLOYER_PROFILE,
-            title = "Account",
-            vernacular = "खाता",
+            title = stringResource(R.string.bottom_nav_account),
             iconResUnfilled = R.drawable.ic_person_unfilled,
             iconResFilled = R.drawable.ic_person_filled
         )
@@ -137,7 +132,7 @@ fun EmployerBottomBar(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(64.dp),
+                        .height(58.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -159,7 +154,7 @@ fun EmployerBottomBar(
                                 Icon(
                                     imageVector = tab.vectorIcon,
                                     contentDescription = tab.title,
-                                    modifier = Modifier.size(22.dp),
+                                    modifier = Modifier.size(24.dp),
                                     tint = if (isSelected) Color(0xFF0F172A) else Color(0xFF64748B)
                                 )
                             } else {
@@ -167,23 +162,16 @@ fun EmployerBottomBar(
                                 Icon(
                                     painter = painterResource(id = iconRes),
                                     contentDescription = tab.title,
-                                    modifier = Modifier.size(22.dp),
+                                    modifier = Modifier.size(24.dp),
                                     tint = if (isSelected) Color(0xFF0F172A) else Color(0xFF64748B)
                                 )
                             }
-                            Spacer(modifier = Modifier.height(2.dp))
+                            Spacer(modifier = Modifier.height(3.dp))
                             Text(
                                 text = tab.title,
                                 fontSize = 11.sp,
                                 fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium,
                                 color = if (isSelected) Color(0xFF0F172A) else Color(0xFF64748B),
-                                maxLines = 1
-                            )
-                            Text(
-                                text = tab.vernacular,
-                                fontSize = 9.5.sp,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
-                                color = if (isSelected) Color(0xFF0F172A) else Color(0xFF94A3B8),
                                 maxLines = 1
                             )
                         }
