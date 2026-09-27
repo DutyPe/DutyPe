@@ -543,8 +543,8 @@ fun EditJobScreen(
                             onClick = { navController.popBackStack() },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
+                                .height(56.dp),
+                            shape = RoundedCornerShape(28.dp),
                             border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Border)
                         ) {
                             Text(
@@ -558,9 +558,9 @@ fun EditJobScreen(
                             onClick = { updateJob() },
                             modifier = Modifier
                                 .weight(2f)
-                                .height(48.dp),
+                                .height(56.dp),
                             enabled = !isLoading && validateForm() && canEditJob,
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(28.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = EmployerColors.Primary,
                                 disabledContainerColor = EmployerColors.Border

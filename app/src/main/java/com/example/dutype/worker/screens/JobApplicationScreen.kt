@@ -900,13 +900,14 @@ private fun SubmitApplicationButton(
             onClick = onSubmit,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
+                .height(56.dp),
             enabled = !isSubmitting,
             colors = ButtonDefaults.buttonColors(
-                containerColor = WorkerColors.Primary,
-                disabledContainerColor = WorkerColors.TextDisabled
+                containerColor = Color(0xFF0F172A),
+                disabledContainerColor = Color(0xFFE2E8F0)
             ),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(28.dp),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 4.dp)
         ) {
             if (isSubmitting) {
                 val pulse = rememberInfiniteTransition(label = "submit_check_pulse")

@@ -476,7 +476,7 @@ private fun OtpLoginScreen(
 
                 val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading && !isCheckingPhone
 
-                // Full-width Send OTP Pill Button with Arrow at the end
+                // Full-width Send OTP Pill Button (56dp Stitch 2.0 CTA)
                 Button(
                     onClick = {
                         val fullPhoneNumber = selectedCountryCode + phoneNumber
@@ -537,15 +537,16 @@ private fun OtpLoginScreen(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
+                        .height(56.dp),
                     enabled = buttonEnabled,
-                    shape = RoundedCornerShape(26.dp),
+                    shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = BrandBluePrimary,
+                        containerColor = if (role == UserRole.WORKER) Color(0xFF0F172A) else BrandBluePrimary,
                         contentColor = Color.White,
                         disabledContainerColor = Color(0xFFE2E8F0),
-                        disabledContentColor = Color(0xFF475569)
-                    )
+                        disabledContentColor = Color(0xFF94A3B8)
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 4.dp)
                 ) {
                     if (isCheckingPhone || otpState.isLoading) {
                         CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
@@ -701,20 +702,21 @@ private fun OtpInputSection(
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        // Verify OTP Button
+        // Verify OTP Button (56dp Stitch 2.0 CTA)
         Button(
             onClick = onVerifyClick,
             enabled = otpValue.length == 6 && !otpState.isLoading,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(14.dp),
+                .height(56.dp),
+            shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = BrandBluePrimary,
                 contentColor = Color.White,
                 disabledContainerColor = Color(0xFFE2E8F0),
-                disabledContentColor = Color(0xFF475569)
-            )
+                disabledContentColor = Color(0xFF94A3B8)
+            ),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 4.dp)
         ) {
             if (otpState.isLoading) {
                 CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
@@ -724,7 +726,7 @@ private fun OtpInputSection(
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (otpValue.length == 6 && !otpState.isLoading) Color.White else Color(0xFF475569)
+                        color = if (otpValue.length == 6 && !otpState.isLoading) Color.White else Color(0xFF94A3B8)
                     )
                 )
             }

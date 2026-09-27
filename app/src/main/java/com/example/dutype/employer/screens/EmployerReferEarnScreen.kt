@@ -418,12 +418,22 @@ private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Un
             Text(stringResource(R.string.share_code_friend_bonus), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary), textAlign = TextAlign.Center)
             Spacer(Modifier.height(20.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = onCopyClick, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = EmployerColors.TextSecondary)) {
+                OutlinedButton(
+                    onClick = onCopyClick,
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = EmployerColors.TextSecondary)
+                ) {
                     Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.copy_button), fontWeight = FontWeight.SemiBold)
                 }
-                Button(onClick = onShareClick, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)) {
+                Button(
+                    onClick = onShareClick,
+                    modifier = Modifier.weight(1f).height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
+                ) {
                     Icon(Icons.Default.Share, null, Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.share_button), fontWeight = FontWeight.SemiBold)

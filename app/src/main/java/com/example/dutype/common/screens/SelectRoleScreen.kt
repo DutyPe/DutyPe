@@ -11,7 +11,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,7 +25,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -37,11 +35,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.WorkOutline
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -55,17 +51,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -76,8 +69,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.AppTypography
-import com.example.dutype.ui.theme.MeeshoFontFamily
-import com.example.dutype.ui.theme.WorkerColors
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 @Composable
@@ -86,175 +78,192 @@ fun SelectRoleScreen(
     onRoleSelected: ((String) -> Unit)? = null
 ) {
     com.example.dutype.ui.theme.ForceLightTheme {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
-    var isVisible by remember { mutableStateOf(false) }
-    var showLanguageBottomSheet by remember { mutableStateOf(false) }
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
+        val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+        var isVisible by remember { mutableStateOf(false) }
+        var showLanguageBottomSheet by remember { mutableStateOf(false) }
 
-    // Show UI immediately — permissions are requested on the home screens
-    // after users see the app's value, not before role selection.
-    LaunchedEffect(Unit) {
-        isVisible = true
-    }
+        LaunchedEffect(Unit) {
+            isVisible = true
+        }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFFEFF6FF),
-                        Color(0xFFDBEAFE),
-                        Color(0xFFF8FAFC),
-                        Color(0xFFFFFFFF)
-                    )
-                )
-            )
-    ) {
-
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.Start
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFFF8FAFC),
+                            Color(0xFFF1F5F9),
+                            Color(0xFFFFFFFF)
+                        )
+                    )
+                )
         ) {
-            // Top Language Selector Chip Bar
-            Row(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.Start
             ) {
-                val activeLangName = when (com.example.dutype.utils.LocaleHelper.getLanguage(context)) {
-                    com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU -> "తెలుగు"
-                    "hi" -> "హిन्दी"
-                    else -> "English"
+                // Top Language Selector Chip Bar
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val activeLangName = when (com.example.dutype.utils.LocaleHelper.getLanguage(context)) {
+                        com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU -> "తెలుగు"
+                        "hi" -> "हिन्दी"
+                        else -> "English"
+                    }
+
+                    Surface(
+                        onClick = { showLanguageBottomSheet = true },
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        shadowElevation = 1.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Translate,
+                                contentDescription = null,
+                                tint = Color(0xFF2563EB),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = activeLangName,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF0F172A)
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = null,
+                                tint = Color(0xFF475569),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
                 }
 
-                Surface(
-                    onClick = { showLanguageBottomSheet = true },
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color.White,
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+                Spacer(modifier = Modifier.height(20.dp))
+
+                AnimatedVisibility(
+                    visible = isVisible,
+                    enter = slideInVertically(
+                        initialOffsetY = { -40 },
+                        animationSpec = tween(300, easing = FastOutSlowInEasing)
+                    ) + fadeIn(tween(300))
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Translate,
-                            contentDescription = null,
-                            tint = Color(0xFF2563EB),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = activeLangName,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
+                            text = stringResource(R.string.how_can_we_help_today),
+                            style = AppTypography.displayTitle.copy(
+                                fontSize = 30.sp,
+                                lineHeight = 38.sp,
+                                fontWeight = FontWeight.Bold,
                                 color = Color(0xFF0F172A)
                             )
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            imageVector = Icons.Default.KeyboardArrowDown,
-                            contentDescription = null,
-                            tint = Color(0xFF475569),
-                            modifier = Modifier.size(16.dp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Choose your role to get a personalized experience",
+                            style = AppTypography.bodyLarge.copy(
+                                fontSize = 15.sp,
+                                lineHeight = 22.sp,
+                                color = Color(0xFF64748B)
+                            )
                         )
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                AnimatedVisibility(
+                    visible = isVisible,
+                    enter = slideInVertically(
+                        initialOffsetY = { 60 },
+                        animationSpec = tween(400, delayMillis = 100, easing = FastOutSlowInEasing)
+                    ) + fadeIn(tween(400, delayMillis = 100))
+                ) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp)
+                    ) {
+                        // Worker Role Card (Emerald Theme)
+                        RoleCard(
+                            icon = Icons.Default.WorkOutline,
+                            title = stringResource(R.string.worker),
+                            subtitle = stringResource(R.string.find_jobs_earn),
+                            accentColor = Color(0xFF059669),
+                            tintContainerColor = Color(0xFFECFDF5),
+                            delay = 50,
+                            onClick = {
+                                Timber.d("🔍 Worker role selected")
+                                val targetRole = com.example.dutype.models.UserRole.WORKER
+                                scope.launch {
+                                    profileCompletionViewModel.saveUserInfoToLocalStorage("", "", targetRole)
+                                }
+                                if (onRoleSelected != null) {
+                                    onRoleSelected.invoke("WORKER")
+                                } else {
+                                    navController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
+                                }
+                            }
+                        )
+
+                        // Employer Role Card (Cobalt Theme)
+                        RoleCard(
+                            icon = Icons.Default.Business,
+                            title = stringResource(R.string.employer),
+                            subtitle = stringResource(R.string.hire_skilled_workers),
+                            accentColor = Color(0xFF2563EB),
+                            tintContainerColor = Color(0xFFEFF6FF),
+                            delay = 120,
+                            onClick = {
+                                Timber.d("🔍 Employer role selected")
+                                val targetRole = com.example.dutype.models.UserRole.EMPLOYER
+                                scope.launch {
+                                    profileCompletionViewModel.saveUserInfoToLocalStorage("", "", targetRole)
+                                }
+                                if (onRoleSelected != null) {
+                                    onRoleSelected.invoke("EMPLOYER")
+                                } else {
+                                    navController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER")
+                                }
+                            }
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Safe & Secure Trust Badge
+                        SafeSecurePill()
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            AnimatedVisibility(
-                visible = isVisible,
-                enter = slideInVertically(
-                    initialOffsetY = { -50 },
-                    animationSpec = tween(300, easing = FastOutSlowInEasing)
-                ) + fadeIn(tween(300))
-            ) {
-                RoleHero()
-            }
-
-            Spacer(modifier = Modifier.height(22.dp))
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            AnimatedVisibility(
-                visible = isVisible,
-                enter = slideInVertically(
-                    initialOffsetY = { 50 },
-                    animationSpec = tween(400, delayMillis = 50, easing = FastOutSlowInEasing)
-                ) + fadeIn(tween(400, delayMillis = 50))
-            ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp)
-                ) {
-                    RoleCard(
-                        icon = Icons.Default.WorkOutline,
-                        title = stringResource(R.string.worker),
-                        subtitle = stringResource(R.string.find_jobs_earn),
-                        description = stringResource(R.string.worker_card_desc),
-                        primaryColor = Color(0xFF0F0F0F),
-                        containerColor = Color(0xFFF1F1F4),
-                        delay = 50,
-                        onClick = {
-                            Timber.d("🔍 Worker role selected")
-                            val targetRole = com.example.dutype.models.UserRole.WORKER
-                            scope.launch {
-                                profileCompletionViewModel.saveUserInfoToLocalStorage("", "", targetRole)
-                            }
-                            if (onRoleSelected != null) {
-                                onRoleSelected.invoke("WORKER")
-                            } else {
-                                navController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
-                            }
-                        }
-                    )
-
-                    RoleCard(
-                        icon = Icons.Default.Business,
-                        title = stringResource(R.string.employer),
-                        subtitle = stringResource(R.string.hire_skilled_workers),
-                        description = stringResource(R.string.employer_card_desc),
-                        primaryColor = Color(0xFF0F0F0F),
-                        containerColor = Color(0xFFF1F1F4),
-                        delay = 150,
-                        onClick = {
-                            Timber.d("🔍 Employer role selected")
-                            val targetRole = com.example.dutype.models.UserRole.EMPLOYER
-                            scope.launch {
-                                profileCompletionViewModel.saveUserInfoToLocalStorage("", "", targetRole)
-                            }
-                            if (onRoleSelected != null) {
-                                onRoleSelected.invoke("EMPLOYER")
-                            } else {
-                                navController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER")
-                            }
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-                }
+            if (showLanguageBottomSheet) {
+                com.example.dutype.components.LanguageSelectionBottomSheet(
+                    onDismiss = { showLanguageBottomSheet = false }
+                )
             }
         }
-
-        if (showLanguageBottomSheet) {
-            com.example.dutype.components.LanguageSelectionBottomSheet(
-                onDismiss = { showLanguageBottomSheet = false }
-            )
-        }
-    }
     }
 }
 
@@ -263,39 +272,35 @@ fun RoleCard(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    description: String,
-    primaryColor: Color,
-    containerColor: Color,
+    accentColor: Color,
+    tintContainerColor: Color,
     delay: Int,
     onClick: () -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.96f else 1f,
+        targetValue = if (isPressed) 0.97f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "scale"
     )
 
-    // Entrance animation state
     var isVisible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(delay.toLong())
         isVisible = true
     }
 
-    // Faster entrance animation
     AnimatedVisibility(
         visible = isVisible,
         enter = slideInHorizontally(
             animationSpec = tween(300, easing = FastOutSlowInEasing)
-        ) { if (title.contains("Worker")) -100 else 100 } +
+        ) { if (title.contains("Worker", ignoreCase = true)) -60 else 60 } +
             fadeIn(animationSpec = tween(300))
     ) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(132.dp)
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
@@ -306,57 +311,48 @@ fun RoleCard(
                 ) {
                     onClick()
                 },
-            colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
-            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(20.dp),
             elevation = CardDefaults.cardElevation(
-                defaultElevation = 0.dp,
-                pressedElevation = 0.dp
+                defaultElevation = 2.dp,
+                pressedElevation = 1.dp
             ),
             border = BorderStroke(
                 width = 1.dp,
-                color = Color(0xFFE8E8EC)
+                color = Color(0xFFE2E8F0)
             )
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Tactical Icon Container (Stitch 2.0 rounded squircle)
                 Box(
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .fillMaxWidth(0.56f)
-                        .height(50.dp)
-                        .clip(RoundedCornerShape(topStart = 100.dp, bottomEnd = 22.dp))
-                        .background(containerColor.copy(alpha = 0.72f))
-                )
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 20.dp, vertical = 18.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(containerColor)
-                        .border(1.dp, primaryColor.copy(alpha = 0.10f), RoundedCornerShape(20.dp)),
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(tintContainerColor)
+                        .border(1.dp, accentColor.copy(alpha = 0.15f), RoundedCornerShape(16.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = icon,
                         contentDescription = title,
-                        tint = primaryColor,
-                        modifier = Modifier.size(34.dp)
+                        tint = accentColor,
+                        modifier = Modifier.size(28.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.width(18.dp))
+                Spacer(modifier = Modifier.width(16.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = title,
                         style = AppTypography.displayTitle.copy(
-                            fontSize = 22.sp,
-                            lineHeight = 28.sp,
+                            fontSize = 18.sp,
+                            lineHeight = 24.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF0F172A)
                         )
@@ -364,268 +360,60 @@ fun RoleCard(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = subtitle,
-                        style = AppTypography.bodyLarge.copy(
-                            color = primaryColor,
-                            fontWeight = FontWeight.Bold,
-                            lineHeight = 21.sp
+                        style = AppTypography.bodyMedium.copy(
+                            color = Color(0xFF64748B),
+                            lineHeight = 19.sp,
+                            fontSize = 13.sp
                         )
                     )
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
 
+                // Modern Pill Arrow Action
                 Box(
                     modifier = Modifier
-                        .size(52.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
-                        .background(primaryColor),
+                        .background(Color(0xFF0F172A)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(30.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
-                }
             }
         }
     }
-}
-
-@Composable
-private fun SelectRoleDecorations() {
-    Box(modifier = Modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .offset(x = 50.dp, y = 56.dp)
-                .size(210.dp)
-                .clip(CircleShape)
-                .background(Color(0xFFEDE7FF).copy(alpha = 0.42f))
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset(x = (-24).dp, y = 336.dp)
-                .size(40.dp)
-                .clip(RoundedCornerShape(topEnd = 40.dp))
-                .background(Color(0xFF7C5CFF).copy(alpha = 0.34f))
-        )
-    }
-}
-
-@Composable
-private fun RoleHero() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 40.dp),
-        horizontalAlignment = Alignment.Start
-    ) {
-        Text(
-            text = stringResource(R.string.how_can_we_help_today),
-            style = AppTypography.displayTitle.copy(
-                fontSize = 32.sp,
-                lineHeight = 38.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A)
-            )
-        )
-    }
-}
-
-@Composable
-private fun HeroPeopleIllustration(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .width(178.dp)
-            .height(210.dp),
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .size(172.dp)
-                .clip(CircleShape)
-                .background(Color(0xFFEDE7FF).copy(alpha = 0.58f))
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 16.dp)
-                .width(116.dp)
-                .height(92.dp)
-        ) {
-            listOf(16.dp, 45.dp, 76.dp).forEachIndexed { index, xOffset ->
-                Box(
-                    modifier = Modifier
-                        .offset(x = xOffset, y = (44 - index * 10).dp)
-                        .width(22.dp)
-                        .height((38 + index * 12).dp)
-                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                        .background(Color(0xFFCFC6F8).copy(alpha = 0.36f))
-                )
-            }
-        }
-
-        PersonFigure(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .offset(x = 10.dp),
-            shirtColor = Color(0xFF2563EB),
-            headColor = Color(0xFFFFD7B5),
-            accentColor = Color(0xFF1E40AF),
-            isWorker = true
-        )
-        PersonFigure(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .offset(x = (-8).dp, y = 4.dp),
-            shirtColor = Color(0xFFB895F6),
-            headColor = Color(0xFFFFDCC6),
-            accentColor = Color(0xFF6D28D9),
-            isWorker = false
-        )
-    }
-}
-
-@Composable
-private fun PersonFigure(
-    modifier: Modifier,
-    shirtColor: Color,
-    headColor: Color,
-    accentColor: Color,
-    isWorker: Boolean
-) {
-    Box(
-        modifier = modifier
-            .width(84.dp)
-            .height(132.dp),
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .width(54.dp)
-                .height(74.dp)
-                .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomStart = 16.dp, bottomEnd = 16.dp))
-                .background(shirtColor)
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .offset(y = 26.dp)
-                .size(42.dp)
-                .clip(CircleShape)
-                .background(headColor)
-        )
-        if (isWorker) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .offset(y = 18.dp)
-                    .width(50.dp)
-                    .height(22.dp)
-                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 8.dp, bottomEnd = 8.dp))
-                    .background(accentColor)
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .offset(x = 6.dp, y = (-18).dp)
-                    .width(18.dp)
-                    .height(32.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFF1F2937))
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .offset(y = 24.dp)
-                    .size(50.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF2F1F3A).copy(alpha = 0.78f))
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .offset(y = 32.dp)
-                    .size(38.dp)
-                    .clip(CircleShape)
-                    .background(headColor)
-            )
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .offset(x = (-6).dp, y = (-20).dp)
-                    .width(24.dp)
-                    .height(32.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xFF334155))
-            )
-        }
-    }
-}
-
-@Composable
-private fun RoleTrustLine() {
-    Text(
-        text = stringResource(R.string.auto_join_thousands_finding_opportunities_every),
-        modifier = Modifier.fillMaxWidth(),
-        style = AppTypography.bodyMedium.copy(
-            color = Color(0xFF6B7280),
-            fontWeight = FontWeight.Medium,
-            lineHeight = 22.sp
-        ),
-        textAlign = TextAlign.Center
-    )
 }
 
 @Composable
 private fun SafeSecurePill() {
     Row(
         modifier = Modifier
-            .clip(RoundedCornerShape(18.dp))
-            .background(Color(0xFFF4F4F6))
-            .padding(horizontal = 18.dp, vertical = 12.dp),
+            .clip(RoundedCornerShape(999.dp))
+            .background(Color(0xFFF1F5F9))
+            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(999.dp))
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
         Icon(
             imageVector = Icons.Default.Security,
             contentDescription = null,
-            tint = Color(0xFF0F0F0F),
-            modifier = Modifier.size(20.dp)
+            tint = Color(0xFF059669),
+            modifier = Modifier.size(16.dp)
         )
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = stringResource(R.string.safe_secure_trusted),
             style = AppTypography.bodyMedium.copy(
-                color = Color(0xFF6B7280),
-                fontWeight = FontWeight.Medium
-            )
-        )
-    }
-}
-
-@Composable
-private fun MiniInfoPill(text: String) {
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(Color(0xFFF1F5F9))
-            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(999.dp))
-            .padding(horizontal = 12.dp, vertical = 6.dp)
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelMedium.copy(
-                fontFamily = MeeshoFontFamily,
-                color = Color(0xFFE2E8F0),
-                fontWeight = FontWeight.SemiBold
+                color = Color(0xFF475569),
+                fontWeight = FontWeight.Medium,
+                fontSize = 12.sp
             )
         )
     }

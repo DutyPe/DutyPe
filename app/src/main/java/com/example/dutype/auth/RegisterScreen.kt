@@ -775,7 +775,7 @@ private fun RegisterEntrySection(
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        // DutyPe Brand Blue Pill Button
+        // DutyPe Brand Pill Button (56dp Stitch 2.0 CTA)
         Button(
             onClick = {
                 if (!termsAccepted) {
@@ -790,15 +790,16 @@ private fun RegisterEntrySection(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
+                .height(56.dp),
             enabled = buttonEnabled,
-            shape = RoundedCornerShape(26.dp),
+            shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = BrandBluePrimary,
+                containerColor = if (role == UserRole.WORKER) Color(0xFF0F172A) else BrandBluePrimary,
                 contentColor = Color.White,
                 disabledContainerColor = Color(0xFFE2E8F0),
-                disabledContentColor = Color(0xFF475569)
-            )
+                disabledContentColor = Color(0xFF94A3B8)
+            ),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 4.dp)
         ) {
             if (isCheckingPhone || otpState.isLoading) {
                 CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
@@ -1536,24 +1537,32 @@ private fun RegisterOtpSection(
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = 12.dp)
-                    .height(53.dp),
+                    .height(56.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = WorkerColors.TextPrimary,
-                    contentColor = WorkerColors.CardBackground,
-                    disabledContainerColor = WorkerColors.ChipBackground,
-                    disabledContentColor = WorkerColors.TextTertiary
+                    containerColor = Color(0xFF0F172A),
+                    contentColor = Color.White,
+                    disabledContainerColor = Color(0xFFE2E8F0),
+                    disabledContentColor = Color(0xFF94A3B8)
                 ),
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(28.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 4.dp),
                 enabled = otpButtonEnabled
             ) {
                 if (otpState.isLoading) {
                     CircularProgressIndicator(
-                        color = WorkerColors.CardBackground,
+                        color = Color.White,
                         strokeWidth = 2.5.dp,
                         modifier = Modifier.size(22.dp)
                     )
                 } else {
-                    Text(if (isTelugu) "ధృవీకరించి ఖాతా సృష్టించండి" else "Verify & Create Account", style = AppTypography.buttonLarge)
+                    Text(
+                        text = if (isTelugu) "ధృవీకరించి ఖాతా సృష్టించండి" else "Verify & Create Account",
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    )
                 }
             }
         }

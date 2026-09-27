@@ -1091,8 +1091,10 @@ private fun ActionButtonsCard(
             ) {
                 OutlinedButton(
                     onClick = { onActionClick(ApplicationAction.REJECT) },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = EmployerColors.Error
                     )
@@ -1103,8 +1105,10 @@ private fun ActionButtonsCard(
                 }
                 Button(
                     onClick = { onActionClick(ApplicationAction.SHORTLIST) },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = EmployerColors.Success
                     )
@@ -1121,8 +1125,10 @@ private fun ActionButtonsCard(
         if (application?.status == ApplicationStatus.HIRED) {
             Button(
                 onClick = { onActionClick(ApplicationAction.MARK_COMPLETED) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF1F8B4C)
                 )
@@ -1137,8 +1143,10 @@ private fun ActionButtonsCard(
             OutlinedButton(
                 onClick = onRateWorkerClick,
                 enabled = !hasRatedWorker,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = EmployerColors.Warning,
                     disabledContentColor = EmployerColors.Success

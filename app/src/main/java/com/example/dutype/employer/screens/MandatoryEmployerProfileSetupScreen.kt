@@ -781,9 +781,10 @@ fun MandatoryEmployerProfileSetupContent(
                         },
                         enabled = !isLoading,
                         modifier = Modifier
-                            .height(52.dp)
+                            .height(56.dp)
                             .weight(1f),
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(28.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 4.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
                     ) {
                         if (isLoading) {

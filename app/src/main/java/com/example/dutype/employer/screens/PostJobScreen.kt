@@ -1305,7 +1305,7 @@ fun PostJobScreen(
                             onClick = { attemptPublishJob() },
                             modifier = Modifier.fillMaxWidth().height(56.dp),
                             enabled = publishEnabled && !employerJobUiState.isCreatingJob && !isSubmittingJob,
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(28.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
                         ) {
                             if (employerJobUiState.isCreatingJob || isSubmittingJob) {
@@ -2150,8 +2150,8 @@ private fun PostJobPublishBar(
                 enabled = publishEnabled && !isPublishing,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(54.dp),
-                shape = RoundedCornerShape(14.dp),
+                    .height(56.dp),
+                shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = EmployerColors.Primary,
                     disabledContainerColor = EmployerColors.Border
@@ -2202,9 +2202,9 @@ private fun PostJobLaunchBar(
                 onClick = onPublish,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
+                    .height(56.dp),
                 enabled = publishEnabled,
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = EmployerColors.Primary,
                     contentColor = Color.White,

@@ -99,7 +99,7 @@ internal fun AuthOtpBoxes(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.Center),
-            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
         ) {
             repeat(digitCount) { index ->
                 val isFocusedIndex = index == otpValue.length && isFocused
@@ -108,23 +108,27 @@ internal fun AuthOtpBoxes(
 
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
-                        .background(WorkerColors.CardBackground, RoundedCornerShape(8.dp))
+                        .width(48.dp)
+                        .height(56.dp)
+                        .background(Color.White, RoundedCornerShape(12.dp))
                         .border(
-                            width = 2.dp,
+                            width = if (isFocusedIndex) 2.dp else 1.dp,
                             color = when {
-                                isFocusedIndex -> WorkerColors.TextPrimary
-                                isFilledIndex -> WorkerColors.TextPrimary
-                                else -> WorkerColors.Border
+                                isFocusedIndex -> Color(0xFF2563EB)
+                                isFilledIndex -> Color(0xFF0F172A)
+                                else -> Color(0xFFCBD5E1)
                             },
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(12.dp)
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = digit,
-                        style = AppTypography.pageTitle.copy(fontWeight = FontWeight.Bold),
-                        color = WorkerColors.TextPrimary
+                        style = TextStyle(
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
                     )
                 }
             }

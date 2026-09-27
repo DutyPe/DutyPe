@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.screens
+package com.example.dutype.worker.screens
 
 import com.dutype.app.R
 import androidx.compose.foundation.background
@@ -181,9 +181,10 @@ fun NotificationDetailScreen(
                                 "all_jobs" -> navController.navigate(Routes.WORKER_ALL_JOBS)
                             }
                         },
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary),
-                        shape = RoundedCornerShape(12.dp)
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+                        shape = RoundedCornerShape(28.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 4.dp)
                     ) {
                         Icon(actionButton.icon, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                         Spacer(modifier = Modifier.width(8.dp))

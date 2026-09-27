@@ -657,16 +657,7 @@ fun HomeSectionsContent(
                 }
             }
 
-            if (!showEmptyJobsState && hasLocationPermission) {
-                item {
-                    WorkerQuickActionsGrid(
-                        onBrowseJobs = { navController.navigate("${Routes.WORKER_ALL_JOBS}?filter=All Jobs") },
-                        onAppliedJobs = { navController.navigate(WorkerBottomRoutes.MY_JOBS) },
-                        onEarnings = { navController.navigate(Routes.WORKER_EARNINGS) },
-                        onHelpDesk = { navController.navigate(Routes.HELP) }
-                    )
-                }
-            }
+
 
             if (
                 (instantRequests.isNotEmpty() || isLoadingInstantRequests || !instantHelpError.isNullOrBlank())
@@ -850,11 +841,6 @@ fun HomeSectionsContent(
             }
         }
         
-        // Section 4: DutyPe Promise Carousel (at the bottom after jobs)
-        item {
-            DutyPePromiseCarousel()
-        }
-
         // Footer: Made with love in Bharat (always shown).
         item {
             com.example.dutype.components.MadeWithLoveFooter()

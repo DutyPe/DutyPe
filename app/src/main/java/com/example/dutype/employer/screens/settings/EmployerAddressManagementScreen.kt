@@ -294,11 +294,13 @@ fun EmployerAddressManagementScreen(
                             }
                         },
                         enabled = officeName.isNotBlank() && fullAddress.isNotBlank() && !isAddingAddress,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = employerBlue
                         ),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(28.dp)
                     ) {
                         if (isAddingAddress) {
                             CircularProgressIndicator(

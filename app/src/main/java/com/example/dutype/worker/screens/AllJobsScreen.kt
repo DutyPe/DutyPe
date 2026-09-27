@@ -784,6 +784,17 @@ private fun JobsList(
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            item(key = "alljobs_count_header") {
+                Text(
+                    text = "Showing ${jobs.size} jobs in your area",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = Color(0xFF64748B),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp
+                    ),
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+            }
             itemsIndexed(
                 items = jobs,
                 key = { _, job -> job.id.ifBlank { job.jobId.ifBlank { "job_${job.hashCode()}" } } },

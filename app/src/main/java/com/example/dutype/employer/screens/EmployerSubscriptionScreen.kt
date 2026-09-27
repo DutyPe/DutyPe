@@ -515,9 +515,9 @@ fun EmployerSubscriptionScreen(
                     enabled = isSubmitEnabled,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
+                        .height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Brand),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(28.dp)
                 ) {
                     if (submitState is SubmitState.Loading || isUploadingScreenshot) {
                         com.example.dutype.components.DutyPeLoader(color = Color.White, size = 24.dp)
@@ -916,9 +916,9 @@ private fun PlanCard(
                 
                 Button(
                     onClick = onProceed,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = if (planType == "single") Brand else Color.White),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(28.dp)
                 ) {
                     Text(
                         text = if (isCurrent) stringResource(R.string.sub_renew_now) else stringResource(R.string.sub_get_plan, plan.name), 

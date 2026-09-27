@@ -732,8 +732,8 @@ private fun StickyEditBar(
             ) {
                 OutlinedButton(
                     onClick = onHome,
-                    modifier = Modifier.height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
                     border = androidx.compose.foundation.BorderStroke(1.5.dp, EmployerColors.Primary),
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = EmployerColors.Primary
@@ -758,8 +758,8 @@ private fun StickyEditBar(
                         onClick = onDelete,
                         modifier = Modifier
                             .weight(1f)
-                            .height(52.dp),
-                        shape = RoundedCornerShape(12.dp),
+                            .height(56.dp),
+                        shape = RoundedCornerShape(28.dp),
                         border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Error),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = EmployerColors.Error
@@ -785,8 +785,8 @@ private fun StickyEditBar(
                     onClick = onEdit,
                     modifier = Modifier
                         .weight(1f)
-                        .height(52.dp),
-                    shape = RoundedCornerShape(12.dp),
+                        .height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = EmployerColors.Primary,
                         contentColor = Color.White

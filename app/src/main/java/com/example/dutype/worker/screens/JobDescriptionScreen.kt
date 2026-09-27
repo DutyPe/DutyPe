@@ -778,7 +778,7 @@ private fun RowScope.ActionButtonsContent(
     onApplyClick: () -> Unit,
     onLoginRequired: (String) -> Unit,
 ) {
-    // Call Button - Half width with icon and text
+    // Call Button - Half width with icon and text (56dp Stitch 2.0 CTA pill)
     OutlinedButton(
         onClick = {
             if (currentUser == null) {
@@ -787,31 +787,32 @@ private fun RowScope.ActionButtonsContent(
                 onCallClick(job)
             }
         },
-        modifier = Modifier.weight(1f).height(50.dp),
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, WorkerColors.Border),
+        modifier = Modifier.weight(1f).height(56.dp),
+        shape = RoundedCornerShape(28.dp),
+        border = BorderStroke(1.5.dp, Color(0xFFCBD5E1)),
         contentPadding = PaddingValues(horizontal = 16.dp)
     ) {
-        Icon(Icons.Default.Phone, null, tint = com.example.dutype.ui.theme.WorkerColors.TextPrimary, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+        Icon(Icons.Default.Phone, null, tint = Color(0xFF0F172A), modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(8.dp))
-        Text(stringResource(R.string.call), color = com.example.dutype.ui.theme.WorkerColors.TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        Text(stringResource(R.string.call), color = Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 15.sp)
     }
 
-    // Apply Now Button - Shows different states based on application status
+    // Apply Now Button - Shows different states based on application status (56dp Stitch 2.0 CTA pill)
     if (hasApplied) {
         Button(
             onClick = {
                 navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS)
             },
-            modifier = Modifier.weight(1f).height(50.dp),
+            modifier = Modifier.weight(1f).height(56.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = when (applicationStatus) {
                     "ACCEPTED" -> WorkerColors.Success
                     "PENDING", "UNDER_REVIEW" -> WorkerColors.Warning
-                    else -> WorkerColors.Primary
+                    else -> Color(0xFF0F172A)
                 }
             ),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(28.dp),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 4.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(
@@ -831,8 +832,8 @@ private fun RowScope.ActionButtonsContent(
                         else -> stringResource(R.string.applied)
                     },
                     color = Color.White,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
                 )
             }
         }
@@ -840,12 +841,12 @@ private fun RowScope.ActionButtonsContent(
         Button(
             onClick = { },
             enabled = false,
-            modifier = Modifier.weight(1f).height(50.dp),
+            modifier = Modifier.weight(1f).height(56.dp),
             colors = ButtonDefaults.buttonColors(
                 disabledContainerColor = Color(0xFFE2E8F0),
                 disabledContentColor = Color(0xFF64748B)
             ),
-            shape = RoundedCornerShape(8.dp)
+            shape = RoundedCornerShape(28.dp)
         ) {
             Text(
                 text = when (job.status.lowercase()) {
@@ -854,8 +855,8 @@ private fun RowScope.ActionButtonsContent(
                     "expired" -> "Job Expired"
                     else -> "Job Closed"
                 },
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 14.sp
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp
             )
         }
     } else {
@@ -867,11 +868,12 @@ private fun RowScope.ActionButtonsContent(
                     onApplyClick()
                 }
             },
-            modifier = Modifier.weight(1f).height(50.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary),
-            shape = RoundedCornerShape(8.dp)
+            modifier = Modifier.weight(1f).height(56.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+            shape = RoundedCornerShape(28.dp),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 4.dp)
         ) {
-            Text(stringResource(R.string.apply_now), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(stringResource(R.string.apply_now), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
         }
     }
 }

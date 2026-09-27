@@ -432,8 +432,8 @@ fun EmployerProfileScreen(
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = EmployerColors.Primary
                                         ),
-                                        shape = RoundedCornerShape(10.dp),
-                                        modifier = Modifier.height(48.dp)
+                                        shape = RoundedCornerShape(28.dp),
+                                        modifier = Modifier.height(56.dp)
                                     ) {
                                         Text(
                                             text = stringResource(R.string.auto_log_in_sign_up),

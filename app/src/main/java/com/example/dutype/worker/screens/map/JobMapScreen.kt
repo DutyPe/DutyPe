@@ -794,12 +794,12 @@ private fun EnhancedJobMapCard(
                             context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, browserUri))
                         }
                     },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    shape = RoundedCornerShape(25.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = primaryBlue
+                        contentColor = Color(0xFF0F172A)
                     ),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, primaryBlue)
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFCBD5E1))
                 ) {
                     Icon(
                         Icons.Default.Navigation,
@@ -807,17 +807,18 @@ private fun EnhancedJobMapCard(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.navigate), fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.navigate), fontWeight = FontWeight.Bold)
                 }
                 
                 // View details button
                 Button(
                     onClick = onViewDetails,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = primaryBlue)
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    shape = RoundedCornerShape(25.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 4.dp)
                 ) {
-                    Text(stringResource(R.string.view_details), fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.view_details), fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.width(6.dp))
                     Icon(
                         Icons.Default.ArrowForward,

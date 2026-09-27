@@ -384,18 +384,18 @@ private fun OnboardingFooter(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Animated Pill Indicators
+        // Animated Pill Indicators (Stitch 2.0 active pill 28dp x 6dp)
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             repeat(pageCount) { index ->
                 val isSelected = index == currentPage
-                val targetWidth = if (isSelected) 24.dp else 8.dp
+                val targetWidth = if (isSelected) 28.dp else 8.dp
                 val targetColor = if (isSelected) {
-                    MaterialTheme.colorScheme.primary
+                    Color(0xFF0F172A)
                 } else {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
+                    Color(0xFFCBD5E1)
                 }
 
                 val animatedWidth by animateDpAsState(
@@ -411,7 +411,7 @@ private fun OnboardingFooter(
 
                 Box(
                     modifier = Modifier
-                        .height(8.dp)
+                        .height(6.dp)
                         .width(animatedWidth)
                         .clip(CircleShape)
                         .background(animatedColor)
@@ -419,7 +419,7 @@ private fun OnboardingFooter(
             }
         }
 
-        // Action Button (Next Floating Icon Button vs Get Started Button)
+        // Action Button (56dp CTA Pill for Get Started vs 52dp circular Next)
         androidx.compose.animation.AnimatedContent(
             targetState = isLastPage,
             transitionSpec = {
@@ -432,36 +432,49 @@ private fun OnboardingFooter(
                 Button(
                     onClick = onNextClick,
                     modifier = Modifier
-                        .height(48.dp)
-                        .padding(start = 16.dp),
-                    shape = RoundedCornerShape(24.dp),
+                        .height(56.dp)
+                        .padding(start = 12.dp),
+                    shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
+                        containerColor = Color(0xFF0F172A),
+                        contentColor = Color.White
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp, pressedElevation = 4.dp)
                 ) {
-                    Text(
-                        text = stringResource(R.string.onboarding_get_started),
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
-                        modifier = Modifier.padding(horizontal = 13.dp)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.onboarding_get_started),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
             } else {
                 FilledIconButton(
                     onClick = onNextClick,
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier.size(52.dp),
                     shape = CircleShape,
                     colors = IconButtonDefaults.filledIconButtonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
+                        containerColor = Color(0xFF0F172A),
+                        contentColor = Color.White
                     )
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = stringResource(R.string.onboarding_next),
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }

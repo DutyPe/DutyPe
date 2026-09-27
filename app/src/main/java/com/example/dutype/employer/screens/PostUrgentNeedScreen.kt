@@ -33,6 +33,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -597,8 +598,8 @@ internal fun PostUrgentNeedContent(
                 enabled = !state.isPostingUrgentNeed && canPost,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(54.dp),
-                shape = RoundedCornerShape(14.dp),
+                    .height(56.dp),
+                shape = RoundedCornerShape(28.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
             ) {
                 if (state.isPostingUrgentNeed) {
@@ -608,7 +609,11 @@ internal fun PostUrgentNeedContent(
                         color = Color.White
                     )
                 }
-                Text("Post Urgent Need")
+                Text(
+                    text = "⚡ Broadcast Urgent Need Now",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
             }
         }
 

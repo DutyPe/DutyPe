@@ -984,12 +984,14 @@ private fun EditModeButtons(
         ) {
             OutlinedButton(
                 onClick = onCancel,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp),
                 enabled = !isSaving,
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = EmployerColors.TextPrimary
                 ),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(28.dp)
             ) {
                 Text(
                     text = stringResource(R.string.auto_cancel),
@@ -999,12 +1001,14 @@ private fun EditModeButtons(
 
             Button(
                 onClick = onSave,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp),
                 enabled = !isSaving,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = EmployerColors.Primary
                 ),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(28.dp)
             ) {
                 if (isSaving) {
                     CircularProgressIndicator(

@@ -709,6 +709,13 @@ fun DashboardContent(
                 )
             }
 
+            item {
+                EmployerHeroActionCards(
+                    onPostNormalJob = { navController.navigate(Routes.EMPLOYER_POST_JOB) },
+                    onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
+                )
+            }
+
             // Option 2: Proactive / Sticky Hiring Alert Banner for Tier 2/3 employers
             if (totalPendingWorkers > 0) {
                 item(key = "hiring_alert_banner") {
@@ -1315,6 +1322,125 @@ private fun InviteEarnEmployerCard(inviteEarnAmount: Int = 20) {
 }
 
 @Composable
+fun EmployerHeroActionCards(
+    onPostNormalJob: () -> Unit,
+    onPostUrgentNeed: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Regular Job Card (Deep Navy)
+        Card(
+            modifier = Modifier
+                .weight(1f)
+                .clickable(onClick = onPostNormalJob),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .background(Color.White.copy(alpha = 0.15f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Work,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Column {
+                    Text(
+                        text = "+ Post Regular Job",
+                        style = AppTypography.buttonMedium.copy(
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Standard hiring",
+                        style = AppTypography.caption.copy(
+                            color = Color.White.copy(alpha = 0.7f),
+                            fontSize = 11.sp
+                        )
+                    )
+                }
+            }
+        }
+
+        // Urgent Need Card (Crimson Gradient)
+        Card(
+            modifier = Modifier
+                .weight(1f)
+                .clickable(onClick = onPostUrgentNeed),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFE11D48)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(Color(0xFFBE123C), Color(0xFFE11D48))
+                        )
+                    )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .background(Color.White.copy(alpha = 0.2f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FlashOn,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "⚡ Post Urgent",
+                            style = AppTypography.buttonMedium.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Workers in 15 mins",
+                            style = AppTypography.caption.copy(
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontSize = 11.sp
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun EmployerPostJobSection(
     onPostUrgentNeed: () -> Unit,
     onPostNormalJob: () -> Unit
@@ -1416,8 +1542,8 @@ private fun EmployerPostJobSection(
                 
                 Button(
                     onClick = onPostUrgentNeed,
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isDark) Color(0xFFF43F5E) else Color(0xFFEF4444),
                         contentColor = Color.White
@@ -1487,7 +1613,7 @@ private fun EmployerPostJobSection(
                                         RoundedCornerShape(99.dp)
                                     )
                                     .padding(horizontal = 8.dp, vertical = 2.dp)
-                            ) {
+                                ) {
                                 Text(
                                     text = stringResource(R.string.standard_job_tag),
                                     color = if (isDark) Color(0xFFA78BFA) else Color(0xFF6D28D9),
@@ -1506,8 +1632,8 @@ private fun EmployerPostJobSection(
                 
                 Button(
                     onClick = onPostNormalJob,
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = if (isDark) Color(0xFFA78BFA) else Color(0xFF6D28D9),
                         contentColor = if (isDark) Color.Black else Color.White
@@ -2134,6 +2260,23 @@ fun EmptyJobsState(onPostJob: () -> Unit) {
                 color = EmployerColors.TextSecondary,
                 textAlign = TextAlign.Center
             )
+            Button(
+                onClick = onPostJob,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = EmployerColors.Primary,
+                    contentColor = Color.White
+                )
+            ) {
+                Text(
+                    text = "+ Post Your First Job",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            }
         }
     }
 }

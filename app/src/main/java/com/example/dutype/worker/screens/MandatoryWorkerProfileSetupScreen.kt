@@ -61,7 +61,7 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
-private const val MIN_WORKER_BIO_LENGTH = 20
+private const val MIN_WORKER_BIO_LENGTH = 3
 private const val MAX_WORKER_BIO_LENGTH = 300
 private val DOB_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
 
