@@ -13,6 +13,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -328,7 +330,7 @@ fun NeedWorkersSplitCard(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Assignment,
+                                    imageVector = Icons.AutoMirrored.Filled.Assignment,
                                     contentDescription = null,
                                     tint = Color(0xFF059669),
                                     modifier = Modifier.size(16.dp)
@@ -548,14 +550,14 @@ fun QuickRoleTemplatesSection(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Row(
+        LazyRow(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            roles.forEach { (emoji, title, vernacular) ->
+            items(roles) { (emoji, title, vernacular) ->
                 Card(
                     modifier = Modifier
-                        .weight(1f)
+                        .width(105.dp)
                         .height(96.dp)
                         .clickable { onRoleSelected(title) },
                     shape = RoundedCornerShape(12.dp),
@@ -770,7 +772,7 @@ fun RecentCallRequestsSection(
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
-                                        imageVector = Icons.Default.Chat,
+                                        imageVector = Icons.AutoMirrored.Filled.Chat,
                                         contentDescription = "WhatsApp",
                                         tint = Color.White,
                                         modifier = Modifier.size(18.dp)

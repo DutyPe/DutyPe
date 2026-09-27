@@ -687,108 +687,111 @@ fun DashboardContent(
         // Show loading when first coming to the page
         LoadingScreen()
     } else {
-        ScrollAwareLazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                top = 0.dp,
-                start = 16.dp,
-                end = 16.dp,
-                bottom = 80.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            scrollStateManager = scrollStateManager
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF8FAFC))
         ) {
-            item {
-                EmployerTopHeader(
-                    companyName = companyName,
-                    locationText = recentJobs.firstOrNull()?.addressText?.ifBlank { "Hubli, Karnataka" } ?: "Hubli, Karnataka",
-                    onLocationClick = {
-                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MANAGE_ADDRESSES)
-                    },
-                    onSupportClick = {
-                        openPhoneDialer("18001234567")
-                    },
-                    onProfileClick = {
-                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_PROFILE)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = (-16).dp)
-                )
-            }
+            EmployerTopHeader(
+                companyName = companyName,
+                locationText = recentJobs.firstOrNull()?.addressText?.ifBlank { "Hubli, Karnataka" } ?: "Hubli, Karnataka",
+                onLocationClick = {
+                    navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MANAGE_ADDRESSES)
+                },
+                onSupportClick = {
+                    openPhoneDialer("18001234567")
+                },
+                onProfileClick = {
+                    navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_PROFILE)
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
 
-            item {
-                NeedWorkersSplitCard(
-                    onUrgentClick = {
-                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_URGENT_NEED)
-                    },
-                    onRegularJobClick = {
-                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)
-                    }
-                )
-            }
-
-            item {
-                val activeJob = recentJobs.firstOrNull { it.status.equals("open", ignoreCase = true) } ?: recentJobs.firstOrNull()
-                val activeJobId = activeJob?.id.orEmpty()
-                val jobAppCount = applicationCountsByJobId[activeJobId] ?: uncontactedApplications.size
-                ActivePostingsCard(
-                    activeJob = activeJob,
-                    applicantCount = jobAppCount,
-                    totalActiveJobsCount = recentJobs.count { it.status.equals("open", ignoreCase = true) }.coerceAtLeast(1),
-                    onViewAllClick = {
-                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MY_JOBS)
-                    },
-                    onViewApplicantsClick = {
-                        if (activeJobId.isNotBlank()) {
-                            navController.navigate(com.example.dutype.navigation.Routes.employerApplicationsJobRoute(activeJobId))
-                        } else {
-                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MY_JOBS)
+            ScrollAwareLazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentPadding = PaddingValues(
+                    top = 12.dp,
+                    start = 16.dp,
+                    end = 16.dp,
+                    bottom = 80.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                scrollStateManager = scrollStateManager
+            ) {
+                item {
+                    NeedWorkersSplitCard(
+                        onUrgentClick = {
+                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_URGENT_NEED)
+                        },
+                        onRegularJobClick = {
+                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)
                         }
-                    }
-                )
-            }
-
-            item {
-                QuickRoleTemplatesSection(
-                    onRoleSelected = { _ ->
-                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)
-                    }
-                )
-            }
-
-            item {
-                val candidateItems = uncontactedApplications.take(5).map { app ->
-                    CandidateDisplayItem(
-                        id = app.id,
-                        name = app.workerName.ifBlank { "Ramesh K." },
-                        initials = app.workerName.trim().split("\\s+".toRegex()).mapNotNull { it.firstOrNull()?.uppercase() }.take(2).joinToString("").ifBlank { "RK" },
-                        trade = app.jobTitle.ifBlank { "Electrician" },
-                        distanceText = "1.5 km away",
-                        rating = "4.8",
-                        jobsDone = 34,
-                        phone = app.workerPhone.orEmpty()
                     )
                 }
-                RecentCallRequestsSection(
-                    candidates = candidateItems,
-                    onCallClick = { phone -> openPhoneDialer(phone) },
-                    onWhatsAppClick = { phone -> openWhatsAppChat(context, phone, "Hello, saw your application on DutyPe!") }
-                )
-            }
 
-            item {
-                HelplineTrustStrip(
-                    onCallNow = {
-                        openPhoneDialer("18001234567")
+                item {
+                    val activeJob = recentJobs.firstOrNull { it.status.equals("open", ignoreCase = true) } ?: recentJobs.firstOrNull()
+                    val activeJobId = activeJob?.id.orEmpty()
+                    val jobAppCount = applicationCountsByJobId[activeJobId] ?: uncontactedApplications.size
+                    ActivePostingsCard(
+                        activeJob = activeJob,
+                        applicantCount = jobAppCount,
+                        totalActiveJobsCount = recentJobs.count { it.status.equals("open", ignoreCase = true) }.coerceAtLeast(1),
+                        onViewAllClick = {
+                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MY_JOBS)
+                        },
+                        onViewApplicantsClick = {
+                            if (activeJobId.isNotBlank()) {
+                                navController.navigate(com.example.dutype.navigation.Routes.employerApplicationsJobRoute(activeJobId))
+                            } else {
+                                navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MY_JOBS)
+                            }
+                        }
+                    )
+                }
+
+                item {
+                    QuickRoleTemplatesSection(
+                        onRoleSelected = { _ ->
+                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)
+                        }
+                    )
+                }
+
+                item {
+                    val candidateItems = uncontactedApplications.take(5).map { app ->
+                        CandidateDisplayItem(
+                            id = app.id,
+                            name = app.workerName.ifBlank { "Ramesh K." },
+                            initials = app.workerName.trim().split("\\s+".toRegex()).mapNotNull { it.firstOrNull()?.uppercase() }.take(2).joinToString("").ifBlank { "RK" },
+                            trade = app.jobTitle.ifBlank { "Electrician" },
+                            distanceText = "1.5 km away",
+                            rating = "4.8",
+                            jobsDone = 34,
+                            phone = app.workerPhone.orEmpty()
+                        )
                     }
-                )
-            }
+                    RecentCallRequestsSection(
+                        candidates = candidateItems,
+                        onCallClick = { phone -> openPhoneDialer(phone) },
+                        onWhatsAppClick = { phone -> openWhatsAppChat(context, phone, "Hello, saw your application on DutyPe!") }
+                    )
+                }
 
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
+                item {
+                    HelplineTrustStrip(
+                        onCallNow = {
+                            openPhoneDialer("18001234567")
+                        }
+                    )
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
             }
-            
         }
 
         if (showNudgeStopCallsDialog && pendingNudgeHiredApp != null) {
