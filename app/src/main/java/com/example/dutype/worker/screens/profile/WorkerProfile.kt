@@ -34,6 +34,7 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.HorizontalDivider
@@ -45,6 +46,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material.icons.outlined.Description
@@ -463,231 +465,263 @@ fun WorkerProfileScreen(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(top = 0.dp, bottom = 100.dp)
         ) {
-        // User Profile Card
+        // User Profile Card — polished hero card
         item {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             val isLoggedIn = currentUserId.isNotEmpty()
-            
-            Card(
+
+            androidx.compose.material3.Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color.Transparent
-                ),
-                shape = RoundedCornerShape(0.dp),
-                border = null,
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                shape = RoundedCornerShape(16.dp),
+                color = Color.White,
+                shadowElevation = 2.dp,
+                tonalElevation = 0.dp
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        // Solid card surface (no gradient) so the row matches the
-                        // role-themed cards across the app.
-                        
-                        .clickable { 
-                            if (isLoggedIn) {
-                                rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS)
-                            } else {
-                                pendingMenuAction = "profile"
-                                showLoginBottomSheet = true
+                Column {
+                    // Avatar row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                if (isLoggedIn) {
+                                    rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS)
+                                } else {
+                                    pendingMenuAction = "profile"
+                                    showLoginBottomSheet = true
+                                }
                             }
-                        }
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Profile Picture
-                    Box(
-                        modifier = Modifier.size(56.dp)
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        when {
-                            isUploadingImage -> {
-                                Box(
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFE0F2FE)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(20.dp),
-                                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                                        strokeWidth = 2.dp
-                                    )
+                        // Profile Picture — 72dp with camera badge
+                        Box(modifier = Modifier.size(72.dp)) {
+                            when {
+                                isUploadingImage -> {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(72.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFE0F2FE)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(24.dp),
+                                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                                            strokeWidth = 2.dp
+                                        )
+                                    }
+                                }
+                                profileImageUri != null -> {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(72.dp)
+                                            .clip(CircleShape)
+                                            .clickable {
+                                                if (isLoggedIn) imagePickerLauncher.launch("image/*")
+                                                else { pendingMenuAction = "profile"; showLoginBottomSheet = true }
+                                            }
+                                    ) {
+                                        com.example.dutype.components.OptimizedProfileImage(
+                                            imageUrl = profileImageUri.toString(),
+                                            contentDescription = "Profile Picture",
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                }
+                                !profileImageUrl.isNullOrBlank() -> {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(72.dp)
+                                            .clip(CircleShape)
+                                            .clickable {
+                                                if (isLoggedIn) imagePickerLauncher.launch("image/*")
+                                                else { pendingMenuAction = "profile"; showLoginBottomSheet = true }
+                                            }
+                                    ) {
+                                        com.example.dutype.components.OptimizedProfileImage(
+                                            imageUrl = profileImageUrl,
+                                            contentDescription = "Profile Picture",
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                }
+                                else -> {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(72.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFE0F2FE))
+                                            .clickable {
+                                                if (isLoggedIn) imagePickerLauncher.launch("image/*")
+                                                else { pendingMenuAction = "profile"; showLoginBottomSheet = true }
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = "Default Profile",
+                                            tint = Color(0xFF9CA3AF),
+                                            modifier = Modifier.size(36.dp)
+                                        )
+                                    }
                                 }
                             }
-                            profileImageUri != null -> {
+                            // Camera badge overlay
+                            if (!isUploadingImage && isLoggedIn) {
                                 Box(
                                     modifier = Modifier
-                                        .size(56.dp)
-                                        .clip(CircleShape)
-                                        .clickable { 
-                                            if (isLoggedIn) {
-                                                imagePickerLauncher.launch("image/*")
-                                            } else {
-                                                pendingMenuAction = "profile"
-                                                showLoginBottomSheet = true
-                                            }
-                                        }
-                                ) {
-                                    com.example.dutype.components.OptimizedProfileImage(
-                                        imageUrl = profileImageUri.toString(),
-                                        contentDescription = "Profile Picture",
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
-                            }
-                            !profileImageUrl.isNullOrBlank() -> {
-                                Box(
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .clip(CircleShape)
-                                        .clickable { 
-                                            if (isLoggedIn) {
-                                                imagePickerLauncher.launch("image/*")
-                                            } else {
-                                                pendingMenuAction = "profile"
-                                                showLoginBottomSheet = true
-                                            }
-                                        }
-                                ) {
-                                    com.example.dutype.components.OptimizedProfileImage(
-                                        imageUrl = profileImageUrl,
-                                        contentDescription = "Profile Picture",
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
-                            }
-                            else -> {
-                                // Default - show Person icon
-                                Box(
-                                    modifier = Modifier
-                                        .size(56.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFE0F2FE))
-                                        .clickable { 
-                                            if (isLoggedIn) {
-                                                imagePickerLauncher.launch("image/*")
-                                            } else {
-                                                pendingMenuAction = "profile"
-                                                showLoginBottomSheet = true
-                                            }
-                                        },
+                                        .align(Alignment.BottomEnd)
+                                        .size(22.dp)
+                                        .background(com.example.dutype.ui.theme.WorkerColors.Primary, CircleShape)
+                                        .border(1.5.dp, Color.White, CircleShape),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "Default Profile",
-                                        tint = Color(0xFF9CA3AF),
-                                        modifier = Modifier.size(28.dp)
+                                        imageVector = Icons.Default.CameraAlt,
+                                        contentDescription = "Change Photo",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(11.dp)
                                     )
                                 }
                             }
                         }
-                    }
-                    
-                    Spacer(modifier = Modifier.width(16.dp))
-                    
-                    // User Info or Sign up button
-                    Column(modifier = Modifier.weight(1f)) {
-                        if (isLoggedIn) {
-                            // LIGHTWEIGHT: Get phone number from metadata, then Firebase Auth as fallback
-                            val authPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber ?: ""
-                            val userPhone = userStats.phone.ifBlank { personalInfo.phone }.ifBlank { authPhone }
-                            val hasName = userName.isNotBlank() && userName != "User"
-                            
-                            if (hasName) {
-                                // Show name (primary) and phone number (secondary)
-                                Text(
-                                    text = userName,
-                                    style = com.example.dutype.ui.theme.AppTypography.pageTitle.copy(
-                                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                                    ),
-                                    maxLines = 1
-                                )
-                                if (userPhone.isNotBlank()) {
-                                    Spacer(modifier = Modifier.height(2.dp))
+
+                        Spacer(modifier = Modifier.width(14.dp))
+
+                        // User info / guest CTA
+                        Column(modifier = Modifier.weight(1f)) {
+                            if (isLoggedIn) {
+                                val authPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber ?: ""
+                                val userPhone = userStats.phone.ifBlank { personalInfo.phone }.ifBlank { authPhone }
+                                val hasName = userName.isNotBlank() && userName != "User"
+
+                                if (hasName) {
                                     Text(
-                                        text = userPhone,
-                                        style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
-                                            color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
-                                        )
+                                        text = userName,
+                                        style = com.example.dutype.ui.theme.AppTypography.pageTitle.copy(
+                                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                                        ),
+                                        maxLines = 1
                                     )
+                                    if (userPhone.isNotBlank()) {
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = userPhone,
+                                            style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
+                                                color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+                                            )
+                                        )
+                                    }
+                                } else {
+                                    if (userPhone.isNotBlank()) {
+                                        Text(
+                                            text = userPhone,
+                                            style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
+                                                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                                            )
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = stringResource(R.string.profile_tap_add_name),
+                                            style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
+                                                color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+                                            )
+                                        )
+                                    } else {
+                                        Text(
+                                            text = stringResource(R.string.profile_set_up_profile),
+                                            style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
+                                                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                                            )
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = stringResource(R.string.profile_tap_add_details),
+                                            style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
+                                                color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+                                            )
+                                        )
+                                    }
                                 }
                             } else {
-                                // No name set - show phone number as primary (bigger text)
-                                if (userPhone.isNotBlank()) {
+                                Button(
+                                    onClick = {
+                                        rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
+                                    },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = com.example.dutype.ui.theme.WorkerColors.Primary.copy(alpha = 0.08f),
+                                        contentColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                                    ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                                    modifier = Modifier.height(48.dp)
+                                ) {
                                     Text(
-                                        text = userPhone,
+                                        text = stringResource(R.string.profile_login_signup),
                                         style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
-                                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                                        )
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = stringResource(R.string.profile_tap_add_name),
-                                        style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
-                                            color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
-                                        )
-                                    )
-                                } else {
-                                    // Fallback if no phone available (shouldn't happen for logged in users)
-                                    Text(
-                                        text = stringResource(R.string.profile_set_up_profile),
-                                        style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
-                                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                                        )
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = stringResource(R.string.profile_tap_add_details),
-                                        style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
-                                            color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
+                                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                                            fontWeight = FontWeight.Bold
                                         )
                                     )
                                 }
-                            }
-                        } else {
-                            // Show guest CTA when not logged in
-                            Button(
-                                onClick = { 
-                                    // CRITICAL FIX: Pass role=WORKER to maintain role context after login
-                                    rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = com.example.dutype.ui.theme.WorkerColors.Primary.copy(alpha = 0.08f),
-                                    contentColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                                ),
-                                shape = RoundedCornerShape(10.dp),
-                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
-                                modifier = Modifier.height(48.dp)
-                            ) {
+                                Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = stringResource(R.string.profile_login_signup),
-                                    style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
-                                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                                        fontWeight = FontWeight.Bold
+                                    text = stringResource(R.string.profile_view_update_data),
+                                    style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
+                                        color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
                                     )
                                 )
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = stringResource(R.string.profile_view_update_data),
-                                style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
-                                    color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
-                                )
+                        }
+
+                        if (isLoggedIn) {
+                            Icon(
+                                imageVector = Icons.Default.ChevronRight,
+                                contentDescription = null,
+                                tint = com.example.dutype.ui.theme.WorkerColors.IconSecondary,
+                                modifier = Modifier.size(22.dp)
                             )
                         }
                     }
-                    
+
+                    // Profile completion banner — shown when logged in
                     if (isLoggedIn) {
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
-                            contentDescription = null,
-                            tint = com.example.dutype.ui.theme.WorkerColors.IconSecondary,
-                            modifier = Modifier.size(24.dp)
-                        )
+                        HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS)
+                                }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.AccountCircle,
+                                contentDescription = null,
+                                tint = com.example.dutype.ui.theme.WorkerColors.Primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Complete your profile for better job matches",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = com.example.dutype.ui.theme.WorkerColors.Primary,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 13.sp
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = com.example.dutype.ui.theme.WorkerColors.Primary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }

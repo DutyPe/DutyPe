@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Info
@@ -277,31 +278,23 @@ fun EmployerProfileScreen(
             // BUSINESS PROFILE SECTION (Flat Menu Item)
             // ═══════════════════════════════════════════════════════════════
             item {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
                 val isLoggedIn = currentUserId.isNotEmpty()
-                
-                Card(
+
+                androidx.compose.material3.Surface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    // TODO: Rounded corners commented out for UI testing
-                    // shape = RoundedCornerShape(0.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-                    border = null,
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    shape = RoundedCornerShape(0.dp)
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    shadowElevation = 2.dp,
+                    tonalElevation = 0.dp
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        // Profile as Flat Menu Item: Photo | Name + Phone | Arrow
+                    Column {
+                        // Avatar row
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                // Solid card surface (no gradient) per the
-                                // app-wide rule.
-                                .background(
-                                    color = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground,
-                                    shape = RoundedCornerShape(0.dp)
-                                )
                                 .clickable {
                                     if (isLoggedIn) {
                                         localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
@@ -311,14 +304,14 @@ fun EmployerProfileScreen(
                                         showLoginBottomSheet = true
                                     }
                                 }
-                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                                .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Company Logo
-                            Box(modifier = Modifier.size(56.dp)) {
+                            // Company Logo — 72dp with camera badge
+                            Box(modifier = Modifier.size(72.dp)) {
                                 Box(
                                     modifier = Modifier
-                                        .size(56.dp)
+                                        .size(72.dp)
                                         .clip(CircleShape)
                                         .background(EmployerColors.PrimaryLight)
                                         .clickable {
@@ -358,49 +351,44 @@ fun EmployerProfileScreen(
                                                 imageVector = Icons.Default.Business,
                                                 contentDescription = "Profile Picture",
                                                 tint = WorkerColors.IconSecondary,
-                                                modifier = Modifier.size(28.dp)
+                                                modifier = Modifier.size(32.dp)
                                             )
                                         }
                                     }
                                 }
-                                
-                                // Camera overlay
+
+                                // Camera badge
                                 if (!isUploadingImage) {
                                     Box(
                                         modifier = Modifier
                                             .align(Alignment.BottomEnd)
-                                            .size(20.dp)
-                                            .background(WorkerColors.Info, CircleShape),
+                                            .size(22.dp)
+                                            .background(WorkerColors.Info, CircleShape)
+                                            .border(1.5.dp, Color.White, CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.CameraAlt,
                                             contentDescription = "Change Photo",
-                                            tint = WorkerColors.CardBackground,
-                                            modifier = Modifier.size(10.dp)
+                                            tint = Color.White,
+                                            modifier = Modifier.size(12.dp)
                                         )
                                     }
                                 }
                             }
-                            
+
                             Spacer(modifier = Modifier.width(16.dp))
-                            
-                            // Company Name + Phone or Sign up button
+
+                            // Company info
                             Column(modifier = Modifier.weight(1f)) {
                                 if (isLoggedIn) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Text(
-                                            text = companyName.ifEmpty { stringResource(R.string.your_company) },
-                                            style = AppTypography.pageTitle.copy(
-                                                color = WorkerColors.TextPrimary
-                                            ),
-                                            maxLines = 1,
-                                            modifier = Modifier.weight(1f, fill = false)
-                                        )
-                                    }
+                                    Text(
+                                        text = companyName.ifEmpty { stringResource(R.string.your_company) },
+                                        style = AppTypography.pageTitle.copy(
+                                            color = WorkerColors.TextPrimary
+                                        ),
+                                        maxLines = 1
+                                    )
                                     if (companyPhone.isNotEmpty()) {
                                         Spacer(modifier = Modifier.height(2.dp))
                                         Text(
@@ -410,7 +398,7 @@ fun EmployerProfileScreen(
                                             )
                                         )
                                     }
-                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Spacer(modifier = Modifier.height(6.dp))
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
                                         color = EmployerColors.Primary.copy(alpha = 0.12f)
@@ -424,9 +412,9 @@ fun EmployerProfileScreen(
                                         )
                                     }
                                 } else {
-                                    // Show guest CTA when not logged in
+                                    // Guest CTA
                                     Button(
-                                        onClick = { // CRITICAL FIX: Pass role=EMPLOYER to maintain role context after login
+                                        onClick = {
                                             rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER")
                                         },
                                         colors = ButtonDefaults.buttonColors(
@@ -451,14 +439,52 @@ fun EmployerProfileScreen(
                                     )
                                 }
                             }
-                            
-                            // Arrow - only show when logged in
+
+                            // Chevron — logged in only
                             if (isLoggedIn) {
                                 Icon(
-                                    imageVector = Icons.Default.ChevronRight,
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                     contentDescription = null,
                                     tint = WorkerColors.IconSecondary,
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+
+                        // Profile completion banner — shown when logged in
+                        if (isLoggedIn) {
+                            HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
+                                            ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
+                                    }
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.AccountCircle,
+                                    contentDescription = null,
+                                    tint = EmployerColors.Primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Text(
+                                    text = "Complete your company profile",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = EmployerColors.Primary,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 13.sp
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = EmployerColors.Primary,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
