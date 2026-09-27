@@ -722,8 +722,10 @@ fun DashboardContent(
             ) {
                 item {
                     NeedWorkersSplitCard(
-                        onUrgentClick = {
-                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_URGENT_NEED)
+                        onUrgentClick = { category ->
+                            navController.navigate(
+                                com.example.dutype.navigation.Routes.employerPostUrgentNeedRoute(category)
+                            )
                         },
                         onRegularJobClick = {
                             navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)

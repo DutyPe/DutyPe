@@ -91,6 +91,14 @@ object Routes {
         return "employer_urgent_need_detail/$requestId"
     }
 
+    fun employerPostUrgentNeedRoute(category: String? = null): String {
+        return if (category.isNullOrBlank()) {
+            EMPLOYER_POST_URGENT_NEED
+        } else {
+            "$EMPLOYER_POST_URGENT_NEED?category=${java.net.URLEncoder.encode(category, "UTF-8")}"
+        }
+    }
+
     fun employerHistoryRoute(tab: String? = null): String {
         return if (tab.isNullOrBlank()) {
             EMPLOYER_HISTORY

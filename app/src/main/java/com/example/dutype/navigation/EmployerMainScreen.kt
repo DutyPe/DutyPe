@@ -185,6 +185,19 @@ fun EmployerMainScreen(
                             }
                         )
                     }
+                    composable(
+                        route = "${Routes.EMPLOYER_POST_URGENT_NEED}?category={category}",
+                        arguments = listOf(
+                            navArgument("category") {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            }
+                        )
+                    ) { backStackEntry ->
+                        val initialCategory = backStackEntry.arguments?.getString("category")
+                        PostUrgentNeedScreen(navController = navController, initialCategory = initialCategory)
+                    }
                     composable(Routes.EMPLOYER_POST_URGENT_NEED) {
                         PostUrgentNeedScreen(navController = navController)
                     }

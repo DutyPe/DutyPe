@@ -76,10 +76,12 @@ private val URGENT_CATEGORIES = listOf(
 @Composable
 fun PostUrgentNeedScreen(
     navController: NavController,
+    initialCategory: String? = null,
     viewModel: InstantHelpViewModel = hiltViewModel()
 ) {
     PostUrgentNeedContent(
         viewModel = viewModel,
+        initialCategory = initialCategory,
         onPosted = { requestId ->
             navController.navigate(Routes.employerUrgentNeedDetailRoute(requestId)) {
                 popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
@@ -96,6 +98,7 @@ fun PostUrgentNeedScreen(
 fun PostUrgentNeedContent(
     viewModel: InstantHelpViewModel,
     onPosted: (String) -> Unit,
+    initialCategory: String? = null,
     onInsufficientCredits: () -> Boolean = { false },
     modifier: Modifier = Modifier,
     contentPadding: PaddingValues = PaddingValues(16.dp),
@@ -107,9 +110,26 @@ fun PostUrgentNeedContent(
     val locationService = remember(context) { LocationService(context) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    // Form fields
-    var selectedCategoryItem by rememberSaveable { mutableStateOf("loading_helper") }
-    var otherCategory by rememberSaveable { mutableStateOf("") }
+    // Form fields with prefilled initialCategory support
+    val initialMatch = remember(initialCategory) {
+        if (initialCategory.isNullOrBlank()) null
+        else URGENT_CATEGORIES.firstOrNull {
+            it.title.equals(initialCategory, ignoreCase = true) ||
+            it.id.equals(initialCategory, ignoreCase = true) ||
+            it.title.contains(initialCategory, ignoreCase = true) ||
+            initialCategory.contains(it.title, ignoreCase = true)
+        }
+    }
+    var selectedCategoryItem by rememberSaveable(initialCategory) {
+        mutableStateOf(
+            initialMatch?.id ?: if (!initialCategory.isNullOrBlank()) "other" else "loading_helper"
+        )
+    }
+    var otherCategory by rememberSaveable(initialCategory) {
+        mutableStateOf(
+            if (initialMatch == null && !initialCategory.isNullOrBlank()) initialCategory else ""
+        )
+    }
 
     var urgencyType by rememberSaveable { mutableStateOf("right_now") }
     var workersNeeded by rememberSaveable { mutableStateOf(2) }
@@ -124,7 +144,9 @@ fun PostUrgentNeedContent(
     var selectedDuration by rememberSaveable { mutableStateOf("Full Day (8 hrs)") }
     var durationExpanded by rememberSaveable { mutableStateOf(false) }
 
-    var perPersonPaymentText by rememberSaveable { mutableStateOf("600") }
+    var perPersonPaymentText by rememberSaveable(initialCategory) {
+        mutableStateOf(initialMatch?.defaultPay?.toString() ?: "600")
+    }
 
     var hasEmployerLocation by rememberSaveable { mutableStateOf(false) }
     var isAutoPickingLocation by rememberSaveable { mutableStateOf(false) }

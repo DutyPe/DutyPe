@@ -76,28 +76,11 @@ fun EmployerTopHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Left: Avatar + Company Name + Location
+        // Left: Company Name + Location (initials square box removed)
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.weight(1f)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF0F172A)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = initials,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-
-            Spacer(modifier = Modifier.width(10.dp))
-
             Column {
                 Text(
                     text = displayCompanyName,
@@ -139,52 +122,31 @@ fun EmployerTopHeader(
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        // Right: Support Pill + Profile Circle
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        // Right: Support Pill (profile circle removed)
+        Surface(
+            onClick = onSupportClick,
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, Color(0xFF10B981)),
+            modifier = Modifier.height(34.dp)
         ) {
-            Surface(
-                onClick = onSupportClick,
-                shape = RoundedCornerShape(16.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, Color(0xFF10B981)),
-                modifier = Modifier.height(34.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Call,
-                        contentDescription = null,
-                        tint = Color(0xFF10B981),
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Support",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF047857)
-                    )
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF0F172A))
-                    .clickable { onProfileClick() },
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Profile",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
+                    imageVector = Icons.Default.Call,
+                    contentDescription = null,
+                    tint = Color(0xFF10B981),
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Support",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF047857)
                 )
             }
         }
@@ -193,11 +155,11 @@ fun EmployerTopHeader(
 
 /**
  * Top Section: "Need workers for your shop or home?"
- * Two direct action cards: Urgent vs Regular Job (flatter hierarchy, no nested outer card)
+ * Two direct action cards: Urgent vs Regular Job (equal size, no chips, with category pills)
  */
 @Composable
 fun NeedWorkersSplitCard(
-    onUrgentClick: () -> Unit,
+    onUrgentClick: (String?) -> Unit,
     onRegularJobClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -218,81 +180,70 @@ fun NeedWorkersSplitCard(
         Spacer(modifier = Modifier.height(12.dp))
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Card 1: Urgent (FAST)
+            // Card 1: Urgent (FAST tag removed, height matches Regular Job)
             Card(
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { onUrgentClick() },
+                    .fillMaxHeight()
+                    .clickable { onUrgentClick(null) },
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
                 border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(14.dp)
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color.White),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clip(CircleShape)
-                                .background(Color.White),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.FlashOn,
-                                contentDescription = null,
-                                tint = Color(0xFFDC2626),
-                                modifier = Modifier.size(17.dp)
-                            )
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = Color.White,
-                            border = BorderStroke(1.dp, Color(0xFFFECACA))
-                        ) {
-                            Text(
-                                text = "FAST",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFDC2626),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Default.FlashOn,
+                            contentDescription = null,
+                            tint = Color(0xFFDC2626),
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    Text(
-                        text = "Urgent",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFDC2626)
-                    )
+                    Column {
+                        Text(
+                            text = "Urgent",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFDC2626)
+                        )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(4.dp))
 
-                    Text(
-                        text = "Worker reaches in 2 hours",
-                        fontSize = 12.sp,
-                        color = Color(0xFF64748B),
-                        lineHeight = 15.sp
-                    )
+                        Text(
+                            text = "Worker reaches in 2 hours",
+                            fontSize = 12.sp,
+                            color = Color(0xFF64748B),
+                            lineHeight = 15.sp
+                        )
+                    }
                 }
             }
 
-            // Card 2: Regular Job (REGULAR)
+            // Card 2: Regular Job (REGULAR tag removed, height matches Urgent)
             Card(
                 modifier = Modifier
                     .weight(1f)
+                    .fillMaxHeight()
                     .clickable { onRegularJobClick() },
                 shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)),
@@ -300,59 +251,82 @@ fun NeedWorkersSplitCard(
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(14.dp)
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color.White),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clip(CircleShape)
-                                .background(Color.White),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Assignment,
-                                contentDescription = null,
-                                tint = Color(0xFF059669),
-                                modifier = Modifier.size(17.dp)
-                            )
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = Color.White,
-                            border = BorderStroke(1.dp, Color(0xFFA7F3D0))
-                        ) {
-                            Text(
-                                text = "REGULAR",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF047857),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Assignment,
+                            contentDescription = null,
+                            tint = Color(0xFF059669),
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
+                    Column {
+                        Text(
+                            text = "Regular Job",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF047857)
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = "Daily, weekly or monthly staff",
+                            fontSize = 12.sp,
+                            color = Color(0xFF64748B),
+                            lineHeight = 15.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Quick Category Chips: Clicking prefills into instant job screen
+        val quickInstantGigs = listOf(
+            "📦 Loading Helper" to "Loading Helper",
+            "🚚 Driver" to "Driver",
+            "🧹 Cleaner / Maid" to "Cleaner / Maid",
+            "🍳 Cook" to "Cook",
+            "⚡ Electrician" to "Electrician",
+            "🛡️ Security" to "Security Guard",
+            "🏪 Shop Helper" to "Shop Helper",
+            "📦 Warehouse" to "Warehouse Helper",
+            "🛵 Delivery" to "Delivery Partner"
+        )
+
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 1.dp, vertical = 2.dp)
+        ) {
+            items(quickInstantGigs) { (label, category) ->
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.clickable { onUrgentClick(category) }
+                ) {
                     Text(
-                        text = "Regular Job",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF047857)
-                    )
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Text(
-                        text = "Daily, weekly or monthly staff",
+                        text = label,
                         fontSize = 12.sp,
-                        color = Color(0xFF64748B),
-                        lineHeight = 15.sp
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF1E293B),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
                     )
                 }
             }
