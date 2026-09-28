@@ -697,10 +697,10 @@ fun WorkerProfileScreen(
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = stringResource(R.string.profile_my_activity),
-                style = MaterialTheme.typography.labelMedium.copy(
+                style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF64748B),
-                    fontSize = 12.sp
+                    color = Color(0xFF0F172A),
+                    fontSize = 16.sp
                 ),
                 modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
             )
@@ -754,10 +754,10 @@ fun WorkerProfileScreen(
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = stringResource(R.string.profile_rewards),
-                style = MaterialTheme.typography.labelMedium.copy(
+                style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF64748B),
-                    fontSize = 12.sp
+                    color = Color(0xFF0F172A),
+                    fontSize = 16.sp
                 ),
                 modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
             )
@@ -795,10 +795,10 @@ fun WorkerProfileScreen(
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "సపోర్ట్" else "Support",
-                style = MaterialTheme.typography.labelMedium.copy(
+                style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF64748B),
-                    fontSize = 12.sp
+                    color = Color(0xFF0F172A),
+                    fontSize = 16.sp
                 ),
                 modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
             )
@@ -849,10 +849,10 @@ fun WorkerProfileScreen(
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = if (isTelugu) "కమ్యూనిటీ" else "Community",
-                style = MaterialTheme.typography.labelMedium.copy(
+                style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF64748B),
-                    fontSize = 12.sp
+                    color = Color(0xFF0F172A),
+                    fontSize = 16.sp
                 ),
                 modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
             )
@@ -1296,7 +1296,7 @@ private fun ModernEditDialog(
 // ============================================
 
 /**
- * Modern profile menu item with colored circle icon container matching SettingsScreen
+ * Clean lightweight profile menu item — plain outline icon, no background circle
  */
 @Composable
 private fun MeeshoMenuItem(
@@ -1312,25 +1312,17 @@ private fun MeeshoMenuItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(CircleShape)
-                .background(if (isDestructive) Color(0xFFFEE2E2) else iconColor.copy(alpha = 0.1f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (isDestructive) Color(0xFFDC2626) else iconColor,
-                modifier = Modifier.size(20.dp)
-            )
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (isDestructive) Color(0xFFDC2626) else Color(0xFF6B7280),
+            modifier = Modifier.size(22.dp)
+        )
 
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(16.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1366,7 +1358,7 @@ private fun MeeshoMenuItem(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF64748B),
+                        color = Color(0xFF94A3B8),
                         fontSize = 12.sp
                     )
                 )
@@ -1376,7 +1368,7 @@ private fun MeeshoMenuItem(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
-            tint = Color(0xFF94A3B8),
+            tint = Color(0xFFCBD5E1),
             modifier = Modifier.size(18.dp)
         )
     }
