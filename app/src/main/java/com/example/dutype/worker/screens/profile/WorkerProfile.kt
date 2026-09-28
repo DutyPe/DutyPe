@@ -687,42 +687,7 @@ fun WorkerProfileScreen(
                         }
                     }
 
-                    // Profile completion banner — shown when logged in
-                    if (isLoggedIn) {
-                        HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS)
-                                }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.AccountCircle,
-                                contentDescription = null,
-                                tint = com.example.dutype.ui.theme.WorkerColors.Primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                text = "Complete your profile for better job matches",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = com.example.dutype.ui.theme.WorkerColors.Primary,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 13.sp
-                                ),
-                                modifier = Modifier.weight(1f)
-                            )
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = null,
-                                tint = com.example.dutype.ui.theme.WorkerColors.Primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
+
                 }
             }
         }
@@ -1325,20 +1290,12 @@ private fun MeeshoMenuItem(
             .padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(CircleShape)
-                .background(if (isDestructive) Color(0xFFFEE2E2) else iconColor.copy(alpha = 0.1f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (isDestructive) Color(0xFFDC2626) else iconColor,
-                modifier = Modifier.size(20.dp)
-            )
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (isDestructive) Color(0xFFDC2626) else Color(0xFF374151),
+            modifier = Modifier.size(22.dp)
+        )
 
         Spacer(modifier = Modifier.width(14.dp))
 

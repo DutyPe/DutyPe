@@ -398,19 +398,7 @@ fun EmployerProfileScreen(
                                             )
                                         )
                                     }
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = EmployerColors.Primary.copy(alpha = 0.12f)
-                                    ) {
-                                        Text(
-                                            text = if (employerType == "INDIVIDUAL") "👤 Personal Profile" else "🏢 Company Profile",
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = EmployerColors.Primary,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
-                                    }
+
                                 } else {
                                     // Guest CTA
                                     Button(
@@ -451,43 +439,7 @@ fun EmployerProfileScreen(
                             }
                         }
 
-                        // Profile completion banner — shown when logged in
-                        if (isLoggedIn) {
-                            HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
-                                            ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
-                                    }
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.AccountCircle,
-                                    contentDescription = null,
-                                    tint = EmployerColors.Primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Text(
-                                    text = "Complete your company profile",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = EmployerColors.Primary,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 13.sp
-                                    ),
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null,
-                                    tint = EmployerColors.Primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
+
                     }
                 }
             }
@@ -786,20 +738,12 @@ private fun ProfileMenuItem(
             .padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(CircleShape)
-                .background(if (isDestructive) Color(0xFFFEE2E2) else iconColor.copy(alpha = 0.1f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (isDestructive) Color(0xFFDC2626) else iconColor,
-                modifier = Modifier.size(20.dp)
-            )
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (isDestructive) Color(0xFFDC2626) else Color(0xFF374151),
+            modifier = Modifier.size(22.dp)
+        )
 
         Spacer(modifier = Modifier.width(14.dp))
 

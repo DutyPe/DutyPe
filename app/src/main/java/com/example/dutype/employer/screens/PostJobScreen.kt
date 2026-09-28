@@ -1550,19 +1550,12 @@ fun PostJobScreen(
                                     Divider(color = EmployerColors.Border, thickness = 1.dp)
                                     Column(modifier = Modifier.padding(20.dp)) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(36.dp)
-                                                    .background(EmployerColors.SuccessLight, RoundedCornerShape(10.dp)),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.AccessTime,
-                                                    contentDescription = null,
-                                                    tint = Color(0xFF65A30D),
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                            }
+                                            Icon(
+                                                imageVector = Icons.Default.AccessTime,
+                                                contentDescription = null,
+                                                tint = Color(0xFF374151),
+                                                modifier = Modifier.size(20.dp)
+                                            )
                                             Spacer(modifier = Modifier.width(12.dp))
                                             Text(
                                                 text = stringResource(R.string.schedule),
@@ -2465,67 +2458,40 @@ fun StudioGroupCard(
     accentColor: Color,
     content: @Composable () -> Unit
 ) {
-    androidx.compose.material3.Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = com.example.dutype.ui.theme.EmployerColors.CardBackground,
-        shadowElevation = 2.dp,
-        tonalElevation = 0.dp
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            // ── Header row ──────────────────────────────────────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Numbered circle badge
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .background(accentColor, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "$stepNumber",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
-                }
-                Spacer(Modifier.width(10.dp))
-                // Emoji icon
-                Text(text = icon, fontSize = 18.sp)
-                Spacer(Modifier.width(8.dp))
-                // Title + subtitle
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
-                    )
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = com.example.dutype.ui.theme.EmployerColors.TextSecondary
-                    )
-                }
-            }
-            Divider(
-                color = com.example.dutype.ui.theme.EmployerColors.Border,
-                thickness = 1.dp
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // ── Section header (flat, no card wrapper) ────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = "$stepNumber. $title",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
             )
-            // ── Content (PolishedCards inside render flat) ──────────────────
-            androidx.compose.runtime.CompositionLocalProvider(
-                com.example.dutype.employer.components.LocalSectionInGroup provides true
-            ) {
-                content()
-            }
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = com.example.dutype.ui.theme.EmployerColors.TextSecondary
+            )
         }
+        Divider(
+            color = com.example.dutype.ui.theme.EmployerColors.Border,
+            thickness = 1.dp
+        )
+        // ── Content ────────────────────────────────────────────────────────
+        androidx.compose.runtime.CompositionLocalProvider(
+            com.example.dutype.employer.components.LocalSectionInGroup provides true
+        ) {
+            content()
+        }
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
+
 
 /**
  * ANTI-FRAUD FEATURE: Structured Job Titles
