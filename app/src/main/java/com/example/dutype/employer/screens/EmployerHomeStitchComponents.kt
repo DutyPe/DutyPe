@@ -200,7 +200,7 @@ fun NeedWorkersSplitCard(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(14.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Box(
                         modifier = Modifier
@@ -216,8 +216,6 @@ fun NeedWorkersSplitCard(
                             modifier = Modifier.size(18.dp)
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(12.dp))
 
                     Column {
                         Text(
@@ -239,7 +237,7 @@ fun NeedWorkersSplitCard(
                 }
             }
 
-            // Card 2: Regular Job (REGULAR tag removed, height matches Urgent)
+            // Card 2: Regular Job
             Card(
                 modifier = Modifier
                     .weight(1f)
@@ -254,7 +252,7 @@ fun NeedWorkersSplitCard(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(14.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Box(
                         modifier = Modifier
@@ -270,8 +268,6 @@ fun NeedWorkersSplitCard(
                             modifier = Modifier.size(18.dp)
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(12.dp))
 
                     Column {
                         Text(
@@ -290,44 +286,6 @@ fun NeedWorkersSplitCard(
                             lineHeight = 15.sp
                         )
                     }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // Quick Category Chips: Clicking prefills into instant job screen
-        val quickInstantGigs = listOf(
-            "📦 Loading Helper" to "Loading Helper",
-            "🚚 Driver" to "Driver",
-            "🧹 Cleaner / Maid" to "Cleaner / Maid",
-            "🍳 Cook" to "Cook",
-            "⚡ Electrician" to "Electrician",
-            "🛡️ Security" to "Security Guard",
-            "🏪 Shop Helper" to "Shop Helper",
-            "📦 Warehouse" to "Warehouse Helper",
-            "🛵 Delivery" to "Delivery Partner"
-        )
-
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(horizontal = 1.dp, vertical = 2.dp)
-        ) {
-            items(quickInstantGigs) { (label, category) ->
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color.White,
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    modifier = Modifier.clickable { onUrgentClick(category) }
-                ) {
-                    Text(
-                        text = label,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color(0xFF1E293B),
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
-                    )
                 }
             }
         }
@@ -543,7 +501,13 @@ fun QuickRoleTemplatesSection(
         Triple("🚚", "Driver", "Delivery & drive"),
         Triple("📦", "Helper", "Loading & packing"),
         Triple("🍳", "Cook / Maid", "Cooking & home"),
-        Triple("🏪", "Shop Assistant", "Retail & counter")
+        Triple("🏪", "Shop Assistant", "Retail & counter"),
+        Triple("🛡️", "Security Guard", "Guard & watchman"),
+        Triple("⚡", "Electrician", "Wiring & repairs"),
+        Triple("🧹", "Cleaner", "Cleaning & sweep"),
+        Triple("🛵", "Delivery Boy", "Parcel & delivery"),
+        Triple("🏗️", "Labour", "Construction work"),
+        Triple("➕", "Other", "Any other role")
     )
 
     Column(modifier = modifier.fillMaxWidth()) {

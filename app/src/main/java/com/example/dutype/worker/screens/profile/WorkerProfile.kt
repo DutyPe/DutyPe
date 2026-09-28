@@ -717,7 +717,6 @@ fun WorkerProfileScreen(
                     MeeshoMenuItem(
                         icon = Icons.Outlined.Description,
                         title = stringResource(R.string.my_applications),
-                        subtitle = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "మీ జాబ్ అప్లికేషన్‌ల చరిత్ర" else "Track your job application history",
                         iconColor = Color(0xFF2563EB),
                         onClick = { 
                             if (currentUserId.isEmpty()) {
@@ -734,7 +733,6 @@ fun WorkerProfileScreen(
                     MeeshoMenuItem(
                         icon = Icons.Outlined.Star,
                         title = stringResource(R.string.my_earnings),
-                        subtitle = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "మీ మొత్తం సంపాదన వివరాలు" else "View your total earnings & payments",
                         iconColor = Color(0xFF10B981),
                         onClick = { 
                             if (currentUserId.isEmpty()) {
@@ -774,7 +772,6 @@ fun WorkerProfileScreen(
                     MeeshoMenuItem(
                         icon = Icons.Outlined.CardGiftcard,
                         title = stringResource(R.string.refer_earn),
-                        subtitle = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "ఫ్రెండ్స్‌ని రిఫర్ చేసి క్యాష్ గెలవండి" else "Refer friends and earn cash rewards",
                         badgeText = stringResource(R.string.profile_badge_new),
                         iconColor = Color(0xFF8B5CF6),
                         onClick = { 
@@ -815,7 +812,6 @@ fun WorkerProfileScreen(
                     MeeshoMenuItem(
                         icon = Icons.Outlined.Phone,
                         title = stringResource(R.string.help_faqs),
-                        subtitle = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "సందేహాలు & సమస్యలకు సహాయం" else "Get answers to your questions",
                         iconColor = Color(0xFF0EA5E9),
                         onClick = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) }
                     )
@@ -825,7 +821,6 @@ fun WorkerProfileScreen(
                     MeeshoMenuItem(
                         icon = Icons.Outlined.Info,
                         title = stringResource(R.string.about_us),
-                        subtitle = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "డ్యూటీపే గురించి తెలుసుకోండి" else "Learn more about DutyPe",
                         iconColor = Color(0xFF6366F1),
                         onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) }
                     )
@@ -835,7 +830,6 @@ fun WorkerProfileScreen(
                     MeeshoMenuItem(
                         icon = Icons.Outlined.Settings,
                         title = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "సెట్టింగ్‌లు" else "Settings",
-                        subtitle = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "భాష, గోప్యత & ఖాతా సెట్టింగ్‌లు" else "Language, privacy & account settings",
                         iconColor = Color(0xFF64748B),
                         onClick = { rootNavController.navigate(Routes.SETTINGS) }
                     )
@@ -869,7 +863,6 @@ fun WorkerProfileScreen(
                     MeeshoMenuItem(
                         icon = Icons.Outlined.Star,
                         title = if (isTelugu) "ప్లే స్టోర్‌లో రేటింగ్ ఇవ్వండి (5★)" else "Rate DutyPe on Play Store (5★)",
-                        subtitle = if (isTelugu) "మీ అభిప్రాయం మాకు చాలా ముఖ్యం" else "Your feedback helps us improve",
                         iconColor = Color(0xFFF59E0B),
                         onClick = {
                             val inAppReviewManager = com.example.dutype.utils.InAppReviewManager(context)
@@ -882,7 +875,6 @@ fun WorkerProfileScreen(
                     MeeshoMenuItem(
                         icon = Icons.AutoMirrored.Filled.Chat,
                         title = if (isTelugu) "డ్యూటీపే జాబ్స్ వాట్సాప్ గ్రూప్" else "Join DutyPe Jobs Group",
-                        subtitle = if (isTelugu) "తాజా జాబ్ అప్‌డేట్‌లు & డైరెక్ట్ నోటిఫికేషన్లు" else "Daily job updates & direct hiring on WhatsApp",
                         iconColor = Color(0xFF25D366),
                         onClick = {
                             val whatsAppGroupUrl = "https://chat.whatsapp.com/ITnhw0jk2G0I9TNlDCaNQI?s=cl&p=a&ilr=4"
