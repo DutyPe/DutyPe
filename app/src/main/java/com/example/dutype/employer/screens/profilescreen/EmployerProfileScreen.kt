@@ -471,6 +471,7 @@ fun EmployerProfileScreen(
                         ProfileMenuItem(
                             icon = Icons.Outlined.Work,
                             title = stringResource(R.string.my_job_posts),
+                            subtitle = if (com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU) "మీరు పోస్ట్ చేసిన జాబ్‌లను చూడండి" else "View and manage your posted jobs",
                             iconColor = Color(0xFF2563EB),
                             onClick = { 
                                 if (currentUserId.isEmpty()) {
@@ -497,6 +498,7 @@ fun EmployerProfileScreen(
                         ProfileMenuItem(
                             icon = Icons.Outlined.LocationOn,
                             title = stringResource(R.string.work_locations),
+                            subtitle = if (com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU) "మీ హైరింగ్ లొకేషన్లను మేనేజ్ చేయండి" else "Manage your hiring locations",
                             iconColor = Color(0xFFEC4899),
                             onClick = { 
                                 if (currentUserId.isEmpty()) {
@@ -521,13 +523,15 @@ fun EmployerProfileScreen(
                 }
             }
 
+
             // ═══════════════════════════════════════════════════════════════
-            // OTHERS SECTION
+            // SUPPORT SECTION
             // ═══════════════════════════════════════════════════════════════
             item {
+                val isTelugu = com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = stringResource(R.string.others),
+                    text = if (isTelugu) "సపోర్ట్" else "Support",
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF64748B),
@@ -548,6 +552,7 @@ fun EmployerProfileScreen(
                         ProfileMenuItem(
                             icon = Icons.Outlined.Phone,
                             title = stringResource(R.string.help_faqs),
+                            subtitle = if (isTelugu) "సందేహాలు & సమస్యలకు సహాయం" else "Get answers to your questions",
                             iconColor = Color(0xFF0EA5E9),
                             onClick = { 
                                 localNavController?.navigate(Routes.EMPLOYER_HELP) 
@@ -560,6 +565,7 @@ fun EmployerProfileScreen(
                         ProfileMenuItem(
                             icon = Icons.Outlined.Info,
                             title = stringResource(R.string.about),
+                            subtitle = if (isTelugu) "డ్యూటీపే గురించి తెలుసుకోండి" else "Learn more about DutyPe",
                             iconColor = Color(0xFF6366F1),
                             onClick = { 
                                 localNavController?.navigate(Routes.EMPLOYER_ABOUT) 
@@ -572,18 +578,46 @@ fun EmployerProfileScreen(
                         // Settings - Privacy Policy, Terms of Service, Logout, Delete Account
                         ProfileMenuItem(
                             icon = Icons.Outlined.Settings,
-                            title = if (com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU) "సెట్టింగ్‌లు" else "Settings",
+                            title = if (isTelugu) "సెట్టింగ్‌లు" else "Settings",
+                            subtitle = if (isTelugu) "భాష, గోప్యత & ఖాతా సెట్టింగ్‌లు" else "Language, privacy & account settings",
                             iconColor = Color(0xFF64748B),
                             onClick = { 
                                 rootNavController.navigate(Routes.SETTINGS) 
                             }
                         )
+                    }
+                }
+            }
 
-                        HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
-
+            // ═══════════════════════════════════════════════════════════════
+            // COMMUNITY SECTION
+            // ═══════════════════════════════════════════════════════════════
+            item {
+                val isTelugu = com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = if (isTelugu) "కమ్యూనిటీ" else "Community",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF64748B),
+                        fontSize = 12.sp
+                    ),
+                    modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
+                )
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    border = BorderStroke(0.6.dp, Color(0xFFE2E8F0))
+                ) {
+                    Column {
                         ProfileMenuItem(
                             icon = Icons.Default.Star,
-                            title = if (com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU) "ప్లే స్టోర్‌లో రేటింగ్ ఇవ్వండి (5★)" else "Rate DutyPe on Play Store (5★)",
+                            title = if (isTelugu) "ప్లే స్టోర్‌లో రేటింగ్ ఇవ్వండి (5★)" else "Rate DutyPe on Play Store (5★)",
+                            subtitle = if (isTelugu) "మీ అభిప్రాయం మాకు చాలా ముఖ్యం" else "Your feedback helps us improve",
                             iconColor = Color(0xFFF59E0B),
                             onClick = {
                                 val inAppReviewManager = com.example.dutype.utils.InAppReviewManager(context)
@@ -593,8 +627,7 @@ fun EmployerProfileScreen(
 
                         HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
 
-                        // Join DutyPe WhatsApp Group as flat menu item right after Rate DutyPe
-                        val isTelugu = com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
+                        // Join DutyPe WhatsApp Group
                         ProfileMenuItem(
                             icon = Icons.AutoMirrored.Filled.Chat,
                             title = if (isTelugu) "డ్యూటీపే జాబ్స్ వాట్సాప్ గ్రూప్" else "Join DutyPe Jobs Group",
