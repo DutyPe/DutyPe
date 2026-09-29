@@ -9,17 +9,20 @@ import com.example.dutype.services.AuthFlowService
 import com.example.dutype.services.FCMTokenManager
 import com.example.dutype.utils.FirestoreUtils
 import com.example.dutype.utils.findActivity
-import com.example.dutype.utils.isDebuggableBuild
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthOptions
 import com.google.firebase.auth.PhoneAuthProvider
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
 import com.example.dutype.metadata.MetadataManager
@@ -43,6 +46,57 @@ class OtpViewModel @Inject constructor(
     private val performanceTracker: com.example.dutype.performance.PerformanceTracker,
     private val errorHandler: com.example.dutype.core.error.ErrorHandler
 ) : ViewModel() {
+
+    private companion object {
+        /** Bound for the pre-OTP phone/role check so it can never stall the SMS request. */
+        const val PRECHECK_TIMEOUT_MS = 3_000L
+
+        /**
+         * Process-level scope for post-login housekeeping (FCM token registration etc.).
+         * It must outlive this ViewModel, which is cleared as soon as navigation happens.
+         */
+        val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    }
+
+    /**
+     * OTP speed-up: while the user is reading/typing the OTP, open the Firestore
+     * connection with a tiny public read (app_config allows `get` without auth).
+     * The first post-login reads (phoneRoles + role profiles) then skip the
+     * cold-channel setup, which was most of the wait after "Verify".
+     */
+    private fun warmUpFirestore() {
+        backgroundScope.launch {
+            runCatching {
+                com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                    .collection(com.example.dutype.firestore.FirestoreCollections.APP_CONFIG)
+                    .document("app_update")
+                    .get(com.google.firebase.firestore.Source.SERVER)
+                    .await()
+            }.onFailure { Timber.d(it, "Firestore warm-up skipped") }
+        }
+    }
+
+    /** Authenticated metadata loads only after login is resolved so it never competes with it. */
+    private fun initMetadataInBackground() {
+        backgroundScope.launch {
+            try {
+                metadataManager.initializeWithAuth()
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to initialize metadata after auth")
+            }
+        }
+    }
+
+    /** Fire-and-forget FCM registration: never blocks navigation after login/registration. */
+    private fun registerFcmInBackground(role: String) {
+        backgroundScope.launch {
+            try {
+                fcmTokenManager.registerTokenWithRole(role)
+            } catch (e: Exception) {
+                Timber.w(e, "Background FCM registration failed")
+            }
+        }
+    }
 
     private val _otpState = MutableStateFlow(OtpState())
     val otpState: StateFlow<OtpState> = _otpState.asStateFlow()
@@ -98,13 +152,17 @@ class OtpViewModel @Inject constructor(
             // Only bail on a DEFINITIVE conflict (EXISTS + roleConflict).
             // UNKNOWN or transient pre-check failures must not block Firebase
             // PhoneAuth; the canonical account checks run after OTP sign-in.
+            // Normally a free cache hit (the screen just ran the same check). Bounded so a
+            // slow network can never delay the SMS request itself.
             runCatching {
-                FirestoreUtils.checkPhoneForRole(
-                    phoneNumber = phoneNumber,
-                    requestedRole = pendingRole.name
-                )
+                withTimeoutOrNull(PRECHECK_TIMEOUT_MS) {
+                    FirestoreUtils.checkPhoneForRole(
+                        phoneNumber = phoneNumber,
+                        requestedRole = pendingRole.name
+                    )
+                }
             }.onSuccess { phoneCheck ->
-                if (phoneCheck.exists == FirestoreUtils.PhoneExistenceResult.EXISTS &&
+                if (phoneCheck != null && phoneCheck.exists == FirestoreUtils.PhoneExistenceResult.EXISTS &&
                     phoneCheck.roleConflict
                 ) {
                     val existingRole = phoneCheck.existingRole?.lowercase() ?: "different role"
@@ -145,15 +203,12 @@ class OtpViewModel @Inject constructor(
                     return@launch
                 }
 
-                configureDebugRecaptchaFallback(context)
-                
                 val options = PhoneAuthOptions.newBuilder(auth)
                     .setPhoneNumber(phoneNumber)
                     .setTimeout(60L, TimeUnit.SECONDS)
                     .setActivity(activity)
-                    // Enable reCAPTCHA verification to prevent rate limiting
-                    // Firebase automatically uses invisible reCAPTCHA or reCAPTCHA Enterprise
-                    // This significantly increases SMS quota and prevents "too many requests" errors
+                    // Device attestation is handled by Firebase Auth via Play Integrity
+                    // (backed by the App Check Play Integrity provider installed in DutyPeApplication).
                     .setCallbacks(object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
                             override fun onVerificationCompleted(credential: PhoneAuthCredential) {
                                 // Auto-verification completed (instant verification or auto-retrieval)
@@ -213,6 +268,7 @@ class OtpViewModel @Inject constructor(
                             Timber.i("OTP code sent successfully in ${duration}ms")
                             storedVerificationId = verificationId
                             resendToken = token
+                            warmUpFirestore()
                             _otpState.value = _otpState.value.copy(
                                 isLoading = false,
                                 otpSent = true,
@@ -300,87 +356,32 @@ class OtpViewModel @Inject constructor(
                     val userId = firebaseUser.uid
                     errorHandler.logBreadcrumb("Firebase sign-in successful: $phoneNumber")
                     
-                    //   CRITICAL: Check if user has existing profile data in Firestore
-                    // REFACTORED: Now uses FirestoreUtils.getUserByUid() - canonical implementation
-                    Timber.d("OtpViewModel - Checking for existing profile data for user: $userId")
-                    val existingProfileData = FirestoreUtils.getUserByUid(userId)
-                    val hasExistingProfile = existingProfileData != null && isProfileComplete(existingProfileData)
-                    
-                    Timber.d("OtpViewModel - Existing profile found: $hasExistingProfile")
-                    Timber.d("OtpViewModel - Profile data: $existingProfileData")
-                    
-                    val resolvedRole = run {
-                        val raw = (existingProfileData?.get("role") as? String)
-                            ?: pendingRole.name
-                        runCatching { UserRole.valueOf(raw.uppercase()) }.getOrDefault(UserRole.WORKER)
-                    }
+                    // PERF: do NOT read the profile docs here. completeLogin()/completeRegistration()
+                    // (called immediately after otpVerified) resolve role + profile with one
+                    // concurrent read and re-cache the user, so an extra round trip here only
+                    // delayed the UI. Cache a minimal user now; it is refined right after.
                     val user = User(
                         id = userId,
-                        fullName = existingProfileData?.get("fullName") as? String ?: "",
-                        phone = existingProfileData?.get("phone") as? String ?: phoneNumber,
-                        role = resolvedRole,
-                        profileImageUrl = existingProfileData?.get("profileImageUrl") as? String
+                        fullName = "",
+                        phone = phoneNumber,
+                        role = pendingRole,
+                        profileImageUrl = null
                     )
-                    
-                    // CRITICAL FIX: Use injected AuthManager singleton instead of creating new instance
+
                     authManager.saveUser(user)
                     authManager.setLoggedIn(true)
 
-                    // Initialize Firestore-dependent metadata now that user is authenticated
-                    viewModelScope.launch {
-                        try {
-                            metadataManager.initializeWithAuth()
-                            Timber.i("✅ Metadata initialized after authentication")
-                        } catch (e: Exception) {
-                            Timber.w(e, "⚠️ Failed to initialize metadata after auth")
-                        }
-                    }
-                    
-                    Timber.i("✅ User authenticated successfully: $userId")
+                    Timber.i("User authenticated successfully: $userId")
                     errorHandler.logBreadcrumb("User saved to AuthManager - Authentication complete")
                     errorHandler.setUserInfo(userId, phoneNumber)
+                    // FCM registration happens (in the background) from completeLogin /
+                    // completeRegistration once the role is resolved.
 
-                    if (hasExistingProfile) {
-                        // Existing canonical profile is present, safe to register token now.
-                        viewModelScope.launch {
-                            try {
-                                val userRole = if (existingProfileData?.get("role") != null) {
-                                    user.role.name
-                                } else {
-                                    pendingRole.name
-                                }
-                                fcmTokenManager.registerTokenWithRole(userRole)
-                                Timber.i("✅ FCM token registered with role for user: $userId, role: $userRole")
-                            } catch (e: Exception) {
-                                Timber.w(e, "⚠️ Failed to register FCM token with role, trying basic registration")
-                                try {
-                                    fcmTokenManager.registerToken()
-                                    Timber.i("✅ FCM token registered (basic) for user: $userId")
-                                } catch (e2: Exception) {
-                                    Timber.w(e2, "⚠️ Failed to register FCM token")
-                                }
-                            }
-                        }
-                    } else {
-                        Timber.i("OtpViewModel - New user detected, deferring FCM registration until completeRegistration")
-                    }
-                    
-                    //  IF EXISTING PROFILE: Mark profile as complete so navigation goes to HOME not PROFILE_SETUP
-                    if (hasExistingProfile) {
-                        Timber.i("OtpViewModel - Existing user detected, marking profile as complete")
-                        try {
-                            // This updates ProfileSetupStateManager with completion status
-                            // Navigation will check this flag and go to home screen
-                            val userRole = user.role
-                            updateProfileComplete(userId, userRole, true)
-                        } catch (e: Exception) {
-                            Timber.w(e, "Error marking profile as complete")
-                            Timber.w("⚠️ Error marking profile as complete: ${e.message}")
-                        }
-                    }
-                    
+                    // Keep the spinner on: the screen still resolves the account
+                    // (completeLogin / completeRegistration) before navigating, and a
+                    // spinner-less gap made verification look stuck. resetState() clears it.
                     _otpState.value = _otpState.value.copy(
-                        isLoading = false,
+                        isLoading = true,
                         otpVerified = true,
                         message = "Phone authentication successful",
                         phoneNumber = firebaseUser.phoneNumber  // Store phone number
@@ -476,7 +477,8 @@ class OtpViewModel @Inject constructor(
             ).fold(
                 onSuccess = { resolution ->
                     cacheResolvedUser(resolution.userData, role)
-                    runCatching { fcmTokenManager.registerTokenWithRole(role.name) }
+                    registerFcmInBackground(role.name)
+                    initMetadataInBackground()
                     Result.success(PostOtpNavigation(PostOtpDestination.PROFILE_SETUP, role))
                 },
                 onFailure = { Result.failure(it) }
@@ -508,8 +510,9 @@ class OtpViewModel @Inject constructor(
 
                     resolution.userData?.let { userData ->
                         cacheResolvedUser(userData, role)
-                        runCatching { fcmTokenManager.registerTokenWithRole(resolution.roleForFcm) }
+                        registerFcmInBackground(resolution.roleForFcm)
                     }
+                    initMetadataInBackground()
 
                     Result.success(
                         PostOtpNavigation(
@@ -550,13 +553,17 @@ class OtpViewModel @Inject constructor(
             // Same defense-in-depth role pre-check as sendOtp. Definitive role
             // conflicts still block; UNKNOWN or transient failures continue to
             // PhoneAuth and are resolved after OTP sign-in.
+            // Normally a free cache hit (the screen just ran the same check). Bounded so a
+            // slow network can never delay the SMS request itself.
             runCatching {
-                FirestoreUtils.checkPhoneForRole(
-                    phoneNumber = phoneNumber,
-                    requestedRole = pendingRole.name
-                )
+                withTimeoutOrNull(PRECHECK_TIMEOUT_MS) {
+                    FirestoreUtils.checkPhoneForRole(
+                        phoneNumber = phoneNumber,
+                        requestedRole = pendingRole.name
+                    )
+                }
             }.onSuccess { phoneCheck ->
-                if (phoneCheck.exists == FirestoreUtils.PhoneExistenceResult.EXISTS &&
+                if (phoneCheck != null && phoneCheck.exists == FirestoreUtils.PhoneExistenceResult.EXISTS &&
                     phoneCheck.roleConflict
                 ) {
                     val existingRole = phoneCheck.existingRole?.lowercase() ?: "different role"
@@ -594,8 +601,6 @@ class OtpViewModel @Inject constructor(
                     return@launch
                 }
 
-                configureDebugRecaptchaFallback(context)
-                
                 val optionsBuilder = PhoneAuthOptions.newBuilder(auth)
                     .setPhoneNumber(phoneNumber)
                     .setTimeout(60L, TimeUnit.SECONDS)
@@ -678,23 +683,6 @@ class OtpViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Force classic reCAPTCHA v2 flow in debug builds to avoid Play Integrity-only issues
-     * on local testing devices. Reflection keeps compatibility across Auth SDK versions.
-     */
-    private fun configureDebugRecaptchaFallback(context: Context) {
-        if (!context.isDebuggableBuild()) return
-
-        runCatching {
-            val settings = auth.firebaseAuthSettings
-            val method = settings.javaClass.getMethod("forceRecaptchaFlowForTesting", Boolean::class.javaPrimitiveType)
-            method.invoke(settings, true)
-            Timber.d("OTP DEBUG: forceRecaptchaFlowForTesting enabled")
-        }.onFailure { e ->
-            Timber.d("OTP DEBUG: forceRecaptchaFlowForTesting not available: ${e.message}")
-        }
-    }
-
     private fun isBillingNotEnabledError(message: String?): Boolean {
         val safeMessage = message ?: return false
         return safeMessage.contains("BILLING_NOT_ENABLED", ignoreCase = true) ||
@@ -726,6 +714,11 @@ class OtpViewModel @Inject constructor(
         private fun mapPhoneAuthError(e: Exception): String {
             val msg = e.message ?: "Verification failed"
             return when {
+                // Device could not be attested (Play Integrity unavailable / no Activity for the fallback flow)
+                e::class.java.simpleName == "FirebaseAuthMissingActivityForRecaptchaException" ||
+                msg.contains("MissingActivityForRecaptcha", ignoreCase = true) ->
+                    "Couldn't verify this device. Update Google Play services / Play Store and try again."
+
                 // Invalid OTP / Wrong code entered
                 msg.contains("invalid", ignoreCase = true) && msg.contains("code", ignoreCase = true) ||
                 msg.contains("invalid verification code", ignoreCase = true) ||
@@ -752,9 +745,10 @@ class OtpViewModel @Inject constructor(
                     "App recognition pending. Please wait 24-48 hours after installation for Play Store to recognize your app."
                 
                 // Play Integrity API errors (status codes 17028)
-                msg.contains("17028", ignoreCase = true) || 
-                msg.contains("Play Integrity", ignoreCase = true) ->
-                    "SMS verification temporarily unavailable. Please enter OTP manually."
+                msg.contains("17028", ignoreCase = true) ||
+                msg.contains("Play Integrity", ignoreCase = true) ||
+                msg.contains("integrity", ignoreCase = true) ->
+                    "Couldn't verify this device. Update Google Play services / Play Store and try again."
                     
                 msg.contains("BILLING_NOT_ENABLED", ignoreCase = true) ||
                 msg.contains("17499", ignoreCase = true) ->

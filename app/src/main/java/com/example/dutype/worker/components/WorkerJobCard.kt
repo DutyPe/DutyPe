@@ -48,7 +48,8 @@ fun JobCard(
     onSaveClick: (String) -> Unit,
     onCardClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    onViewTrack: (String) -> Unit = {}
+    onViewTrack: (String) -> Unit = {},
+    applyButtonLabel: String = "Quick Apply"
 ) {
     var localIsSaved by remember { mutableStateOf(isSaved) }
     LaunchedEffect(isSaved) { localIsSaved = isSaved }
@@ -84,6 +85,9 @@ fun JobCard(
         statusLabel = statusLabel,
         isFilled = isFilled,
         isExpired = isExpired,
+        isUrgent = job.urgency.equals("HIGH", ignoreCase = true),
+        isVerified = job.isVerified,
+        applyButtonLabel = applyButtonLabel,
         isSaved = localIsSaved,
         jobImageUrl = job.jobImageUrl,
         onSaveClick = {
@@ -110,7 +114,8 @@ fun JobCard(
     onSaveClick: (String) -> Unit,
     onCardClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    onViewTrack: (String) -> Unit = {}
+    onViewTrack: (String) -> Unit = {},
+    applyButtonLabel: String = "Quick Apply"
 ) {
     var localIsSaved by remember { mutableStateOf(isSaved) }
     LaunchedEffect(isSaved) { localIsSaved = isSaved }
@@ -149,6 +154,11 @@ fun JobCard(
         statusLabel = statusLabel,
         isFilled = isFilled,
         isExpired = isExpired,
+        // JobListingSummary has no isVerified field (card-list projection only
+        // carries jobmetadata fields) — verified badge is not shown here.
+        isUrgent = job.urgency.equals("HIGH", ignoreCase = true),
+        isVerified = false,
+        applyButtonLabel = applyButtonLabel,
         isSaved = localIsSaved,
         jobImageUrl = job.jobImageUrl,
         onSaveClick = {
@@ -181,170 +191,99 @@ private fun JobCardInternal(
     isFilled: Boolean,
     isExpired: Boolean,
     isSaved: Boolean,
+    isUrgent: Boolean = false,
+    isVerified: Boolean = false,
+    applyButtonLabel: String = "Quick Apply",
     jobImageUrl: String? = null,
     onSaveClick: () -> Unit,
     onCardClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-
+    // Stitch design spec: flat white card, 16dp corners, hairline border,
+    // no shadow, no logo/heart — title + URGENT badge, employer (+ Verified),
+    // distance, then salary + a black pill Quick-Apply/Apply button.
     Card(
         modifier = modifier
             .fillMaxWidth()
             .clickable { onCardClick() },
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
-        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+        shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, WorkerColors.Border),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
+                .padding(16.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .offset(x = 34.dp, y = (-28).dp)
-                    .size(104.dp)
-                    .clip(CircleShape)
-                    .background(Color.Transparent)
-            )
-
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .offset(x = (-24).dp, y = 26.dp)
-                    .size(86.dp)
-                    .clip(CircleShape)
-                    .background(Color.Transparent)
-            )
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp)
-            ) {
-            // Row 1: Job Icon + Title + Favorite
+            // Row 1: Title + URGENT badge (or closed/expired status badge)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        // Solid surface for the job icon — no gradient.
-                        .background(
-                            color = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                            shape = CircleShape
-                        )
-                        .border(1.dp, com.example.dutype.ui.theme.WorkerColors.Border, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    JobImageOrAnimation(
-                        jobImageUrl = jobImageUrl,
-                        jobTitle = title,
-                        companyName = companyName,
-                        modifier = Modifier.size(44.dp)
+                Text(
+                    text = ValidationUtils.capitalizeWords(title),
+                    style = AppTypography.cardTitle.copy(
+                        color = if (isClosed) WorkerColors.TextSecondary else WorkerColors.TextPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    ),
+                    modifier = Modifier.weight(1f, fill = false),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                when {
+                    isUrgent && !isClosed -> UrgentBadge()
+                    !statusLabel.isNullOrBlank() -> CompactChip(
+                        text = statusLabel,
+                        chipType = if (isExpired) ChipType.EXPIRED else ChipType.FILLED
                     )
                 }
+            }
 
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.Center
+            if (companyName.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = ValidationUtils.capitalizeWords(title),
-                        style = AppTypography.cardTitle.copy(
-                            color = if (isClosed) WorkerColors.TextSecondary else WorkerColors.TextPrimary,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
+                        text = companyName,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = WorkerColors.TextSecondary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    if (companyName.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-                        ) {
-                            Text(
-                                text = companyName,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = WorkerColors.TextSecondary,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                ),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-
-                IconButton(
-                    onClick = {
-                        onSaveClick()
-                        Toast.makeText(context, if (!isSaved) "Job saved!" else "Job removed!", Toast.LENGTH_SHORT).show()
-                    },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
-                        .border(1.dp, WorkerColors.Border, CircleShape)
-                ) {
-                    Icon(
-                        imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = null,
-                        tint = if (isSaved) WorkerColors.Error else WorkerColors.TextTertiary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Row 2: Pay
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (payDisplay == "Negotiable") {
-                    Text(
-                        text = payDisplay,
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            color = WorkerColors.TextSecondary,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.sp
+                    if (isVerified) {
+                        Icon(
+                            imageVector = Icons.Default.Verified,
+                            contentDescription = null,
+                            tint = WorkerColors.Success,
+                            modifier = Modifier.size(13.dp)
                         )
-                    )
-                } else {
-                    Text(
-                        text = "₹${payDisplay.substringBefore("/")}",
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            color = WorkerColors.TextPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        )
-                    )
-                    if (payDisplay.contains("/")) {
                         Text(
-                            text = "/${payDisplay.substringAfter("/")}",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                color = WorkerColors.TextSecondary,
-                                fontWeight = FontWeight.Normal,
-                                fontSize = 13.sp
+                            text = "Verified",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = WorkerColors.Success,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Row 3: Location
+            // Distance / location row
             if (locationDisplay.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -365,36 +304,89 @@ private fun JobCardInternal(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Spacer(modifier = Modifier.height(10.dp))
             }
 
-            // Row 4: Tags
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Bottom row: bold green salary + black pill apply button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (!statusLabel.isNullOrBlank()) {
-                    CompactChip(
-                        text = statusLabel,
-                        chipType = when {
-                            isFilled -> ChipType.FILLED
-                            isExpired -> ChipType.EXPIRED
-                            else -> ChipType.DEFAULT
+                Row(verticalAlignment = Alignment.Bottom) {
+                    if (payDisplay == "Negotiable") {
+                        Text(
+                            text = payDisplay,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = WorkerColors.Success,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                        )
+                    } else {
+                        Text(
+                            text = "₹${payDisplay.substringBefore("/")}",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = WorkerColors.Success,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 17.sp
+                            )
+                        )
+                        if (payDisplay.contains("/")) {
+                            Text(
+                                text = " /${payDisplay.substringAfter("/")}",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    color = WorkerColors.TextSecondary,
+                                    fontWeight = FontWeight.Normal,
+                                    fontSize = 13.sp
+                                )
+                            )
                         }
-                    )
+                    }
                 }
 
-                CompactChip(
-                    text = if (vacancies == 1) "1 vacancy" else "$vacancies vacancies",
-                    chipType = ChipType.VACANCY
-                )
-
-                if (!workTypeLabel.isNullOrBlank()) {
-                    CompactChip(text = workTypeLabel, chipType = ChipType.JOB_TYPE)
+                if (!isClosed) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(WorkerColors.Primary)
+                            .clickable { onCardClick() }
+                            .padding(horizontal = 16.dp, vertical = 9.dp)
+                    ) {
+                        Text(
+                            text = "$applyButtonLabel →",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 13.sp
+                            )
+                        )
+                    }
                 }
             }
         }
-        }
+    }
+}
+
+/**
+ * Small red "URGENT" pill badge — top-right of an urgent job card.
+ */
+@Composable
+private fun UrgentBadge() {
+    Box(
+        modifier = Modifier
+            .background(WorkerColors.ErrorLight, RoundedCornerShape(999.dp))
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    ) {
+        Text(
+            text = "URGENT",
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = WorkerColors.Error,
+                fontWeight = FontWeight.Bold,
+                fontSize = 10.sp
+            )
+        )
     }
 }
 
@@ -456,7 +448,7 @@ private fun CompactChip(
     Box(
         modifier = Modifier
             .background(bgColor, RoundedCornerShape(12.dp))
-            .border(0.5.dp, bdrColor, RoundedCornerShape(16.dp))
+            .border(0.5.dp, bdrColor, RoundedCornerShape(12.dp))
             .padding(horizontal = 10.dp, vertical = 5.dp)
     ) {
         Text(
@@ -695,3 +687,275 @@ private fun getJobIconResource(jobTitle: String): Int {
 }
 
 // NOTE: getTimeAgo() removed - use DateTimeUtils.formatRelativeTime() instead
+
+// =============================================================================
+// WORKER HOME CARD (Option A design) — flat compact card used only on the
+// worker home screen. JobCard above is untouched for AllJobs and other callers.
+// =============================================================================
+
+private val HomeCardInk = Color(0xFF0F0F0F)
+private val HomeCardNavy = Color(0xFF0F172A)
+private val HomeCardSlate = Color(0xFF64748B)
+private val HomeCardBorder = Color(0xFFE2E8F0)
+private val HomeCardTile = Color(0xFFF1F5F9)
+private val HomeCardRed = Color(0xFFDC2626)
+private val HomeCardRedBg = Color(0xFFFEF2F2)
+
+/**
+ * Compact home-screen job card: company tile, title (+ URGENT tag only when the
+ * job's urgency is HIGH, i.e. the same field the classic JobCard uses), company
+ * and distance, pay, and the existing Quick Apply button (opens job details,
+ * exactly like the classic card's button).
+ */
+@Composable
+fun WorkerHomeJobCard(
+    job: JobListing,
+    onCardClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    onViewTrack: (String) -> Unit = {},
+    applyButtonLabel: String = "Quick Apply",
+    isApplied: Boolean = false
+) {
+    val payDisplay = remember(job.salary, job.salaryType) {
+        formatPayDisplay(job.salary, job.salaryType)
+    }
+    val subtitle = remember(job.companyName, job.distance) {
+        listOf(job.companyName.trim(), formatShortDistance(job.distance))
+            .filter { it.isNotBlank() }
+            .joinToString(" · ")
+    }
+    val normalizedStatus = job.status.trim().lowercase()
+    val isFilled = normalizedStatus == "closed"
+    val isExpired = normalizedStatus == "expired"
+    val isClosed = isFilled || isExpired
+    val statusLabel = when {
+        isFilled -> stringResource(R.string.filled)
+        isExpired -> stringResource(R.string.tab_expired)
+        else -> null
+    }
+    val isUrgent = job.urgency.equals("HIGH", ignoreCase = true) && !isClosed
+    val openJob = {
+        onViewTrack(job.id)
+        onCardClick(job.id)
+    }
+    val cardShape = RoundedCornerShape(16.dp)
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(cardShape)
+            .background(Color.White)
+            .border(1.dp, HomeCardBorder, cardShape)
+            .clickable { openJob() }
+            .padding(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        HomeJobTile(
+            imageUrl = job.jobImageUrl,
+            initialSource = job.companyName.ifBlank { job.title }
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            HomeJobTitleRow(
+                title = job.title,
+                isUrgent = isUrgent,
+                statusLabel = statusLabel,
+                isExpired = isExpired,
+                isClosed = isClosed
+            )
+            if (subtitle.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    color = HomeCardSlate,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            HomeJobPayRow(
+                payDisplay = payDisplay,
+                showApply = !isClosed,
+                applyButtonLabel = applyButtonLabel,
+                isApplied = isApplied,
+                onApplyClick = openJob
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeJobTile(imageUrl: String?, initialSource: String) {
+    val tileShape = RoundedCornerShape(14.dp)
+    val initial = remember(initialSource) {
+        initialSource.trim().take(1).uppercase().ifBlank { "J" }
+    }
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(tileShape)
+            .background(HomeCardTile),
+        contentAlignment = Alignment.Center
+    ) {
+        if (!imageUrl.isNullOrBlank()) {
+            OptimizedJobImage(
+                imageUrl = imageUrl,
+                contentDescription = "Job image",
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Text(
+                text = initial,
+                color = HomeCardNavy,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeJobTitleRow(
+    title: String,
+    isUrgent: Boolean,
+    statusLabel: String?,
+    isExpired: Boolean,
+    isClosed: Boolean
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(
+            text = ValidationUtils.capitalizeWords(title),
+            color = if (isClosed) HomeCardSlate else HomeCardInk,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        if (isUrgent) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .background(HomeCardRedBg, RoundedCornerShape(50))
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = "URGENT",
+                    color = HomeCardRed,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        } else if (!statusLabel.isNullOrBlank()) {
+            Spacer(modifier = Modifier.width(8.dp))
+            CompactChip(
+                text = statusLabel,
+                chipType = if (isExpired) ChipType.EXPIRED else ChipType.FILLED
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeJobPayRow(
+    payDisplay: String,
+    showApply: Boolean,
+    applyButtonLabel: String,
+    isApplied: Boolean,
+    onApplyClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            if (payDisplay == "Negotiable") {
+                Text(
+                    text = payDisplay,
+                    color = HomeCardInk,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+            } else {
+                Text(
+                    text = "₹${payDisplay.substringBefore("/")}",
+                    color = HomeCardInk,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+                if (payDisplay.contains("/")) {
+                    Text(
+                        text = " /${payDisplay.substringAfter("/")}",
+                        color = HomeCardSlate,
+                        fontSize = 12.sp,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+        if (showApply) {
+            Spacer(modifier = Modifier.width(8.dp))
+            if (isApplied) {
+                HomeAppliedButton()
+            } else {
+                HomeApplyButton(label = applyButtonLabel, onClick = onApplyClick)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeApplyButton(label: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .height(36.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(HomeCardInk)
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = Color.White,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun HomeAppliedButton() {
+    val shape = RoundedCornerShape(18.dp)
+    Box(
+        modifier = Modifier
+            .height(36.dp)
+            .clip(shape)
+            .border(1.dp, HomeCardBorder, shape)
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Applied",
+            color = HomeCardSlate,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1
+        )
+    }
+}
+
+private fun formatShortDistance(distance: Double?): String {
+    if (distance == null) return ""
+    return if (distance < 1.0) "${(distance * 1000).toInt()} m" else "${"%.1f".format(distance)} km"
+}

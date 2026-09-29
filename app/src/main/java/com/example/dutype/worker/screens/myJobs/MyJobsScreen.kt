@@ -1,11 +1,16 @@
 package com.example.dutype.worker.screens.myJobs
 
 import com.dutype.app.R
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,42 +18,30 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SearchOff
-import androidx.compose.material.icons.filled.Work
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.WorkOutline
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ScrollableTabRow
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -57,13 +50,13 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -73,32 +66,27 @@ import androidx.navigation.NavHostController
 
 import com.example.dutype.navigation.Routes
 import com.example.dutype.models.ApplicationStatus
-import com.example.dutype.models.getStatusColor
-import com.example.dutype.models.getDisplayName
 import com.example.dutype.utils.ScrollStateManager
-import com.example.dutype.components.ReusableSearchBar
+import com.example.dutype.components.ApplicationStatusBadge
 import com.example.dutype.components.ScrollAwareLazyColumn
-import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.models.JobApplication
-import com.example.dutype.components.EmptyListState
-import com.example.dutype.components.EmptySearchState
-import com.example.dutype.components.EmptyStateAction
-import timber.log.Timber
-import com.example.dutype.worker.components.JobApplicationCard
 import com.example.dutype.components.JobCardShimmer
+import timber.log.Timber
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
 import com.google.firebase.auth.FirebaseAuth
 
-// NOTE: getStatusDisplayName and getStatusColor removed
-// Use extension functions from com.example.dutype.models:
-// - ApplicationStatus.getDisplayName()
-// - ApplicationStatus.getStatusColor()
+// ─── Design tokens (pixel-exact "My Jobs" mockup) ──────────────────────────
+private val MyJobsInk = Color(0xFF0F0F0F)
+private val MyJobsMuted = Color(0xFF64748B)
+private val MyJobsFaint = Color(0xFF94A3B8)
+private val MyJobsBorder = Color(0xFFE2E8F0)
+private val MyJobsEmerald = Color(0xFF10B981)
+private val MyJobsEmeraldTint = Color(0xFFF0FDF4)
+private val MyJobsScreenBg = Color(0xFFF8FAFC)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,14 +99,11 @@ fun MyJobsScreen(
     var selectedTabIndex by remember { mutableIntStateOf(0) }
     val savedJobViewModel: SavedJobsViewModel = hiltViewModel()
     val jobApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
-    var searchQuery by remember { mutableStateOf("") }
-    var isSearchVisible by remember { mutableStateOf(false) }
-    var selectedStatusFilter by remember { mutableStateOf<ApplicationStatus?>(null) }
-    
+
     // Withdraw dialog state
     var showWithdrawDialog by remember { mutableStateOf(false) }
     var applicationToWithdraw by remember { mutableStateOf<JobApplication?>(null) }
-    
+
     // Rating state
     var showRatingSheet by remember { mutableStateOf(false) }
     var applicationToRate by remember { mutableStateOf<JobApplication?>(null) }
@@ -126,57 +111,51 @@ fun MyJobsScreen(
     val cardContext = androidx.compose.ui.platform.LocalContext.current
     val ratingService = remember { com.example.dutype.services.RatingService(com.example.dutype.di.firestoreFromHilt(cardContext), com.example.dutype.di.authFromHilt(cardContext)) }
     val ratingScope = rememberCoroutineScope()
-    
+
     val currentUser = FirebaseAuth.getInstance().currentUser
-    
+
     // Get real data for both applied and saved jobs
     val jobApplicationUiState by jobApplicationViewModel.legacyUiState.collectAsStateWithLifecycle()
     val applications = jobApplicationUiState.applications
     val savedJobUiState by savedJobViewModel.uiState.collectAsStateWithLifecycle()
     val savedJobs = savedJobUiState.savedJobs
-    
-    
+
     // Debug logging for MyJobsScreen
     LaunchedEffect(savedJobUiState) {
         Timber.d("MyJobsScreen: SavedJobs UI State - isLoading: ${savedJobUiState.isLoading}, savedJobs: ${savedJobUiState.savedJobs.size}, hasError: ${savedJobUiState.hasError}")
     }
-    
-    val filteredApplications = remember(applications, searchQuery, selectedStatusFilter) {
-        applications.filter { application ->
-            val matchesSearch = searchQuery.isEmpty() || 
-                application.jobTitle.contains(searchQuery, ignoreCase = true) ||
-                application.companyName.contains(searchQuery, ignoreCase = true)
-            val matchesStatus = selectedStatusFilter == null || application.status == selectedStatusFilter
-            matchesSearch && matchesStatus
-        }.sortedWith(
-            compareBy<JobApplication> { it.myJobsPipelineBucket() }
-                .thenByDescending { it.createdAt }
-        )
+
+    // Real status buckets driving the Applied / Active / History pill tabs.
+    // ApplicationStatus's forward pipeline is APPLIED -> HIRED -> COMPLETED;
+    // REJECTED / WITHDRAWN / DELETED / FILLED are terminal, non-progressing
+    // states and are grouped into History alongside COMPLETED.
+    val appliedApplications = remember(applications) {
+        applications.filter { it.status == ApplicationStatus.APPLIED }
+            .sortedByDescending { it.createdAt }
     }
-    
-    val filteredSavedJobs = remember(savedJobs, searchQuery) {
-        savedJobs.filter { job ->
-            searchQuery.isEmpty() || 
-            job.title.contains(searchQuery, ignoreCase = true) ||
-            job.companyName.contains(searchQuery, ignoreCase = true)
-        }
+    val activeApplications = remember(applications) {
+        applications.filter { it.status == ApplicationStatus.HIRED }
+            .sortedByDescending { it.createdAt }
+    }
+    val historyApplications = remember(applications) {
+        applications.filter {
+            it.status == ApplicationStatus.COMPLETED ||
+                it.status == ApplicationStatus.REJECTED ||
+                it.status == ApplicationStatus.WITHDRAWN ||
+                it.status == ApplicationStatus.DELETED ||
+                it.status == ApplicationStatus.FILLED
+        }.sortedByDescending { it.createdAt }
     }
 
-    val tabTitles = listOf(stringResource(R.string.applied_jobs), stringResource(R.string.saved_jobs))
-    val tabIcons = listOf(Icons.Default.Work, Icons.Default.Bookmark)
-    val myJobsBackground = com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground
-
-    // Status bar matches screen background (theme-aware: white in light, dark in dark mode)
-    val statusBarColor = myJobsBackground
-
-    // Update status bar color whenever the theme-aware screen background changes
+    // Status bar matches the exact-spec screen background.
+    val statusBarColor = MyJobsScreenBg
     LaunchedEffect(selectedTabIndex, statusBarColor) {
         onStatusBarColorChange(statusBarColor)
-        
-        // Refresh applications when switching to Applied Jobs tab
-        if (selectedTabIndex == 0) {
+
+        // Refresh applications when switching to any application-backed tab
+        if (selectedTabIndex in 0..2) {
             jobApplicationViewModel.loadMyApplications()
-        } else if (selectedTabIndex == 1) {
+        } else if (selectedTabIndex == 3) {
             savedJobViewModel.loadSavedJobs()
         }
     }
@@ -184,256 +163,159 @@ fun MyJobsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(myJobsBackground)
+            .background(MyJobsScreenBg)
     ) {
-            MyJobsBackdropDecor(modifier = Modifier.fillMaxSize())
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding() // Add top padding for status bar
+                .statusBarsPadding()
         ) {
             // Offline banner at the very top
             val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
             val isOnline by connectivityViewModel.isOnline.collectAsState()
             com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
-            
-        // Enhanced Header without search
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-            shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
+
+            // Header: bold 22sp "My Jobs" title + pill tab row
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 16.dp, vertical = 16.dp)
             ) {
-                // Title only - search removed
+                Text(
+                    text = stringResource(R.string.my_jobs),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MyJobsInk
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                val tabScrollState = rememberScrollState()
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(tabScrollState),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        text = stringResource(R.string.my_jobs),
-                        style = com.example.dutype.ui.theme.AppTypography.screenTitle.copy(
-                            color = WorkerColors.TextPrimary
-                        )
+                    MyJobsPillTab(
+                        label = "Applied (${appliedApplications.size})",
+                        selected = selectedTabIndex == 0,
+                        onClick = { selectedTabIndex = 0 }
+                    )
+                    MyJobsPillTab(
+                        label = "Active (${activeApplications.size})",
+                        selected = selectedTabIndex == 1,
+                        onClick = { selectedTabIndex = 1 }
+                    )
+                    MyJobsPillTab(
+                        label = "History (${historyApplications.size})",
+                        selected = selectedTabIndex == 2,
+                        onClick = { selectedTabIndex = 2 }
+                    )
+                    MyJobsPillTab(
+                        label = stringResource(R.string.saved_jobs) + " (${savedJobs.size})",
+                        selected = selectedTabIndex == 3,
+                        onClick = { selectedTabIndex = 3 }
                     )
                 }
+            }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Enhanced Tab Row
-                ScrollableTabRow(
-                    selectedTabIndex = selectedTabIndex,
-                    containerColor = Color.Transparent,
-                    contentColor = WorkerColors.TextPrimary,
-                    indicator = { tabPositions ->
-                        TabRowDefaults.Indicator(
-                            Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                            color = WorkerColors.TextPrimary,
-                            height = 3.dp
-                        )
-                    }
-                ) {
-                    tabTitles.forEachIndexed { index, title ->
-                        Tab(
-                            selected = selectedTabIndex == index,
-                            onClick = { selectedTabIndex = index },
-                            text = {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = tabIcons[index],
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp),
-                                        tint = if (selectedTabIndex == index) WorkerColors.TextPrimary else WorkerColors.TextSecondary
-                                    )
-                                    Text(
-                                        text = title,
-                                        fontWeight = if (selectedTabIndex == index) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (selectedTabIndex == index) WorkerColors.TextPrimary else WorkerColors.TextSecondary
-                                    )
+            // Content based on selected tab
+            when (selectedTabIndex) {
+                0 -> {
+                    MyJobsStatusListContent(
+                        isLoading = jobApplicationUiState.isLoading,
+                        items = appliedApplications,
+                        scrollStateManager = scrollStateManager,
+                        emptyIcon = Icons.Outlined.Inbox,
+                        emptyMessage = "No applied jobs yet",
+                        navController = navController
+                    ) { application ->
+                        AppliedJobCard(
+                            application = application,
+                            onClick = {
+                                navController.navigate(Routes.jobDetailRoute(application.jobId)) {
+                                    popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS) {
+                                        inclusive = false
+                                    }
                                 }
                             },
-                            modifier = Modifier.padding(vertical = 12.dp)
+                            onWithdrawClick = {
+                                applicationToWithdraw = application
+                                showWithdrawDialog = true
+                            }
                         )
                     }
                 }
-            }
-        }
-        
-
-        // Content based on selected tab
-        when (selectedTabIndex) {
-            0 -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Transparent)
-                ) {
-                    // Status filter chips for Applied Jobs - Only show when there are applications
-                    if (applications.isNotEmpty() && !jobApplicationUiState.isLoading) {
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
-                        ) {
-                            item {
-                                FilterChip(
-                                    onClick = { selectedStatusFilter = null },
-                                    label = { Text(stringResource(R.string.all_label)) },
-                                    selected = selectedStatusFilter == null,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = WorkerColors.Primary.copy(alpha = 0.1f),
-                                        selectedLabelColor = WorkerColors.Primary
-                                    )
-                                )
-                            }
-
-                            ApplicationStatus.entries.forEach { status ->
-                                item {
-                                    val count = applications.count { it.status == status }
-                                    if (count > 0) {
-                                        FilterChip(
-                                            onClick = {
-                                                selectedStatusFilter = if (selectedStatusFilter == status) null else status
-                                            },
-                                            label = {
-                                                Text("${status.getDisplayName()} ($count)")
-                                            },
-                                            selected = selectedStatusFilter == status,
-                                            colors = FilterChipDefaults.filterChipColors(
-                                                selectedContainerColor = status.getStatusColor().copy(alpha = 0.1f),
-                                                selectedLabelColor = status.getStatusColor()
-                                            )
-                                        )
+                1 -> {
+                    MyJobsStatusListContent(
+                        isLoading = jobApplicationUiState.isLoading,
+                        items = activeApplications,
+                        scrollStateManager = scrollStateManager,
+                        emptyIcon = Icons.Outlined.WorkOutline,
+                        emptyMessage = "No active jobs yet",
+                        navController = navController
+                    ) { application ->
+                        ActiveJobCard(
+                            application = application,
+                            onClick = {
+                                navController.navigate(Routes.jobDetailRoute(application.jobId)) {
+                                    popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS) {
+                                        inclusive = false
                                     }
                                 }
                             }
-                        }
-                    }
-
-                    when {
-                        jobApplicationUiState.isLoading -> {
-                            ScrollAwareLazyColumn(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Transparent),
-                                contentPadding = PaddingValues(
-                                    top = 16.dp,
-                                    start = 16.dp,
-                                    end = 16.dp,
-                                    bottom = 100.dp
-                                ),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                                scrollStateManager = scrollStateManager
-                            ) {
-                                items(4) {
-                                    JobCardShimmer()
-                                }
-                            }
-                        }
-                        filteredApplications.isEmpty() && searchQuery.isEmpty() && selectedStatusFilter == null -> {
-                            EmptyListState(
-                                containerColor = Color.Transparent,
-                                icon = Icons.Default.Work,
-                                title = stringResource(R.string.no_applications_yet),
-                                subtitle = stringResource(R.string.apply_to_jobs_to_track),
-                                actionButton = EmptyStateAction(
-                                    label = stringResource(R.string.find_jobs),
-                                    icon = Icons.Default.Search,
-                                    onClick = {
-                                        // Navigate to home tab to browse jobs
-                                        runCatching {
-                                            navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
-                                                popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.HOME) { inclusive = false }
-                                                launchSingleTop = true
-                                            }
-                                        }.onFailure { error ->
-                                            Timber.e(error, "Failed to navigate to home tab from my jobs")
-                                        }
-                                    }
-                                )
-                            )
-                        }
-                        else -> {
-                            ScrollAwareLazyColumn(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color.Transparent),
-                                contentPadding = PaddingValues(
-                                    top = 16.dp,
-                                    start = 16.dp,
-                                    end = 16.dp,
-                                    bottom = 100.dp
-                                ),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                                scrollStateManager = scrollStateManager
-                            ) {
-                                if (filteredApplications.isEmpty() && searchQuery.isNotEmpty()) {
-                                    item {
-                                        EmptySearchState(
-                                            searchQuery = searchQuery,
-                                            containerColor = Color.Transparent,
-                                            onClearSearch = { 
-                                                searchQuery = ""
-                                            }
-                                        )
-                                    }
-                                } else {
-                                    itemsIndexed(
-                                        items = filteredApplications,
-                                        key = { index, application -> "myjobs_${application.id.ifBlank { "app" }}_$index" }
-                                    ) { _, application ->
-                                        JobApplicationCard(
-                                            application = application,
-                                            onCardClick = { app ->
-                                                navController.navigate(Routes.jobDetailRoute(app.jobId)) {
-                                                    popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS) {
-                                                        inclusive = false
-                                                    }
-                                                }
-                                            },
-                                            onWithdrawClick = { app ->
-                                                applicationToWithdraw = app
-                                                showWithdrawDialog = true
-                                            },
-                                            onRateClick = { app ->
-                                                applicationToRate = app
-                                                showRatingSheet = true
-                                            },
-                                            hasAlreadyRated = application.id in ratedApplicationIds
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        )
                     }
                 }
+                2 -> {
+                    MyJobsStatusListContent(
+                        isLoading = jobApplicationUiState.isLoading,
+                        items = historyApplications,
+                        scrollStateManager = scrollStateManager,
+                        emptyIcon = Icons.Outlined.History,
+                        emptyMessage = "No job history yet",
+                        navController = navController
+                    ) { application ->
+                        HistoryJobCard(
+                            application = application,
+                            onClick = {
+                                navController.navigate(Routes.jobDetailRoute(application.jobId)) {
+                                    popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS) {
+                                        inclusive = false
+                                    }
+                                }
+                            },
+                            onWithdrawClick = { app ->
+                                applicationToWithdraw = app
+                                showWithdrawDialog = true
+                            },
+                            onRateClick = { app ->
+                                applicationToRate = app
+                                showRatingSheet = true
+                            },
+                            hasAlreadyRated = application.id in ratedApplicationIds
+                        )
+                    }
+                }
+                3 -> {
+                    SavedJobsList(
+                        searchQuery = "",
+                        onNavigateToJobDetails = { jobId ->
+                            navController.navigate(Routes.jobDetailRoute(jobId))
+                        },
+                        scrollStateManager = scrollStateManager,
+                        navController = navController
+                    )
+                }
             }
-            1 -> {
-                SavedJobsList(
-                    searchQuery = searchQuery,
-                    onNavigateToJobDetails = { jobId ->
-                        navController.navigate(Routes.jobDetailRoute(jobId))
-                    },
-                    scrollStateManager = scrollStateManager,
-                    navController = navController
-                )
-            }
-        }
         }
     }
-    
+
     // Withdraw Confirmation Dialog
     if (showWithdrawDialog && applicationToWithdraw != null) {
         AlertDialog(
-            onDismissRequest = { 
+            onDismissRequest = {
                 showWithdrawDialog = false
                 applicationToWithdraw = null
             },
@@ -441,13 +323,13 @@ fun MyJobsScreen(
                 Text(
                     text = stringResource(R.string.withdraw_application_title),
                     fontWeight = FontWeight.Bold,
-                    color = WorkerColors.TextPrimary
+                    color = MyJobsInk
                 )
             },
             text = {
                 Text(
                     text = stringResource(R.string.withdraw_application_message),
-                    color = WorkerColors.TextSecondary
+                    color = MyJobsMuted
                 )
             },
             confirmButton = {
@@ -457,8 +339,14 @@ fun MyJobsScreen(
                             jobApplicationViewModel.withdrawApplication(app.id) { success, error ->
                                 if (success) {
                                     Timber.d("Application withdrawn successfully")
+                                    android.widget.Toast.makeText(cardContext, "Application withdrawn", android.widget.Toast.LENGTH_SHORT).show()
                                 } else {
                                     Timber.e("Failed to withdraw application: $error")
+                                    android.widget.Toast.makeText(
+                                        cardContext,
+                                        error ?: "Couldn't withdraw. Please try again.",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
                                 }
                             }
                         }
@@ -468,7 +356,7 @@ fun MyJobsScreen(
                 ) {
                     Text(
                         text = stringResource(R.string.withdraw),
-                        color = WorkerColors.Error,
+                        color = Color(0xFFDC2626),
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -482,7 +370,7 @@ fun MyJobsScreen(
                 ) {
                     Text(
                         text = stringResource(R.string.cancel),
-                        color = WorkerColors.TextSecondary
+                        color = MyJobsMuted
                     )
                 }
             }
@@ -547,29 +435,519 @@ fun MyJobsScreen(
     }
 }
 
+/**
+ * Shared list chrome (loading shimmer / empty state / real list) for the
+ * Applied, Active and History tabs — each backed by a real status-filtered
+ * slice of [SmartJobApplicationViewModel]'s applications.
+ */
 @Composable
-private fun MyJobsBackdropDecor(modifier: Modifier = Modifier) {
-    // Intentionally empty: design rule forbids gradient halos. Kept as a
-    // no-op so existing call-sites continue to work.
-    Box(modifier = modifier)
-}
-
-private fun JobApplication.myJobsPipelineBucket(): Int {
-    val isClosedForWorker = jobStatus.equals("closed", ignoreCase = true) &&
-        status != ApplicationStatus.HIRED &&
-        status != ApplicationStatus.COMPLETED
-
-    return when {
-        status in activeWorkerApplicationStatuses && !isClosedForWorker -> 0
-        status == ApplicationStatus.COMPLETED -> 1
-        isClosedForWorker -> 2
-        else -> 3
+private fun MyJobsStatusListContent(
+    isLoading: Boolean,
+    items: List<JobApplication>,
+    scrollStateManager: ScrollStateManager?,
+    emptyIcon: androidx.compose.ui.graphics.vector.ImageVector,
+    emptyMessage: String,
+    navController: NavHostController,
+    itemContent: @Composable (JobApplication) -> Unit
+) {
+    when {
+        isLoading -> {
+            ScrollAwareLazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Transparent),
+                contentPadding = PaddingValues(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 100.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                scrollStateManager = scrollStateManager
+            ) {
+                items(4) {
+                    JobCardShimmer()
+                }
+            }
+        }
+        items.isEmpty() -> {
+            MyJobsEmptyState(
+                icon = emptyIcon,
+                message = emptyMessage,
+                navController = navController
+            )
+        }
+        else -> {
+            ScrollAwareLazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Transparent),
+                contentPadding = PaddingValues(top = 4.dp, start = 16.dp, end = 16.dp, bottom = 100.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                scrollStateManager = scrollStateManager
+            ) {
+                itemsIndexed(
+                    items = items,
+                    key = { index, application -> "myjobs_${application.id.ifBlank { "app" }}_$index" }
+                ) { _, application ->
+                    itemContent(application)
+                }
+            }
+        }
     }
 }
 
-private val activeWorkerApplicationStatuses = setOf(
-    ApplicationStatus.APPLIED,
-    ApplicationStatus.APPLIED,
-    ApplicationStatus.HIRED
-)
+// ─── Pill tab ───────────────────────────────────────────────────────────────
+@Composable
+private fun MyJobsPillTab(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .height(36.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .background(if (selected) MyJobsInk else Color.White)
+            .then(
+                if (!selected) Modifier.border(1.dp, MyJobsBorder, RoundedCornerShape(28.dp)) else Modifier
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            color = if (selected) Color.White else MyJobsInk
+        )
+    }
+}
 
+// ─── Applied tab card ───────────────────────────────────────────────────────
+@Composable
+private fun AppliedJobCard(application: JobApplication, onClick: () -> Unit, onWithdrawClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White)
+            .border(1.dp, MyJobsBorder, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(16.dp)
+    ) {
+        Text(
+            text = application.jobTitle,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MyJobsInk
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = application.companyName,
+            fontSize = 13.sp,
+            color = MyJobsMuted
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = postedAgoLabel(application.createdAt),
+            fontSize = 11.sp,
+            color = MyJobsFaint
+        )
+        Spacer(modifier = Modifier.height(18.dp))
+        JobProgressTracker(
+            steps = listOf("Applied", "Hired", "Completed"),
+            currentIndex = applicationStepIndex(application.status)
+        )
+        Spacer(modifier = Modifier.height(14.dp))
+        // Worker can take back an application until the employer hires.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(40.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .border(1.dp, Color(0xFFFECACA), RoundedCornerShape(20.dp))
+                .clickable(onClick = onWithdrawClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = stringResource(R.string.withdraw),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFFDC2626)
+            )
+        }
+    }
+}
+
+// ─── Active tab card ────────────────────────────────────────────────────────
+@Composable
+private fun ActiveJobCard(application: JobApplication, onClick: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White)
+            .border(1.dp, MyJobsBorder, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(16.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(MyJobsEmeraldTint)
+                .padding(horizontal = 10.dp, vertical = 4.dp)
+        ) {
+            Text(
+                text = "ACTIVE NOW",
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MyJobsEmerald
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Text(
+            text = application.jobTitle,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold,
+            color = MyJobsInk
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Call Employer — reuses the app's existing ACTION_DIAL pattern
+            // (see JobApplicationCard.kt) against the denormalized
+            // application.employerPhone field.
+            MyJobsActionButton(
+                label = "📞 Call Employer",
+                filled = false,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    val phone = application.employerPhone.orEmpty()
+                    if (phone.isNotBlank()) {
+                        runCatching {
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_DIAL,
+                                android.net.Uri.parse("tel:$phone")
+                            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            context.startActivity(intent)
+                        }
+                    } else {
+                        onClick()
+                    }
+                }
+            )
+
+            // Get Directions — mirrors JobDescriptionScreen's Google Maps
+            // navigation intent with a browser fallback; JobApplication has
+            // no lat/lng snapshot, so the real job address text is used as
+            // the map query instead of coordinates.
+            MyJobsActionButton(
+                label = "📍 Get Directions",
+                filled = true,
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    val query = android.net.Uri.encode(
+                        application.jobLocation.ifBlank { application.companyName }
+                    )
+                    runCatching {
+                        val uri = android.net.Uri.parse("geo:0,0?q=$query")
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri).apply {
+                            setPackage("com.google.android.apps.maps")
+                        }
+                        context.startActivity(intent)
+                    }.onFailure {
+                        runCatching {
+                            val webUri = android.net.Uri.parse(
+                                "https://www.google.com/maps/search/?api=1&query=$query"
+                            )
+                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, webUri))
+                        }
+                    }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun MyJobsActionButton(
+    label: String,
+    filled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .height(44.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (filled) MyJobsEmerald else Color.White)
+            .then(
+                if (!filled) Modifier.border(1.dp, MyJobsBorder, RoundedCornerShape(12.dp)) else Modifier
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (filled) Color.White else MyJobsInk,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+// ─── History tab card ───────────────────────────────────────────────────────
+@Composable
+private fun HistoryJobCard(
+    application: JobApplication,
+    onClick: () -> Unit,
+    onWithdrawClick: (JobApplication) -> Unit,
+    onRateClick: (JobApplication) -> Unit,
+    hasAlreadyRated: Boolean
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White)
+            .border(1.dp, MyJobsBorder, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = application.jobTitle,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MyJobsInk
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = application.companyName,
+                    fontSize = 13.sp,
+                    color = MyJobsMuted
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            ApplicationStatusBadge(status = application.status)
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = postedAgoLabel(application.createdAt),
+            fontSize = 11.sp,
+            color = MyJobsFaint
+        )
+
+        if (application.status == ApplicationStatus.COMPLETED && !hasAlreadyRated) {
+            Spacer(modifier = Modifier.height(12.dp))
+            MyJobsActionButton(
+                label = "Rate Employer",
+                filled = true,
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { onRateClick(application) }
+            )
+        }
+    }
+}
+
+// ─── 3-step progress tracker (Applied → Hired → Completed) ────────────────
+private fun applicationStepIndex(status: ApplicationStatus): Int = when (status) {
+    ApplicationStatus.APPLIED -> 0
+    ApplicationStatus.HIRED -> 1
+    ApplicationStatus.COMPLETED -> 2
+    else -> 0
+}
+
+@Composable
+private fun JobProgressTracker(steps: List<String>, currentIndex: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        steps.forEachIndexed { index, label ->
+            val state = when {
+                index < currentIndex -> TrackerStepState.COMPLETED
+                index == currentIndex -> TrackerStepState.CURRENT
+                else -> TrackerStepState.PENDING
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.width(64.dp)
+            ) {
+                TrackerStepCircle(state = state)
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = label,
+                    fontSize = 10.sp,
+                    textAlign = TextAlign.Center,
+                    fontWeight = if (state == TrackerStepState.CURRENT) FontWeight.SemiBold else FontWeight.Normal,
+                    color = when (state) {
+                        TrackerStepState.COMPLETED -> MyJobsMuted
+                        TrackerStepState.CURRENT -> MyJobsInk
+                        TrackerStepState.PENDING -> MyJobsFaint
+                    }
+                )
+            }
+
+            if (index != steps.lastIndex) {
+                val connectorColor = if (index < currentIndex) MyJobsInk else MyJobsBorder
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(top = 15.dp)
+                        .height(2.dp)
+                        .background(connectorColor)
+                )
+            }
+        }
+    }
+}
+
+private enum class TrackerStepState { COMPLETED, CURRENT, PENDING }
+
+@Composable
+private fun TrackerStepCircle(state: TrackerStepState) {
+    when (state) {
+        TrackerStepState.COMPLETED -> {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(MyJobsInk),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "✓",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+        TrackerStepState.CURRENT -> {
+            val infiniteTransition = rememberInfiniteTransition(label = "trackerPulse")
+            val pulseScale by infiniteTransition.animateFloat(
+                initialValue = 1f,
+                targetValue = 1.35f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 1200, easing = LinearOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "trackerPulseScale"
+            )
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
+                    .border(2.dp, MyJobsEmerald, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .scale(pulseScale)
+                        .clip(CircleShape)
+                        .background(MyJobsEmerald)
+                )
+            }
+        }
+        TrackerStepState.PENDING -> {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
+                    .border(2.dp, MyJobsBorder, CircleShape)
+            )
+        }
+    }
+}
+
+// ─── Empty state ────────────────────────────────────────────────────────────
+@Composable
+private fun MyJobsEmptyState(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    message: String,
+    navController: NavHostController
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 32.dp, vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.height(24.dp))
+        Box(
+            modifier = Modifier
+                .size(60.dp)
+                .clip(CircleShape)
+                .background(MyJobsBorder.copy(alpha = 0.35f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MyJobsFaint,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = message,
+            fontSize = 16.sp,
+            color = MyJobsMuted,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Box(
+            modifier = Modifier
+                .height(44.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(MyJobsInk)
+                .clickable {
+                    runCatching {
+                        com.example.dutype.components.navigateToWorkerTab(navController, com.example.dutype.navigation.WorkerBottomRoutes.JOBS)
+                    }.onFailure { error ->
+                        Timber.e(error, "Failed to navigate to all jobs from my jobs empty state")
+                    }
+                }
+                .padding(horizontal = 24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Browse Jobs →",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White
+            )
+        }
+    }
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+private fun postedAgoLabel(timestamp: Long): String {
+    if (timestamp <= 0L) return ""
+    val diffMs = System.currentTimeMillis() - timestamp
+    val diffMinutes = diffMs / 60_000
+    val diffHours = diffMinutes / 60
+    val diffDays = diffHours / 24
+    return when {
+        diffMinutes < 60 -> "Posted just now"
+        diffHours < 24 -> "Posted ${diffHours}h ago"
+        else -> "Posted ${diffDays}d ago"
+    }
+}

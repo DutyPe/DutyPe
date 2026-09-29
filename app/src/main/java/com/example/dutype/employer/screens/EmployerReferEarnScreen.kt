@@ -13,6 +13,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -345,7 +346,7 @@ private fun EmployerTierBadgeCard(tier: ReferralTier, successfulReferrals: Int) 
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Border)
@@ -388,7 +389,7 @@ private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Un
         }
     }
     
-    Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(20.dp), shadowElevation = 0.dp) {
+    Surface(modifier = Modifier.fillMaxWidth().border(1.dp, EmployerColors.Border, RoundedCornerShape(16.dp)), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
                 modifier = Modifier.size(48.dp).background(EmployerColors.WarningLight, CircleShape),

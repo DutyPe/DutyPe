@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import timber.log.Timber
@@ -808,4 +809,88 @@ class FirestoreJobRepository @Inject constructor(
             emit(Result.failure(e))
         }
     }.flowOn(Dispatchers.IO)
+
+    // ==================== DISTANCE-ORDERED PAGING (Jobs tab) ====================
+
+    /**
+     * One concentric ring of the nearest-first pager (see [NearbyJobsPager]).
+     * Returns every open job whose exact haversine distance is in [innerKm, outerKm),
+     * with `distance` attached and sorted nearest first.
+     *
+     * The geohash cells are queried with a small safety margin (outer + 0.5 km) because
+     * GeoFire and haversine differ by a fraction of a percent; the exact haversine
+     * window below is what defines ring membership so no job falls between two rings.
+     */
+    suspend fun fetchRingSummaries(
+        userLatitude: Double,
+        userLongitude: Double,
+        innerKm: Double,
+        outerKm: Double,
+        category: String?,
+        limitPerCell: Long = 400L
+    ): Result<List<JobListingSummary>> = withContext(Dispatchers.IO) {
+        try {
+            val savedJobIds = getSavedJobIds()
+            val raw = firestoreService.getNearbyJobsSummary(
+                userLatitude = userLatitude,
+                userLongitude = userLongitude,
+                radiusKm = outerKm + 0.5,
+                category = category,
+                limitPerCell = limitPerCell
+            )
+            raw.map { rows ->
+                rows.asSequence()
+                    .map { JobListingSummary.fromMap(it) }
+                    .map { GeoUtils.attachDistanceToSummary(it, userLatitude, userLongitude) }
+                    .filter { summary ->
+                        val d = summary.distance ?: return@filter false
+                        d >= innerKm && d < outerKm
+                    }
+                    .map { it.copy(isSaved = savedJobIds.contains(it.id)) }
+                    .sortedBy { it.distance ?: Double.MAX_VALUE }
+                    .toList()
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.w(e, "fetchRingSummaries failed ($innerKm-$outerKm km)")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Chronological cursor page (newest first) used as the tail of the nearest-first pager
+     * (jobs beyond the outermost ring or without a geohash) and when the user has no
+     * location. Distances are attached when a location is known.
+     */
+    suspend fun fetchChronologicalSummaries(
+        limit: Long,
+        lastDocumentId: String?,
+        category: String?,
+        userLatitude: Double?,
+        userLongitude: Double?
+    ): Result<List<JobListingSummary>> = withContext(Dispatchers.IO) {
+        try {
+            val savedJobIds = getSavedJobIds()
+            val hasLocation = userLatitude != null && userLongitude != null &&
+                GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
+            firestoreService.getAllJobsSummary(limit, lastDocumentId, category, null, null, 0.0)
+                .map { rows ->
+                    rows.map { JobListingSummary.fromMap(it) }
+                        .map { summary ->
+                            val withDistance = if (hasLocation) {
+                                GeoUtils.attachDistanceToSummary(summary, requireNotNull(userLatitude), requireNotNull(userLongitude))
+                            } else {
+                                summary
+                            }
+                            withDistance.copy(isSaved = savedJobIds.contains(withDistance.id))
+                        }
+                }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.w(e, "fetchChronologicalSummaries failed")
+            Result.failure(e)
+        }
+    }
 }

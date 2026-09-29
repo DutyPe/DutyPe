@@ -3,6 +3,7 @@ package com.example.dutype.employer.screens.settings
 import com.dutype.app.R
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -401,11 +402,12 @@ private fun AddressCard(
     val employerBlue = EmployerColors.Primary
     
     Card(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (address.isActive) com.example.dutype.ui.theme.EmployerColors.CardBackground else com.example.dutype.ui.theme.EmployerColors.ScreenBackground
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, EmployerColors.Border),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(

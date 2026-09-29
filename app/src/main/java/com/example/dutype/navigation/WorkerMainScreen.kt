@@ -105,13 +105,16 @@ fun WorkerMainScreen(
         )
     }
 
-    // Define routes that should not show the bottom bar
+    // Define routes that should not show the bottom bar.
+    // Sep 2026 Stitch redesign: WORKER_ALL_JOBS ("Find Jobs") and
+    // WORKER_JOB_MAP now have their own tabs in WorkerBottomBar (5-tab
+    // Home/Jobs/Map/My Jobs/Profile row), so they were removed from this
+    // hide-list — the bar stays visible and highlights the matching tab.
     val routesWithoutBottomBar = listOf(
         Routes.JOB_DETAIL,
         Routes.HELP, Routes.REPORT,
         Routes.ABOUT_US,
-        Routes.WORKER_NOTIFICATIONS, Routes.WORKER_ALL_JOBS, "worker_all_jobs",
-        Routes.WORKER_JOB_MAP, // Hide bottom bar on map screen
+        Routes.WORKER_NOTIFICATIONS,
         Routes.WORKER_EARNINGS, // Hide bottom bar on earnings screen
         Routes.WORKER_HISTORY, // Hide bottom bar on work history screen
         Routes.WORKER_REFER_EARN, // Hide bottom bar on refer & earn screen
@@ -128,6 +131,12 @@ fun WorkerMainScreen(
     }
     
     showBottomBar = shouldShowBottomBar
+
+    // Tab switch fix: the bar may have been hidden by scrolling on the previous tab;
+    // always bring it back when the destination changes so tabs stay switchable.
+    LaunchedEffect(currentRoute) {
+        scrollStateManager.reset()
+    }
 
     // ---- ROLE THEME ----
     // Publish the worker palette via LocalRoleColors so every screen and card

@@ -87,6 +87,8 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
@@ -108,6 +110,18 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
@@ -147,155 +161,153 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PostJobScreen(
-    navController: NavController,
-    rootNavController: NavController? = null,
-    employerId: String? = null,
-    onJobPosted: ((String?) -> Unit)? = null,
-    onStatusBarColorChange: ((Color) -> Unit)? = null
+// ---------------------------------------------------------------------------
+// Post-job wizard: constants, controller (state + logic) and small composables.
+// PostJobScreen() is intentionally tiny: a giant single @Composable body made
+// D8/ART fail verification (VerifyError), so all state/logic/UI live in
+// separate small functions below.
+// ---------------------------------------------------------------------------
+
+private const val PostJobTotalSteps = 3
+
+private val PostJobWorkTypes = listOf("Part-time", "Full-time", "Contract", "Temporary", "Weekend Only", "Student-friendly")
+private val PostJobBaseExperienceLevels = listOf(
+    "No Experience Required",
+    "Fresher (Educated)",
+    "1-3 years",
+    "3-5 years",
+    "5+ years"
+)
+private val PostJobBaseEducationRequirements = listOf(
+    "No qualification required",
+    "10th pass",
+    "12th pass",
+    "ITI",
+    "Diploma",
+    "Graduate",
+    "Any qualification"
+)
+private val PostJobGenders = listOf("Male", "Female", "Both")
+private val PostJobQuickTitles = listOf("Cook", "Electrician", "Driver", "Helper")
+private val PostJobBaseCategoryChips = listOf(
+    JobCategory.COOK,
+    JobCategory.MAID,
+    JobCategory.DRIVER,
+    JobCategory.HELPER,
+    JobCategory.SECURITY,
+    JobCategory.DELIVERY,
+    JobCategory.OTHER
+)
+private val PostJobStartDateOptions = listOf("Immediately", "Tomorrow", "Next Week")
+private val PostJobShiftChoices = listOf(
+    ShiftTiming.MORNING to "Day Shift",
+    ShiftTiming.NIGHT to "Night Shift",
+    ShiftTiming.BOTH to "Both Shifts",
+    ShiftTiming.FLEXIBLE to "Flexible"
+)
+private val PostJobPerkOptions = listOf("Food Provided", "Transport", "Overtime Bonus", "Accommodation")
+private val PostJobExtraPayTypes = listOf(PayType.WEEKLY, PayType.HOURLY, PayType.TASK)
+
+private fun postJobWithCustomOption(base: List<String>, current: String): List<String> {
+    return if (current.isNotBlank() && current !in base) base + current else base
+}
+
+private fun postJobCategoryChipsFor(category: JobCategory): List<JobCategory> {
+    return if (category in PostJobBaseCategoryChips) PostJobBaseCategoryChips else PostJobBaseCategoryChips + category
+}
+
+private fun postJobStepTitle(step: Int): String = when (step) {
+    1 -> "What job do you need?"
+    2 -> "Where and when?"
+    else -> "Pay & perks"
+}
+
+private fun postJobVacanciesValid(vacancies: String): Boolean {
+    val n = vacancies.toIntOrNull()
+    return n != null && n in 1..50
+}
+
+/**
+ * Plain (non-composable) holder for all post-job form state, dependencies and
+ * business logic. Keeps the composable functions small.
+ */
+private class PostJobController(
+    var context: Context,
+    var navController: NavController,
+    val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel,
+    val employerJobViewModel: FirestoreEmployerJobViewModel,
+    val scope: CoroutineScope,
+    private val stepState: MutableState<Int>
 ) {
-    val context = LocalContext.current
-    
-    val statusBarColorToken = EmployerColors.StatusBarColor
-    LaunchedEffect(statusBarColorToken) {
-        onStatusBarColorChange?.invoke(statusBarColorToken)
-    }
-    val scope = rememberCoroutineScope()
-    // LocationService accessed via FirestoreJobViewModel (proper DI pattern)
-    val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
-    val locationService = jobViewModel.locationService
-    val locationRepository = remember { com.example.dutype.di.locationRepositoryFromHilt(context) }
-    val employerJobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
-    val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
-    val subscriptionViewModel: SubscriptionViewModel = hiltViewModel()
-    val employerSubscription by subscriptionViewModel.activeSubscription.collectAsState()
-    var showNoCreditsDialog by remember { mutableStateOf(false) }
+    var rootNavController: NavController? = null
+    var employerId: String? = null
+    var onJobPosted: ((String?) -> Unit)? = null
+    var onReviewTrigger: (() -> Unit)? = null
+    var requestLocationPermission: () -> Unit = {}
+    var requestNotificationPermission: () -> Unit = {}
 
-    // Credit check is now handled at submission time.
-    
-    // Saved work locations quick-pick (process-scoped, in-memory)
-    val savedWorkLocationsStore = jobViewModel.savedWorkLocationsStore
-    val savedWorkLocations by savedWorkLocationsStore.locations.collectAsState()
-    
-    // Get InAppReviewTriggerService from Hilt
-    val reviewTriggerService = com.example.dutype.di.rememberInAppReviewTriggerService()
-    
-    val employerJobUiState by employerJobViewModel.uiState.collectAsState()
-    
-    // Profile Completion Service for pre-check
-    val profileCompletionService = jobViewModel.profileCompletionService
-    
-    // PROFILE COMPLETION CHECK STATE - Check only when submitting, not on screen load
-    var isCheckingProfile by remember { mutableStateOf(false) }
-    var profileCheckResult by remember { mutableStateOf<com.example.dutype.services.ProfileCompletionService.PreJobPostCheckResult?>(null) }
-    var showProfileIncompleteDialog by remember { mutableStateOf(false) }
-    var pendingJobSubmitAfterProfileCheck by remember { mutableStateOf(false) }
+    val locationService get() = jobViewModel.locationService
+    private val profileCompletionService get() = jobViewModel.profileCompletionService
+    private val locationRepository by lazy { com.example.dutype.di.locationRepositoryFromHilt(context) }
 
-    // Form state matching JobPostingModel
-    var title by remember { mutableStateOf("") }
-    var payAmount by remember { mutableStateOf("") }
-    // Batch-p #11.1: default pay type is daily (matches Indian gig market
-    // mental model better than HOURLY for the typical job categories on
-    // DutyPe � cook, maid, helper, driver, delivery).
-    var payType by remember { mutableStateOf(PayType.DAILY) }
-    var location by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var contactNumber by remember { mutableStateOf("") }
-    var category by remember { mutableStateOf(JobCategory.OTHER) }
-    var customCategory by remember { mutableStateOf("") }
-    var shiftTiming by remember { mutableStateOf(ShiftTiming.FLEXIBLE) }
-    // Batch-p #3: when shiftTiming == CUSTOM the employer types their own
-    // start/end timing into these two fields; the merged display string is
-    // persisted as the job's shiftTiming value.
-    var customShiftStart by remember { mutableStateOf("") }
-    var customShiftEnd by remember { mutableStateOf("") }
-    var vacancies by remember { mutableStateOf("") }
-    var employerName by remember { mutableStateOf("") }
-    var companyName by remember { mutableStateOf("") }
-    var employerType by remember { mutableStateOf("COMPANY") }
-
-    
-    // Enhanced fields for hyper-local jobs
-    var workType by remember { mutableStateOf("Full-time") }
-    var experienceLevel by remember { mutableStateOf("No Experience Required") }
-    var educationRequired by remember { mutableStateOf("No qualification required") }
-    var gender by remember { mutableStateOf("Both") }
-    var repostOfJobId by remember { mutableStateOf("") }
-    
-    // Employer Trust Tier (loaded from profile)
-    var employerTrustTier by remember { mutableStateOf("VERIFIED") }
-    
-    // JOB IMAGE: Optional image upload for job posting
-    var jobImageUri by remember { mutableStateOf<Uri?>(null) }
-    var jobImageUrl by remember { mutableStateOf("") }
-    var isUploadingJobImage by remember { mutableStateOf(false) }
-    val storage = remember { FirebaseStorage.getInstance() }
-    
-    // Quick selection options for hyper-local jobs
-    val workTypes = listOf("Part-time", "Full-time", "Contract", "Temporary", "Weekend Only", "Student-friendly")
-    val baseExperienceLevels = listOf(
-        "No Experience Required",
-        "Fresher (Educated)",
-        "1-3 years",
-        "3-5 years",
-        "5+ years"
-    )
-    val experienceLevels = remember(experienceLevel) {
-        if (experienceLevel.isNotBlank() && experienceLevel !in baseExperienceLevels) {
-            baseExperienceLevels + experienceLevel
-        } else {
-            baseExperienceLevels
+    var currentStep: Int
+        get() = stepState.value
+        set(value) {
+            stepState.value = value
         }
-    }
-    val baseEducationRequirements = listOf(
-        "No qualification required",
-        "10th pass",
-        "12th pass",
-        "ITI",
-        "Diploma",
-        "Graduate",
-        "Any qualification"
-    )
-    val educationRequirements = remember(educationRequired) {
-        if (educationRequired.isNotBlank() && educationRequired !in baseEducationRequirements) {
-            baseEducationRequirements + educationRequired
-        } else {
-            baseEducationRequirements
-        }
-    }
-    val genders = listOf("Male", "Female", "Both")
 
-    // UI state
-    var isLoading by remember { mutableStateOf(false) }
-    var isLoadingLocation by remember { mutableStateOf(false) }
-    var locationError by remember { mutableStateOf<String?>(null) }
-    
-    // ANTI-FRAUD: Validation state for No-Data-Entry Firewall and Pay Rate Guardrails
-    var scamValidationResult by remember { mutableStateOf<ValidationResult?>(null) }
-    var payRateValidationResult by remember { mutableStateOf<PayRateValidationResult?>(null) }
-    var showScamWarningDialog by remember { mutableStateOf(false) }
-    var showPayRateWarningDialog by remember { mutableStateOf(false) }
-    var isSubmittingJob by remember { mutableStateOf(false) } // Local guard against duplicate submissions
-    
-    // Location coordinates for distance calculation
-    var locationLatitude by remember { mutableDoubleStateOf(0.0) }
-    var locationLongitude by remember { mutableStateOf(0.0) }
-    
-    // ANTI-FRAUD: Employer's current GPS location for consistency check
-    var employerCurrentLatitude by remember { mutableStateOf(0.0) }
-    var employerCurrentLongitude by remember { mutableStateOf(0.0) }
-    var showLocationWarningDialog by remember { mutableStateOf(false) }
-    var locationDistanceKm by remember { mutableStateOf(0.0) }
-    var pendingJobSubmission by remember { mutableStateOf(false) } // Flag to proceed after warning
-    
-    // Guest mode - Login bottom sheet state for job posting
-    var showLoginBottomSheet by remember { mutableStateOf(false) }
+    // Dialog / sheet state
+    var showNoCreditsDialog by mutableStateOf(false)
+    var isCheckingProfile by mutableStateOf(false)
+    var profileCheckResult by mutableStateOf<com.example.dutype.services.ProfileCompletionService.PreJobPostCheckResult?>(null)
+    var showProfileIncompleteDialog by mutableStateOf(false)
+    var scamValidationResult by mutableStateOf<ValidationResult?>(null)
+    var payRateValidationResult by mutableStateOf<PayRateValidationResult?>(null)
+    var showScamWarningDialog by mutableStateOf(false)
+    var isSubmittingJob by mutableStateOf(false)
+    var showLocationWarningDialog by mutableStateOf(false)
+    var locationDistanceKm by mutableStateOf(0.0)
+    var pendingJobSubmission by mutableStateOf(false)
+    var showLoginBottomSheet by mutableStateOf(false)
+    var showPostJobNotificationBottomSheet by mutableStateOf(false)
+    var pendingNavJobId by mutableStateOf<String?>(null)
 
-    // Notification permission prompt after job posting
-    var showPostJobNotificationBottomSheet by remember { mutableStateOf(false) }
-    var pendingNavJobId by remember { mutableStateOf<String?>(null) }
+    // Form state
+    var title by mutableStateOf("")
+    var payAmount by mutableStateOf("")
+    var payType by mutableStateOf(PayType.DAILY)
+    var location by mutableStateOf("")
+    var description by mutableStateOf("")
+    var contactNumber by mutableStateOf("")
+    var category by mutableStateOf(JobCategory.OTHER)
+    var customCategory by mutableStateOf("")
+    var shiftTiming by mutableStateOf(ShiftTiming.FLEXIBLE)
+    var customShiftStart by mutableStateOf("")
+    var customShiftEnd by mutableStateOf("")
+    var vacancies by mutableStateOf("")
+    var employerName by mutableStateOf("")
+    var companyName by mutableStateOf("")
+    var employerType by mutableStateOf("COMPANY")
+    var workType by mutableStateOf("Full-time")
+    var experienceLevel by mutableStateOf("No Experience Required")
+    var educationRequired by mutableStateOf("No qualification required")
+    var gender by mutableStateOf("Both")
+    var startDate by mutableStateOf("Immediately")
+    var selectedPerks by mutableStateOf(setOf<String>())
+    var repostOfJobId by mutableStateOf("")
+    var employerTrustTier by mutableStateOf("VERIFIED")
+    var jobImageUri by mutableStateOf<Uri?>(null)
+    var jobImageUrl by mutableStateOf("")
+    var isUploadingJobImage by mutableStateOf(false)
+    var isLoadingLocation by mutableStateOf(false)
+    var locationError by mutableStateOf<String?>(null)
+    var locationLatitude by mutableStateOf(0.0)
+    var locationLongitude by mutableStateOf(0.0)
+
+    val draftTrigger = MutableStateFlow(0L)
+
+    private val isCreatingJob: Boolean
+        get() = employerJobViewModel.uiState.value.isCreatingJob
 
     fun navigateAfterJobPosted(jobId: String?) {
         onJobPosted?.invoke(jobId)
@@ -312,100 +324,175 @@ fun PostJobScreen(
         }
     }
 
-    val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
-    ) {
-        navigateAfterJobPosted(pendingNavJobId)
-    }
-    
-    // LazyList state for the single-canvas studio layout
-    val listState = rememberLazyListState()
-
-    // Category is internal only. Employers type the role; the app derives the
-    // worker-facing category for filtering without showing a category picker.
-    LaunchedEffect(title, description) {
+    fun syncInferredCategory() {
         val inferred = com.example.dutype.utils.JobCategoryResolver.inferCategory(title, description) ?: JobCategory.OTHER
         if (inferred != category) category = inferred
     }
 
-    // P2 FIX: Auto-save draft on field changes (debounced 2 seconds)
-    val draftTrigger = remember { MutableStateFlow(0L) }
+    // ---------------------------------------------------------------- drafts
+    private fun hasDraftContent(): Boolean {
+        return title.isNotBlank() ||
+            description.isNotBlank() ||
+            payAmount.isNotBlank() ||
+            location.isNotBlank() ||
+            vacancies.isNotBlank() ||
+            contactNumber.isNotBlank() ||
+            customCategory.isNotBlank() ||
+            experienceLevel != "No Experience Required" ||
+            educationRequired != "No qualification required" ||
+            gender != "Both" ||
+            shiftTiming != ShiftTiming.FLEXIBLE ||
+            workType != "Full-time" ||
+            repostOfJobId.isNotBlank()
+    }
 
-    @OptIn(FlowPreview::class)
-    LaunchedEffect(Unit) {
-        draftTrigger
-            .debounce(2000L) // 2 second debounce
-            .collect {
-                val hasDraftContent =
-                    title.isNotBlank() ||
-                    description.isNotBlank() ||
-                    payAmount.isNotBlank() ||
-                    location.isNotBlank() ||
-                    vacancies.isNotBlank() ||
-                    contactNumber.isNotBlank() ||
-                    customCategory.isNotBlank() ||
-                    experienceLevel != "No Experience Required" ||
-                    educationRequired != "No qualification required" ||
-                    gender != "Both" ||
-                    shiftTiming != ShiftTiming.FLEXIBLE ||
-                    workType != "Full-time" ||
-                    repostOfJobId.isNotBlank()
+    fun autoSaveDraft() {
+        if (!hasDraftContent()) return
+        val draft = JobDraftDataStore.JobDraft(
+            title = title,
+            description = description,
+            payAmount = payAmount,
+            payType = payType,
+            location = location,
+            locationLatitude = locationLatitude,
+            locationLongitude = locationLongitude,
+            category = category,
+            customCategory = customCategory,
+            vacancies = vacancies,
+            contactNumber = contactNumber,
+            shiftTiming = shiftTiming,
+            workType = workType,
+            experienceLevel = experienceLevel,
+            educationRequired = educationRequired,
+            gender = gender,
+            requirements = "",
+            repostOfJobId = repostOfJobId
+        )
+        employerJobViewModel.saveDraft(draft)
+        Timber.d("AUTO-SAVE: Draft saved")
+    }
 
-                if (hasDraftContent) {
-                    val draft = JobDraftDataStore.JobDraft(
-                        title = title,
-                        description = description,
-                        payAmount = payAmount,
-                        payType = payType,
-                        location = location,
-                        locationLatitude = locationLatitude,
-                        locationLongitude = locationLongitude,
-                        category = category,
-                        customCategory = customCategory,
-                        vacancies = vacancies,
-                        contactNumber = contactNumber,
-                        shiftTiming = shiftTiming,
-                        workType = workType,
-                        experienceLevel = experienceLevel,
-                        educationRequired = educationRequired,
-                        gender = gender,
-                        requirements = "",
-                        repostOfJobId = repostOfJobId
-                    )
-                    employerJobViewModel.saveDraft(draft)
-                    Timber.d("� AUTO-SAVE: Draft saved")
+    suspend fun restoreDraft() {
+        try {
+            val savedDraft = employerJobViewModel.getSavedDraft()
+            if (savedDraft != null && savedDraft.hasContent()) {
+                Timber.d("Restoring job draft (device-scoped)...")
+                title = savedDraft.title
+                description = savedDraft.description
+                payAmount = savedDraft.payAmount
+                payType = savedDraft.payType
+                location = savedDraft.location
+                if (savedDraft.locationLatitude != 0.0 || savedDraft.locationLongitude != 0.0) {
+                    locationLatitude = savedDraft.locationLatitude
+                    locationLongitude = savedDraft.locationLongitude
                 }
+                category = savedDraft.category
+                customCategory = savedDraft.customCategory
+                vacancies = savedDraft.vacancies
+                if (contactNumber.isBlank()) {
+                    contactNumber = savedDraft.contactNumber
+                }
+                shiftTiming = savedDraft.shiftTiming
+                workType = savedDraft.workType
+                experienceLevel = savedDraft.experienceLevel
+                educationRequired = savedDraft.educationRequired
+                gender = if (savedDraft.gender.equals("Any", ignoreCase = true)) {
+                    "Both"
+                } else {
+                    savedDraft.gender
+                }
+                repostOfJobId = savedDraft.repostOfJobId
+                Timber.d("Draft restored successfully")
             }
+        } catch (e: Exception) {
+            Timber.e(e, "Error restoring job draft")
+        }
     }
 
-    // Trigger auto-save when form fields change
-    LaunchedEffect(
-        title,
-        description,
-        payAmount,
-        payType,
-        location,
-        category,
-        customCategory,
-        vacancies,
-        contactNumber,
-        shiftTiming,
-        workType,
-        experienceLevel,
-        educationRequired,
-        gender,
-        repostOfJobId
-    ) {
-        draftTrigger.value = System.currentTimeMillis()
+    // --------------------------------------------------------------- profile
+    suspend fun loadEmployerProfile() {
+        val currentUser = FirebaseAuth.getInstance().currentUser ?: return
+        try {
+            val cachedProfile = employerJobViewModel.getCachedProfile()
+            if (cachedProfile != null) {
+                if (cachedProfile.companyName.isNotBlank()) {
+                    companyName = cachedProfile.companyName
+                }
+                if (cachedProfile.employerName.isNotBlank()) {
+                    employerName = cachedProfile.employerName
+                }
+                if (cachedProfile.contactPhone.isNotBlank()) {
+                    contactNumber = cachedProfile.contactPhone
+                }
+                if (cachedProfile.trustTier.isNotBlank()) {
+                    employerTrustTier = cachedProfile.trustTier
+                }
+                if (cachedProfile.employerType.isNotBlank()) {
+                    employerType = cachedProfile.employerType
+                }
+                if (companyName.isBlank()) {
+                    val fallbackName = cachedProfile.companyName.ifBlank { cachedProfile.employerName }
+                    if (fallbackName.isNotBlank()) {
+                        companyName = fallbackName
+                    }
+                }
+            } else {
+                Timber.d("Cache miss, fetching from Firestore...")
+                loadProfileFromFirestore(currentUser)
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error loading employer profile")
+        }
     }
 
+    private suspend fun loadProfileFromFirestore(currentUser: com.google.firebase.auth.FirebaseUser) {
+        val db = com.example.dutype.di.firestoreFromHilt(context)
+        val employerDoc = db.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(currentUser.uid).get().await()
+        val phoneRoleDoc = currentUser.phoneNumber
+            ?.let(com.example.dutype.utils.PhoneNumberUtils::normalize)
+            ?.takeIf { it.isNotBlank() }
+            ?.let { db.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(it).get().await() }
+
+        if (employerDoc.exists() || phoneRoleDoc?.exists() == true) {
+            val savedFullName = employerDoc.getString("fullName") ?: phoneRoleDoc?.getString("name")
+            if (!savedFullName.isNullOrBlank()) {
+                employerName = savedFullName
+            }
+            val savedContactPhone = employerDoc.getString("phone") ?: phoneRoleDoc?.getString("phoneNumber")
+            if (!savedContactPhone.isNullOrBlank()) {
+                contactNumber = savedContactPhone
+            }
+            val savedEmployerType = employerDoc.getString("employerType")
+                ?: phoneRoleDoc?.getString("employerType")
+                ?: "COMPANY"
+            employerType = savedEmployerType
+        }
+        if (employerDoc.exists()) {
+            val savedCompanyName = employerDoc.getString("companyName")
+                ?: employerDoc.getString("fullName")
+            if (!savedCompanyName.isNullOrBlank()) {
+                companyName = savedCompanyName
+            }
+        }
+    }
+
+    fun clearLegacyStepRedirectFlag() {
+        val prefs = context.getSharedPreferences("dutype_prefs", Context.MODE_PRIVATE)
+        val shouldJumpToLastStep = prefs.getBoolean("jump_to_post_job_last_step", false)
+        if (shouldJumpToLastStep) {
+            Timber.d("Clearing legacy post-job step redirect flag")
+            prefs.edit().remove("jump_to_post_job_last_step").apply()
+        }
+    }
+
+    // -------------------------------------------------------------- location
     suspend fun fetchWorkLocationFast() {
         val cachedLocation = locationRepository.lastKnownLocationIfFresh(10 * 60 * 1000L)
         if (cachedLocation != null) {
             location = cachedLocation.getFullAddress()
             locationLatitude = cachedLocation.latitude
             locationLongitude = cachedLocation.longitude
-            Timber.d("� LOCATION DEBUG: Using recent cached location immediately")
+            Timber.d("LOCATION DEBUG: Using recent cached location immediately")
         }
 
         val refinedLocation = locationRepository.getHighAccuracy(
@@ -417,212 +504,131 @@ fun PostJobScreen(
             location = refinedLocation.getFullAddress()
             locationLatitude = refinedLocation.latitude
             locationLongitude = refinedLocation.longitude
-            Timber.d("� LOCATION DEBUG: ✅ Refined location fetched (${refinedLocation.accuracy}m)")
+            Timber.d("LOCATION DEBUG: Refined location fetched (${refinedLocation.accuracy}m)")
         } else if (cachedLocation == null) {
-            Timber.w("� LOCATION DEBUG: No cached or refined location available")
+            Timber.w("LOCATION DEBUG: No cached or refined location available")
             locationError = "Unable to get current location"
         } else {
-            Timber.w("� LOCATION DEBUG: Refinement timed out, keeping cached location")
+            Timber.w("LOCATION DEBUG: Refinement timed out, keeping cached location")
         }
     }
 
-    // Location permission launcher
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        Timber.d("� LOCATION DEBUG: Permission result - isGranted: $isGranted")
-        if (isGranted) {
-            isLoadingLocation = true
-            locationError = null
-            scope.launch {
-                try {
-                    Timber.d("� LOCATION DEBUG: Fetching fast-first location...")
-                    fetchWorkLocationFast()
-                } catch (e: Exception) {
-                    Timber.e(e, "� LOCATION DEBUG: Error getting location")
-                    locationError = "Error getting location: ${e.message}"
-                } finally {
-                    isLoadingLocation = false
-                }
+    fun startLocationFetch(errorMessage: (Exception) -> String) {
+        isLoadingLocation = true
+        locationError = null
+        scope.launch {
+            try {
+                fetchWorkLocationFast()
+            } catch (e: Exception) {
+                Timber.e(e, "LOCATION DEBUG: Error getting location")
+                locationError = errorMessage(e)
+            } finally {
+                isLoadingLocation = false
             }
+        }
+    }
+
+    fun onLocationPermissionResult(isGranted: Boolean) {
+        Timber.d("LOCATION DEBUG: Permission result - isGranted: $isGranted")
+        if (isGranted) {
+            startLocationFetch { e -> "Error getting location: ${e.message}" }
         } else {
-            Timber.w("� LOCATION DEBUG: Permission denied")
+            Timber.w("LOCATION DEBUG: Permission denied")
             locationError = "Location permission denied"
         }
     }
 
-    // P1 FIX: Load employer profile data from CACHE (5-minute TTL)
-    // P2 FIX: Restore draft if available
-    // NOTE: Profile check moved to job submission time - allows non-logged-in users to fill form
-    // Bug #4 fix: The draft restore branch used to live inside the
-    // `if (currentUser != null)` block, so a guest who saved a draft and then
-    // signed in would lose it on the FIRST authenticated composition. Draft
-    // restore now runs unconditionally on entry and re-runs whenever the auth
-    // state flips so the GUEST bucket is migrated transparently.
-    LaunchedEffect(Unit) {
-        scope.launch {
-            try {
-                val savedDraft = employerJobViewModel.getSavedDraft()
-                if (savedDraft != null && savedDraft.hasContent()) {
-                    Timber.d("� Restoring job draft (device-scoped)...")
-                    title = savedDraft.title
-                    description = savedDraft.description
-                    payAmount = savedDraft.payAmount
-                    payType = savedDraft.payType
-                    location = savedDraft.location
-                    if (savedDraft.locationLatitude != 0.0 || savedDraft.locationLongitude != 0.0) {
-                        locationLatitude = savedDraft.locationLatitude
-                        locationLongitude = savedDraft.locationLongitude
-                    }
-                    category = savedDraft.category
-                    customCategory = savedDraft.customCategory
-                    vacancies = savedDraft.vacancies
-                    if (contactNumber.isBlank()) {
-                        contactNumber = savedDraft.contactNumber
-                    }
-                    shiftTiming = savedDraft.shiftTiming
-                    workType = savedDraft.workType
-                    experienceLevel = savedDraft.experienceLevel
-                    educationRequired = savedDraft.educationRequired
-                    gender = if (savedDraft.gender.equals("Any", ignoreCase = true)) {
-                        "Both"
-                    } else {
-                        savedDraft.gender
-                    }
-                    repostOfJobId = savedDraft.repostOfJobId
-                    Timber.d("✅ Draft restored successfully")
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "❌ Error restoring job draft")
-            }
+    fun onLocationButtonClick() {
+        if (locationService.hasLocationPermission()) {
+            startLocationFetch { _ -> context.getString(R.string.error_getting_location) }
+        } else {
+            requestLocationPermission()
         }
     }
 
-    LaunchedEffect(Unit) {
-        val currentUser = FirebaseAuth.getInstance().currentUser
-        if (currentUser != null) {
-            scope.launch {
-                try {
-                    // P1 FIX: Use cached profile instead of fresh Firestore fetch
-                    val cachedProfile = employerJobViewModel.getCachedProfile()
+    fun onLocationSelected(lat: Double, lon: Double) {
+        locationLatitude = lat
+        locationLongitude = lon
+        Timber.d("LOCATION SEARCH: Selected location - lat: $lat, lon: $lon")
+    }
 
-                    if (cachedProfile != null) {
-                        // Load from cache (fast path)
-                        if (cachedProfile.companyName.isNotBlank()) {
-                            companyName = cachedProfile.companyName
-                            Timber.d("✅ Company name loaded from CACHE: $companyName")
-                        }
-                        if (cachedProfile.employerName.isNotBlank()) {
-                            employerName = cachedProfile.employerName
-                        }
-                        if (cachedProfile.contactPhone.isNotBlank()) {
-                            contactNumber = cachedProfile.contactPhone
-                            Timber.d("✅ Contact number loaded from CACHE: $contactNumber")
-                        }
-                        if (cachedProfile.trustTier.isNotBlank()) {
-                            employerTrustTier = cachedProfile.trustTier
-                            Timber.d("✅ Trust tier loaded from CACHE: $employerTrustTier")
-                        }
-                        if (cachedProfile.employerType.isNotBlank()) {
-                            employerType = cachedProfile.employerType
-                            Timber.d("✅ Employer type loaded from CACHE: $employerType")
-                        }
-                        if (companyName.isBlank()) {
-                            val fallbackName = cachedProfile.companyName.ifBlank { cachedProfile.employerName }
-                            if (fallbackName.isNotBlank()) {
-                                companyName = fallbackName
-                            }
-                        }
-                    } else {
-                        // Fallback to direct Firestore fetch (cache miss)
-                        Timber.d(" Cache miss, fetching from Firestore...")
-                        val db = com.example.dutype.di.firestoreFromHilt(context)
-                        val employerDoc = db.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(currentUser.uid).get().await()
-                        val phoneRoleDoc = currentUser.phoneNumber
-                            ?.let(com.example.dutype.utils.PhoneNumberUtils::normalize)
-                            ?.takeIf { it.isNotBlank() }
-                            ?.let { db.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(it).get().await() }
+    // ----------------------------------------------------------- job image
+    fun onJobImageSelected(uri: Uri) {
+        jobImageUri = uri
+        scope.launch { uploadJobImage(uri) }
+    }
 
-                        if (employerDoc.exists() || phoneRoleDoc?.exists() == true) {
-                            val savedFullName = employerDoc.getString("fullName") ?: phoneRoleDoc?.getString("name")
-                            if (!savedFullName.isNullOrBlank()) {
-                                employerName = savedFullName
-                            }
-                            val savedContactPhone = employerDoc.getString("phone") ?: phoneRoleDoc?.getString("phoneNumber")
-                            if (!savedContactPhone.isNullOrBlank()) {
-                                contactNumber = savedContactPhone
-                            }
-                            val savedEmployerType = employerDoc.getString("employerType")
-                                ?: phoneRoleDoc?.getString("employerType")
-                                ?: "COMPANY"
-                            employerType = savedEmployerType
-                            Timber.d("✅ Employer type loaded from Firestore: $employerType")
-                        }
-                        if (employerDoc.exists()) {
-                            val savedCompanyName = employerDoc.getString("companyName")
-                                ?: employerDoc.getString("fullName")
-                            if (!savedCompanyName.isNullOrBlank()) {
-                                companyName = savedCompanyName
-                            }
-                        }
+    fun onJobImageRemoved() {
+        jobImageUri = null
+        jobImageUrl = ""
+        Timber.d("JOB IMAGE: Image removed")
+    }
+
+    private suspend fun uploadJobImage(uri: Uri) {
+        isUploadingJobImage = true
+        try {
+            val currentUser = FirebaseAuth.getInstance().currentUser
+            if (currentUser != null) {
+                val fileName = "job_image_${System.currentTimeMillis()}.jpg"
+                val storagePath = "job_images/${currentUser.uid}/$fileName"
+
+                Timber.d("JOB IMAGE: Starting upload with compression...")
+
+                val uploadResult = com.example.dutype.utils.ImageUploadUtils.uploadWithRetry(
+                    context = context,
+                    uri = uri,
+                    storagePath = storagePath
+                )
+
+                when (uploadResult) {
+                    is com.example.dutype.utils.ImageUploadUtils.UploadResult.Success -> {
+                        jobImageUrl = uploadResult.downloadUrl
+                        Timber.d("JOB IMAGE: Upload successful!")
+                        Toast.makeText(context, context.getString(R.string.post_job_image_uploaded), Toast.LENGTH_SHORT).show()
                     }
-                } catch (e: Exception) {
-                    Timber.e(e, "❌ Error loading employer profile")
+                    is com.example.dutype.utils.ImageUploadUtils.UploadResult.Failure -> {
+                        Timber.e(uploadResult.exception, "JOB IMAGE: Upload failed: ${uploadResult.error}")
+                        Toast.makeText(context, context.getString(R.string.post_job_image_upload_failed, uploadResult.error ?: ""), Toast.LENGTH_SHORT).show()
+                        jobImageUri = null
+                        jobImageUrl = ""
+                    }
+                    else -> {
+                    }
                 }
             }
-        }
-    }
-    
-    // Clear legacy redirect flag from the old multi-step flow
-    LaunchedEffect(Unit) {
-        val prefs = context.getSharedPreferences("dutype_prefs", android.content.Context.MODE_PRIVATE)
-        val shouldJumpToLastStep = prefs.getBoolean("jump_to_post_job_last_step", false)
-        if (shouldJumpToLastStep) {
-            Timber.d("� Clearing legacy post-job step redirect flag")
-            prefs.edit().remove("jump_to_post_job_last_step").apply()
+        } catch (e: Exception) {
+            Timber.e(e, "JOB IMAGE: Upload failed")
+            Toast.makeText(context, context.getString(R.string.post_job_image_upload_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
+            jobImageUri = null
+            jobImageUrl = ""
+        } finally {
+            isUploadingJobImage = false
         }
     }
 
-    // Validation functions for each step
+    // ------------------------------------------------------------ validation
     fun validateStep(step: Int): Boolean {
         return when (step) {
             1 -> {
-                // Basic validation
                 if (title.isBlank()) return false
-                
-                // ANTI-FRAUD: No-Data-Entry Firewall - Check for scam keywords
                 val scamCheck = JobValidationUtils.validateAgainstScamKeywords(title, description)
                 scamValidationResult = scamCheck
                 scamCheck.isValid
             }
             2 -> {
-                // Basic validation
                 if (payAmount.isBlank() || location.isBlank()) return false
-                
-                // ANTI-FRAUD: Pay Rate Guardrails - Validate pay rate
                 val payCheck = JobValidationUtils.validatePayRate(category, payType, payAmount)
                 payRateValidationResult = payCheck
-                // Allow proceeding but show warning (don't block)
                 true
             }
-            3 -> contactNumber.isNotBlank() && vacancies.toIntOrNull()?.let { it in 1..50 } == true
+            3 -> contactNumber.isNotBlank() && postJobVacanciesValid(vacancies)
             4 -> true
             else -> false
         }
     }
-    
-    // Get suggested pay range for current category
-    fun getSuggestedPayRange(): String {
-        return JobValidationUtils.formatSuggestedRange(category, payType)
-    }
 
-    val hasValidJobCoordinates = com.example.dutype.utils.GeoUtils.hasValidCoordinates(
-        locationLatitude,
-        locationLongitude
-    )
-
-    // Create job posting function
-    fun createJobPosting(): JobPostingModel {
+    // --------------------------------------------------------------- publish
+    private fun createJobPosting(): JobPostingModel {
         return JobPostingModel(
             title = title,
             payAmount = payAmount,
@@ -634,335 +640,264 @@ fun PostJobScreen(
             shiftTiming = shiftTiming,
             vacancies = vacancies.toIntOrNull() ?: 0,
             employerId = employerId ?: "",
-                postedTime = System.currentTimeMillis()
+            postedTime = System.currentTimeMillis()
         )
     }
 
-    // Actual job submission with coordinates - MUST be defined before submitJob
-    fun submitJobWithCoordinates(finalLatitude: Double, finalLongitude: Double) {
-        // Double-check to prevent duplicate submissions
-        if (employerJobUiState.isCreatingJob) {
-                    Timber.w(" JOB POSTING DEBUG: Already creating job in submitJobWithCoordinates, ignoring")
-                    return
-                }
-                
-                Timber.d(" JOB POSTING DEBUG: Creating job posting...")
-                val jobPosting = createJobPosting()
-                val vacancyCount = vacancies.toIntOrNull()
-                if (vacancyCount == null || vacancyCount !in 1..50) {
-                    Toast.makeText(context, context.getString(R.string.enter_number_positions), Toast.LENGTH_SHORT).show()
-                    isSubmittingJob = false
-                    return
-                }
+    private fun shiftTimingText(): String {
+        return if (shiftTiming == ShiftTiming.CUSTOM &&
+            (customShiftStart.isNotBlank() || customShiftEnd.isNotBlank())
+        ) {
+            listOf(customShiftStart.trim(), customShiftEnd.trim())
+                .filter { it.isNotBlank() }
+                .joinToString(separator = " - ")
+        } else {
+            shiftTiming.displayName
+        }
+    }
 
-                // BUG #6 FIX: payAmount is a free-form field (the form/help text says
-                // "Enter amount, range (10000-15000), or text (Based on experience)").
-                // The previous `toDoubleOrNull() ?: 0.0` collapsed every non-numeric
-                // input to 0.0, which the strict Firestore schema (`salary > 0`) then
-                // silently rejected so the post never went through. The parser keeps
-                // a positive numeric for filtering and surfaces the original text in
-                // the description so workers still see "Pay: 15000-20000" or
-                // "Pay: Negotiable".
-                // Bug #6 fix: salary is a String — the employer's exact text
-                // ("Negotiable" / "1000-2000" / "2000+" / "5000") is sent
-                // verbatim to Firestore. The card layer formats for display via
-                // SalaryFormatter; numeric filters parse the lower bound.
-                val payParsed = com.example.dutype.utils.PayAmountParser.parse(jobPosting.payAmount)
-                val descriptionWithPayText = jobPosting.description.ifBlank {
-                    buildString {
-                        append("Hiring for ")
-                        append(jobPosting.title.trim())
-                        append(".")
-                        if (shiftTiming.displayName.isNotBlank()) {
-                            append(" Shift: ")
-                            append(shiftTiming.displayName)
-                            append(".")
-                        }
-                    }
-                }
-                val inferredCategoryName = com.example.dutype.utils.JobCategoryResolver.inferCategoryName(
-                    title = jobPosting.title,
-                    description = descriptionWithPayText
-                )
-
-                // Build job data map directly from jobPosting (no intermediate JobListing needed)
-                val jobData = mutableMapOf<String, Any>(
-                    // Core job information
-                    "title" to jobPosting.title,
-                    // Job type stores the work mode (Full-time / Part-time / ).
-                    "jobType" to workType,
-                    "category" to inferredCategoryName,
-                    
-                    // Location information
-                    "location" to mapOf("lat" to finalLatitude, "lng" to finalLongitude),
-                    "addressText" to jobPosting.location,
-                    
-                    // Pay information
-                    "salary" to payParsed.text,
-                    "salaryType" to jobPosting.payType.name,
-                    
-                    // Job details
-                    "description" to descriptionWithPayText,
-                    "gender" to gender,
-                    "experienceRequired" to experienceLevel,
-                    "educationRequired" to educationRequired,
-                    "shiftTiming" to (
-                        // Batch-p #3: persist the typed-in start/end timing for CUSTOM shifts.
-                        if (shiftTiming == ShiftTiming.CUSTOM &&
-                            (customShiftStart.isNotBlank() || customShiftEnd.isNotBlank())
-                        ) {
-                            listOf(customShiftStart.trim(), customShiftEnd.trim())
-                                .filter { it.isNotBlank() }
-                                .joinToString(separator = " - ")
-                        } else {
-                            shiftTiming.displayName
-                        }
-                    ),
-                    "vacancies" to vacancyCount,
-                    
-                    // Contact information
-                    "contactNumber" to jobPosting.contactNumber,
-
-                    // System fields
-                    "employerId" to (employerId ?: ""),
-
-                    // #5 fix: optional hero image URL persisted on jobmetadata so
-                    // it shows on worker / employer job cards instead of an emoji.
-                    "jobImageUrl" to jobImageUrl
-                )
-                if (repostOfJobId.isNotBlank()) {
-                    jobData["repostOfJobId"] = repostOfJobId
-                    jobData["repostedAt"] = System.currentTimeMillis()
-                }
-                
-                // DEBUG: Log all job data being sent to Firestore
-                Timber.d(" JOB POSTING DEBUG: Job Data to be saved:")
-                jobData.forEach { (key, value) ->
-                    Timber.d("   - $key: $value")
-                }
-                
-                employerJobViewModel.createJob(jobData) { success, newJobId, message ->
-                    // Reset local guard
-                    isSubmittingJob = false
-                    
-                    if (success) {
-                        Timber.i(" JOB POSTING DEBUG: ✅ Job posted successfully!")
-                        Toast.makeText(context, context.getString(R.string.post_job_success), Toast.LENGTH_SHORT).show()
-                        
-                        // Trigger in-app review after successful job posting
-                        context.findActivity()?.let { activity ->
-                            reviewTriggerService.onEmployerJobPosted(activity)
-                        }
-
-                        val hasNotificationPermission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                            androidx.core.content.ContextCompat.checkSelfPermission(
-                                context,
-                                android.Manifest.permission.POST_NOTIFICATIONS
-                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                        } else {
-                            true
-                        }
-
-                        if (!hasNotificationPermission && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                            pendingNavJobId = newJobId
-                            showPostJobNotificationBottomSheet = true
-                        } else {
-                            navigateAfterJobPosted(newJobId)
-                        }
-                    } else {
-                        Timber.e(" JOB POSTING DEBUG: ❌ Job posting failed: $message")
-                        Toast.makeText(context, context.getString(R.string.post_job_error, message), Toast.LENGTH_LONG).show()
-                    }
+    private fun buildDescriptionText(jobPosting: JobPostingModel): String {
+        val baseDescriptionText = jobPosting.description.ifBlank {
+            buildString {
+                append("Hiring for ")
+                append(jobPosting.title.trim())
+                append(".")
+                if (shiftTiming.displayName.isNotBlank()) {
+                    append(" Shift: ")
+                    append(shiftTiming.displayName)
+                    append(".")
                 }
             }
+        }
+        return buildString {
+            append(baseDescriptionText)
+            if (startDate != "Immediately") {
+                append("\n\nStart: ")
+                append(startDate)
+            }
+            if (selectedPerks.isNotEmpty()) {
+                append("\n\nPerks: ")
+                append(selectedPerks.joinToString(", "))
+            }
+        }
+    }
 
-    // Submit job function - handles login check, profile check, and geocoding
-    fun submitJob(finalLatitude1: Double, finalLongitude1: Double) {
-        Timber.d(" JOB POSTING DEBUG: submitJob() called")
-        
-        // STEP 1: Check if user is logged in
+    private fun buildJobData(
+        jobPosting: JobPostingModel,
+        finalLatitude: Double,
+        finalLongitude: Double,
+        vacancyCount: Int
+    ): MutableMap<String, Any> {
+        // salary is a String: the employer's exact text is sent verbatim.
+        val payParsed = com.example.dutype.utils.PayAmountParser.parse(jobPosting.payAmount)
+        val descriptionWithPayText = buildDescriptionText(jobPosting)
+        val inferredCategoryName = com.example.dutype.utils.JobCategoryResolver.inferCategoryName(
+            title = jobPosting.title,
+            description = descriptionWithPayText
+        )
+        val locationMap: Map<String, Double> = mapOf("lat" to finalLatitude, "lng" to finalLongitude)
+        val jobData = mutableMapOf<String, Any>()
+        jobData["title"] = jobPosting.title
+        jobData["jobType"] = workType
+        jobData["category"] = inferredCategoryName
+        jobData["location"] = locationMap
+        jobData["addressText"] = jobPosting.location
+        jobData["salary"] = payParsed.text
+        jobData["salaryType"] = jobPosting.payType.name
+        jobData["description"] = descriptionWithPayText
+        jobData["gender"] = gender
+        jobData["experienceRequired"] = experienceLevel
+        jobData["educationRequired"] = educationRequired
+        jobData["shiftTiming"] = shiftTimingText()
+        jobData["vacancies"] = vacancyCount
+        jobData["contactNumber"] = jobPosting.contactNumber
+        jobData["employerId"] = employerId ?: ""
+        jobData["jobImageUrl"] = jobImageUrl
+        if (repostOfJobId.isNotBlank()) {
+            jobData["repostOfJobId"] = repostOfJobId
+            jobData["repostedAt"] = System.currentTimeMillis()
+        }
+        return jobData
+    }
+
+    private fun submitJobWithCoordinates(finalLatitude: Double, finalLongitude: Double) {
+        if (isCreatingJob) {
+            Timber.w("JOB POSTING DEBUG: Already creating job in submitJobWithCoordinates, ignoring")
+            return
+        }
+
+        Timber.d("JOB POSTING DEBUG: Creating job posting...")
+        val jobPosting = createJobPosting()
+        val vacancyCount = vacancies.toIntOrNull()
+        if (vacancyCount == null || vacancyCount !in 1..50) {
+            Toast.makeText(context, context.getString(R.string.enter_number_positions), Toast.LENGTH_SHORT).show()
+            isSubmittingJob = false
+            return
+        }
+
+        val jobData = buildJobData(jobPosting, finalLatitude, finalLongitude, vacancyCount)
+        employerJobViewModel.createJob(jobData) { success, newJobId, message ->
+            onJobCreated(success, newJobId, message)
+        }
+    }
+
+    private fun onJobCreated(success: Boolean, newJobId: String?, message: String?) {
+        isSubmittingJob = false
+        if (success) {
+            Timber.i("JOB POSTING DEBUG: Job posted successfully!")
+            Toast.makeText(context, context.getString(R.string.post_job_success), Toast.LENGTH_SHORT).show()
+            try {
+                onReviewTrigger?.invoke()
+            } catch (e: Exception) {
+                Timber.e(e, "Review trigger failed after job post")
+            }
+
+            val isTiramisuOrAbove = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU
+            val hasNotificationPermission = if (isTiramisuOrAbove) {
+                androidx.core.content.ContextCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+
+            if (!hasNotificationPermission && isTiramisuOrAbove) {
+                pendingNavJobId = newJobId
+                showPostJobNotificationBottomSheet = true
+            } else {
+                navigateAfterJobPosted(newJobId)
+            }
+        } else {
+            Timber.e("JOB POSTING DEBUG: Job posting failed: $message")
+            Toast.makeText(context, context.getString(R.string.post_job_error, message), Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /** Handles login check, profile check, and geocoding, then posts the job. */
+    fun submitJob() {
+        Timber.d("JOB POSTING DEBUG: submitJob() called")
+
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
-            Timber.d("� JOB POSTING DEBUG: User not logged in, showing login sheet")
+            Timber.d("JOB POSTING DEBUG: User not logged in, showing login sheet")
             showLoginBottomSheet = true
             return
         }
-        
-        // SENIOR FIX: Use ONLY ViewModel state as single source of truth
-        // Prevents race condition from dual guards desynchronizing
-        // Check and set atomically (in practice, Compose state updates are on main thread)
-        if (employerJobUiState.isCreatingJob) {
-            Timber.w("� JOB POSTING DEBUG: Already creating job (ViewModel guard), ignoring duplicate call")
+
+        if (isCreatingJob) {
+            Timber.w("JOB POSTING DEBUG: Already creating job (ViewModel guard), ignoring duplicate call")
             return
         }
-        
+
         if (!validateStep(4)) {
-            Timber.w("� JOB POSTING DEBUG: Step 4 validation failed")
+            Timber.w("JOB POSTING DEBUG: Step 4 validation failed")
             return
         }
-        
-        // Atomically set ViewModel state to guard against all competing threads/calls
-        // Remove local isSubmittingJob flag - causes dual guard desync
-        // isSubmittingJob = true  // REMOVED: Local flag causes race condition
+
         isCheckingProfile = true
-        
-        // STEP 2: Check profile completion (use cached result if available)
+        val uid = currentUser.uid
+        val displayName = currentUser.displayName
         scope.launch {
             try {
-                // Use cached result if already checked in this session
-                val checkResult = if (profileCheckResult != null && profileCheckResult!!.canPost) {
-                    Timber.d("✅ PROFILE CHECK: Using cached result - ${profileCheckResult!!.completionPercentage}% complete")
-                    profileCheckResult!!
-                } else {
-                    val result = profileCompletionService.preJobPostCheck(currentUser.uid)
-                    profileCheckResult = result
-                    result
-                }
-                
-                isCheckingProfile = false
-                
-                if (!checkResult.canPost) {
-                    Timber.w("⚠️ PROFILE CHECK: Employer cannot post jobs - ${checkResult.completionPercentage}% complete")
-                    // SENIOR FIX: ViewModel state resets automatically; no need for local flag
-                    showProfileIncompleteDialog = true
-                    return@launch
-                }
-                
-                Timber.d("✅ PROFILE CHECK: Employer can post jobs - ${checkResult.completionPercentage}% complete")
-                
-                // Validate that employer / company name is available
-                if (companyName.isBlank()) {
-                    // Try to load company name or full name from profile
-                    val profileResult = profileCompletionService.getEmployerProfileData(currentUser.uid)
-                    profileResult.onSuccess { profileData ->
-                        val savedName = (profileData["companyName"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-                            ?: (profileData["fullName"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-                        if (!savedName.isNullOrBlank()) {
-                            companyName = savedName
-                        }
-                    }
-                    
-                    if (companyName.isBlank()) {
-                        companyName = employerName.ifBlank {
-                            currentUser.displayName?.trim().orEmpty().ifBlank { "DutyPe Employer" }
-                        }
-                    }
-                }
-                
-                // STEP 3: Proceed with job submission
-                var finalLatitude = locationLatitude
-                var finalLongitude = locationLongitude
-                
-                if (locationLatitude == 0.0 && locationLongitude == 0.0 && location.isNotBlank()) {
-                    Timber.d("� JOB POSTING DEBUG: Geocoding manual location: $location")
-                    val geocodedLocation = locationService.getCoordinatesFromAddress(location)
-                    if (geocodedLocation != null) {
-                        finalLatitude = geocodedLocation.latitude
-                        finalLongitude = geocodedLocation.longitude
-                        Timber.d("� JOB POSTING DEBUG: Geocoded - lat: $finalLatitude, lon: $finalLongitude")
-                    } else {
-                        Timber.w("� JOB POSTING DEBUG: Geocoding failed")
-                    }
-                }
-
-                if (!com.example.dutype.utils.GeoUtils.hasValidCoordinates(finalLatitude, finalLongitude)) {
-                    locationError = context.getString(R.string.valid_job_location_required)
-                    // SENIOR FIX: ViewModel state resets automatically; no need for local flag
-                    Toast.makeText(context, R.string.valid_job_location_required, Toast.LENGTH_SHORT).show()
-                    return@launch
-                }
-                
-                // ANTI-FRAUD: Location Consistency Check (NON-BLOCKING)
-                // Run in background - don't block job posting
-                if (finalLatitude != 0.0 && finalLongitude != 0.0) {
-                    CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
-                        try {
-                            val employerLocation = locationRepository.getHighAccuracy(
-                                timeoutMs = 5000L,  // Reduced timeout
-                                minAccuracyMeters = 100f  // Less strict accuracy
-                            )
-                            
-                            if (employerLocation != null) {
-                                val distance = locationService.calculateDistance(
-                                    employerLocation.latitude, employerLocation.longitude,
-                                    finalLatitude, finalLongitude
-                                )
-                                
-                                Timber.d("�� ANTI-FRAUD: Location consistency check - Distance: ${String.format("%.2f", distance)} km")
-                                
-                                // Log suspicious activity but don't block posting
-                                if (distance > 50.0) {
-                                    Timber.w("�� ANTI-FRAUD: ⚠️ Suspicious location detected (${String.format("%.2f", distance)} km away)")
-                                    // TODO: Send to fraud detection system
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Timber.w(e, "�� ANTI-FRAUD: Background location check failed")
-                        }
-                    }
-                }
-                
-                // Post job immediately without waiting for location check
-                pendingJobSubmission = false
-                submitJobWithCoordinates(finalLatitude, finalLongitude)
+                runSubmitFlow(uid, displayName)
             } catch (e: Exception) {
-                Timber.e(e, "� JOB POSTING DEBUG: Error in submitJob")
-                // SENIOR FIX: ViewModel state resets automatically on error; only reset UI flags
+                Timber.e(e, "JOB POSTING DEBUG: Error in submitJob")
                 isCheckingProfile = false
                 Toast.makeText(context, context.getString(R.string.post_job_error, e.message ?: ""), Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    // Hiring Studio palette
-    val primaryBlue = EmployerColors.Primary
-    val successGreen = EmployerColors.Success
-    val accentOrange = Color(0xFFFF8A3D)
-    val darkText = EmployerColors.TextPrimary
-    // Theme-aware canvas for all post-job steps.
-    val pageBackground = com.example.dutype.ui.theme.EmployerColors.ScreenBackground
-    val basicsReady = title.isNotBlank()
-    val compensationReady = payAmount.isNotBlank() && location.isNotBlank()
-    val vacancyReady = vacancies.toIntOrNull()?.let { it in 1..50 } == true
-    val requirementsReady = contactNumber.isNotBlank() && vacancyReady
-    val locationPinned = hasValidJobCoordinates
-    val hasHeroImage = jobImageUrl.isNotBlank() || jobImageUri != null
-    val readinessCount = listOf(
-        basicsReady,
-        compensationReady,
-        requirementsReady,
-        locationPinned
-    ).count { it }
-    val missingStudioItems = buildList {
-        if (!basicsReady) add("Add job title")
-        if (!compensationReady) add(stringResource(R.string.post_job_checklist_pay_location))
-        if (!requirementsReady) add(stringResource(R.string.post_job_checklist_contact))
-        if (!locationPinned) add(stringResource(R.string.post_job_checklist_pin_location))
-    }
-    val publishEnabled = !employerJobUiState.isCreatingJob &&
-        !isSubmittingJob &&
-        !isLoadingLocation &&
-        basicsReady &&
-        compensationReady &&
-        requirementsReady &&
-        locationPinned
+    private suspend fun runSubmitFlow(uid: String, displayName: String?) {
+        val cached = profileCheckResult
+        val checkResult = if (cached != null && cached.canPost) {
+            cached
+        } else {
+            val result = profileCompletionService.preJobPostCheck(uid)
+            profileCheckResult = result
+            result
+        }
 
-    // Apr 2026: Apna-style 3-step wizard. Steps:
-    //   0 ? Job details   (title, work type, optional description/image)
-    //   1 ? Pay & where   (compensation + location)
-    //   2 ? Requirements & contact (people, schedule, perks, contact, review)
-    var currentStep by remember { mutableIntStateOf(0) }
-    var showAdvancedJobDetails by remember { mutableStateOf(false) }
-    var showAdvancedRequirements by remember { mutableStateOf(false) }
-    val totalSteps = 3
-    // Per-step Next gate. Mirrors the publish checklist but scoped to
-    // the fields that live on each step so the user isn't stuck on a
-    // later step because of an earlier issue.
-    val canAdvanceFromStep: (Int) -> Boolean = { step ->
-        when (step) {
-            0 -> basicsReady
-            1 -> compensationReady && locationPinned
-            else -> true
+        isCheckingProfile = false
+
+        if (!checkResult.canPost) {
+            Timber.w("PROFILE CHECK: Employer cannot post jobs - ${checkResult.completionPercentage}% complete")
+            showProfileIncompleteDialog = true
+            return
+        }
+
+        ensureCompanyName(uid, displayName)
+
+        var finalLatitude = locationLatitude
+        var finalLongitude = locationLongitude
+
+        if (locationLatitude == 0.0 && locationLongitude == 0.0 && location.isNotBlank()) {
+            Timber.d("JOB POSTING DEBUG: Geocoding manual location: $location")
+            val geocodedLocation = locationService.getCoordinatesFromAddress(location)
+            if (geocodedLocation != null) {
+                finalLatitude = geocodedLocation.latitude
+                finalLongitude = geocodedLocation.longitude
+            } else {
+                Timber.w("JOB POSTING DEBUG: Geocoding failed")
+            }
+        }
+
+        if (!com.example.dutype.utils.GeoUtils.hasValidCoordinates(finalLatitude, finalLongitude)) {
+            locationError = context.getString(R.string.valid_job_location_required)
+            Toast.makeText(context, R.string.valid_job_location_required, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        if (finalLatitude != 0.0 && finalLongitude != 0.0) {
+            launchLocationConsistencyCheck(finalLatitude, finalLongitude)
+        }
+
+        pendingJobSubmission = false
+        submitJobWithCoordinates(finalLatitude, finalLongitude)
+    }
+
+    private suspend fun ensureCompanyName(uid: String, displayName: String?) {
+        if (!companyName.isBlank()) return
+        val profileResult = profileCompletionService.getEmployerProfileData(uid)
+        profileResult.onSuccess { profileData ->
+            val savedName = (profileData["companyName"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+                ?: (profileData["fullName"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+            if (!savedName.isNullOrBlank()) {
+                companyName = savedName
+            }
+        }
+        if (companyName.isBlank()) {
+            companyName = employerName.ifBlank {
+                displayName?.trim().orEmpty().ifBlank { "DutyPe Employer" }
+            }
+        }
+    }
+
+    /** ANTI-FRAUD: non-blocking location consistency check running in background. */
+    private fun launchLocationConsistencyCheck(finalLatitude: Double, finalLongitude: Double) {
+        CoroutineScope(Dispatchers.IO + SupervisorJob()).launch {
+            try {
+                val employerLocation = locationRepository.getHighAccuracy(
+                    timeoutMs = 5000L,
+                    minAccuracyMeters = 100f
+                )
+
+                if (employerLocation != null) {
+                    val distance = locationService.calculateDistance(
+                        employerLocation.latitude, employerLocation.longitude,
+                        finalLatitude, finalLongitude
+                    )
+
+                    Timber.d("ANTI-FRAUD: Location consistency check - Distance: ${String.format("%.2f", distance)} km")
+
+                    if (distance > 50.0) {
+                        Timber.w("ANTI-FRAUD: Suspicious location detected (${String.format("%.2f", distance)} km away)")
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "ANTI-FRAUD: Background location check failed")
+            }
         }
     }
 
@@ -974,721 +909,877 @@ fun PostJobScreen(
             return
         }
 
-        // Batch-p #11: market-rate / pay-out-of-range warning dialog has been
-        // removed. Employers can publish at any pay rate without being told it
-        // looks unusual.
-
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser == null) {
             showLoginBottomSheet = true
             return
         }
-        
-        // Direct credit check before submission bypassed for free postings (daily limits enforced backend-side)
-        /*
-        if (employerSubscription.status != "LOADING" && employerSubscription.normalCredits <= 0) {
-            showNoCreditsDialog = true
+
+        submitJob()
+    }
+
+    fun goNext() {
+        when (currentStep) {
+            1 -> goNextFromStep1()
+            2 -> goNextFromStep2()
+            else -> goNextFromStep3()
+        }
+    }
+
+    private fun goNextFromStep1() {
+        if (title.isBlank()) {
+            Toast.makeText(context, "Enter a job title", Toast.LENGTH_SHORT).show()
             return
         }
-        */
-
-        submitJob(0.0, 0.0)
+        val scamCheck = JobValidationUtils.validateAgainstScamKeywords(title, description)
+        scamValidationResult = scamCheck
+        if (!scamCheck.isValid) {
+            showScamWarningDialog = true
+            return
+        }
+        if (!postJobVacanciesValid(vacancies)) {
+            vacancies = "1"
+        }
+        currentStep = 2
     }
-    
-    // ANTI-FRAUD: Location Consistency Warning Dialog
-    if (showLocationWarningDialog) {
-        AlertDialog(
-            onDismissRequest = { 
-                showLocationWarningDialog = false 
-                pendingJobSubmission = false
-            },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = EmployerColors.Error,
-                    modifier = Modifier.size(48.dp)
-                )
-            },
-            title = {
+
+    private fun goNextFromStep2() {
+        if (location.isBlank()) {
+            locationError = context.getString(R.string.valid_job_location_required)
+            Toast.makeText(context, R.string.valid_job_location_required, Toast.LENGTH_SHORT).show()
+            return
+        }
+        currentStep = 3
+    }
+
+    private fun goNextFromStep3() {
+        if (payAmount.isBlank()) {
+            Toast.makeText(context, "Enter the wage", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (contactNumber.isBlank()) {
+            Toast.makeText(context, "Enter a contact number", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (!postJobVacanciesValid(vacancies)) {
+            Toast.makeText(context, context.getString(R.string.enter_number_positions), Toast.LENGTH_SHORT).show()
+            return
+        }
+        attemptPublishJob()
+    }
+
+    fun openProfileSetup() {
+        val navToUse = rootNavController ?: navController
+        navToUse.navigate(
+            Routes.employerProfileSetupWithReturnRoute(Routes.EMPLOYER_POST_JOB)
+        ) {
+            launchSingleTop = true
+        }
+    }
+
+    fun openSubscription() {
+        val navToUse = rootNavController ?: navController
+        navToUse.navigate(Routes.EMPLOYER_SUBSCRIPTION)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PostJobScreen(
+    navController: NavController,
+    rootNavController: NavController? = null,
+    employerId: String? = null,
+    onJobPosted: ((String?) -> Unit)? = null,
+    onStatusBarColorChange: ((Color) -> Unit)? = null
+) {
+    val context = LocalContext.current
+
+    val statusBarColorToken = EmployerColors.StatusBarColor
+    LaunchedEffect(statusBarColorToken) {
+        onStatusBarColorChange?.invoke(statusBarColorToken)
+    }
+    val scope = rememberCoroutineScope()
+    val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
+    val employerJobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
+    val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
+    val subscriptionViewModel: SubscriptionViewModel = hiltViewModel()
+    val employerSubscription by subscriptionViewModel.activeSubscription.collectAsState()
+    val stepState = rememberSaveable { mutableStateOf(1) }
+
+    val c = remember {
+        PostJobController(context, navController, jobViewModel, employerJobViewModel, scope, stepState)
+    }
+    c.context = context
+    c.navController = navController
+    c.rootNavController = rootNavController
+    c.employerId = employerId
+    c.onJobPosted = onJobPosted
+    val reviewTriggerService = com.example.dutype.di.rememberInAppReviewTriggerService()
+    c.onReviewTrigger = {
+        context.findActivity()?.let { reviewTriggerService.onEmployerJobPosted(it) }
+    }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        c.onLocationPermissionResult(isGranted)
+    }
+    c.requestLocationPermission = {
+        locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        c.navigateAfterJobPosted(c.pendingNavJobId)
+    }
+    c.requestNotificationPermission = {
+        notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+    }
+
+    PostJobSideEffects(c)
+    PostJobDialogs(c)
+    PostJobWizard(c)
+    PostJobSheets(c)
+}
+
+@OptIn(FlowPreview::class)
+@Composable
+private fun PostJobSideEffects(c: PostJobController) {
+    // Category is internal only; derived from the typed role/description.
+    LaunchedEffect(c.title, c.description) {
+        c.syncInferredCategory()
+    }
+
+    // Auto-save draft on field changes (debounced 2 seconds)
+    LaunchedEffect(Unit) {
+        c.draftTrigger
+            .debounce(2000L)
+            .collect { c.autoSaveDraft() }
+    }
+    PostJobDraftTriggerEffect(c)
+
+    LaunchedEffect(Unit) {
+        c.scope.launch { c.restoreDraft() }
+    }
+    LaunchedEffect(Unit) {
+        c.scope.launch { c.loadEmployerProfile() }
+    }
+    LaunchedEffect(Unit) {
+        c.clearLegacyStepRedirectFlag()
+    }
+}
+
+@Composable
+private fun PostJobDraftTriggerEffect(c: PostJobController) {
+    LaunchedEffect(
+        c.title,
+        c.description,
+        c.payAmount,
+        c.payType,
+        c.location,
+        c.category,
+        c.customCategory,
+        c.vacancies,
+        c.contactNumber,
+        c.shiftTiming,
+        c.workType,
+        c.experienceLevel,
+        c.educationRequired,
+        c.gender,
+        c.repostOfJobId
+    ) {
+        c.draftTrigger.value = System.currentTimeMillis()
+    }
+}
+
+// ------------------------------------------------------------------ dialogs
+@Composable
+private fun PostJobDialogs(c: PostJobController) {
+    if (c.showLocationWarningDialog) {
+        PostJobLocationWarningDialog(c)
+    }
+    val scam = c.scamValidationResult
+    if (c.showScamWarningDialog && scam != null && !scam.isValid) {
+        PostJobScamWarningDialog(c, scam.errorMessage)
+    }
+    val profileResult = c.profileCheckResult
+    if (c.showProfileIncompleteDialog && profileResult != null) {
+        PostJobProfileIncompleteDialog(c, profileResult.completionPercentage, profileResult.missingFields)
+    }
+    if (c.showNoCreditsDialog) {
+        PostJobNoCreditsSheet(c)
+    }
+}
+
+@Composable
+private fun PostJobLocationWarningDialog(c: PostJobController) {
+    AlertDialog(
+        onDismissRequest = {
+            c.showLocationWarningDialog = false
+            c.pendingJobSubmission = false
+        },
+        icon = {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = EmployerColors.Error,
+                modifier = Modifier.size(48.dp)
+            )
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.post_job_location_mismatch_title),
+                fontWeight = FontWeight.Bold,
+                color = EmployerColors.Error
+            )
+        },
+        text = {
+            Column {
                 Text(
-                    text = stringResource(R.string.post_job_location_mismatch_title),
-                    fontWeight = FontWeight.Bold,
-                    color = EmployerColors.Error
+                    text = stringResource(R.string.post_job_location_mismatch_desc, String.format("%.1f", c.locationDistanceKm)),
+                    style = MaterialTheme.typography.bodyMedium
                 )
-            },
-            text = {
-                Column {
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = EmployerColors.ErrorLight
+                ) {
                     Text(
-                        text = stringResource(R.string.post_job_location_mismatch_desc, String.format("%.1f", locationDistanceKm)),
-                        style = MaterialTheme.typography.bodyMedium
+                        text = stringResource(R.string.post_job_location_mismatch_info),
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = EmployerColors.Error
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = EmployerColors.ErrorLight
-                    ) {
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = stringResource(R.string.post_job_location_confirm),
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    c.showLocationWarningDialog = false
+                    c.pendingJobSubmission = true
+                    c.submitJob()
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = EmployerColors.Error
+                )
+            ) {
+                Text(stringResource(R.string.post_anyway))
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = {
+                    c.showLocationWarningDialog = false
+                    c.pendingJobSubmission = false
+                }
+            ) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun PostJobScamWarningDialog(c: PostJobController, errorMessage: String?) {
+    AlertDialog(
+        onDismissRequest = { c.showScamWarningDialog = false },
+        icon = {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = EmployerColors.Error,
+                modifier = Modifier.size(48.dp)
+            )
+        },
+        title = {
+            Text(
+                text = stringResource(R.string.post_job_blocked_title),
+                fontWeight = FontWeight.Bold,
+                color = EmployerColors.Error
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = errorMessage ?: "This job posting contains suspicious content.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = EmployerColors.ErrorLight
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = stringResource(R.string.post_job_location_mismatch_info),
-                            modifier = Modifier.padding(12.dp),
+                            text = stringResource(R.string.post_job_blocked_info),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = EmployerColors.Error
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(R.string.post_job_blocked_desc),
                             style = MaterialTheme.typography.bodySmall,
                             color = EmployerColors.Error
                         )
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = stringResource(R.string.post_job_location_confirm),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showLocationWarningDialog = false
-                        pendingJobSubmission = true
-                        // Retry submission with flag set
-                        scope.launch {
-                            submitJob(0.0, 0.0)
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = EmployerColors.Error
-                    )
-                ) {
-                    Text(stringResource(R.string.post_anyway))
-                }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = { 
-                        showLocationWarningDialog = false
-                        pendingJobSubmission = false
-                    }
-                ) {
-                    Text(stringResource(R.string.cancel))
                 }
             }
-        )
-    }
-    
-    // ANTI-FRAUD: Scam Keywords Warning Dialog (No-Data-Entry Firewall)
-    if (showScamWarningDialog && scamValidationResult != null && !scamValidationResult!!.isValid) {
-        AlertDialog(
-            onDismissRequest = { showScamWarningDialog = false },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = EmployerColors.Error,
-                    modifier = Modifier.size(48.dp)
+        },
+        confirmButton = {
+            Button(
+                onClick = { c.showScamWarningDialog = false },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = EmployerColors.Primary
                 )
-            },
-            title = {
-                Text(
-                    text = stringResource(R.string.post_job_blocked_title),
-                    fontWeight = FontWeight.Bold,
-                    color = EmployerColors.Error
-                )
-            },
-            text = {
-                Column {
-                    Text(
-                        text = scamValidationResult!!.errorMessage ?: "This job posting contains suspicious content.",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = EmployerColors.ErrorLight
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = stringResource(R.string.post_job_blocked_info),
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = EmployerColors.Error
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = stringResource(R.string.post_job_blocked_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = EmployerColors.Error
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = { showScamWarningDialog = false },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = primaryBlue
-                    )
-                ) {
-                    Text(stringResource(R.string.edit_job_details))
-                }
+            ) {
+                Text(stringResource(R.string.edit_job_details))
             }
-        )
-    }
-    
-    // Batch-p #11: market-rate / pay-rate guardrail dialog has been removed.
+        }
+    )
+}
 
-    // PROFILE INCOMPLETE DIALOG - Navigate to profile setup with prefilled data
-    if (showProfileIncompleteDialog && profileCheckResult != null) {
-        AlertDialog(
-            onDismissRequest = { 
-                showProfileIncompleteDialog = false
-            },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = EmployerColors.Warning,
-                    modifier = Modifier.size(48.dp)
-                )
-            },
-            title = {
+@Composable
+private fun PostJobProfileIncompleteDialog(
+    c: PostJobController,
+    completionPercentage: Any,
+    missingFields: List<Any?>
+) {
+    AlertDialog(
+        onDismissRequest = { c.showProfileIncompleteDialog = false },
+        icon = {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = EmployerColors.Warning,
+                modifier = Modifier.size(48.dp)
+            )
+        },
+        title = {
+            Text(
+                stringResource(R.string.post_job_complete_profile_title),
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Text(
-                    stringResource(R.string.post_job_complete_profile_title),
-                    fontWeight = FontWeight.Bold,
+                    stringResource(R.string.post_job_complete_profile_desc),
                     textAlign = TextAlign.Center
                 )
-            },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+                Text(
+                    stringResource(R.string.post_job_profile_progress, completionPercentage),
+                    fontWeight = FontWeight.Medium,
+                    color = EmployerColors.Warning,
+                    textAlign = TextAlign.Center
+                )
+                if (missingFields.isNotEmpty()) {
                     Text(
-                        stringResource(R.string.post_job_complete_profile_desc),
+                        stringResource(R.string.post_job_missing_fields, missingFields.take(3).joinToString(", ") + if (missingFields.size > 3) "..." else ""),
+                        fontSize = 14.sp,
+                        color = Color.Gray,
                         textAlign = TextAlign.Center
                     )
-                    Text(
-                        stringResource(R.string.post_job_profile_progress, profileCheckResult!!.completionPercentage),
-                        fontWeight = FontWeight.Medium,
-                        color = EmployerColors.Warning,
-                        textAlign = TextAlign.Center
-                    )
-                    if (profileCheckResult!!.missingFields.isNotEmpty()) {
-                        Text(
-                            stringResource(R.string.post_job_missing_fields, profileCheckResult!!.missingFields.take(3).joinToString(", ") + if (profileCheckResult!!.missingFields.size > 3) "..." else ""),
-                            fontSize = 14.sp,
-                            color = Color.Gray,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showProfileIncompleteDialog = false
-                        val navToUse = rootNavController ?: navController
-                        navToUse.navigate(
-                            Routes.employerProfileSetupWithReturnRoute(Routes.EMPLOYER_POST_JOB)
-                        ) {
-                            launchSingleTop = true
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = EmployerColors.Primary
-                    )
-                ) {
-                    Text(stringResource(R.string.complete_profile_button))
-                }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = { 
-                        showProfileIncompleteDialog = false
-                    }
-                ) {
-                    Text(stringResource(R.string.cancel))
                 }
             }
-        )
-    }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    c.showProfileIncompleteDialog = false
+                    c.openProfileSetup()
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = EmployerColors.Primary
+                )
+            ) {
+                Text(stringResource(R.string.complete_profile_button))
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = { c.showProfileIncompleteDialog = false }
+            ) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
 
-    if (showNoCreditsDialog) {
-        ModalBottomSheet(
-            onDismissRequest = { 
-                showNoCreditsDialog = false 
-                navController.popBackStack()
-            },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = Color.White
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PostJobNoCreditsSheet(c: PostJobController) {
+    ModalBottomSheet(
+        onDismissRequest = {
+            c.showNoCreditsDialog = false
+            c.navController.popBackStack()
+        },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Color.White
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
+                .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .background(EmployerColors.Primary.copy(alpha = 0.1f), CircleShape)
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = EmployerColors.Primary,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            Text(
+                text = stringResource(R.string.auto_unlock_more_hires),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                color = EmployerColors.TextPrimary,
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = stringResource(R.string.auto_you_ve_used_all_your_job_posts_get_a_subsc),
+                style = MaterialTheme.typography.bodyMedium,
+                color = EmployerColors.TextSecondary,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Button(
+                onClick = {
+                    c.showNoCreditsDialog = false
+                    c.openSubscription()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(24.dp)
-                    .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .height(54.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary),
+                shape = RoundedCornerShape(27.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(64.dp)
-                        .background(EmployerColors.Primary.copy(alpha = 0.1f), androidx.compose.foundation.shape.CircleShape)
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Info,
-                        contentDescription = null,
-                        tint = EmployerColors.Primary,
-                        modifier = Modifier.size(32.dp)
-                    )
+                Text("View Plans", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+
+            TextButton(
+                onClick = {
+                    c.showNoCreditsDialog = false
+                    c.navController.popBackStack()
                 }
-                
-                Text(
-                    text = stringResource(R.string.auto_unlock_more_hires),
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    color = EmployerColors.TextPrimary,
-                    textAlign = TextAlign.Center
-                )
-                
-                Text(
-                    text = stringResource(R.string.auto_you_ve_used_all_your_job_posts_get_a_subsc),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = EmployerColors.TextSecondary,
-                    textAlign = TextAlign.Center
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Button(
-                    onClick = {
-                        showNoCreditsDialog = false
-                        val navToUse = rootNavController ?: navController
-                        navToUse.navigate(Routes.EMPLOYER_SUBSCRIPTION)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(54.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary),
-                    shape = RoundedCornerShape(27.dp)
-                ) {
-                    Text("View Plans", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                }
-                
-                TextButton(
-                    onClick = { 
-                        showNoCreditsDialog = false
-                        navController.popBackStack()
-                    }
-                ) {
-                    Text("Maybe Later", color = EmployerColors.TextSecondary)
-                }
+            ) {
+                Text("Maybe Later", color = EmployerColors.TextSecondary)
             }
         }
     }
+}
 
-    Scaffold(
-        containerColor = Color.Transparent,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        bottomBar = {
-            Surface(
-                modifier = Modifier.fillMaxWidth().navigationBarsPadding(),
-                shadowElevation = 8.dp,
-                color = EmployerColors.CardBackground
-            ) {
-                Box(modifier = Modifier.padding(16.dp)) {
-                    Button(
-                        onClick = { attemptPublishJob() },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        enabled = publishEnabled && !employerJobUiState.isCreatingJob && !isSubmittingJob,
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
-                    ) {
-                        if (employerJobUiState.isCreatingJob || isSubmittingJob) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
-                        } else {
-                            Text(stringResource(R.string.post_job), fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        }
-                    }
-                }
-            }
-        }
-    ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(pageBackground)
-                .padding(paddingValues)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-            ) {
-                val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
-                val isOnline by connectivityViewModel.isOnline.collectAsState()
-                com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
-
-                CommonHeader(
-                    title = stringResource(R.string.post_a_job),
-                    navController = navController,
-                    backgroundColor = Color.Transparent,
-                    titleColor = EmployerColors.TextPrimary
-                )
-
-
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    state = listState,
-                    contentPadding = PaddingValues(
-                        top = 8.dp,
-                        start = 16.dp,
-                        end = 16.dp,
-                        bottom = 96.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Hero banner — quick summary of what this screen does
-                    item(key = "post_job_hero", contentType = "hero") {
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp),
-                            color = EmployerColors.Primary,
-                            tonalElevation = 0.dp
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Post a Job Vacancy",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "Verified workers will apply directly",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = Color.White.copy(alpha = 0.8f)
-                                    )
-                                }
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = Color.White.copy(alpha = 0.18f)
-                                ) {
-                                    Text(
-                                        text = "📝 Draft auto-saved",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // Group 1: Job Details (title, work type, description, image)
-                    item(key = "post_job_group_1", contentType = "form_group") {
-                        StudioGroupCard(
-                            stepNumber = 1,
-                            title = stringResource(R.string.tell_us_about_role),
-                            subtitle = stringResource(R.string.job_title_work_type_desc),
-                            icon = "\uD83D\uDCDD",
-                            accentColor = EmployerColors.Primary
-                        ) {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    EnhancedJobTitleSection(
-                                        title = title,
-                                        onTitleChange = {
-                                            title = it
-                                            customCategory = it.trim()
-                                        }
-                                    )
-                                    AutoPickedJobCategory(
-                                        category = category,
-                                        hasTitle = title.trim().length >= 3
-                                    )
-                                    Divider(color = EmployerColors.Border, thickness = 1.dp)
-                                    WorkTypeSelection(
-                                        workType = workType,
-                                        onWorkTypeChange = { workType = it },
-                                        workTypes = workTypes,
-                                        payAmount = payAmount,
-                                        onPayAmountChange = { payAmount = it },
-                                        payType = payType,
-                                        onPayTypeChange = { payType = it }
-                                    )
-                                    if (showAdvancedJobDetails || description.isNotBlank() || hasHeroImage) {
-                                        Divider(color = EmployerColors.Border, thickness = 1.dp)
-                                        JobDescriptionSection(
-                                            description = description,
-                                            onDescriptionChange = { description = it }
-                                        )
-                                        Divider(color = EmployerColors.Border, thickness = 1.dp)
-                                        JobImageUploadSection(
-                                            selectedImageUri = jobImageUri,
-                                            isUploading = isUploadingJobImage,
-                                            onImageSelected = { uri ->
-                                                jobImageUri = uri
-                                                scope.launch {
-                                                    isUploadingJobImage = true
-                                                    try {
-                                                        val currentUser = FirebaseAuth.getInstance().currentUser
-                                                        if (currentUser != null) {
-                                                            val fileName = "job_image_${System.currentTimeMillis()}.jpg"
-                                                            val storagePath = "job_images/${currentUser.uid}/$fileName"
-
-                                                            Timber.d(" JOB IMAGE: Starting upload with compression...")
-
-                                                            val uploadResult = com.example.dutype.utils.ImageUploadUtils.uploadWithRetry(
-                                                                context = context,
-                                                                uri = uri,
-                                                                storagePath = storagePath
-                                                            )
-
-                                                            when (uploadResult) {
-                                                                is com.example.dutype.utils.ImageUploadUtils.UploadResult.Success -> {
-                                                                    jobImageUrl = uploadResult.downloadUrl
-                                                                    Timber.d(" JOB IMAGE: ✅ Upload successful!")
-                                                                    Toast.makeText(context, context.getString(R.string.post_job_image_uploaded), Toast.LENGTH_SHORT).show()
-                                                                }
-                                                                is com.example.dutype.utils.ImageUploadUtils.UploadResult.Failure -> {
-                                                                    Timber.e(uploadResult.exception, " JOB IMAGE: ❌ Upload failed: ${uploadResult.error}")
-                                                                    Toast.makeText(context, context.getString(R.string.post_job_image_upload_failed, uploadResult.error ?: ""), Toast.LENGTH_SHORT).show()
-                                                                    jobImageUri = null
-                                                                    jobImageUrl = ""
-                                                                }
-                                                                else -> {
-                                                                }
-                                                            }
-                                                        }
-                                                    } catch (e: Exception) {
-                                                        Timber.e(e, " JOB IMAGE: ❌ Upload failed")
-                                                        Toast.makeText(context, context.getString(R.string.post_job_image_upload_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
-                                                        jobImageUri = null
-                                                        jobImageUrl = ""
-                                                    } finally {
-                                                        isUploadingJobImage = false
-                                                    }
-                                                }
-                                            },
-                                            onImageRemoved = {
-                                                jobImageUri = null
-                                                jobImageUrl = ""
-                                                Timber.d(" JOB IMAGE: Image removed")
-                                            }
-                                        )
-                                    } else {
-                                        OutlinedButton(
-                                            onClick = { showAdvancedJobDetails = true },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 20.dp, vertical = 8.dp),
-                                            shape = RoundedCornerShape(12.dp)
-                                        ) {
-                                            Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(18.dp))
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(stringResource(R.string.add_description_photo_optional))
-                                        }
-                                    }
-                                }
-                        }
-                    }
-
-                    // Group 2: Pay & Location
-                    item(key = "post_job_group_2", contentType = "form_group") {
-                        StudioGroupCard(
-                            stepNumber = 2,
-                            title = stringResource(R.string.pay_where_work),
-                            subtitle = stringResource(R.string.set_pay_pin_location),
-                            icon = "\uD83D\uDCB0",
-                            accentColor = EmployerColors.Success
-                        ) {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    EnhancedLocationSection(
-                                        location = location,
-                                        onLocationChange = { location = it },
-                                        locationService = locationService,
-                                        isLoadingLocation = isLoadingLocation,
-                                        locationError = locationError,
-                                        onLocationButtonClick = {
-                                            Timber.d("📍 LOCATION BUTTON: Clicked - checking permission...")
-                                            if (locationService.hasLocationPermission()) {
-                                                Timber.d("📍 LOCATION BUTTON: Permission granted, fetching fast-first location...")
-                                                isLoadingLocation = true
-                                                locationError = null
-                                                scope.launch {
-                                                    try {
-                                                        fetchWorkLocationFast()
-                                                        Timber.d("📍 LOCATION BUTTON: Location set - lat: $locationLatitude, lon: $locationLongitude")
-                                                    } catch (e: Exception) {
-                                                        Timber.e(e, "📍 LOCATION BUTTON: Error getting location")
-                                                        locationError = context.getString(R.string.error_getting_location)
-                                                    } finally {
-                                                        isLoadingLocation = false
-                                                    }
-                                                }
-                                            } else {
-                                                Timber.d("📍 LOCATION BUTTON: Requesting permission...")
-                                                locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                                            }
-                                        },
-                                        onLocationSelected = { lat, lon ->
-                                            locationLatitude = lat
-                                            locationLongitude = lon
-                                            Timber.d("📍 LOCATION SEARCH: Selected location - lat: $lat, lon: $lon")
-                                        },
-                                        locationLatitude = locationLatitude,
-                                        locationLongitude = locationLongitude,
-                                        savedLocations = savedWorkLocations
-                                    )
-                                    Divider(color = EmployerColors.Border, thickness = 1.dp)
-                                    Column(modifier = Modifier.padding(20.dp)) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                imageVector = Icons.Default.AccessTime,
-                                                contentDescription = null,
-                                                tint = Color(0xFF374151),
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(12.dp))
-                                            Text(
-                                                text = stringResource(R.string.schedule),
-                                                style = MaterialTheme.typography.titleMedium,
-                                                fontWeight = FontWeight.Bold,
-                                                color = EmployerColors.TextPrimary
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.height(18.dp))
-                                        WorkScheduleSection(
-                                            selectedShift = shiftTiming,
-                                            onShiftSelected = { shiftTiming = it },
-                                            customStart = customShiftStart,
-                                            onCustomStartChange = { customShiftStart = it },
-                                            customEnd = customShiftEnd,
-                                            onCustomEndChange = { customShiftEnd = it }
-                                        )
-                                    }
-                                }
-                        }
-                    }
-
-                    // Group 3: Who You Want
-                    item(key = "post_job_group_3", contentType = "form_group") {
-                        StudioGroupCard(
-                            stepNumber = 3,
-                            title = stringResource(R.string.who_you_want_extras),
-                            subtitle = stringResource(R.string.vacancies_requirements_schedule),
-                            icon = "\uD83D\uDC65",
-                            accentColor = Color(0xFFD946EF)
-                        ) {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    VacanciesSection(
-                                        vacancies = vacancies,
-                                        onVacanciesChange = { vacancies = it }
-                                    )
-                                    if (
-                                        showAdvancedRequirements ||
-                                        experienceLevel != "No Experience Required" ||
-                                        educationRequired != "No qualification required" ||
-                                        gender != "Both"
-                                    ) {
-                                        Divider(color = EmployerColors.Border, thickness = 1.dp)
-                                        RequirementsSection(
-                                            experienceLevel = experienceLevel,
-                                            onExperienceLevelChange = { experienceLevel = it },
-                                            experienceLevels = experienceLevels,
-                                            educationRequired = educationRequired,
-                                            onEducationRequiredChange = { educationRequired = it },
-                                            educationRequirements = educationRequirements,
-                                            gender = gender,
-                                            onGenderChange = { gender = it },
-                                            genders = genders
-                                        )
-                                    } else {
-                                        OutlinedButton(
-                                            onClick = { showAdvancedRequirements = true },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 20.dp, vertical = 8.dp),
-                                            shape = RoundedCornerShape(12.dp)
-                                        ) {
-                                            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(stringResource(R.string.add_requirements_optional))
-                                        }
-                                    }
-                                }
-                        }
-                    }
-
-                    // Contact details
-                    item(key = "post_job_contact_group", contentType = "form_group") {
-                        ContactSection(
-                            contactNumber = contactNumber,
-                            onContactNumberChange = { contactNumber = it },
-                            employerName = employerName,
-                            onEmployerNameChange = { employerName = it }
-                        )
-                    }
-
-                    item {
-                        Spacer(modifier = Modifier.height(12.dp))
-                    }
-                }
-            }
-        }
-    }
-    
-    // Guest Mode - Login Bottom Sheet for job posting with profile check
+@Composable
+private fun PostJobSheets(c: PostJobController) {
     com.example.dutype.components.LoginBottomSheet(
-        isVisible = showLoginBottomSheet,
-        onDismiss = { showLoginBottomSheet = false },
+        isVisible = c.showLoginBottomSheet,
+        onDismiss = { c.showLoginBottomSheet = false },
         onLoginSuccess = {
-            showLoginBottomSheet = false
-            // After successful login, submit the job (which will check profile completion)
-            submitJob(0.0, 0.0)
+            c.showLoginBottomSheet = false
+            c.submitJob()
         },
         onProfileSetupRequired = {
-            showLoginBottomSheet = false
-            val navToUse = rootNavController ?: navController
-            navToUse.navigate(
-                Routes.employerProfileSetupWithReturnRoute(Routes.EMPLOYER_POST_JOB)
-            ) {
-                launchSingleTop = true
-            }
+            c.showLoginBottomSheet = false
+            c.openProfileSetup()
         },
-        requiresProfileCheck = true, // Check profile completion for job posting
+        requiresProfileCheck = true,
         role = com.example.dutype.models.UserRole.EMPLOYER,
         title = stringResource(R.string.login_to_post_job),
         subtitle = stringResource(R.string.login_publish_job_subtitle)
     )
 
-    // Notification permission prompt after job posting
     com.example.dutype.components.NotificationPermissionBottomSheet(
-        isVisible = showPostJobNotificationBottomSheet,
+        isVisible = c.showPostJobNotificationBottomSheet,
         onDismiss = {
-            showPostJobNotificationBottomSheet = false
-            navigateAfterJobPosted(pendingNavJobId)
+            c.showPostJobNotificationBottomSheet = false
+            c.navigateAfterJobPosted(c.pendingNavJobId)
         },
         onEnableNotifications = {
-            showPostJobNotificationBottomSheet = false
+            c.showPostJobNotificationBottomSheet = false
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                c.requestNotificationPermission()
             } else {
-                navigateAfterJobPosted(pendingNavJobId)
+                c.navigateAfterJobPosted(c.pendingNavJobId)
             }
         },
         userRole = "employer"
     )
+}
+
+// ------------------------------------------------------------------- wizard
+@Composable
+private fun PostJobWizard(c: PostJobController) {
+    val currentStep = c.currentStep
+    val wizardScrollState = rememberScrollState()
+    LaunchedEffect(currentStep) {
+        wizardScrollState.scrollTo(0)
+    }
+    androidx.activity.compose.BackHandler(enabled = currentStep > 1) {
+        c.currentStep = c.currentStep - 1
+    }
+
+    val employerJobUiState by c.employerJobViewModel.uiState.collectAsState()
+    val ctaBusy = employerJobUiState.isCreatingJob || c.isSubmittingJob
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.statusBars)
+        ) {
+            PostJobOfflineBanner()
+            PostJobWizardBody(c, currentStep, wizardScrollState)
+        }
+
+        PostJobBottomCta(c, currentStep, ctaBusy)
+    }
+}
+
+@Composable
+private fun PostJobOfflineBanner() {
+    val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
+    val isOnline by connectivityViewModel.isOnline.collectAsState()
+    com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
+}
+
+@Composable
+private fun PostJobWizardBody(
+    c: PostJobController,
+    currentStep: Int,
+    scrollState: androidx.compose.foundation.ScrollState
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 140.dp)
+    ) {
+        PjProgressRow(currentStep = currentStep, totalSteps = PostJobTotalSteps)
+        Text(
+            text = postJobStepTitle(currentStep),
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = PjInk
+        )
+        Spacer(modifier = Modifier.height(20.dp))
+
+        if (currentStep == 1) {
+            PostJobStep1(c)
+        } else if (currentStep == 2) {
+            PostJobStep2(c)
+        } else {
+            PostJobStep3(c)
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.PostJobBottomCta(c: PostJobController, currentStep: Int, ctaBusy: Boolean) {
+    val ctaEnabled = if (currentStep == 3) (!ctaBusy && !c.isLoadingLocation) else true
+    val ctaLabel = if (currentStep == 3) stringResource(R.string.post_job) + " →" else "Next →"
+    Box(
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .fillMaxWidth()
+            .background(Color.White)
+            .navigationBarsPadding()
+            .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 28.dp)
+    ) {
+        Button(
+            onClick = { c.goNext() },
+            enabled = ctaEnabled,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(28.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = PjInk,
+                contentColor = Color.White,
+                disabledContainerColor = PjInk.copy(alpha = 0.5f),
+                disabledContentColor = Color.White
+            ),
+            elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
+        ) {
+            if (currentStep == 3 && ctaBusy) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
+            } else {
+                Text(
+                    text = ctaLabel,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------- step 1
+@Composable
+private fun PostJobStep1(c: PostJobController) {
+    PjField(
+        value = c.title,
+        onValueChange = {
+            c.title = it
+            c.customCategory = it.trim()
+        },
+        label = stringResource(R.string.post_job_title_label),
+        placeholder = stringResource(R.string.job_title_placeholder)
+    )
+    Spacer(modifier = Modifier.height(10.dp))
+    PostJobQuickTitleChips(c)
+
+    PjSectionLabel("Workers needed")
+    PjCountStepper(
+        count = c.vacancies.toIntOrNull()?.coerceIn(1, 50) ?: 1,
+        onCountChange = { c.vacancies = it.toString() },
+        min = 1,
+        max = 50
+    )
+
+    PjSectionLabel("Category")
+    PostJobCategoryChips(c)
+
+    PjSectionLabel("Description (optional)")
+    PjField(
+        value = c.description,
+        onValueChange = { c.description = it },
+        label = "Job Description",
+        placeholder = "Describe the work, timings, what you expect",
+        singleLine = false,
+        minHeight = 96.dp
+    )
+
+    PjSectionLabel("Photo (optional)")
+    JobImageUploadSection(
+        selectedImageUri = c.jobImageUri,
+        isUploading = c.isUploadingJobImage,
+        onImageSelected = { uri -> c.onJobImageSelected(uri) },
+        onImageRemoved = { c.onJobImageRemoved() }
+    )
+
+    val experienceLevels = remember(c.experienceLevel) {
+        postJobWithCustomOption(PostJobBaseExperienceLevels, c.experienceLevel)
+    }
+    PjOptionGroup(
+        label = stringResource(R.string.experience_required),
+        options = experienceLevels,
+        selected = c.experienceLevel,
+        onSelect = { c.experienceLevel = it },
+        allowCustom = true,
+        customHint = stringResource(R.string.add_own_experience)
+    )
+}
+
+@Composable
+private fun PostJobQuickTitleChips(c: PostJobController) {
+    PjFlow {
+        PostJobQuickTitles.forEach { quick ->
+            PjChip(
+                label = quick,
+                selected = c.title.trim().equals(quick, ignoreCase = true),
+                onClick = {
+                    c.title = quick
+                    c.customCategory = quick
+                },
+                height = 32.dp,
+                fontSize = 12.sp,
+                cornerRadius = 16.dp
+            )
+        }
+    }
+}
+
+@Composable
+private fun PostJobCategoryChips(c: PostJobController) {
+    val categoryChips = postJobCategoryChipsFor(c.category)
+    PjFlow {
+        categoryChips.forEach { cat ->
+            PjChip(
+                label = cat.displayName,
+                selected = c.category == cat,
+                onClick = { c.category = cat }
+            )
+        }
+    }
+}
+
+// ---------------------------------------------------------------- step 2
+@Composable
+private fun PostJobStep2(c: PostJobController) {
+    val savedWorkLocations by c.jobViewModel.savedWorkLocationsStore.locations.collectAsState()
+    EnhancedLocationSection(
+        location = c.location,
+        onLocationChange = { c.location = it },
+        locationService = c.locationService,
+        isLoadingLocation = c.isLoadingLocation,
+        locationError = c.locationError,
+        onLocationButtonClick = { c.onLocationButtonClick() },
+        onLocationSelected = { lat, lon -> c.onLocationSelected(lat, lon) },
+        locationLatitude = c.locationLatitude,
+        locationLongitude = c.locationLongitude,
+        savedLocations = savedWorkLocations
+    )
+
+    PjSectionLabel("Start date")
+    PjFlow {
+        PostJobStartDateOptions.forEach { opt ->
+            PjChip(
+                label = opt,
+                selected = c.startDate == opt,
+                onClick = { c.startDate = opt },
+                leadingIcon = Icons.Default.CalendarToday
+            )
+        }
+    }
+
+    PjSectionLabel("Shift")
+    PjFlow {
+        PostJobShiftChoices.forEach { choice ->
+            PjChip(
+                label = choice.second,
+                selected = c.shiftTiming == choice.first,
+                onClick = { c.shiftTiming = choice.first }
+            )
+        }
+    }
+
+    PjSectionLabel("Job type")
+    PjFlow {
+        PostJobWorkTypes.forEach { type ->
+            PjChip(
+                label = type,
+                selected = c.workType == type,
+                onClick = { c.workType = type }
+            )
+        }
+    }
+}
+
+// ---------------------------------------------------------------- step 3
+@Composable
+private fun PostJobStep3(c: PostJobController) {
+    PjSectionLabel("Wage", firstOnPage = true)
+    PjWageField(
+        amount = c.payAmount,
+        onAmountChange = { c.payAmount = it },
+        payType = c.payType,
+        onPayTypeChange = { c.payType = it }
+    )
+    if (c.payAmount.isNotEmpty() && c.payAmount.length < 4) {
+        Text(
+            text = "Minimum 4 characters required",
+            fontSize = 11.sp,
+            color = EmployerColors.Error,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+    Spacer(modifier = Modifier.height(10.dp))
+    PostJobExtraPayTypeChips(c)
+
+    PjSectionLabel("Perks")
+    PostJobPerkChips(c)
+
+    val educationRequirements = remember(c.educationRequired) {
+        postJobWithCustomOption(PostJobBaseEducationRequirements, c.educationRequired)
+    }
+    PjOptionGroup(
+        label = stringResource(R.string.education_required),
+        options = educationRequirements,
+        selected = c.educationRequired,
+        onSelect = { c.educationRequired = it },
+        allowCustom = true,
+        customHint = "Add education requirement"
+    )
+
+    PjSectionLabel(stringResource(R.string.post_job_gender_preference))
+    PjFlow {
+        PostJobGenders.forEach { g ->
+            PjChip(
+                label = g,
+                selected = c.gender == g,
+                onClick = { c.gender = g }
+            )
+        }
+    }
+
+    PjSectionLabel("Contact")
+    PjField(
+        value = c.contactNumber,
+        onValueChange = { c.contactNumber = it },
+        label = stringResource(R.string.contact_number_label),
+        placeholder = "+91 9876543210",
+        keyboardType = KeyboardType.Phone
+    )
+    Spacer(modifier = Modifier.height(10.dp))
+    PjField(
+        value = c.employerName,
+        onValueChange = { c.employerName = it },
+        label = stringResource(R.string.your_name),
+        placeholder = stringResource(R.string.enter_your_name)
+    )
+}
+
+@Composable
+private fun PostJobExtraPayTypeChips(c: PostJobController) {
+    PjFlow {
+        PostJobExtraPayTypes.forEach { type ->
+            PjChip(
+                label = type.displayName,
+                selected = c.payType == type,
+                onClick = { c.payType = type },
+                height = 32.dp,
+                fontSize = 12.sp,
+                cornerRadius = 16.dp
+            )
+        }
+    }
+}
+
+@Composable
+private fun PostJobPerkChips(c: PostJobController) {
+    PjFlow {
+        PostJobPerkOptions.forEach { perk ->
+            val on = perk in c.selectedPerks
+            PjChip(
+                label = perk,
+                selected = on,
+                onClick = {
+                    c.selectedPerks = if (on) c.selectedPerks - perk else c.selectedPerks + perk
+                },
+                selectedFill = Color(0xFF0F0F0F),
+                showCheck = true
+            )
+        }
+    }
 }
 
 @Composable
@@ -1772,7 +1863,7 @@ private fun PostJobHeroCard(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         shape = RoundedCornerShape(30.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Box(
             modifier = Modifier
@@ -2877,270 +2968,146 @@ fun EnhancedLocationSection(
         }
     }
 
-    PolishedCard {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Saved work locations quick-pick
+        if (savedLocations.isNotEmpty()) {
             Row(
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(EmployerColors.InfoLight, RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = EmployerColors.Primary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = stringResource(R.string.post_job_work_location),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = EmployerColors.TextPrimary
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "*",
-                            color = EmployerColors.Error,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                    }
-                }
-            }
-
-            // Saved work locations quick-pick
-            if (savedLocations.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
-                        .horizontalScroll(rememberScrollState())
-                ) {
-                    savedLocations.take(5).forEach { loc ->
-                        FilterChip(
-                            selected = location == loc.address,
-                            onClick = {
-                                showSuggestions = false
-                                searchSuggestions = emptyList()
-                                onLocationChange(loc.address)
-                                onLocationSelected?.invoke(loc.latitude, loc.longitude)
-                            },
-                            label = { Text(loc.label.ifBlank { loc.address.take(25) }, maxLines = 1) },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.LocationOn,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(18.dp))
-            
-            OutlinedTextField(
-                value = location,
-                onValueChange = { 
-                    selectedLocationText = ""
-                    onLocationChange(it)
-                    showSuggestions = true
-                },
-                label = { Text(stringResource(R.string.search_work_location)) },
-                placeholder = { Text(stringResource(R.string.location_search_placeholder)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = false,
-                maxLines = 2,
-                shape = RoundedCornerShape(14.dp),
-                leadingIcon = {
-                    if (isSearching) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp).padding(start = 8.dp),
-                            strokeWidth = 2.dp,
-                            color = primaryBlue
-                        )
-                    } else {
-                        Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.Search,
-                            contentDescription = "Search",
-                            tint = EmployerColors.TextSecondary,
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
-                    }
-                },
-                trailingIcon = {
-                    Surface(
+                savedLocations.take(5).forEach { loc ->
+                    PjChip(
+                        label = loc.label.ifBlank { loc.address.take(25) },
+                        selected = location == loc.address,
                         onClick = {
                             showSuggestions = false
                             searchSuggestions = emptyList()
-                            onLocationButtonClick()
+                            onLocationChange(loc.address)
+                            onLocationSelected?.invoke(loc.latitude, loc.longitude)
                         },
-                        enabled = !isLoadingLocation,
-                        shape = RoundedCornerShape(10.dp),
-                        color = primaryBlue.copy(alpha = 0.1f),
-                        modifier = Modifier.padding(4.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier.padding(10.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (isLoadingLocation) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp,
-                                    color = primaryBlue
-                                )
-                            } else {
-                                Icon(
-                                    Icons.Default.LocationOn,
-                                    contentDescription = "Use Current Location",
-                                    tint = primaryBlue,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                        }
-                    }
-                },
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = primaryBlue,
-                    focusedLabelColor = primaryBlue,
-                    unfocusedBorderColor = EmployerColors.Border,
-                    cursorColor = primaryBlue,
-                    unfocusedContainerColor = EmployerColors.ScreenBackground,
-                    focusedContainerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground
-                )
-            )
-            
-            // Location search suggestions dropdown
-            if (showSuggestions && searchSuggestions.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(8.dp)
-                    ) {
-                        searchSuggestions.take(5).forEach { suggestion ->
-                            Surface(
-                                onClick = {
-                                    selectedLocationText = suggestion.displayName
-                                    showSuggestions = false
-                                    searchSuggestions = emptyList()
-                                    onLocationChange(suggestion.displayName)
-                                    onLocationSelected?.invoke(suggestion.latitude, suggestion.longitude)
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                color = Color.Transparent
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Default.LocationOn,
-                                        contentDescription = null,
-                                        tint = primaryBlue,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = suggestion.area.ifBlank { suggestion.city },
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.Medium,
-                                            color = EmployerColors.TextPrimary,
-                                            maxLines = 1
-                                        )
-                                        Text(
-                                            text = suggestion.displayName,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = EmployerColors.TextSecondary,
-                                            maxLines = 2
-                                        )
-                                    }
-                                }
-                            }
-                            if (suggestion != searchSuggestions.last()) {
-                                Divider(color = EmployerColors.Border, thickness = 0.5.dp)
-                            }
-                        }
-                    }
+                        height = 32.dp,
+                        fontSize = 12.sp,
+                        cornerRadius = 16.dp,
+                        leadingIcon = Icons.Default.LocationOn
+                    )
                 }
             }
-            
-            // Show detected address in highlighted box
-            if (location.isNotBlank() && !isLoadingLocation && locationError == null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            successGreen.copy(alpha = 0.08f),
-                            RoundedCornerShape(12.dp)
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = successGreen.copy(alpha = 0.2f),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
+        PjField(
+            value = location,
+            onValueChange = {
+                selectedLocationText = ""
+                onLocationChange(it)
+                showSuggestions = true
+            },
+            label = "Job Location",
+            placeholder = stringResource(R.string.location_search_placeholder),
+            singleLine = false,
+            leading = {
+                if (isSearching) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = PjInk
+                    )
+                } else {
                     Icon(
-                        Icons.Default.Check,
+                        imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = successGreen,
+                        tint = PjSlate500,
                         modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = location,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = EmployerColors.TextPrimary,
-                            lineHeight = 20.sp
-                        )
-                    }
                 }
-            }
-
-
-            if (locationError != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            EmployerColors.ErrorLight,
-                            RoundedCornerShape(8.dp)
-                        )
-                        .padding(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+            },
+            trailing = {
+                if (isLoadingLocation) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = PjBlue
+                    )
+                } else {
                     Text(
-                        text = "Warning: $locationError",
-                        color = EmployerColors.Error,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium
+                        text = "Detect",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = PjBlue,
+                        modifier = Modifier.clickable {
+                            showSuggestions = false
+                            searchSuggestions = emptyList()
+                            onLocationButtonClick()
+                        }
                     )
                 }
             }
+        )
 
+        // Location search suggestions dropdown (flat)
+        if (showSuggestions && searchSuggestions.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(12.dp))
+                    .border(1.dp, PjLine, RoundedCornerShape(12.dp))
+                    .padding(8.dp)
+            ) {
+                searchSuggestions.take(5).forEach { suggestion ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                selectedLocationText = suggestion.displayName
+                                showSuggestions = false
+                                searchSuggestions = emptyList()
+                                onLocationChange(suggestion.displayName)
+                                onLocationSelected?.invoke(suggestion.latitude, suggestion.longitude)
+                            }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = PjSlate500,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = suggestion.area.ifBlank { suggestion.city },
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = PjInk,
+                                maxLines = 1
+                            )
+                            Text(
+                                text = suggestion.displayName,
+                                fontSize = 12.sp,
+                                color = PjSlate500,
+                                maxLines = 2
+                            )
+                        }
+                    }
+                    if (suggestion != searchSuggestions.take(5).last()) {
+                        Divider(color = PjLine, thickness = 1.dp)
+                    }
+                }
+            }
+        }
+
+        if (locationError != null) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Warning: $locationError",
+                color = EmployerColors.Error,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
@@ -3419,5 +3386,378 @@ private fun RequirementChipSection(
 // ===========================================================================
 
 
+// ===========================================================================
+// Flat 3-step wizard primitives for the Post Job screen (no shadows / gradients).
+// ===========================================================================
+private val PjInk = Color(0xFF0F172A)
+private val PjLine = Color(0xFFE2E8F0)
+private val PjSlate400 = Color(0xFF94A3B8)
+private val PjSlate500 = Color(0xFF64748B)
+private val PjSegmentBg = Color(0xFFF1F5F9)
+private val PjGreen = Color(0xFF10B981)
+private val PjBlue = Color(0xFF2563EB)
 
+@Composable
+private fun PjProgressRow(currentStep: Int, totalSteps: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 24.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        for (i in 1..totalSteps) {
+            val done = currentStep > i
+            val active = currentStep == i
+            val circleModifier = when {
+                done -> Modifier
+                    .size(28.dp)
+                    .background(Color.White, CircleShape)
+                    .border(2.dp, PjInk, CircleShape)
+                active -> Modifier
+                    .size(28.dp)
+                    .background(PjInk, CircleShape)
+                else -> Modifier
+                    .size(28.dp)
+                    .background(PjLine, CircleShape)
+            }
+            Box(modifier = circleModifier, contentAlignment = Alignment.Center) {
+                Text(
+                    text = if (done) "✓" else i.toString(),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = when {
+                        done -> PjInk
+                        active -> Color.White
+                        else -> PjSlate400
+                    }
+                )
+            }
+            if (i < totalSteps) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 6.dp, end = 6.dp)
+                        .height(2.dp)
+                        .background(if (currentStep > i) PjInk else PjLine)
+                )
+            }
+        }
+    }
+}
 
+@Composable
+private fun PjSectionLabel(text: String, firstOnPage: Boolean = false) {
+    Text(
+        text = text,
+        fontSize = 13.sp,
+        color = PjSlate500,
+        modifier = Modifier.padding(top = if (firstOnPage) 0.dp else 26.dp, bottom = 10.dp)
+    )
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun PjFlow(content: @Composable () -> Unit) {
+    androidx.compose.foundation.layout.FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun PjChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    height: Dp = 36.dp,
+    fontSize: TextUnit = 13.sp,
+    cornerRadius: Dp = 18.dp,
+    selectedFill: Color = PjInk,
+    showCheck: Boolean = false,
+    leadingIcon: ImageVector? = null
+) {
+    val shape = RoundedCornerShape(cornerRadius)
+    val textColor = if (selected) Color.White else PjInk
+    Row(
+        modifier = Modifier
+            .height(height)
+            .clip(shape)
+            .background(if (selected) selectedFill else Color.White)
+            .border(1.dp, if (selected) selectedFill else PjLine, shape)
+            .clickable(onClick = onClick)
+            .padding(start = 16.dp, end = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        if (selected && showCheck) {
+            Text(
+                text = "✓",
+                fontSize = fontSize,
+                fontWeight = FontWeight.Bold,
+                color = PjGreen
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+        }
+        if (leadingIcon != null) {
+            Icon(
+                imageVector = leadingIcon,
+                contentDescription = null,
+                tint = textColor,
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+        }
+        Text(
+            text = label,
+            fontSize = fontSize,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = textColor,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun PjField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    placeholder: String = "",
+    singleLine: Boolean = true,
+    minHeight: Dp = 56.dp,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    isError: Boolean = false,
+    leading: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null
+) {
+    var focused by remember { mutableStateOf(false) }
+    val borderColor = when {
+        isError -> EmployerColors.Error
+        focused -> PjInk
+        else -> PjLine
+    }
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = minHeight)
+            .background(Color.White, shape)
+            .border(1.dp, borderColor, shape)
+            .padding(start = 14.dp, top = 8.dp, end = 14.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (leading != null) {
+            leading()
+            Spacer(modifier = Modifier.width(10.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                color = PjSlate400
+            )
+            Box {
+                if (value.isEmpty() && placeholder.isNotEmpty()) {
+                    Text(
+                        text = placeholder,
+                        fontSize = 15.sp,
+                        color = PjSlate400,
+                        maxLines = if (singleLine) 1 else 2
+                    )
+                }
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    singleLine = singleLine,
+                    textStyle = TextStyle(
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = PjInk
+                    ),
+                    cursorBrush = SolidColor(PjInk),
+                    keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { focused = it.isFocused }
+                )
+            }
+        }
+        if (trailing != null) {
+            Spacer(modifier = Modifier.width(10.dp))
+            trailing()
+        }
+    }
+}
+
+@Composable
+private fun PjCountStepper(
+    count: Int,
+    onCountChange: (Int) -> Unit,
+    min: Int,
+    max: Int
+) {
+    val shape = RoundedCornerShape(12.dp)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(shape)
+                .border(1.dp, PjLine, shape)
+                .clickable { if (count > min) onCountChange(count - 1) },
+            contentAlignment = Alignment.Center
+        ) {
+            Text("−", fontSize = 18.sp, color = PjInk)
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Box(modifier = Modifier.widthIn(min = 24.dp), contentAlignment = Alignment.Center) {
+            Text(
+                text = count.toString(),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = PjInk,
+                textAlign = TextAlign.Center
+            )
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(shape)
+                .border(1.dp, PjLine, shape)
+                .clickable { if (count < max) onCountChange(count + 1) },
+            contentAlignment = Alignment.Center
+        ) {
+            Text("+", fontSize = 18.sp, color = PjInk)
+        }
+    }
+}
+
+@Composable
+private fun PjSegment(label: String, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) PjInk else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(start = 10.dp, end = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (selected) Color.White else PjSlate500,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun PjWageField(
+    amount: String,
+    onAmountChange: (String) -> Unit,
+    payType: PayType,
+    onPayTypeChange: (PayType) -> Unit
+) {
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .background(Color.White, shape)
+            .border(1.dp, PjLine, shape)
+            .padding(start = 14.dp, end = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("₹", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = PjInk)
+        Spacer(modifier = Modifier.width(8.dp))
+        Box(modifier = Modifier.weight(1f)) {
+            if (amount.isEmpty()) {
+                Text("Enter amount", fontSize = 14.sp, color = PjSlate400, maxLines = 1)
+            }
+            BasicTextField(
+                value = amount,
+                onValueChange = onAmountChange,
+                singleLine = true,
+                textStyle = TextStyle(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = PjInk
+                ),
+                cursorBrush = SolidColor(PjInk),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Row(
+            modifier = Modifier
+                .height(32.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(PjSegmentBg)
+                .padding(3.dp)
+        ) {
+            PjSegment(label = "/Day", selected = payType == PayType.DAILY, onClick = { onPayTypeChange(PayType.DAILY) })
+            PjSegment(label = "/Month", selected = payType == PayType.MONTHLY, onClick = { onPayTypeChange(PayType.MONTHLY) })
+        }
+    }
+}
+
+@Composable
+private fun PjOptionGroup(
+    label: String,
+    options: List<String>,
+    selected: String,
+    onSelect: (String) -> Unit,
+    allowCustom: Boolean = false,
+    customHint: String = "Add your own"
+) {
+    var showCustom by remember { mutableStateOf(false) }
+    var customText by remember { mutableStateOf("") }
+    PjSectionLabel(label)
+    PjFlow {
+        options.forEach { option ->
+            PjChip(
+                label = option,
+                selected = selected == option,
+                onClick = { onSelect(option) }
+            )
+        }
+        if (allowCustom) {
+            PjChip(
+                label = if (showCustom) "Cancel" else "Add your own +",
+                selected = false,
+                onClick = { showCustom = !showCustom }
+            )
+        }
+    }
+    if (allowCustom && showCustom) {
+        Spacer(modifier = Modifier.height(10.dp))
+        PjField(
+            value = customText,
+            onValueChange = { customText = it },
+            label = customHint,
+            trailing = {
+                Text(
+                    text = "Add",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = PjBlue,
+                    modifier = Modifier.clickable {
+                        val trimmed = customText.trim()
+                        if (trimmed.isNotBlank()) {
+                            val existing = options.firstOrNull { it.equals(trimmed, ignoreCase = true) }
+                            onSelect(existing ?: trimmed)
+                            customText = ""
+                            showCustom = false
+                        }
+                    }
+                )
+            }
+        )
+    }
+}

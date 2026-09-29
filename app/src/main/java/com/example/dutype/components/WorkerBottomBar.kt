@@ -18,6 +18,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -52,13 +60,28 @@ fun WorkerBottomBar(
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Worker bottom bar items - Custom icons with filled/unfilled states
+    // Worker bottom bar items. All five are tabs switched via navigateToWorkerTab;
+    // Jobs and Map carry query params, so they are matched by route prefix.
     val items = listOf(
         WorkerBottomBarItem(
             route = com.example.dutype.navigation.WorkerBottomRoutes.HOME,
             labelResId = R.string.bottom_nav_home,
             iconResUnfilled = R.drawable.ic_home_unfilled,
             iconResFilled = R.drawable.ic_home_filled
+        ),
+        WorkerBottomBarItem(
+            route = com.example.dutype.navigation.WorkerBottomRoutes.JOBS,
+            matchPrefix = com.example.dutype.navigation.Routes.WORKER_ALL_JOBS,
+            labelResId = R.string.bottom_nav_jobs,
+            icon = Icons.Outlined.Work,
+            iconSelected = Icons.Filled.Work
+        ),
+        WorkerBottomBarItem(
+            route = com.example.dutype.navigation.WorkerBottomRoutes.MAP,
+            matchPrefix = com.example.dutype.navigation.Routes.WORKER_JOB_MAP,
+            labelResId = R.string.bottom_nav_map,
+            icon = Icons.Outlined.Map,
+            iconSelected = Icons.Filled.Map
         ),
         WorkerBottomBarItem(
             route = com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS,
@@ -75,27 +98,24 @@ fun WorkerBottomBar(
     )
 
     Box(
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(horizontal = 16.dp, vertical = 16.dp)
     ) {
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .border(1.dp, WorkerColors.Border, RoundedCornerShape(32.dp)),
             color = backgroundColor,
+            shape = RoundedCornerShape(32.dp),
             shadowElevation = 0.dp,
             tonalElevation = 0.dp
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.navigationBars)
+                modifier = Modifier.fillMaxWidth()
             ) {
-                // Top border - very subtle light divider
-                Spacer(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.5.dp)
-                        .background(WorkerColors.Border)
-                )
-
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -104,7 +124,11 @@ fun WorkerBottomBar(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     items.forEach { item ->
-                        val isSelected = currentRoute == item.route
+                        val isSelected = if (item.matchPrefix != null) {
+                            currentRoute?.startsWith(item.matchPrefix) == true
+                        } else {
+                            currentRoute == item.route
+                        }
                         val label = stringResource(id = item.labelResId)
 
                         Column(
@@ -117,18 +141,13 @@ fun WorkerBottomBar(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null
                                 ) {
-                                    if (currentRoute != item.route) {
-                                        navController.navigate(item.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
-                                            }
-                                            launchSingleTop = true
-                                            restoreState = true
-                                        }
+                                    if (!isSelected) {
+                                        navigateToWorkerTab(navController, item.route)
                                     }
                                 }
                         ) {
                             val iconRes = if (isSelected) item.iconResFilled else item.iconResUnfilled
+                            val vectorIcon = if (isSelected) (item.iconSelected ?: item.icon) else item.icon
                             if (iconRes != null) {
                                 Icon(
                                     painter = painterResource(id = iconRes),
@@ -136,9 +155,9 @@ fun WorkerBottomBar(
                                     modifier = Modifier.size(IconSizes.Standard),
                                     tint = if (isSelected) selectedItemColor else unselectedItemColor
                                 )
-                            } else if (item.icon != null) {
+                            } else if (vectorIcon != null) {
                                 Icon(
-                                    imageVector = item.icon,
+                                    imageVector = vectorIcon,
                                     contentDescription = label,
                                     modifier = Modifier.size(IconSizes.Standard),
                                     tint = if (isSelected) selectedItemColor else unselectedItemColor
@@ -161,11 +180,45 @@ fun WorkerBottomBar(
     }
 }
 
+/**
+ * The ONLY way to switch worker tabs (Home / Jobs / Map / My Jobs / Account), from the
+ * bottom bar or from inside a screen ("See all", "My Jobs" button, ...).
+ *
+ * Tab-switch fix: screens used to reach tab routes with a plain `navigate()`, which
+ * stacked tabs on top of each other (e.g. Jobs -> Job detail -> My Jobs). The next
+ * bottom-bar tap then saved/restored that whole mixed stack, so tapping "Jobs" could
+ * land back on "My Jobs" and the bar looked broken. Every tab now sits directly on
+ * Home, so each saved tab stack only ever contains that tab's own screens.
+ *
+ * @param restoreState false when the caller passes new arguments (e.g. a category
+ *   filter) that must win over the tab's previously saved state.
+ */
+fun navigateToWorkerTab(navController: NavController, route: String, restoreState: Boolean = true) {
+    val startId = navController.graph.findStartDestination().id
+    if (route == com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
+        // Home is the graph root: pop back to it (saving the tab we leave) instead of
+        // pushing a second Home.
+        if (!navController.popBackStack(startId, inclusive = false, saveState = true)) {
+            navController.navigate(route) { launchSingleTop = true }
+        }
+        return
+    }
+    navController.navigate(route) {
+        popUpTo(startId) { saveState = true }
+        launchSingleTop = true
+        this.restoreState = restoreState
+    }
+}
+
 // Data class for worker bottom bar items
 private data class WorkerBottomBarItem(
     val route: String,
     @StringRes val labelResId: Int,
     val icon: ImageVector? = null,
+    val iconSelected: ImageVector? = null,
     @DrawableRes val iconResUnfilled: Int? = null,
-    @DrawableRes val iconResFilled: Int? = null
+    @DrawableRes val iconResFilled: Int? = null,
+    // When set, this item is "selected" whenever the current route starts
+    // with this prefix (used for routes carrying query params, e.g. Jobs).
+    val matchPrefix: String? = null
 )

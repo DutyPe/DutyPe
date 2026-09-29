@@ -201,23 +201,37 @@ class ReferralViewModel @Inject constructor(
      * Request withdrawal
      */
     fun requestWithdrawal(upiId: String) {
+        // Ignore repeat taps while a request is in flight (the first call can take a few
+        // seconds on a cold Cloud Function, which is how a second request slipped in).
+        if (_uiState.value.isProcessingWithdrawal) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isProcessingWithdrawal = true, withdrawalError = null)
             
             try {
-                val amount = _uiState.value.stats?.availableBalance ?: 0.0
+                // The server caps a single day's withdrawal; asking for the whole balance
+                // above that cap was always rejected, so the user could never withdraw.
+                val balance = _uiState.value.stats?.availableBalance ?: 0.0
+                val amount = kotlin.math.floor(minOf(balance, referralConfig.value.maxWithdrawalPerDay) * 100) / 100
                 val result = referralService.requestWithdrawal(
                     amount = amount,
                     paymentMethod = PaymentMethod.UPI,
-                    upiId = upiId
+                    upiId = upiId.trim()
                 )
                 
                 result.fold(
                     onSuccess = { withdrawalResult ->
+                        // Show the new balance right away instead of waiting for the listener.
+                        val current = _uiState.value.stats
+                        val newBalance = ((current?.availableBalance ?: 0.0) - amount).coerceAtLeast(0.0)
                         _uiState.value = _uiState.value.copy(
+                            stats = current?.copy(
+                                availableBalance = newBalance,
+                                canWithdraw = newBalance >= referralConfig.value.minWithdrawal
+                            ),
                             isProcessingWithdrawal = false,
                             withdrawalSuccess = true,
-                            lastWithdrawalId = withdrawalResult.withdrawalId
+                            lastWithdrawalId = withdrawalResult.withdrawalId,
+                            lastWithdrawalAmount = amount
                         )
                         // Reload data to update balance
                         loadReferralData()
@@ -303,5 +317,6 @@ data class ReferralUiState(
     val isProcessingWithdrawal: Boolean = false,
     val withdrawalError: String? = null,
     val withdrawalSuccess: Boolean = false,
-    val lastWithdrawalId: String? = null
+    val lastWithdrawalId: String? = null,
+    val lastWithdrawalAmount: Double = 0.0
 )

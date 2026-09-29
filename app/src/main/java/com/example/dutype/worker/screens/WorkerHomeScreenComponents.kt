@@ -20,6 +20,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,10 +33,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.layout.WindowInsets
@@ -47,13 +50,22 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Headset
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Refresh
@@ -106,6 +118,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
@@ -115,6 +128,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -156,6 +172,7 @@ import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.components.JobCard
+import com.example.dutype.worker.components.WorkerHomeJobCard
 
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Dispatchers
@@ -496,6 +513,8 @@ internal fun ErrorContent(
 @Composable
 fun HomeSectionsContent(
     jobListings: List<JobListing>,
+    urgentJobs: List<JobListing> = emptyList(),
+    isLoadingJobs: Boolean = false,
     navController: NavController,
     rootNavController: NavController,
     savedJobsViewModel: SavedJobsViewModel,
@@ -528,12 +547,10 @@ fun HomeSectionsContent(
     birthdayService: BirthdayService,
     workerJobRequests: List<WorkerJobRequest> = emptyList(),
     updatingWorkerJobRequestId: String? = null,
-    workerAvailability: WorkerAvailability = WorkerAvailability(),
     instantRequests: List<InstantRequest> = emptyList(),
     updatingInstantRequestId: String? = null,
     isLoadingInstantRequests: Boolean = false,
     instantHelpError: String? = null,
-    onTurnOnAvailability: () -> Unit = {},
     onApplyInstantRequest: (InstantRequest) -> Unit = {},
     onCallInstantRequest: (InstantRequest) -> Unit = {},
     onAcceptWorkerJobRequest: (WorkerJobRequest) -> Unit = {},
@@ -548,6 +565,8 @@ fun HomeSectionsContent(
     appliedJobsCount: Int = 0,
     promoBannerUrl: String = "",
     onRequestLocationPermission: () -> Unit = {},
+    onMapClick: () -> Unit = {},
+    onCategoryTap: (String) -> Unit = {},
     headerContent: @Composable () -> Unit = {}
 ) {
     val workerHomeViewModel: com.example.dutype.viewmodels.WorkerHomeViewModel = hiltViewModel()
@@ -578,12 +597,23 @@ fun HomeSectionsContent(
     }
     
     // Memoize skill-matched jobs - prioritize jobs matching worker skills, then by distance
-    val skillMatchedJobs = remember(availableJobs, userSkills) {
-        // Jobs are already distance-enriched and sorted by ViewModel/engine.
+    // Instant / urgent jobs (urgency == HIGH), nearest-first, shown in their own section on top.
+    val urgentPreview = remember(urgentJobs) { urgentJobs.take(3) }
+    val skillMatchedJobs = remember(availableJobs, urgentPreview, userSkills) {
+        // Jobs are already distance-enriched and sorted nearest-first by the ViewModel.
         // Keep home preview concise; full list is available in All Jobs.
+        // Jobs already shown in the urgent section are not repeated right below it.
+        // The 5 nearest jobs are always shown, even when they also appear in the urgent section.
         availableJobs.take(5)
     }
     
+    // Hero card values: real count of loaded nearby jobs + how many were posted in the last hour.
+    val newInLastHour = remember(availableJobs) {
+        val cutoff = System.currentTimeMillis() - 60L * 60L * 1000L
+        availableJobs.count { it.createdAt >= cutoff }
+    }
+    val showHeroAndCategories = hasLocationPermission && !showEmptyJobsState
+
     // Track scroll offset for location bar visibility
     val listState = rememberLazyListState()
     
@@ -640,30 +670,39 @@ fun HomeSectionsContent(
                 headerContent()
             }
 
-            if (promoBannerUrl.isNotBlank() || announcements.isNotEmpty()) {
-                item {
-                    AnnouncementList(
-                        announcements = announcements,
-                        promoBannerUrl = promoBannerUrl,
-                        onDismiss = { announcementId ->
-                            onDismissAnnouncement(announcementId)
-                        },
-                        onAction = { announcement ->
-                            announcement.actionRoute?.let { route: String ->
-                                DeepLinkHandler.handleAnnouncementAction(route, navController, context)
-                            }
+        if (promoBannerUrl.isNotBlank() || announcements.isNotEmpty()) {
+            item(key = "worker_home_announcements") {
+                AnnouncementList(
+                    announcements = announcements,
+                    promoBannerUrl = promoBannerUrl,
+                    onDismiss = { announcementId ->
+                        onDismissAnnouncement(announcementId)
+                    },
+                    onAction = { announcement ->
+                        announcement.actionRoute?.let { route: String ->
+                            DeepLinkHandler.handleAnnouncementAction(route, navController, context)
                         }
-                    )
-                }
+                    }
+                )
+            }
+        }
+
+            item(key = "worker_home_quick_actions") {
+                HomeQuickActionsGrid(
+                    onBrowseJobs = { com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS) },
+                    onAppliedJobs = { com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.MY_JOBS) },
+                    onEarnings = { navController.navigate(Routes.WORKER_EARNINGS) },
+                    onHelpDesk = { navController.navigate(Routes.HELP) }
+                )
             }
 
-            if (!showEmptyJobsState && hasLocationPermission) {
-                item {
-                    WorkerQuickActionsGrid(
-                        onBrowseJobs = { navController.navigate("${Routes.WORKER_ALL_JOBS}?filter=All Jobs") },
-                        onAppliedJobs = { navController.navigate(WorkerBottomRoutes.MY_JOBS) },
-                        onEarnings = { navController.navigate(Routes.WORKER_EARNINGS) },
-                        onHelpDesk = { navController.navigate(Routes.HELP) }
+            if (showHeroAndCategories) {
+                item(key = "worker_home_hero") {
+                    HomeHeroSection(
+                        jobsCount = availableJobs.size,
+                        newInLastHour = newInLastHour,
+                        hasLocation = currentLocation != null,
+                        onMapClick = onMapClick
                     )
                 }
             }
@@ -674,13 +713,22 @@ fun HomeSectionsContent(
                 item {
                     InstantRequestSection(
                         requests = instantRequests,
-                        isAvailabilityOn = workerAvailability.isAvailable,
                         isLoading = isLoadingInstantRequests,
                         updatingRequestId = updatingInstantRequestId,
                         error = instantHelpError,
-                        onGoOnline = onTurnOnAvailability,
                         onApply = onApplyInstantRequest,
                         onCall = onCallInstantRequest
+                    )
+                }
+            }
+
+            if (hasLocationPermission && urgentPreview.isNotEmpty()) {
+                item(key = "worker_home_urgent_jobs") {
+                    HomeUrgentJobsSection(
+                        jobs = urgentPreview,
+                        savedJobsViewModel = savedJobsViewModel,
+                        onViewAllClick = { com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS) },
+                        onNavigateToJob = onNavigateToJob
                     )
                 }
             }
@@ -825,27 +873,35 @@ fun HomeSectionsContent(
                     onHelpDesk = { navController.navigate(Routes.HELP) }
                 )
             }
+        } else if (skillMatchedJobs.isEmpty()) {
+            // Jobs still loading (urgent jobs may already be on screen): skeleton, not a blank gap.
+            if (isLoadingJobs) {
+                item(key = "worker_home_jobs_skeleton") {
+                    HomeJobsSkeleton()
+                }
+            }
         } else {
             // Section 3: Jobs For You (skill-matched) - transparent to show gradient
             item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.Transparent)  // Transparent to show gradient background
-                        .padding(vertical = 16.dp)
+                        .background(Color.Transparent)
+                        .padding(top = 8.dp, bottom = 4.dp)
                 ) {
                     RecommendedJobsSection(
                         jobs = skillMatchedJobs,
-                        onViewAllClick = { navController.navigate("${Routes.WORKER_ALL_JOBS}?filter=All Jobs") },
+                        onViewAllClick = { com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS) },
                         savedJobsViewModel = savedJobsViewModel,
                         onNavigateToJob = onNavigateToJob,
                         sectionTitle = when {
-                            workerAvailability.isAvailable -> stringResource(R.string.normal_vacancy_jobs)
-                            userSkills.isNotEmpty() -> stringResource(R.string.jobs_for_you)
-                            skillMatchedJobs.any { it.distance != null } -> stringResource(R.string.jobs_near_you)
-                            else -> null
+                            skillMatchedJobs.any { it.distance != null } -> "Nearest jobs"
+                            else -> stringResource(R.string.jobs_for_you)
                         }
                     )
+                    if (isLoadingJobs && skillMatchedJobs.size < 5) {
+                        HomeJobsSkeleton()
+                    }
                 }
             }
         }
@@ -861,141 +917,6 @@ fun HomeSectionsContent(
         }
         
     }
-    }
-}
-
-@Composable
-private fun WorkerQuickActionsGrid(
-    onBrowseJobs: () -> Unit,
-    onAppliedJobs: () -> Unit,
-    onEarnings: () -> Unit,
-    onHelpDesk: () -> Unit
-) {
-    val isDark = isAppInDarkTheme()
-    val bgBrowse = if (isDark) Color(0xFF231C30) else Color(0xFFF2ECFB)
-    val bgApplied = if (isDark) Color(0xFF1B2E26) else Color(0xFFE3F7EF)
-    val bgEarnings = if (isDark) Color(0xFF2F291B) else Color(0xFFF9F2D8)
-    val bgSupport = if (isDark) Color(0xFF2E1C20) else Color(0xFFFBECEF)
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            WorkerQuickActionCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.quick_action_browse_jobs),
-                subtitle = stringResource(R.string.quick_action_browse_jobs_sub),
-                icon = Icons.Default.Work,
-                iconTint = Color(0xFFA855F7),
-                backgroundColor = bgBrowse,
-                onClick = onBrowseJobs
-            )
-            WorkerQuickActionCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.quick_action_applied),
-                subtitle = stringResource(R.string.quick_action_applied_sub),
-                icon = Icons.Default.CheckCircle,
-                iconTint = WorkerColors.Success,
-                backgroundColor = bgApplied,
-                onClick = onAppliedJobs
-            )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            WorkerQuickActionCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.quick_action_earnings),
-                subtitle = stringResource(R.string.quick_action_earnings_sub),
-                icon = Icons.Default.CalendarToday,
-                iconTint = Color(0xFFF59E0B),
-                backgroundColor = bgEarnings,
-                onClick = onEarnings
-            )
-            WorkerQuickActionCard(
-                modifier = Modifier.weight(1f),
-                title = stringResource(R.string.quick_action_support),
-                subtitle = stringResource(R.string.quick_action_support_sub),
-                icon = Icons.Default.Headset,
-                iconTint = WorkerColors.Error,
-                backgroundColor = bgSupport,
-                onClick = onHelpDesk
-            )
-        }
-    }
-}
-
-@Composable
-private fun WorkerQuickActionCard(
-    title: String,
-    subtitle: String,
-    icon: ImageVector,
-    iconTint: Color,
-    backgroundColor: Color,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .height(100.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 10.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .background(WorkerColors.CardBackground.copy(alpha = 0.65f), RoundedCornerShape(8.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = iconTint,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = Color(0xFFB7B7B7),
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall.copy(
-                    color = WorkerColors.TextPrimary,
-                    fontWeight = FontWeight.Bold
-                ),
-                maxLines = 1
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary),
-                maxLines = 1
-            )
-        }
     }
 }
 
@@ -1060,11 +981,9 @@ private fun AppliedJobsSummaryCard(
 @Composable
 private fun InstantRequestSection(
     requests: List<InstantRequest>,
-    isAvailabilityOn: Boolean,
     isLoading: Boolean,
     updatingRequestId: String?,
     error: String?,
-    onGoOnline: () -> Unit,
     onApply: (InstantRequest) -> Unit,
     onCall: (InstantRequest) -> Unit
 ) {
@@ -1092,7 +1011,7 @@ private fun InstantRequestSection(
                     )
                 )
                 Text(
-                    text = stringResource(R.string.instant_works_switch_on),
+                    text = "Urgent work from employers close to you",
                     style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
@@ -1113,9 +1032,7 @@ private fun InstantRequestSection(
         requests.take(5).forEach { request ->
             InstantRequestCard(
                 request = request,
-                isAvailabilityOn = isAvailabilityOn,
                 isUpdating = updatingRequestId == request.requestId,
-                onGoOnline = onGoOnline,
                 onApply = { onApply(request) },
                 onCall = { onCall(request) }
             )
@@ -1126,9 +1043,7 @@ private fun InstantRequestSection(
 @Composable
 private fun InstantRequestCard(
     request: InstantRequest,
-    isAvailabilityOn: Boolean,
     isUpdating: Boolean,
-    onGoOnline: () -> Unit,
     onApply: () -> Unit,
     onCall: () -> Unit
 ) {
@@ -1256,26 +1171,7 @@ private fun InstantRequestCard(
                 }
             }
 
-            if (!isAvailabilityOn) {
-                OutlinedButton(
-                    onClick = onGoOnline,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2563EB))
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PowerSettingsNew,
-                        contentDescription = null,
-                        modifier = Modifier.size(17.dp),
-                        tint = Color(0xFF2563EB)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(R.string.go_online_accept_jobs),
-                        color = Color(0xFF2563EB)
-                    )
-                }
-            } else {
+            run {
                 Button(
                     onClick = onApply,
                     enabled = !isUpdating && !hasWorkerResponded,
@@ -1541,6 +1437,56 @@ internal fun TopLocationChipsSection(
     }
 }
 
+/**
+ * Instant / urgent jobs (urgency == HIGH) nearest-first. Reuses the standard home job card so the
+ * URGENT tag renders exactly like everywhere else.
+ */
+@Composable
+private fun HomeUrgentJobsSection(
+    jobs: List<JobListing>,
+    savedJobsViewModel: SavedJobsViewModel,
+    onViewAllClick: () -> Unit,
+    onNavigateToJob: (String) -> Unit
+) {
+    RecommendedJobsSection(
+        jobs = jobs,
+        onViewAllClick = onViewAllClick,
+        savedJobsViewModel = savedJobsViewModel,
+        onNavigateToJob = onNavigateToJob,
+        sectionTitle = stringResource(R.string.urgent_work)
+    )
+}
+
+/** Lightweight placeholder cards shown while the first jobs page loads. */
+@Composable
+internal fun HomeJobsSkeleton() {
+    val transition = rememberInfiniteTransition(label = "home_jobs_skeleton")
+    val pulse by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 800),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "home_jobs_skeleton_alpha"
+    )
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        repeat(3) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(84.dp)
+                    .background(Color(0xFFE2E8F0).copy(alpha = pulse), RoundedCornerShape(16.dp))
+            )
+        }
+    }
+}
+
 @Composable
 fun RecommendedJobsSection(
     jobs: List<JobListing>,
@@ -1552,70 +1498,44 @@ fun RecommendedJobsSection(
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
-        // Section Header with "See all" text
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .clickable { onViewAllClick() },
+                .padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = sectionTitle ?: stringResource(R.string.jobs_near_you),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                    fontSize = 17.sp
-                )
+                color = HomeInk,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
             )
-            
-            // Arrow button - clean minimal style
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            Text(
+                text = stringResource(R.string.auto_see_all),
+                color = HomeEmerald,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
                 modifier = Modifier
                     .clickable { onViewAllClick() }
-                    .padding(vertical = 4.dp, horizontal = 4.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.view_all),
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = com.example.dutype.ui.theme.WorkerColors.TextSecondary,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 13.sp
-                    )
-                )
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = "View All",
-                    tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
+                    .padding(start = 12.dp, top = 4.dp, bottom = 4.dp)
+            )
         }
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
-        // Job Cards - Show only 3, using regular JobCard (ad shows on back from JobDescription)
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             jobs.forEach { job ->
-                val id = job.id.ifEmpty { job.id }
-                JobCard(
+                WorkerHomeJobCard(
                     job = job,
-                    isSaved = job.isSaved,
-                    onSaveClick = {
-                        if (job.isSaved) {
-                            savedJobsViewModel.unsaveJob(job.id)
-                        } else {
-                            savedJobsViewModel.saveJob(job.id)
-                        }
-                    },
                     onCardClick = { onNavigateToJob(it) }
                 )
             }
@@ -1882,284 +1802,327 @@ fun PromiseItemWithIcon(
     }
 }
 
+private val HomeInk = Color(0xFF0F0F0F)
+private val HomeNavy = Color(0xFF0F172A)
+private val HomeSlate = Color(0xFF64748B)
+private val HomeMuted = Color(0xFF94A3B8)
+private val HomeBorder = Color(0xFFE2E8F0)
+private val HomeEmerald = Color(0xFF10B981)
+private val HomeRed = Color(0xFFDC2626)
+
+// Home preview radius used by FirestoreJobViewModel.loadJobsSummaryForHome (50 km when a location is known).
+private const val WORKER_HOME_RADIUS_KM = 50
+
+/** DutyPe brand wordmark: "Duty" in ink + "Pe" in emerald. */
 @Composable
-internal fun DynamicHeader(
-    locationText: String,
-    locationBarAlpha: Float,
-    isLocationLoading: Boolean = false,
-    unreadNotificationCount: Int = 0,
-    isInstantAvailable: Boolean = false,
-    isInstantAvailabilitySaving: Boolean = false,
-    todayEarningsAmount: Double = 0.0,
-    todayJobsDone: Int = 0,
-    thisWeekEarningsAmount: Double = 0.0,
-    weekJobsDone: Int = 0,
-    ratingValue: Float = 0f,
-    reviewCount: Int = 0,
-    onInstantAvailabilityChange: (Boolean) -> Unit = {},
-    onMapClick: () -> Unit,
+private fun HomeBrandWordmark(modifier: Modifier = Modifier) {
+    Text(
+        text = "DutyPe",
+        color = Color.Black,
+        fontSize = 24.sp,
+        fontWeight = FontWeight.ExtraBold,
+        letterSpacing = 0.sp,
+        maxLines = 1,
+        modifier = modifier
+    )
+}
+
+/** Header row: DutyPe wordmark on the left, location chip + bell on the right. */
+@Composable
+internal fun WorkerHomeGreetingHeader(
+    areaName: String,
+    isLocationLoading: Boolean,
+    unreadNotificationCount: Int,
     onNotificationClick: () -> Unit,
     onLocationClick: () -> Unit,
-    isUrgentJobsEnabled: Boolean = true,
-    primaryColorHex: String = "",
-    headerTextColorHex: String = "",
-    headerLottieUrl: String = "",
-    showCategoryRail: Boolean = true,
-    onCategoryTap: (String) -> Unit = {},
-    onSearchTap: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val compositionResult = rememberLottieComposition(
-        spec = LottieCompositionSpec.Url(headerLottieUrl.ifBlank { "https://localhost/dummy.json" })
-    )
-    val lottieComposition = compositionResult.value
-    val lottieProgress by animateLottieCompositionAsState(
-        composition = lottieComposition,
-        iterations = LottieConstants.IterateForever
-    )
-    val categoryTabs = remember {
-        listOf(
-            "All" to "📋",
-            "Cook" to "👨‍🍳",
-            "Maid" to "🧹",
-            "Driver" to "🚗",
-            "Delivery" to "📦",
-            "Security" to "🛡️",
-            "Electrician" to "💡",
-            "Plumber" to "🔧",
-            "Shop Helper" to "🏪",
-            "Office Staff" to "🗂️",
-            "Teacher" to "📚",
-            "Telecaller" to "📞"
-        )
-    }
-    var selectedCategory by remember { mutableStateOf("All") }
-    var searchQuery by remember { mutableStateOf("") }
-
-    // Parse dynamic primary color; fall back to worker_home_header_top resource
-    val defaultBannerColor = WorkerHomeHeaderTopColor
-    val bannerColor = remember(primaryColorHex, defaultBannerColor) {
-        if (primaryColorHex.isNotBlank()) {
-            try { Color(android.graphics.Color.parseColor(primaryColorHex)) }
-            catch (_: Exception) { defaultBannerColor }
-        } else defaultBannerColor
-    }
-    // Use white text/icons on the colored banner area for contrast
-    val defaultTextColor = Color.White
-    val bannerContentColor = remember(headerTextColorHex, defaultTextColor) {
-        if (headerTextColorHex.isNotBlank()) {
-            try { Color(android.graphics.Color.parseColor(headerTextColorHex)) }
-            catch (_: Exception) { defaultTextColor }
-        } else defaultTextColor
-    }
-    val bannerContentSecondaryColor = bannerContentColor.copy(alpha = 0.75f)
-
-    Box(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(bannerColor)
+            .background(HomeScreenBackground)
     ) {
-
-        if (headerLottieUrl.isNotBlank() && lottieComposition != null) {
-            LottieAnimation(
-                composition = lottieComposition,
-                progress = { lottieProgress },
-                modifier = Modifier
-                    .matchParentSize()
-                    .alpha(0.85f),
-                contentScale = ContentScale.Crop,
-                alignment = Alignment.BottomCenter
-            )
-        }
-
-        Column(
+        Spacer(modifier = Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .animateContentSize()
+                .padding(start = 20.dp, top = 8.dp, end = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Status bar spacer — makes the Box (and Lottie) tall enough to fill behind the system bar
-            Spacer(modifier = Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
-            // Top bar row: DutyPe brand + location | Availability switch + Notifications
-            Row(
+            HomeBrandWordmark(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.width(10.dp))
+            HomeLocationChip(
+                areaName = areaName,
+                isLoading = isLocationLoading,
+                onClick = onLocationClick
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+            HomeBellButton(
+                hasUnread = unreadNotificationCount > 0,
+                onClick = onNotificationClick
+            )
+        }
+    }
+}
+
+private val HomeScreenBackground = Color(0xFFF8FAFC)
+
+@Composable
+private fun HomeLocationChip(areaName: String, isLoading: Boolean, onClick: () -> Unit) {
+    val chipShape = RoundedCornerShape(18.dp)
+    Row(
+        modifier = Modifier
+            .height(36.dp)
+            .widthIn(max = 170.dp)
+            .clip(chipShape)
+            .background(Color.White)
+            .border(1.dp, HomeBorder, chipShape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(13.dp),
+                strokeWidth = 1.5.dp,
+                color = HomeEmerald
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Outlined.LocationOn,
+                contentDescription = null,
+                tint = HomeEmerald,
+                modifier = Modifier.size(15.dp)
+            )
+        }
+        Text(
+            text = areaName,
+            color = HomeInk,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
+        )
+        Icon(
+            imageVector = Icons.Default.KeyboardArrowDown,
+            contentDescription = null,
+            tint = HomeSlate,
+            modifier = Modifier.size(14.dp)
+        )
+    }
+}
+
+@Composable
+private fun HomeBellButton(hasUnread: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .background(Color.White)
+            .border(1.dp, HomeBorder, CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Notifications,
+            contentDescription = "Notifications",
+            tint = HomeInk,
+            modifier = Modifier.size(18.dp)
+        )
+        if (hasUnread) {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Left: Brand name + location
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            text = stringResource(R.string.auto_dutype),
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 21.sp,
-                                color = bannerContentColor
-                            )
-                        )
+                    .align(Alignment.TopEnd)
+                    .offset(x = (-6).dp, y = 5.dp)
+                    .size(10.dp)
+                    .background(Color.White, CircleShape)
+                    .padding(1.5.dp)
+                    .background(HomeRed, CircleShape)
+            )
+        }
+    }
+}
 
-                        if (locationBarAlpha > 0.05f) {
-                            Row(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(999.dp))
-                                    .clickable(onClick = onLocationClick)
-                                    .padding(end = 6.dp)
-                                    .graphicsLayer { alpha = locationBarAlpha.coerceIn(0f, 1f) },
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                if (isLocationLoading) {
-                                    androidx.compose.material3.CircularProgressIndicator(
-                                        modifier = Modifier.size(9.dp),
-                                        strokeWidth = 1.2.dp,
-                                        color = bannerContentSecondaryColor
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Outlined.LocationOn,
-                                        contentDescription = null,
-                                        tint = bannerContentSecondaryColor,
-                                        modifier = Modifier.size(10.dp)
-                                    )
-                                }
+/** Dark hero card: real nearby-jobs count + "View map" pill. */
+@Composable
+private fun HomeHeroCard(
+    jobsCount: Int,
+    newInLastHour: Int,
+    hasLocation: Boolean,
+    onMapClick: () -> Unit
+) {
+    val countText = if (jobsCount == 1) "1 job" else "$jobsCount jobs"
+    val subline = buildString {
+        if (newInLastHour > 0) append("↑ $newInLastHour new in last hour")
+        if (hasLocation) {
+            if (isNotEmpty()) append(" · ")
+            append("within $WORKER_HOME_RADIUS_KM km")
+        }
+        if (isEmpty()) append("Jobs open in your area")
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(HomeInk)
+            .padding(18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = "Near you today", color = HomeMuted, fontSize = 12.sp)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = countText,
+                color = Color.White,
+                fontSize = 30.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(text = subline, color = HomeEmerald, fontSize = 12.sp, maxLines = 2)
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Row(
+            modifier = Modifier
+                .height(44.dp)
+                .clip(RoundedCornerShape(22.dp))
+                .background(HomeEmerald)
+                .clickable(onClick = onMapClick)
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                text = "View map",
+                color = HomeInk,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = null,
+                tint = HomeInk,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
+}
 
-                                Text(
-                                    text = locationText,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = bannerContentSecondaryColor,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Medium
-                                    ),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-                    }
-                }
+/** Hero card (one LazyColumn item). */
+@Composable
+private fun HomeHeroSection(
+    jobsCount: Int,
+    newInLastHour: Int,
+    hasLocation: Boolean,
+    onMapClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 20.dp)
+    ) {
+        HomeHeroCard(
+            jobsCount = jobsCount,
+            newInLastHour = newInLastHour,
+            hasLocation = hasLocation,
+            onMapClick = onMapClick
+        )
+    }
+}
 
-                // Right: Availability switch + Notifications (Map pin commented out for now)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    if (isUrgentJobsEnabled) {
-                        Switch(
-                            modifier = Modifier.graphicsLayer {
-                                scaleX = 0.80f
-                                scaleY = 0.80f
-                            },
-                            checked = isInstantAvailable,
-                            onCheckedChange = onInstantAvailabilityChange,
-                            enabled = !isInstantAvailabilitySaving,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = WorkerColors.CardBackground,
-                                checkedTrackColor = WorkerColors.TextPrimary,
-                                uncheckedThumbColor = WorkerColors.CardBackground,
-                                uncheckedTrackColor = Color(0xFFCBD5E1),
-                                uncheckedBorderColor = Color.Transparent,
-                                checkedBorderColor = Color.Transparent,
-                                disabledCheckedTrackColor = WorkerColors.TextPrimary.copy(alpha = 0.5f),
-                                disabledUncheckedTrackColor = Color(0xFFCBD5E1).copy(alpha = 0.6f)
-                            )
-                        )
-                    }
+private class HomeQuickAction(
+    val label: String,
+    val subtitle: String,
+    val icon: ImageVector,
+    val container: Color,
+    val tint: Color
+)
 
-                    /*
-                    // Map Button to view jobs on Google Map (commented for now)
-                    IconButton(
-                        onClick = onMapClick,
-                        modifier = Modifier.size(38.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.LocationOn,
-                            contentDescription = stringResource(R.string.jobs_near_you_map),
-                            tint = bannerContentColor,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    */
+private val HomeQuickActionBrowse = HomeQuickAction("Browse Jobs", "Find work near you", Icons.Default.Work, Color(0xFFF0FDF4), Color(0xFF16A34A))
+private val HomeQuickActionApplied = HomeQuickAction("Applied Jobs", "Track your applications", Icons.Default.CheckCircle, Color(0xFFEFF6FF), Color(0xFF2563EB))
+private val HomeQuickActionEarnings = HomeQuickAction("Earnings", "Your payments & wallet", Icons.Default.AccountBalanceWallet, Color(0xFFFEF3C7), Color(0xFFD97706))
+private val HomeQuickActionHelp = HomeQuickAction("Help", "Get support 24x7", Icons.Default.Headset, Color(0xFFF1F5F9), Color(0xFF0F172A))
 
-                    Box {
-                        IconButton(
-                            onClick = onNotificationClick,
-                            modifier = Modifier.size(38.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Notifications,
-                                contentDescription = "Notifications",
-                                tint = bannerContentColor,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
+/** 2x2 grid of quick-action cards (two Rows, 12dp gaps, 20dp side padding). */
+@Composable
+private fun HomeQuickActionsGrid(
+    onBrowseJobs: () -> Unit,
+    onAppliedJobs: () -> Unit,
+    onEarnings: () -> Unit,
+    onHelpDesk: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            HomeQuickActionCard(HomeQuickActionBrowse, onBrowseJobs, Modifier.weight(1f))
+            HomeQuickActionCard(HomeQuickActionApplied, onAppliedJobs, Modifier.weight(1f))
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            HomeQuickActionCard(HomeQuickActionEarnings, onEarnings, Modifier.weight(1f))
+            HomeQuickActionCard(HomeQuickActionHelp, onHelpDesk, Modifier.weight(1f))
+        }
+    }
+}
 
-                        if (unreadNotificationCount > 0) {
-                            Box(
-                                modifier = Modifier
-                                    .size(9.dp)
-                                    .align(Alignment.TopEnd)
-                                    .offset(x = (-3).dp, y = 7.dp)
-                                    .background(
-                                        color = WorkerColors.Error,
-                                        shape = CircleShape
-                                    )
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (showCategoryRail) {
-                // Spacer to separate top bar and category rail
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Category rail — scrollable horizontal tabs
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(end = 12.dp)
-                ) {
-                    items(categoryTabs) { (label, emoji) ->
-                        val selected = selectedCategory == label
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier
-                                .width(64.dp)
-                                .clickable {
-                                    selectedCategory = label
-                                    onCategoryTap(label)
-                                }
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(52.dp)
-                                    .background(
-                                        color = if (selected) Color.White else Color.White.copy(alpha = 0.2f),
-                                        shape = CircleShape
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(text = emoji, fontSize = 24.sp)
-                            }
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = bannerContentColor,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
-                                )
-                            )
-                        }
-                    }
-                }
-            }
+@Composable
+private fun HomeQuickActionCard(action: HomeQuickAction, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val cardShape = RoundedCornerShape(16.dp)
+    Column(
+        modifier = modifier
+            .heightIn(min = 96.dp)
+            .clip(cardShape)
+            .background(Color.White)
+            .border(1.dp, HomeBorder, cardShape)
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .background(action.container, RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = action.icon,
+                contentDescription = null,
+                tint = action.tint,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = action.label,
+                color = HomeInk,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = action.subtitle,
+                color = HomeSlate,
+                fontSize = 12.sp,
+                letterSpacing = 0.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }

@@ -19,6 +19,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -108,31 +111,28 @@ fun EmployerBottomBar(
     )
 
     Box(
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(horizontal = 16.dp, vertical = 16.dp)
     ) {
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(32.dp)),
             color = Color.White,
+            shape = RoundedCornerShape(32.dp),
             shadowElevation = 0.dp,
             tonalElevation = 0.dp
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.navigationBars)
+                modifier = Modifier.fillMaxWidth()
             ) {
-                // Hairline top divider
-                Spacer(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(Color(0xFFE2E8F0))
-                )
-
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(58.dp),
+                        .height(64.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {

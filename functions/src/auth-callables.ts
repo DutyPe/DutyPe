@@ -698,8 +698,18 @@ export const completeRegistration = onCallSecured(
 // Public (auth/App Check NOT required) so the LOGIN screen can
 // pre-check before triggering OTP. Returns only the existing role/name —
 // never the uid — to keep the surface privacy-safe.
+//
+// Latency-critical (sits on the pre-OTP login path): one warm instance, small memory,
+// short timeout. The client treats this callable as a fallback only for legacy users that
+// have no phoneRoles doc, and stops waiting for it after 1.5s.
 export const lookupPhoneRole = onCallSecured(
-  { requireAuth: false, enforceAppCheck: false },
+  {
+    requireAuth: false,
+    enforceAppCheck: false,
+    memory: "256MB",
+    timeoutSeconds: 10,
+    minInstances: 1,
+  },
   async (data: any, _context) => {
     const phoneE164 = normalizePhoneE164(data?.phone);
     if (!phoneE164) {

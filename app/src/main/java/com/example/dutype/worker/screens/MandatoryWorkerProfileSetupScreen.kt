@@ -18,17 +18,49 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.CleaningServices as OutlinedCleaningServices
+import androidx.compose.material.icons.outlined.ChildCare as OutlinedChildCare
+import androidx.compose.material.icons.outlined.DeliveryDining as OutlinedDeliveryDining
+import androidx.compose.material.icons.outlined.DirectionsCar as OutlinedDirectionsCar
+import androidx.compose.material.icons.outlined.ElectricalServices as OutlinedElectricalServices
+import androidx.compose.material.icons.outlined.Favorite as OutlinedFavorite
+import androidx.compose.material.icons.outlined.Female as OutlinedFemale
+import androidx.compose.material.icons.outlined.FormatPaint as OutlinedFormatPaint
+import androidx.compose.material.icons.outlined.Handyman as OutlinedHandyman
+import androidx.compose.material.icons.outlined.Checkroom as OutlinedCheckroom
+import androidx.compose.material.icons.outlined.Build as OutlinedBuild
+import androidx.compose.material.icons.outlined.CarRepair as OutlinedCarRepair
+import androidx.compose.material.icons.outlined.Carpenter as OutlinedCarpenter
+import androidx.compose.material.icons.outlined.Construction as OutlinedConstruction
+import androidx.compose.material.icons.outlined.LocalShipping as OutlinedLocalShipping
+import androidx.compose.material.icons.outlined.Male as OutlinedMale
+import androidx.compose.material.icons.outlined.MoreHoriz as OutlinedMoreHoriz
+import androidx.compose.material.icons.outlined.Person as OutlinedPerson
+import androidx.compose.material.icons.outlined.Plumbing as OutlinedPlumbing
+import androidx.compose.material.icons.outlined.Restaurant as OutlinedRestaurant
+import androidx.compose.material.icons.outlined.Security as OutlinedSecurity
+import androidx.compose.material.icons.outlined.Work as OutlinedWork
+import androidx.compose.material.icons.outlined.Yard as OutlinedYard
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -38,6 +70,16 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,6 +106,153 @@ import java.time.format.DateTimeFormatter
 private const val MIN_WORKER_BIO_LENGTH = 20
 private const val MAX_WORKER_BIO_LENGTH = 300
 private val DOB_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy")
+
+// ============================================================================
+// STITCH DESIGN SPEC — exact palette/typography for the 3-step wizard.
+// Sourced from the provided "Basic Information / What's your trade? / Where
+// are you based?" screenshots. Kept local to this file so the visual redesign
+// doesn't leak into shared WorkerColors used elsewhere in the app.
+// ============================================================================
+private val StitchInk = Color(0xFF0F0F0F)          // selected pill / CTA / completed progress segment
+private val StitchTitle = Color(0xFF0F172A)        // screen title text
+private val StitchSubtitle = Color(0xFF64748B)     // subtitle under title
+private val StitchLabel = Color(0xFF94A3B8)        // uppercase section labels (GENDER, EXPERIENCE, ...)
+private val StitchBorder = Color(0xFFE2E8F0)       // unselected pill / field border
+private val StitchTrack = Color(0xFFDBEAFE)        // upcoming/current progress segment track
+private val StitchAccent = Color(0xFF10B981)       // "Detect" location accent (teal/green)
+private val StitchWhite = Color(0xFFFFFFFF)
+private val StitchSuccess = Color(0xFF16A34A)      // "Location detected" confirmation
+private val StitchFieldLabel = Color(0xFF64748B)   // small label above filled text field value
+
+/**
+ * 3-segment thin rounded progress bar used at the top of every onboarding step.
+ * Completed steps render solid ink-black, the current/upcoming steps render a
+ * light blue-gray track — matches the Stitch design spec exactly.
+ */
+@Composable
+private fun StitchStepProgressBar(currentStep: Int, totalSteps: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        for (segment in 1..totalSteps) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(if (segment <= currentStep) StitchInk else StitchTrack)
+            )
+        }
+    }
+}
+
+/**
+ * Selectable pill chip used for Gender / Experience / Trade / About-you rows.
+ * Selected = solid black background + white text. Unselected = white
+ * background + light gray border + dark text. Matches the Stitch design spec.
+ */
+@Composable
+private fun StitchPill(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    leadingCheck: Boolean = false,
+    leadingIcon: ImageVector? = null
+) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(24.dp))
+            .background(if (selected) StitchInk else StitchWhite)
+            .border(
+                width = 1.dp,
+                color = if (selected) StitchInk else StitchBorder,
+                shape = RoundedCornerShape(24.dp)
+            )
+            .clickable(onClick = onClick)
+            .heightIn(min = 36.dp)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (leadingIcon != null) {
+                Icon(
+                    imageVector = leadingIcon,
+                    contentDescription = null,
+                    tint = if (selected) StitchWhite else StitchTitle,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+            }
+            if (selected && leadingCheck) {
+                Text(
+                    text = "✓ ",
+                    color = StitchWhite,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Text(
+                text = text,
+                color = if (selected) StitchWhite else StitchTitle,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+/** Picks a friendly icon for a skill name (lowercase contains-matching). */
+private fun skillIcon(name: String): ImageVector {
+    val n = name.lowercase()
+    return when {
+        n.contains("electric") -> Icons.Outlined.OutlinedElectricalServices
+        n.contains("plumb") -> Icons.Outlined.OutlinedPlumbing
+        n.contains("carpent") -> Icons.Outlined.OutlinedCarpenter
+        n.contains("paint") -> Icons.Outlined.OutlinedFormatPaint
+        n.contains("deliver") -> Icons.Outlined.OutlinedDeliveryDining
+        n.contains("driv") || n.contains("driver") -> Icons.Outlined.OutlinedDirectionsCar
+        n.contains("warehouse") || n.contains("shipping") -> Icons.Outlined.OutlinedLocalShipping
+        n.contains("cook") || n.contains("food") || n.contains("kitchen") || n.contains("chef") -> Icons.Outlined.OutlinedRestaurant
+        n.contains("clean") || n.contains("maid") || n.contains("housekeep") -> Icons.Outlined.OutlinedCleaningServices
+        n.contains("garden") -> Icons.Outlined.OutlinedYard
+        n.contains("tailor") || n.contains("stitch") -> Icons.Outlined.OutlinedCheckroom
+        n.contains("mechanic") -> Icons.Outlined.OutlinedCarRepair
+        n.contains("weld") -> Icons.Outlined.OutlinedBuild
+        n.contains("mason") || n.contains("tile") || n.contains("construct") -> Icons.Outlined.OutlinedConstruction
+        n.contains("technician") || n.startsWith("ac ") -> Icons.Outlined.OutlinedHandyman
+        n.contains("secur") || n.contains("guard") -> Icons.Outlined.OutlinedSecurity
+        n.contains("child") || n.contains("baby") -> Icons.Outlined.OutlinedChildCare
+        n.contains("elder") || n.contains("care") -> Icons.Outlined.OutlinedFavorite
+        n.contains("helper") -> Icons.Outlined.OutlinedHandyman
+        n.contains("other") -> Icons.Outlined.OutlinedMoreHoriz
+        else -> Icons.Outlined.OutlinedWork
+    }
+}
+
+/** Icon for a gender option. */
+private fun genderIcon(option: String): ImageVector {
+    return when (option.lowercase()) {
+        "male" -> Icons.Outlined.OutlinedMale
+        "female" -> Icons.Outlined.OutlinedFemale
+        else -> Icons.Outlined.OutlinedPerson
+    }
+}
+
+/** Small uppercase, letter-spaced section label (GENDER, EXPERIENCE, ...). */
+@Composable
+private fun StitchSectionLabel(text: String) {
+    Text(
+        text = text,
+        color = StitchLabel,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 1.sp,
+        modifier = Modifier.padding(bottom = 10.dp)
+    )
+}
 
 /**
  * Mandatory Worker Profile Setup Screen
@@ -103,7 +292,7 @@ fun MandatoryWorkerProfileSetupScreen(
     var experience by rememberSaveable { mutableStateOf("") }
     var educationQualification by rememberSaveable { mutableStateOf("") }
     var workerBio by rememberSaveable { mutableStateOf("") }
-    
+
     // Selfie state - Uri cannot be saved directly, so we save the string representation
     var selfieUriString by rememberSaveable { mutableStateOf<String?>(null) }
     val selfieUri = selfieUriString?.let { Uri.parse(it) }
@@ -231,7 +420,7 @@ fun MandatoryWorkerProfileSetupScreen(
                         dateOfBirth = savedDateOfBirth
                         Timber.d("📦 PREFILL: dateOfBirth = $dateOfBirth")
                     }
-                    if (gender.isBlank() && !savedGender.isNullOrBlank()) {
+                    if (gender.isBlank() && (savedGender == "Male" || savedGender == "Female")) {
                         gender = savedGender
                         Timber.d("📦 PREFILL: gender = $gender")
                     }
@@ -355,23 +544,17 @@ fun MandatoryWorkerProfileSetupScreen(
     // For OTP auth: fullName (user enters), email (optional), phoneNumber (prefilled, read-only), address
 
     
-    val isStep1Valid = when (authMethod) {
-        "GOOGLE" -> {
-            // Google: fullName (prefilled), phone (user enters - must be valid 10 digits), email (prefilled, required)
-            fullName.isNotBlank() && ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && email.isNotBlank()
-        }
-        "PHONE_OTP" -> {
-            // OTP: fullName (user enters - required), phone (prefilled - valid), email (OPTIONAL - not required)
-            fullName.isNotBlank() && ValidationUtils.isValidIndianPhoneNumber(phoneNumber)
-        }
-        else -> {
-            // Default: fullName and phone required, email optional
-            fullName.isNotBlank() && ValidationUtils.isValidIndianPhoneNumber(phoneNumber)
-        }
-    }
-    val isStep2Valid = address.isNotBlank() && dateOfBirth.isNotBlank() && ValidationUtils.isValidDateOfBirth(dateOfBirth) && gender.isNotBlank()
-    val isStep3Valid = skills.isNotBlank() &&
-        experience.isNotBlank()
+    // Step 1 (Basic information): name, valid date of birth, gender (+ phone/email per auth method).
+    val isStep1Valid = fullName.isNotBlank() &&
+        ValidationUtils.isValidIndianPhoneNumber(phoneNumber) &&
+        (authMethod != "GOOGLE" || email.isNotBlank()) &&
+        (gender == "Male" || gender == "Female") &&
+        dateOfBirth.isNotBlank() && ValidationUtils.isValidDateOfBirth(dateOfBirth)
+    // Step 2 (Skills & experience): at least one skill and an experience level.
+    // Education is optional (short bio lives in step 1 and is optional too).
+    val isStep2Valid = skills.isNotBlank() && experience.isNotBlank()
+    // Step 3 (Where are you based?): address only.
+    val isStep3Valid = address.isNotBlank()
     val isStep4Valid = true // Identity Verification step removed
     
     // Overall form validation
@@ -402,7 +585,7 @@ fun MandatoryWorkerProfileSetupScreen(
     LaunchedEffect(fullName, email, phoneNumber, address, dateOfBirth, gender, skills, experience, workerBio, currentStep, isCurrentStepValid, showValidationErrors) {
         // Show DOB age errors immediately when a DOB is selected/typed,
         // while keeping "required" gating behind Next click.
-        val liveDateOfBirthError = if (dateOfBirth.isBlank()) null else ValidationUtils.getDateOfBirthError(dateOfBirth)
+        val liveDateOfBirthError = if (dateOfBirth.length < 10) null else ValidationUtils.getDateOfBirthError(dateOfBirth)
 
         // Only update error messages when user tries to proceed (showValidationErrors = true)
         if (showValidationErrors) {
@@ -442,7 +625,7 @@ fun MandatoryWorkerProfileSetupScreen(
             
             // Update gender error
             genderError = when {
-                gender.isBlank() -> "Gender is required"
+                gender != "Male" && gender != "Female" -> "Gender is required"
                 else -> null
             }
             
@@ -547,7 +730,10 @@ fun MandatoryWorkerProfileSetupScreen(
                             verticalArrangement = Arrangement.spacedBy(28.dp),
                             horizontalAlignment = Alignment.Start
                         ) {
-                            // Step 1: Personal Information
+                            // Stitch design: 3-segment progress bar, shown above every step
+                            StitchStepProgressBar(currentStep = currentStep, totalSteps = totalSteps)
+
+                            // Step 1: Basic information (photo, name, date of birth, gender, short bio)
                             if (currentStep == 1) {
                                 AnimatedVisibility(
                                     visible = true,
@@ -559,12 +745,23 @@ fun MandatoryWorkerProfileSetupScreen(
                                         email = email,
                                         phoneNumber = phoneNumber,
                                         authMethod = authMethod,
+                                        gender = gender,
+                                        workerBio = workerBio,
+                                        dateOfBirth = dateOfBirth,
+                                        selfieUri = selfieUri,
                                         phoneError = if (showValidationErrors) phoneError else null,
                                         emailError = if (showValidationErrors) emailError else null,
                                         fullNameError = if (showValidationErrors) fullNameError else null,
-                                        referralCode = referralCode,
-                                        isValidatingReferral = isValidatingReferral,
-                                        referralValidationResult = referralValidationResult,
+                                        genderError = if (showValidationErrors) genderError else null,
+                                        bioError = if (showValidationErrors) bioError else null,
+                                        dateOfBirthError = dateOfBirthError,
+                                        onWorkerBioChange = { workerBio = it },
+                                        onGenderChange = { gender = it },
+                                        onDateOfBirthChange = { dateOfBirth = it },
+                                        onSelfieSelected = { uri ->
+                                            selfieUriString = uri.toString()
+                                            selfieUrl = null
+                                        },
                                         onFullNameChange = { fullName = it },
                                         onEmailChange = { newEmail ->
                                             // Email can be changed only for OTP auth (or when not from Google)
@@ -577,99 +774,44 @@ fun MandatoryWorkerProfileSetupScreen(
                                             if (authMethod != "PHONE_OTP" || phoneNumber.isBlank()) {
                                                 phoneNumber = newPhone
                                             }
-                                        },
-                                        onReferralCodeChange = { newCode ->
-                                            referralCode = newCode
-                                            // Reset validation when code changes
-                                            if (referralValidationResult != null) {
-                                                referralValidationResult = null
-                                            }
-                                        },
-                                        onValidateReferral = { code ->
-                                            if (code.isNotBlank() && isValidReferralCode(code)) {
-                                                scope.launch {
-                                                    isValidatingReferral = true
-                                                    try {
-                                                        val result = profileCompletionViewModel.validateReferralCode(code)
-                                                        result.fold(
-                                                            onSuccess = { referrerInfo ->
-                                                                if (referrerInfo != null) {
-                                                                    val roleDisplay = when (referrerInfo.second.uppercase()) {
-                                                                        "EMPLOYER" -> "an Employer"
-                                                                        "WORKER" -> "a Worker"
-                                                                        else -> "a user"
-                                                                    }
-                                                                    referralValidationResult = ReferralValidationResult(
-                                                                        isValid = true,
-                                                                        message = "Valid code from $roleDisplay! You'll both earn ₹25.",
-                                                                        referrerName = referrerInfo.first
-                                                                    )
-                                                                } else {
-                                                                    referralValidationResult = ReferralValidationResult(
-                                                                        isValid = false,
-                                                                        message = "Referral code not found"
-                                                                    )
-                                                                }
-                                                            },
-                                                            onFailure = { e ->
-                                                                referralValidationResult = ReferralValidationResult(
-                                                                    isValid = false,
-                                                                    message = e.message ?: "Invalid referral code"
-                                                                )
-                                                            }
-                                                        )
-                                                    } finally {
-                                                        isValidatingReferral = false
-                                                    }
-                                                }
-                                            }
                                         }
                                     )
                                 }
                             }
-                            
-                            // Step 2: Additional Details
+
+                            // Step 2: Skills & experience (skills, experience, education)
                             if (currentStep == 2) {
                                 AnimatedVisibility(
                                     visible = true,
                                     enter = slideInVertically() + fadeIn(),
                                     exit = slideOutVertically() + fadeOut()
                                 ) {
-                                    AdditionalDetailsStep(
-                                        address = address,
-                                        dateOfBirth = dateOfBirth,
-                                        gender = gender,
-                                        addressError = if (showValidationErrors) addressError else null,
-                                        dateOfBirthError = dateOfBirthError,
-                                        genderError = if (showValidationErrors) genderError else null,
-                                        onAddressChange = { address = it },
-                                        onDateOfBirthChange = { dateOfBirth = it },
-                                        onGenderChange = { gender = it },
-                                        locationService = locationService,
-                                        locationPreferences = profileCompletionViewModel.locationPreferences
+                                    SkillsExperienceStep(
+                                        skills = skills,
+                                        experience = experience,
+                                        educationQualification = educationQualification,
+                                        skillsError = if (showValidationErrors) skillsError else null,
+                                        experienceError = if (showValidationErrors) experienceError else null,
+                                        onSkillsChange = { skills = it },
+                                        onExperienceChange = { experience = it },
+                                        onEducationChange = { educationQualification = it }
                                     )
                                 }
                             }
-                            
-                            // Step 3: Professional Information
+
+                            // Step 3: Where are you based? (location)
                             if (currentStep == 3) {
                                 AnimatedVisibility(
                                     visible = true,
                                     enter = slideInVertically() + fadeIn(),
                                     exit = slideOutVertically() + fadeOut()
                                 ) {
-                                    ProfessionalInformationStep(
-                                        skills = skills,
-                                        experience = experience,
-                                        educationQualification = educationQualification,
-                                        workerBio = workerBio,
-                                        skillsError = if (showValidationErrors) skillsError else null,
-                                        experienceError = if (showValidationErrors) experienceError else null,
-                                        bioError = if (showValidationErrors) bioError else null,
-                                        onSkillsChange = { skills = it },
-                                        onExperienceChange = { experience = it },
-                                        onEducationQualificationChange = { educationQualification = it },
-                                        onWorkerBioChange = { workerBio = it }
+                                    LocationStep(
+                                        address = address,
+                                        addressError = if (showValidationErrors) addressError else null,
+                                        onAddressChange = { address = it },
+                                        locationService = locationService,
+                                        locationPreferences = profileCompletionViewModel.locationPreferences
                                     )
                                 }
                             }
@@ -718,8 +860,8 @@ fun MandatoryWorkerProfileSetupScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(28.dp),
-                    horizontalArrangement = Arrangement.spacedBy(20.dp)
+                        .padding(20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Previous Button (back arrow only)
                     if (currentStep > 1) {
@@ -746,9 +888,6 @@ fun MandatoryWorkerProfileSetupScreen(
                                 modifier = Modifier.size(24.dp)
                             )
                         }
-                        Spacer(modifier = Modifier.weight(1f))
-                    } else {
-                        Spacer(modifier = Modifier.weight(1f))
                     }
                     
                     // Next/Complete Button
@@ -997,31 +1136,32 @@ fun MandatoryWorkerProfileSetupScreen(
                         modifier = Modifier
                             .height(56.dp)
                             .weight(1f),
-                        shape = RoundedCornerShape(20.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        shape = RoundedCornerShape(28.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isCurrentStepValid) WorkerColors.Primary else WorkerColors.TextDisabled
+                            containerColor = if (isCurrentStepValid) StitchInk else WorkerColors.TextDisabled,
+                            disabledContainerColor = WorkerColors.TextDisabled
                         )
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
-                                color = WorkerColors.CardBackground,
+                                color = StitchWhite,
                                 strokeWidth = 2.dp
                             )
                         } else {
                             Text(
-                                if (currentStep == totalSteps) "Finish" else "Next",
-                                style = MaterialTheme.typography.labelLarge.copy(
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            )
-                        }
-                        if (currentStep < totalSteps) {
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Icon(
-                                Icons.Default.ArrowForward,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
+                                text = when (currentStep) {
+                                    1 -> "Next: Skills →"
+                                    2 -> "Next: Location →"
+                                    else -> "Complete Profile ✓"
+                                },
+                                color = StitchWhite,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -1038,102 +1178,204 @@ private fun PersonalInformationStep(
     email: String,
     phoneNumber: String,
     authMethod: String?,
+    gender: String,
+    workerBio: String,
+    dateOfBirth: String,
+    selfieUri: Uri?,
     phoneError: String?,
     emailError: String?,
     fullNameError: String?,
-    referralCode: String,
-    isValidatingReferral: Boolean,
-    referralValidationResult: ReferralValidationResult?,
+    genderError: String?,
+    bioError: String?,
+    dateOfBirthError: String?,
+    onWorkerBioChange: (String) -> Unit,
+    onGenderChange: (String) -> Unit,
+    onDateOfBirthChange: (String) -> Unit,
+    onSelfieSelected: (Uri) -> Unit,
     onFullNameChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
-    onPhoneChange: (String) -> Unit,
-    onReferralCodeChange: (String) -> Unit,
-    onValidateReferral: (String) -> Unit
+    onPhoneChange: (String) -> Unit
 ) {
     Column(
-        modifier = Modifier.padding(top = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier.padding(top = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         // Step header
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFF1F2937).copy(alpha = 0.15f),
-                                Color(0xFF60A5FA).copy(alpha = 0.1f)
-                            )
-                        ),
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.Person,
-                    contentDescription = null,
-                    tint = WorkerColors.TextPrimary,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(18.dp))
-
-            Column {
-                Text(
-                    text = stringResource(R.string.auto_personal_information),
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                        fontSize = 18.sp
-                    )
-                )
-                Text(
-                    text = stringResource(R.string.auto_tell_us_about_yourself),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = WorkerColors.TextSecondary,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
-            }
+        Column(modifier = Modifier.padding(bottom = 4.dp)) {
+            Text(
+                text = "Basic information",
+                color = StitchTitle,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "Your photo, name, birth date, gender and short bio",
+                color = StitchSubtitle,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(top = 2.dp)
+            )
         }
 
-        // Full Name
+        ProfilePhotoPicker(selfieUri = selfieUri, onSelfieSelected = onSelfieSelected)
+
+        FullNameField(fullName = fullName, error = fullNameError, onChange = onFullNameChange)
+
+        DateOfBirthField(
+            dateOfBirth = dateOfBirth,
+            error = dateOfBirthError,
+            onDateOfBirthChange = onDateOfBirthChange
+        )
+
+        // GENDER
         Column {
-            OutlinedTextField(
-                value = fullName,
-                onValueChange = onFullNameChange,
-                label = { Text(stringResource(R.string.full_name_required)) },
-                placeholder = { Text(stringResource(R.string.enter_full_name)) },
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 56.dp),
-                textStyle = MaterialTheme.typography.bodyLarge,
-                shape = RoundedCornerShape(14.dp),
-                isError = fullNameError != null,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (fullNameError != null) WorkerColors.Error else WorkerColors.Primary,
-                    unfocusedBorderColor = if (fullNameError != null) WorkerColors.Error else WorkerColors.Border,
-                    focusedLabelColor = if (fullNameError != null) WorkerColors.Error else WorkerColors.Primary,
-                    errorBorderColor = WorkerColors.Error,
-                    cursorColor = WorkerColors.Primary
-                ),
-                singleLine = true
-            )
-            if (fullNameError != null) {
+            StitchSectionLabel("GENDER")
+            GenderChipsRow(gender = gender, onGenderChange = onGenderChange)
+            if (genderError != null) {
                 Text(
-                    text = fullNameError,
+                    text = genderError,
                     color = WorkerColors.Error,
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                    modifier = Modifier.padding(start = 4.dp, top = 6.dp)
                 )
             }
         }
+
+        WorkerBioSection(
+            workerBio = workerBio,
+            bioError = bioError,
+            onWorkerBioChange = onWorkerBioChange
+        )
+
+        ContactDetailsSection(
+            email = email,
+            phoneNumber = phoneNumber,
+            authMethod = authMethod,
+            emailError = emailError,
+            phoneError = phoneError,
+            onEmailChange = onEmailChange,
+            onPhoneChange = onPhoneChange
+        )
+    }
+}
+
+@Composable
+private fun FullNameField(fullName: String, error: String?, onChange: (String) -> Unit) {
+    Column {
+        OutlinedTextField(
+            value = fullName,
+            onValueChange = onChange,
+            label = {
+                Text(
+                    "Full Name",
+                    color = StitchFieldLabel,
+                    fontSize = 12.sp
+                )
+            },
+            placeholder = { Text(stringResource(R.string.enter_full_name)) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp),
+            textStyle = androidx.compose.ui.text.TextStyle(
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = StitchTitle
+            ),
+            shape = RoundedCornerShape(14.dp),
+            isError = error != null,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = if (error != null) WorkerColors.Error else StitchInk,
+                unfocusedBorderColor = if (error != null) WorkerColors.Error else StitchBorder,
+                focusedLabelColor = if (error != null) WorkerColors.Error else StitchFieldLabel,
+                unfocusedLabelColor = StitchFieldLabel,
+                errorBorderColor = WorkerColors.Error,
+                cursorColor = StitchInk
+            ),
+            singleLine = true
+        )
+        if (error != null) {
+            Text(
+                text = error,
+                color = WorkerColors.Error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+            )
+        }
+    }
+}
+
+/** Optional profile photo: dashed circle with camera icon, wired to the selfie state. */
+@Composable
+private fun ProfilePhotoPicker(selfieUri: Uri?, onSelfieSelected: (Uri) -> Unit) {
+    val selfiePicker = rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) onSelfieSelected(uri)
+    }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        val dashColor = StitchBorder
+        Box(
+            modifier = Modifier
+                .size(104.dp)
+                .clip(CircleShape)
+                .clickable { selfiePicker.launch("image/*") },
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(modifier = Modifier.matchParentSize()) {
+                drawRoundRect(
+                    color = dashColor,
+                    style = Stroke(
+                        width = 2.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f), 0f)
+                    ),
+                    cornerRadius = CornerRadius(size.minDimension / 2f, size.minDimension / 2f)
+                )
+            }
+            if (selfieUri != null) {
+                coil.compose.AsyncImage(
+                    model = selfieUri,
+                    contentDescription = "Selected profile photo",
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier
+                        .size(96.dp)
+                        .clip(CircleShape)
+                )
+            } else {
+                Icon(
+                    Icons.Default.CameraAlt,
+                    contentDescription = "Add profile photo",
+                    tint = StitchSubtitle,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+        Text(
+            text = "Add profile photo (optional)",
+            color = StitchSubtitle,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(top = 10.dp)
+        )
+    }
+}
+
+/** Email + phone (needed for account/auth; behavior differs per auth method). */
+@Composable
+private fun ContactDetailsSection(
+    email: String,
+    phoneNumber: String,
+    authMethod: String?,
+    emailError: String?,
+    phoneError: String?,
+    onEmailChange: (String) -> Unit,
+    onPhoneChange: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        // Contact details — required for account/auth (phone always, email for Google
+        // auth) but not part of the Stitch screenshot, so styled as a secondary,
+        // lower-emphasis block underneath the primary design elements above.
+        StitchSectionLabel("CONTACT DETAILS")
 
         // Email - Behavior differs based on authentication method
         if (authMethod == "GOOGLE") {
@@ -1277,228 +1519,131 @@ private fun PersonalInformationStep(
                 }
             }
         }
-
-        // Referral Code Input - REMOVED: Now handled in login/signup flow
-        // Referral codes must be entered DURING registration (EnhancedLoginScreen), not in profile setup
-        // This follows best practices from Uber, Airbnb, PayPal - code entry happens BEFORE account creation
-        /*
-        Spacer(modifier = Modifier.height(8.dp))
-        ReferralCodeInput(
-                referralCode = referralCode,
-                onReferralCodeChange = onReferralCodeChange,
-                isValidating = isValidatingReferral,
-                validationResult = referralValidationResult,
-                onValidate = onValidateReferral
-            )
-        */
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AdditionalDetailsStep(
+private fun LocationStep(
     address: String,
-    dateOfBirth: String,
-    gender: String,
     addressError: String?,
-    dateOfBirthError: String?,
-    genderError: String?,
     onAddressChange: (String) -> Unit,
-    onDateOfBirthChange: (String) -> Unit,
-    onGenderChange: (String) -> Unit,
     locationService: com.example.dutype.utils.LocationService,
     locationPreferences: com.example.dutype.location.LocationPreferences
 ) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    
-    Column(
-        modifier = Modifier.padding(top = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Step header
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFF1F2937).copy(alpha = 0.15f),
-                                Color(0xFF60A5FA).copy(alpha = 0.1f)
-                            )
-                        ),
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.DateRange,
-                    contentDescription = null,
-                    tint = WorkerColors.TextPrimary,
-                    modifier = Modifier.size(28.dp)
-                )
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var isFetchingLocation by remember { mutableStateOf(false) }
+    var fetchError by remember { mutableStateOf<String?>(null) }
+    var detectedAddress by remember { mutableStateOf<String?>(null) }
+    var detectedArea by remember { mutableStateOf<String?>(null) }
+
+    suspend fun fetchAddressFast(silent: Boolean) {
+        val cachedLocation = locationPreferences.getSavedLocationIfFresh(24 * 60 * 60 * 1000L)
+        if (cachedLocation != null) {
+            Timber.d("📍 Fetch - Using recent cached location immediately")
+            onAddressChange(cachedLocation.getFullAddress())
+            detectedAddress = cachedLocation.getFullAddress()
+            detectedArea = cachedLocation.city?.takeIf { it.isNotBlank() }
+            locationPreferences.setPermissionGranted(true)
+        }
+
+        val refinedLocation = locationService.getHighAccuracyLocationData(
+            timeoutMs = if (cachedLocation != null) 5000L else 10000L,
+            minAccuracyMeters = 40f
+        ) ?: locationService.getCurrentLocation()?.let { locationService.toLocationData(it) }
+
+        val finalLocation = refinedLocation ?: cachedLocation
+        if (finalLocation != null) {
+            Timber.d("📍 Fetch - Location resolved: ${finalLocation.getFullAddress()}")
+            onAddressChange(finalLocation.getFullAddress())
+            detectedAddress = finalLocation.getFullAddress()
+            detectedArea = finalLocation.city?.takeIf { it.isNotBlank() }
+            locationPreferences.saveLocation(finalLocation)
+            locationPreferences.setPermissionGranted(true)
+        } else {
+            Timber.w("📍 Fetch - Could not resolve location")
+            fetchError = "Could not get location. Please enter address manually or try again."
+            if (!silent) {
+                Toast.makeText(
+                    context,
+                    "Could not get location. Please enter address manually or try again.",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
+        }
+    }
 
-            Spacer(modifier = Modifier.width(18.dp))
+    fun startFetch(silent: Boolean) {
+        coroutineScope.launch {
+            isFetchingLocation = true
+            fetchError = null
+            try {
+                fetchAddressFast(silent)
+            } catch (e: Exception) {
+                Timber.e(e, "📍 Fetch - Error fetching location")
+                fetchError = "Error fetching location"
+                if (!silent) {
+                    Toast.makeText(context, context.getString(R.string.error_fetching_location), Toast.LENGTH_SHORT).show()
+                }
+            } finally {
+                isFetchingLocation = false
+            }
+        }
+    }
 
-            Column {
-                Text(
-                    text = stringResource(R.string.auto_additional_details),
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                        fontSize = 18.sp
-                    )
-                )
-                Text(
-                    text = stringResource(R.string.auto_complete_your_profile_information),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = WorkerColors.TextSecondary,
-                        fontWeight = FontWeight.Medium
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        Timber.d("📍 Fetch - Location permission result: $granted")
+        if (granted) {
+            startFetch(false)
+        } else {
+            Toast.makeText(context, context.getString(R.string.location_permission_fetch_address), Toast.LENGTH_SHORT).show()
+            isFetchingLocation = false
+        }
+    }
+
+    // Ask for location permission once when this step opens; if already granted,
+    // fetch immediately. Denial silently falls back to manual entry.
+    var autoLocationAsked by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (!autoLocationAsked) {
+            autoLocationAsked = true
+            if (locationService.hasLocationPermission()) {
+                if (address.isBlank()) startFetch(true)
+            } else {
+                locationPermissionLauncher.launch(
+                    arrayOf(
+                        android.Manifest.permission.ACCESS_FINE_LOCATION,
+                        android.Manifest.permission.ACCESS_COARSE_LOCATION
                     )
                 )
             }
         }
+    }
 
-        // Address
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.auto_address),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                    )
-                )
-                
-                var isFetchingLocation by remember { mutableStateOf(false) }
-                var fetchError by remember { mutableStateOf<String?>(null) }
-                val coroutineScope = rememberCoroutineScope()
+    Column(
+        modifier = Modifier.padding(top = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        Column(modifier = Modifier.padding(bottom = 2.dp)) {
+            Text(
+                text = "Where are you based?",
+                color = StitchTitle,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "We use this to show jobs near you",
+                color = StitchSubtitle,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
 
-                suspend fun fetchAddressFast() {
-                    val cachedLocation = locationPreferences.getSavedLocationIfFresh(24 * 60 * 60 * 1000L)
-                    if (cachedLocation != null) {
-                        Timber.d("📍 Fetch button - Using recent cached location immediately")
-                        onAddressChange(cachedLocation.getFullAddress())
-                        locationPreferences.setPermissionGranted(true)
-                    }
-
-                    val refinedLocation = locationService.getHighAccuracyLocationData(
-                        timeoutMs = if (cachedLocation != null) 5000L else 10000L,
-                        minAccuracyMeters = 40f
-                    ) ?: locationService.getCurrentLocation()?.let { locationService.toLocationData(it) }
-
-                    val finalLocation = refinedLocation ?: cachedLocation
-                    if (finalLocation != null) {
-                        Timber.d("📍 Fetch button - Location resolved: ${finalLocation.getFullAddress()}")
-                        onAddressChange(finalLocation.getFullAddress())
-                        locationPreferences.saveLocation(finalLocation)
-                        locationPreferences.setPermissionGranted(true)
-                    } else {
-                        Timber.w("📍 Fetch button - Could not resolve location")
-                        fetchError = "Could not get location. Please enter address manually or try again."
-                        android.widget.Toast.makeText(
-                            context,
-                            "Could not get location. Please enter address manually or try again.",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
-                
-                // Location permission launcher for fetch button
-                val locationPermissionLauncher = rememberLauncherForActivityResult(
-                    androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
-                ) { permissions ->
-                    val granted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                            permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
-                    
-                    Timber.d("📍 Fetch button - Location permission result: $granted")
-                    
-                    if (granted) {
-                        // Permission granted, now fetch location with fast-first strategy.
-                        coroutineScope.launch {
-                            isFetchingLocation = true
-                            fetchError = null
-                            try {
-                                fetchAddressFast()
-                            } catch (e: Exception) {
-                                Timber.e(e, "📍 Fetch button - Error fetching location")
-                                fetchError = "Error fetching location"
-                                android.widget.Toast.makeText(context, context.getString(R.string.error_fetching_location), android.widget.Toast.LENGTH_SHORT).show()
-                            } finally {
-                                isFetchingLocation = false
-                            }
-                        }
-                    } else {
-                        Timber.w("📍 Fetch button - Location permission denied")
-                        android.widget.Toast.makeText(context, context.getString(R.string.location_permission_fetch_address), android.widget.Toast.LENGTH_SHORT).show()
-                        isFetchingLocation = false
-                    }
-                }
-                
-                Button(
-                    onClick = {
-                        Timber.d("📍 Fetch button clicked")
-                        fetchError = null
-                        
-                        if (locationService.hasLocationPermission()) {
-                            Timber.d("📍 Fetch button - Has permission, fetching fast-first location...")
-                            coroutineScope.launch {
-                                isFetchingLocation = true
-                                try {
-                                    fetchAddressFast()
-                                } catch (e: Exception) {
-                                    Timber.e(e, "📍 Fetch button - Error fetching location")
-                                    fetchError = "Error fetching location"
-                                    android.widget.Toast.makeText(context, context.getString(R.string.error_fetching_location), android.widget.Toast.LENGTH_SHORT).show()
-                                } finally {
-                                    isFetchingLocation = false
-                                }
-                            }
-                        } else {
-                            Timber.d("📍 Fetch button - No permission, requesting...")
-                            // Request location permission
-                            locationPermissionLauncher.launch(
-                                arrayOf(
-                                    android.Manifest.permission.ACCESS_FINE_LOCATION,
-                                    android.Manifest.permission.ACCESS_COARSE_LOCATION
-                                )
-                            )
-                        }
-                    },
-                    modifier = Modifier.height(36.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF111111)
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-                ) {
-                    Icon(
-                        Icons.Default.MyLocation,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = WorkerColors.CardBackground
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (isFetchingLocation) "Fetching..." else "Fetch",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = WorkerColors.CardBackground
-                    )
-                }
-            }
-            
+        Column(modifier = Modifier.fillMaxWidth()) {
             com.example.dutype.components.LocationAutocompleteField(
                 value = address,
                 onValueChange = onAddressChange,
@@ -1533,753 +1678,795 @@ private fun AdditionalDetailsStep(
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
             }
+            // Fetched-location info lives UNDER the address field (never above it).
+            LocationStatusRow(
+                isFetching = isFetchingLocation,
+                fetchError = fetchError,
+                showDetected = detectedAddress != null && detectedAddress == address,
+                detectedArea = detectedArea,
+                onDetect = {
+                    fetchError = null
+                    if (locationService.hasLocationPermission()) {
+                        startFetch(false)
+                    } else {
+                        locationPermissionLauncher.launch(
+                            arrayOf(
+                                android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                android.Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                    }
+                }
+            )
         }
+    }
+}
 
-        // Date of Birth
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+/** Line under the address field: detection status on the left, "Detect" action on the right. */
+@Composable
+private fun LocationStatusRow(
+    isFetching: Boolean,
+    fetchError: String?,
+    showDetected: Boolean,
+    detectedArea: String?,
+    onDetect: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 4.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = stringResource(R.string.auto_date_of_birth),
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                )
-            )
-
-            // Apr 2026: replaced the heavy Material calendar picker with a
-            // plain text input. Workers type their DOB as DD/MM/YYYY
-            // (auto-inserts slashes) - simpler and faster on low-end phones.
-            fun formatDob(raw: String): String {
-                val digits = raw.filter { it.isDigit() }.take(8)
-                return buildString {
-                    digits.forEachIndexed { idx, c ->
-                        if (idx == 2 || idx == 4) append('/')
-                        append(c)
-                    }
-                }
-            }
-            var dobInput by remember {
-                mutableStateOf(TextFieldValue(dateOfBirth, selection = TextRange(dateOfBirth.length)))
-            }
-            var showDobPicker by remember { mutableStateOf(false) }
-            LaunchedEffect(dateOfBirth) {
-                if (dateOfBirth != dobInput.text) {
-                    dobInput = TextFieldValue(dateOfBirth, selection = TextRange(dateOfBirth.length))
-                }
-            }
-            if (showDobPicker) {
-                val minDobDate = LocalDate.now().minusYears(70)
-                val maxDobDate = LocalDate.now().minusYears(18)
-                val dobPickerState = rememberDatePickerState(
-                    initialSelectedDateMillis = parseDobToUtcMillis(dateOfBirth) ?: maxDobDate.toUtcMillis(),
-                    yearRange = minDobDate.year..maxDobDate.year,
-                    selectableDates = object : SelectableDates {
-                        override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-                            val date = utcMillisToLocalDate(utcTimeMillis)
-                            return !date.isBefore(minDobDate) && !date.isAfter(maxDobDate)
-                        }
-
-                        override fun isSelectableYear(year: Int): Boolean {
-                            return year in minDobDate.year..maxDobDate.year
-                        }
-                    }
-                )
-                DatePickerDialog(
-                    onDismissRequest = { showDobPicker = false },
-                    confirmButton = {
-                        TextButton(
-                            onClick = {
-                                dobPickerState.selectedDateMillis?.let { selectedMillis ->
-                                    val formatted = formatDobFromUtcMillis(selectedMillis)
-                                    dobInput = TextFieldValue(formatted, selection = TextRange(formatted.length))
-                                    onDateOfBirthChange(formatted)
-                                }
-                                showDobPicker = false
-                            }
-                        ) {
-                            Text(stringResource(R.string.select))
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showDobPicker = false }) {
-                            Text(stringResource(R.string.cancel))
-                        }
-                    }
-                ) {
-                    DatePicker(state = dobPickerState)
-                }
-            }
-            OutlinedTextField(
-                value = dobInput,
-                onValueChange = { raw ->
-                    val formatted = formatDob(raw.text)
-                    dobInput = TextFieldValue(formatted, selection = TextRange(formatted.length))
-                    onDateOfBirthChange(formatted)
-                },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = {
-                    Text(
-                        "DD/MM/YYYY",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFFD1D5DB)
-                        )
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.CalendarToday,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = WorkerColors.TextSecondary
-                    )
-                },
-                trailingIcon = {
-                    IconButton(onClick = { showDobPicker = true }) {
-                        Icon(
-                            imageVector = Icons.Default.DateRange,
-                            contentDescription = "Pick date of birth",
-                            tint = Color(0xFF111111)
-                        )
-                    }
-                },
-                singleLine = true,
-                isError = dateOfBirthError != null,
-                shape = RoundedCornerShape(12.dp),
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                ),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                    unfocusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                    focusedBorderColor = Color(0xFF111111),
-                    unfocusedBorderColor = WorkerColors.Border,
-                    errorBorderColor = WorkerColors.Error,
-                    focusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                    unfocusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                )
-            )
-
-            if (dateOfBirthError != null) {
+            if (isFetching) {
                 Text(
-                    text = dateOfBirthError,
-                    color = WorkerColors.Error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                    text = "Detecting your location…",
+                    color = StitchSubtitle,
+                    fontSize = 12.sp
                 )
+            } else if (fetchError != null) {
+                Text(
+                    text = fetchError,
+                    color = WorkerColors.Error,
+                    fontSize = 12.sp
+                )
+            } else if (showDetected) {
+                Icon(
+                    Icons.Default.LocationOn,
+                    contentDescription = null,
+                    tint = StitchSuccess,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Location detected",
+                    color = StitchSuccess,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1
+                )
+                if (detectedArea != null) {
+                    Text(
+                        text = "  ·  $detectedArea",
+                        color = StitchSubtitle,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
-
-        // Gender Selection
-        Column {
-            GenderSelectionField(
-                selectedGender = gender,
-                onGenderSelected = onGenderChange
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = onDetect)
+                .padding(horizontal = 6.dp, vertical = 4.dp)
+        ) {
+            Icon(
+                Icons.Default.MyLocation,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = StitchAccent
             )
-            if (genderError != null) {
-                Text(
-                    text = genderError,
-                    color = WorkerColors.Error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = if (isFetching) "Detecting…" else "Detect",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = StitchAccent
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun GenderChipsRow(gender: String, onGenderChange: (String) -> Unit) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        listOf("Male", "Female").forEach { option ->
+            StitchPill(
+                text = option,
+                selected = gender == option,
+                leadingIcon = genderIcon(option),
+                onClick = { onGenderChange(option) }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SkillChipsFlow(
+    skills: List<String>,
+    selected: Set<String>,
+    onSkillClick: (String, Boolean) -> Unit
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        skills.forEach { skill ->
+            val isSelected = selected.contains(skill)
+            StitchPill(
+                text = skill,
+                selected = isSelected,
+                leadingIcon = skillIcon(skill),
+                onClick = { onSkillClick(skill, isSelected) }
+            )
+        }
+    }
+}
+
+/** Formats up to 8 raw digits as DD/MM/YYYY (slashes only once the next digit exists). */
+private fun formatDobDigits(digits: String): String {
+    val d = digits.filter { it.isDigit() }.take(8)
+    val out = StringBuilder()
+    d.forEachIndexed { index, c ->
+        if (index == 2 || index == 4) out.append('/')
+        out.append(c)
+    }
+    return out.toString()
+}
+
+/** Shows raw digits ("12032000") as "12/03/2000" while keeping the cursor mapped correctly. */
+private object DobVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val digits = text.text
+        val formatted = formatDobDigits(digits)
+        val mapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                val mapped = when {
+                    offset <= 2 -> offset
+                    offset <= 4 -> offset + 1
+                    else -> offset + 2
+                }
+                return mapped.coerceIn(0, formatted.length)
             }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                val mapped = when {
+                    offset <= 2 -> offset
+                    offset <= 5 -> offset - 1
+                    else -> offset - 2
+                }
+                return mapped.coerceIn(0, digits.length)
+            }
+        }
+        return TransformedText(AnnotatedString(formatted), mapping)
+    }
+}
+
+/**
+ * Date of birth: typed as DD/MM/YYYY (auto-slashes) OR picked from the calendar
+ * dialog. Both use the same stored value ("dd/MM/yyyy"), so they stay in sync.
+ */
+@Composable
+private fun DateOfBirthField(
+    dateOfBirth: String,
+    error: String?,
+    onDateOfBirthChange: (String) -> Unit
+) {
+    var showPicker by remember { mutableStateOf(false) }
+    var focused by remember { mutableStateOf(false) }
+    val digits = dateOfBirth.filter { it.isDigit() }.take(8)
+    val borderColor = when {
+        error != null -> WorkerColors.Error
+        focused -> StitchInk
+        else -> StitchBorder
+    }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Date of birth",
+            color = StitchFieldLabel,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = "Enter as DD/MM/YYYY or pick from calendar",
+            color = StitchLabel,
+            fontSize = 12.sp,
+            modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)
+        )
+        DobInputBox(
+            digits = digits,
+            borderColor = borderColor,
+            onDigitsChange = { newDigits -> onDateOfBirthChange(formatDobDigits(newDigits)) },
+            onFocusChange = { focused = it },
+            onCalendarClick = { showPicker = true }
+        )
+        if (error != null) {
+            Text(
+                text = error,
+                color = WorkerColors.Error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+            )
+        }
+    }
+    if (showPicker) {
+        DobPickerDialog(
+            currentValue = dateOfBirth,
+            onDismiss = { showPicker = false },
+            onPicked = { formatted ->
+                onDateOfBirthChange(formatted)
+                showPicker = false
+            }
+        )
+    }
+}
+
+@Composable
+private fun DobInputBox(
+    digits: String,
+    borderColor: Color,
+    onDigitsChange: (String) -> Unit,
+    onFocusChange: (Boolean) -> Unit,
+    onCalendarClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(StitchWhite)
+            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
+            .padding(start = 16.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        BasicTextField(
+            value = digits,
+            onValueChange = { raw -> onDigitsChange(raw.filter { it.isDigit() }.take(8)) },
+            modifier = Modifier
+                .weight(1f)
+                .onFocusChanged { onFocusChange(it.isFocused) },
+            singleLine = true,
+            textStyle = TextStyle(
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = StitchTitle
+            ),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done
+            ),
+            visualTransformation = DobVisualTransformation,
+            cursorBrush = SolidColor(StitchInk),
+            decorationBox = { innerTextField ->
+                Box(contentAlignment = Alignment.CenterStart) {
+                    if (digits.isEmpty()) {
+                        Text(
+                            text = "DD/MM/YYYY",
+                            color = StitchLabel,
+                            fontSize = 15.sp
+                        )
+                    }
+                    innerTextField()
+                }
+            }
+        )
+        IconButton(onClick = onCalendarClick) {
+            Icon(
+                imageVector = Icons.Default.CalendarToday,
+                contentDescription = "Pick date of birth from calendar",
+                tint = StitchSubtitle,
+                modifier = Modifier.size(22.dp)
+            )
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ProfessionalInformationStep(
+private fun DobPickerDialog(
+    currentValue: String,
+    onDismiss: () -> Unit,
+    onPicked: (String) -> Unit
+) {
+    val today = LocalDate.now()
+    val minDobDate = today.minusYears(70)
+    val maxDobDate = today.minusYears(18)
+    // A typed date is only used as the picker's start when it is inside the allowed
+    // range (an out-of-range initial date would crash the picker state).
+    val typedMillis = parseDobToUtcMillis(currentValue)?.takeIf { millis ->
+        val date = utcMillisToLocalDate(millis)
+        !date.isBefore(minDobDate) && !date.isAfter(maxDobDate)
+    }
+    val initialMillis = typedMillis ?: today.minusYears(25).toUtcMillis()
+    val state = rememberDatePickerState(
+        initialSelectedDateMillis = initialMillis,
+        yearRange = (today.year - 70)..(today.year - 18),
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                val date = utcMillisToLocalDate(utcTimeMillis)
+                return !date.isBefore(minDobDate) && !date.isAfter(maxDobDate)
+            }
+
+            override fun isSelectableYear(year: Int): Boolean {
+                return year in minDobDate.year..maxDobDate.year
+            }
+        }
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(20.dp),
+        tonalElevation = 0.dp,
+        colors = DatePickerDefaults.colors(containerColor = Color.White),
+        confirmButton = {
+            TextButton(
+                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF0F0F0F)),
+                onClick = {
+                    val millis = state.selectedDateMillis
+                    if (millis != null) onPicked(formatDobFromUtcMillis(millis)) else onDismiss()
+                }
+            ) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF0F0F0F))
+            ) {
+                Text("Cancel")
+            }
+        }
+    ) {
+        DatePicker(
+            state = state,
+            showModeToggle = true,
+            colors = whiteDatePickerColors()
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun whiteDatePickerColors(): DatePickerColors {
+    val ink = Color(0xFF0F0F0F)
+    val muted = Color(0xFF64748B)
+    return DatePickerDefaults.colors(
+        containerColor = Color.White,
+        titleContentColor = muted,
+        headlineContentColor = ink,
+        weekdayContentColor = muted,
+        subheadContentColor = ink,
+        navigationContentColor = ink,
+        yearContentColor = ink,
+        currentYearContentColor = ink,
+        selectedYearContentColor = Color.White,
+        selectedYearContainerColor = ink,
+        dayContentColor = ink,
+        selectedDayContentColor = Color.White,
+        selectedDayContainerColor = ink,
+        todayContentColor = ink,
+        todayDateBorderColor = ink,
+        dividerColor = Color(0xFFE2E8F0),
+        dateTextFieldColors = TextFieldDefaults.colors(
+            focusedContainerColor = Color.White,
+            unfocusedContainerColor = Color.White,
+            focusedIndicatorColor = ink,
+            cursorColor = ink
+        )
+    )
+}
+
+// ---------------------------------------------------------------------------
+// Step 2 — Skills & experience
+// ---------------------------------------------------------------------------
+
+/** Chips shown by default (first 9 visible, the rest behind "N more skills"). */
+private val DEFAULT_SKILLS = listOf(
+    "Cooking", "Cleaning", "Driving", "Delivery", "Childcare", "Elderly care",
+    "Tailoring", "Plumbing", "Electrical", "Painting", "Gardening", "Security", "Others"
+)
+
+/** Extra skills that are NOT shown as chips by default; found through the search bar. */
+private val EXTRA_SKILLS = listOf("Tile Fitter", "Welder", "Mason", "AC Technician", "Mechanic")
+
+private const val OTHERS_SKILL = "Others"
+private const val DEFAULT_VISIBLE_SKILLS = 9
+private const val MAX_CUSTOM_SKILL_LENGTH = 30
+
+private val EXPERIENCE_OPTIONS = listOf("No experience", "< 1 yr", "1-3 yrs", "3-5 yrs", "5+ yrs")
+
+private val EDUCATION_OPTIONS = listOf(
+    "No formal education", "Below 10th", "10th pass", "12th pass",
+    "ITI / Diploma", "Graduate", "Any qualification"
+)
+
+private fun parseSkills(raw: String): List<String> =
+    raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+
+/** Trims, strips commas, caps length, capitalizes words; maps known names to their canonical form. */
+private fun normalizeSkillInput(raw: String): String {
+    val cleaned = raw.replace(",", " ").trim().replace(Regex("\\s+"), " ")
+        .take(MAX_CUSTOM_SKILL_LENGTH).trim()
+    if (cleaned.isEmpty() || cleaned.equals(OTHERS_SKILL, ignoreCase = true)) return ""
+    val known = (DEFAULT_SKILLS + EXTRA_SKILLS).firstOrNull { it.equals(cleaned, ignoreCase = true) }
+    if (known != null) return known
+    return cleaned.split(" ").joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
+}
+
+/** 13sp SemiBold gray label used for the sub-sections of a step. */
+@Composable
+private fun SubSectionHeader(title: String) {
+    Text(
+        text = title,
+        color = StitchSubtitle,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(bottom = 10.dp)
+    )
+}
+
+@Composable
+private fun SkillsExperienceStep(
     skills: String,
     experience: String,
     educationQualification: String,
-    workerBio: String,
     skillsError: String?,
     experienceError: String?,
-    bioError: String?,
     onSkillsChange: (String) -> Unit,
     onExperienceChange: (String) -> Unit,
-    onEducationQualificationChange: (String) -> Unit,
-    onWorkerBioChange: (String) -> Unit
+    onEducationChange: (String) -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(top = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // Step header
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFF1F2937).copy(alpha = 0.15f),
-                                Color(0xFF60A5FA).copy(alpha = 0.1f)
-                            )
-                        ),
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.Work,
-                    contentDescription = null,
-                    tint = WorkerColors.TextPrimary,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(18.dp))
-
-            Column {
-                Text(
-                    text = stringResource(R.string.auto_professional_information),
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                        fontSize = 18.sp
-                    )
-                )
-                Text(
-                    text = stringResource(R.string.auto_share_your_skills_and_experience),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = WorkerColors.TextSecondary,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
-            }
-        }
-
-        // Skills with STUNNING Icon Chips
         Column {
             Text(
-                text = stringResource(R.string.auto_skills_select_all_that_apply),
-                style = MaterialTheme.typography.labelLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                    fontSize = 13.sp,
-                    letterSpacing = 0.5.sp
-                ),
-                modifier = Modifier.padding(bottom = 14.dp)
+                text = "Skills & experience",
+                color = StitchTitle,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold
             )
-            
-            val skillsWithIcons = listOf(
-                "Cooking" to Icons.Default.Restaurant,
-                "Cleaning" to Icons.Default.CleaningServices,
-                "Driving" to Icons.Default.DirectionsCar,
-                "Delivery" to Icons.Default.LocalShipping,
-                "Childcare" to Icons.Default.SupportAgent,
-                "Elderly care" to Icons.Default.SupportAgent,
-                "Tailoring" to Icons.Default.HomeWork,
-                "Plumbing" to Icons.Default.Plumbing,
-                "Electrical" to Icons.Default.ElectricalServices,
-                "Painting" to Icons.Default.FormatPaint,
-                "Gardening" to Icons.Default.Yard,
-                "Security" to Icons.Default.Security,
-                "Others" to Icons.Default.MoreHoriz
-            )
-            
-            var selectedSkills by remember { 
-                mutableStateOf(
-                    skills.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
-                )
-            }
-            var showAllSkills by remember { mutableStateOf(false) }
-            var showOtherSkillInput by remember { mutableStateOf(false) }
-            var otherSkillText by remember { mutableStateOf("") }
-            
-            val displaySkills = if (showAllSkills) skillsWithIcons else skillsWithIcons.take(6)
-            
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 0.dp, end = 0.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                for (i in displaySkills.indices step 2) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        for (j in 0 until 2) {
-                            if (i + j < displaySkills.size) {
-                                val (skill, icon) = displaySkills[i + j]
-                                val isSelected = selectedSkills.contains(skill)
-                                val animatedScale by animateFloatAsState(
-                                    targetValue = if (isSelected) 1.05f else 1f,
-                                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)
-                                )
-                                
-                                FilterChip(
-                                    selected = isSelected,
-                                    enabled = true,
-                                    onClick = {
-                                        if (skill == "Others") {
-                                            // Toggle the text input for custom skills
-                                            showOtherSkillInput = !showOtherSkillInput
-                                            if (!showOtherSkillInput) {
-                                                // If hiding input, deselect "Others"
-                                                selectedSkills = selectedSkills - skill
-                                                onSkillsChange(selectedSkills.joinToString(", "))
-                                            }
-                                        } else {
-                                            selectedSkills = if (isSelected) {
-                                                selectedSkills - skill
-                                            } else {
-                                                selectedSkills + skill
-                                            }
-                                            onSkillsChange(selectedSkills.joinToString(", "))
-                                        }
-                                    },
-                                    label = { 
-                                        Text(
-                                            skill,
-                                            style = MaterialTheme.typography.labelMedium.copy(
-                                                fontWeight = FontWeight.Medium,
-                                                fontSize = 11.sp
-                                            )
-                                        ) 
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            icon,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    },
-                                    trailingIcon = if (isSelected) {
-                                        {
-                                            Icon(
-                                                Icons.Default.CheckCircle,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(16.dp),
-                                                tint = WorkerColors.CardBackground
-                                            )
-                                        }
-                                    } else {
-                                        null
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .graphicsLayer(
-                                            scaleX = animatedScale,
-                                            scaleY = animatedScale
-                                        )
-                                        .shadow(
-                                            elevation = if (isSelected) 4.dp else 2.dp,
-                                            shape = RoundedCornerShape(14.dp),
-                                            ambientColor = Color(0xFF1F2937).copy(alpha = if (isSelected) 0.1f else 0f),
-                                            spotColor = Color(0xFF1F2937).copy(alpha = if (isSelected) 0.08f else 0f)
-                                        ),
-                                    shape = RoundedCornerShape(14.dp),
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                                        labelColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                                        selectedContainerColor = Color(0xFF111111),
-                                        selectedLabelColor = WorkerColors.CardBackground,
-                                        selectedLeadingIconColor = WorkerColors.CardBackground
-                                    ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        enabled = true,
-                                        selected = isSelected,
-                                        borderWidth = 1.dp,
-                                        borderColor = Color(0xFFD1D5DB),
-                                        selectedBorderColor = Color(0xFF111111)
-                                    )
-                                )
-                            } else {
-                                Spacer(modifier = Modifier.weight(1f))
-                            }
-                        }
-                    }
-                }
-                
-                // Show More button
-                if (!showAllSkills && skillsWithIcons.size > 6) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        FilterChip(
-                            selected = false,
-                            enabled = true,
-                            onClick = { showAllSkills = true },
-                            label = { 
-                                Text(
-                                    "Show More",
-                                    style = MaterialTheme.typography.labelMedium.copy(
-                                        fontWeight = FontWeight.Medium,
-                                        fontSize = 11.sp
-                                    )
-                                ) 
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    Icons.Default.ExpandMore,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .shadow(
-                                    elevation = 2.dp,
-                                    shape = RoundedCornerShape(14.dp),
-                                    ambientColor = Color(0xFF1F2937).copy(alpha = 0f),
-                                    spotColor = Color(0xFF1F2937).copy(alpha = 0f)
-                                ),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = FilterChipDefaults.filterChipColors(
-                                containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                                labelColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                                selectedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                                selectedLabelColor = WorkerColors.TextPrimary,
-                                selectedLeadingIconColor = Color(0xFF111111)
-                            ),
-                            border = FilterChipDefaults.filterChipBorder(
-                                enabled = true,
-                                selected = false,
-                                borderWidth = 1.dp,
-                                borderColor = Color(0xFFD1D5DB),
-                                selectedBorderColor = Color(0xFF111111)
-                            )
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
-            }
-            
-            // Custom skill input for "Others"
-            AnimatedVisibility(
-                visible = showOtherSkillInput,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = otherSkillText,
-                        onValueChange = { otherSkillText = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        placeholder = { 
-                            Text(
-                                "Enter your custom skill",
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = WorkerColors.TextTertiary
-                                )
-                            ) 
-                        },
-                        trailingIcon = {
-                            IconButton(
-                                onClick = {
-                                    if (otherSkillText.isNotBlank()) {
-                                        // Add the custom skill to selectedSkills
-                                        selectedSkills = selectedSkills + otherSkillText.trim()
-                                        onSkillsChange(selectedSkills.joinToString(", "))
-                                        // Clear the text field
-                                        otherSkillText = ""
-                                    }
-                                },
-                                enabled = otherSkillText.isNotBlank()
-                            ) {
-                                Icon(
-                                    Icons.Default.Add,
-                                    contentDescription = "Add skill",
-                                    tint = if (otherSkillText.isNotBlank()) 
-                                        Color(0xFF111111) 
-                                    else 
-                                        WorkerColors.TextTertiary
-                                )
-                            }
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                            unfocusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                            focusedBorderColor = Color(0xFF111111),
-                            unfocusedBorderColor = Color(0xFFD1D5DB),
-                            focusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                            unfocusedTextColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                        ),
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            fontSize = 14.sp
-                        )
-                    )
-                    
-                    // Display custom skills (skills not in the predefined list)
-                    val predefinedSkills = listOf(
-                        "Cooking", "Cleaning", "Customer Service", "Driving", "Gardening",
-                        "Security", "Delivery", "Warehouse", "Housekeeping", "Food Service",
-                        "Construction", "Electrician", "Plumbing", "Painting", "Carpentry", "Others"
-                    )
-                    val customSkills = selectedSkills.filter { it !in predefinedSkills }
-                    
-                    if (customSkills.isNotEmpty()) {
-                        Text(
-                            text = stringResource(R.string.auto_custom_skills),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Medium,
-                                color = WorkerColors.TextSecondary,
-                                fontSize = 11.sp
-                            ),
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
-                        
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            customSkills.forEach { customSkill ->
-                                AssistChip(
-                                    onClick = {
-                                        // Remove the custom skill
-                                        selectedSkills = selectedSkills - customSkill
-                                        onSkillsChange(selectedSkills.joinToString(", "))
-                                    },
-                                    label = { 
-                                        Text(
-                                            customSkill,
-                                            fontSize = 11.sp
-                                        ) 
-                                    },
-                                    trailingIcon = {
-                                        Icon(
-                                            Icons.Default.Close,
-                                            contentDescription = "Remove skill",
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    },
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = AssistChipDefaults.assistChipColors(
-                                        containerColor = WorkerColors.ChipBackground,
-                                        labelColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                                    ),
-                                    border = BorderStroke(1.dp, Color(0xFFD1D5DB))
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if (skillsError != null) {
-                Row(
-                    modifier = Modifier.padding(start = 12.dp, top = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Error,
-                        contentDescription = null,
-                        tint = WorkerColors.Error,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        text = skillsError,
-                        color = WorkerColors.Error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-            }
-        }
-
-        Column {
             Text(
-                text = stringResource(R.string.auto_education_qualification_optional),
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                ),
-                modifier = Modifier.padding(bottom = 10.dp)
-            )
-
-            val qualificationOptions = listOf(
-                "Below 10th",
-                "10th pass",
-                "12th pass",
-                "ITI / Diploma",
-                "Graduate",
-                "Any qualification"
-            )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                qualificationOptions.forEach { option ->
-                    FilterChip(
-                        selected = educationQualification == option,
-                        onClick = { onEducationQualificationChange(option) },
-                        label = {
-                            Text(
-                                option,
-                                fontSize = 12.sp,
-                                fontWeight = if (educationQualification == option) FontWeight.SemiBold else FontWeight.Normal
-                            )
-                        },
-                        shape = RoundedCornerShape(8.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF111111),
-                            selectedLabelColor = WorkerColors.CardBackground,
-                            containerColor = WorkerColors.ChipBackground,
-                            labelColor = WorkerColors.TextSecondary
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = true,
-                            selected = educationQualification == option,
-                            borderColor = Color.Transparent,
-                            selectedBorderColor = Color.Transparent
-                        )
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            OutlinedTextField(
-                value = educationQualification,
-                onValueChange = { onEducationQualificationChange(it.take(120)) },
-                label = { Text(stringResource(R.string.add_your_qualification)) },
-                placeholder = { Text(stringResource(R.string.qualification_example_hint)) },
-                leadingIcon = { Icon(Icons.Default.School, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF111111),
-                    unfocusedBorderColor = WorkerColors.Border,
-                    cursorColor = Color(0xFF111111),
-                    focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                    unfocusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
-                )
+                text = "What you do, how long, and your background",
+                color = StitchSubtitle,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(top = 2.dp)
             )
         }
 
         Column {
-            Text(
-                text = stringResource(R.string.auto_short_bio_optional),
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                ),
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            OutlinedTextField(
-                value = workerBio,
-                onValueChange = { onWorkerBioChange(it.take(MAX_WORKER_BIO_LENGTH)) },
-                placeholder = { Text(stringResource(R.string.worker_bio_hint)) },
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-                maxLines = 5,
-                isError = bioError != null,
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF111111),
-                    unfocusedBorderColor = WorkerColors.Border,
-                    errorBorderColor = WorkerColors.Error,
-                    cursorColor = Color(0xFF111111),
-                    focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                    unfocusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                    errorContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
-                ),
-                supportingText = {
-                    Text(
-                        text = bioError ?: "${workerBio.trim().length}/$MAX_WORKER_BIO_LENGTH characters",
-                        color = if (bioError != null) WorkerColors.Error else WorkerColors.TextSecondary
-                    )
-                }
+            SubSectionHeader("What are your skills?")
+            SkillsPickerSection(
+                skills = skills,
+                skillsError = skillsError,
+                onSkillsChange = onSkillsChange
             )
         }
 
-        // Experience Level
         Column {
-            var experienceExpanded by remember { mutableStateOf(false) }
-            val experienceLevels = listOf(
-                "Less than a year",
-                "1-3 years",
-                "3-5 years",
-                "More than 5 years"
+            SubSectionHeader("How much experience do you have?")
+            ChipOptionsFlow(
+                options = EXPERIENCE_OPTIONS,
+                selected = experience,
+                onSelect = onExperienceChange
             )
-            
-            Text(
-                text = stringResource(R.string.auto_experience_level),
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                ),
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            
-            ExposedDropdownMenuBox(
-                expanded = experienceExpanded,
-                onExpandedChange = { experienceExpanded = it }
-            ) {
-                OutlinedTextField(
-                    value = experience,
-                    onValueChange = { },
-                    readOnly = true,
-                    placeholder = { Text(stringResource(R.string.select_experience_level)) },
-                    leadingIcon = { Icon(Icons.Default.TrendingUp, contentDescription = null) },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = experienceExpanded) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(),
-                    isError = experienceError != null,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = WorkerColors.Primary,
-                        unfocusedBorderColor = WorkerColors.Border,
-                        errorBorderColor = WorkerColors.Error,
-                        focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                        unfocusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
-                    )
-                )
-                
-                ExposedDropdownMenu(
-                    expanded = experienceExpanded,
-                    onDismissRequest = { experienceExpanded = false },
-                    modifier = Modifier.background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
-                ) {
-                    experienceLevels.forEach { level ->
-                        DropdownMenuItem(
-                            text = { Text(level, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary) },
-                            onClick = {
-                                onExperienceChange(level)
-                                experienceExpanded = false
-                            }
-                        )
-                    }
-                }
-            }
-            
             if (experienceError != null) {
                 Text(
                     text = experienceError,
                     color = WorkerColors.Error,
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                    modifier = Modifier.padding(start = 4.dp, top = 6.dp)
                 )
             }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(StitchBorder)
+        )
+
+        Column {
+            SubSectionHeader("Your education (optional)")
+            ChipOptionsFlow(
+                options = EDUCATION_OPTIONS,
+                selected = educationQualification,
+                onSelect = onEducationChange
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ChipOptionsFlow(
+    options: List<String>,
+    selected: String,
+    onSelect: (String) -> Unit
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        options.forEach { option ->
+            StitchPill(
+                text = option,
+                selected = selected == option,
+                onClick = { onSelect(option) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun WorkerBioSection(
+    workerBio: String,
+    bioError: String?,
+    onWorkerBioChange: (String) -> Unit
+) {
+    Column {
+        SubSectionHeader("Short bio (optional)")
+        OutlinedTextField(
+            value = workerBio,
+            onValueChange = { onWorkerBioChange(it.take(MAX_WORKER_BIO_LENGTH)) },
+            placeholder = { Text(stringResource(R.string.worker_bio_hint)) },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 3,
+            maxLines = 5,
+            isError = bioError != null,
+            shape = RoundedCornerShape(14.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = StitchInk,
+                unfocusedBorderColor = StitchBorder,
+                errorBorderColor = WorkerColors.Error,
+                cursorColor = StitchInk
+            ),
+            supportingText = {
+                Text(
+                    text = bioError ?: "${workerBio.trim().length}/$MAX_WORKER_BIO_LENGTH characters",
+                    color = if (bioError != null) WorkerColors.Error else StitchSubtitle
+                )
+            }
+        )
+    }
+}
+
+/**
+ * Skill chips + search. Default chips come from DEFAULT_SKILLS; EXTRA_SKILLS only
+ * surface via search; anything typed that doesn't match can be added as a custom
+ * skill (chip or keyboard Done). Selection is stored in the same comma-joined string.
+ */
+@Composable
+private fun SkillsPickerSection(
+    skills: String,
+    skillsError: String?,
+    onSkillsChange: (String) -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    var showAllSkills by remember { mutableStateOf(false) }
+    val searchFocus = remember { FocusRequester() }
+    val selected = parseSkills(skills)
+    val selectedSet = selected.toSet()
+    val query = searchQuery.trim()
+
+    fun toggleSkill(name: String) {
+        val updated = if (selected.any { it.equals(name, ignoreCase = true) }) {
+            selected.filter { !it.equals(name, ignoreCase = true) }
+        } else {
+            selected + name
+        }
+        onSkillsChange(updated.joinToString(", "))
+    }
+
+    fun addSkill(name: String) {
+        if (name.isNotBlank() && selected.none { it.equals(name, ignoreCase = true) }) {
+            onSkillsChange((selected + name).joinToString(", "))
+        }
+        searchQuery = ""
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SkillSearchField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            focusRequester = searchFocus,
+            onDone = { addSkill(normalizeSkillInput(searchQuery)) }
+        )
+
+        val addedSkills = selected.filter { it !in DEFAULT_SKILLS }
+        if (addedSkills.isNotEmpty()) {
+            Text(
+                text = "Added skills (tap to remove)",
+                color = StitchLabel,
+                fontSize = 12.sp
+            )
+            SkillChipsFlow(
+                skills = addedSkills,
+                selected = selectedSet,
+                onSkillClick = { skill, _ -> toggleSkill(skill) }
+            )
+        }
+
+        if (query.isNotEmpty()) {
+            SkillSearchResults(
+                query = query,
+                selected = selectedSet,
+                onPick = { addSkill(it) }
+            )
+        } else {
+            DefaultSkillsGrid(
+                showAll = showAllSkills,
+                selected = selectedSet,
+                onToggle = { toggleSkill(it) },
+                onOthers = { searchFocus.requestFocus() },
+                onShowAll = { showAllSkills = true }
+            )
+        }
+
+        if (skillsError != null) {
+            Row(
+                modifier = Modifier.padding(start = 4.dp, top = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    Icons.Default.Error,
+                    contentDescription = null,
+                    tint = WorkerColors.Error,
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = skillsError,
+                    color = WorkerColors.Error,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SkillSearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    focusRequester: FocusRequester,
+    onDone: () -> Unit
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        placeholder = {
+            Text(
+                "Search or type your own skill...",
+                color = StitchSubtitle,
+                fontSize = 14.sp
+            )
+        },
+        leadingIcon = {
+            Icon(Icons.Default.Search, contentDescription = null, tint = StitchSubtitle)
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .focusRequester(focusRequester),
+        singleLine = true,
+        shape = RoundedCornerShape(14.dp),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { onDone() }),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = StitchInk,
+            unfocusedBorderColor = StitchBorder,
+            cursorColor = StitchInk
+        )
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SkillSearchResults(
+    query: String,
+    selected: Set<String>,
+    onPick: (String) -> Unit
+) {
+    val allSkills = (DEFAULT_SKILLS + EXTRA_SKILLS).filter { it != OTHERS_SKILL }
+    val matches = allSkills.filter { it.contains(query, ignoreCase = true) }
+    val typed = normalizeSkillInput(query)
+    val alreadyKnown = typed.isEmpty() ||
+        allSkills.any { it.equals(typed, ignoreCase = true) } ||
+        selected.any { it.equals(typed, ignoreCase = true) }
+
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        matches.forEach { skill ->
+            StitchPill(
+                text = skill,
+                selected = selected.contains(skill),
+                leadingIcon = skillIcon(skill),
+                onClick = { onPick(skill) }
+            )
+        }
+        if (!alreadyKnown) {
+            StitchPill(
+                text = "Add \"$typed\"",
+                selected = false,
+                leadingIcon = Icons.Default.Add,
+                onClick = { onPick(typed) }
+            )
+        }
+    }
+    if (matches.isEmpty() && alreadyKnown) {
+        Text(
+            text = "\"$query\" is already added",
+            color = StitchSubtitle,
+            fontSize = 13.sp
+        )
+    }
+}
+
+@Composable
+private fun DefaultSkillsGrid(
+    showAll: Boolean,
+    selected: Set<String>,
+    onToggle: (String) -> Unit,
+    onOthers: () -> Unit,
+    onShowAll: () -> Unit
+) {
+    val visible = if (showAll) DEFAULT_SKILLS else DEFAULT_SKILLS.take(DEFAULT_VISIBLE_SKILLS)
+    val remainingCount = DEFAULT_SKILLS.size - visible.size
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SkillChipsFlow(
+            skills = visible,
+            selected = selected,
+            onSkillClick = { skill, _ ->
+                if (skill == OTHERS_SKILL) onOthers() else onToggle(skill)
+            }
+        )
+        if (remainingCount > 0) {
+            Text(
+                text = "$remainingCount more skills →",
+                color = StitchSubtitle,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onShowAll)
+                    .padding(vertical = 8.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
         }
     }
 }
@@ -2290,7 +2477,7 @@ private fun GenderSelectionField(
     selectedGender: String,
     onGenderSelected: (String) -> Unit
 ) {
-    val genderOptions = listOf("Male", "Female", "Other")
+    val genderOptions = listOf("Male", "Female")
     
     Column(
         modifier = Modifier.fillMaxWidth()
@@ -2379,4 +2566,5 @@ private fun utcMillisToLocalDate(value: Long): LocalDate {
 private fun LocalDate.toUtcMillis(): Long {
     return atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
 }
+
 

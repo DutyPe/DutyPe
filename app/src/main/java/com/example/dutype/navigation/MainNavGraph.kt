@@ -61,7 +61,19 @@ fun MainNavGraph(
     notificationIntent: android.content.Intent? = null
 ) {
     val context = LocalContext.current
-    val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    // PERF: ProfileCompletionViewModel (which drags in location / FCM / notification services) is no
+    // longer built at NavHost level on every cold start. Only the SELECT_ROLE destination needs it
+    // (obtained there via hiltViewModel()). The startup/notification routing below only needs the
+    // saved user role, which ProfileCompletionViewModel.getUserRole() simply delegated to the
+    // @Singleton ProfileSetupStateManager, so read it from the singleton lazily (first use only).
+    val profileSetupStateManager = remember(context) {
+        lazy {
+            dagger.hilt.android.EntryPointAccessors.fromApplication(
+                context.applicationContext,
+                MainNavGraphEntryPoint::class.java
+            ).profileSetupStateManager()
+        }
+    }
 
     // P2-4: Replaces the previous LocalBroadcastManager-based deep-link relay
     // with a Hilt-singleton SharedFlow. MainActivity.onNewIntent emits; we
@@ -121,8 +133,17 @@ fun MainNavGraph(
     val startupState by startupViewModel.startupState.collectAsState()
     val isLoading = startupState is com.example.dutype.viewmodels.StartupState.Loading
 
-    var startDestination by remember { mutableStateOf(Routes.ONBOARDING) }
-    var navigationDetermined by remember { mutableStateOf(false) }
+    // PERF: seed from the already-resolved (cached) start state so the NavHost is composed in
+    // the very first frame instead of one effect-cycle later.
+    var startDestination by remember {
+        mutableStateOf(
+            (startupState as? com.example.dutype.viewmodels.StartupState.Resolved)?.startDestination
+                ?: Routes.ONBOARDING
+        )
+    }
+    var navigationDetermined by remember {
+        mutableStateOf(startupState is com.example.dutype.viewmodels.StartupState.Resolved)
+    }
 
     LaunchedEffect(startupState) {
         when (val state = startupState) {
@@ -259,7 +280,7 @@ fun MainNavGraph(
                     val resolvedRole = when (loginRoleExtra?.uppercase()) {
                         "EMPLOYER" -> "EMPLOYER"
                         "WORKER" -> "WORKER"
-                        else -> when (profileCompletionViewModel.getUserRole()) {
+                        else -> when (profileSetupStateManager.value.getUserRole()) {
                             com.example.dutype.models.UserRole.EMPLOYER -> "EMPLOYER"
                             else -> "WORKER"
                         }
@@ -276,7 +297,7 @@ fun MainNavGraph(
             // Check if user is authenticated
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
-                val userRole = profileCompletionViewModel.getUserRole()
+                val userRole = profileSetupStateManager.value.getUserRole()
                 
                 // Navigate to specific screen if provided
                 if (navigateTo != null) {
@@ -324,7 +345,7 @@ fun MainNavGraph(
             // Check if user is authenticated
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
-                val userRole = profileCompletionViewModel.getUserRole()
+                val userRole = profileSetupStateManager.value.getUserRole()
                 
                 if (userRole != null) {
                     // For logged-in users with legacy notifications, go directly to home (NOT profile setup)
@@ -390,7 +411,7 @@ fun MainNavGraph(
         composable(Routes.SELECT_ROLE) {
             RoleSelectionWithNavigation(
                 navController = navController,
-                profileCompletionViewModel = profileCompletionViewModel
+                profileCompletionViewModel = androidx.hilt.navigation.compose.hiltViewModel()
             )
         }
         composable(Routes.TERMS_OF_SERVICE) {
@@ -608,6 +629,15 @@ fun MainNavGraph(
             // No loading indicator - should be instant
         }
     }
+}
+
+/**
+ * Entry point used by [MainNavGraph] to reach singleton state without instantiating a ViewModel.
+ */
+@dagger.hilt.EntryPoint
+@dagger.hilt.InstallIn(dagger.hilt.components.SingletonComponent::class)
+interface MainNavGraphEntryPoint {
+    fun profileSetupStateManager(): com.example.dutype.state.ProfileSetupStateManager
 }
 
 @Composable

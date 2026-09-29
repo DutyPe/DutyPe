@@ -2,6 +2,7 @@ package com.example.dutype.worker.screens
 
 import com.dutype.app.R
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -43,6 +44,7 @@ import com.example.dutype.components.JobCardShimmer
 import com.example.dutype.viewmodels.AllJobsViewModel
 import com.example.dutype.viewmodels.JobFilters
 import com.example.dutype.viewmodels.SavedJobsViewModel
+import com.example.dutype.worker.components.WorkerHomeJobCard
 import com.example.dutype.worker.components.JobCard
 import com.example.dutype.utils.CategoryDetector
 import com.example.dutype.components.CategoryIcon
@@ -50,6 +52,12 @@ import com.example.dutype.components.LocationAutocompleteField
 import com.example.dutype.models.LocationData
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import com.example.dutype.models.JobListing
+import com.example.dutype.repositories.LocationRepository
+import com.example.dutype.viewmodels.AllJobsUiState
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.example.dutype.components.EmptyLocationState
@@ -72,43 +80,28 @@ import com.example.dutype.components.openNotificationSettings
 // Industry standard pagination
 private const val PAGE_SIZE = 10L
 
-@Composable
-fun AllJobsScreen(
-    navController: NavController,
-    rootNavController: NavController? = null,
-    initialFilter: String = "All Jobs",
-    voiceQuery: String? = null,
-    onStatusBarColorChange: (Color) -> Unit = {}
-) {
-    val context = LocalContext.current
-    val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
-    val locationRepository = remember { com.example.dutype.di.locationRepositoryFromHilt(context) }
-    
-    // P0 FIX: Use dedicated AllJobsViewModel with filtering in ViewModel
-    val viewModel: AllJobsViewModel = hiltViewModel()
-    
-    // Collect state from ViewModel using lifecycle-aware collection
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val filteredJobs by viewModel.filteredJobs.collectAsStateWithLifecycle()
-    val selectedChip by viewModel.selectedChip.collectAsStateWithLifecycle()
-    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
-    val filters by viewModel.filters.collectAsStateWithLifecycle()
-    val activeFilterCount by viewModel.activeFilterCount.collectAsStateWithLifecycle()
-    val visibleCategory = remember(filters.category, uiState.initialCategory) {
-        when {
-            filters.category != "Any" -> filters.category
-            !uiState.initialCategory.isNullOrBlank() -> uiState.initialCategory ?: "All"
-            else -> "All"
-        }
-    }
-    // Local UI state
-    var showFilterSheet by remember { mutableStateOf(false) }
-    var showLocationSheet by remember { mutableStateOf(false) }
-    var showLocationPermissionBottomSheet by remember { mutableStateOf(false) }
-    var hasAttemptedLocationRequest by remember { mutableStateOf(false) }
-    val currentLocation by viewModel.locationPreferences.currentLocation.collectAsStateWithLifecycle()
-    val coroutineScope = rememberCoroutineScope()
+/** Start loading the next page when the user is this many items away from the end. */
+private const val PREFETCH_DISTANCE = 5
 
+/** When client-side filters hide every loaded job, keep auto-loading up to this many raw jobs. */
+private const val AUTO_FILL_LIMIT = 100
+
+private class JobsLocationPermission(
+    val hasPermission: Boolean,
+    val requestOrOpenSettings: () -> Unit
+)
+
+/**
+ * Location permission state + launcher. A fresh fix is forwarded to the ViewModel, which
+ * only re-sorts when the user moved more than ~500 m (and never clears the list).
+ */
+@Composable
+private fun rememberJobsLocationPermission(
+    viewModel: AllJobsViewModel,
+    locationRepository: LocationRepository
+): JobsLocationPermission {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     var hasLocationPermission by remember {
         mutableStateOf(
             androidx.core.content.ContextCompat.checkSelfPermission(
@@ -121,6 +114,19 @@ fun AllJobsScreen(
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
         )
     }
+    var hasAttemptedLocationRequest by remember { mutableStateOf(false) }
+
+    val refreshFix: () -> Unit = {
+        coroutineScope.launch {
+            locationRepository.refresh { freshLocation ->
+                if (freshLocation != null) {
+                    val data = viewModel.locationService.toLocationData(freshLocation)
+                    viewModel.setUserLocation(data.latitude, data.longitude)
+                }
+            }
+        }
+    }
+    val currentRefreshFix by rememberUpdatedState(refreshFix)
 
     // Automatically detect permission grant when returning to app
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -138,15 +144,7 @@ fun AllJobsScreen(
 
                 if (isGranted && !hasLocationPermission) {
                     hasLocationPermission = true
-                    val locationService = viewModel.locationService
-                    coroutineScope.launch {
-                        locationRepository.refresh { freshLocation ->
-                            if (freshLocation != null) {
-                                val data = locationService.toLocationData(freshLocation)
-                                viewModel.setUserLocation(data.latitude, data.longitude)
-                            }
-                        }
-                    }
+                    currentRefreshFix()
                 }
             }
         }
@@ -162,19 +160,11 @@ fun AllJobsScreen(
         hasLocationPermission = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
             permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
         if (hasLocationPermission) {
-            val locationService = viewModel.locationService
-            coroutineScope.launch {
-                locationRepository.refresh { freshLocation ->
-                    if (freshLocation != null) {
-                        val data = locationService.toLocationData(freshLocation)
-                        viewModel.setUserLocation(data.latitude, data.longitude)
-                    }
-                }
-            }
+            currentRefreshFix()
         }
     }
 
-    fun requestOrOpenLocationSettings() {
+    val requestOrOpenSettings: () -> Unit = {
         val activity = context.findActivity()
         val isPermanentlyDenied = activity != null && hasAttemptedLocationRequest &&
             !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, android.Manifest.permission.ACCESS_FINE_LOCATION) &&
@@ -195,288 +185,185 @@ fun AllJobsScreen(
             )
         }
     }
-    
-    // Pagination: 10 jobs per page
-    val pageSize = PAGE_SIZE
-    
-    // Set status bar color and initialize ViewModel
-    LaunchedEffect(Unit) {
+
+    return JobsLocationPermission(hasLocationPermission, requestOrOpenSettings)
+}
+
+/**
+ * One-shot start-up work for the Jobs tab:
+ *  1. apply the route filter (once per distinct value),
+ *  2. use the last known location immediately,
+ *  3. load page 1 (instant from cache when fresh),
+ *  4. refine the location from GPS in the background (silent unless moved > 500 m).
+ */
+@Composable
+private fun JobsScreenEffects(
+    viewModel: AllJobsViewModel,
+    locationRepository: LocationRepository,
+    initialFilter: String,
+    voiceQuery: String?,
+    onStatusBarColorChange: (Color) -> Unit
+) {
+    LaunchedEffect(initialFilter) {
         onStatusBarColorChange(Color.White)
-        
-        // CRITICAL: Set initial category FIRST
-        val categoryForQuery = initialFilter.takeIf { it != "All Jobs" }
-        viewModel.setInitialCategory(categoryForQuery)
-        
-        // 🚀 UBER/SWIGGY STRATEGY: Get location fast and load jobs in parallel
-        val locationPreferences = viewModel.locationPreferences
-        val savedLocation = locationPreferences.getSavedLocationIfFresh()
-        
+        viewModel.applyRouteFilter(initialFilter)
+
+        val savedLocation = viewModel.locationPreferences.getSavedLocationIfFresh()
         if (savedLocation != null) {
-            Timber.d("📍 AllJobsScreen: Using cached location - lat=${savedLocation.latitude}, lon=${savedLocation.longitude}")
             viewModel.setUserLocation(savedLocation.latitude, savedLocation.longitude)
         }
-        
-        // Load jobs immediately (don't wait for location)
-        Timber.d("📍 AllJobsScreen: Loading jobs with category: $categoryForQuery")
-        viewModel.loadJobs(limit = PAGE_SIZE, category = categoryForQuery)
-        
-        // Get fresh location in background to update distances
-        if (!locationPreferences.isManualLocationLocked()) {
-            launch {
-                try {
-                    // Fetch only when cache is stale to avoid repeated GPS calls.
-                    if (!locationPreferences.isLocationFresh(5 * 60 * 1000L)) {
-                        val locationService = viewModel.locationService
-                        locationRepository.refresh { freshLocation ->
-                            if (freshLocation != null) {
-                                Timber.d("📍 AllJobsScreen: Fresh location received - updating distances")
-                                // Location already saved by getLocationFast()
-                                val data = locationService.toLocationData(freshLocation)
-                                viewModel.setUserLocation(data.latitude, data.longitude)
-                            }
-                        }
-                    } else {
-                        Timber.d("📍 AllJobsScreen: Skipping GPS fetch - using fresh cached location")
-                    }
-                } catch (e: Exception) {
-                    Timber.e(e, "Failed to get fresh location")
+        viewModel.ensureLoaded()
+
+        if (!voiceQuery.isNullOrBlank() && voiceQuery != viewModel.searchQuery.value) {
+            viewModel.setSearchQuery(voiceQuery)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val locationPreferences = viewModel.locationPreferences
+        if (locationPreferences.isManualLocationLocked()) return@LaunchedEffect
+        if (locationPreferences.isLocationFresh(5 * 60 * 1000L)) return@LaunchedEffect
+        try {
+            locationRepository.refresh { freshLocation ->
+                if (freshLocation != null) {
+                    val data = viewModel.locationService.toLocationData(freshLocation)
+                    viewModel.setUserLocation(data.latitude, data.longitude)
                 }
             }
-        } else {
-            Timber.d("📍 AllJobsScreen: Manual location lock active - skipping background GPS refresh")
-        }
-        
-        // Auto-search with voice query if provided
-        if (!voiceQuery.isNullOrBlank()) {
-            timber.log.Timber.d("🎤 Voice query received: $voiceQuery")
-            timber.log.Timber.d("🎤 Setting search query in ViewModel...")
-            viewModel.setSearchQuery(voiceQuery)
-            timber.log.Timber.d("🎤 Search query set successfully")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to get fresh location")
         }
     }
-    
-    // Debug: Log search query changes
-    LaunchedEffect(searchQuery) {
-        timber.log.Timber.d("🔍 Search query in UI: '$searchQuery'")
-        timber.log.Timber.d("🔍 Filtered jobs count: ${filteredJobs.size}")
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AllJobsScreen(
+    navController: NavController,
+    rootNavController: NavController? = null,
+    initialFilter: String = "All Jobs",
+    voiceQuery: String? = null,
+    onStatusBarColorChange: (Color) -> Unit = {}
+) {
+    val context = LocalContext.current
+    val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
+    val locationRepository = remember { com.example.dutype.di.locationRepositoryFromHilt(context) }
+    val viewModel: AllJobsViewModel = hiltViewModel()
+
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val filteredJobs by viewModel.filteredJobs.collectAsStateWithLifecycle()
+    val selectedChip by viewModel.selectedChip.collectAsStateWithLifecycle()
+    val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
+    val filters by viewModel.filters.collectAsStateWithLifecycle()
+    val activeFilterCount by viewModel.activeFilterCount.collectAsStateWithLifecycle()
+    val currentLocation by viewModel.locationPreferences.currentLocation.collectAsStateWithLifecycle()
+    val correctedQuery by viewModel.correctedQuery.collectAsStateWithLifecycle()
+
+    var showFilterSheet by remember { mutableStateOf(false) }
+    var showLocationSheet by remember { mutableStateOf(false) }
+    var showLocationPermissionBottomSheet by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    val locationPermission = rememberJobsLocationPermission(viewModel, locationRepository)
+    JobsScreenEffects(viewModel, locationRepository, initialFilter, voiceQuery, onStatusBarColorChange)
+
+    // Urgent-only now lives in JobFilters (filter sheet), so the VM output is final.
+    val displayedJobs = filteredJobs
+
+    // If client-side filters hide everything that is loaded, keep pulling pages
+    // (nearest first) instead of showing a false empty state while more jobs exist.
+    val canAutoFill = displayedJobs.isEmpty() && uiState.hasMore && !uiState.isLoading &&
+        !uiState.isRefreshing && !uiState.isSyncing && !uiState.isLoadingMore &&
+        !uiState.loadMoreFailed && uiState.jobs.size < AUTO_FILL_LIMIT
+    LaunchedEffect(canAutoFill, uiState.jobs.size) {
+        if (canAutoFill) viewModel.loadMoreJobs(PAGE_SIZE)
     }
-    
-    val categoryTabs = remember {
-        val allCategories = listOf("All Jobs" to "📋")
-        val jobCategories = com.example.dutype.employer.models.JobCategory.entries
-            .filter { it != com.example.dutype.employer.models.JobCategory.OTHER }
-            .map { it.displayName to it.icon }
-        allCategories + jobCategories
+
+    // A failed pull-to-refresh keeps the list; tell the user instead of blanking the screen.
+    LaunchedEffect(uiState.error, uiState.hasError) {
+        if (uiState.error != null && !uiState.hasError && uiState.jobs.isNotEmpty()) {
+            android.widget.Toast.makeText(context, "Couldn't refresh jobs. Check your connection.", android.widget.Toast.LENGTH_SHORT).show()
+            viewModel.clearError()
+        }
     }
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
     ) {
-        // Offline banner at the very top
         val connectivityViewModel: ConnectivityViewModel = hiltViewModel()
         val isOnline by connectivityViewModel.isOnline.collectAsState()
         OfflineBanner(isOffline = !isOnline)
-        
-        // Common Header
+
+        // Find Jobs is one of the bottom tabs, so no back chevron.
         CommonHeader(
-            title = if (viewModel.isInitialFilterCategory()) "$initialFilter Jobs" else "All Jobs",
+            title = if (viewModel.isInitialFilterCategory()) "$initialFilter Jobs" else "Find Jobs",
             onBackClick = { navController.popBackStack() },
+            showBackButton = false,
             backgroundColor = WorkerColors.CardBackground
         )
 
-        // Location bar — shows the area jobs are sorted around; tap to change.
         JobLocationBar(
             locationText = currentLocation?.getShortAddress() ?: "Set your location",
             onClick = { showLocationSheet = true }
         )
 
-        // Search and Filter Section
-        Column(
+        JobsSearchAndFilters(
+            searchQuery = searchQuery,
+            onQueryChange = { viewModel.setSearchQuery(it) },
+            activeFilterCount = activeFilterCount,
+            correctedQuery = correctedQuery,
+            onOpenFilters = { showFilterSheet = true }
+        )
+
+        // Always visible (also in empty/error states) so the user can switch category.
+        JobCategoryRail(
+            selectedChip = selectedChip,
+            onCategoryClick = { viewModel.setCategoryAndReload(it) }
+        )
+        HorizontalDivider(color = WorkerColors.Border, thickness = 1.dp)
+
+        PullToRefreshBox(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = { viewModel.refreshJobs() },
             modifier = Modifier
                 .fillMaxWidth()
-                .background(WorkerColors.CardBackground)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .weight(1f)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(modifier = Modifier.weight(1f)) {
-                    ReusableSearchBar(
-                        query = searchQuery,
-                        onQueryChange = { viewModel.setSearchQuery(it) },
-                        placeholder = stringResource(R.string.search_jobs_companies),
-                        height = 48,
-                        backgroundColor = WorkerColors.ChipBackground,
-                        borderColor = Color.Transparent,
-                        focusedBorderColor = WorkerColors.Primary,
-                        searchIconColor = WorkerColors.IconSecondary,
-                        textColor = WorkerColors.TextPrimary,
-                        placeholderColor = WorkerColors.TextTertiary,
-                        cornerRadius = 12,
-                        fontSize = 14
-                    )
-                }
-                
-                // Filter button with badge
-                Box(
-                    modifier = Modifier
-                        .size(ComponentHeights.MinimumTouchTarget) // Material Design 3: 48dp touch target
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (activeFilterCount > 0) WorkerColors.Primary else WorkerColors.ChipBackground)
-                        .clickable { showFilterSheet = true },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.FilterList,
-                        contentDescription = "Filter",
-                        tint = if (activeFilterCount > 0) Color.White else WorkerColors.IconPrimary,
-                        modifier = Modifier.size(IconSizes.Standard) // Material Design 3: 24dp
-                    )
-                    if (activeFilterCount > 0) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .offset(x = 4.dp, y = (-4).dp)
-                                .size(18.dp)
-                                .background(WorkerColors.Error, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "$activeFilterCount",
-                                color = Color.White,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+            JobsContent(
+                hasLocationAccess = locationPermission.hasPermission || currentLocation != null,
+                uiState = uiState,
+                jobs = displayedJobs,
+                urgentOnly = filters.urgentOnly,
+                searchQuery = searchQuery,
+                selectedChip = selectedChip,
+                locationName = currentLocation?.getShortAddress(),
+                onRequestLocation = { showLocationPermissionBottomSheet = true },
+                onRetry = { viewModel.retry() },
+                onLoadMore = { viewModel.loadMoreJobs(PAGE_SIZE) },
+                onShowAllJobs = { viewModel.showAllJobs() },
+                onDisableUrgent = { viewModel.setFilters(filters.copy(urgentOnly = false)) },
+                onClearSearch = { viewModel.setSearchQuery("") },
+                onCitySuggestionClick = { chip ->
+                    coroutineScope.launch {
+                        val locData = com.example.dutype.location.TopCityChips.toLocationData(chip)
+                        viewModel.locationPreferences.saveLocation(locData, forceManualOverride = true)
+                        viewModel.onLocationChanged(chip.latitude, chip.longitude)
                     }
+                },
+                onHelpDesk = { navController.navigate(Routes.HELP) },
+                onNavigateToJob = { jobId -> navController.navigate(Routes.jobDetailRoute(jobId)) },
+                onSaveClick = { jobId, isSaved ->
+                    if (isSaved) savedJobsViewModel.unsaveJob(jobId)
+                    else savedJobsViewModel.saveJob(jobId)
                 }
-            }
-        }
-
-        val isEmptyJobsState = filteredJobs.isEmpty() && !uiState.isLoading
-        
-        // Category rail section - hide when in empty state to remove clutter
-        if (!isEmptyJobsState) {
-            LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(WorkerColors.CardBackground)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 12.dp)
-            ) {
-                items(
-                    items = categoryTabs,
-                    key = { (label, _) -> "cat_tab_$label" },
-                    contentType = { "category_chip" }
-                ) { (label, emoji) ->
-                    val isSelected = selectedChip == label || 
-                                     (selectedChip == "Any" && label == "All Jobs") ||
-                                     (selectedChip == "All" && label == "All Jobs")
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .width(64.dp)
-                            .clickable { viewModel.setCategoryAndReload(label) }
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(52.dp)
-                                .background(
-                                    color = if (isSelected) {
-                                        if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color.White.copy(alpha = 0.15f) else WorkerColors.Primary.copy(alpha = 0.15f)
-                                    } else {
-                                        if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color.White.copy(alpha = 0.05f) else Color(0xFFF1F5F9)
-                                    },
-                                    shape = CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(text = emoji, fontSize = 24.sp)
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = if (label == "All Jobs") "All" else label,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = if (isSelected) WorkerColors.Primary else WorkerColors.TextSecondary,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-                            )
-                        )
-                    }
-                }
-            }
-            HorizontalDivider(color = WorkerColors.Border, thickness = 1.dp)
-        }
-
-        // Job list content
-        when {
-            !hasLocationPermission && currentLocation == null -> {
-                com.example.dutype.components.LocationPermissionRequiredState(
-                    onRequestPermissionClick = { showLocationPermissionBottomSheet = true }
-                )
-            }
-
-            uiState.isLoading && filteredJobs.isEmpty() -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(6) { JobCardShimmer() }
-                }
-            }
-            
-            uiState.hasError -> {
-                ErrorState(
-                    error = uiState.error,
-                    onRetry = { 
-                        val categoryForQuery = initialFilter.takeIf { it != "All Jobs" }
-                        viewModel.loadJobs(category = categoryForQuery) 
-                    }
-                )
-            }
-            
-            filteredJobs.isEmpty() && !uiState.isLoading -> {
-                EmptyState(
-                    searchQuery = searchQuery,
-                    selectedChip = selectedChip,
-                    locationName = currentLocation?.getShortAddress(),
-                    onViewAllJobs = { viewModel.setSelectedChip("All Jobs") },
-                    onClearSearch = { viewModel.setSearchQuery("") },
-                    onCitySuggestionClick = { chip ->
-                        coroutineScope.launch {
-                            val locData = com.example.dutype.location.TopCityChips.toLocationData(chip)
-                            viewModel.locationPreferences.saveLocation(locData, forceManualOverride = true)
-                            viewModel.onLocationChanged(chip.latitude, chip.longitude)
-                        }
-                    },
-                    onHelpDesk = { navController.navigate(Routes.HELP) }
-                )
-            }
-            
-            else -> {
-                JobsList(
-                    jobs = filteredJobs,
-                    uiState = uiState,
-                    pageSize = pageSize,
-                    onLoadMore = { 
-                        val categoryForQuery = initialFilter.takeIf { it != "All Jobs" }
-                        viewModel.loadMoreJobs(pageSize, categoryForQuery) 
-                    },
-                    onNavigateToJob = { jobId -> navController.navigate(Routes.jobDetailRoute(jobId)) },
-                    onSaveClick = { jobId, isSaved ->
-                        if (isSaved) savedJobsViewModel.unsaveJob(jobId)
-                        else savedJobsViewModel.saveJob(jobId)
-                    }
-                )
-            }
+            )
         }
     }
-    
+
     // Location picker sheet — search any area to re-sort jobs by nearest first.
     if (showLocationSheet) {
         JobLocationPickerSheet(
@@ -504,7 +391,7 @@ fun AllJobsScreen(
         onDismiss = { showLocationPermissionBottomSheet = false },
         onAllowLocation = {
             showLocationPermissionBottomSheet = false
-            requestOrOpenLocationSettings()
+            locationPermission.requestOrOpenSettings()
         }
     )
 
@@ -522,84 +409,496 @@ fun AllJobsScreen(
     }
 }
 
+/**
+ * Search bar + filter button. Sort, distance, salary and "urgent only" live in the
+ * filter sheet (the filter button shows how many are active). No job count here.
+ */
 @Composable
-private fun CategoryQuickFilterSection(
-    selectedCategory: String,
-    onCategorySelected: (String) -> Unit
+private fun JobsSearchAndFilters(
+    searchQuery: String,
+    onQueryChange: (String) -> Unit,
+    activeFilterCount: Int,
+    correctedQuery: String?,
+    onOpenFilters: () -> Unit
 ) {
-    val categories = remember { listOf("All") + CategoryDetector.getAllCategories() }
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(WorkerColors.CardBackground)
-            .padding(bottom = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Text(
-            text = stringResource(R.string.filter_by_category),
-            style = AppTypography.sectionHeader.copy(
-                color = WorkerColors.TextPrimary,
-                fontWeight = FontWeight.SemiBold
-            ),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-        )
-        LazyRow(
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(modifier = Modifier.weight(1f)) {
+                ReusableSearchBar(
+                    query = searchQuery,
+                    onQueryChange = onQueryChange,
+                    placeholder = "Search job, company or area...",
+                    height = 48,
+                    backgroundColor = WorkerColors.CardBackground,
+                    borderColor = WorkerColors.Border,
+                    focusedBorderColor = WorkerColors.Primary,
+                    searchIconColor = WorkerColors.IconSecondary,
+                    textColor = WorkerColors.TextPrimary,
+                    placeholderColor = WorkerColors.TextTertiary,
+                    cornerRadius = 24,
+                    fontSize = 14,
+                    showShadow = false
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .size(ComponentHeights.MinimumTouchTarget)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (activeFilterCount > 0) WorkerColors.Primary else WorkerColors.ChipBackground)
+                    .clickable(onClick = onOpenFilters),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.FilterList,
+                    contentDescription = "Filter",
+                    tint = if (activeFilterCount > 0) Color.White else WorkerColors.IconPrimary,
+                    modifier = Modifier.size(IconSizes.Standard)
+                )
+                if (activeFilterCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .offset(x = 4.dp, y = (-4).dp)
+                            .size(18.dp)
+                            .background(WorkerColors.Error, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "$activeFilterCount",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+
+        // Typo-tolerant search: tell the worker what was actually searched.
+        if (!correctedQuery.isNullOrBlank() && searchQuery.trim().length >= 2) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Showing results for \u201C$correctedQuery\u201D",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = WorkerColors.TextSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            )
+        }
+    }
+}
+
+/** Category rail. Selecting a tile refetches from the server with that category. */
+@Composable
+private fun JobCategoryRail(
+    selectedChip: String,
+    onCategoryClick: (String) -> Unit
+) {
+    val categoryTabs = remember {
+        val allCategories = listOf("All Jobs" to "")
+        val jobCategories = com.example.dutype.employer.models.JobCategory.entries
+            .filter { it != com.example.dutype.employer.models.JobCategory.OTHER }
+            .map { it.displayName to it.icon }
+        allCategories + jobCategories
+    }
+
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(WorkerColors.CardBackground)
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 12.dp)
+    ) {
+        items(
+            items = categoryTabs,
+            key = { (label, _) -> "cat_tab_$label" },
+            contentType = { "category_chip" }
+        ) { (label, emoji) ->
+            val isSelected = selectedChip == label ||
+                (selectedChip == "Any" && label == "All Jobs") ||
+                (selectedChip == "All" && label == "All Jobs")
+            JobCategoryTile(
+                label = label,
+                emoji = emoji,
+                isSelected = isSelected,
+                onClick = { onCategoryClick(label) }
+            )
+        }
+    }
+}
+
+private val JobCategoryPalette = listOf(
+    Color(0xFFF5F3FF) to Color(0xFF7C3AED),
+    Color(0xFFECFEFF) to Color(0xFF0891B2),
+    Color(0xFFFFF7ED) to Color(0xFFEA580C),
+    Color(0xFFFDF2F8) to Color(0xFFDB2777),
+    Color(0xFFF1F5F9) to Color(0xFF0F172A)
+)
+
+private fun jobCategoryTint(label: String): Pair<Color, Color> = when (label) {
+    "All Jobs" -> Color(0xFFF1F5F9) to Color(0xFF0F172A)
+    "Electrician" -> Color(0xFFFEF3C7) to Color(0xFFD97706)
+    "Plumber" -> Color(0xFFEFF6FF) to Color(0xFF2563EB)
+    "Driver" -> Color(0xFFF0FDF4) to Color(0xFF16A34A)
+    "Cook" -> Color(0xFFFEF2F2) to Color(0xFFDC2626)
+    else -> JobCategoryPalette[(label.hashCode() and 0x7fffffff) % JobCategoryPalette.size]
+}
+
+private fun jobCategoryIcon(label: String): ImageVector? = when (label) {
+    "All Jobs" -> Icons.Default.Apps
+    "Electrician" -> Icons.Default.Bolt
+    "Plumber" -> Icons.Default.Build
+    "Driver" -> Icons.Default.LocalShipping
+    "Cook" -> Icons.Default.Restaurant
+    else -> null
+}
+
+@Composable
+private fun JobCategoryTile(
+    label: String,
+    emoji: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val (container, tint) = jobCategoryTint(label)
+    val tileShape = RoundedCornerShape(18.dp)
+    val icon = jobCategoryIcon(label)
+    Column(
+        modifier = Modifier
+            .width(64.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .background(container, tileShape)
+                .then(
+                    if (isSelected) Modifier.border(2.dp, Color(0xFF0F0F0F), tileShape)
+                    else Modifier
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(26.dp)
+                )
+            } else {
+                Text(text = emoji, fontSize = 26.sp)
+            }
+        }
+        Text(
+            text = if (label == "All Jobs") "All" else label,
+            color = Color(0xFF0F172A),
+            fontSize = 11.sp,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            lineHeight = 13.sp
+        )
+    }
+}
+
+/**
+ * Wraps a non-scrolling state (error / empty / permission) in a full-size lazy list so
+ * pull-to-refresh still works there.
+ */
+@Composable
+private fun PullableFill(content: @Composable () -> Unit) {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        item(key = "pullable_fill") {
+            Box(modifier = Modifier.fillParentMaxSize()) {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun JobsShimmerList() {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(6) { JobCardShimmer() }
+    }
+}
+
+/** Chooses between permission prompt, shimmer, error, empty and the job list. */
+@Composable
+private fun JobsContent(
+    hasLocationAccess: Boolean,
+    uiState: AllJobsUiState,
+    jobs: List<JobListing>,
+    urgentOnly: Boolean,
+    searchQuery: String,
+    selectedChip: String,
+    locationName: String?,
+    onRequestLocation: () -> Unit,
+    onRetry: () -> Unit,
+    onLoadMore: () -> Unit,
+    onShowAllJobs: () -> Unit,
+    onDisableUrgent: () -> Unit,
+    onClearSearch: () -> Unit,
+    onCitySuggestionClick: (com.example.dutype.location.TopCityChips.CityLocationChip) -> Unit,
+    onHelpDesk: () -> Unit,
+    onNavigateToJob: (String) -> Unit,
+    onSaveClick: (String, Boolean) -> Unit
+) {
+    // Shimmer while the first page is in flight, or while filters hide everything loaded
+    // and the auto-fill effect is fetching the next (nearest) page.
+    val waitingForData = jobs.isEmpty() && (
+        uiState.isLoading || uiState.isRefreshing || uiState.isSyncing ||
+            (uiState.hasMore && !uiState.loadMoreFailed && uiState.jobs.size < AUTO_FILL_LIMIT)
+        )
+
+    when {
+        !hasLocationAccess -> PullableFill {
+            com.example.dutype.components.LocationPermissionRequiredState(
+                onRequestPermissionClick = onRequestLocation
+            )
+        }
+
+        uiState.hasError && uiState.jobs.isEmpty() -> PullableFill {
+            ErrorState(error = uiState.error, onRetry = onRetry)
+        }
+
+        waitingForData -> JobsShimmerList()
+
+        jobs.isEmpty() && uiState.loadMoreFailed -> PullableFill {
+            ErrorState(error = null, onRetry = onLoadMore)
+        }
+
+        jobs.isEmpty() && urgentOnly -> PullableFill {
+            UrgentEmptyState(onShowAll = onDisableUrgent)
+        }
+
+        jobs.isEmpty() -> PullableFill {
+            EmptyState(
+                searchQuery = searchQuery,
+                selectedChip = selectedChip,
+                locationName = locationName,
+                onViewAllJobs = onShowAllJobs,
+                onClearSearch = onClearSearch,
+                onCitySuggestionClick = onCitySuggestionClick,
+                onHelpDesk = onHelpDesk
+            )
+        }
+
+        else -> JobsList(
+            jobs = jobs,
+            uiState = uiState,
+            onLoadMore = onLoadMore,
+            onNavigateToJob = onNavigateToJob,
+            onSaveClick = onSaveClick
+        )
+    }
+}
+
+private data class LoadMoreInputs(
+    val itemCount: Int,
+    val hasMore: Boolean,
+    val busy: Boolean,
+    val failed: Boolean
+)
+
+private fun jobListKey(job: JobListing): String =
+    job.id.ifBlank { job.jobId.ifBlank { "${job.employerId}:${job.title}:${job.createdAt}" } }
+
+/**
+ * Infinite list. The next page is requested while the user is still
+ * [PREFETCH_DISTANCE] items away from the end, so scrolling never hits a wall. Item keys
+ * are the job ids, so appended pages / silent refreshes keep the scroll position.
+ */
+@Composable
+private fun JobsList(
+    jobs: List<JobListing>,
+    uiState: AllJobsUiState,
+    onLoadMore: () -> Unit,
+    onNavigateToJob: (String) -> Unit,
+    onSaveClick: (String, Boolean) -> Unit
+) {
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val currentOnLoadMore by rememberUpdatedState(onLoadMore)
+    val inputs by rememberUpdatedState(
+        LoadMoreInputs(
+            itemCount = jobs.size,
+            hasMore = uiState.hasMore,
+            busy = uiState.isLoadingMore || uiState.isLoading || uiState.isRefreshing || uiState.isSyncing,
+            failed = uiState.loadMoreFailed
+        )
+    )
+
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            val current = inputs
+            val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+            current.hasMore && !current.busy && !current.failed &&
+                current.itemCount > 0 &&
+                lastVisible >= current.itemCount - 1 - PREFETCH_DISTANCE
+        }
+            .distinctUntilChanged()
+            .filter { it }
+            .collect { currentOnLoadMore() }
+    }
+
+    val showJumpToTop by remember {
+        derivedStateOf { listState.firstVisibleItemIndex >= 10 }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 100.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(
-                items = categories,
-                key = { cat -> "cat_$cat" },
-                contentType = { "category_filter_chip" }
-            ) { category ->
-                val isSelected = selectedCategory.equals(category, ignoreCase = true)
-                CategoryPill(
-                    label = category,
-                    icon = CategoryIcon.forDisplayName(category),
-                    selected = isSelected,
-                    onClick = { onCategorySelected(category) }
+                items = jobs,
+                key = { job -> jobListKey(job) },
+                contentType = { "job_card" }
+            ) { job ->
+                WorkerHomeJobCard(
+                    job = job,
+                    onCardClick = { onNavigateToJob(it) }
+                )
+            }
+
+            if (uiState.hasMore || uiState.loadMoreFailed) {
+                item(key = "alljobs_load_more_footer", contentType = "footer") {
+                    LoadMoreFooter(failed = uiState.loadMoreFailed, onRetry = onLoadMore)
+                }
+            } else {
+                item(key = "alljobs_end_of_list", contentType = "end") {
+                    EndOfListRow()
+                }
+            }
+        }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showJumpToTop,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.scaleIn(),
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.scaleOut(),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .padding(bottom = 80.dp)
+        ) {
+            FloatingActionButton(
+                onClick = { scope.launch { listState.animateScrollToItem(0) } },
+                containerColor = WorkerColors.Primary,
+                contentColor = Color.White,
+                elevation = FloatingActionButtonDefaults.elevation(
+                    defaultElevation = 6.dp,
+                    pressedElevation = 12.dp
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ArrowUpward,
+                    contentDescription = "Jump to Top",
+                    modifier = Modifier.size(IconSizes.Standard)
                 )
             }
         }
     }
 }
 
-/**
- * Icon + label category chip used in the category browser. Selected state uses
- * the role primary colour with white content (readable in light and dark).
- */
 @Composable
-private fun CategoryPill(
-    label: String,
-    icon: ImageVector,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val background = if (selected) WorkerColors.Primary else WorkerColors.ChipBackground
-    val foreground = if (selected) Color.White else WorkerColors.TextSecondary
-    Row(
+private fun LoadMoreFooter(failed: Boolean, onRetry: () -> Unit) {
+    Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(22.dp))
-            .background(background)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(7.dp)
+            .fillMaxWidth()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = foreground,
-            modifier = Modifier.size(18.dp)
-        )
+        if (failed) {
+            TextButton(onClick = onRetry) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(IconSizes.Small)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Couldn't load more jobs. Tap to retry")
+            }
+        } else {
+            CircularProgressIndicator(
+                modifier = Modifier.size(IconSizes.Standard),
+                color = WorkerColors.TextPrimary,
+                strokeWidth = 2.dp
+            )
+        }
+    }
+}
+
+@Composable
+private fun EndOfListRow() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
         Text(
-            text = label,
-            style = AppTypography.labelLarge.copy(
-                color = foreground,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+            text = "You're all caught up. That's every job near you.",
+            style = AppTypography.bodySmall.copy(
+                color = WorkerColors.TextSecondary,
+                textAlign = TextAlign.Center
             )
         )
+    }
+}
+
+@Composable
+private fun UrgentEmptyState(onShowAll: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(32.dp)
+        ) {
+            Text(
+                text = "No urgent jobs right now",
+                style = AppTypography.emptyStateTitle.copy(color = WorkerColors.TextPrimary)
+            )
+            Text(
+                text = "Employers haven't marked any nearby job as urgent. Show all jobs instead.",
+                style = AppTypography.emptyStateSubtitle.copy(
+                    color = WorkerColors.TextSecondary,
+                    textAlign = TextAlign.Center
+                )
+            )
+            Button(
+                onClick = onShowAll,
+                colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Show all jobs")
+            }
+        }
     }
 }
 
@@ -730,137 +1029,6 @@ private fun JobLocationPickerSheet(
 
 
 /**
- * P1 PERFORMANCE FIX: Extracted JobsList composable
- * Reduces recomposition scope - only this component recomposes when jobs change
- * Uses regular JobCard - ad shows on back from JobDescriptionScreen
- * 
- * SMOOTH INFINITE SCROLL: Loads 10 jobs at a time when user scrolls near end
- */
-@Composable
-private fun JobsList(
-    jobs: List<com.example.dutype.models.JobListing>,
-    uiState: com.example.dutype.viewmodels.AllJobsUiState,
-    pageSize: Long,
-    onLoadMore: () -> Unit,
-    onNavigateToJob: (String) -> Unit,
-    onSaveClick: (String, Boolean) -> Unit
-) {
-    val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
-    var lastLoadTriggerToken by remember { mutableStateOf<String?>(null) }
-    val shouldLoadMore by remember(jobs.size, uiState.hasMore, uiState.isLoading, uiState.isLoadingMore) {
-        derivedStateOf {
-            val lastVisibleItemIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
-            jobs.isNotEmpty() &&
-                listState.isScrollInProgress &&
-                uiState.hasMore &&
-                !uiState.isLoading &&
-                !uiState.isLoadingMore &&
-                lastVisibleItemIndex >= jobs.lastIndex
-        }
-    }
-
-    LaunchedEffect(shouldLoadMore, uiState.lastDocumentId, jobs.size) {
-        if (shouldLoadMore) {
-            val nextLoadToken = "${uiState.lastDocumentId ?: "null"}:${jobs.size}"
-            if (nextLoadToken != lastLoadTriggerToken) {
-                lastLoadTriggerToken = nextLoadToken
-                Timber.d("📦 AllJobs: user reached last visible job, requesting next page (token=$nextLoadToken)")
-                onLoadMore()
-            }
-        }
-    }
-    
-    // Show "Jump to Top" button after loading 300+ jobs (LinkedIn approach)
-    // LinkedIn shows it earlier for better UX
-    val showJumpToTop by remember {
-        derivedStateOf { jobs.size >= 300 }
-    }
-    
-    Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            itemsIndexed(
-                items = jobs,
-                key = { _, job -> job.id.ifBlank { job.jobId.ifBlank { "job_${job.hashCode()}" } } },
-                contentType = { _, _ -> "job_card" }
-            ) { _, job ->
-                JobCard(
-                    job = job,
-                    isSaved = job.isSaved,
-                    onSaveClick = { jobId ->
-                        onSaveClick(jobId, job.isSaved)
-                    },
-                    onCardClick = { onNavigateToJob(it) }
-                )
-            }
-            
-            if (uiState.hasMore && jobs.isNotEmpty()) {
-                item(key = "alljobs_load_more_sentinel") {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (uiState.isLoadingMore) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(IconSizes.Standard), // Material Design 3: 24dp
-                                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text(
-                                text = stringResource(R.string.jobs_loading_more),
-                                style = AppTypography.bodySmall.copy(color = WorkerColors.TextSecondary)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        
-        // ENTERPRISE FEATURE: Jump to Top FAB (LinkedIn's exact approach)
-        // Shows after loading 300+ jobs for easy navigation back to top
-        // LinkedIn shows it earlier than competitors for better UX
-        androidx.compose.animation.AnimatedVisibility(
-            visible = showJumpToTop,
-            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.scaleIn(),
-            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.scaleOut(),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp)
-                .padding(bottom = 80.dp) // Above bottom nav
-        ) {
-            FloatingActionButton(
-                onClick = {
-                    scope.launch {
-                        listState.animateScrollToItem(0)
-                        Timber.d("📦 Jumped to top - ${jobs.size} jobs loaded")
-                    }
-                },
-                containerColor = WorkerColors.Primary,
-                contentColor = Color.White,
-                elevation = FloatingActionButtonDefaults.elevation(
-                    defaultElevation = 6.dp,
-                    pressedElevation = 12.dp
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ArrowUpward,
-                    contentDescription = "Jump to Top",
-                    modifier = Modifier.size(IconSizes.Standard)
-                )
-            }
-        }
-    }
-}
-
-/**
  * P1 PERFORMANCE FIX: Extracted ErrorState composable
  */
 @Composable
@@ -971,9 +1139,10 @@ private fun JobFilterBottomSheet(
     var workType by remember { mutableStateOf(filters.workType) }
     var category by remember { mutableStateOf(filters.category) }
     var shiftTiming by remember { mutableStateOf(filters.shiftTiming) }
+    var urgentOnly by remember { mutableStateOf(filters.urgentOnly) }
     
     val experienceOptions = listOf("Any", "Fresher", "1-3 years", "3-5 years", "5+ years")
-    val sortOptions = listOf("Relevance", "Newest", "Salary: High to Low", "Salary: Low to High", "Distance")
+    val sortOptions = listOf("Relevance", "Distance", "Newest", "Salary: High to Low", "Salary: Low to High")
     val payTypeOptions = listOf("Any", "DAILY", "HOURLY", "MONTHLY")
     val workTypeOptions = listOf("Any", "Part-time", "Full-time", "Contract", "Temporary")
     val shiftTimingOptions = listOf("Any", "Morning", "Afternoon", "Evening", "Night", "Flexible")
@@ -1014,6 +1183,7 @@ private fun JobFilterBottomSheet(
                         workType = "Any"
                         category = "Any"
                         shiftTiming = "Any"
+                        urgentOnly = false
                         onResetFilters()
                     },
                     contentPadding = PaddingValues(0.dp)
@@ -1024,6 +1194,38 @@ private fun JobFilterBottomSheet(
 
             Spacer(modifier = Modifier.height(24.dp))
             
+            // Urgent jobs only (moved here from the pills under the search bar)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(WorkerColors.ChipBackground)
+                    .clickable { urgentOnly = !urgentOnly }
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Urgent jobs only",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)
+                    )
+                    Text(
+                        text = "Employers who need someone today",
+                        style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary)
+                    )
+                }
+                Switch(
+                    checked = urgentOnly,
+                    onCheckedChange = { urgentOnly = it },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = WorkerColors.Primary
+                    )
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // Sort By
             Text(
                 text = stringResource(R.string.jobs_sort_by),
@@ -1161,7 +1363,8 @@ private fun JobFilterBottomSheet(
                             payType = payType,
                             workType = workType,
                             category = category, // Kept for data integrity, though hidden in UI
-                            shiftTiming = shiftTiming
+                            shiftTiming = shiftTiming,
+                            urgentOnly = urgentOnly
                         )
                     )
                     onDismiss()

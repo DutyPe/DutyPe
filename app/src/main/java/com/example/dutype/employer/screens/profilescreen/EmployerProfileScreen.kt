@@ -1,75 +1,589 @@
 package com.example.dutype.employer.screens.profilescreen
 
 import com.dutype.app.R
-import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.outlined.ExitToApp
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.CardGiftcard
-import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Phone
-import androidx.compose.material.icons.outlined.Security
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.outlined.Work
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.ui.platform.LocalContext
-import coil.compose.AsyncImage
-import com.example.dutype.auth.AuthManager
-import com.example.dutype.viewmodels.ProfileCompletionViewModel
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import com.example.dutype.components.ProfessionalLogoutDialog
-import com.example.dutype.navigation.Routes
 import com.example.dutype.components.ProfileShimmer
-import com.example.dutype.utils.findActivity
-import com.example.dutype.ui.theme.AppTypography
-import com.example.dutype.ui.theme.MeeshoFontFamily
-import com.example.dutype.ui.theme.WorkerColors
+import com.example.dutype.models.EmployerSubscription
+import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.ui.theme.LocalRoleColors
-import com.example.dutype.utils.LocaleHelper
-import dagger.hilt.android.EntryPointAccessors
+import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.launch
 import timber.log.Timber
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
-import androidx.compose.material.icons.outlined.Star
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val EmpNavy = Color(0xFF0F172A)
+private val EmpCobalt = Color(0xFF2563EB)
+private val EmpBorder = Color(0xFFE2E8F0)
+private val EmpDivider = Color(0xFFF1F5F9)
+private val EmpSlate = Color(0xFF94A3B8)
+private val EmpAmber = Color(0xFFF59E0B)
+private const val EmpReferAmount = 100
+
+private class EmpProfileUi(
+    val businessName: String,
+    val contact: String,
+    val phone: String,
+    val category: String,
+    val gstVerified: Boolean,
+    val rating: Double,
+    val imageModel: String?,
+    val uploading: Boolean,
+    val activeJobs: Int,
+    val applicants: Int,
+    val locCount: Int,
+    val city: String,
+    val pct: Int,
+    val hint: String,
+    val pill: String?,
+    val isLoggedIn: Boolean
+)
+
+private class EmpProfileActions(
+    val onHelp: () -> Unit,
+    val onEdit: () -> Unit,
+    val onAvatar: () -> Unit,
+    val onLogin: () -> Unit,
+    val onCompany: () -> Unit,
+    val onLocations: () -> Unit,
+    val onSubscription: () -> Unit,
+    val onHistory: () -> Unit,
+    val onRefer: () -> Unit,
+    val onSwitch: () -> Unit,
+    val onLogout: () -> Unit
+)
+
+private fun empInitials(name: String): String {
+    val parts = name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    return when {
+        parts.isEmpty() -> "B"
+        parts.size == 1 -> parts[0].take(2).uppercase()
+        else -> ("" + parts[0].first() + parts[1].first()).uppercase()
+    }
+}
+
+private fun empFormatPhone(raw: String): String {
+    val digits = raw.filter { it.isDigit() }
+    return if (digits.length >= 10) {
+        val d = digits.takeLast(10)
+        "+91 " + d.take(5) + " " + d.drop(5)
+    } else raw
+}
+
+private fun empCityFrom(address: String): String {
+    val parts = address.split(",").map { it.trim() }.filter { it.isNotEmpty() && it.none { c -> c.isDigit() } }
+    return parts.takeLast(2).joinToString(", ")
+}
+
+private fun empPillText(sub: EmployerSubscription, planName: String?): String? {
+    if (!sub.isActive) return null
+    var name: String = planName ?: ""
+    if (name.isBlank()) {
+        name = if (sub.status == "TRIAL") "Trial" else sub.planId.replaceFirstChar { it.uppercase() }
+    }
+    if (name.isBlank()) return null
+    if (sub.expiryDate > 0L) {
+        val left = Math.ceil((sub.expiryDate - System.currentTimeMillis()) / 86400000.0).toInt()
+        if (left >= 0) return name + " (" + left + "d left)"
+    }
+    return name
+}
+
+@Composable
+private fun EmpTopBar(onHelp: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = "Account",
+            color = EmpNavy,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Box(
+            modifier = Modifier
+                .height(32.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .border(1.dp, EmpCobalt, RoundedCornerShape(16.dp))
+                .clickable(onClick = onHelp)
+                .padding(horizontal = 14.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Help Desk",
+                color = EmpCobalt,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmpChip(text: String, bg: Color, fg: Color, icon: ImageVector) {
+    Row(
+        modifier = Modifier
+            .height(28.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(bg)
+            .padding(horizontal = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(imageVector = icon, contentDescription = null, tint = fg, modifier = Modifier.size(12.dp))
+        Spacer(modifier = Modifier.width(5.dp))
+        Text(text = text, color = fg, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
+@Composable
+private fun EmpAvatar(ui: EmpProfileUi, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(12.dp)
+    Box(
+        modifier = Modifier
+            .size(60.dp)
+            .clip(shape)
+            .border(2.dp, EmpAmber, shape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        if (ui.uploading) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
+        } else if (!ui.imageModel.isNullOrBlank()) {
+            com.example.dutype.components.OptimizedProfileImage(
+                imageUrl = ui.imageModel,
+                contentDescription = "Company Logo",
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Text(
+                text = empInitials(ui.businessName),
+                color = Color.White,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmpHeroTexts(ui: EmpProfileUi, onLogin: () -> Unit, modifier: Modifier) {
+    Column(modifier = modifier) {
+        if (ui.isLoggedIn) {
+            Text(
+                text = ui.businessName.ifEmpty { "Your Company" },
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (ui.contact.isNotBlank()) {
+                Text(
+                    text = ui.contact + " (Owner)",
+                    color = EmpSlate,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+            if (ui.phone.isNotBlank()) {
+                Text(
+                    text = ui.phone,
+                    color = Color(0xFFCBD5E1),
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        } else {
+            Text(
+                text = "Log in / Sign up",
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.clickable(onClick = onLogin)
+            )
+            Text(
+                text = "View and update your profile data",
+                color = EmpSlate,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmpHeroCard(ui: EmpProfileUi, actions: EmpProfileActions) {
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(EmpNavy)
+            .padding(20.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            EmpAvatar(ui = ui, onClick = actions.onAvatar)
+            Spacer(modifier = Modifier.width(12.dp))
+            EmpHeroTexts(ui = ui, onLogin = actions.onLogin, modifier = Modifier.weight(1f))
+            if (ui.isLoggedIn) {
+                Spacer(modifier = Modifier.width(12.dp))
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Top)
+                        .height(32.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .border(1.dp, Color.White, RoundedCornerShape(16.dp))
+                        .clickable(onClick = actions.onEdit)
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Edit Profile",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+        if (ui.isLoggedIn && (ui.gstVerified || ui.rating > 0.0 || ui.category.isNotBlank())) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (ui.gstVerified) {
+                    EmpChip("GST Verified", Color(0xFF064E3B), Color(0xFF34D399), Icons.Filled.Check)
+                }
+                if (ui.rating > 0.0) {
+                    EmpChip(String.format(java.util.Locale.US, "%.1f Employer Score", ui.rating), Color(0xFF451A03), Color(0xFFFBBF24), Icons.Filled.Star)
+                }
+                if (ui.category.isNotBlank()) {
+                    EmpChip(ui.category, Color(0xFF1E3A8A), Color(0xFF60A5FA), Icons.Filled.Business)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmpSnapshotCard(
+    iconRes: Int,
+    title: String,
+    modifier: Modifier,
+    content: @Composable () -> Unit
+) {
+    val shape = RoundedCornerShape(14.dp)
+    Column(
+        modifier = modifier
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, EmpBorder, shape)
+            .padding(14.dp)
+    ) {
+        Icon(
+            painter = painterResource(id = iconRes),
+            contentDescription = null,
+            tint = EmpCobalt,
+            modifier = Modifier.size(22.dp)
+        )
+        Text(
+            text = title,
+            color = EmpNavy,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+        Box(modifier = Modifier.padding(top = 3.dp)) { content() }
+    }
+}
+
+@Composable
+private fun EmpSnapshotRow(ui: EmpProfileUi) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        EmpSnapshotCard(
+            iconRes = R.drawable.ic_emp_briefcase,
+            title = ui.activeJobs.toString() + (if (ui.activeJobs == 1) " Active Job" else " Active Jobs"),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF10B981))
+                )
+                Spacer(modifier = Modifier.width(5.dp))
+                Text(
+                    text = ui.applicants.toString() + " Applicants waiting",
+                    color = Color(0xFF10B981),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        EmpSnapshotCard(
+            iconRes = R.drawable.ic_emp_pin,
+            title = ui.locCount.toString() + (if (ui.locCount == 1) " Work Location" else " Work Locations"),
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+        ) {
+            Text(
+                text = ui.city,
+                color = Color(0xFF64748B),
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmpCompletenessCard(ui: EmpProfileUi, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(12.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, EmpBorder, shape)
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            painter = painterResource(id = R.drawable.ic_emp_bolt),
+            contentDescription = null,
+            tint = Color.Unspecified,
+            modifier = Modifier.size(18.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "Profile " + ui.pct + "% Complete · " + ui.hint,
+            color = EmpNavy,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1f)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "Complete →",
+            color = EmpCobalt,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun EmpMenuRow(
+    iconRes: Int,
+    title: String,
+    pill: String?,
+    showDivider: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                tint = Color.Unspecified,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = title,
+                color = EmpNavy,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            if (!pill.isNullOrBlank()) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(Color(0xFFEFF6FF))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = pill,
+                        color = EmpCobalt,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            Text(text = "›", color = EmpSlate, fontSize = 16.sp)
+        }
+        if (showDivider) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(EmpDivider)
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, EmpBorder, shape)
+    ) {
+        EmpMenuRow(R.drawable.ic_emp_building, "Company Details & Photos", null, true, actions.onCompany)
+        EmpMenuRow(R.drawable.ic_emp_pin, "Work Locations & Job Sites", null, true, actions.onLocations)
+        EmpMenuRow(R.drawable.ic_emp_card, "Subscription & Credits", ui.pill, true, actions.onSubscription)
+        EmpMenuRow(R.drawable.ic_emp_archive, "Hiring History & Closed Posts", null, true, actions.onHistory)
+        EmpMenuRow(R.drawable.ic_emp_gift, "Refer an Employer (Earn ₹" + EmpReferAmount + ")", null, true, actions.onRefer)
+        EmpMenuRow(R.drawable.ic_emp_headset, "Help & Support", null, false, actions.onHelp)
+    }
+}
+
+@Composable
+private fun EmpAccountRow(text: String, color: Color, showDivider: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(46.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Text(
+            text = text,
+            color = color,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 16.dp)
+        )
+        if (showDivider) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(EmpDivider)
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmpAccountCard(ui: EmpProfileUi, actions: EmpProfileActions) {
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, EmpBorder, shape)
+    ) {
+        EmpAccountRow("Switch to Worker Mode", EmpCobalt, ui.isLoggedIn, actions.onSwitch)
+        if (ui.isLoggedIn) {
+            EmpAccountRow("Log Out", Color(0xFFEF4444), false, actions.onLogout)
+        }
+    }
+}
+
+@Composable
+private fun EmpProfileBody(ui: EmpProfileUi, actions: EmpProfileActions, modifier: Modifier) {
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(top = 4.dp)
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        EmpHeroCard(ui = ui, actions = actions)
+        if (ui.isLoggedIn) {
+            EmpSnapshotRow(ui = ui)
+            if (ui.pct < 100) {
+                EmpCompletenessCard(ui = ui, onClick = actions.onCompany)
+            }
+        }
+        EmpMenuCard(ui = ui, actions = actions)
+        EmpAccountCard(ui = ui, actions = actions)
+        Spacer(modifier = Modifier.height(90.dp))
+    }
+}
+
 @Composable
 fun EmployerProfileScreen(
     rootNavController: NavController,
@@ -80,31 +594,33 @@ fun EmployerProfileScreen(
     LaunchedEffect(screenBg) {
         onStatusBarColorChange?.invoke(screenBg)
     }
-    
+
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
     var profileImageUrl by remember { mutableStateOf<String?>(null) }
     var isUploadingImage by remember { mutableStateOf(false) }
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val subscriptionViewModel: com.example.dutype.viewmodels.SubscriptionViewModel = hiltViewModel()
     val subState by subscriptionViewModel.activeSubscription.collectAsState()
-    val formattedExpiryDate = remember(subState.expiryDate) {
-        if (subState.expiryDate > 0) {
-            val sdf = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
-            sdf.format(java.util.Date(subState.expiryDate))
-        } else {
-            ""
-        }
-    }
+    val plans by subscriptionViewModel.plans.collectAsState()
     val context = LocalContext.current
     // Services accessed via ProfileCompletionViewModel (proper DI pattern)
     val authManager = profileCompletionViewModel.authManager
-    
+
     // LIGHTWEIGHT PROFILE: Use metadata for basic profile info (name, phone, image)
     val userStats by profileCompletionViewModel.metadataManager.userMetadata.userStats.collectAsState()
-    
+    val employerStats by profileCompletionViewModel.metadataManager.userMetadata.employerStats.collectAsState()
+
     var companyName by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
     var employerType by remember { mutableStateOf("COMPANY") }
+    var profCompany by remember { mutableStateOf("") }
+    var profContact by remember { mutableStateOf("") }
+    var profIndustry by remember { mutableStateOf("") }
+    var profGstin by remember { mutableStateOf("") }
+    var profAddress by remember { mutableStateOf("") }
+    var profRating by remember { mutableStateOf(0.0) }
+    var profPhotoUrl by remember { mutableStateOf("") }
+    var storedPct by remember { mutableStateOf(0) }
     var isLoadingProfile by remember { mutableStateOf(true) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showAccountDeletionDialog by remember { mutableStateOf(false) }
@@ -113,7 +629,7 @@ fun EmployerProfileScreen(
     // var showThemeBottomSheet by remember { mutableStateOf(false) }
     var currentUserId by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
-    
+
     // Guest mode - Login bottom sheet state
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var pendingMenuAction by remember { mutableStateOf<String?>(null) }
@@ -134,8 +650,21 @@ fun EmployerProfileScreen(
                 val employerData = profileCompletionViewModel.getEmployerProfileData(currentUser.uid)
                 employerData.onSuccess { data ->
                     employerType = data["employerType"] as? String ?: "COMPANY"
+                    profCompany = data["companyName"] as? String ?: ""
+                    profContact = data["fullName"] as? String ?: ""
+                    profIndustry = data["industry"] as? String ?: ""
+                    profGstin = data["gstin"] as? String ?: ""
+                    profAddress = data["businessAddress"] as? String ?: ""
+                    profPhotoUrl = data["profileImageUrl"] as? String ?: ""
+                    profRating = (data["rating"] as? Number)?.toDouble()
+                        ?: (data["averageRating"] as? Number)?.toDouble() ?: 0.0
                 }
-                
+                storedPct = try {
+                    profileCompletionViewModel.getCompletionPercentage(com.example.dutype.models.UserRole.EMPLOYER)
+                } catch (e: Exception) {
+                    0
+                }
+
                 Timber.i("Employer profile (lightweight) - Name: ${userStats.fullName}, Phone: ${userStats.phone}, Type: $employerType")
             } catch (e: Exception) {
                 Timber.e("Error loading lightweight profile: ${e.message}")
@@ -143,11 +672,11 @@ fun EmployerProfileScreen(
         }
         isLoadingProfile = false
     }
-    
+
     // Update company name and phone from metadata (lightweight)
     // Also get phone from Firebase Auth as fallback for new users
     LaunchedEffect(userStats) {
-        companyName = userStats.fullName
+        companyName = userStats.companyName.ifBlank { userStats.fullName }
         // Get phone from metadata, fallback to Firebase Auth
         val authPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber ?: ""
         companyPhone = userStats.phone.ifBlank { authPhone }
@@ -167,8 +696,9 @@ fun EmployerProfileScreen(
                         if (currentUser != null) {
                             val uploadResult = profileCompletionViewModel.uploadProfileImage(selectedUri, currentUser.uid, "employer")
                             uploadResult.fold(
-                                onSuccess = { imageUrl -> 
+                                onSuccess = { imageUrl ->
                                     profileImageUrl = imageUrl
+                                    profPhotoUrl = imageUrl
                                     android.widget.Toast.makeText(context, context.getString(R.string.profile_photo_updated), android.widget.Toast.LENGTH_SHORT).show()
                                 },
                                 onFailure = { exception ->
@@ -200,7 +730,83 @@ fun EmployerProfileScreen(
     if (isLoadingProfile) {
         ProfileShimmer()
     } else {
-        // Main Profile Screen
+        val isLoggedIn = currentUserId.isNotEmpty()
+        val nav = localNavController ?: rootNavController
+
+        fun go(route: String, pendingKey: String?) {
+            if (!isLoggedIn) {
+                pendingMenuAction = pendingKey
+                showLoginBottomSheet = true
+                return
+            }
+            try {
+                nav.navigate(route)
+            } catch (e: Exception) {
+                Timber.e(e, "Error navigating to $route")
+                android.widget.Toast.makeText(context, "Unable to open. Please try again.", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        // Profile completeness: stored service percentage, else computed from loaded data
+        val displayName = profCompany.ifBlank { companyName }
+        val photoUrl = profPhotoUrl.ifBlank { profileImageUrl ?: "" }
+        val missingHints = ArrayList<String>()
+        if (displayName.isBlank()) missingHints.add("Add business name")
+        if (companyPhone.isBlank()) missingHints.add("Add phone number")
+        if (profIndustry.isBlank()) missingHints.add("Add business category")
+        if (profAddress.isBlank()) missingHints.add("Add business address")
+        if (photoUrl.isBlank()) missingHints.add("Add shop photo")
+        val computedPct = (5 - missingHints.size) * 100 / 5
+        val pct = if (storedPct in 1..100) storedPct else computedPct
+        val hint = if (missingHints.isNotEmpty()) missingHints[0] else "Complete your profile"
+
+        val planName = plans.firstOrNull { it.id == subState.planId }?.name
+        val contact = if (profContact.isNotBlank() && !profContact.equals(displayName, ignoreCase = true)) profContact else ""
+
+        val ui = EmpProfileUi(
+            businessName = displayName,
+            contact = contact,
+            phone = empFormatPhone(companyPhone),
+            category = profIndustry,
+            gstVerified = profGstin.isNotBlank(),
+            rating = profRating,
+            imageModel = if (profileImageUri != null) profileImageUri.toString() else photoUrl.ifBlank { null },
+            uploading = isUploadingImage,
+            activeJobs = employerStats.activeJobs,
+            applicants = (employerStats.totalApplicationsReceived - employerStats.totalHires).coerceAtLeast(0),
+            locCount = if (profAddress.isNotBlank()) 1 else 0,
+            city = if (profAddress.isNotBlank()) empCityFrom(profAddress) else "Add a work location",
+            pct = pct,
+            hint = hint,
+            pill = empPillText(subState, planName),
+            isLoggedIn = isLoggedIn
+        )
+
+        val actions = EmpProfileActions(
+            onHelp = { go(Routes.EMPLOYER_HELP, null) },
+            onEdit = { go(Routes.EMPLOYER_COMPANY_DETAILS, "profile") },
+            onAvatar = {
+                if (isLoggedIn) {
+                    imagePickerLauncher.launch("image/*")
+                } else {
+                    pendingMenuAction = "profile"
+                    showLoginBottomSheet = true
+                }
+            },
+            onLogin = { rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER") },
+            onCompany = { go(Routes.EMPLOYER_COMPANY_DETAILS, "profile") },
+            onLocations = { go(Routes.EMPLOYER_MANAGE_ADDRESSES, "locations") },
+            onSubscription = { go(Routes.EMPLOYER_SUBSCRIPTION, null) },
+            onHistory = { go(Routes.EMPLOYER_HISTORY, "job_posts") },
+            onRefer = { go(Routes.EMPLOYER_REFER_EARN, null) },
+            onSwitch = {
+                rootNavController.navigate(Routes.SELECT_ROLE) {
+                    launchSingleTop = true
+                }
+            },
+            onLogout = { showLogoutDialog = true }
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -212,446 +818,10 @@ fun EmployerProfileScreen(
             val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
             val isOnline by connectivityViewModel.isOnline.collectAsState()
             com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
-            
-            // Header using CommonHeader (no back button for profile)
-            com.example.dutype.components.CommonHeader(
-                title = stringResource(R.string.profile),
-                showBackButton = false,
-                backgroundColor = Color.Transparent,
-                titleColor = WorkerColors.TextPrimary,
-                actions = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    ) {
-                        // Language Change Icon
-                        val currentLanguage = LocaleHelper.getLanguage(context)
-                        IconButton(onClick = { showLanguageBottomSheet = true }) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.translate_indic_24),
-                                contentDescription = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "భాష మార్చు" else stringResource(R.string.language),
-                                tint = Color(0xFFE91E63), // Pink/magenta color
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
 
-                        // }
-
-                        // WhatsApp Support Button - Icon only with WhatsApp green color
-                        IconButton(onClick = {
-                            val whatsappNumber = "918500717800" // DutyPe support number
-                            val message = "Hello DutyPe Team! I am an employer on DutyPe and I need help with the app."
-                            val encodedMessage = java.net.URLEncoder.encode(message, "UTF-8")
-                            val whatsappUrl = "https://wa.me/$whatsappNumber?text=$encodedMessage"
-                            try {
-                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                    data = android.net.Uri.parse(whatsappUrl)
-                                    setPackage("com.whatsapp")
-                                }
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                // If WhatsApp is not installed, open in browser
-                                val browserIntent = android.content.Intent(
-                                    android.content.Intent.ACTION_VIEW,
-                                    android.net.Uri.parse(whatsappUrl)
-                                )
-                                context.startActivity(browserIntent)
-                            }
-                        }) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_whatsapp),
-                                contentDescription = "WhatsApp Support",
-                                tint = Color(0xFF25D366), // WhatsApp green color
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                }
-            )
-            
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(bottom = 100.dp)
-            ) {
-            // ═══════════════════════════════════════════════════════════════
-            // BUSINESS PROFILE SECTION (Flat Menu Item)
-            // ═══════════════════════════════════════════════════════════════
-            item {
-                Spacer(modifier = Modifier.height(12.dp))
-                val isLoggedIn = currentUserId.isNotEmpty()
-
-                androidx.compose.material3.Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color.White,
-                    shadowElevation = 2.dp,
-                    tonalElevation = 0.dp
-                ) {
-                    Column {
-                        // Avatar row
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    if (isLoggedIn) {
-                                        localNavController?.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
-                                            ?: rootNavController.navigate(Routes.EMPLOYER_COMPANY_DETAILS)
-                                    } else {
-                                        pendingMenuAction = "profile"
-                                        showLoginBottomSheet = true
-                                    }
-                                }
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Company Logo — 72dp with camera badge
-                            Box(modifier = Modifier.size(72.dp)) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(72.dp)
-                                        .clip(CircleShape)
-                                        .background(EmployerColors.PrimaryLight)
-                                        .clickable {
-                                            if (isLoggedIn) {
-                                                imagePickerLauncher.launch("image/*")
-                                            } else {
-                                                pendingMenuAction = "profile"
-                                                showLoginBottomSheet = true
-                                            }
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    when {
-                                        isUploadingImage -> {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(24.dp),
-                                                color = WorkerColors.Info,
-                                                strokeWidth = 2.dp
-                                            )
-                                        }
-                                        profileImageUri != null -> {
-                                            com.example.dutype.components.OptimizedProfileImage(
-                                                imageUrl = profileImageUri.toString(),
-                                                contentDescription = "Company Logo",
-                                                modifier = Modifier.fillMaxSize().clip(CircleShape)
-                                            )
-                                        }
-                                        !profileImageUrl.isNullOrBlank() -> {
-                                            com.example.dutype.components.OptimizedProfileImage(
-                                                imageUrl = profileImageUrl,
-                                                contentDescription = "Company Logo",
-                                                modifier = Modifier.fillMaxSize().clip(CircleShape)
-                                            )
-                                        }
-                                        else -> {
-                                            Icon(
-                                                imageVector = Icons.Default.Business,
-                                                contentDescription = "Profile Picture",
-                                                tint = WorkerColors.IconSecondary,
-                                                modifier = Modifier.size(32.dp)
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // Camera badge
-                                if (!isUploadingImage) {
-                                    Box(
-                                        modifier = Modifier
-                                            .align(Alignment.BottomEnd)
-                                            .size(22.dp)
-                                            .background(WorkerColors.Info, CircleShape)
-                                            .border(1.5.dp, Color.White, CircleShape),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.CameraAlt,
-                                            contentDescription = "Change Photo",
-                                            tint = Color.White,
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                    }
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            // Company info
-                            Column(modifier = Modifier.weight(1f)) {
-                                if (isLoggedIn) {
-                                    Text(
-                                        text = companyName.ifEmpty { stringResource(R.string.your_company) },
-                                        style = AppTypography.pageTitle.copy(
-                                            color = WorkerColors.TextPrimary
-                                        ),
-                                        maxLines = 1
-                                    )
-                                    if (companyPhone.isNotEmpty()) {
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = companyPhone,
-                                            style = AppTypography.bodyMedium.copy(
-                                                color = WorkerColors.TextSecondary
-                                            )
-                                        )
-                                    }
-
-                                } else {
-                                    // Guest CTA
-                                    Button(
-                                        onClick = {
-                                            rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER")
-                                        },
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = EmployerColors.Primary
-                                        ),
-                                        shape = RoundedCornerShape(10.dp),
-                                        modifier = Modifier.height(48.dp)
-                                    ) {
-                                        Text(
-                                            text = stringResource(R.string.auto_log_in_sign_up),
-                                            style = AppTypography.buttonMedium.copy(
-                                                color = Color.White
-                                            )
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = stringResource(R.string.auto_view_and_update_your_profile_data),
-                                        style = AppTypography.bodySmall.copy(
-                                            color = EmployerColors.TextSecondary
-                                        )
-                                    )
-                                }
-                            }
-
-                            // Chevron — logged in only
-                            if (isLoggedIn) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = null,
-                                    tint = WorkerColors.IconSecondary,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                        }
-
-
-                    }
-                }
-            }
-
-            // ═══════════════════════════════════════════════════════════════
-            // MY ACTIVITY SECTION
-            // ═══════════════════════════════════════════════════════════════
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = stringResource(R.string.my_activity),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A),
-                        fontSize = 16.sp
-                    ),
-                    modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
-                )
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    border = BorderStroke(0.6.dp, Color(0xFFE2E8F0))
-                ) {
-                    Column {
-                        ProfileMenuItem(
-                            icon = Icons.Outlined.Work,
-                            title = stringResource(R.string.my_job_posts),
-                            iconColor = Color(0xFF2563EB),
-                            onClick = { 
-                                if (currentUserId.isEmpty()) {
-                                    pendingMenuAction = "job_posts"
-                                    showLoginBottomSheet = true
-                                } else {
-                                    try {
-                                        val navControllerToUse = localNavController ?: rootNavController
-                                        navControllerToUse.navigate(Routes.EMPLOYER_HISTORY)
-                                    } catch (e: Exception) {
-                                        timber.log.Timber.e(e, "Error navigating to EMPLOYER_HISTORY")
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            "Unable to open My Jobs. Please try again.",
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                }
-                            }
-                        )
-                        
-                        HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
-                        
-                        ProfileMenuItem(
-                            icon = Icons.Outlined.LocationOn,
-                            title = stringResource(R.string.work_locations),
-                            iconColor = Color(0xFFEC4899),
-                            onClick = { 
-                                if (currentUserId.isEmpty()) {
-                                    pendingMenuAction = "locations"
-                                    showLoginBottomSheet = true
-                                } else {
-                                    try {
-                                        val navControllerToUse = localNavController ?: rootNavController
-                                        navControllerToUse.navigate(Routes.EMPLOYER_MANAGE_ADDRESSES)
-                                    } catch (e: Exception) {
-                                        timber.log.Timber.e(e, "Error navigating to EMPLOYER_MANAGE_ADDRESSES")
-                                        android.widget.Toast.makeText(
-                                            context,
-                                            context.getString(R.string.unable_open_work_locations),
-                                            android.widget.Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-
-
-            // ═══════════════════════════════════════════════════════════════
-            // SUPPORT SECTION
-            // ═══════════════════════════════════════════════════════════════
-            item {
-                val isTelugu = com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = if (isTelugu) "సపోర్ట్" else "Support",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A),
-                        fontSize = 16.sp
-                    ),
-                    modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
-                )
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    border = BorderStroke(0.6.dp, Color(0xFFE2E8F0))
-                ) {
-                    Column {
-                        ProfileMenuItem(
-                            icon = Icons.Outlined.Phone,
-                            title = stringResource(R.string.help_faqs),
-                            iconColor = Color(0xFF0EA5E9),
-                            onClick = { 
-                                localNavController?.navigate(Routes.EMPLOYER_HELP) 
-                                    ?: rootNavController.navigate(Routes.EMPLOYER_HELP) 
-                            }
-                        )
-                        
-                        HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
-                        
-                        ProfileMenuItem(
-                            icon = Icons.Outlined.Info,
-                            title = stringResource(R.string.about),
-                            iconColor = Color(0xFF6366F1),
-                            onClick = { 
-                                localNavController?.navigate(Routes.EMPLOYER_ABOUT) 
-                                    ?: rootNavController.navigate(Routes.EMPLOYER_ABOUT) 
-                            }
-                        )
-
-                        HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
-
-                        // Settings - Privacy Policy, Terms of Service, Logout, Delete Account
-                        ProfileMenuItem(
-                            icon = Icons.Outlined.Settings,
-                            title = if (isTelugu) "సెట్టింగ్‌లు" else "Settings",
-                            iconColor = Color(0xFF64748B),
-                            onClick = { 
-                                rootNavController.navigate(Routes.SETTINGS) 
-                            }
-                        )
-                    }
-                }
-            }
-
-            // ═══════════════════════════════════════════════════════════════
-            // COMMUNITY SECTION
-            // ═══════════════════════════════════════════════════════════════
-            item {
-                val isTelugu = com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = if (isTelugu) "కమ్యూనిటీ" else "Community",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A),
-                        fontSize = 16.sp
-                    ),
-                    modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
-                )
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    border = BorderStroke(0.6.dp, Color(0xFFE2E8F0))
-                ) {
-                    Column {
-                        ProfileMenuItem(
-                            icon = Icons.Default.Star,
-                            title = if (isTelugu) "ప్లే స్టోర్‌లో రేటింగ్ ఇవ్వండి (5★)" else "Rate DutyPe on Play Store (5★)",
-                            iconColor = Color(0xFFF59E0B),
-                            onClick = {
-                                val inAppReviewManager = com.example.dutype.utils.InAppReviewManager(context)
-                                inAppReviewManager.openPlayStore(context)
-                            }
-                        )
-
-                        HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
-
-                        // Join DutyPe WhatsApp Group
-                        ProfileMenuItem(
-                            icon = Icons.AutoMirrored.Filled.Chat,
-                            title = if (isTelugu) "డ్యూటీపే జాబ్స్ వాట్సాప్ గ్రూప్" else "Join DutyPe Jobs Group",
-                            iconColor = Color(0xFF25D366),
-                            onClick = {
-                                val whatsAppGroupUrl = "https://chat.whatsapp.com/ITnhw0jk2G0I9TNlDCaNQI?s=cl&p=a&ilr=4"
-                                try {
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(whatsAppGroupUrl)).apply {
-                                        setPackage("com.whatsapp")
-                                    }
-                                    context.startActivity(intent)
-                                } catch (_: Exception) {
-                                    try {
-                                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(whatsAppGroupUrl))
-                                        context.startActivity(browserIntent)
-                                    } catch (_: Exception) {
-                                        android.widget.Toast.makeText(context, "Unable to open WhatsApp link", android.widget.Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(24.dp))
-            }
+            EmpTopBar(onHelp = actions.onHelp)
+            EmpProfileBody(ui = ui, actions = actions, modifier = Modifier.weight(1f))
         }
-    }
     }
 
     // Logout Dialog
@@ -678,14 +848,14 @@ fun EmployerProfileScreen(
             scope = scope
         )
     }
-    
+
     // Feedback Bottom Sheet
     com.example.dutype.components.FeedbackBottomSheet(
         isVisible = showFeedbackSheet,
         onDismiss = { showFeedbackSheet = false },
         userRole = "employer"
     )
-    
+
     // Language Selection Bottom Sheet
     if (showLanguageBottomSheet) {
         com.example.dutype.components.LanguageSelectionBottomSheet(
@@ -702,11 +872,11 @@ fun EmployerProfileScreen(
     //         onDismiss = { showThemeBottomSheet = false },
     //     )
     // }
-    
+
     // Guest Mode - Login Bottom Sheet
     com.example.dutype.components.LoginBottomSheet(
         isVisible = showLoginBottomSheet,
-        onDismiss = { 
+        onDismiss = {
             showLoginBottomSheet = false
             pendingMenuAction = null
         },
@@ -727,276 +897,13 @@ fun EmployerProfileScreen(
         },
         role = com.example.dutype.models.UserRole.EMPLOYER,
         navController = rootNavController,
-        title = stringResource(R.string.login_required),
+        title = androidx.compose.ui.res.stringResource(R.string.login_required),
         subtitle = when (pendingMenuAction) {
-            "profile" -> stringResource(R.string.login_company_profile)
-            "job_posts" -> stringResource(R.string.login_job_posts)
-            "locations" -> stringResource(R.string.login_manage_work_locations)
+            "profile" -> androidx.compose.ui.res.stringResource(R.string.login_company_profile)
+            "job_posts" -> androidx.compose.ui.res.stringResource(R.string.login_job_posts)
+            "locations" -> androidx.compose.ui.res.stringResource(R.string.login_manage_work_locations)
             // "refer_earn" -> stringResource(R.string.login_refer_earn)
-            else -> stringResource(R.string.login_access_feature)
+            else -> androidx.compose.ui.res.stringResource(R.string.login_access_feature)
         }
     )
 }
-
-// ═══════════════════════════════════════════════════════════════
-@Composable
-private fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        style = AppTypography.sectionHeader.copy(color = WorkerColors.TextPrimary)
-    )
-}
-
-@Composable
-private fun ProfileMenuItem(
-    icon: ImageVector,
-    title: String,
-    subtitle: String? = null,
-    badgeText: String? = null,
-    isDestructive: Boolean = false,
-    iconColor: Color = Color(0xFF2563EB),
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (isDestructive) Color(0xFFDC2626) else Color(0xFF6B7280),
-            modifier = Modifier.size(22.dp)
-        )
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isDestructive) Color(0xFFDC2626) else Color(0xFF0F172A),
-                        fontSize = 15.sp
-                    )
-                )
-                if (!badgeText.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFFEEF2FF))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = badgeText,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color(0xFF4F46E5),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp
-                            )
-                        )
-                    }
-                }
-            }
-            if (!subtitle.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF94A3B8),
-                        fontSize = 12.sp
-                    )
-                )
-            }
-        }
-
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = Color(0xFFCBD5E1),
-            modifier = Modifier.size(18.dp)
-        )
-    }
-}
-
-/**
- * Meesho-style quick action button using drawable resource
- * Clean bordered box with no background fill
- */
-@Composable
-private fun EmployerQuickActionButton(
-    @androidx.annotation.DrawableRes iconRes: Int,
-    title: String,
-    modifier: Modifier = Modifier,
-    iconTint: Color = WorkerColors.TextPrimary,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = modifier
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent  // No background - Meesho style
-        ),
-        shape = RoundedCornerShape(0.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, WorkerColors.Border)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 14.dp, horizontal = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                painter = painterResource(id = iconRes),
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(22.dp)
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = title,
-                style = AppTypography.quickActionLabel.copy(
-                    color = WorkerColors.TextPrimary,
-                    fontFamily = MeeshoFontFamily
-                ),
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-/**
- * Thin divider for menu items
- */
-@Composable
-private fun EmployerMenuDivider() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 40.dp)
-            .height(1.dp)
-            .background(WorkerColors.Divider)
-    )
-}
-
-// COMMENTED OUT - Follow Us Section
-/*
-@Composable
-private fun EmployerFollowUsSection() {
-    val context = LocalContext.current
-    val whatsAppChannelUrl = "https://chat.whatsapp.com/ITnhw0jk2G0I9TNlDCaNQI?s=cl&p=a&ilr=4"
-    val instagramUrl = "https://www.instagram.com/dutype.in"
-    
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 13.dp, vertical = 3.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = WorkerColors.CardBackground
-        ),
-        shape = RoundedCornerShape(0.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-           Text(
-                text = stringResource(R.string.auto_follow_us_on),
-                fontSize = 16.sp,
-                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-            )
-            
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Instagram
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        
-                        .border(1.dp, EmployerColors.Border, CircleShape)
-                        .clickable {
-                            val intent = android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse(instagramUrl)
-                            )
-                            context.startActivity(intent)
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_instagram),
-                        contentDescription = "Instagram",
-                        tint = EmployerColors.TextPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                
-                // WhatsApp
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        
-                        .border(1.dp, EmployerColors.Border, CircleShape)
-                        .clickable {
-                            val intent = android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse(whatsAppChannelUrl)
-                            )
-                            context.startActivity(intent)
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_whatsapp),
-                        contentDescription = "WhatsApp",
-                        tint = EmployerColors.TextPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-*/
-
-@Composable
-private fun EmployerSocialMediaIcon(
-    @androidx.annotation.DrawableRes iconRes: Int,
-    label: String,
-    onClick: () -> Unit
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable { onClick() }
-    ) {
-        Icon(
-            painter = painterResource(id = iconRes),
-            contentDescription = label,
-            tint = WorkerColors.TextPrimary,
-            modifier = Modifier.size(24.dp)
-        )
-        
-        Spacer(modifier = Modifier.height(4.dp))
-        
-        Text(
-            text = label,
-            style = AppTypography.bodySmall.copy(
-                color = WorkerColors.TextSecondary
-            )
-        )
-    }
-}
-

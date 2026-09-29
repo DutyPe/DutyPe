@@ -1,0 +1,182 @@
+# Manual baseline profile for DutyPe (startup + login critical path).
+#
+# Merged by AGP/profgen with any generated profile from :baselineprofile
+# (app/src/<variant>/generated/baselineProfiles/baseline-prof.txt). This file only seeds the
+# hot startup/auth classes so the FIRST install is fast even before a device-generated profile
+# exists. Regenerate a measured profile with:  ./gradlew :app:generateBaselineProfile
+#
+# Flags: H = hot, S = startup, P = post-startup. A leading "L..." line (no method) pins the class.
+# Wildcards: ** matches across packages / any signature, * within a segment.
+
+# ---------------------------------------------------------------------------
+# Application + Activity (cold start)
+# ---------------------------------------------------------------------------
+HSPLcom/example/dutype/DutyPeApplication;->**(**)**
+HSPLcom/example/dutype/DutyPeApplication$*;->**(**)**
+Lcom/example/dutype/DutyPeApplication;
+Lcom/example/dutype/DutyPeApplication$*;
+HSPLcom/example/dutype/Hilt_DutyPeApplication;->**(**)**
+Lcom/example/dutype/Hilt_DutyPeApplication;
+HSPLcom/example/dutype/MainActivity;->**(**)**
+HSPLcom/example/dutype/MainActivity$*;->**(**)**
+HSPLcom/example/dutype/MainActivityKt;->**(**)**
+HSPLcom/example/dutype/MainActivityKt$*;->**(**)**
+HSPLcom/example/dutype/Hilt_MainActivity;->**(**)**
+HSPLcom/example/dutype/Hilt_MainActivity$*;->**(**)**
+Lcom/example/dutype/MainActivity;
+Lcom/example/dutype/MainActivity$*;
+Lcom/example/dutype/Hilt_MainActivity;
+Lcom/example/dutype/ComposableSingletons$MainActivityKt;
+HSPLcom/example/dutype/ComposableSingletons$MainActivityKt;->**(**)**
+
+# ---------------------------------------------------------------------------
+# Navigation graph + first screens
+# ---------------------------------------------------------------------------
+HSPLcom/example/dutype/navigation/MainNavGraphKt;->**(**)**
+HSPLcom/example/dutype/navigation/MainNavGraphKt$*;->**(**)**
+HSPLcom/example/dutype/navigation/ComposableSingletons$MainNavGraphKt;->**(**)**
+HSPLcom/example/dutype/navigation/Routes;->**(**)**
+HSPLcom/example/dutype/navigation/StartDestinationCache;->**(**)**
+HSPLcom/example/dutype/navigation/DeepLinkBus;->**(**)**
+HSPLcom/example/dutype/navigation/WorkerMainScreenKt;->**(**)**
+HSPLcom/example/dutype/navigation/WorkerMainScreenKt$*;->**(**)**
+HSPLcom/example/dutype/navigation/EmployerMainScreenKt;->**(**)**
+HSPLcom/example/dutype/navigation/EmployerMainScreenKt$*;->**(**)**
+HSPLcom/example/dutype/navigation/WorkerNavGraphKt;->**(**)**
+HSPLcom/example/dutype/navigation/WorkerNavGraphKt$*;->**(**)**
+Lcom/example/dutype/navigation/MainNavGraphKt;
+Lcom/example/dutype/navigation/MainNavGraphKt$*;
+Lcom/example/dutype/navigation/MainNavGraphEntryPoint;
+Lcom/example/dutype/navigation/WorkerMainScreenKt;
+Lcom/example/dutype/navigation/EmployerMainScreenKt;
+
+# Splash / onboarding / role / login / OTP / register screens
+HSPLcom/example/dutype/onboarding/OnboardingScreenKt;->**(**)**
+HSPLcom/example/dutype/onboarding/OnboardingScreenKt$*;->**(**)**
+HSPLcom/example/dutype/common/screens/SelectRoleScreenKt;->**(**)**
+HSPLcom/example/dutype/common/screens/SelectRoleScreenKt$*;->**(**)**
+HSPLcom/example/dutype/auth/EnhancedLoginScreenKt;->**(**)**
+HSPLcom/example/dutype/auth/EnhancedLoginScreenKt$*;->**(**)**
+HSPLcom/example/dutype/auth/RegisterScreenKt;->**(**)**
+HSPLcom/example/dutype/auth/RegisterScreenKt$*;->**(**)**
+HSPLcom/example/dutype/auth/AuthAutofillKt;->**(**)**
+HSPLcom/example/dutype/auth/SmsAutoRetrieverHelper;->**(**)**
+HSPLcom/example/dutype/auth/AuthFlowHelpersKt;->**(**)**
+
+# Home screens (first frame after login / warm cached start)
+HSPLcom/example/dutype/worker/screens/WorkerHomeScreenKt;->**(**)**
+HSPLcom/example/dutype/worker/screens/WorkerHomeScreenKt$*;->**(**)**
+HSPLcom/example/dutype/worker/screens/WorkerHomeScreenComponentsKt;->**(**)**
+HSPLcom/example/dutype/worker/screens/WorkerHomeScreenComponentsKt$*;->**(**)**
+HSPLcom/example/dutype/worker/components/home/**;->**(**)**
+HSPLcom/example/dutype/employer/screens/EmployerHomeScreenKt;->**(**)**
+HSPLcom/example/dutype/employer/screens/EmployerHomeScreenKt$*;->**(**)**
+HSPLcom/example/dutype/employer/screens/EmployerHomeStitchComponentsKt;->**(**)**
+HSPLcom/example/dutype/employer/screens/EmployerHomeStitchComponentsKt$*;->**(**)**
+HSPLcom/example/dutype/components/WorkerBottomBarKt;->**(**)**
+HSPLcom/example/dutype/components/EmployerBottomBarKt;->**(**)**
+HSPLcom/example/dutype/components/CommonHeaderKt;->**(**)**
+HSPLcom/example/dutype/components/DutyPeLoaderKt;->**(**)**
+HSPLcom/example/dutype/components/ShimmerComponentsKt;->**(**)**
+HSPLcom/example/dutype/components/LoginBottomSheetKt;->**(**)**
+HSPLcom/example/dutype/components/LoginBottomSheetKt$*;->**(**)**
+
+# ---------------------------------------------------------------------------
+# Auth flow: view models, services, utils
+# ---------------------------------------------------------------------------
+HSPLcom/example/dutype/viewmodels/OtpViewModel;->**(**)**
+HSPLcom/example/dutype/viewmodels/OtpViewModel$*;->**(**)**
+HSPLcom/example/dutype/viewmodels/AppStartupViewModel;->**(**)**
+HSPLcom/example/dutype/viewmodels/AppStartupViewModel$*;->**(**)**
+HSPLcom/example/dutype/viewmodels/ProfileCompletionViewModel;->**(**)**
+HSPLcom/example/dutype/viewmodels/CurrentUserViewModel;->**(**)**
+HSPLcom/example/dutype/viewmodels/WorkerHomeViewModel;->**(**)**
+HSPLcom/example/dutype/viewmodels/WorkerHomeViewModel$*;->**(**)**
+HSPLcom/example/dutype/viewmodels/FirestoreJobViewModel;->**(**)**
+HSPLcom/example/dutype/viewmodels/FirestoreEmployerJobViewModel;->**(**)**
+HSPLcom/example/dutype/viewmodels/ConnectivityViewModel;->**(**)**
+HSPLcom/example/dutype/viewmodels/AppConfigViewModel;->**(**)**
+HSPLcom/example/dutype/services/AuthFlowService;->**(**)**
+HSPLcom/example/dutype/services/AuthFlowService$*;->**(**)**
+HSPLcom/example/dutype/services/FCMTokenManager;->**(**)**
+HSPLcom/example/dutype/auth/AuthManager;->**(**)**
+HSPLcom/example/dutype/auth/AuthManager$*;->**(**)**
+HSPLcom/example/dutype/auth/SessionManager;->**(**)**
+HSPLcom/example/dutype/utils/FirestoreUtils;->**(**)**
+HSPLcom/example/dutype/utils/FirestoreUtils$*;->**(**)**
+HSPLcom/example/dutype/utils/AuthPerf;->**(**)**
+HSPLcom/example/dutype/utils/PhoneNumberUtils;->**(**)**
+HSPLcom/example/dutype/utils/LocaleHelper;->**(**)**
+HSPLcom/example/dutype/state/ProfileSetupStateManager;->**(**)**
+HSPLcom/example/dutype/state/ProfileSetupStateManager$*;->**(**)**
+HSPLcom/example/dutype/state/AppStateManager;->**(**)**
+HSPLcom/example/dutype/di/**;->**(**)**
+HSPLcom/example/dutype/firestore/FirestoreCollections;->**(**)**
+Lcom/example/dutype/viewmodels/OtpViewModel;
+Lcom/example/dutype/viewmodels/AppStartupViewModel;
+Lcom/example/dutype/services/AuthFlowService;
+Lcom/example/dutype/auth/AuthManager;
+Lcom/example/dutype/utils/FirestoreUtils;
+Lcom/example/dutype/utils/FirestoreUtils$PhoneCheckResult;
+Lcom/example/dutype/utils/FirestoreUtils$PhoneExistenceResult;
+
+# Generated Hilt / Dagger glue for the classes above (component, factories, view model modules)
+HSPLcom/example/dutype/**_Factory;->**(**)**
+HSPLcom/example/dutype/**_HiltModules**;->**(**)**
+HSPLcom/example/dutype/**_MembersInjector;->**(**)**
+HSPLcom/example/dutype/**Hilt_**;->**(**)**
+HSPLcom/example/dutype/**_HiltComponents**;->**(**)**
+HSPLdagger/hilt/**;->**(**)**
+HSPLdagger/internal/**;->**(**)**
+HSPLhilt_aggregated_deps/**;->**(**)**
+Ldagger/hilt/**;
+Ldagger/internal/**;
+
+# ---------------------------------------------------------------------------
+# Theme
+# ---------------------------------------------------------------------------
+HSPLcom/example/dutype/ui/theme/RoleThemeKt;->**(**)**
+HSPLcom/example/dutype/ui/theme/RoleThemeKt$*;->**(**)**
+HSPLcom/example/dutype/ui/theme/RoleColorScheme;->**(**)**
+HSPLcom/example/dutype/ui/theme/ThemeKt;->**(**)**
+HSPLcom/example/dutype/ui/theme/ThemeKt$*;->**(**)**
+HSPLcom/example/dutype/ui/theme/ColorKt;->**(**)**
+HSPLcom/example/dutype/ui/theme/AppTypographyKt;->**(**)**
+HSPLcom/example/dutype/ui/theme/SpacingKt;->**(**)**
+HSPLcom/example/dutype/ui/theme/ResponsiveThemeKt;->**(**)**
+HSPLcom/example/dutype/data/ThemePreferenceStore;->**(**)**
+HSPLcom/example/dutype/data/DataStoreExtKt;->**(**)**
+
+# ---------------------------------------------------------------------------
+# Shared framework libraries used on every cold start
+# ---------------------------------------------------------------------------
+HSPLandroidx/compose/runtime/**;->**(**)**
+HSPLandroidx/compose/ui/**;->**(**)**
+HSPLandroidx/compose/foundation/**;->**(**)**
+HSPLandroidx/compose/material3/**;->**(**)**
+HSPLandroidx/compose/animation/**;->**(**)**
+HSPLandroidx/compose/material/ripple/**;->**(**)**
+HSPLandroidx/activity/**;->**(**)**
+HSPLandroidx/navigation/**;->**(**)**
+HSPLandroidx/hilt/navigation/compose/**;->**(**)**
+HSPLandroidx/lifecycle/**;->**(**)**
+HSPLandroidx/core/**;->**(**)**
+HSPLandroidx/datastore/**;->**(**)**
+HSPLandroidx/work/**;->**(**)**
+HSPLkotlinx/coroutines/**;->**(**)**
+HSPLkotlin/coroutines/**;->**(**)**
+HSPLcom/google/firebase/auth/**;->**(**)**
+HSPLcom/google/firebase/firestore/**;->**(**)**
+HSPLcom/google/firebase/functions/**;->**(**)**
+HSPLcom/google/firebase/**;->**(**)**
+HSPLtimber/log/**;->**(**)**
+Landroidx/compose/runtime/**;
+Landroidx/compose/ui/**;
+Landroidx/compose/foundation/**;
+Landroidx/compose/material3/**;
+Landroidx/activity/**;
+Landroidx/navigation/**;
+Landroidx/lifecycle/**;
+Lkotlinx/coroutines/**;
+Lcom/google/firebase/auth/**;
+Lcom/google/firebase/firestore/**;

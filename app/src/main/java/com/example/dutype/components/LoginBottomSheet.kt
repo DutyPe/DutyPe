@@ -443,7 +443,10 @@ fun LoginBottomSheet(
                                     // cannot log in / re-register on the EMPLOYER side.
                                     val phoneCheck = com.example.dutype.utils.FirestoreUtils.checkPhoneForRole(
                                         phoneNumber = fullPhoneNumber,
-                                        requestedRole = role.name
+                                        requestedRole = role.name,
+                                        // Login mode: slow legacy fallback must not block the OTP;
+                                        // AuthFlowService.resolveLogin enforces conflicts after sign-in.
+                                        assumeRegisteredWhenFallbackSlow = !isRegistrationMode
                                     )
                                     val existingRoleLabel = when (phoneCheck.existingRole?.uppercase()) {
                                         "WORKER" -> if (isTelugu) "వర్కర్" else "worker"

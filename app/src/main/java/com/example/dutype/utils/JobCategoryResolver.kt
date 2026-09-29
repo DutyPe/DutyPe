@@ -90,6 +90,24 @@ object JobCategoryResolver {
         return runCatching { JobCategory.valueOf(categoryName.uppercase()).displayName }.getOrDefault(categoryName)
     }
 
+    /**
+     * Single job words (category names + keywords, 4+ letters) used by [JobQueryCorrector]
+     * to fix typos such as "diver" -> "driver".
+     */
+    fun searchVocabulary(): Set<String> {
+        val words = linkedSetOf<String>()
+        fun add(value: String) {
+            value.lowercase()
+                .split(Regex("[^a-z]+"))
+                .filter { it.length >= 4 }
+                .forEach { words += it }
+        }
+        JobCategory.entries.forEach { add(it.displayName) }
+        keywordRules.forEach { (_, keywords) -> keywords.forEach(::add) }
+        add("mason welder fitter cleaner labour sweeper watchman chef peon nurse")
+        return words
+    }
+
     fun searchQueryTokens(query: String): List<String> {
         val tokens = linkedSetOf<String>()
 

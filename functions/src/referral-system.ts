@@ -36,6 +36,7 @@ import * as admin from "firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { createHash } from "crypto";
 import { validateString, validateNumber, validateUserId, validateEnum, checkRateLimit } from "./validation";
+import { getReferralConfig, isCallerAdmin, ReferralConfig } from "./app-config";
 
 const db = admin.firestore();
 
@@ -142,29 +143,31 @@ function calculateTier(successfulReferrals: number): string {
 }
 
 /**
- * Get next milestone for user
+ * Get next milestone for user (from the admin-editable config).
  */
-function getNextMilestone(successfulReferrals: number): number {
-  const milestones = [5, 10, 15, 25, 50, 100];
-  for (const milestone of milestones) {
-    if (successfulReferrals < milestone) return milestone;
+function getNextMilestone(successfulReferrals: number, config: ReferralConfig): number {
+  for (const milestone of milestoneList(config)) {
+    if (successfulReferrals < milestone.count) return milestone.count;
   }
   return successfulReferrals + 10;
 }
 
 /**
- * Check if user can withdraw based on referral count OR minimum balance
- * Users can withdraw if they reached minimum balance (₹100) OR have at least 5 successful referrals.
+ * Withdrawal eligibility. Single rule shared with the app and requestWithdrawal:
+ * the available balance must reach the configured minimum.
  */
-function canWithdraw(successfulReferrals: number, availableBalance: number = 0, minWithdrawal: number = 100): boolean {
-  return availableBalance >= minWithdrawal || successfulReferrals >= 5;
+function canWithdraw(availableBalance: number, minWithdrawal: number): boolean {
+  return availableBalance >= minWithdrawal;
 }
 
-/**
- * Get milestone bonus if applicable for an exact count
- */
-function getMilestoneBonus(newCount: number): number {
-  return REFERRAL_CONFIG.MILESTONES[newCount] || 0;
+type MilestoneEntry = { count: number; bonus: number };
+
+/** Milestones from /app_config/referral, sorted by referral count. */
+function milestoneList(config: ReferralConfig): MilestoneEntry[] {
+  return Object.entries(config.milestones || {})
+    .map(([count, bonus]) => ({ count: Number(count), bonus: Number(bonus) }))
+    .filter((m) => Number.isFinite(m.count) && m.count > 0 && Number.isFinite(m.bonus) && m.bonus >= 0)
+    .sort((a, b) => a.count - b.count);
 }
 
 interface MilestoneAuditResult {
@@ -174,47 +177,43 @@ interface MilestoneAuditResult {
 }
 
 /**
- * Audits a user's milestone bonuses to ensure no milestone bonuses are skipped or missed,
- * while preventing any double crediting.
+ * Works out which milestone bonuses are still owed, never crediting one twice.
+ *
+ * - When the stats doc has an `awardedMilestones` array, it is the source of truth:
+ *   every reached milestone that is not in it is owed.
+ * - Legacy docs without that field fall back to inferring already-paid bonuses from
+ *   `totalEarnings` (the old behaviour), so historic users are not paid again.
+ *
+ * Pass the RAW stats-doc value for `existingAwarded` (undefined when the field is
+ * missing), not a defaults-merged object.
  */
 function auditUserMilestones(
   successfulReferrals: number,
   totalEarnings: number,
-  signupBonusAmount: number = 0,
-  existingAwardedMilestones: number[] = []
+  signupBonusAmount: number,
+  existingAwarded: unknown,
+  config: ReferralConfig
 ): MilestoneAuditResult {
-  const milestoneList = [
-    { count: 5, bonus: 50 },
-    { count: 10, bonus: 100 },
-    { count: 15, bonus: 150 },
-    { count: 25, bonus: 250 },
-    { count: 50, bonus: 500 },
-    { count: 100, bonus: 1000 },
-  ];
-
-  const awarded = new Set<number>(existingAwardedMilestones || []);
+  const trustAwarded = Array.isArray(existingAwarded);
+  const awarded = new Set<number>(
+    trustAwarded ? (existingAwarded as unknown[]).map((v) => Number(v)).filter((v) => Number.isFinite(v)) : []
+  );
   let toCredit = 0;
   const awardedNow: number[] = [];
 
-  // Calculate base referral earnings without milestone bonuses
-  const baseEarnings = (successfulReferrals * REFERRAL_CONFIG.REWARD_PER_REFERRAL) + signupBonusAmount;
-  let extraEarnings = Math.max(0, totalEarnings - baseEarnings);
+  const baseEarnings = (successfulReferrals * config.rewardPerReferral) + signupBonusAmount;
+  let extraEarnings = trustAwarded ? 0 : Math.max(0, totalEarnings - baseEarnings);
 
-  for (const m of milestoneList) {
-    if (successfulReferrals >= m.count) {
-      if (awarded.has(m.count)) {
-        continue;
-      }
-      if (extraEarnings >= m.bonus) {
-        // Milestone bonus was already included in past totalEarnings
-        extraEarnings -= m.bonus;
-        awarded.add(m.count);
-      } else {
-        // Milestone bonus was NOT yet credited
-        toCredit += m.bonus;
-        awarded.add(m.count);
-        awardedNow.push(m.count);
-      }
+  for (const m of milestoneList(config)) {
+    if (successfulReferrals < m.count || awarded.has(m.count)) continue;
+    if (!trustAwarded && extraEarnings >= m.bonus) {
+      // Legacy: bonus already included in past totalEarnings.
+      extraEarnings -= m.bonus;
+      awarded.add(m.count);
+    } else {
+      toCredit += m.bonus;
+      awarded.add(m.count);
+      awardedNow.push(m.count);
     }
   }
 
@@ -248,23 +247,71 @@ function getStringValue(value: any, fallback = ""): string {
   return typeof value === "string" && value.trim() ? value : fallback;
 }
 
-function getCombinedReferralStats(userData: any = {}, legacyStats: any = {}) {
+/**
+ * Money-relevant referral stats.
+ *
+ * `referral_stats/{uid}` is server-only and authoritative. `users/{uid}.referralStats`
+ * is only a display mirror and used to be client-writable, so it must never decide a
+ * balance, a withdrawal or a milestone (it used to override referral_stats here, which
+ * let a user write their own balance and withdraw it). Only a block flag is honoured
+ * from the mirror, because it can only ever restrict.
+ */
+function getCombinedReferralStats(userData: any = {}, statsData: any = {}) {
+  const mirror = userData?.referralStats || {};
   return {
-    ...legacyStats,
-    ...(userData?.referralStats || {})
+    ...statsData,
+    isBlocked: getBooleanValue(statsData?.isBlocked) || getBooleanValue(mirror.isBlocked)
   };
 }
 
+/**
+ * Defaults for stats fields that are still missing on referral_stats, as plain keys.
+ * Never overwrites existing values (the old `set({...DEFAULTS, ...})` reset balances).
+ */
+function missingStatsDefaults(existingStats: any = {}) {
+  const updates: { [key: string]: any } = {};
+  for (const [field, defaultValue] of Object.entries(DEFAULT_REFERRAL_STATS)) {
+    if (existingStats?.[field] === undefined) updates[field] = defaultValue;
+  }
+  return updates;
+}
+
+/** Missing mirror defaults as dotted paths — ONLY valid with update(), never set(). */
 function buildMissingReferralStatsUpdates(existingStats: any = {}) {
   const updates: { [key: string]: any } = {};
-
   for (const [field, defaultValue] of Object.entries(DEFAULT_REFERRAL_STATS)) {
-    if (existingStats[field] === undefined) {
-      updates[`referralStats.${field}`] = defaultValue;
-    }
+    if (existingStats?.[field] === undefined) updates[`referralStats.${field}`] = defaultValue;
   }
-
   return updates;
+}
+
+/**
+ * Keeps the users/{uid}.referralStats display mirror in sync.
+ * Uses a nested object: `set()` does NOT treat "referralStats.x" keys as paths (it
+ * wrote literal top-level fields before, so the mirror silently went stale).
+ */
+function mirrorUserReferralStats(
+  writer: FirebaseFirestore.Transaction | FirebaseFirestore.WriteBatch,
+  userId: string,
+  fields: { [key: string]: any }
+) {
+  const ref = db.collection("users").doc(userId);
+  (writer as any).set(ref, { referralStats: fields }, { merge: true });
+}
+
+/** Referral codes may only be applied by recently created accounts (anti code-swapping). */
+const REFERRAL_APPLY_WINDOW_DAYS = 14;
+
+async function isAccountNewEnoughForReferral(userId: string): Promise<boolean> {
+  try {
+    const user = await admin.auth().getUser(userId);
+    const createdMs = Date.parse(user.metadata.creationTime || "");
+    if (!Number.isFinite(createdMs)) return true;
+    return Date.now() - createdMs <= REFERRAL_APPLY_WINDOW_DAYS * ONE_DAY_MS;
+  } catch (error) {
+    functions.logger.warn("REFERRAL: account age check failed for " + userId, error);
+    return false;
+  }
 }
 
 async function getReferralCodeLookup(rawCode: string) {
@@ -287,10 +334,10 @@ async function getReferralCodeLookup(rawCode: string) {
 
   // Fallback: check if the referral code exists on a user record or referral_stats
   try {
-    const [userQuery, statsQuery] = await Promise.all([
-      db.collection("users").where("referralCode", "==", normalizedCode).limit(1).get(),
-      db.collection("referral_stats").where("referralCode", "==", normalizedCode).limit(1).get()
-    ]);
+    // Only the server-only referral_stats doc is trusted here. users.referralCode is
+    // client-writable and let a user "claim" any unused code.
+    const userQuery = { empty: true, docs: [] as FirebaseFirestore.QueryDocumentSnapshot[] };
+    const statsQuery = await db.collection("referral_stats").where("referralCode", "==", normalizedCode).limit(1).get();
 
     let foundUserId = "";
     let foundUserName = "";
@@ -507,18 +554,19 @@ export const onUserProfileComplete = functions.firestore
             if (codeDoc.exists) {
               throw new Error("REFERRAL_CODE_COLLISION");
             }
-            const existingStats = latestUser.referralStats || {};
+            const statsRef = db.collection("referral_stats").doc(userId);
+            const statsDoc = await transaction.get(statsRef);
             transaction.update(userRef, {
               referralCode,
-              referralCodeCreatedAt: admin.firestore.FieldValue.serverTimestamp(),
-              "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp(),
-              ...buildMissingReferralStatsUpdates(existingStats)
+              referralCodeCreatedAt: admin.firestore.FieldValue.serverTimestamp()
             });
-            transaction.set(db.collection("referral_stats").doc(userId), {
+            // Fill only missing defaults: the old DEFAULTS spread reset an already
+            // credited signup bonus / pending counts to 0 when the code was created late.
+            transaction.set(statsRef, {
               userId,
               userRole,
-              ...DEFAULT_REFERRAL_STATS,
-              ...existingStats,
+              ...missingStatsDefaults(statsDoc.data() || {}),
+              referralCode,
               lastUpdated: admin.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
             transaction.set(codeRef, {
@@ -626,9 +674,16 @@ export const ensureUserReferralCode = functions.https.onCall(async (data, contex
     const userData = userDoc.data() || {};
     const statsData = statsDoc.data() || {};
 
-    const existingCode = normalizeReferralCodeInput(
-      userData.referralCode || statsData.referralCode || ""
+    let existingCode = normalizeReferralCodeInput(
+      statsData.referralCode || userData.referralCode || ""
     );
+    if (existingCode) {
+      const ownerDoc = await db.collection("referral_codes").doc(existingCode).get();
+      if (ownerDoc.exists && getStringValue(ownerDoc.get("userId")) !== userId) {
+        // users.referralCode pointed at another user's code: ignore it.
+        existingCode = "";
+      }
+    }
 
     // If existingCode found, verify/heal referral_codes doc
     if (existingCode) {
@@ -654,9 +709,8 @@ export const ensureUserReferralCode = functions.https.onCall(async (data, contex
         await statsRef.set({
           userId,
           userRole: resolvedRole,
+          ...missingStatsDefaults(statsData),
           referralCode: existingCode,
-          ...DEFAULT_REFERRAL_STATS,
-          ...statsData,
           lastUpdated: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
       }
@@ -679,9 +733,8 @@ export const ensureUserReferralCode = functions.https.onCall(async (data, contex
         statsRef.set({
           userId,
           userRole: resolvedRole,
+          ...missingStatsDefaults(statsData),
           referralCode: foundCode,
-          ...DEFAULT_REFERRAL_STATS,
-          ...statsData,
           lastUpdated: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true })
       ]);
@@ -708,21 +761,20 @@ export const ensureUserReferralCode = functions.https.onCall(async (data, contex
           const freshUserData = freshUserDoc.data() || {};
           const resolvedName = userName || freshUserData.fullName || freshUserData.name || freshUserData.companyName || "DutyPe User";
           const resolvedRole = userRole || freshUserData.activeRole || freshUserData.role || "WORKER";
-          const existingStats = freshUserData.referralStats || {};
+          const freshStatsDoc = await transaction.get(statsRef);
 
           transaction.set(userRef, {
             referralCode: newCode,
-            referralCodeCreatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp(),
-            ...buildMissingReferralStatsUpdates(existingStats)
+            referralCodeCreatedAt: admin.firestore.FieldValue.serverTimestamp()
           }, { merge: true });
 
+          // Never seed money fields from users.referralStats (client-writable) and never
+          // overwrite existing stats with defaults.
           transaction.set(statsRef, {
             userId,
             userRole: resolvedRole,
+            ...missingStatsDefaults(freshStatsDoc.data() || {}),
             referralCode: newCode,
-            ...DEFAULT_REFERRAL_STATS,
-            ...existingStats,
             lastUpdated: admin.firestore.FieldValue.serverTimestamp()
           }, { merge: true });
 
@@ -829,6 +881,13 @@ export async function executeReferralApplication(params: ExecuteReferralParams):
       return { success: false, error: "Cannot use your own referral code" };
     }
 
+    // Only new accounts may apply a code; stops existing users swapping codes for money.
+    if (!(await isAccountNewEnoughForReferral(newUserId))) {
+      return { success: false, error: "Referral codes can only be used when you first join DutyPe" };
+    }
+
+    const config = await getReferralConfig();
+
     const fraudResult = await evaluateReferralFraud({
       referrerUserId,
       deviceFingerprint,
@@ -927,20 +986,25 @@ export async function executeReferralApplication(params: ExecuteReferralParams):
         return { success: false, error: "You have already used a referral code" };
       }
 
+      if (getBooleanValue(referrerStats.isBlocked)) {
+        return { success: false, error: "Referral account is restricted" };
+      }
       const currentSuccessful = getNumberValue(referrerStats.successfulReferrals);
       const newSuccessfulCount = currentSuccessful + 1;
       const currentEarnings = getNumberValue(referrerStats.totalEarnings);
-      const signupBonus = getNumberValue(referrerStats.signupBonusAmount);
-      const existingAwarded = Array.isArray(referrerStats.awardedMilestones) ? referrerStats.awardedMilestones : [];
-      const audit = auditUserMilestones(newSuccessfulCount, currentEarnings, signupBonus, existingAwarded);
-      const referrerReward = REFERRAL_CONFIG.REWARD_PER_REFERRAL;
-      const referredUserReward = REFERRAL_CONFIG.SIGNUP_BONUS;
+      const signupBonus = getNumberValue(referrerStats.signupBonusReceived ? referrerStats.signupBonusAmount : 0);
+      const audit = auditUserMilestones(
+        newSuccessfulCount, currentEarnings, signupBonus,
+        (referrerLegacyStatsDoc.data() || {}).awardedMilestones, config
+      );
+      const referrerReward = config.rewardPerReferral;
+      const referredUserReward = config.signupBonus;
       const milestoneBonus = audit.toCredit;
       const totalReferrerReward = referrerReward + milestoneBonus;
       const currentBalance = getNumberValue(referrerStats.availableBalance);
       const newTier = calculateTier(newSuccessfulCount);
-      const newCanWithdraw = canWithdraw(newSuccessfulCount, currentBalance + totalReferrerReward);
-      const newNextMilestone = getNextMilestone(newSuccessfulCount);
+      const newCanWithdraw = canWithdraw(currentBalance + totalReferrerReward, config.minWithdrawal);
+      const newNextMilestone = getNextMilestone(newSuccessfulCount, config);
       const referrerRole = getStringValue(
         referrerUserData.activeRole || referrerUserData.role || latestCodeData.userRole,
         getStringValue(latestCodeData.userRole, "WORKER")
@@ -964,8 +1028,6 @@ export async function executeReferralApplication(params: ExecuteReferralParams):
       const maskedPhone = newUserPhone ? "****" + newUserPhone.slice(-4) : "";
       const idempotencyKey = generateIdempotencyKey(latestReferrerUserId, newUserId);
       const isProfileCompleted = Boolean(
-        newUserData.profileCompleted ||
-        newUserData.isProfileComplete ||
         (newWorkerProfileDoc.exists && isWorkerProfileComplete(newWorkerProfileDoc.data())) ||
         (newEmployerProfileDoc.exists && isEmployerProfileComplete(newEmployerProfileDoc.data()))
       );
@@ -988,6 +1050,7 @@ export async function executeReferralApplication(params: ExecuteReferralParams):
         bonusAmount: milestoneBonus,
         referredUserReward,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        expiresAt: isProfileCompleted ? null : admin.firestore.Timestamp.fromMillis(Date.now() + REFERRAL_CONFIG.REFERRAL_EXPIRY_DAYS * ONE_DAY_MS),
         completedAt: isProfileCompleted ? admin.firestore.FieldValue.serverTimestamp() : null,
         referredUserName: newUserName,
         referredUserPhone: maskedPhone,
@@ -1043,6 +1106,7 @@ export async function executeReferralApplication(params: ExecuteReferralParams):
         }
 
         transaction.set(referrerStatsRef, {
+          ...missingStatsDefaults(referrerLegacyStatsDoc.data() || {}),
           userId: latestReferrerUserId,
           userRole: referrerRole,
           totalReferrals: admin.firestore.FieldValue.increment(1),
@@ -1095,6 +1159,7 @@ export async function executeReferralApplication(params: ExecuteReferralParams):
         }
 
         transaction.set(newUserStatsRef, {
+          ...missingStatsDefaults(newUserLegacyStatsDoc.data() || {}),
           userId: newUserId,
           userRole: newUserRole,
           referredByCode: referralCode,
@@ -1345,347 +1410,253 @@ export async function processPendingReferralOnProfileComplete(
   functions.logger.info(`🎁 REFERRAL: Checking pending referral for user ${referredUserId}`);
 
   try {
-    // Find pending referral for this user
-    let pendingReferrals = await db.collection("referrals")
+    const config = await getReferralConfig();
+    const pendingQuery = db.collection("referrals")
       .where("referredUserId", "==", referredUserId)
       .where("status", "==", "PENDING")
-      .limit(1)
-      .get();
+      .limit(1);
 
-    let referralDoc = !pendingReferrals.empty ? pendingReferrals.docs[0] : null;
-    let referral: any = referralDoc ? referralDoc.data() : null;
-    let referralId = referralDoc ? referralDoc.id : "";
-    let referrerUserId = referral ? (referral.referrerUserId || referral.referrerId) : "";
-
-    // If no pending referral doc exists, check if user has already completed referral or has referrer info on profile
-    if (!referral) {
-      const completedQuery = await db.collection("referrals")
-        .where("referredUserId", "==", referredUserId)
-        .where("status", "==", "COMPLETED")
-        .limit(1)
-        .get();
-
-      if (!completedQuery.empty) {
-        functions.logger.info(`🎁 REFERRAL: User ${referredUserId} already has completed referral.`);
-        return { status: "COMPLETED" };
-      }
-
-      // Check users, worker_profiles, and employer_profiles for referrer info
-      const [uDoc, wDoc, eDoc] = await Promise.all([
-        db.collection("users").doc(referredUserId).get(),
-        db.collection("worker_profiles").doc(referredUserId).get(),
-        db.collection("employer_profiles").doc(referredUserId).get()
-      ]);
-      const uData = uDoc.data() || {};
-      const wData = wDoc.data() || {};
-      const eData = eDoc.data() || {};
-      const merged = { ...uData, ...wData, ...eData, ...(afterData || {}) };
-
-      const refCode = normalizeReferralCodeInput(
-        merged.referredByCode || merged.referralStats?.referredByCode || ""
-      );
-      let resolvedReferrerId = getStringValue(
-        merged.referredByUserId || merged.referralStats?.referredByUserId || ""
-      );
-
-      if (!resolvedReferrerId && refCode) {
-        const lookup = await getReferralCodeLookup(refCode);
-        if (lookup) {
-          resolvedReferrerId = getStringValue(lookup.data.userId);
-        }
-      }
-
-      if (resolvedReferrerId && resolvedReferrerId !== referredUserId) {
-        referrerUserId = resolvedReferrerId;
-        referralId = db.collection("referrals").doc().id;
-        referral = {
-          id: referralId,
-          referrerUserId,
-          referrerId: referrerUserId,
-          referredUserId,
-          referredId: referredUserId,
-          referralCode: refCode,
-          status: "PENDING",
-          referredUserName: getStringValue(merged.fullName || merged.name || merged.companyName, "DutyPe User"),
-          referredUserPhone: getStringValue(merged.phone || merged.phoneNumber, ""),
-          referredRole: getStringValue(merged.role || merged.activeRole, "WORKER"),
-          createdAt: merged.createdAt || admin.firestore.FieldValue.serverTimestamp()
-        };
-        functions.logger.info(`🎁 REFERRAL: Auto-healed missing referral record ${referralId} for referrer ${referrerUserId} and user ${referredUserId}`);
-      } else {
-        functions.logger.info(`🎁 REFERRAL: No pending referral or referrer info for user ${referredUserId}`);
-        return null;
-      }
+    // Cheap pre-check outside the transaction: nothing pending → maybe heal, else stop.
+    const pendingPeek = await pendingQuery.get();
+    if (pendingPeek.empty) {
+      return await healMissingReferral(referredUserId, afterData);
     }
 
-    // Fetch user doc if not passed
-    const after = afterData || (await db.collection("users").doc(referredUserId).get()).data() || {};
+    // Everything that credits money happens in ONE transaction that re-reads the referral.
+    // Profile saves fire up to three triggers (users / worker_profiles / employer_profiles)
+    // at once; the losers of the race see status != PENDING and credit nothing.
+    const outcome = await db.runTransaction(async (transaction) => {
+      const pendingSnap = await transaction.get(pendingQuery);
+      if (pendingSnap.empty) return { status: "COMPLETED" };
 
-    // Check if expired
-    const expiresAt = referral.expiresAt?.toMillis() || 0;
-    if (expiresAt > 0 && Date.now() > expiresAt) {
-      functions.logger.info(`🎁 REFERRAL: Referral ${referralId} expired`);
-      
-      // Mark as expired
-      await db.collection("referrals").doc(referralId).update({
-        status: "EXPIRED",
-        completedAt: admin.firestore.FieldValue.serverTimestamp()
-      });
+      const referralDoc = pendingSnap.docs[0];
+      const referral = referralDoc.data() || {};
+      const referralId = referralDoc.id;
+      const referrerUserId = getStringValue(referral.referrerUserId || referral.referrerId);
+      if (!referrerUserId || referrerUserId === referredUserId) {
+        transaction.update(referralDoc.ref, { status: "REJECTED", rejectionReason: "INVALID_REFERRER" });
+        return { status: "REJECTED" };
+      }
 
+      const referrerStatsRef = db.collection("referral_stats").doc(referrerUserId);
+      const referredStatsRef = db.collection("referral_stats").doc(referredUserId);
       const referrerUserRef = db.collection("users").doc(referrerUserId);
-      await db.runTransaction(async (transaction) => {
-        transaction.set(db.collection("referral_stats").doc(referrerUserId), {
+      const [referrerStatsDoc, referredStatsDoc, referrerUserDoc] = await transaction.getAll(
+        referrerStatsRef, referredStatsRef, referrerUserRef
+      );
+
+      const expiresAtMs = referral.expiresAt?.toMillis ? referral.expiresAt.toMillis() : 0;
+      if (expiresAtMs > 0 && Date.now() > expiresAtMs) {
+        transaction.update(referralDoc.ref, {
+          status: "EXPIRED",
+          completedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        const expiredFields = {
           pendingReferrals: admin.firestore.FieldValue.increment(-1),
           expiredReferrals: admin.firestore.FieldValue.increment(1),
           lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-        transaction.update(referrerUserRef, {
-          "referralStats.pendingReferrals": admin.firestore.FieldValue.increment(-1),
-          "referralStats.expiredReferrals": admin.firestore.FieldValue.increment(1),
-          "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
-        });
-      });
-
-      return { status: "EXPIRED" };
-    }
-
-    // Get referrer's current stats for milestone calculation
-    const [referrerUserDoc, referrerStatsDoc] = await Promise.all([
-      db.collection("users").doc(referrerUserId).get(),
-      db.collection("referral_stats").doc(referrerUserId).get()
-    ]);
-    const referrerUserData = referrerUserDoc.data() || {};
-    const referrerStats = getCombinedReferralStats(referrerUserData, referrerStatsDoc.data() || {});
-    const currentSuccessful = getNumberValue(referrerStats.successfulReferrals);
-    const newSuccessfulCount = currentSuccessful + 1;
-    const currentEarnings = getNumberValue(referrerStats.totalEarnings);
-    const signupBonus = getNumberValue(referrerStats.signupBonusAmount);
-    const existingAwarded = Array.isArray(referrerStats.awardedMilestones) ? referrerStats.awardedMilestones : [];
-    const audit = auditUserMilestones(newSuccessfulCount, currentEarnings, signupBonus, existingAwarded);
-
-    // Calculate rewards
-    const referrerReward = REFERRAL_CONFIG.REWARD_PER_REFERRAL;
-    const referredUserReward = REFERRAL_CONFIG.SIGNUP_BONUS;
-    const milestoneBonus = audit.toCredit;
-    const totalReferrerReward = referrerReward + milestoneBonus;
-
-    // Calculate new tier and withdrawal eligibility
-    const newTier = calculateTier(newSuccessfulCount);
-    const currentBalance = getNumberValue(referrerStats.availableBalance);
-    const newCanWithdraw = canWithdraw(newSuccessfulCount, currentBalance + totalReferrerReward);
-    const newNextMilestone = getNextMilestone(newSuccessfulCount);
-
-    // Calculate employer free postings
-    const referrerRole = getStringValue(
-      referrerUserData.activeRole || referrerUserData.role || referrerStats.userRole,
-      "WORKER"
-    );
-    let freePostings = getNumberValue(referrerStats.freeJobPostings);
-    let freePostingsExpiry = referrerStats.freeJobPostingsExpiry;
-    
-    if (referrerRole === "EMPLOYER") {
-      const postingReward = REFERRAL_CONFIG.EMPLOYER_FREE_POSTINGS[newSuccessfulCount];
-      if (postingReward) {
-        freePostings = postingReward.count;
-        freePostingsExpiry = new Date(Date.now() + postingReward.days * ONE_DAY_MS);
+        };
+        transaction.set(referrerStatsRef, expiredFields, { merge: true });
+        mirrorUserReferralStats(transaction, referrerUserId, expiredFields);
+        return { status: "EXPIRED" };
       }
-    }
 
-    // Use batch write for atomic update
-    const batch = db.batch();
+      const referrerRaw = referrerStatsDoc.data() || {};
+      const referrerStats = getCombinedReferralStats(referrerUserDoc.data() || {}, referrerRaw);
+      if (getBooleanValue(referrerStats.isBlocked)) {
+        transaction.update(referralDoc.ref, { status: "REJECTED", rejectionReason: "REFERRER_BLOCKED" });
+        return { status: "REJECTED" };
+      }
 
-    // 1. Update referral status
-    const referralRef = db.collection("referrals").doc(referralId);
-    batch.set(referralRef, {
-      id: referralId,
-      status: "COMPLETED",
-      profileCompleted: true,
-      referrerId: referrerUserId,
-      referrerUserId: referrerUserId,
-      referredId: referredUserId,
-      referredUserId: referredUserId,
-      rewardAmount: referrerReward,
-      bonusAmount: milestoneBonus,
-      referredUserReward: referredUserReward,
-      completedAt: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    // 2. Update referrer's stats in BOTH locations
-    const referrerStatsRef = db.collection("referral_stats").doc(referrerUserId);
-    const referrerStatsUpdate: { [key: string]: any } = {
-      userId: referrerUserId,
-      userRole: referrerRole,
-      successfulReferrals: newSuccessfulCount,
-      pendingReferrals: admin.firestore.FieldValue.increment(-1),
-      totalEarnings: admin.firestore.FieldValue.increment(totalReferrerReward),
-      availableBalance: admin.firestore.FieldValue.increment(totalReferrerReward),
-      canWithdraw: newCanWithdraw,
-      currentTier: newTier,
-      nextMilestone: newNextMilestone,
-      awardedMilestones: audit.newAwardedMilestones,
-      lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-    };
-
-    if (referrerRole === "EMPLOYER" && freePostingsExpiry) {
-      referrerStatsUpdate.freeJobPostings = freePostings;
-      referrerStatsUpdate.freeJobPostingsExpiry = freePostingsExpiry;
-    }
-
-    batch.set(referrerStatsRef, referrerStatsUpdate, { merge: true });
-
-    // Also update users.referralStats
-    const referrerUserRef = db.collection("users").doc(referrerUserId);
-    const userStatsUpdate: { [key: string]: any } = {
-      ...buildMissingReferralStatsUpdates(referrerUserData.referralStats || {}),
-      "referralStats.successfulReferrals": newSuccessfulCount,
-      "referralStats.pendingReferrals": admin.firestore.FieldValue.increment(-1),
-      "referralStats.totalEarnings": admin.firestore.FieldValue.increment(totalReferrerReward),
-      "referralStats.availableBalance": admin.firestore.FieldValue.increment(totalReferrerReward),
-      "referralStats.canWithdraw": newCanWithdraw,
-      "referralStats.currentTier": newTier,
-      "referralStats.nextMilestone": newNextMilestone,
-      "referralStats.awardedMilestones": audit.newAwardedMilestones,
-      "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
-    };
-
-    if (referrerRole === "EMPLOYER" && freePostingsExpiry) {
-      userStatsUpdate["referralStats.freeJobPostings"] = freePostings;
-      userStatsUpdate["referralStats.freeJobPostingsExpiry"] = freePostingsExpiry;
-    }
-
-    batch.set(referrerUserRef, userStatsUpdate, { merge: true });
-
-    if (audit.awardedNow.length > 0) {
-      const milestoneEventRef = db.collection("referral_events").doc();
-      batch.set(milestoneEventRef, {
-        eventType: "MILESTONE_REACHED",
-        userId: referrerUserId,
-        milestones: audit.awardedNow,
-        bonusAmount: milestoneBonus,
+      const newSuccessfulCount = getNumberValue(referrerStats.successfulReferrals) + 1;
+      const audit = auditUserMilestones(
         newSuccessfulCount,
-        timestamp: admin.firestore.FieldValue.serverTimestamp()
+        getNumberValue(referrerStats.totalEarnings),
+        getNumberValue(referrerStats.signupBonusReceived ? referrerStats.signupBonusAmount : 0),
+        referrerRaw.awardedMilestones,
+        config
+      );
+      const referrerReward = config.rewardPerReferral;
+      const referredUserReward = config.signupBonus;
+      const milestoneBonus = audit.toCredit;
+      const totalReferrerReward = referrerReward + milestoneBonus;
+      const newTier = calculateTier(newSuccessfulCount);
+      const newCanWithdraw = canWithdraw(
+        getNumberValue(referrerStats.availableBalance) + totalReferrerReward,
+        config.minWithdrawal
+      );
+      const newNextMilestone = getNextMilestone(newSuccessfulCount, config);
+
+      const referrerRole = getStringValue(
+        referrerUserDoc.get("activeRole") || referrerUserDoc.get("role") || referrerStats.userRole,
+        "WORKER"
+      );
+      let freePostings = getNumberValue(referrerStats.freeJobPostings);
+      let freePostingsExpiry = referrerStats.freeJobPostingsExpiry || null;
+      if (referrerRole === "EMPLOYER") {
+        const postingReward = REFERRAL_CONFIG.EMPLOYER_FREE_POSTINGS[newSuccessfulCount];
+        if (postingReward) {
+          freePostings = postingReward.count;
+          freePostingsExpiry = new Date(Date.now() + postingReward.days * ONE_DAY_MS);
+        }
+      }
+
+      const now = admin.firestore.FieldValue.serverTimestamp();
+
+      // 1. Referral → COMPLETED
+      transaction.update(referralDoc.ref, {
+        status: "COMPLETED",
+        profileCompleted: true,
+        rewardAmount: referrerReward,
+        bonusAmount: milestoneBonus,
+        referredUserReward,
+        completedAt: now
       });
 
-      const milestoneNotifRef = db.collection("notifications").doc();
-      batch.set(milestoneNotifRef, {
-        recipientId: referrerUserId,
-        title: "🎉 Milestone Bonus Unlocked!",
-        message: `Congratulations! You unlocked a ₹${milestoneBonus} milestone bonus for reaching ${newSuccessfulCount} referrals!`,
-        type: "MILESTONE_REWARD",
-        data: { milestones: audit.awardedNow, amount: milestoneBonus },
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        isRead: false
+      // 2. Referrer stats (authoritative) + display mirror
+      const referrerFields: { [key: string]: any } = {
+        userId: referrerUserId,
+        userRole: referrerRole,
+        successfulReferrals: newSuccessfulCount,
+        pendingReferrals: admin.firestore.FieldValue.increment(-1),
+        totalEarnings: admin.firestore.FieldValue.increment(totalReferrerReward),
+        availableBalance: admin.firestore.FieldValue.increment(totalReferrerReward),
+        canWithdraw: newCanWithdraw,
+        currentTier: newTier,
+        nextMilestone: newNextMilestone,
+        awardedMilestones: audit.newAwardedMilestones,
+        lastUpdated: now
+      };
+      if (referrerRole === "EMPLOYER" && freePostingsExpiry) {
+        referrerFields.freeJobPostings = freePostings;
+        referrerFields.freeJobPostingsExpiry = freePostingsExpiry;
+      }
+      transaction.set(referrerStatsRef, { ...missingStatsDefaults(referrerRaw), ...referrerFields }, { merge: true });
+      mirrorUserReferralStats(transaction, referrerUserId, referrerFields);
+
+      // 3. Referred user's signup bonus (only once)
+      const referredRaw = referredStatsDoc.data() || {};
+      const creditReferred = !getBooleanValue(referredRaw.signupBonusReceived);
+      if (creditReferred) {
+        const referredFields = {
+          userId: referredUserId,
+          userRole: getStringValue(afterData?.activeRole || afterData?.role || referral.referredRole, "WORKER"),
+          totalEarnings: admin.firestore.FieldValue.increment(referredUserReward),
+          availableBalance: admin.firestore.FieldValue.increment(referredUserReward),
+          signupBonusReceived: true,
+          signupBonusAmount: referredUserReward,
+          lastUpdated: now
+        };
+        transaction.set(referredStatsRef, { ...missingStatsDefaults(referredRaw), ...referredFields }, { merge: true });
+        mirrorUserReferralStats(transaction, referredUserId, referredFields);
+      }
+
+      // 4. Code usage counter
+      const codeId = normalizeReferralCodeInput(getStringValue(referral.referralCode));
+      if (codeId) {
+        transaction.set(db.collection("referral_codes").doc(codeId), {
+          successfulReferrals: admin.firestore.FieldValue.increment(1)
+        }, { merge: true });
+      }
+
+      // 5. Events + notifications (inside the transaction, so they are written exactly once)
+      transaction.set(db.collection("referral_events").doc(), {
+        eventType: "REWARD_CREDITED",
+        userId: referrerUserId,
+        referralId,
+        amount: totalReferrerReward,
+        bonusAmount: milestoneBonus,
+        newTier,
+        timestamp: now
       });
-    }
-
-    // 3. Update referral code stats
-    if (referral.referralCode) {
-      const codeRef = db.collection("referral_codes").doc(referral.referralCode);
-      batch.set(codeRef, {
-        successfulReferrals: admin.firestore.FieldValue.increment(1)
-      }, { merge: true });
-    }
-
-    // 4. Credit referred user's signup bonus in BOTH locations
-    const referredStatsRef = db.collection("referral_stats").doc(referredUserId);
-    batch.set(referredStatsRef, {
-      userId: referredUserId,
-      userRole: getStringValue(after.activeRole || after.role, "WORKER"),
-      totalEarnings: admin.firestore.FieldValue.increment(referredUserReward),
-      availableBalance: admin.firestore.FieldValue.increment(referredUserReward),
-      signupBonusReceived: true,
-      signupBonusAmount: referredUserReward,
-      lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    // Also update users.referralStats
-    const referredUserRef = db.collection("users").doc(referredUserId);
-    batch.set(referredUserRef, {
-      ...buildMissingReferralStatsUpdates(after.referralStats || {}),
-      "referralStats.totalEarnings": admin.firestore.FieldValue.increment(referredUserReward),
-      "referralStats.availableBalance": admin.firestore.FieldValue.increment(referredUserReward),
-      "referralStats.signupBonusReceived": true,
-      "referralStats.signupBonusAmount": referredUserReward,
-      "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-
-    // 5. Log events
-    const referrerEventRef = db.collection("referral_events").doc();
-    batch.set(referrerEventRef, {
-      eventType: "REWARD_CREDITED",
-      userId: referrerUserId,
-      referralId: referralId,
-      amount: totalReferrerReward,
-      bonusAmount: milestoneBonus,
-      newTier: newTier,
-      timestamp: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    const referredEventRef = db.collection("referral_events").doc();
-    batch.set(referredEventRef, {
-      eventType: "SIGNUP_BONUS_CREDITED",
-      userId: referredUserId,
-      referralId: referralId,
-      amount: referredUserReward,
-      timestamp: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    // 6. Send notifications (with idempotency check using indexed fields)
-    const existingNotifications = await db.collection("notifications")
-      .where("recipientId", "==", referrerUserId)
-      .where("type", "==", "REFERRAL_REWARD")
-      .limit(5)
-      .get();
-    
-    const notificationExists = existingNotifications.docs.some(doc => {
-      const data = doc.data();
-      return data.data?.referralId === referralId;
-    });
-    
-    if (!notificationExists) {
-      const referrerNotifRef = db.collection("notifications").doc();
-      batch.set(referrerNotifRef, {
+      transaction.set(db.collection("notifications").doc(), {
         recipientId: referrerUserId,
         title: "🎉 Referral Successful!",
         message: `${referral.referredUserName || "Someone"} joined using your code! You earned ₹${totalReferrerReward}${milestoneBonus > 0 ? ` (includes ₹${milestoneBonus} milestone bonus!)` : ""}`,
         type: "REFERRAL_REWARD",
         data: { referralId, amount: totalReferrerReward },
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: now,
         isRead: false
       });
+      if (audit.awardedNow.length > 0) {
+        transaction.set(db.collection("referral_events").doc(), {
+          eventType: "MILESTONE_REACHED",
+          userId: referrerUserId,
+          milestones: audit.awardedNow,
+          bonusAmount: milestoneBonus,
+          newSuccessfulCount,
+          timestamp: now
+        });
+      }
+      if (creditReferred) {
+        transaction.set(db.collection("referral_events").doc(), {
+          eventType: "SIGNUP_BONUS_CREDITED",
+          userId: referredUserId,
+          referralId,
+          amount: referredUserReward,
+          timestamp: now
+        });
+        transaction.set(db.collection("notifications").doc(), {
+          recipientId: referredUserId,
+          title: "🎁 Welcome Bonus!",
+          message: `You earned ₹${referredUserReward} for joining with a referral code!`,
+          type: "SIGNUP_BONUS",
+          data: { amount: referredUserReward },
+          createdAt: now,
+          isRead: false
+        });
+      }
 
-      const referredNotifRef = db.collection("notifications").doc();
-      batch.set(referredNotifRef, {
-        recipientId: referredUserId,
-        title: "🎁 Welcome Bonus!",
-        message: `You earned ₹${referredUserReward} for joining with a referral code!`,
-        type: "SIGNUP_BONUS",
-        data: { amount: referredUserReward },
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        isRead: false
-      });
-      
-      functions.logger.info(`🎁 REFERRAL: Creating notifications for referral ${referralId}`);
-    } else {
-      functions.logger.info(`🎁 REFERRAL: Notifications already exist for referral ${referralId}, skipping`);
-    }
+      return {
+        status: "COMPLETED",
+        referrerReward: totalReferrerReward,
+        referredUserReward: creditReferred ? referredUserReward : 0,
+        milestoneBonus,
+        newTier
+      };
+    });
 
-    await batch.commit();
-
-    functions.logger.info(`🎁 REFERRAL: ✅ Completed! Referrer ${referrerUserId} earned ₹${totalReferrerReward}, Referred ${referredUserId} earned ₹${referredUserReward}`);
-
-    return {
-      status: "COMPLETED",
-      referrerReward: totalReferrerReward,
-      referredUserReward: referredUserReward,
-      milestoneBonus: milestoneBonus,
-      newTier: newTier
-    };
-
+    functions.logger.info(`🎁 REFERRAL: processPending for ${referredUserId} → ${outcome.status}`);
+    return outcome;
   } catch (error) {
     functions.logger.error(`🎁 REFERRAL: Error completing referral:`, error);
     return null;
   }
+}
+
+/**
+ * The user signed up with a code but no referral record exists (e.g. the apply call
+ * failed). Re-run the normal, fully guarded application (code lookup, self-referral,
+ * fraud checks, account-age window) using the code stored at registration. The old
+ * heal trusted a client-writable referredByUserId and bypassed every check.
+ */
+async function healMissingReferral(referredUserId: string, afterData?: any) {
+  const anyReferral = await db.collection("referrals")
+    .where("referredUserId", "==", referredUserId)
+    .limit(1)
+    .get();
+  if (!anyReferral.empty) {
+    return { status: getStringValue(anyReferral.docs[0].get("status"), "COMPLETED") };
+  }
+
+  const [uDoc, wDoc, eDoc] = await Promise.all([
+    db.collection("users").doc(referredUserId).get(),
+    db.collection("worker_profiles").doc(referredUserId).get(),
+    db.collection("employer_profiles").doc(referredUserId).get()
+  ]);
+  const merged = { ...(uDoc.data() || {}), ...(wDoc.data() || {}), ...(eDoc.data() || {}), ...(afterData || {}) };
+  const refCode = normalizeReferralCodeInput(merged.referredByCode || "");
+  if (!refCode) return null;
+
+  const result = await executeReferralApplication({
+    newUserId: referredUserId,
+    referralCode: refCode,
+    newUserRole: getStringValue(merged.activeRole || merged.role, "WORKER"),
+    newUserName: getStringValue(merged.fullName || merged.name || merged.companyName, ""),
+    newUserPhone: getStringValue(merged.phone || merged.phoneNumber, "")
+  });
+  functions.logger.info(`🎁 REFERRAL: heal for ${referredUserId} with ${refCode} → ${result.success ? "applied" : result.error}`);
+  return result.success ? { status: "COMPLETED" } : null;
 }
 
 export const onReferredUserProfileComplete = functions.firestore
@@ -1713,7 +1684,8 @@ export const onWorkerProfileCompleteReferral = functions.firestore
     if (!after) return null;
     const userId = context.params.userId;
 
-    if (isWorkerProfileComplete(after)) {
+    const before = change.before.exists ? change.before.data() : null;
+    if (isWorkerProfileComplete(after) && !(before && isWorkerProfileComplete(before))) {
       await db.collection("users").doc(userId).set({
         profileCompleted: true,
         isProfileComplete: true,
@@ -1736,7 +1708,8 @@ export const onEmployerProfileCompleteReferral = functions.firestore
     if (!after) return null;
     const userId = context.params.userId;
 
-    if (isEmployerProfileComplete(after)) {
+    const before = change.before.exists ? change.before.data() : null;
+    if (isEmployerProfileComplete(after) && !(before && isEmployerProfileComplete(before))) {
       await db.collection("users").doc(userId).set({
         profileCompleted: true,
         isProfileComplete: true,
@@ -1756,6 +1729,11 @@ export const syncPendingReferrals = functions.https.onCall(async (data, context)
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
   }
+  // Maintenance job that credits money across ALL users: admins only
+  // (any signed-in user could trigger it before).
+  if (!(await isCallerAdmin(context))) {
+    throw new functions.https.HttpsError("permission-denied", "admin only");
+  }
 
   const pendingSnapshot = await db.collection("referrals")
     .where("status", "==", "PENDING")
@@ -1771,164 +1749,37 @@ export const syncPendingReferrals = functions.https.onCall(async (data, context)
     const referredUserId = refData.referredUserId || refData.referredId;
     if (!referredUserId) continue;
 
-    const [userDoc, workerDoc, employerDoc] = await Promise.all([
-      db.collection("users").doc(referredUserId).get(),
+    const [workerDoc, employerDoc] = await Promise.all([
       db.collection("worker_profiles").doc(referredUserId).get(),
       db.collection("employer_profiles").doc(referredUserId).get()
     ]);
-
     const workerData = workerDoc.exists ? workerDoc.data() : null;
     const employerData = employerDoc.exists ? employerDoc.data() : null;
-    const userData = userDoc.exists ? userDoc.data() : null;
+    const isComplete = Boolean(
+      (workerData && isWorkerProfileComplete(workerData)) ||
+      (employerData && isEmployerProfileComplete(employerData))
+    );
 
-    const isWorkerComplete = workerData && isWorkerProfileComplete(workerData);
-    const isEmployerComplete = employerData && isEmployerProfileComplete(employerData);
-    const isUserDocComplete = Boolean(userData?.profileCompleted || userData?.isProfileComplete);
-
-    if (isWorkerComplete || isEmployerComplete || isUserDocComplete) {
-      await db.collection("users").doc(referredUserId).set({
-        profileCompleted: true,
-        isProfileComplete: true,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-
-      const outcome = await processPendingReferralOnProfileComplete(
-        referredUserId,
-        userData || workerData || employerData
-      );
-
-      results.push({
-        referralId: doc.id,
-        referredUserId,
-        status: outcome?.status || "COMPLETED"
-      });
+    if (isComplete) {
+      // Same transactional path as the triggers: can never double-credit.
+      const outcome = await processPendingReferralOnProfileComplete(referredUserId, workerData || employerData);
+      results.push({ referralId: doc.id, referredUserId, status: outcome?.status || "ERROR" });
     } else {
-      results.push({
-        referralId: doc.id,
-        referredUserId,
-        status: "PENDING",
-        reason: "Profile incomplete"
-      });
+      results.push({ referralId: doc.id, referredUserId, status: "PENDING", reason: "Profile incomplete" });
     }
   }
 
-  // Auto-heal users with referrer info who have completed profiles but missing referral doc
-  try {
-    const usersWithReferrer = await db.collection("users")
-      .where("referredByUserId", ">", "")
-      .limit(100)
-      .get();
-
-    for (const uDoc of usersWithReferrer.docs) {
-      const uId = uDoc.id;
-      const uData = uDoc.data();
-
-      // Check if user already has completed referral
-      const completedCheck = await db.collection("referrals")
-        .where("referredUserId", "==", uId)
-        .where("status", "==", "COMPLETED")
-        .limit(1)
-        .get();
-
-      if (completedCheck.empty) {
-        const [wDoc, eDoc] = await Promise.all([
-          db.collection("worker_profiles").doc(uId).get(),
-          db.collection("employer_profiles").doc(uId).get()
-        ]);
-        const wData = wDoc.exists ? wDoc.data() : null;
-        const eData = eDoc.exists ? eDoc.data() : null;
-
-        const isWorkerComplete = wData && isWorkerProfileComplete(wData);
-        const isEmployerComplete = eData && isEmployerProfileComplete(eData);
-        const isUserDocComplete = Boolean(uData.profileCompleted || uData.isProfileComplete);
-
-        if (isWorkerComplete || isEmployerComplete || isUserDocComplete) {
-          const outcome = await processPendingReferralOnProfileComplete(
-            uId,
-            { ...uData, ...wData, ...eData }
-          );
-          if (outcome) {
-            results.push({
-              referralId: "healed_" + uId,
-              referredUserId: uId,
-              status: outcome.status
-            });
-          }
-        }
-      }
-    }
-  } catch (healErr) {
-    functions.logger.warn("🎁 REFERRAL: Auto-heal scan error", healErr);
-  }
-
-  // Milestone Audit for all active referrers with 5+ referrals
+  // Milestone reconciliation for active referrers (transactional per user).
   let milestonesFixed = 0;
   try {
     const statsSnapshot = await db.collection("referral_stats")
-      .where("successfulReferrals", ">=", 5)
+      .where("successfulReferrals", ">=", 1)
       .limit(200)
       .get();
-
     for (const statDoc of statsSnapshot.docs) {
-      const sData = statDoc.data();
-      const sUserId = statDoc.id;
-      const sSuccessful = getNumberValue(sData.successfulReferrals);
-      const sEarnings = getNumberValue(sData.totalEarnings);
-      const sSignup = getNumberValue(sData.signupBonusAmount);
-      const sAwarded = Array.isArray(sData.awardedMilestones) ? sData.awardedMilestones : [];
-      const audit = auditUserMilestones(sSuccessful, sEarnings, sSignup, sAwarded);
-
-      if (audit.toCredit > 0 || audit.newAwardedMilestones.length !== sAwarded.length) {
-        milestonesFixed++;
-        const bonusToCredit = audit.toCredit;
-        const now = admin.firestore.FieldValue.serverTimestamp();
-        const sRef = db.collection("referral_stats").doc(sUserId);
-        const uRef = db.collection("users").doc(sUserId);
-        const b = db.batch();
-
-        const sPatch: any = {
-          awardedMilestones: audit.newAwardedMilestones,
-          lastUpdated: now
-        };
-        const uPatch: any = {
-          "referralStats.awardedMilestones": audit.newAwardedMilestones,
-          "referralStats.lastUpdated": now
-        };
-
-        if (bonusToCredit > 0) {
-          sPatch.totalEarnings = admin.firestore.FieldValue.increment(bonusToCredit);
-          sPatch.availableBalance = admin.firestore.FieldValue.increment(bonusToCredit);
-          sPatch.canWithdraw = true;
-          uPatch["referralStats.totalEarnings"] = admin.firestore.FieldValue.increment(bonusToCredit);
-          uPatch["referralStats.availableBalance"] = admin.firestore.FieldValue.increment(bonusToCredit);
-          uPatch["referralStats.canWithdraw"] = true;
-
-          const notifRef = db.collection("notifications").doc();
-          b.set(notifRef, {
-            recipientId: sUserId,
-            title: "🎉 Milestone Bonus Credited!",
-            message: `Your ₹${bonusToCredit} milestone bonus for reaching ${sSuccessful} referrals has been credited to your balance!`,
-            type: "MILESTONE_REWARD",
-            data: { milestones: audit.awardedNow, amount: bonusToCredit },
-            createdAt: now,
-            isRead: false
-          });
-
-          const evRef = db.collection("referral_events").doc();
-          b.set(evRef, {
-            eventType: "MILESTONE_REACHED",
-            userId: sUserId,
-            milestones: audit.awardedNow,
-            bonusAmount: bonusToCredit,
-            newSuccessfulCount: sSuccessful,
-            timestamp: now
-          });
-        }
-
-        b.set(sRef, sPatch, { merge: true });
-        b.set(uRef, uPatch, { merge: true });
-        await b.commit();
-      }
+      const before = statDoc.get("awardedMilestones");
+      const after = await reconcileMilestones(statDoc.id);
+      if (JSON.stringify(before) !== JSON.stringify(after.awardedMilestones)) milestonesFixed++;
     }
   } catch (milestoneAuditErr) {
     functions.logger.error("Error during milestone audit in syncPendingReferrals:", milestoneAuditErr);
@@ -2002,10 +1853,10 @@ export const expirePendingReferrals = functions.pubsub
           expiredReferrals: admin.firestore.FieldValue.increment(expiredCount),
           lastUpdated: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
-        batch.update(db.collection("users").doc(referrerId), {
-          "referralStats.pendingReferrals": admin.firestore.FieldValue.increment(-expiredCount),
-          "referralStats.expiredReferrals": admin.firestore.FieldValue.increment(expiredCount),
-          "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
+        mirrorUserReferralStats(batch, referrerId, {
+          pendingReferrals: admin.firestore.FieldValue.increment(-expiredCount),
+          expiredReferrals: admin.firestore.FieldValue.increment(expiredCount),
+          lastUpdated: admin.firestore.FieldValue.serverTimestamp()
         });
       }
 
@@ -2037,8 +1888,14 @@ export const requestWithdrawal = functions.https.onCall(async (data, context) =>
   if (data.userId !== undefined && data.userId !== userId) {
     throw new functions.https.HttpsError("permission-denied", "Account changed before withdrawal");
   }
+  const config = await getReferralConfig();
+  const minWithdrawal = config.minWithdrawal;
+  const maxPerDay = config.maxWithdrawalPerDay;
+  if (typeof data.amount === "number" && data.amount > maxPerDay) {
+    return { success: false, error: `You can withdraw up to ₹${maxPerDay} per day` };
+  }
   const amount = validateNumber(data.amount, "amount", {
-    required: true, min: REFERRAL_CONFIG.MIN_WITHDRAWAL, max: REFERRAL_CONFIG.MAX_WITHDRAWAL_PER_DAY
+    required: true, min: minWithdrawal, max: maxPerDay
   });
   const amountPaise = Math.round(amount * 100);
   if (!Number.isSafeInteger(amountPaise) || Math.abs(amount * 100 - amountPaise) > 0.000001) {
@@ -2096,16 +1953,16 @@ export const requestWithdrawal = functions.https.onCall(async (data, context) =>
       if (getBooleanValue(stats.isBlocked) || getBooleanValue(userData.referralStats?.isBlocked)) {
         return { success: false, error: "Your account is blocked from withdrawals" };
       }
+      // Balance comes ONLY from the server-owned referral_stats doc.
       const availablePaise = Math.round(getNumberValue(stats.availableBalance) * 100);
-      const successfulCount = getNumberValue(stats.successfulReferrals);
-      if (availablePaise < REFERRAL_CONFIG.MIN_WITHDRAWAL * 100 && successfulCount < 5) {
-        return { success: false, error: `Minimum balance of ₹${REFERRAL_CONFIG.MIN_WITHDRAWAL} required to withdraw` };
+      if (availablePaise < minWithdrawal * 100) {
+        return { success: false, error: `Minimum balance of ₹${minWithdrawal} required to withdraw` };
       }
       if (!Number.isSafeInteger(availablePaise) || amountPaise > availablePaise) {
         return { success: false, error: "Insufficient referral balance" };
       }
-      if (amount < REFERRAL_CONFIG.MIN_WITHDRAWAL) {
-        return { success: false, error: `Minimum withdrawal amount is ₹${REFERRAL_CONFIG.MIN_WITHDRAWAL}` };
+      if (amount < minWithdrawal) {
+        return { success: false, error: `Minimum withdrawal amount is ₹${minWithdrawal}` };
       }
       let dailyPaise = getNumberValue(dailyDoc.get("amountPaise"));
       let dailyCount = getNumberValue(dailyDoc.get("requestCount"));
@@ -2115,7 +1972,7 @@ export const requestWithdrawal = functions.https.onCall(async (data, context) =>
         dailyPaise = previousRequests.docs.reduce((total, document) => total + Math.round(getNumberValue(document.get("amount")) * 100), 0);
         dailyCount = previousRequests.size;
       }
-      if (dailyPaise + amountPaise > REFERRAL_CONFIG.MAX_WITHDRAWAL_PER_DAY * 100 || dailyCount >= 5) {
+      if (dailyPaise + amountPaise > maxPerDay * 100 || dailyCount >= 5) {
         return { success: false, error: "Daily withdrawal limit reached" };
       }
       const userRole = getStringValue(userData.activeRole || userData.role || stats.userRole, "WORKER");
@@ -2153,26 +2010,19 @@ export const requestWithdrawal = functions.https.onCall(async (data, context) =>
       transaction.create(withdrawalRef, withdrawalPayload);
       transaction.set(userWithdrawalRef, withdrawalPayload, { merge: true });
       transaction.set(dailyRef, { userId, day, amountPaise: dailyPaise + amountPaise, requestCount: dailyCount + 1 });
-      transaction.set(statsRef, {
-        userId,
-        userRole,
+      const withdrawalStats = {
         availableBalance,
         withdrawnAmount,
         totalWithdrawals,
-        canWithdraw: availableBalance >= 100 || successfulCount >= 5,
+        canWithdraw: canWithdraw(availableBalance, minWithdrawal),
         lastWithdrawalStatus: "PENDING",
         lastWithdrawalAt: timestamp,
         lastUpdated: timestamp
-      }, { merge: true });
-      transaction.set(userRef, {
-        "referralStats.availableBalance": availableBalance,
-        "referralStats.withdrawnAmount": withdrawnAmount,
-        "referralStats.totalWithdrawals": totalWithdrawals,
-        "referralStats.canWithdraw": availableBalance >= 100 || successfulCount >= 5,
-        "referralStats.lastWithdrawalStatus": "PENDING",
-        "referralStats.lastWithdrawalAt": timestamp,
-        "referralStats.lastUpdated": timestamp
-      }, { merge: true });
+      };
+      transaction.set(statsRef, { userId, userRole, ...withdrawalStats }, { merge: true });
+      // Nested object: the old "referralStats.x" keys in set() wrote literal fields, so the
+      // mirror kept the pre-withdrawal balance (and used to be read back as the balance).
+      transaction.set(userRef, { referralStats: withdrawalStats }, { merge: true });
       transaction.create(db.collection("referral_events").doc(`withdrawal_${withdrawalId}`), {
         eventType: "WITHDRAWAL_REQUESTED", userId, withdrawalId, amount, timestamp
       });
@@ -2232,10 +2082,10 @@ export const detectReferralFraud = functions.firestore
           rejectedReferrals: admin.firestore.FieldValue.increment(1),
           lastUpdated: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
-        batch.update(db.collection("users").doc(referrerUserId), {
-          "referralStats.pendingReferrals": admin.firestore.FieldValue.increment(-1),
-          "referralStats.rejectedReferrals": admin.firestore.FieldValue.increment(1),
-          "referralStats.lastUpdated": admin.firestore.FieldValue.serverTimestamp()
+        mirrorUserReferralStats(batch, referrerUserId, {
+          pendingReferrals: admin.firestore.FieldValue.increment(-1),
+          rejectedReferrals: admin.firestore.FieldValue.increment(1),
+          lastUpdated: admin.firestore.FieldValue.serverTimestamp()
         });
         await batch.commit();
         return { status: "REJECTED", fraudScore: fraudResult.fraudScore, signals: fraudResult.signals };
@@ -2267,101 +2117,107 @@ export const detectReferralFraud = functions.firestore
 /**
  * Get referral stats for a user
  */
+/**
+ * Credits any milestone bonus that is owed, atomically (safe against concurrent calls).
+ * Returns the fresh authoritative stats doc data.
+ */
+async function reconcileMilestones(userId: string): Promise<{ [key: string]: any }> {
+  const config = await getReferralConfig();
+  const statsRef = db.collection("referral_stats").doc(userId);
+  return await db.runTransaction(async (transaction) => {
+    const statsDoc = await transaction.get(statsRef);
+    const raw = statsDoc.data() || {};
+    const successful = getNumberValue(raw.successfulReferrals);
+    const firstMilestone = milestoneList(config)[0]?.count ?? Number.MAX_SAFE_INTEGER;
+    if (!statsDoc.exists || successful < firstMilestone) return raw;
+
+    const audit = auditUserMilestones(
+      successful,
+      getNumberValue(raw.totalEarnings),
+      getNumberValue(raw.signupBonusReceived ? raw.signupBonusAmount : 0),
+      raw.awardedMilestones,
+      config
+    );
+    const awardedChanged = !Array.isArray(raw.awardedMilestones) ||
+      audit.newAwardedMilestones.length !== raw.awardedMilestones.length;
+    if (audit.toCredit <= 0 && !awardedChanged) return raw;
+
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const patch: { [key: string]: any } = {
+      awardedMilestones: audit.newAwardedMilestones,
+      nextMilestone: getNextMilestone(successful, config),
+      lastUpdated: now
+    };
+    const next: { [key: string]: any } = { ...raw, awardedMilestones: audit.newAwardedMilestones };
+    if (audit.toCredit > 0) {
+      const newBalance = getNumberValue(raw.availableBalance) + audit.toCredit;
+      patch.totalEarnings = admin.firestore.FieldValue.increment(audit.toCredit);
+      patch.availableBalance = admin.firestore.FieldValue.increment(audit.toCredit);
+      patch.canWithdraw = canWithdraw(newBalance, config.minWithdrawal);
+      next.totalEarnings = getNumberValue(raw.totalEarnings) + audit.toCredit;
+      next.availableBalance = newBalance;
+      transaction.set(db.collection("notifications").doc(), {
+        recipientId: userId,
+        title: "🎉 Milestone Bonus Credited!",
+        message: `Your ₹${audit.toCredit} milestone bonus for reaching ${successful} referrals has been credited to your balance!`,
+        type: "MILESTONE_REWARD",
+        data: { milestones: audit.awardedNow, amount: audit.toCredit },
+        createdAt: now,
+        isRead: false
+      });
+      transaction.set(db.collection("referral_events").doc(), {
+        eventType: "MILESTONE_REACHED",
+        userId,
+        milestones: audit.awardedNow,
+        bonusAmount: audit.toCredit,
+        newSuccessfulCount: successful,
+        timestamp: now
+      });
+    }
+    transaction.set(statsRef, patch, { merge: true });
+    mirrorUserReferralStats(transaction, userId, patch);
+    return next;
+  });
+}
+
 export const getReferralStats = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
   }
 
-  const userId = data.userId || context.auth.uid;
+  // Only admins may look at someone else's stats (it used to accept any userId).
+  const requestedUserId = getStringValue(data?.userId, context.auth.uid);
+  if (requestedUserId !== context.auth.uid && !(await isCallerAdmin(context))) {
+    throw new functions.https.HttpsError("permission-denied", "You can only view your own referral stats");
+  }
+  const userId = requestedUserId;
 
   try {
-    const [userDoc, legacyStatsDoc] = await Promise.all([
+    const config = await getReferralConfig();
+    const [userDoc, statsDoc] = await Promise.all([
       db.collection("users").doc(userId).get(),
       db.collection("referral_stats").doc(userId).get()
     ]);
 
-    if (!userDoc.exists && !legacyStatsDoc.exists) {
+    if (!userDoc.exists && !statsDoc.exists) {
       return { exists: false };
     }
 
     const userData = userDoc.data() || {};
-    const legacyStats = legacyStatsDoc.data() || {};
-    const stats = {
+    const reconciled = statsDoc.exists ? await reconcileMilestones(userId) : {};
+    const stats: { [key: string]: any } = {
       userId,
-      userRole: getStringValue(userData.activeRole || userData.role || legacyStats.userRole, "WORKER"),
-      referralCode: getStringValue(userData.referralCode),
+      userRole: getStringValue(userData.activeRole || userData.role || reconciled.userRole, "WORKER"),
+      referralCode: getStringValue(reconciled.referralCode || userData.referralCode),
       ...DEFAULT_REFERRAL_STATS,
-      ...legacyStats,
-      ...(userData.referralStats || {})
+      ...getCombinedReferralStats(userData, reconciled)
     };
-
-    const currentSuccessful = getNumberValue(stats.successfulReferrals);
-    const currentEarnings = getNumberValue(stats.totalEarnings);
-    const signupBonus = getNumberValue(stats.signupBonusAmount);
-    const existingAwarded = Array.isArray(stats.awardedMilestones) ? stats.awardedMilestones : [];
-
-    if (currentSuccessful >= 5) {
-      const audit = auditUserMilestones(currentSuccessful, currentEarnings, signupBonus, existingAwarded);
-      if (audit.toCredit > 0 || audit.newAwardedMilestones.length !== existingAwarded.length) {
-        const bonusToCredit = audit.toCredit;
-        const now = admin.firestore.FieldValue.serverTimestamp();
-        const sRef = db.collection("referral_stats").doc(userId);
-        const uRef = db.collection("users").doc(userId);
-        const b = db.batch();
-
-        const sPatch: any = {
-          awardedMilestones: audit.newAwardedMilestones,
-          lastUpdated: now
-        };
-        const uPatch: any = {
-          "referralStats.awardedMilestones": audit.newAwardedMilestones,
-          "referralStats.lastUpdated": now
-        };
-
-        if (bonusToCredit > 0) {
-          sPatch.totalEarnings = admin.firestore.FieldValue.increment(bonusToCredit);
-          sPatch.availableBalance = admin.firestore.FieldValue.increment(bonusToCredit);
-          sPatch.canWithdraw = true;
-          uPatch["referralStats.totalEarnings"] = admin.firestore.FieldValue.increment(bonusToCredit);
-          uPatch["referralStats.availableBalance"] = admin.firestore.FieldValue.increment(bonusToCredit);
-          uPatch["referralStats.canWithdraw"] = true;
-
-          const notifRef = db.collection("notifications").doc();
-          b.set(notifRef, {
-            recipientId: userId,
-            title: "🎉 Milestone Bonus Credited!",
-            message: `Your ₹${bonusToCredit} milestone bonus for reaching ${currentSuccessful} referrals has been credited to your balance!`,
-            type: "MILESTONE_REWARD",
-            data: { milestones: audit.awardedNow, amount: bonusToCredit },
-            createdAt: now,
-            isRead: false
-          });
-
-          const evRef = db.collection("referral_events").doc();
-          b.set(evRef, {
-            eventType: "MILESTONE_REACHED",
-            userId,
-            milestones: audit.awardedNow,
-            bonusAmount: bonusToCredit,
-            newSuccessfulCount: currentSuccessful,
-            timestamp: now
-          });
-
-          stats.totalEarnings = currentEarnings + bonusToCredit;
-          stats.availableBalance = getNumberValue(stats.availableBalance) + bonusToCredit;
-        }
-
-        stats.awardedMilestones = audit.newAwardedMilestones;
-        b.set(sRef, sPatch, { merge: true });
-        b.set(uRef, uPatch, { merge: true });
-        await b.commit();
-      }
-    }
-
-    stats.canWithdraw = canWithdraw(currentSuccessful, getNumberValue(stats.availableBalance));
+    stats.canWithdraw = canWithdraw(getNumberValue(stats.availableBalance), config.minWithdrawal);
+    stats.minWithdrawal = config.minWithdrawal;
 
     return { exists: true, stats };
   } catch (error) {
+    if (error instanceof functions.https.HttpsError) throw error;
     functions.logger.error("Error getting referral stats:", error);
     throw new functions.https.HttpsError("internal", "Failed to get referral stats");
   }
@@ -2376,7 +2232,7 @@ export const getReferralHistory = functions.https.onCall(async (data, context) =
   }
 
   const userId = context.auth.uid;
-  const limit = data.limit || 20;
+  const limit = Math.min(Math.max(Number(data?.limit) || 20, 1), 100);
 
   try {
     const referrals = await db.collection("referrals")
@@ -2402,8 +2258,11 @@ export const getReferralHistory = functions.https.onCall(async (data, context) =
  * Get leaderboard
  */
 export const getReferralLeaderboard = functions.https.onCall(async (data, context) => {
-  const role = data.role; // Optional filter by role
-  const limit = data.limit || 10;
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Must be logged in");
+  }
+  const role = data?.role === "WORKER" || data?.role === "EMPLOYER" ? data.role : undefined;
+  const limit = Math.min(Math.max(Number(data?.limit) || 10, 1), 50);
 
   try {
     let query = db.collection("referral_stats")
@@ -2422,10 +2281,14 @@ export const getReferralLeaderboard = functions.https.onCall(async (data, contex
     const leaderboard = await query.get();
 
     return {
+      // Public fields only: this used to return whole stats docs (balances, withdrawals).
       leaderboard: leaderboard.docs.map((doc, index) => ({
         rank: index + 1,
         userId: doc.id,
-        ...doc.data()
+        userRole: getStringValue(doc.get("userRole"), "WORKER"),
+        successfulReferrals: getNumberValue(doc.get("successfulReferrals")),
+        totalEarnings: getNumberValue(doc.get("totalEarnings")),
+        currentTier: getStringValue(doc.get("currentTier"), "BRONZE")
       }))
     };
 

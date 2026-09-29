@@ -2,6 +2,7 @@ package com.example.dutype.employer.screens
 
 import com.dutype.app.R
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -169,9 +170,10 @@ fun EmployerPublicProfileScreen(
                 ) {
                     item {
                         Card(
+                            modifier = Modifier.border(1.dp, EmployerColors.Border, RoundedCornerShape(16.dp)),
                             colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-                            shape = RoundedCornerShape(20.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+                            shape = RoundedCornerShape(16.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
                             Column(
                                 modifier = Modifier
@@ -251,7 +253,7 @@ fun EmployerPublicProfileScreen(
                         Card(
                             colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
                             shape = RoundedCornerShape(16.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
                             Column(
                                 modifier = Modifier

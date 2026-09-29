@@ -269,14 +269,12 @@ class ReferralService @Inject constructor(
                 userRole = profile.role,
                 userName = displayNameFromProfile(profile)
             )
-            if (remoteCode.isNotBlank()) {
-                return remoteCode
-            }
-
-            generateReferralCode()
+            // Never invent a code locally: a client-made code does not exist on the server,
+            // so friends who typed it got "code not found". Empty = "not ready yet".
+            remoteCode
         } catch (e: Exception) {
             Timber.w(e, "🎁 REFERRAL: Unable to resolve referral code for user $userId")
-            generateReferralCode()
+            ""
         }
     }
 
@@ -694,18 +692,14 @@ class ReferralService @Inject constructor(
                     )
                 }
                 
-                if (referralCode.isBlank()) {
-                    referralCode = generateReferralCode()
-                }
-
-                // If no stats yet, return default empty stats
+                // If no stats yet, return default empty stats (code stays empty until the
+                // server has issued one; the screen shows it as "not ready").
                 if (statsMap.isEmpty() && referralCode.isEmpty()) {
                     Timber.d("🎁 REFERRAL: User has no referral_stats yet, returning empty stats")
-                    val fallbackCode = generateReferralCode()
                     return ReferralStats(
                         userId = userId,
                         userRole = userRole,
-                        referralCode = fallbackCode,
+                        referralCode = "",
                         totalReferrals = 0,
                         successfulReferrals = 0,
                         totalEarnings = 0.0,
@@ -733,7 +727,7 @@ class ReferralService @Inject constructor(
                     userRole = userRole,
                     userName = displayNameFromProfile(profile),
                     existingUserCode = referralCodeFromProfile(profile)
-                ).ifBlank { generateReferralCode() }
+                )
 
                 Timber.d("🎁 REFERRAL: No referral_stats doc for user $userId, returning empty stats fallback")
                 val fallback = ReferralStats(
@@ -1304,11 +1298,10 @@ https://play.google.com/store/apps/details?id=com.example.dutype
                 return ensuredCode
             }
 
-            Timber.d("REFERRAL: Generating client fallback referral code for $userId")
-            generateReferralCode()
+            null
         } catch (e: Exception) {
             Timber.e(e, "REFERRAL: Error ensuring referral code exists")
-            generateReferralCode()
+            null
         }
     }
 }

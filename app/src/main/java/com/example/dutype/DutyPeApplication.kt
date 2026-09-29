@@ -93,14 +93,16 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
         )
     }
     
+    // PERF: All three are Lazy so Hilt does not build their dependency graphs
+    // (Firestore/DataStore/Crashlytics...) synchronously inside Application.onCreate.
     @Inject
-    lateinit var metadataManager: MetadataManager
+    lateinit var metadataManager: dagger.Lazy<MetadataManager>
     
     @Inject
-    lateinit var workerFactory: HiltWorkerFactory
+    lateinit var workerFactory: dagger.Lazy<HiltWorkerFactory>
     
     @Inject
-    lateinit var anrHandler: com.example.dutype.performance.ANRHandler
+    lateinit var anrHandler: dagger.Lazy<com.example.dutype.performance.ANRHandler>
 
     /**
      * Coil resolves its singleton loader through this factory. Without it every
@@ -126,6 +128,12 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
     
     override fun onCreate() {
         super.onCreate()
+
+        // PERF: Warm the start-destination SharedPreferences file on a background thread so the
+        // first-frame routing read in AppStartupViewModel doesn't pay the disk load on main.
+        applicationScope.launch(Dispatchers.IO) {
+            runCatching { com.example.dutype.navigation.StartDestinationCache.read(this@DutyPeApplication) }
+        }
         
         // Register lifecycle callbacks for app-wide background tracking
         registerActivityLifecycleCallbacks(com.example.dutype.utils.AppLifecycleTracker.activityLifecycleCallbacks)
@@ -173,8 +181,13 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
             com.example.dutype.utils.StorageCacheManager.pruneStaleCache(this@DutyPeApplication)
         }
         
-        // Initialize MainThreadChecker with ANRHandler for production-safe error handling
-        com.example.dutype.performance.MainThreadChecker.init(this, anrHandler)
+        // Initialize MainThreadChecker with ANRHandler for production-safe error handling.
+        // PERF: off the main thread; ANRHandler is only needed when a violation is reported.
+        applicationScope.launch {
+            runCatching {
+                com.example.dutype.performance.MainThreadChecker.init(this@DutyPeApplication, anrHandler.get())
+            }
+        }
         
         // Schedule background job sync immediately
         applicationScope.launch {
@@ -200,7 +213,7 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
      */
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
-            .setWorkerFactory(workerFactory)
+            .setWorkerFactory(workerFactory.get())
             .setMinimumLoggingLevel(if (isDebuggableBuild()) android.util.Log.DEBUG else android.util.Log.INFO)
             .build()
     
@@ -306,14 +319,16 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
     }
     
     /**
-     * Initialize Firebase App Check for phone authentication
-     * Handles errors gracefully - OTP still works without App Check in most cases
+     * Initialize Firebase App Check.
+     * Release: Play Integrity is the ONLY attestation provider. Debug: App Check debug provider.
+     * Token auto-refresh is enabled; tokens are never force-refreshed from user flows.
      */
     private fun initializeAppCheck() {
         if (BuildConfig.LOCAL_STAGING) return
         try {
             val firebaseAppCheck = FirebaseAppCheck.getInstance()
-            
+            firebaseAppCheck.setTokenAutoRefreshEnabled(true)
+
             if (isDebuggableBuild()) {
                 // Use debug provider for development/testing
                 try {
@@ -367,7 +382,7 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
                 if (isTestLab) {
                     Timber.i("🧪 Running in Firebase Test Lab / Pre-launch report - skipping Play Integrity App Check")
                 } else {
-                    // Use Play Integrity for production builds
+                    // Play Integrity is the only production attestation provider
                     firebaseAppCheck.installAppCheckProviderFactory(
                         PlayIntegrityAppCheckProviderFactory.getInstance()
                     )
@@ -443,7 +458,7 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
     private fun initializeMetadata() {
         applicationScope.launch {
             try {
-                metadataManager.initialize(this@DutyPeApplication)
+                metadataManager.get().initialize(this@DutyPeApplication)
                 Timber.d("📊 Metadata system initialized")
             } catch (e: Exception) {
                 Timber.e(e, "📊 Failed to initialize metadata system")

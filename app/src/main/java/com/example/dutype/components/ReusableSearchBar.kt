@@ -91,7 +91,7 @@ fun ReusableSearchBar(
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
     placeholder: String = "Search for opportunities...",
-    height: Int = 58,
+    height: Int = 48,
     showClearButton: Boolean = true,
     searchIconColor: Color = WorkerColors.Primary,
     textColor: Color = WorkerColors.TextPrimary,
@@ -99,7 +99,7 @@ fun ReusableSearchBar(
     backgroundColor: Color = if (androidx.compose.foundation.isSystemInDarkTheme()) Color.Transparent else WorkerColors.CardBackground,
     borderColor: Color = WorkerColors.Border,
     focusedBorderColor: Color = WorkerColors.Primary,
-    cornerRadius: Int = 16,
+    cornerRadius: Int = 24,
     fontSize: Int = 16,
     onSearch: (() -> Unit)? = null,
     suggestions: List<SearchSuggestion> = emptyList(),
@@ -108,7 +108,7 @@ fun ReusableSearchBar(
     leadingIcon: ImageVector = Icons.Default.Search,
     enabled: Boolean = true,
     maxSuggestions: Int = 5,
-    showShadow: Boolean = true,
+    showShadow: Boolean = false,
     animationDuration: Int = 300
 ) {
     val focusRequester = remember { FocusRequester() }

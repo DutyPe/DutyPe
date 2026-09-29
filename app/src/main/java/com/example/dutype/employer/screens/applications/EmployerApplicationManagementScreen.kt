@@ -3,6 +3,7 @@ package com.example.dutype.employer.screens.applications
 import com.dutype.app.R
 import timber.log.Timber
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -21,7 +22,10 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.outlined.Call
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -93,10 +97,6 @@ fun EmployerApplicationManagementScreen(
     var showStatusFilter by remember { mutableStateOf(false) }
     var showSearchBar by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
-    // Batch-p #7: filter chips at top — Total / Applied / Shortlisted /
-    // Hired. Selecting one filters the application list locally so the
-    // counts in the header stay accurate while the user drills in.
-    var statusFilter by remember { mutableStateOf<ApplicationStatus?>(null) }
     
     // FINTECH: Contact Unlock Dialog State
     var showUnlockDialog by remember { mutableStateOf(false) }
@@ -403,39 +403,41 @@ fun EmployerApplicationManagementScreen(
         uiState.applications.count { it.status in filledApplicationStatuses }
     }
     
+    val isApplicantsList = !(jobId != null && isJobFilled) && !(jobId != null && selectedTabIndex == 0 && isJobLive)
+    val headerStrip = if (jobId != null) {
+        "$jobTitleForActions · $applicantCountForSummary ${if (applicantCountForSummary == 1) "Applicant" else "Applicants"}"
+    } else {
+        "$applicantCountForSummary ${if (applicantCountForSummary == 1) "Applicant" else "Applicants"}"
+    }
+    val extras: @Composable () -> Unit = {
+        HiringRoomExtras(
+            reportSummary = reportSummary,
+            isReportSummaryLoading = isReportSummaryLoading,
+            jobTitle = jobTitleForActions,
+            isJobLive = isJobLive,
+            applicantsCount = applicantCountForSummary,
+            matchedWorkersCount = matchedWorkersState.workers.size,
+            callReadyCandidates = callReadyCandidates,
+            isClosingJob = isClosingJob,
+            isJobFilled = isJobFilled,
+            onCloseJob = { showCloseJobDialog = true },
+            onToggleCalls = { pause -> if (jobId != null) toggleJobCalls(jobId, pause) }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
+            .background(HrBackground)
     ) {
-        // Common Header - consistent across all screens
-        CommonHeader(
+        HiringRoomHeader(
             title = if (jobId != null) "Hiring Room" else "All Applications",
+            subtitle = headerStrip,
             onBackClick = onBackClick
         )
 
-        if (jobId != null && (isReportSummaryLoading || reportSummary != null)) {
-            JobReportSummaryCard(
-                summary = reportSummary,
-                isLoading = isReportSummaryLoading
-            )
-        }
-
-        if (jobId != null) {
-            HiringRoomSummaryCard(
-                jobTitle = jobTitleForActions,
-                isLive = isJobLive,
-                applicantsCount = applicantCountForSummary,
-                matchedWorkersCount = matchedWorkersState.workers.size,
-                callReadyCandidates = callReadyCandidates,
-                isClosingJob = isClosingJob,
-                onCloseJob = { showCloseJobDialog = true }
-            )
-
-            IncomingCallsStatusBanner(
-                isCallsPaused = isJobFilled,
-                onToggleCalls = { pause -> toggleJobCalls(jobId, pause) }
-            )
+        if (jobId != null && !isApplicantsList) {
+            extras()
         }
 
         if (jobId != null && isJobLive) {
@@ -549,176 +551,104 @@ fun EmployerApplicationManagementScreen(
                 modifier = Modifier.weight(1f)
             )
         } else {
-        
-        // FINTECH: Free contacts remaining banner
-        if (uiState.freeContactsRemaining > 0 && uiState.applications.size > 3) {
-            FreeContactsBanner(freeRemaining = uiState.freeContactsRemaining)
-        }
-        
-        // Stats Summary Card — click any item to filter the list
-        ApplicationStatsSummary(
-            stats = stats,
-            selectedFilter = statusFilter,
-            onFilterSelected = { statusFilter = it }
-        )
-
-        val rankedApplications = remember(uiState.applications) {
-            uiState.applications.sortedApplicationsForConnectNow()
-        }
-
-        val visibleApplications = remember(rankedApplications, isJobLive, jobId) {
-            if (jobId != null && !isJobLive) {
-                rankedApplications.filter { it.status in filledApplicationStatuses }
-            } else {
-                rankedApplications
+            val rankedApplications = remember(uiState.applications) {
+                uiState.applications.sortedApplicationsForConnectNow()
             }
-        }
-
-        val displayedApplications = remember(visibleApplications, statusFilter) {
-            if (statusFilter == null) visibleApplications
-            else visibleApplications.filter { it.status == statusFilter }
-        }
-        
-        // Applications List
-        when {
-            uiState.isLoading -> {
-                // Show shimmer loading for application list
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .weight(1f),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(5) {
-                        ApplicationListItemShimmer()
-                    }
+            val visibleApplications = remember(rankedApplications, isJobLive, jobId) {
+                if (jobId != null && !isJobLive) {
+                    rankedApplications.filter { it.status in filledApplicationStatuses }
+                } else {
+                    rankedApplications
                 }
             }
-            uiState.applications.isEmpty() && !uiState.isLoading -> {
-                Box(modifier = Modifier.weight(1f)) {
-                    EmptyApplicationsState(
-                        isJobSpecific = jobId != null
-                    )
-                }
-            }
-            displayedApplications.isEmpty() -> {
-                Box(modifier = Modifier.weight(1f)) {
-                    EmptyApplicationsState(
-                        isJobSpecific = false
-                    )
-                }
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .weight(1f),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    if (jobId != null && uiState.applications.size >= MANY_APPLICANTS_THRESHOLD && statusFilter == null) {
-                        item {
-                            TooManyApplicationsBanner(
-                                totalApplications = uiState.applications.size,
-                                callReadyCandidates = callReadyCandidates,
-                                isJobLive = isJobLive,
-                                onCloseJob = { showCloseJobDialog = true }
-                            )
+
+            HiringApplicantsSection(
+                modifier = Modifier.weight(1f),
+                isLoading = uiState.isLoading,
+                allApplications = uiState.applications,
+                visibleApplications = visibleApplications,
+                isJobSpecific = jobId != null,
+                freeContactsRemaining = uiState.freeContactsRemaining,
+                callReadyCandidates = callReadyCandidates,
+                isJobLive = isJobLive,
+                ratedApplicationIds = ratedApplicationIds,
+                playbackHelper = playbackHelper,
+                employerShopAddress = currentJob?.addressText.orEmpty(),
+                leadingContent = if (jobId != null) extras else null,
+                onCloseJob = { showCloseJobDialog = true },
+                onOpen = { application ->
+                    viewModel.markApplicationAsViewed(application.id)
+                    onApplicationClick(application)
+                },
+                onUnlock = { application ->
+                    viewModel.unlockContact(
+                        applicationId = application.id,
+                        onSuccess = {
+                            Toast.makeText(context, context.getString(R.string.contact_unlocked), Toast.LENGTH_SHORT).show()
+                            val activity = context as? Activity
+                            if (activity != null) {
+                                reviewTriggerService.onEmployerContactUnlocked(activity)
+                            }
+                        },
+                        onPaymentRequired = {
+                            showUnlockDialog = true
+                            pendingUnlockApplication = application
                         }
-                    } else if (jobId != null && statusFilter == null) {
-                        item {
-                            RankingHintBanner()
-                        }
-                    }
-
-                    itemsIndexed(displayedApplications) { index, application ->
-                        val isContactUnlocked = viewModel.isContactUnlocked(application.id, index)
-                        
-                        ApplicationCard(
-                            application = application,
-                            applicationIndex = index,
-                            isContactUnlocked = isContactUnlocked,
-                            hasAlreadyRated = application.id in ratedApplicationIds,
-                            playbackHelper = playbackHelper,
-                            employerShopAddress = currentJob?.addressText.orEmpty(),
-                            onClick = { 
-                                viewModel.markApplicationAsViewed(application.id)
-                                onApplicationClick(application) 
-                            },
-                            onUnlockContact = {
-                                viewModel.unlockContact(
-                                    applicationId = application.id,
-                                    onSuccess = {
-                                        Toast.makeText(context, context.getString(R.string.contact_unlocked), Toast.LENGTH_SHORT).show()
-                                        val activity = context as? Activity
-                                        if (activity != null) {
-                                            reviewTriggerService.onEmployerContactUnlocked(activity)
-                                        }
-                                    },
-                                    onPaymentRequired = {
-                                        showUnlockDialog = true
-                                        pendingUnlockApplication = application
-                                    }
-                                )
-                            },
-                            onStatusUpdate = { newStatus, notes ->
-                                viewModel.updateApplicationStatus(
-                                    applicationId = application.id,
-                                    newStatus = newStatus,
-                                    notes = notes
-                                )
-                                if (newStatus == ApplicationStatus.HIRED) {
-                                    val targetJobId = jobId ?: application.jobId
-                                    if (targetJobId.isNotBlank()) {
-                                        viewModel.canHireMoreApplicants(targetJobId) { canAccept, remaining ->
-                                            if (!canAccept || remaining <= 0) {
-                                                pendingCloseJobId = targetJobId
-                                                showCloseJobDialog = true
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            onHireWithStopCallsPrompt = { app ->
-                                pendingHiringApplication = app
-                                showStopCallsHiringDialog = true
-                            },
-                            onRateWorker = {
-                                scope.launch {
-                                    if (application.status == ApplicationStatus.HIRED) {
-                                        val completed = viewModel.updateApplicationStatusForResult(
-                                            applicationId = application.id,
-                                            newStatus = ApplicationStatus.COMPLETED,
-                                            notes = "Marked work done from applications list"
-                                        )
-                                        if (completed.isFailure) {
-                                            Toast.makeText(
-                                                context,
-                                                completed.exceptionOrNull()?.message ?: "Failed to mark work done",
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                            return@launch
-                                        }
-                                        Toast.makeText(context, context.getString(R.string.work_marked_done_rate_now), Toast.LENGTH_SHORT).show()
-                                        return@launch
-                                    }
-
-                                    val alreadyRated = ratingService.hasRated(application.jobId, application.workerId)
-                                    if (alreadyRated) {
-                                        ratedApplicationIds = ratedApplicationIds + application.id
-                                        Toast.makeText(context, context.getString(R.string.already_rated_worker), Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        pendingRatingApplication = application
-                                        showRatingSheet = true
-                                    }
+                    )
+                },
+                onStatusUpdate = { application, newStatus, notes ->
+                    viewModel.updateApplicationStatus(
+                        applicationId = application.id,
+                        newStatus = newStatus,
+                        notes = notes
+                    )
+                    if (newStatus == ApplicationStatus.HIRED) {
+                        val targetJobId = jobId ?: application.jobId
+                        if (targetJobId.isNotBlank()) {
+                            viewModel.canHireMoreApplicants(targetJobId) { canAccept, remaining ->
+                                if (!canAccept || remaining <= 0) {
+                                    pendingCloseJobId = targetJobId
+                                    showCloseJobDialog = true
                                 }
                             }
-                        )
+                        }
+                    }
+                },
+                onHirePrompt = { app ->
+                    pendingHiringApplication = app
+                    showStopCallsHiringDialog = true
+                },
+                onRate = { application ->
+                    scope.launch {
+                        if (application.status == ApplicationStatus.HIRED) {
+                            val completed = viewModel.updateApplicationStatusForResult(
+                                applicationId = application.id,
+                                newStatus = ApplicationStatus.COMPLETED,
+                                notes = "Marked work done from applications list"
+                            )
+                            if (completed.isFailure) {
+                                Toast.makeText(
+                                    context,
+                                    completed.exceptionOrNull()?.message ?: "Failed to mark work done",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                return@launch
+                            }
+                            Toast.makeText(context, context.getString(R.string.work_marked_done_rate_now), Toast.LENGTH_SHORT).show()
+                            return@launch
+                        }
+
+                        val alreadyRated = ratingService.hasRated(application.jobId, application.workerId)
+                        if (alreadyRated) {
+                            ratedApplicationIds = ratedApplicationIds + application.id
+                            Toast.makeText(context, context.getString(R.string.already_rated_worker), Toast.LENGTH_SHORT).show()
+                        } else {
+                            pendingRatingApplication = application
+                            showRatingSheet = true
+                        }
                     }
                 }
-            }
-        }
+            )
         }
     }
 }
@@ -898,7 +828,8 @@ private fun HiringRoomSummaryCard(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, EmployerColors.Border)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -1605,422 +1536,681 @@ private fun StatsSummaryItem(
 // NOTE: getStatusColor removed - use ApplicationStatus.getStatusColor() extension function
 // Import: import com.example.dutype.models.getStatusColor
 
+// ==================== HIRING ROOM (flat design) ====================
+
+private val HrBackground = Color(0xFFF8FAFC)
+private val HrInk = Color(0xFF0F172A)
+private val HrName = Color(0xFF0F0F0F)
+private val HrMuted = Color(0xFF64748B)
+private val HrFaint = Color(0xFF94A3B8)
+private val HrBorder = Color(0xFFE2E8F0)
+private val HrDivider = Color(0xFFF1F5F9)
+private val HrGreen = Color(0xFF10B981)
+private val HrRed = Color(0xFFDC2626)
+private val HrAvatarColors = listOf(Color(0xFFDBEAFE), Color(0xFFBBF7D0), Color(0xFFFDE68A))
+private val HrShortlistedStatuses = setOf(
+    ApplicationStatus.HIRED,
+    ApplicationStatus.COMPLETED,
+    ApplicationStatus.FILLED
+)
+
+private enum class HiringFilter(val label: String) {
+    ALL("All"),
+    NEW("New"),
+    SHORTLISTED("Shortlisted"),
+    CONTACTED("Contacted"),
+    REJECTED("Rejected")
+}
+
+private fun JobApplication.matchesHiringFilter(filter: HiringFilter, contacted: Set<String>): Boolean {
+    return when (filter) {
+        HiringFilter.ALL -> true
+        HiringFilter.NEW -> status == ApplicationStatus.APPLIED && viewedAt == 0L
+        HiringFilter.SHORTLISTED -> status in HrShortlistedStatuses
+        HiringFilter.CONTACTED -> id in contacted
+        HiringFilter.REJECTED -> status == ApplicationStatus.REJECTED
+    }
+}
+
+private fun hiringSubtitle(application: JobApplication): String {
+    val exp = application.workerExperience.trim()
+    val expText = when {
+        exp.isBlank() -> ""
+        exp.all { it.isDigit() } -> "$exp yrs exp"
+        else -> exp
+    }
+    return listOf(application.jobTitle.trim(), expText)
+        .filter { it.isNotBlank() }
+        .joinToString(" · ")
+}
+
+private fun hiringInitials(name: String): String {
+    val initials = name.split(" ")
+        .filter { it.isNotBlank() }
+        .take(2)
+        .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+        .joinToString("")
+    return initials.ifEmpty { "?" }
+}
+
+private fun dialWorkerPhone(context: Context, phone: String) {
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+    }.onFailure {
+        Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun openWorkerWhatsApp(context: Context, phone: String, message: String) {
+    val rawDigits = phone.filter { it.isDigit() }
+    val formattedPhone = if (rawDigits.length == 10) "91$rawDigits" else rawDigits
+    val waUri = Uri.parse("https://wa.me/$formattedPhone?text=${Uri.encode(message)}")
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, waUri))
+    }.onFailure {
+        Toast.makeText(context, "WhatsApp is not installed", Toast.LENGTH_SHORT).show()
+    }
+}
+
 @Composable
-private fun ApplicationCard(
-    application: JobApplication,
-    applicationIndex: Int = 0,
-    isContactUnlocked: Boolean = true,
-    hasAlreadyRated: Boolean = false,
-    playbackHelper: com.example.dutype.utils.AudioPlaybackHelper? = null,
-    employerShopAddress: String = "",
-    onClick: () -> Unit,
-    onUnlockContact: () -> Unit = {},
-    onStatusUpdate: (ApplicationStatus, String?) -> Unit,
-    onHireWithStopCallsPrompt: ((JobApplication) -> Unit)? = null,
-    onRateWorker: () -> Unit = {}
+private fun HiringRoomHeader(
+    title: String,
+    subtitle: String,
+    onBackClick: () -> Unit
 ) {
-    val workerEmail = application.workerEmail.orEmpty()
-    val workerPhone = application.workerPhone.orEmpty().trim()
-    val context = LocalContext.current
-    val canMarkWorkDone = application.status == ApplicationStatus.HIRED
-    val canRateCompletedWork = application.status == ApplicationStatus.COMPLETED
-    val canCallWorker = workerPhone.isNotBlank() &&
-        application.status != ApplicationStatus.REJECTED &&
-        application.status != ApplicationStatus.WITHDRAWN
-    // Determine display name - fallback to "Unknown Worker" if name is empty
-    val displayName = when {
-        application.workerName.isNotBlank() -> application.workerName
-        else -> "Unknown Worker"
-    }
-    
-    // Get initials for avatar
-    val initials = when {
-        displayName.isNotBlank() && displayName != "Unknown Worker" -> {
-            displayName.split(" ")
-                .take(2)
-                .mapNotNull { it.firstOrNull()?.uppercaseChar() }
-                .joinToString("")
-                .ifEmpty { displayName.take(1).uppercase() }
-        }
-        else -> "?"
-    }
-    
-    Card(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+            .statusBarsPadding()
+            .padding(start = 20.dp, top = 8.dp, end = 20.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            // Header Row - Worker info and status
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    // Profile Avatar with image support
-                    Box(
-                        modifier = Modifier
-                            .size(50.dp)
-                            .background(
-                                color = EmployerColors.Primary.copy(alpha = 0.1f),
-                                shape = CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (!application.workerProfileImageUrl.isNullOrBlank()) {
-                            // Show profile image if available
-                            com.example.dutype.components.OptimizedProfileImage(
-                                imageUrl = application.workerProfileImageUrl,
-                                contentDescription = "Worker Profile",
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(CircleShape)
-                            )
-                        } else {
-                            // Show initials or icon
-                            if (initials.isNotBlank() && initials != "?") {
-                                Text(
-                                    text = initials,
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = EmployerColors.Primary
-                                    )
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = EmployerColors.Primary,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.width(12.dp))
-                    
-                    Column {
-                        Text(
-                            text = displayName,
-                            style = AppTypography.cardTitle.copy(color = com.example.dutype.ui.theme.EmployerColors.TextPrimary),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        if (workerEmail.isNotBlank()) {
-                            Text(
-                                text = workerEmail,
-                                style = AppTypography.caption.copy(color = EmployerColors.TextSecondary),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = "Back",
+            tint = HrInk,
+            modifier = Modifier
+                .size(24.dp)
+                .clickable(onClick = onBackClick)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = title,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = HrInk
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = subtitle,
+            fontSize = 13.sp,
+            color = HrMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
 
-                        // Badges: Distance and Expected Salary
-                        val hasDistance = application.distanceKm != null && application.distanceKm > 0.0
-                        val hasSalary = !application.expectedSalary.isNullOrBlank()
-                        if (hasDistance || hasSalary) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (hasDistance) {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFFEFF6FF)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(3.dp)
-                                        ) {
-                                            Text("📍", fontSize = 10.sp)
-                                            Text(
-                                                text = "${"%.1f".format(application.distanceKm)} km",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Medium,
-                                                color = Color(0xFF1D4ED8)
-                                            )
-                                        }
-                                    }
-                                }
-                                if (hasSalary) {
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xFFECFDF5)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(3.dp)
-                                        ) {
-                                            Text("💰", fontSize = 10.sp)
-                                            Text(
-                                                text = "₹${application.expectedSalary}",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = Color(0xFF047857)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
+@Composable
+private fun HiringRoomExtras(
+    reportSummary: JobReportSummary?,
+    isReportSummaryLoading: Boolean,
+    jobTitle: String,
+    isJobLive: Boolean,
+    applicantsCount: Int,
+    matchedWorkersCount: Int,
+    callReadyCandidates: Int,
+    isClosingJob: Boolean,
+    isJobFilled: Boolean,
+    onCloseJob: () -> Unit,
+    onToggleCalls: (Boolean) -> Unit
+) {
+    Column {
+        if (isReportSummaryLoading || reportSummary != null) {
+            JobReportSummaryCard(
+                summary = reportSummary,
+                isLoading = isReportSummaryLoading
+            )
+        }
+        HiringRoomSummaryCard(
+            jobTitle = jobTitle,
+            isLive = isJobLive,
+            applicantsCount = applicantsCount,
+            matchedWorkersCount = matchedWorkersCount,
+            callReadyCandidates = callReadyCandidates,
+            isClosingJob = isClosingJob,
+            onCloseJob = onCloseJob
+        )
+        IncomingCallsStatusBanner(
+            isCallsPaused = isJobFilled,
+            onToggleCalls = onToggleCalls
+        )
+    }
+}
+
+@Composable
+private fun HiringFilterChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(18.dp)
+    Box(
+        modifier = Modifier
+            .height(36.dp)
+            .clip(shape)
+            .background(if (selected) HrInk else Color.White)
+            .border(1.dp, if (selected) HrInk else HrBorder, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (selected) Color.White else HrInk,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun HiringFilterRow(
+    active: HiringFilter,
+    counts: Map<HiringFilter, Int>,
+    onSelect: (HiringFilter) -> Unit
+) {
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp),
+        contentPadding = PaddingValues(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(HiringFilter.values().toList()) { filter ->
+            val count = counts[filter] ?: 0
+            val label = if (filter == HiringFilter.REJECTED && count == 0) {
+                filter.label
+            } else {
+                "${filter.label} ($count)"
+            }
+            HiringFilterChip(
+                label = label,
+                selected = filter == active,
+                onClick = { onSelect(filter) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun HiringApplicantsSection(
+    modifier: Modifier,
+    isLoading: Boolean,
+    allApplications: List<JobApplication>,
+    visibleApplications: List<JobApplication>,
+    isJobSpecific: Boolean,
+    freeContactsRemaining: Int,
+    callReadyCandidates: Int,
+    isJobLive: Boolean,
+    ratedApplicationIds: Set<String>,
+    playbackHelper: com.example.dutype.utils.AudioPlaybackHelper?,
+    employerShopAddress: String,
+    leadingContent: (@Composable () -> Unit)?,
+    onCloseJob: () -> Unit,
+    onOpen: (JobApplication) -> Unit,
+    onUnlock: (JobApplication) -> Unit,
+    onStatusUpdate: (JobApplication, ApplicationStatus, String?) -> Unit,
+    onHirePrompt: (JobApplication) -> Unit,
+    onRate: (JobApplication) -> Unit
+) {
+    var activeFilter by remember { mutableStateOf(HiringFilter.ALL) }
+    var contactedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    val contacted = contactedIds
+    val filter = activeFilter
+    val counts = remember(visibleApplications, contacted) {
+        HiringFilter.values().associateWith { f ->
+            visibleApplications.count { it.matchesHiringFilter(f, contacted) }
+        }
+    }
+    val displayed = remember(visibleApplications, filter, contacted) {
+        visibleApplications.filter { it.matchesHiringFilter(filter, contacted) }
+    }
+    val showList = !isLoading && allApplications.isNotEmpty() && displayed.isNotEmpty()
+
+    Column(modifier = modifier) {
+        if (freeContactsRemaining > 0 && allApplications.size > 3) {
+            FreeContactsBanner(freeRemaining = freeContactsRemaining)
+        }
+        if (!showList && leadingContent != null) {
+            leadingContent()
+        }
+        HiringFilterRow(
+            active = filter,
+            counts = counts,
+            onSelect = { activeFilter = it }
+        )
+        when {
+            isLoading -> {
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(5) {
+                        ApplicationListItemShimmer()
                     }
                 }
-                
-                // Status Badge - using centralized component
-                ApplicationStatusBadge(status = application.status)
             }
-
-            // 15-Sec Voice Intro Preview Player
-            if (!application.audioIntroUrl.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                CandidateVoiceIntroPlayer(
-                    audioUrl = application.audioIntroUrl,
-                    audioDurationSec = application.audioDurationSec ?: 15,
-                    playbackHelper = playbackHelper
+            allApplications.isEmpty() -> {
+                Box(modifier = Modifier.weight(1f)) {
+                    EmptyApplicationsState(isJobSpecific = isJobSpecific)
+                }
+            }
+            displayed.isEmpty() -> {
+                Box(modifier = Modifier.weight(1f)) {
+                    EmptyApplicationsState(isJobSpecific = false)
+                }
+            }
+            else -> {
+                HiringApplicantsList(
+                    modifier = Modifier.weight(1f),
+                    applications = displayed,
+                    totalCount = allApplications.size,
+                    showManyBanner = isJobSpecific && filter == HiringFilter.ALL,
+                    callReadyCandidates = callReadyCandidates,
+                    isJobLive = isJobLive,
+                    ratedApplicationIds = ratedApplicationIds,
+                    playbackHelper = playbackHelper,
+                    employerShopAddress = employerShopAddress,
+                    leadingContent = leadingContent,
+                    onCloseJob = onCloseJob,
+                    onOpen = onOpen,
+                    onUnlock = onUnlock,
+                    onContacted = { id -> contactedIds = contactedIds + id },
+                    onStatusUpdate = onStatusUpdate,
+                    onHirePrompt = onHirePrompt,
+                    onRate = onRate
                 )
             }
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // Footer - Applied time
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Schedule,
-                        contentDescription = null,
-                        tint = EmployerColors.TextTertiary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Applied ${DateTimeUtils.formatRelativeTime(application.createdAt)}",
-                        style = AppTypography.caption.copy(color = EmployerColors.TextTertiary)
+@Composable
+private fun HiringApplicantsList(
+    modifier: Modifier,
+    applications: List<JobApplication>,
+    totalCount: Int,
+    showManyBanner: Boolean,
+    callReadyCandidates: Int,
+    isJobLive: Boolean,
+    ratedApplicationIds: Set<String>,
+    playbackHelper: com.example.dutype.utils.AudioPlaybackHelper?,
+    employerShopAddress: String,
+    leadingContent: (@Composable () -> Unit)?,
+    onCloseJob: () -> Unit,
+    onOpen: (JobApplication) -> Unit,
+    onUnlock: (JobApplication) -> Unit,
+    onContacted: (String) -> Unit,
+    onStatusUpdate: (JobApplication, ApplicationStatus, String?) -> Unit,
+    onHirePrompt: (JobApplication) -> Unit,
+    onRate: (JobApplication) -> Unit
+) {
+    LazyColumn(
+        modifier = modifier,
+        contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        if (leadingContent != null) {
+            item { leadingContent() }
+        }
+        if (showManyBanner && totalCount >= MANY_APPLICANTS_THRESHOLD) {
+            item {
+                Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                    TooManyApplicationsBanner(
+                        totalApplications = totalCount,
+                        callReadyCandidates = callReadyCandidates,
+                        isJobLive = isJobLive,
+                        onCloseJob = onCloseJob
                     )
                 }
             }
+        }
+        items(applications) { application ->
+            HiringApplicantCard(
+                application = application,
+                hasAlreadyRated = application.id in ratedApplicationIds,
+                playbackHelper = playbackHelper,
+                employerShopAddress = employerShopAddress,
+                modifier = Modifier.padding(horizontal = 20.dp),
+                onClick = { onOpen(application) },
+                onUnlockContact = { onUnlock(application) },
+                onContacted = { onContacted(application.id) },
+                onStatusUpdate = { status, notes -> onStatusUpdate(application, status, notes) },
+                onHirePrompt = onHirePrompt,
+                onRate = { onRate(application) }
+            )
+        }
+    }
+}
 
-            // Passbook 3-Action Row for Active/Applied Candidates
-            if (application.status == ApplicationStatus.APPLIED) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // 1. CALL WORKER
-                    Button(
-                        onClick = {
-                            if (workerPhone.isNotBlank()) {
-                                runCatching {
-                                    context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$workerPhone")))
-                                }.onFailure {
-                                    Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), Toast.LENGTH_SHORT).show()
-                                }
-                            } else {
-                                onUnlockContact()
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Success),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Call,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Call", style = AppTypography.labelMedium, fontWeight = FontWeight.Bold, color = Color.White)
-                    }
+@Composable
+private fun HiringAvatar(application: JobApplication) {
+    val name = application.workerName
+    val bg = HrAvatarColors[(name.hashCode() and 0x7fffffff) % HrAvatarColors.size]
+    val imageUrl = application.workerProfileImageUrl
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(bg),
+        contentAlignment = Alignment.Center
+    ) {
+        if (!imageUrl.isNullOrBlank()) {
+            com.example.dutype.components.OptimizedProfileImage(
+                imageUrl = imageUrl,
+                contentDescription = "Worker Profile",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape)
+            )
+        } else {
+            Text(
+                text = hiringInitials(name),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = HrInk
+            )
+        }
+    }
+}
 
-                    // 2. WHATSAPP SHOP LOCATION
-                    OutlinedButton(
-                        onClick = {
-                            if (workerPhone.isNotBlank()) {
-                                val rawDigits = workerPhone.filter { it.isDigit() }
-                                val formattedPhone = if (rawDigits.length == 10) "91$rawDigits" else rawDigits
-                                val shopMsg = if (employerShopAddress.isNotBlank()) {
-                                    "Hello $displayName, this is regarding your application on DutyPe. Here is our shop/work address: $employerShopAddress. Please let us know when you can visit for an interview."
-                                } else {
-                                    "Hello $displayName, this is regarding your application on DutyPe. When can you visit for an interview?"
-                                }
-                                val waUri = Uri.parse("https://wa.me/$formattedPhone?text=${Uri.encode(shopMsg)}")
-                                runCatching {
-                                    context.startActivity(Intent(Intent.ACTION_VIEW, waUri))
-                                }.onFailure {
-                                    Toast.makeText(context, "WhatsApp is not installed", Toast.LENGTH_SHORT).show()
-                                }
-                            } else {
-                                onUnlockContact()
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1.15f)
-                            .height(44.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF075E54)),
-                        border = BorderStroke(1.dp, Color(0xFF25D366)),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = Color(0xFF25D366)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Location", style = AppTypography.labelMedium, fontWeight = FontWeight.Bold, color = Color(0xFF075E54), maxLines = 1)
-                    }
+@Composable
+private fun HiringCircleButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .border(1.dp, HrBorder, CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = description,
+            tint = HrInk,
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
 
-                    // 3. 1-TAP HIRE (Triggers Stop Calls / Job Filled Dialog)
-                    Button(
-                        onClick = {
-                            if (onHireWithStopCallsPrompt != null) {
-                                onHireWithStopCallsPrompt(application)
-                            } else {
-                                onStatusUpdate(ApplicationStatus.HIRED, "Hired from passbook")
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
-                        contentPadding = PaddingValues(horizontal = 4.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Hire", style = AppTypography.labelMedium, fontWeight = FontWeight.Bold, color = Color.White)
-                    }
-                }
-
-                // Quick reject option
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(
-                        onClick = { onStatusUpdate(ApplicationStatus.REJECTED, "Not suitable") },
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text("Not suitable (Reject)", fontSize = 11.sp, color = EmployerColors.TextTertiary)
-                    }
-                }
-            } else if (canCallWorker && application.status != ApplicationStatus.HIRED && application.status != ApplicationStatus.COMPLETED) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Button(
-                    onClick = {
-                        runCatching {
-                            context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$workerPhone")))
-                        }.onFailure {
-                            Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Success)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Call,
-                        contentDescription = null,
-                        modifier = Modifier.size(17.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.call_worker), style = AppTypography.labelLarge, color = Color.White)
-                }
-            }
-
-            if (canMarkWorkDone || canRateCompletedWork) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            color = if (hasAlreadyRated) EmployerColors.SuccessLight else EmployerColors.WarningLight,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .padding(12.dp)
-                ) {
-                    Text(
-                        text = if (canMarkWorkDone) {
-                            "Work completed?"
-                        } else if (hasAlreadyRated) {
-                            "Review given"
-                        } else {
-                            "Rate this worker"
-                        },
-                        style = AppTypography.labelLarge,
-                        color = if (hasAlreadyRated) EmployerColors.Success else EmployerColors.Warning
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = onRateWorker,
-                        enabled = canMarkWorkDone || !hasAlreadyRated,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = EmployerColors.Warning,
-                            disabledContentColor = EmployerColors.Success
-                        )
-                    ) {
-                        Icon(
-                            imageVector = if (canMarkWorkDone) Icons.Default.CheckCircle else Icons.Default.Star,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            if (canMarkWorkDone) "Mark Work Done" else if (hasAlreadyRated) "Rated Worker" else "Rate Worker",
-                            style = AppTypography.labelLarge
-                        )
-                    }
-                }
-            }
-            
-            // Cover Letter Preview (if available)
-            if (application.coverLetter.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = EmployerColors.Border)
-                Spacer(modifier = Modifier.height(12.dp))
-                
+@Composable
+private fun HiringCardTopRow(
+    application: JobApplication,
+    displayName: String,
+    onCall: () -> Unit,
+    onChat: () -> Unit
+) {
+    val subtitle = hiringSubtitle(application)
+    val distance = application.distanceKm
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        HiringAvatar(application)
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = displayName,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = HrName,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (subtitle.isNotBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = application.coverLetter.take(120) + if (application.coverLetter.length > 120) "..." else "",
-                    style = AppTypography.bodySmall.copy(
-                        color = EmployerColors.TextSecondary,
-                        lineHeight = 18.sp
-                    ),
-                    maxLines = 2,
+                    text = subtitle,
+                    fontSize = 13.sp,
+                    color = HrMuted,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            if (distance != null && distance > 0.0) {
+                Text(
+                    text = String.format(Locale.ROOT, "%.1f km away", distance),
+                    fontSize = 11.sp,
+                    color = HrFaint,
+                    maxLines = 1
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HiringCircleButton(Icons.Outlined.Call, "Call", onCall)
+                HiringCircleButton(Icons.Outlined.ChatBubbleOutline, "Chat", onChat)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HiringSkillChip(text: String, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(13.dp)
+    Box(
+        modifier = modifier
+            .height(26.dp)
+            .clip(shape)
+            .border(1.dp, HrBorder, shape)
+            .padding(horizontal = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            color = HrInk,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun HiringActionChip(
+    label: String,
+    active: Boolean,
+    activeColor: Color,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Box(
+        modifier = Modifier
+            .height(32.dp)
+            .clip(shape)
+            .background(if (active) activeColor else Color.White)
+            .border(1.dp, if (active) activeColor else HrBorder, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (active) Color.White else HrInk,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun HiringRateSection(
+    status: ApplicationStatus,
+    hasAlreadyRated: Boolean,
+    onRate: () -> Unit
+) {
+    val canMarkWorkDone = status == ApplicationStatus.HIRED
+    OutlinedButton(
+        onClick = onRate,
+        enabled = canMarkWorkDone || !hasAlreadyRated,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(36.dp),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, HrBorder),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = HrInk,
+            disabledContentColor = HrGreen
+        ),
+        contentPadding = PaddingValues(horizontal = 14.dp)
+    ) {
+        Text(
+            text = if (canMarkWorkDone) "Mark Work Done" else if (hasAlreadyRated) "Rated Worker" else "Rate Worker",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun HiringApplicantCard(
+    application: JobApplication,
+    hasAlreadyRated: Boolean,
+    playbackHelper: com.example.dutype.utils.AudioPlaybackHelper?,
+    employerShopAddress: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+    onUnlockContact: () -> Unit,
+    onContacted: () -> Unit,
+    onStatusUpdate: (ApplicationStatus, String?) -> Unit,
+    onHirePrompt: (JobApplication) -> Unit,
+    onRate: () -> Unit
+) {
+    val context = LocalContext.current
+    val phone = application.workerPhone.orEmpty().trim()
+    val displayName = application.workerName.ifBlank { "Unknown Worker" }
+    val status = application.status
+    val isShortlisted = status in HrShortlistedStatuses
+    val isRejected = status == ApplicationStatus.REJECTED
+    val skills = application.workerSkills.filter { it.isNotBlank() }.take(3)
+    val audioUrl = application.audioIntroUrl
+    val cardShape = RoundedCornerShape(16.dp)
+
+    val onCall: () -> Unit = {
+        if (phone.isNotBlank()) {
+            dialWorkerPhone(context, phone)
+            onContacted()
+        } else {
+            onUnlockContact()
+        }
+    }
+    val onChat: () -> Unit = {
+        if (phone.isNotBlank()) {
+            openWorkerWhatsApp(
+                context,
+                phone,
+                "Hello $displayName, this is regarding your application on DutyPe."
+            )
+            onContacted()
+        } else {
+            onUnlockContact()
+        }
+    }
+    val onInterview: () -> Unit = {
+        if (phone.isNotBlank()) {
+            val interviewMsg = if (employerShopAddress.isNotBlank()) {
+                "Hello $displayName, this is regarding your application on DutyPe. Here is our shop/work address: $employerShopAddress. Please let us know when you can visit for an interview."
+            } else {
+                "Hello $displayName, this is regarding your application on DutyPe. When can you visit for an interview?"
+            }
+            openWorkerWhatsApp(context, phone, interviewMsg)
+            onContacted()
+        } else {
+            onUnlockContact()
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(cardShape)
+            .background(Color.White)
+            .border(1.dp, HrBorder, cardShape)
+            .clickable(onClick = onClick)
+            .padding(16.dp)
+    ) {
+        HiringCardTopRow(
+            application = application,
+            displayName = displayName,
+            onCall = onCall,
+            onChat = onChat
+        )
+
+        if (skills.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                skills.forEach { skill ->
+                    HiringSkillChip(text = skill, modifier = Modifier.weight(1f, fill = false))
+                }
+            }
+        }
+
+        if (!audioUrl.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            CandidateVoiceIntroPlayer(
+                audioUrl = audioUrl,
+                audioDurationSec = application.audioDurationSec ?: 15,
+                playbackHelper = playbackHelper
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+        HorizontalDivider(thickness = 1.dp, color = HrDivider)
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HiringActionChip(
+                label = "Shortlist ✓",
+                active = isShortlisted,
+                activeColor = HrGreen,
+                onClick = {
+                    if (status == ApplicationStatus.APPLIED) onHirePrompt(application)
+                }
+            )
+            HiringActionChip(
+                label = "Interview",
+                active = false,
+                activeColor = HrGreen,
+                onClick = onInterview
+            )
+            HiringActionChip(
+                label = "Reject ✗",
+                active = isRejected,
+                activeColor = HrRed,
+                onClick = {
+                    if (status == ApplicationStatus.APPLIED) {
+                        onStatusUpdate(ApplicationStatus.REJECTED, "Not suitable")
+                    }
+                }
+            )
+        }
+
+        if (status == ApplicationStatus.HIRED || status == ApplicationStatus.COMPLETED) {
+            Spacer(modifier = Modifier.height(12.dp))
+            HiringRateSection(
+                status = status,
+                hasAlreadyRated = hasAlreadyRated,
+                onRate = onRate
+            )
         }
     }
 }
@@ -2362,7 +2552,7 @@ private fun JobFilledCandidatesContent(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)),
             border = BorderStroke(1.5.dp, Color(0xFFA7F3D0)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Row(
                 modifier = Modifier.padding(16.dp),
@@ -2474,8 +2664,8 @@ private fun SelectedWorkerCard(
             .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
         border = BorderStroke(1.5.dp, EmployerColors.Success),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        shape = RoundedCornerShape(24.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
             modifier = Modifier.padding(20.dp)

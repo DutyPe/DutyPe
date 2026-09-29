@@ -1,37 +1,40 @@
-﻿package com.example.dutype.worker.screens
+package com.example.dutype.worker.screens
 
 import com.dutype.app.R
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.CardGiftcard
+import androidx.compose.material.icons.outlined.WorkOutline
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
 import androidx.navigation.NavController
-import com.example.dutype.components.CommonHeader
-import com.example.dutype.ui.theme.AppTypography
+import com.example.dutype.models.ReferralStatus
+import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.MeeshoFontFamily
-import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.viewmodels.EarningsViewModel
+import com.example.dutype.viewmodels.ReferralViewModel
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
@@ -40,118 +43,157 @@ import com.example.dutype.components.EmptyStateAction
 import androidx.compose.ui.res.stringResource
 
 /**
- * Earnings Dashboard Screen
- * 
- * P2 Feature: Worker Financial Clarity
- * Track monthly income, job history, payment status
- * Updated with Meesho-style colors and typography
+ * Earnings Dashboard Screen ("17 - Worker Earnings Dashboard" mockup)
+ *
+ * Flat dark hero balance card (wallet balance from referral stats), job income /
+ * referral bonus breakdown, and a merged recent-transactions list (job payments
+ * from EarningsViewModel + completed referral bonuses from ReferralViewModel).
  */
 
-@OptIn(ExperimentalMaterial3Api::class)
+// Design tokens (mockup 17)
+private val ScreenBg = Color(0xFFF8FAFC)
+private val InkBlack = Color(0xFF0F0F0F)
+private val Emerald = Color(0xFF10B981)
+private val EmeraldTint = Color(0xFFF0FDF4)
+private val SlateBorder = Color(0xFFE2E8F0)
+private val SlateMuted = Color(0xFF94A3B8)
+private val SlateLabel = Color(0xFF64748B)
+private val AmberFg = Color(0xFFD97706)
+private val AmberBg = Color(0xFFFFFBEB)
+private val RedFg = Color(0xFFEF4444)
+private val RedBg = Color(0xFFFEF2F2)
+
+private fun t(
+    size: Int,
+    weight: FontWeight,
+    color: Color,
+    letterSpacing: Float? = null
+): TextStyle = TextStyle(
+    fontFamily = MeeshoFontFamily,
+    fontSize = size.sp,
+    fontWeight = weight,
+    color = color,
+    letterSpacing = if (letterSpacing != null) letterSpacing.sp else androidx.compose.ui.unit.TextUnit.Unspecified
+)
+
+/** Unified row shown in the transactions list. */
+private data class EarningsRow(
+    val key: String,
+    val isReferral: Boolean,
+    val title: String,
+    val date: Long,
+    val amount: Double,
+    val status: PaymentStatus
+)
+
 @Composable
 fun EarningsDashboardScreen(
     navController: NavController,
-    viewModel: EarningsViewModel = hiltViewModel()
+    viewModel: EarningsViewModel = hiltViewModel(),
+    referralViewModel: ReferralViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var selectedPeriod by remember { mutableStateOf(EarningsPeriod.THIS_MONTH) }
-    
+    val referralState by referralViewModel.uiState.collectAsState()
+
     LaunchedEffect(Unit) {
         viewModel.loadEarnings()
+        referralViewModel.loadReferralData()
     }
-    
+
+    val referralStats = referralState.stats
+    val walletBalance = referralStats?.availableBalance ?: 0.0
+    val referralBonus = referralStats?.totalEarnings ?: 0.0
+    val isBalanceLoading = referralState.isLoading && referralStats == null
+
+    val referralHistory = referralState.referralHistory
+    val jobTransactions = uiState.transactions
+    val rows = remember(jobTransactions, referralHistory) {
+        val jobRows = jobTransactions.map { tx ->
+            val who = tx.companyName.ifBlank { tx.jobTitle }
+            EarningsRow(
+                key = "job_${tx.id}",
+                isReferral = false,
+                title = "Job Payment — $who",
+                date = tx.date,
+                amount = tx.amount,
+                status = tx.status
+            )
+        }
+        val referralRows = referralHistory
+            .filter { it.status == ReferralStatus.COMPLETED }
+            .map { r ->
+                EarningsRow(
+                    key = "ref_${r.id}",
+                    isReferral = true,
+                    title = if (r.referredUserName.isBlank()) "Referral Bonus"
+                    else "Referral Bonus — ${r.referredUserName}",
+                    date = r.completedAt ?: r.createdAt,
+                    amount = r.getTotalReferrerReward(),
+                    status = PaymentStatus.PAID
+                )
+            }
+        (jobRows + referralRows).sortedByDescending { it.date }.take(10)
+    }
+
+    val goToWallet = { navController.navigate(Routes.WORKER_REFER_EARN) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
+            .background(ScreenBg)
     ) {
-        // CommonHeader with back button
-        CommonHeader(
-            title = stringResource(R.string.earnings_title),
-            navController = navController,
-            showBackButton = true,
-            backgroundColor = WorkerColors.CardBackground,
-            titleColor = WorkerColors.TextPrimary
+        Text(
+            text = "My Earnings",
+            style = t(22, FontWeight.Bold, InkBlack),
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 16.dp)
         )
-        
+
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp)
         ) {
-            // Total Earnings Card
             item {
-                TotalEarningsCard(
-                    totalEarnings = uiState.totalEarnings,
-                    pendingAmount = uiState.pendingAmount,
-                    completedJobs = uiState.completedJobs,
-                    isLoading = uiState.isLoading
+                BalanceHeroCard(
+                    balance = walletBalance,
+                    isLoading = isBalanceLoading,
+                    onWithdraw = { goToWallet() },
+                    onHistory = { goToWallet() }
                 )
             }
-            
-            // Period Filter
+
+            item { Spacer(modifier = Modifier.height(12.dp)) }
+
             item {
-                PeriodFilterRow(
-                    selectedPeriod = selectedPeriod,
-                    onPeriodSelected = { 
-                        selectedPeriod = it
-                        viewModel.filterByPeriod(it)
-                    }
+                BreakdownRow(
+                    jobIncome = uiState.totalEarnings,
+                    referralBonus = referralBonus
                 )
             }
-            
-            // Stats Grid
+
+            item { Spacer(modifier = Modifier.height(22.dp)) }
+
             item {
-                StatsGrid(
-                    completedJobs = uiState.periodCompletedJobs,
-                    avgEarningPerJob = uiState.avgEarningPerJob,
-                    onTimePayments = uiState.onTimePaymentPercentage,
-                    totalHoursWorked = uiState.totalHoursWorked
+                Text(
+                    text = stringResource(R.string.recent_transactions).uppercase(),
+                    style = t(13, FontWeight.SemiBold, SlateLabel, 0.8f)
                 )
             }
-            
-            // Earnings Chart
-            item {
-                EarningsChartCard(
-                    weeklyEarnings = uiState.weeklyEarnings
-                )
-            }
-            
-            // Recent Transactions Header
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.recent_transactions),
-                        style = AppTypography.sectionHeader.copy(
-                            color = WorkerColors.TextPrimary
-                        )
-                    )
-                    TextButton(onClick = { /* View all */ }) {
-                        Text(
-                            stringResource(R.string.view_all), 
-                            style = AppTypography.buttonSmall.copy(
-                                color = WorkerColors.Info
-                            )
-                        )
-                    }
-                }
-            }
-            
-            // Transaction List
-            if (uiState.transactions.isEmpty() && !uiState.isLoading) {
+
+            item { Spacer(modifier = Modifier.height(10.dp)) }
+
+            if (rows.isEmpty() && !uiState.isLoading) {
                 item {
                     EmptyTransactionsCard()
                 }
             } else {
-                items(uiState.transactions.take(10)) { transaction ->
-                    TransactionCard(transaction = transaction)
+                items(rows, key = { it.key }) { row ->
+                    TransactionCard(row = row)
+                    Spacer(modifier = Modifier.height(10.dp))
                 }
             }
-            
+
             // Bottom spacing
             item { Spacer(modifier = Modifier.height(80.dp)) }
         }
@@ -159,422 +201,222 @@ fun EarningsDashboardScreen(
 }
 
 @Composable
-private fun TotalEarningsCard(
-    totalEarnings: Double,
-    pendingAmount: Double,
-    completedJobs: Int,
-    isLoading: Boolean
+private fun BalanceHeroCard(
+    balance: Double,
+    isLoading: Boolean,
+    onWithdraw: () -> Unit,
+    onHistory: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(0.dp)
+    val shape = RoundedCornerShape(24.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(InkBlack)
+            .padding(20.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                // Solid dark hero surface (no gradient).
-                .background(
-                    color = WorkerColors.TextPrimary,
-                    shape = RoundedCornerShape(20.dp)
+        Text(
+            text = "Available Balance",
+            style = t(12, FontWeight.Normal, SlateMuted, 0.8f)
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        if (isLoading) {
+            Box(modifier = Modifier.height(44.dp), contentAlignment = Alignment.CenterStart) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(28.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp
                 )
-                .padding(24.dp)
-        ) {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.total_earnings_label),
-                            style = AppTypography.bodyMedium.copy(
-                                color = Color.White.copy(alpha = 0.7f)
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = Color.White,
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            Text(
-                                text = formatCurrency(totalEarnings),
-                                style = AppTypography.displayTitle.copy(
-                                    color = Color.White
-                                )
-                            )
-                        }
-                    }
-                    
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.1f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.AccountBalanceWallet,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(20.dp))
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Pending Amount
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.pending_label),
-                            style = AppTypography.bodySmall.copy(
-                                color = Color.White.copy(alpha = 0.6f)
-                            )
-                        )
-                        Text(
-                            text = formatCurrency(pendingAmount),
-                            style = AppTypography.cardTitle.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = WorkerColors.Warning
-                            )
-                        )
-                    }
-                    
-                    // Completed Jobs
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.jobs_done),
-                            style = AppTypography.bodySmall.copy(
-                                color = Color.White.copy(alpha = 0.6f)
-                            )
-                        )
-                        Text(
-                            text = "$completedJobs",
-                            style = AppTypography.cardTitle.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = WorkerColors.Success
-                            )
-                        )
-                    }
-                }
             }
-        }
-    }
-}
-
-@Composable
-private fun PeriodFilterRow(
-    selectedPeriod: EarningsPeriod,
-    onPeriodSelected: (EarningsPeriod) -> Unit
-) {
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(EarningsPeriod.entries) { period ->
-            FilterChip(
-                selected = selectedPeriod == period,
-                onClick = { onPeriodSelected(period) },
-                label = { 
-                    Text(
-                        when(period) {
-                            EarningsPeriod.THIS_WEEK -> stringResource(R.string.period_this_week)
-                            EarningsPeriod.THIS_MONTH -> stringResource(R.string.period_this_month)
-                            EarningsPeriod.LAST_MONTH -> stringResource(R.string.period_last_month)
-                            EarningsPeriod.LAST_3_MONTHS -> stringResource(R.string.period_3_months)
-                            EarningsPeriod.ALL_TIME -> stringResource(R.string.period_all_time)
-                        },
-                        style = AppTypography.labelMedium
-                    ) 
-                },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = WorkerColors.Primary,
-                    selectedLabelColor = Color.White,
-                    containerColor = WorkerColors.CardBackground,
-                    labelColor = WorkerColors.TextSecondary
-                )
+        } else {
+            Text(
+                text = formatCurrencyExact(balance),
+                style = t(36, FontWeight.Bold, Color.White)
             )
         }
-    }
-}
-
-@Composable
-private fun StatsGrid(
-    completedJobs: Int,
-    avgEarningPerJob: Double,
-    onTimePayments: Int,
-    totalHoursWorked: Int
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        StatCard(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Default.CheckCircle,
-            iconColor = WorkerColors.Success,
-            label = stringResource(R.string.jobs_done),
-            value = "$completedJobs"
-        )
-        StatCard(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Default.TrendingUp,
-            iconColor = WorkerColors.Info,
-            label = stringResource(R.string.avg_per_job),
-            value = formatCurrency(avgEarningPerJob)
-        )
-    }
-    
-    Spacer(modifier = Modifier.height(12.dp))
-    
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        StatCard(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Default.Schedule,
-            iconColor = WorkerColors.Warning,
-            label = stringResource(R.string.on_time_pay),
-            value = "$onTimePayments%"
-        )
-        StatCard(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Default.AccessTime,
-            iconColor = WorkerColors.Primary,
-            label = stringResource(R.string.hours),
-            value = "${totalHoursWorked}h"
-        )
-    }
-}
-
-@Composable
-private fun StatCard(
-    modifier: Modifier = Modifier,
-    icon: ImageVector,
-    iconColor: Color,
-    label: String,
-    value: String
-) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Spacer(modifier = Modifier.height(18.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(iconColor.copy(alpha = 0.1f)),
+                    .weight(1f)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(Emerald)
+                    .clickable(onClick = onWithdraw),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    tint = iconColor,
-                    modifier = Modifier.size(18.dp)
+                Text(
+                    text = "Withdraw to UPI →",
+                    style = t(13, FontWeight.Bold, Color.White),
+                    maxLines = 1
                 )
             }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Text(
-                text = value,
-                style = AppTypography.pageTitle.copy(
-                    color = WorkerColors.TextPrimary
+            Box(
+                modifier = Modifier
+                    .width(96.dp)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .border(1.dp, Color.White, RoundedCornerShape(22.dp))
+                    .clickable(onClick = onHistory),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "History",
+                    style = t(13, FontWeight.SemiBold, Color.White),
+                    maxLines = 1
                 )
-            )
-            
-            Text(
-                text = label,
-                style = AppTypography.bodySmall.copy(
-                    color = WorkerColors.TextSecondary
-                )
-            )
+            }
         }
     }
 }
 
 @Composable
-private fun EarningsChartCard(
-    weeklyEarnings: List<Double>
+private fun BreakdownRow(
+    jobIncome: Double,
+    referralBonus: Double
 ) {
-    Card(
+    Row(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(0.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
+        BreakdownCard(
+            modifier = Modifier.weight(1f),
+            label = "Job Income",
+            value = formatCurrency(jobIncome),
+            icon = Icons.Outlined.WorkOutline
+        )
+        BreakdownCard(
+            modifier = Modifier.weight(1f),
+            label = "Referral Bonus",
+            value = formatCurrency(referralBonus),
+            icon = Icons.Outlined.CardGiftcard
+        )
+    }
+}
+
+@Composable
+private fun BreakdownCard(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    val shape = RoundedCornerShape(12.dp)
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, SlateBorder, shape)
+            .padding(14.dp)
+    ) {
+        Column(modifier = Modifier.padding(end = 24.dp)) {
             Text(
-                text = stringResource(R.string.weekly_earnings),
-                style = AppTypography.sectionHeader.copy(
-                    color = WorkerColors.TextPrimary
-                )
+                text = label,
+                style = t(12, FontWeight.Normal, SlateMuted),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Simple bar chart
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                val maxEarning = weeklyEarnings.maxOrNull() ?: 1.0
-                val days = listOf(
-                    stringResource(R.string.day_mon),
-                    stringResource(R.string.day_tue),
-                    stringResource(R.string.day_wed),
-                    stringResource(R.string.day_thu),
-                    stringResource(R.string.day_fri),
-                    stringResource(R.string.day_sat),
-                    stringResource(R.string.day_sun)
-                )
-                
-                weeklyEarnings.forEachIndexed { index, earning ->
-                    val heightFraction = if (maxEarning > 0) (earning / maxEarning).toFloat() else 0f
-                    
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .width(28.dp)
-                                .height((100 * heightFraction).dp.coerceAtLeast(4.dp))
-                                .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                .background(
-                                    if (index == Calendar.getInstance().get(Calendar.DAY_OF_WEEK) - 2)
-                                        WorkerColors.Info
-                                    else
-                                        WorkerColors.Border
-                                )
-                        )
-                        
-                        Spacer(modifier = Modifier.height(4.dp))
-                        
-                        Text(
-                            text = days.getOrElse(index) { "" },
-                            style = AppTypography.labelSmall.copy(
-                                color = WorkerColors.TextSecondary
-                            )
-                        )
-                    }
-                }
-            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = value,
+                style = t(22, FontWeight.Bold, InkBlack),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Emerald,
+            modifier = Modifier
+                .size(20.dp)
+                .align(Alignment.TopEnd)
+        )
     }
 }
 
 @Composable
 private fun TransactionCard(
-    transaction: EarningsTransaction
+    row: EarningsRow
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(0.dp)
+    val shape = RoundedCornerShape(16.dp)
+    val accent = when (row.status) {
+        PaymentStatus.PAID -> Emerald
+        PaymentStatus.PENDING -> AmberFg
+        PaymentStatus.FAILED -> RedFg
+    }
+    val pillBg = when (row.status) {
+        PaymentStatus.PAID -> EmeraldTint
+        PaymentStatus.PENDING -> AmberBg
+        PaymentStatus.FAILED -> RedBg
+    }
+    val statusText = when (row.status) {
+        PaymentStatus.PAID -> stringResource(R.string.status_completed)
+        PaymentStatus.PENDING -> stringResource(R.string.status_pending)
+        PaymentStatus.FAILED -> stringResource(R.string.status_failed)
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, SlateBorder, shape)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(EmeraldTint),
+            contentAlignment = Alignment.Center
         ) {
-            // Status icon
-            Box(
+            Icon(
+                imageVector = if (row.isReferral) Icons.Outlined.CardGiftcard else Icons.Outlined.WorkOutline,
+                contentDescription = null,
+                tint = Emerald,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = row.title,
+                style = t(14, FontWeight.SemiBold, InkBlack),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = formatDate(row.date),
+                style = t(12, FontWeight.Normal, SlateMuted)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = "+" + formatCurrency(row.amount),
+                style = t(16, FontWeight.Bold, accent),
+                maxLines = 1
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = statusText,
+                style = t(10, FontWeight.SemiBold, accent),
+                maxLines = 1,
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(
-                        when (transaction.status) {
-                            PaymentStatus.PAID -> WorkerColors.SuccessLight
-                            PaymentStatus.PENDING -> WorkerColors.WarningLight
-                            PaymentStatus.FAILED -> WorkerColors.ErrorLight
-                        }
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = when (transaction.status) {
-                        PaymentStatus.PAID -> Icons.Default.CheckCircle
-                        PaymentStatus.PENDING -> Icons.Default.Schedule
-                        PaymentStatus.FAILED -> Icons.Default.Error
-                    },
-                    contentDescription = null,
-                    tint = when (transaction.status) {
-                        PaymentStatus.PAID -> WorkerColors.Success
-                        PaymentStatus.PENDING -> WorkerColors.Warning
-                        PaymentStatus.FAILED -> WorkerColors.Error
-                    },
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-            
-            Spacer(modifier = Modifier.width(12.dp))
-            
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = transaction.jobTitle,
-                    style = AppTypography.cardTitle.copy(
-                        color = WorkerColors.TextPrimary
-                    )
-                )
-                Text(
-                    text = transaction.companyName,
-                    style = AppTypography.bodySmall.copy(
-                        color = WorkerColors.TextSecondary
-                    )
-                )
-                Text(
-                    text = formatDate(transaction.date),
-                    style = AppTypography.caption.copy(
-                        color = WorkerColors.TextTertiary
-                    )
-                )
-            }
-            
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = formatCurrency(transaction.amount),
-                    style = AppTypography.cardTitle.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = when (transaction.status) {
-                            PaymentStatus.PAID -> WorkerColors.Success
-                            PaymentStatus.PENDING -> WorkerColors.Warning
-                            PaymentStatus.FAILED -> WorkerColors.Error
-                        }
-                    )
-                )
-                Text(
-                    text = when(transaction.status) {
-                        PaymentStatus.PAID -> stringResource(R.string.status_paid)
-                        PaymentStatus.PENDING -> stringResource(R.string.status_pending)
-                        PaymentStatus.FAILED -> stringResource(R.string.status_failed)
-                    },
-                    style = AppTypography.caption.copy(
-                        color = WorkerColors.TextSecondary
-                    )
-                )
-            }
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(pillBg)
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+            )
         }
     }
 }
@@ -597,6 +439,14 @@ private fun EmptyTransactionsCard() {
 private fun formatCurrency(amount: Double): String {
     val format = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
     return format.format(amount).replace(".00", "")
+}
+
+/** Always two decimals, e.g. "₹1,450.00". */
+private fun formatCurrencyExact(amount: Double): String {
+    val format = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
+    format.minimumFractionDigits = 2
+    format.maximumFractionDigits = 2
+    return format.format(amount)
 }
 
 private fun formatDate(timestamp: Long): String {

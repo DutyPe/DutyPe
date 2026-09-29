@@ -10,6 +10,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -616,8 +617,9 @@ private fun ProfileInfoCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(12.dp),
+            .padding(horizontal = 16.dp)
+            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -696,8 +698,9 @@ private fun EditablePersonalInfoCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(12.dp),
+            .padding(horizontal = 16.dp)
+            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -784,8 +787,9 @@ private fun EditableProfessionalInfoCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(12.dp),
+            .padding(horizontal = 16.dp)
+            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {

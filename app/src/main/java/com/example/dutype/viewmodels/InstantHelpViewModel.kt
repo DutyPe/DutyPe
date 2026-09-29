@@ -9,6 +9,7 @@ import com.example.dutype.models.QuickUrgentNeedInput
 import com.example.dutype.models.WorkerAvailability
 import com.example.dutype.services.InstantHelpService
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,8 +44,13 @@ class InstantHelpViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(InstantHelpUiState())
     val uiState: StateFlow<InstantHelpUiState> = _uiState.asStateFlow()
 
+    // Cancel stale worker requests: a newer load/refresh (e.g. location change) supersedes the old one.
+    private var workerLoadJob: Job? = null
+    private var workerRefreshJob: Job? = null
+
     fun loadWorkerInstantHelp(currentLocation: LocationData?) {
-        viewModelScope.launch {
+        workerLoadJob?.cancel()
+        workerLoadJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoadingAvailability = true, error = null) }
             instantHelpService.getWorkerAvailability().fold(
                 onSuccess = { savedAvailability ->
@@ -55,30 +61,24 @@ class InstantHelpViewModel @Inject constructor(
                             isLoadingAvailability = false
                         )
                     }
-                    if (availability.isAvailable) {
-                        refreshWorkerInstantRequests(currentLocation)
-                    }
+                    // Every worker is eligible for instant / urgent requests: no availability gate.
+                    refreshWorkerInstantRequests(currentLocation)
                 },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(
-                            isLoadingAvailability = false,
-                            error = error.message ?: "Failed to load availability"
-                        )
-                    }
+                onFailure = {
+                    // Availability is no longer required to see instant requests; load them anyway.
+                    _uiState.update { it.copy(isLoadingAvailability = false) }
+                    refreshWorkerInstantRequests(currentLocation)
                 }
             )
         }
     }
 
     fun refreshWorkerInstantRequests(currentLocation: LocationData?) {
-        val availability = _uiState.value.workerAvailability
-        if (!availability.isAvailable) {
-            _uiState.update { it.copy(instantRequests = emptyList(), isLoadingRequests = false) }
-            return
-        }
+        // Everyone is eligible: treat the worker as available regardless of the stored flag.
+        val availability = _uiState.value.workerAvailability.copy(isAvailable = true)
+        workerRefreshJob?.cancel()
 
-        viewModelScope.launch {
+        workerRefreshJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoadingRequests = true, error = null) }
             instantHelpService.getOpenInstantRequestsForWorker(availability, currentLocation).fold(
                 onSuccess = { requests ->

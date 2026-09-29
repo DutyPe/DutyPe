@@ -468,9 +468,9 @@ class SmartJobApplicationViewModel @Inject constructor(
 
             val result = jobApplicationService.withdrawApplication(applicationId, currentUser.uid)
             result.onSuccess { withdrawnApplication ->
-                // Remove from local state
-                val updatedApplications = _legacyUiState.value.applications.filter { 
-                    it.id != applicationId 
+                // Keep it, marked WITHDRAWN, so it moves from "Applied" to "History".
+                val updatedApplications = _legacyUiState.value.applications.map {
+                    if (it.id == applicationId) it.copy(status = ApplicationStatus.WITHDRAWN) else it
                 }
                 _uiState.value = _uiState.value.copy(
                     isWithdrawing = false,

@@ -5,6 +5,11 @@ import android.net.Uri
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.Source
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.Timestamp
@@ -52,6 +57,44 @@ class ProfileCompletionService @Inject constructor(
         fallback.remove("fullName", "")
         fallback.remove("phone", "")
         return fallback
+    }
+
+    /**
+     * True when the failure is just "no network / backend unreachable" (Firestore client offline,
+     * UNAVAILABLE, DEADLINE_EXCEEDED, or our own short timeout) rather than a real error.
+     */
+    private fun isOfflineError(e: Throwable): Boolean {
+        if (e is TimeoutCancellationException) return true
+        if (e is FirebaseFirestoreException) {
+            if (e.code == FirebaseFirestoreException.Code.UNAVAILABLE ||
+                e.code == FirebaseFirestoreException.Code.DEADLINE_EXCEEDED) return true
+        }
+        return e.message?.contains("offline", ignoreCase = true) == true
+    }
+
+    /** Warn-level (no stack trace) for offline problems, error-level otherwise. */
+    private fun logFailure(tag: String, e: Throwable) {
+        if (isOfflineError(e)) Timber.w("%s - offline/unreachable, using cache or retry later: %s", tag, e.message)
+        else Timber.e(e, "%s - Error: %s", tag, e.message)
+    }
+
+    /**
+     * Server read with a short timeout; when offline/unreachable falls back to the local Firestore
+     * cache. If the cache has nothing either, the original error is rethrown so callers can tell
+     * "unknown" apart from "document missing".
+     */
+    private suspend fun getDocWithCacheFallback(ref: DocumentReference): DocumentSnapshot {
+        return try {
+            withTimeout(PROFILE_READ_TIMEOUT_MS) { ref.get().await() }
+        } catch (e: Exception) {
+            if (!isOfflineError(e)) throw e
+            val cached = try {
+                ref.get(Source.CACHE).await()
+            } catch (_: Exception) {
+                null
+            }
+            if (cached != null && cached.exists()) cached else throw e
+        }
     }
 
     private fun profileCollectionForRole(role: String): String =
@@ -127,10 +170,18 @@ class ProfileCompletionService @Inject constructor(
      * 
      * Without profile picture: max 95% (above 80% threshold for applying)
      */
-    suspend fun calculateWorkerProfileCompletion(userId: String): Int {
+    suspend fun calculateWorkerProfileCompletion(userId: String): Int =
+        calculateWorkerProfileCompletionOrNull(userId) ?: 0
+
+    /**
+     * Same as [calculateWorkerProfileCompletion] but returns null (= unknown) when the profile
+     * could not be read only because the device is offline and nothing is cached. Callers that
+     * decide navigation must treat null as "keep current state / retry", never as 0%.
+     */
+    suspend fun calculateWorkerProfileCompletionOrNull(userId: String): Int? {
         return try {
             val workerData = try {
-                firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).get().await().data.orEmpty()
+                getDocWithCacheFallback(firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId)).data.orEmpty()
             } catch (e: Exception) {
                 if (e is FirebaseFirestoreException && e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
                     Timber.w("worker_profiles read denied for userId=%s; reporting empty profile", userId)
@@ -170,8 +221,13 @@ class ProfileCompletionService @Inject constructor(
             // SECURITY FIX: All failure paths return 0% so the apply-gate / post-gate refuses
             // to let unverified users in. Auth-only fallback is intentionally removed — it
             // overstated completion when worker_profiles couldn't be read.
-            Timber.e(e, "❌ ProfileCompletionService - Error calculating completion (returning 0): ${e.message}")
-            0
+            if (isOfflineError(e)) {
+                Timber.w("ProfileCompletionService - worker completion unknown (offline, no cache): ${e.message}")
+                null
+            } else {
+                Timber.e(e, "❌ ProfileCompletionService - Error calculating completion (returning 0): ${e.message}")
+                0
+            }
         }
     }
 
@@ -221,9 +277,13 @@ class ProfileCompletionService @Inject constructor(
      * 
      * Without optional fields: max 85% (above 80% threshold for posting jobs)
      */
-    suspend fun calculateEmployerProfileCompletion(userId: String): Int {
+    suspend fun calculateEmployerProfileCompletion(userId: String): Int =
+        calculateEmployerProfileCompletionOrNull(userId) ?: 0
+
+    /** Null = unknown (offline, nothing cached). See [calculateWorkerProfileCompletionOrNull]. */
+    suspend fun calculateEmployerProfileCompletionOrNull(userId: String): Int? {
         return try {
-            val employerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(userId).get().await().data.orEmpty()
+            val employerData = getDocWithCacheFallback(firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(userId)).data.orEmpty()
             
             SecureLogger.d("ProfileCompletionService", "Calculating employer profile completion for user",
                 "userId" to userId)
@@ -254,8 +314,13 @@ class ProfileCompletionService @Inject constructor(
             Timber.d("🔍 ProfileCompletionService - Employer completion percentage: $finalCompletion%")
             finalCompletion
         } catch (e: Exception) {
-            Timber.e(e, "❌ ProfileCompletionService - Error calculating employer completion: ${e.message}")
-            0
+            if (isOfflineError(e)) {
+                Timber.w("ProfileCompletionService - employer completion unknown (offline, no cache): ${e.message}")
+                null
+            } else {
+                Timber.e(e, "❌ ProfileCompletionService - Error calculating employer completion: ${e.message}")
+                0
+            }
         }
     }
 
@@ -445,8 +510,9 @@ class ProfileCompletionService @Inject constructor(
     suspend fun getUserProfile(userId: String): Result<Map<String, Any?>> {
         return try {
             Timber.d("🔍 ProfileCompletionService.getUserProfile - Fetching profile")
-            val workerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).get().await().data.orEmpty()
-            val employerData = firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(userId).get().await().data.orEmpty()
+            val workerData = getDocWithCacheFallback(firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId)).data.orEmpty()
+            val employerData = if (workerData.isNotEmpty()) emptyMap() else
+                getDocWithCacheFallback(firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(userId)).data.orEmpty()
             val userData = when {
                 workerData.isNotEmpty() -> getWorkerProfileData(userId).getOrNull().orEmpty().toMutableMap()
                 employerData.isNotEmpty() -> getEmployerProfileData(userId).getOrNull().orEmpty().toMutableMap()
@@ -465,7 +531,7 @@ class ProfileCompletionService @Inject constructor(
             Timber.d("🔍 ProfileCompletionService.getUserProfile - Has profileImage: ${userData["profileImageUrl"] != null}")
             Result.success(userData)
         } catch (e: Exception) {
-            Timber.e(e, "❌ ProfileCompletionService.getUserProfile - Error: ${e.message}")
+            logFailure("ProfileCompletionService.getUserProfile", e)
             Result.failure(e)
         }
     }
@@ -481,10 +547,10 @@ class ProfileCompletionService @Inject constructor(
     suspend fun isProfileComplete(userId: String, role: String): Result<Boolean> {
         return try {
             val completion = if (role == "WORKER") {
-                calculateWorkerProfileCompletion(userId)
-                    } else {
-                calculateEmployerProfileCompletion(userId)
-            }
+                calculateWorkerProfileCompletionOrNull(userId)
+            } else {
+                calculateEmployerProfileCompletionOrNull(userId)
+            } ?: return Result.failure(IllegalStateException("Profile completion unknown (offline)"))
             Result.success(completion >= 80)
         } catch (e: Exception) {
             Result.failure(e)
@@ -1176,6 +1242,7 @@ class ProfileCompletionService @Inject constructor(
     
     companion object {
         private const val COLLECTION_PHONE_ROLES = "phoneRoles"
+        private const val PROFILE_READ_TIMEOUT_MS = 4000L
         private const val COLLECTION_WORKER_PROFILES = "worker_profiles"
         private const val COLLECTION_EMPLOYER_PROFILES = "employer_profiles"
         private const val COLLECTION_REFERRALS = "referrals"
@@ -1281,7 +1348,8 @@ class ProfileCompletionService @Inject constructor(
             
             false
         } catch (e: Exception) {
-            Timber.w("🎁 REFERRAL: Unable to check referral usage, defaulting to false: ${e.message}")
+            if (isOfflineError(e)) Timber.w("🎁 REFERRAL: offline, referral usage unknown; defaulting to false (will re-check when online)")
+            else Timber.w("🎁 REFERRAL: Unable to check referral usage, defaulting to false: ${e.message}")
             false // Default to false to not block user
         }
     }

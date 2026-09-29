@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -17,6 +18,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -28,19 +30,24 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.components.ReferralValidationResult
+import com.example.dutype.components.SelectableLocationMap
 import com.example.dutype.components.isValidReferralCode
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
@@ -55,12 +62,187 @@ import kotlinx.coroutines.tasks.await
 import com.example.dutype.components.markWelcomeCelebrationPending
 import timber.log.Timber
 
+// =============================================================================
+// STITCH DESIGN SPEC PALETTE — exact colors from the employer profile setup
+// design (fixed, non-theme-adaptive: this screen matches the design 1:1)
+// =============================================================================
+private val StitchNavy = Color(0xFF0F172A)
+private val StitchTrack = Color(0xFFF1F5F9)
+private val StitchBorder = Color(0xFFE2E8F0)
+private val StitchBlue = Color(0xFF2563EB)
+private val StitchLabel = Color(0xFF64748B)
+private val StitchDisabledBg = Color(0xFFF1F5F9)
+private val StitchFieldValue = Color(0xFF0F172A)
+
+private val StitchIndustryOptions = listOf(
+    "Construction",
+    "Retail / Shop",
+    "Hospitality",
+    "Manufacturing",
+    "Logistics & Transport",
+    "Services",
+    "Other"
+)
+
+/**
+ * Generic Stitch-style outlined field: white/gray rounded box with a small
+ * gray label pinned at the top and a bold value line below it.
+ */
+@Composable
+private fun StitchTextField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: String? = null,
+    readOnly: Boolean = false,
+    backgroundColor: Color = Color.White,
+    valueColor: Color = StitchFieldValue,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    leadingIcon: (@Composable () -> Unit)? = null,
+    trailingContent: (@Composable () -> Unit)? = null
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(backgroundColor, RoundedCornerShape(14.dp))
+            .border(1.dp, StitchBorder, RoundedCornerShape(14.dp))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (leadingIcon != null) {
+            leadingIcon()
+            Spacer(modifier = Modifier.width(10.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = label, fontSize = 12.sp, color = StitchLabel)
+            Spacer(modifier = Modifier.height(2.dp))
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                readOnly = readOnly,
+                singleLine = true,
+                textStyle = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = valueColor),
+                keyboardOptions = keyboardOptions,
+                cursorBrush = SolidColor(valueColor),
+                decorationBox = { inner ->
+                    if (value.isEmpty() && placeholder != null) {
+                        Text(text = placeholder, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = StitchLabel.copy(alpha = 0.6f))
+                    }
+                    inner()
+                }
+            )
+        }
+        if (trailingContent != null) {
+            Spacer(modifier = Modifier.width(8.dp))
+            trailingContent()
+        }
+    }
+}
+
+/** Stitch-style picker field showing a value + chevron, opening a dropdown menu. */
+@Composable
+private fun StitchDropdownField(
+    label: String,
+    value: String,
+    options: List<String>,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color.White, RoundedCornerShape(14.dp))
+                .border(1.dp, StitchBorder, RoundedCornerShape(14.dp))
+                .clickable { expanded = true }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = label, fontSize = 12.sp, color = StitchLabel)
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = value.ifBlank { "Select industry" },
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (value.isBlank()) StitchLabel.copy(alpha = 0.6f) else StitchBlue
+                )
+            }
+            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = StitchLabel)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        onValueChange(option)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+/** Pill-shaped two-option segmented toggle matching the Stitch design spec. */
+@Composable
+private fun StitchSegmentedToggle(
+    isIndividual: Boolean,
+    onIndividualSelected: () -> Unit,
+    onCompanySelected: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .background(StitchTrack, RoundedCornerShape(24.dp))
+            .padding(4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(20.dp))
+                .background(if (isIndividual) StitchNavy else Color.Transparent)
+                .clickable(onClick = onIndividualSelected),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Individual",
+                color = if (isIndividual) Color.White else StitchLabel,
+                fontSize = 14.sp,
+                fontWeight = if (isIndividual) FontWeight.Bold else FontWeight.Medium
+            )
+        }
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(20.dp))
+                .background(if (!isIndividual) StitchNavy else Color.Transparent)
+                .clickable(onClick = onCompanySelected),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Company / Business",
+                color = if (!isIndividual) Color.White else StitchLabel,
+                fontSize = 14.sp,
+                fontWeight = if (!isIndividual) FontWeight.Bold else FontWeight.Medium
+            )
+        }
+    }
+}
+
 /**
  * Mandatory Employer Profile Setup Screen
- * 
+ *
  * FIX: Using rememberSaveable for form state to survive activity recreation
  * when camera is launched (process death scenario)
- * 
+ *
  * @param navController Navigation controller for screen navigation
  * @param returnRoute Optional route to navigate to after profile completion (e.g., post_job)
  */
@@ -87,6 +269,10 @@ fun MandatoryEmployerProfileSetupScreen(
     var businessLatitude by rememberSaveable { mutableStateOf(0.0) }
     var businessLongitude by rememberSaveable { mutableStateOf(0.0) }
     var industry by rememberSaveable { mutableStateOf("") }
+    var gstin by rememberSaveable { mutableStateOf("") }
+    var contactName by rememberSaveable { mutableStateOf("") }
+    var isVerifyingGstin by remember { mutableStateOf(false) }
+    var gstinVerifiedMessage by remember { mutableStateOf<String?>(null) }
     
     // Selfie state - Uri cannot be saved directly, so we save the string representation
     var selfieUriString by rememberSaveable { mutableStateOf<String?>(null) }
@@ -156,6 +342,8 @@ fun MandatoryEmployerProfileSetupScreen(
                     val savedBusinessAddress = existingData["businessAddress"] as? String
                     val savedBusinessLocation = existingData["businessLocation"] as? Map<*, *>
                     val savedEmployerType = existingData["employerType"] as? String
+                    val savedGstin = existingData["gstin"] as? String
+                    val savedFullName = existingData["fullName"] as? String
                     
                     if (!savedEmployerType.isNullOrBlank()) {
                         employerType = savedEmployerType
@@ -177,6 +365,14 @@ fun MandatoryEmployerProfileSetupScreen(
                     if (industry.isBlank() && !savedIndustry.isNullOrBlank()) {
                         industry = savedIndustry
                         Timber.d("📦 PREFILL: industry = $industry")
+                    }
+                    if (gstin.isBlank() && !savedGstin.isNullOrBlank()) {
+                        gstin = savedGstin
+                        Timber.d("📦 PREFILL: gstin loaded")
+                    }
+                    if (contactName.isBlank() && !savedFullName.isNullOrBlank() && savedFullName != savedCompanyName) {
+                        contactName = savedFullName
+                        Timber.d("📦 PREFILL: contactName = $contactName")
                     }
                     if (businessAddress.isBlank() && !savedBusinessAddress.isNullOrBlank()) {
                         businessAddress = savedBusinessAddress
@@ -317,13 +513,16 @@ fun MandatoryEmployerProfileSetupScreen(
                     
                     val employerProfileData = mutableMapOf<String, Any>(
                         "companyName" to companyName,
-                        "fullName" to companyName,
+                        "fullName" to contactName.ifBlank { companyName },
                         "phone" to contactPhone,
                         "employerType" to employerType
                     )
 
                     if (industry.isNotBlank()) {
                         employerProfileData["industry"] = industry.trim()
+                    }
+                    if (gstin.isNotBlank()) {
+                        employerProfileData["gstin"] = gstin.trim().uppercase()
                     }
                     if (businessAddress.isNotBlank()) {
                         employerProfileData["businessAddress"] = businessAddress.trim()
@@ -491,6 +690,10 @@ fun MandatoryEmployerProfileSetupScreen(
         businessLatitude = businessLatitude,
         businessLongitude = businessLongitude,
         industry = industry,
+        gstin = gstin,
+        contactName = contactName,
+        isVerifyingGstin = isVerifyingGstin,
+        gstinVerifiedMessage = gstinVerifiedMessage,
         selfieUri = selfieUri,
         isUploadingSelfie = isUploadingSelfie,
         selfieError = selfieError,
@@ -519,6 +722,22 @@ fun MandatoryEmployerProfileSetupScreen(
             businessLongitude = lng
         },
         onIndustryChange = { industry = it },
+        onGstinChange = { gstin = it.take(15).uppercase() },
+        onContactNameChange = { contactName = it },
+        onVerifyGstin = {
+            val gstinPattern = Regex("^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$")
+            scope.launch {
+                isVerifyingGstin = true
+                gstinVerifiedMessage = null
+                kotlinx.coroutines.delay(600)
+                gstinVerifiedMessage = if (gstinPattern.matches(gstin.trim().uppercase())) {
+                    "GSTIN format looks valid"
+                } else {
+                    "Please check the GSTIN format"
+                }
+                isVerifyingGstin = false
+            }
+        },
         onReferralCodeChange = { newCode ->
             referralCode = newCode
             if (referralValidationResult != null) {
@@ -615,6 +834,10 @@ fun MandatoryEmployerProfileSetupContent(
     businessLatitude: Double,
     businessLongitude: Double,
     industry: String,
+    gstin: String,
+    contactName: String,
+    isVerifyingGstin: Boolean,
+    gstinVerifiedMessage: String?,
     selfieUri: Uri?,
     isUploadingSelfie: Boolean,
     selfieError: String?,
@@ -640,6 +863,9 @@ fun MandatoryEmployerProfileSetupContent(
     onBusinessAddressChange: (String) -> Unit,
     onBusinessLocationChange: (Double, Double) -> Unit,
     onIndustryChange: (String) -> Unit,
+    onGstinChange: (String) -> Unit,
+    onContactNameChange: (String) -> Unit,
+    onVerifyGstin: () -> Unit,
     onReferralCodeChange: (String) -> Unit,
     onValidateReferral: (String) -> Unit,
     onSelfieCapture: (Uri) -> Unit,
@@ -684,6 +910,10 @@ fun MandatoryEmployerProfileSetupContent(
                             employerType = employerType,
                             companyName = companyName,
                             industry = industry,
+                            gstin = gstin,
+                            contactName = contactName,
+                            isVerifyingGstin = isVerifyingGstin,
+                            gstinVerifiedMessage = gstinVerifiedMessage,
                             companyNameError = companyNameError,
                             industryError = industryError,
                             referralCode = referralCode,
@@ -694,6 +924,9 @@ fun MandatoryEmployerProfileSetupContent(
                             onEmployerTypeChange = onEmployerTypeChange,
                             onCompanyNameChange = onCompanyNameChange,
                             onIndustryChange = onIndustryChange,
+                            onGstinChange = onGstinChange,
+                            onContactNameChange = onContactNameChange,
+                            onVerifyGstin = onVerifyGstin,
                             onReferralCodeChange = onReferralCodeChange,
                             onValidateReferral = onValidateReferral
                         )
@@ -745,30 +978,28 @@ fun MandatoryEmployerProfileSetupContent(
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = EmployerColors.CardBackground,
+                color = Color.White,
                 shadowElevation = 8.dp
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        .padding(20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     if (currentStep > 1) {
                         OutlinedButton(
                             onClick = onPreviousClick,
-                            modifier = Modifier.size(52.dp),
-                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.size(56.dp),
+                            shape = RoundedCornerShape(28.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = EmployerColors.Primary
+                                contentColor = StitchNavy
                             ),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, StitchBorder),
                             contentPadding = PaddingValues(0.dp)
                         ) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back", modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                         }
-                        Spacer(modifier = Modifier.weight(1f))
-                    } else {
-                        Spacer(modifier = Modifier.weight(1f))
                     }
 
                     Button(
@@ -781,22 +1012,33 @@ fun MandatoryEmployerProfileSetupContent(
                         },
                         enabled = !isLoading,
                         modifier = Modifier
-                            .height(52.dp)
+                            .height(56.dp)
                             .weight(1f),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
+                        shape = RoundedCornerShape(28.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = StitchNavy,
+                            disabledContainerColor = StitchNavy.copy(alpha = 0.5f)
+                        )
                     ) {
                         if (isLoading) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = EmployerColors.CardBackground, strokeWidth = 2.dp)
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                         } else {
                             Text(
-                                if (currentStep == totalSteps) "Finish" else "Next",
-                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                                text = if (currentStep == totalSteps) "Start Hiring" else "Next",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Ellipsis
                             )
-                        }
-                        if (currentStep < totalSteps) {
                             Spacer(modifier = Modifier.width(8.dp))
-                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
                 }
@@ -811,6 +1053,10 @@ private fun CompanyInformationStep(
     employerType: String,
     companyName: String,
     industry: String,
+    gstin: String,
+    contactName: String,
+    isVerifyingGstin: Boolean,
+    gstinVerifiedMessage: String?,
     companyNameError: String?,
     industryError: String?,
     referralCode: String,
@@ -821,199 +1067,96 @@ private fun CompanyInformationStep(
     onEmployerTypeChange: (String) -> Unit,
     onCompanyNameChange: (String) -> Unit,
     onIndustryChange: (String) -> Unit,
+    onGstinChange: (String) -> Unit,
+    onContactNameChange: (String) -> Unit,
+    onVerifyGstin: () -> Unit,
     onReferralCodeChange: (String) -> Unit,
     onValidateReferral: (String) -> Unit
 ) {
     val isIndividual = employerType == "INDIVIDUAL"
 
     Column(
-        modifier = Modifier.padding(top = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Step header
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 8.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                EmployerColors.Primary.copy(alpha = 0.15f),
-                                Color(0xFFD8B4FE).copy(alpha = 0.1f)
-                            )
-                        ),
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    if (isIndividual) Icons.Default.Person else Icons.Default.Business,
-                    contentDescription = null,
-                    tint = EmployerColors.Primary,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
+        // Segmented toggle: Individual | Company / Business
+        StitchSegmentedToggle(
+            isIndividual = isIndividual,
+            onIndividualSelected = { onEmployerTypeChange("INDIVIDUAL") },
+            onCompanySelected = { onEmployerTypeChange("COMPANY") }
+        )
 
-            Spacer(modifier = Modifier.width(18.dp))
-
+        // Business / Shop Name — only relevant for Company / Business accounts
+        if (!isIndividual) {
             Column {
-                Text(
-                    text = if (isIndividual) "Personal Profile" else stringResource(R.string.auto_company_information),
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
-                        fontSize = 18.sp
-                    )
+                StitchTextField(
+                    label = "Business / Shop Name",
+                    value = companyName,
+                    onValueChange = onCompanyNameChange,
+                    placeholder = "e.g. Ravi Constructions"
                 )
-                Text(
-                    text = if (isIndividual) "Tell us your name to post instant personal tasks" else stringResource(R.string.auto_tell_us_about_your_company),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = EmployerColors.TextSecondary,
-                        fontWeight = FontWeight.Medium
+                if (companyNameError != null) {
+                    Text(
+                        text = companyNameError,
+                        color = EmployerColors.Error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                     )
-                )
-            }
-        }
-
-        // Account Type Selector Cards
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(
-                text = "Select Account Profile Type",
-                style = MaterialTheme.typography.labelLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = EmployerColors.TextPrimary
-                )
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // Personal / Individual Card
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onEmployerTypeChange("INDIVIDUAL") },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (isIndividual) EmployerColors.Primary.copy(alpha = 0.10f) else EmployerColors.CardBackground
-                    ),
-                    border = androidx.compose.foundation.BorderStroke(
-                        width = if (isIndividual) 2.dp else 1.dp,
-                        color = if (isIndividual) EmployerColors.Primary else EmployerColors.Border
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("👤", fontSize = 20.sp)
-                            if (isIndividual) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = EmployerColors.Primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                        Text(
-                            text = "Personal",
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = if (isIndividual) EmployerColors.Primary else EmployerColors.TextPrimary
-                            )
-                        )
-                        Text(
-                            text = "Home chores, cook, maid, driver, personal tasks",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = EmployerColors.TextSecondary,
-                                fontSize = 11.sp,
-                                lineHeight = 15.sp
-                            )
-                        )
-                    }
-                }
-
-                // Company / Business Card
-                Card(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onEmployerTypeChange("COMPANY") },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (!isIndividual) EmployerColors.Primary.copy(alpha = 0.10f) else EmployerColors.CardBackground
-                    ),
-                    border = androidx.compose.foundation.BorderStroke(
-                        width = if (!isIndividual) 2.dp else 1.dp,
-                        color = if (!isIndividual) EmployerColors.Primary else EmployerColors.Border
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("🏢", fontSize = 20.sp)
-                            if (!isIndividual) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = EmployerColors.Primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                        Text(
-                            text = "Company",
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = if (!isIndividual) EmployerColors.Primary else EmployerColors.TextPrimary
-                            )
-                        )
-                        Text(
-                            text = "Shop, office, restaurant, hotel, commercial hiring",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = EmployerColors.TextSecondary,
-                                fontSize = 11.sp,
-                                lineHeight = 15.sp
-                            )
-                        )
-                    }
                 }
             }
         }
 
-        // Name input (Personal Name vs Company Name)
+        // Industry — dropdown picker
+        StitchDropdownField(
+            label = if (isIndividual) "Help Needed (Optional)" else "Industry",
+            value = industry,
+            options = StitchIndustryOptions,
+            onValueChange = { onIndustryChange(it) }
+        )
+
+        // GSTIN — optional, with inline "Verify →" action (Company only)
+        if (!isIndividual) {
+            Column {
+                StitchTextField(
+                    label = "GSTIN (optional)",
+                    value = gstin,
+                    onValueChange = { onGstinChange(it) },
+                    placeholder = "e.g. 36AABCR1234M1Z5",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    trailingContent = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable(enabled = gstin.isNotBlank() && !isVerifyingGstin) { onVerifyGstin() }
+                        ) {
+                            if (isVerifyingGstin) {
+                                CircularProgressIndicator(modifier = Modifier.size(14.dp), color = StitchBlue, strokeWidth = 2.dp)
+                            } else {
+                                Text(text = "Verify", color = StitchBlue, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Verify GSTIN", tint = StitchBlue, modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    }
+                )
+                if (gstinVerifiedMessage != null) {
+                    Text(
+                        text = gstinVerifiedMessage,
+                        color = StitchLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                    )
+                }
+            }
+        }
+
+        // Your Full Name
         Column {
-            OutlinedTextField(
-                value = companyName,
-                onValueChange = onCompanyNameChange,
-                label = { Text(if (isIndividual) "Your Full Name *" else stringResource(R.string.company_name_required)) },
-                placeholder = { Text(if (isIndividual) "Enter your personal full name" else stringResource(R.string.enter_company_name)) },
-                leadingIcon = { Icon(if (isIndividual) Icons.Default.Person else Icons.Default.Business, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                isError = companyNameError != null,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (companyNameError != null) EmployerColors.Error else EmployerColors.Primary,
-                    unfocusedBorderColor = if (companyNameError != null) EmployerColors.Error else EmployerColors.Border,
-                    errorBorderColor = EmployerColors.Error
-                )
+            StitchTextField(
+                label = "Your Full Name",
+                value = if (isIndividual) companyName else contactName,
+                onValueChange = if (isIndividual) onCompanyNameChange else onContactNameChange,
+                placeholder = "e.g. Ravi Teja"
             )
-            if (companyNameError != null) {
+            if (isIndividual && companyNameError != null) {
                 Text(
                     text = companyNameError,
                     color = EmployerColors.Error,
@@ -1021,27 +1164,6 @@ private fun CompanyInformationStep(
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
             }
-        }
-
-        // Industry / Category needed
-        Column {
-            OutlinedTextField(
-                value = industry,
-                onValueChange = { onIndustryChange(it.take(120)) },
-                label = { Text(if (isIndividual) "Help Needed (Optional)" else stringResource(R.string.hiring_categories_optional)) },
-                placeholder = { Text(if (isIndividual) "e.g. Cook, Maid, Driver, Electrician" else stringResource(R.string.hiring_categories_hint)) },
-                leadingIcon = { Icon(if (isIndividual) Icons.Default.Work else Icons.Default.Business, contentDescription = null) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 6.dp),
-                singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = EmployerColors.Primary,
-                    unfocusedBorderColor = EmployerColors.Border,
-                    cursorColor = EmployerColors.Primary
-                )
-            )
         }
 
         // Referral Code Input - REMOVED: Now handled in login/signup flow
@@ -1059,6 +1181,99 @@ private fun CompanyInformationStep(
             )
         }
         */
+    }
+}
+
+/** Result of a current-location fetch; shown under the address field. */
+private class LocationFetchOutcome(val areaText: String?, val errorText: String?)
+
+/** Fetches the current location, reverse-geocodes it and pushes it into the form. */
+private suspend fun fetchCurrentLocationInto(
+    locationService: com.example.dutype.utils.LocationService,
+    onAddress: (String) -> Unit,
+    onLocation: (Double, Double) -> Unit,
+    setFetching: (Boolean) -> Unit
+): LocationFetchOutcome {
+    setFetching(true)
+    return try {
+        val locationInfo = locationService.getHighAccuracyLocation(
+            timeoutMs = 8000L,
+            minAccuracyMeters = 35f
+        ) ?: locationService.getCurrentLocation()
+        if (locationInfo != null) {
+            onAddress(locationInfo.getFullAddress())
+            onLocation(locationInfo.latitude, locationInfo.longitude)
+            LocationFetchOutcome(locationInfo.getShortAddress(), null)
+        } else {
+            LocationFetchOutcome(null, "Could not get current location. Please enter manually or try again.")
+        }
+    } catch (e: Exception) {
+        Timber.e(e, "Error fetching location")
+        LocationFetchOutcome(null, "Error fetching location: ${e.message}")
+    } finally {
+        setFetching(false)
+    }
+}
+
+/** Small status line under the address field: detected area (green) or error (red). */
+@Composable
+private fun LocationFetchStatus(areaText: String?, errorText: String?) {
+    if (errorText != null) {
+        Text(
+            text = errorText,
+            color = Color(0xFFDC2626),
+            fontSize = 12.sp,
+            modifier = Modifier.padding(start = 4.dp)
+        )
+    } else if (areaText != null) {
+        Row(
+            modifier = Modifier.padding(start = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.LocationOn,
+                contentDescription = null,
+                tint = Color(0xFF16A34A),
+                modifier = Modifier.size(14.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "Location detected",
+                color = Color(0xFF16A34A),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            if (areaText.isNotBlank()) {
+                Text(
+                    text = " \u00B7 $areaText",
+                    color = Color(0xFF64748B),
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+/** Asks for location permission directly (once) when the location step becomes visible. */
+@Composable
+private fun AutoRequestLocationOnEntry(
+    alreadyAsked: Boolean,
+    hasPermission: () -> Boolean,
+    addressIsBlank: Boolean,
+    onAsked: () -> Unit,
+    onGrantedFetch: () -> Unit,
+    onRequestPermission: () -> Unit
+) {
+    LaunchedEffect(Unit) {
+        if (alreadyAsked) return@LaunchedEffect
+        onAsked()
+        if (hasPermission()) {
+            if (addressIsBlank) onGrantedFetch()
+        } else {
+            onRequestPermission()
+        }
     }
 }
 
@@ -1081,165 +1296,94 @@ private fun ContactDetailsStep(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
 
+    var manualLocationRequest by remember { mutableStateOf(false) }
+    var autoLocationAsked by rememberSaveable { mutableStateOf(false) }
+    var detectedAreaText by remember { mutableStateOf<String?>(null) }
+    var locationErrorText by remember { mutableStateOf<String?>(null) }
+
+    val runFetch: () -> Unit = {
+        coroutineScope.launch {
+            locationErrorText = null
+            val outcome = fetchCurrentLocationInto(
+                locationService,
+                onBusinessAddressChange, onBusinessLocationChange
+            ) { isFetchingLocation = it }
+            detectedAreaText = outcome.areaText
+            locationErrorText = outcome.errorText
+        }
+    }
+
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val granted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                 permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
         if (granted) {
-            coroutineScope.launch {
-                isFetchingLocation = true
-                try {
-                    val locationInfo = locationService.getHighAccuracyLocation(
-                        timeoutMs = 8000L,
-                        minAccuracyMeters = 35f
-                    ) ?: locationService.getCurrentLocation()
-                    if (locationInfo != null) {
-                        onBusinessAddressChange(locationInfo.getFullAddress())
-                        onBusinessLocationChange(locationInfo.latitude, locationInfo.longitude)
-                    } else {
-                        Toast.makeText(context, "Could not get current location. Please enter manually or try again.", Toast.LENGTH_SHORT).show()
-                    }
-                } catch (e: Exception) {
-                    Timber.e(e, "Error fetching location")
-                    Toast.makeText(context, "Error fetching location: ${e.message}", Toast.LENGTH_SHORT).show()
-                } finally {
-                    isFetchingLocation = false
-                }
+            if (manualLocationRequest || businessAddress.isBlank()) {
+                runFetch()
             }
-        } else {
-            Toast.makeText(context, context.getString(R.string.location_permission_fetch_address), Toast.LENGTH_SHORT).show()
-            isFetchingLocation = false
+        } else if (manualLocationRequest) {
+            locationErrorText = context.getString(R.string.location_permission_fetch_address)
         }
+        manualLocationRequest = false
     }
 
-    Column(
-        modifier = Modifier.padding(top = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        // Step header
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                EmployerColors.Primary.copy(alpha = 0.15f),
-                                Color(0xFFD8B4FE).copy(alpha = 0.1f)
-                            )
-                        ),
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Default.ContactPhone,
-                    contentDescription = null,
-                    tint = EmployerColors.Primary,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(18.dp))
-
-            Column {
-                Text(
-                    text = stringResource(R.string.auto_contact_details),
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
-                        fontSize = 18.sp
-                    )
-                )
-                Text(
-                    text = if (isIndividual) "Where you need help (for matching nearby workers)" else stringResource(R.string.auto_how_can_we_reach_you),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = EmployerColors.TextSecondary,
-                        fontWeight = FontWeight.Medium
-                    )
-                )
-            }
-        }
-
-        Column {
-            OutlinedTextField(
-                value = contactPhone,
-                onValueChange = { newValue ->
-                    // Only allow digits and limit to 10 characters
-                    if (newValue.all { it.isDigit() } && newValue.length <= 10) {
-                        onContactPhoneChange(newValue)
-                    }
-                },
-                label = { Text(stringResource(R.string.contact_phone_required)) },
-                placeholder = { Text(stringResource(R.string.enter_10_digit_phone)) },
-                leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                isError = phoneError != null,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (phoneError != null) EmployerColors.Error else EmployerColors.Primary,
-                    unfocusedBorderColor = if (phoneError != null) EmployerColors.Error else EmployerColors.Border,
-                    errorBorderColor = EmployerColors.Error
+    AutoRequestLocationOnEntry(
+        alreadyAsked = autoLocationAsked,
+        hasPermission = { locationService.hasLocationPermission() },
+        addressIsBlank = businessAddress.isBlank(),
+        onAsked = { autoLocationAsked = true },
+        onGrantedFetch = { runFetch() },
+        onRequestPermission = {
+            locationPermissionLauncher.launch(
+                arrayOf(
+                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION
                 )
             )
-            if (phoneError != null) {
-                Text(
-                    text = phoneError,
-                    color = EmployerColors.Error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                )
+        }
+    )
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Phone — verified via OTP during login, shown locked/read-only
+        StitchTextField(
+            label = "Phone",
+            value = if (contactPhone.isBlank()) "" else "+91 $contactPhone",
+            onValueChange = {},
+            readOnly = true,
+            backgroundColor = StitchDisabledBg,
+            valueColor = StitchLabel,
+            placeholder = stringResource(R.string.enter_10_digit_phone),
+            trailingContent = {
+                Icon(Icons.Default.Lock, contentDescription = "Verified phone number", tint = StitchLabel, modifier = Modifier.size(18.dp))
             }
+        )
+        if (phoneError != null) {
+            Text(
+                text = phoneError,
+                color = EmployerColors.Error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 16.dp, top = 2.dp)
+            )
         }
 
-        // Work Location with Fetch button
+        // City / Area — real autocomplete search preserved, restyled to match design
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.End
             ) {
-                Text(
-                    text = if (isIndividual) "Home / Task Location *" else stringResource(R.string.work_location_required_label),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
-                    )
-                )
-                
-                Button(
+                TextButton(
                     onClick = {
                         if (locationService.hasLocationPermission()) {
-                            coroutineScope.launch {
-                                isFetchingLocation = true
-                                try {
-                                    val locationInfo = locationService.getHighAccuracyLocation(
-                                        timeoutMs = 8000L,
-                                        minAccuracyMeters = 35f
-                                    ) ?: locationService.getCurrentLocation()
-                                    if (locationInfo != null) {
-                                        // Use detailed full address for business profile
-                                        onBusinessAddressChange(locationInfo.getFullAddress())
-                                        onBusinessLocationChange(locationInfo.latitude, locationInfo.longitude)
-                                    } else {
-                                        Toast.makeText(context, "Could not get current location. Please enter manually or try again.", Toast.LENGTH_SHORT).show()
-                                    }
-                                } catch (e: Exception) {
-                                    Timber.e(e, "Error fetching location")
-                                    Toast.makeText(context, "Error fetching location: ${e.message}", Toast.LENGTH_SHORT).show()
-                                } finally {
-                                    isFetchingLocation = false
-                                }
-                            }
+                            runFetch()
                         } else {
+                            manualLocationRequest = true
                             locationPermissionLauncher.launch(
                                 arrayOf(
                                     android.Manifest.permission.ACCESS_FINE_LOCATION,
@@ -1248,28 +1392,23 @@ private fun ContactDetailsStep(
                             )
                         }
                     },
-                    modifier = Modifier.height(36.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = EmployerColors.Primary
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Icon(
                         Icons.Default.MyLocation,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = EmployerColors.CardBackground
+                        modifier = Modifier.size(14.dp),
+                        tint = StitchBlue
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = if (isFetchingLocation) "Fetching..." else "Fetch",
+                        text = "Use current location",
                         style = MaterialTheme.typography.labelSmall,
-                        color = EmployerColors.CardBackground
+                        color = StitchBlue
                     )
                 }
             }
-            
+
             com.example.dutype.components.LocationAutocompleteField(
                 value = businessAddress,
                 onValueChange = onBusinessAddressChange,
@@ -1278,12 +1417,16 @@ private fun ContactDetailsStep(
                     onBusinessLocationChange(latitude, longitude)
                 },
                 locationService = locationService,
-                label = if (isIndividual) "Location / Address *" else stringResource(R.string.business_address),
+                label = "City / Area",
                 placeholder = if (isIndividual) "Search or enter your area / landmark" else stringResource(R.string.search_or_enter_work_location),
-                maxLines = 3,
+                maxLines = 2,
+                shape = RoundedCornerShape(14.dp),
+                leadingIcon = Icons.Default.LocationOn,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (addressError != null) EmployerColors.Error else EmployerColors.Primary,
-                    unfocusedBorderColor = if (addressError != null) EmployerColors.Error else EmployerColors.Border,
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    focusedBorderColor = if (addressError != null) EmployerColors.Error else StitchBlue,
+                    unfocusedBorderColor = if (addressError != null) EmployerColors.Error else StitchBorder,
                     errorBorderColor = EmployerColors.Error
                 )
             )
@@ -1294,6 +1437,53 @@ private fun ContactDetailsStep(
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
+            }
+            if (isFetchingLocation) {
+                Text(
+                    text = "Fetching location...",
+                    color = Color(0xFF64748B),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 4.dp)
+                )
+            } else {
+                LocationFetchStatus(areaText = detectedAreaText, errorText = locationErrorText)
+            }
+        }
+
+        // Map preview — reuses the real SelectableLocationMap (Google Maps) composable
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(StitchTrack)
+                .border(1.dp, StitchBorder, RoundedCornerShape(16.dp))
+        ) {
+            if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(businessLatitude, businessLongitude)) {
+                SelectableLocationMap(
+                    latitude = businessLatitude,
+                    longitude = businessLongitude,
+                    modifier = Modifier.fillMaxSize(),
+                    markerTitle = if (isIndividual) "Your location" else "Business location",
+                    onLocationPicked = { lat, lng -> onBusinessLocationChange(lat, lng) }
+                )
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = StitchLabel, modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Pick a location above to preview the map",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = StitchLabel,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                }
             }
         }
     }

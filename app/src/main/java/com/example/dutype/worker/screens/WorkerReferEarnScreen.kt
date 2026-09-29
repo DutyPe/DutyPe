@@ -14,6 +14,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -22,12 +25,24 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.CardGiftcard
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.CurrencyRupee
+import androidx.compose.material.icons.outlined.PersonAdd
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -76,7 +91,7 @@ fun WorkerReferEarnScreen(
     val coroutineScope = rememberCoroutineScope()
 
     // Load data on screen launch
-    val screenBg = com.example.dutype.ui.theme.WorkerColors.ScreenBackground
+    val screenBg = Color.White
     LaunchedEffect(Unit) {
         onStatusBarColorChange(screenBg)
 
@@ -109,6 +124,12 @@ fun WorkerReferEarnScreen(
 
     LaunchedEffect(uiState.withdrawalSuccess) {
         if (!uiState.withdrawalSuccess) return@LaunchedEffect
+        showWithdrawDialog = false
+        Toast.makeText(
+            context,
+            "Withdrawal request of \u20B9${uiState.lastWithdrawalAmount.toInt()} sent. We'll transfer it to your UPI soon.",
+            Toast.LENGTH_LONG
+        ).show()
         val activity = context as? Activity
         if (activity != null) {
             reviewTriggerService.onReferralWithdrawalSuccess(activity)
@@ -119,12 +140,17 @@ fun WorkerReferEarnScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
+            .background(Color.White)
+            .statusBarsPadding()
     ) {
-        CommonHeader(
-            title = stringResource(R.string.refer_earn),
-            onBackClick = { navController.popBackStack() },
-            backgroundColor = WorkerColors.CardBackground
+        ReferText(
+            text = stringResource(R.string.refer_earn),
+            color = Color(0xFF0F0F0F),
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 16.dp)
         )
         
         when {
@@ -163,7 +189,7 @@ fun WorkerReferEarnScreen(
             else -> {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(20.dp),
+                    contentPadding = PaddingValues(start = 20.dp, top = 0.dp, end = 20.dp, bottom = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
                     if (!isProfileCompleted) {
@@ -218,29 +244,22 @@ fun WorkerReferEarnScreen(
                         }
                     }
 
-                    // Tier Badge
+                    // Hero, referral code, how-it-works steps and my referrals summary
                     item {
                         AnimatedVisibility(
                             visible = isVisible,
                             enter = fadeIn(tween(300)) + slideInVertically(tween(300))
                         ) {
-                            TierBadgeCard(
-                                tier = uiState.stats?.currentTier ?: ReferralTier.BRONZE,
-                                successfulReferrals = uiState.stats?.successfulReferrals ?: 0
-                            )
-                        }
-                    }
-                    
-                    // QR Code Section
-                    item {
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(400)) + slideInVertically(tween(400))
-                        ) {
-                            ReferralCodeSection(
-                                referralCode = uiState.stats?.referralCode ?: "",
-                                signupBonus = referralConfig.signupBonus,
+                            val topStats = uiState.stats
+                            ReferEarnTopSections(
+                                referralCode = topStats?.referralCode ?: "",
+                                rewardAmount = referralConfig.rewardPerReferral.toInt(),
                                 onCopyClick = {
+                                    if (uiState.stats?.referralCode.isNullOrBlank()) {
+                                        Toast.makeText(context, "Your referral code is being created. Please try again in a moment.", Toast.LENGTH_SHORT).show()
+                                        viewModel.loadReferralData()
+                                        return@ReferEarnTopSections
+                                    }
                                     copyTextToClipboard(
                                         context = context,
                                         label = context.getString(R.string.refer_code_clipboard_label),
@@ -250,8 +269,13 @@ fun WorkerReferEarnScreen(
                                 },
                                 onShareClick = {
                                     val code = uiState.stats?.referralCode ?: ""
+                                    if (code.isBlank()) {
+                                        Toast.makeText(context, "Your referral code is being created. Please try again in a moment.", Toast.LENGTH_SHORT).show()
+                                        viewModel.loadReferralData()
+                                        return@ReferEarnTopSections
+                                    }
                                     val shareText = context.getString(R.string.refer_worker_share_text, code, playStoreUrl, referralConfig.signupBonus.toInt())
-                                    
+
                                     val intent = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
                                         putExtra(Intent.EXTRA_TEXT, shareText)
@@ -267,6 +291,7 @@ fun WorkerReferEarnScreen(
                         }
                     }
 
+                    
                     // Who referred you
                     item {
                         AnimatedVisibility(
@@ -357,13 +382,13 @@ fun WorkerReferEarnScreen(
                         }
                     }
 
-                    // Rewards & Milestones (config-driven)
+                    // How it works / Rewards & milestones / How to redeem (accordion)
                     item {
                         AnimatedVisibility(
                             visible = isVisible,
                             enter = fadeIn(tween(700, 300)) + slideInVertically(tween(700, 300))
                         ) {
-                            ConfigDrivenRewardsSection(referralConfig = referralConfig)
+                            ReferInfoAccordion(referralConfig = referralConfig)
                         }
                     }
 
@@ -387,25 +412,6 @@ fun WorkerReferEarnScreen(
                         }
                     }
 
-                    // How It Works
-                    item {
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(950, 550)) + slideInVertically(tween(950, 550))
-                        ) {
-                            HowItWorksSection()
-                        }
-                    }
-
-                    // How to Redeem (config-driven threshold)
-                    item {
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(1000, 600)) + slideInVertically(tween(1000, 600))
-                        ) {
-                            RedemptionInstructionsSection(minWithdrawal = referralConfig.minWithdrawal)
-                        }
-                    }
                     
                     item { Spacer(modifier = Modifier.height(24.dp)) }
                 }
@@ -456,16 +462,26 @@ fun WorkerReferEarnScreen(
     // Withdraw Dialog
     if (showWithdrawDialog) {
         WithdrawDialog(
-            availableBalance = uiState.stats?.availableBalance ?: 0.0,
+            // Show what will actually be requested (capped at the daily maximum).
+            availableBalance = minOf(uiState.stats?.availableBalance ?: 0.0, referralConfig.maxWithdrawalPerDay),
             minWithdrawal = referralConfig.minWithdrawal,
-            onDismiss = { showWithdrawDialog = false },
+            isProcessing = uiState.isProcessingWithdrawal,
+            serverError = uiState.withdrawalError,
+            onDismiss = {
+                if (!uiState.isProcessingWithdrawal) {
+                    showWithdrawDialog = false
+                    viewModel.clearError()
+                }
+            },
             onWithdraw = { upiId ->
+                // Dialog stays open with a spinner until the server answers.
                 viewModel.requestWithdrawal(upiId)
-                showWithdrawDialog = false
             }
         )
     }
 }
+
+private val UPI_ID_PATTERN = Regex("^[a-zA-Z0-9._-]+@[a-zA-Z][a-zA-Z0-9.-]+$")
 
 private fun copyTextToClipboard(context: android.content.Context, label: String, text: String) {
     val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
@@ -474,179 +490,220 @@ private fun copyTextToClipboard(context: android.content.Context, label: String,
 
 
 @Composable
-private fun TierBadgeCard(tier: ReferralTier, successfulReferrals: Int) {
-    val tierName = ReferralRewards.getTierDisplayName(tier)
-    val tierColor = when (tier) {
-        ReferralTier.BRONZE -> Color(0xFFCD7F32)
-        ReferralTier.SILVER -> Color(0xFF94A3B8)
-        ReferralTier.GOLD -> Color(0xFFF59E0B)
-        ReferralTier.PLATINUM -> Color(0xFF6366F1)
-        ReferralTier.DIAMOND -> Color(0xFF8B5CF6)
-    }
+private fun ReferText(
+    text: String,
+    color: Color,
+    fontSize: TextUnit,
+    modifier: Modifier = Modifier,
+    fontWeight: FontWeight = FontWeight.Normal,
+    letterSpacing: TextUnit = TextUnit.Unspecified,
+    textAlign: TextAlign? = null,
+    maxLines: Int = Int.MAX_VALUE
+) {
+    Text(
+        text = text,
+        modifier = modifier,
+        maxLines = maxLines,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = textAlign,
+        style = MaterialTheme.typography.bodyMedium.copy(
+            color = color,
+            fontSize = fontSize,
+            fontWeight = fontWeight,
+            letterSpacing = letterSpacing,
+            lineHeight = TextUnit.Unspecified
+        )
+    )
+}
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, WorkerColors.Border)
-    ) {
-        Row(
+@SuppressLint("DefaultLocale")
+@Composable
+private fun ReferEarnTopSections(
+    referralCode: String,
+    rewardAmount: Int,
+    onCopyClick: () -> Unit,
+    onShareClick: () -> Unit
+) {
+    val ink = Color(0xFF0F0F0F)
+    val green = Color(0xFF10B981)
+    val slate = Color(0xFF64748B)
+    val mute = Color(0xFF94A3B8)
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Hero card
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color(0xFFF0FDF4))
+                .border(1.dp, Color(0xFFA7F3D0), RoundedCornerShape(24.dp))
+                .padding(20.dp)
         ) {
-            // Tier emoji in glowing circle
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(tierColor.copy(alpha = 0.15f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.WorkspacePremium,
-                    contentDescription = null,
-                    tint = tierColor,
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = tierName,
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = tierColor
-                    )
-                )
-                Text(
-                    text = stringResource(R.string.refer_successful_referrals_count, successfulReferrals),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = WorkerColors.TextSecondary
-                    )
-                )
-            }
-
             Icon(
-                Icons.AutoMirrored.Filled.TrendingUp,
+                imageVector = Icons.Outlined.CardGiftcard,
                 contentDescription = null,
-                tint = WorkerColors.Success,
-                modifier = Modifier.size(24.dp)
+                tint = green,
+                modifier = Modifier.size(28.dp)
+            )
+            Spacer(Modifier.height(10.dp))
+            ReferText(
+                text = stringResource(R.string.refer_hero_title, rewardAmount),
+                color = ink,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(4.dp))
+            ReferText(
+                text = stringResource(R.string.refer_hero_subtitle),
+                color = slate,
+                fontSize = 13.sp
             )
         }
+
+        Spacer(Modifier.height(14.dp))
+
+        // Referral code box with dashed border
+        val dashShape = RoundedCornerShape(16.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(dashShape)
+                .drawBehind {
+                    val stroke = 2.dp.toPx()
+                    val inset = stroke / 2f
+                    drawRoundRect(
+                        color = green,
+                        topLeft = androidx.compose.ui.geometry.Offset(inset, inset),
+                        size = Size(size.width - stroke, size.height - stroke),
+                        cornerRadius = CornerRadius(16.dp.toPx() - inset, 16.dp.toPx() - inset),
+                        style = Stroke(
+                            width = stroke,
+                            pathEffect = PathEffect.dashPathEffect(
+                                floatArrayOf(6.dp.toPx(), 4.dp.toPx()),
+                                0f
+                            )
+                        )
+                    )
+                }
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            ReferText(
+                text = stringResource(R.string.refer_code_label).uppercase(),
+                color = mute,
+                fontSize = 11.sp,
+                letterSpacing = 0.8.sp
+            )
+            Spacer(Modifier.height(6.dp))
+            SelectionContainer {
+                ReferText(
+                    text = referralCode.ifBlank { "Getting your code…" },
+                    color = if (referralCode.isBlank()) mute else ink,
+                    fontSize = if (referralCode.isBlank()) 16.sp else 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 4.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
+            Spacer(Modifier.height(14.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(ink)
+                        .clickable(onClick = onCopyClick),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.ContentCopy,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    ReferText(
+                        text = stringResource(R.string.refer_copy_code),
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(Color(0xFF25D366))
+                        .clickable(onClick = onShareClick),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ReferText(
+                        text = stringResource(R.string.refer_share_whatsapp),
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(22.dp))
+
+        // 3-step explainer
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.Top
+        ) {
+            ReferStep(Icons.Outlined.Share, ink, stringResource(R.string.refer_step_share), slate)
+            ReferArrow(mute)
+            ReferStep(Icons.Outlined.PersonAdd, ink, stringResource(R.string.refer_step_joins), slate)
+            ReferArrow(mute)
+            ReferStep(Icons.Outlined.CurrencyRupee, green, stringResource(R.string.refer_step_each, rewardAmount), slate)
+        }
+
     }
 }
 
 @Composable
-private fun ReferralCodeSection(
-    referralCode: String,
-    signupBonus: Double,
-    onCopyClick: () -> Unit,
-    onShareClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+private fun ReferStep(icon: ImageVector, iconTint: Color, label: String, labelColor: Color) {
+    Column(
+        modifier = Modifier.width(80.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Gift icon
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .background(Color(0xFFF3F4F6), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CardGiftcard,
-                    contentDescription = null,
-                    tint = Color.Black,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = stringResource(R.string.your_referral_code),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.Black
-                )
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Code in a dashed box
-            Box(
-                modifier = Modifier
-                    .background(Color(0xFFF8FAFC), RoundedCornerShape(12.dp))
-                    .padding(horizontal = 24.dp, vertical = 12.dp)
-            ) {
-                SelectionContainer {
-                    Text(
-                        text = referralCode,
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.Black,
-                            letterSpacing = 3.sp,
-                            fontSize = 28.sp
-                        )
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = stringResource(R.string.refer_share_friend_bonus, signupBonus.toInt()),
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color.Black
-                ),
-                textAlign = TextAlign.Center
-            )
-            
-            Spacer(modifier = Modifier.height(20.dp))
-            
-            // Action buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onCopyClick,
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = WorkerColors.TextSecondary),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, WorkerColors.Border)
-                ) {
-                    Icon(Icons.Default.ContentCopy, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.copy_button), fontWeight = FontWeight.SemiBold)
-                }
-                
-                Button(
-                    onClick = onShareClick,
-                    modifier = Modifier.weight(1f).height(48.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary)
-                ) {
-                    Icon(Icons.Default.Share, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.share_button), fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = iconTint,
+            modifier = Modifier.size(32.dp)
+        )
+        Spacer(Modifier.height(8.dp))
+        ReferText(
+            text = label,
+            color = labelColor,
+            fontSize = 11.sp,
+            textAlign = TextAlign.Center
+        )
     }
+}
+
+@Composable
+private fun ReferArrow(color: Color) {
+    ReferText(
+        text = "→",
+        color = color,
+        fontSize = 16.sp,
+        modifier = Modifier.padding(start = 4.dp, top = 8.dp, end = 4.dp, bottom = 0.dp)
+    )
 }
 
 @SuppressLint("DefaultLocale")
@@ -660,7 +717,9 @@ private fun StatsGrid(
     signupBonusAmount: Double
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(0.dp)
@@ -727,7 +786,9 @@ private fun StatsGrid(
 private fun WithdrawCard(availableBalance: Double, minWithdrawal: Double, onWithdrawClick: () -> Unit) {
     val canWithdraw = availableBalance >= minWithdrawal
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(0.dp)
@@ -784,7 +845,9 @@ private fun MilestoneProgressCard(successfulReferrals: Int, nextMilestone: Int, 
     val progress = if (nextMilestone > 0) successfulReferrals.toFloat() / nextMilestone.toFloat() else 0f
     
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(0.dp)
@@ -824,70 +887,111 @@ private fun MilestoneProgressCard(successfulReferrals: Int, nextMilestone: Int, 
     }
 }
 
+/**
+ * How it works / Rewards & milestones / How to redeem as one accordion (same look as the
+ * Terms screen sections). One section open at a time; "How It Works" starts open.
+ */
 @Composable
-private fun HowItWorksSection() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+private fun ReferInfoAccordion(referralConfig: com.example.dutype.repositories.ReferralConfig) {
+    var expanded by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(0) }
+    val toggle: (Int) -> Unit = { index -> expanded = if (expanded == index) -1 else index }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        ReferAccordionCard(stringResource(R.string.how_it_works), expanded == 0, { toggle(0) }) {
+            ReferNumberedSteps(
+                listOf(
+                    stringResource(R.string.refer_worker_step_1),
+                    stringResource(R.string.refer_step_2),
+                    stringResource(R.string.refer_step_3),
+                    stringResource(R.string.refer_worker_step_4)
+                )
+            )
+        }
+        ReferAccordionCard(stringResource(R.string.rewards_milestones), expanded == 1, { toggle(1) }) {
+            RewardRow(stringResource(R.string.refer_reward_per_referral, referralConfig.rewardPerReferral.toInt()))
+            RewardRow(stringResource(R.string.refer_reward_friend_bonus, referralConfig.signupBonus.toInt()))
+            referralConfig.milestones.entries.sortedBy { it.key }.forEach { (count, bonus) ->
+                RewardRow(stringResource(R.string.refer_milestone_item, count, bonus.toInt()))
+            }
+        }
+        ReferAccordionCard(stringResource(R.string.how_to_redeem), expanded == 2, { toggle(2) }) {
+            val minWithdrawal = referralConfig.minWithdrawal.toInt()
             Text(
-                text = stringResource(R.string.how_it_works),
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
+                text = stringResource(R.string.refer_withdrawal_threshold_info, minWithdrawal),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = WorkerColors.TextPrimary)
             )
-            Spacer(Modifier.height(16.dp))
-
-            val steps = listOf(
-                stringResource(R.string.refer_worker_step_1),
-                stringResource(R.string.refer_step_2),
-                stringResource(R.string.refer_step_3),
-                stringResource(R.string.refer_worker_step_4)
+            Spacer(Modifier.height(6.dp))
+            ReferNumberedSteps(
+                listOf(
+                    stringResource(R.string.refer_redeem_step_1),
+                    stringResource(R.string.refer_redeem_step_2),
+                    stringResource(R.string.refer_redeem_step_3),
+                    stringResource(R.string.refer_redeem_step_4)
+                )
             )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = stringResource(R.string.refer_min_withdrawal_info, minWithdrawal),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = WorkerColors.TextPrimary)
+            )
+        }
+    }
+}
 
-            steps.forEachIndexed { index, step ->
-                Row(modifier = Modifier.padding(vertical = 8.dp), verticalAlignment = Alignment.Top) {
-                    Text(
-                        text = "${index + 1}.",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                        ),
-                        modifier = Modifier.width(24.dp)
-                    )
-                    Text(step, style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
-                }
+@Composable
+private fun ReferAccordionCard(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White, shape)
+            .border(1.dp, Color(0xFFE2E8F0), shape)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .clickable { onToggle() }
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF0F0F0F),
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = Color(0xFF64748B),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column(modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                content()
             }
         }
     }
 }
 
-@SuppressLint("DefaultLocale")
 @Composable
-private fun ConfigDrivenRewardsSection(referralConfig: com.example.dutype.repositories.ReferralConfig) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+private fun ReferNumberedSteps(steps: List<String>) {
+    steps.forEachIndexed { index, step ->
+        Row(modifier = Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.Top) {
             Text(
-                text = stringResource(R.string.rewards_milestones),
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
+                text = "${index + 1}.",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = WorkerColors.TextPrimary),
+                modifier = Modifier.width(24.dp)
             )
-            Spacer(Modifier.height(16.dp))
-
-            // Dynamic per-referral reward
-            RewardRow(stringResource(R.string.refer_reward_per_referral, referralConfig.rewardPerReferral.toInt()))
-            // Dynamic signup bonus
-            RewardRow(stringResource(R.string.refer_reward_friend_bonus, referralConfig.signupBonus.toInt()))
-
-            // Dynamic milestones from config
-            referralConfig.milestones.entries.sortedBy { it.key }.forEach { (count, bonus) ->
-                RewardRow(stringResource(R.string.refer_milestone_item, count, bonus.toInt()))
-            }
+            Text(step, style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
         }
     }
 }
@@ -906,65 +1010,13 @@ private fun RewardRow(text: String) {
     }
 }
 
-@Composable
-private fun RedemptionInstructionsSection(minWithdrawal: Double = 100.0) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Text(
-                text = stringResource(R.string.how_to_redeem),
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
-            )
-            Spacer(Modifier.height(16.dp))
-
-            Text(
-                text = stringResource(R.string.refer_withdrawal_threshold_info, minWithdrawal.toInt()),
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
-            )
-            Spacer(Modifier.height(12.dp))
-
-            val steps = listOf(
-                stringResource(R.string.refer_redeem_step_1),
-                stringResource(R.string.refer_redeem_step_2),
-                stringResource(R.string.refer_redeem_step_3),
-                stringResource(R.string.refer_redeem_step_4)
-            )
-
-            steps.forEachIndexed { index, step ->
-                Row(modifier = Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.Top) {
-                    Text(
-                        text = "${index + 1}.",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                        ),
-                        modifier = Modifier.width(24.dp)
-                    )
-                    Text(step, style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.refer_min_withdrawal_info, minWithdrawal.toInt()),
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                )
-            )
-        }
-    }
-}
-
 @SuppressLint("DefaultLocale")
 @Composable
 private fun ReferralHistorySection(referralHistory: List<Referral>) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(0.dp)
@@ -1096,7 +1148,9 @@ private fun ReferralHistoryItem(referral: Referral) {
 @Composable
 private fun WithdrawalHistorySection(withdrawals: List<WithdrawalRequest>) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(0.dp)
@@ -1175,7 +1229,9 @@ private fun ReferrerInfoCard(referrerInfo: ReferrerInfo) {
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(0.dp)
@@ -1205,6 +1261,8 @@ private fun ReferrerInfoCard(referrerInfo: ReferrerInfo) {
 private fun WithdrawDialog(
     availableBalance: Double,
     minWithdrawal: Double,
+    isProcessing: Boolean,
+    serverError: String?,
     onDismiss: () -> Unit,
     onWithdraw: (String) -> Unit
 ) {
@@ -1221,7 +1279,11 @@ private fun WithdrawDialog(
                 Spacer(Modifier.height(16.dp))
                 OutlinedTextField(
                     value = upiId,
-                    onValueChange = { upiId = it },
+                    onValueChange = {
+                        upiId = it
+                        error = null
+                    },
+                    enabled = !isProcessing,
                     label = { Text(stringResource(R.string.upi_id)) },
                     placeholder = { Text(stringResource(R.string.refer_upi_placeholder)) },
                     modifier = Modifier.fillMaxWidth(),
@@ -1232,27 +1294,37 @@ private fun WithdrawDialog(
                     text = stringResource(R.string.refer_withdraw_full_balance_note),
                     style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary)
                 )
-                if (error != null) {
+                val shownError = error ?: serverError
+                if (shownError != null) {
                     Spacer(Modifier.height(8.dp))
-                    Text(error!!, color = WorkerColors.Error, style = MaterialTheme.typography.bodySmall)
+                    Text(shownError, color = WorkerColors.Error, style = MaterialTheme.typography.bodySmall)
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
+                    val trimmed = upiId.trim()
                     when {
-                        upiId.isBlank() -> error = context.getString(R.string.refer_error_enter_upi)
-                        !upiId.contains("@") -> error = context.getString(R.string.refer_error_invalid_upi)
+                        trimmed.isBlank() -> error = context.getString(R.string.refer_error_enter_upi)
+                        // Same pattern the server validates, so a bad ID never reaches it.
+                        !UPI_ID_PATTERN.matches(trimmed) -> error = context.getString(R.string.refer_error_invalid_upi)
                         availableBalance < minWithdrawal -> error = context.getString(R.string.refer_error_min_withdrawal, minWithdrawal.toInt())
-                        else -> onWithdraw(upiId)
+                        else -> onWithdraw(trimmed)
                     }
                 },
+                enabled = !isProcessing,
                 colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Success)
-            ) { Text(stringResource(R.string.withdraw_button)) }
+            ) {
+                if (isProcessing) {
+                    CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                } else {
+                    Text(stringResource(R.string.withdraw_button))
+                }
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel), color = WorkerColors.TextSecondary) }
+            TextButton(onClick = onDismiss, enabled = !isProcessing) { Text(stringResource(R.string.cancel), color = WorkerColors.TextSecondary) }
         },
         shape = RoundedCornerShape(16.dp)
     )
@@ -1274,7 +1346,9 @@ data class WorkerReferralItem(
 @Composable
 private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(0.dp)
@@ -1393,7 +1467,9 @@ private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
 @Composable
 private fun SuccessStoriesCard(stories: List<ReferralSuccessStory>) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.WarningLight),
         elevation = CardDefaults.cardElevation(0.dp)
@@ -1468,7 +1544,9 @@ private fun SuccessStoriesCard(stories: List<ReferralSuccessStory>) {
 @Composable
 private fun LegalDisclaimerCard() {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.WarningLight),
         elevation = CardDefaults.cardElevation(0.dp)

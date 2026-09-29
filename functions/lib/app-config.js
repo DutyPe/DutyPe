@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReferralConfigCallable = exports.updateReferralConfig = exports.getReferralConfig = exports.DEFAULT_REFERRAL_CONFIG = void 0;
+exports.getReferralConfigCallable = exports.updateReferralConfig = exports.isCallerAdmin = exports.getReferralConfig = exports.DEFAULT_REFERRAL_CONFIG = void 0;
 /**
  * Dynamic referral configuration — source of truth is
  * /app_config/referral. Cached in-process for 60s to keep Firestore reads
@@ -88,6 +88,12 @@ const LEGACY_ADMIN_EMAILS = new Set([
     "dutypein@gmail.com",
     "dutpyein@gmail.com",
 ]);
+/**
+ * Admin check for callables. Trusts only things a user cannot set on their own:
+ * custom claims, a VERIFIED allow-listed email, and the server-only admins/{uid} doc.
+ * (It used to also trust users/{uid}.isAdmin / role / email, which the user can write,
+ * and then minted a real admin claim from it.)
+ */
 async function isCallerAdmin(context) {
     if (!context.auth)
         return false;
@@ -100,9 +106,9 @@ async function isCallerAdmin(context) {
     const activeRole = String(claims.activeRole || "").trim().toUpperCase();
     if (role === ADMIN_ROLE || activeRole === ADMIN_ROLE)
         return true;
-    // 3. Check email in claims (Firebase Auth ID token)
+    // 3. Check email in claims (Firebase Auth ID token) — only when verified.
     const email = String(claims.email || "").trim().toLowerCase();
-    if (email) {
+    if (email && claims.email_verified === true) {
         if (email.endsWith(ADMIN_DOMAIN) || LEGACY_ADMIN_EMAILS.has(email)) {
             // Opportunistically persist custom claim so future calls carry admin: true
             try {
@@ -114,33 +120,16 @@ async function isCallerAdmin(context) {
             return true;
         }
     }
-    // 4. Check Firestore users or admins document
+    // 4. Server-only admins/{uid} document (no client rule allows writing it).
     try {
         const db = admin.firestore();
         const uid = context.auth.uid;
-        const userSnap = await db.collection("users").doc(uid).get();
-        if (userSnap.exists) {
-            const uData = userSnap.data() || {};
-            const uRole = String(uData.role || "").trim().toUpperCase();
-            const uActiveRole = String(uData.activeRole || "").trim().toUpperCase();
-            const uEmail = String(uData.email || "").trim().toLowerCase();
-            if (uData.isAdmin === true ||
-                uRole === ADMIN_ROLE ||
-                uActiveRole === ADMIN_ROLE ||
-                (uEmail && (uEmail.endsWith(ADMIN_DOMAIN) || LEGACY_ADMIN_EMAILS.has(uEmail)))) {
-                try {
-                    await admin.auth().setCustomUserClaims(uid, Object.assign(Object.assign({}, claims), { admin: true }));
-                }
-                catch (_a) { }
-                return true;
-            }
-        }
         const adminSnap = await db.collection("admins").doc(uid).get();
         if (adminSnap.exists) {
             try {
                 await admin.auth().setCustomUserClaims(uid, Object.assign(Object.assign({}, claims), { admin: true }));
             }
-            catch (_b) { }
+            catch (_a) { }
             return true;
         }
     }
@@ -149,6 +138,7 @@ async function isCallerAdmin(context) {
     }
     return false;
 }
+exports.isCallerAdmin = isCallerAdmin;
 /**
  * Admin-only callable to update /app_config/referral.
  * Authorised via admin claim, ADMIN role, or allowlisted admin email.

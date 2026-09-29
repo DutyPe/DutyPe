@@ -197,6 +197,7 @@
     <string name="profile_updated">Profile updated!</string>
     <string name="saved_successfully">Saved successfully!</string>
     <string name="bottom_nav_jobs">Jobs</string>
+    <string name="bottom_nav_map">Map</string>
     <string name="bottom_nav_my_jobs">My Jobs</string>
     <string name="bottom_nav_home">Home</string>
     <string name="bottom_nav_post">Post</string>
@@ -1752,4 +1753,14 @@
     <string name="notification_channel_medium_desc">Job reminders and recommendations</string>
     <string name="notification_channel_low_name">Updates &amp; Tips</string>
     <string name="notification_channel_low_desc">App updates, tips, and re-engagement messages</string>
+    <string name="refer_hero_title">Earn ₹%1$d per friend</string>
+    <string name="refer_hero_subtitle">When they complete their first profile</string>
+    <string name="refer_code_label">Your referral code</string>
+    <string name="refer_copy_code">Copy Code</string>
+    <string name="refer_share_whatsapp">Share on WhatsApp</string>
+    <string name="refer_step_share">Share</string>
+    <string name="refer_step_joins">Friend Joins</string>
+    <string name="refer_step_each">₹%1$d Each</string>
+    <string name="refer_invited_earned">%1$d Friends Invited · ₹%2$s Earned</string>
+    <string name="refer_more_to_milestone">%1$d more friends to unlock your next milestone</string>
 </resources>

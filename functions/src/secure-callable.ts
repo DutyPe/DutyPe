@@ -21,6 +21,8 @@ export interface SecuredCallableOptions {
   memory?: "128MB" | "256MB" | "512MB" | "1GB" | "2GB";
   timeoutSeconds?: number;
   enforceAppCheck?: boolean;
+  /** Keep N warm instances to avoid cold starts on latency-critical callables (billed while idle). */
+  minInstances?: number;
 }
 
 export function onCallSecured<T = unknown, R = unknown>(
@@ -33,6 +35,7 @@ export function onCallSecured<T = unknown, R = unknown>(
     timeoutSeconds: opts.timeoutSeconds ?? DEFAULT_RUNTIME.timeoutSeconds,
     enforceAppCheck: opts.enforceAppCheck ?? DEFAULT_RUNTIME.enforceAppCheck,
     consumeAppCheckToken: opts.enforceAppCheck ?? DEFAULT_RUNTIME.consumeAppCheckToken,
+    ...(opts.minInstances !== undefined ? { minInstances: opts.minInstances } : {}),
   };
 
   return functions

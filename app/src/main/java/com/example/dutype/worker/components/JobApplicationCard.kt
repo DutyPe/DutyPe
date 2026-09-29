@@ -157,7 +157,7 @@ fun JobApplicationCard(
         modifier = modifier
             .fillMaxWidth()
             .clickable(enabled = !isFilledForThisWorker) { onCardClick(application) }
-            .border(0.5.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
+            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
@@ -374,11 +374,11 @@ fun JobApplicationCard(
                             },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(46.dp),
+                                .height(44.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = WorkerColors.Success
                             ),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Phone,
@@ -401,11 +401,11 @@ fun JobApplicationCard(
                             onClick = { onWithdrawClick(application) },
                             modifier = Modifier
                                 .weight(1f)
-                                .height(46.dp),
+                                .height(44.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = WorkerColors.Error.copy(alpha = 0.1f)
                             ),
-                            shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
                                 text = stringResource(R.string.auto_withdraw),

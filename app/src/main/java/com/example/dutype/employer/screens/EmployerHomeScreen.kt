@@ -3,6 +3,7 @@ package com.example.dutype.employer.screens
 import com.dutype.app.R
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -397,7 +398,7 @@ fun EmployerHomeScreen(
     val handleJobShare = remember { { jobId: String, jobTitle: String -> jobToShare = Pair(jobId, jobTitle) } }
     
     val isDark = com.example.dutype.ui.theme.isAppInDarkTheme()
-    val employerStatusBarColor = Color(0xFFEFF6FF)
+    val employerStatusBarColor = Color.White
     LaunchedEffect(employerStatusBarColor) {
         onStatusBarColorChange(employerStatusBarColor)
     }
@@ -692,17 +693,12 @@ fun DashboardContent(
                 .fillMaxSize()
                 .background(Color(0xFFF8FAFC))
         ) {
-            EmployerTopHeader(
+            EmployerHomeHeader(
                 companyName = companyName,
-                locationText = recentJobs.firstOrNull()?.addressText?.ifBlank { "Select Location" } ?: "Select Location",
-                onLocationClick = {
-                    navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MANAGE_ADDRESSES)
-                },
-                onSupportClick = {
-                    navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_HELP)
-                },
-                onProfileClick = {
-                    navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_PROFILE)
+                unreadCount = unreadCount,
+                onNotificationClick = onNotificationClick,
+                onPostJobClick = {
+                    navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)
                 },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -712,53 +708,79 @@ fun DashboardContent(
                     .fillMaxWidth()
                     .weight(1f),
                 contentPadding = PaddingValues(
-                    top = 12.dp,
-                    start = 16.dp,
-                    end = 16.dp,
+                    top = 16.dp,
+                    start = 20.dp,
+                    end = 20.dp,
                     bottom = 80.dp
                 ),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
                 scrollStateManager = scrollStateManager
             ) {
                 item {
-                    NeedWorkersSplitCard(
-                        onUrgentClick = { category ->
-                            navController.navigate(
-                                com.example.dutype.navigation.Routes.employerPostUrgentNeedRoute(category)
-                            )
-                        },
-                        onRegularJobClick = {
+                    EmployerHeroActionCards(
+                        onPostRegularClick = {
                             navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)
+                        },
+                        onPostUrgentClick = {
+                            navController.navigate(
+                                com.example.dutype.navigation.Routes.employerPostUrgentNeedRoute(null)
+                            )
                         }
                     )
                 }
 
                 item {
-                    val activeJob = recentJobs.firstOrNull { it.status.equals("open", ignoreCase = true) } ?: recentJobs.firstOrNull()
-                    val activeJobId = activeJob?.id.orEmpty()
-                    val jobAppCount = applicationCountsByJobId[activeJobId] ?: uncontactedApplications.size
-                    ActivePostingsCard(
-                        activeJob = activeJob,
-                        applicantCount = jobAppCount,
-                        totalActiveJobsCount = recentJobs.count { it.status.equals("open", ignoreCase = true) }.coerceAtLeast(1),
-                        onViewAllClick = {
-                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_MY_JOBS)
-                        },
-                        onViewApplicantsClick = {
-                            if (activeJobId.isNotBlank()) {
-                                navController.navigate(com.example.dutype.navigation.Routes.employerApplicationsJobRoute(activeJobId))
-                            } else {
+                    EmployerStatsRow(
+                        activeJobs = updatedStats.activeJobs,
+                        applicants = updatedStats.totalApplications,
+                        creditsLeft = subscription.normalCredits + subscription.instantCredits,
+                        modifier = Modifier.padding(top = 12.dp)
+                    )
+                }
+
+                item {
+                    EmployerSectionLabel(
+                        text = "Active Job Openings",
+                        modifier = Modifier.padding(top = 22.dp, bottom = 10.dp)
+                    )
+                }
+
+                val activeOpenJobs = recentJobs.filter { it.status.equals("open", ignoreCase = true) }
+                if (activeOpenJobs.isEmpty()) {
+                    item {
+                        EmployerNoActiveJobsCard(
+                            onPostJobClick = {
                                 navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)
                             }
-                        }
-                    )
+                        )
+                    }
+                } else {
+                    items(activeOpenJobs, key = { it.id }) { job ->
+                        val jobApps = applicationsByJobId[job.id].orEmpty()
+                        val count = applicationCountsByJobId[job.id] ?: maxOf(job.applicationCount, jobApps.size)
+                        EmployerJobManagementCard(
+                            title = job.title,
+                            applicantCount = count,
+                            isUrgent = job.urgency.equals("HIGH", ignoreCase = true),
+                            facepile = jobApps.take(3).map {
+                                EmployerFacepileItem(it.workerName, it.workerProfileImageUrl)
+                            },
+                            onReviewClick = {
+                                navController.navigate(
+                                    com.example.dutype.navigation.Routes.employerApplicationsJobRoute(job.id)
+                                )
+                            },
+                            modifier = Modifier.padding(bottom = 10.dp)
+                        )
+                    }
                 }
 
                 item {
                     QuickRoleTemplatesSection(
                         onRoleSelected = { _ ->
                             navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)
-                        }
+                        },
+                        modifier = Modifier.padding(top = 12.dp)
                     )
                 }
 
@@ -778,7 +800,8 @@ fun DashboardContent(
                     RecentCallRequestsSection(
                         candidates = candidateItems,
                         onCallClick = { phone -> openPhoneDialer(phone) },
-                        onWhatsAppClick = { phone -> openWhatsAppChat(context, phone, "Hello, saw your application on DutyPe!") }
+                        onWhatsAppClick = { phone -> openWhatsAppChat(context, phone, "Hello, saw your application on DutyPe!") },
+                        modifier = Modifier.padding(top = 12.dp)
                     )
                 }
 
@@ -786,7 +809,8 @@ fun DashboardContent(
                     HelplineTrustStrip(
                         onCallNow = {
                             navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_HELP)
-                        }
+                        },
+                        modifier = Modifier.padding(top = 12.dp)
                     )
                 }
 
@@ -1791,9 +1815,12 @@ fun RecentJobsSection(
 @Composable
 fun EmptyJobsState(onPostJob: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground.copy(alpha = 0.9f))
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, EmployerColors.Border, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground.copy(alpha = 0.9f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -1836,7 +1863,7 @@ private fun EmployerProfileCompletionPrompt(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         colors = CardDefaults.cardColors(containerColor = EmployerColors.InfoLight),
         shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -2003,7 +2030,7 @@ fun ApplicationAnalyticsSection(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -2101,7 +2128,7 @@ fun CandidateHiringNudgeCard(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
         border = BorderStroke(1.5.dp, Color(0xFF86EFAC)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),

@@ -42,14 +42,53 @@ class InAppReviewManager @Inject constructor(
     private val _showRatingPromptFlow = MutableStateFlow(false)
     val showRatingPromptFlow: StateFlow<Boolean> = _showRatingPromptFlow.asStateFlow()
 
+    /**
+     * Marks that a native Google Play review sheet should be shown. Eligibility (has rated,
+     * dismiss cap, 24h cooldown) is preserved; `force` bypasses it as before. MainActivity
+     * observes [showRatingPromptFlow] and launches the Play In-App Review flow.
+     */
     fun triggerRatingPrompt(activity: Activity? = null, force: Boolean = false) {
         CoroutineScope(Dispatchers.Main).launch {
-            if (force || shouldShowReviewPrompt()) {
-                _showRatingPromptFlow.value = true
-                if (activity != null) {
-                    requestInAppReview(activity, force = false)
+            try {
+                if (force || shouldShowReviewPrompt()) {
+                    _showRatingPromptFlow.value = true
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error evaluating review eligibility")
+            }
+        }
+    }
+
+    /**
+     * Requests and launches the official Google Play In-App Review flow. Always clears the
+     * pending flag, records the request time (cooldown), and never throws.
+     */
+    suspend fun launchNativeReview(activity: Activity) {
+        _showRatingPromptFlow.value = false
+        try {
+            if (activity.isFinishing || activity.isDestroyed) {
+                Timber.d("Review skipped: activity finishing")
+                return
+            }
+            context.reviewDataStore.edit { prefs ->
+                prefs[KEY_LAST_REVIEW_REQUEST] = System.currentTimeMillis()
+            }
+            val manager = com.google.android.play.core.review.ReviewManagerFactory.create(activity)
+            manager.requestReviewFlow().addOnCompleteListener { request ->
+                try {
+                    if (request.isSuccessful && !activity.isFinishing && !activity.isDestroyed) {
+                        manager.launchReviewFlow(activity, request.result).addOnCompleteListener {
+                            Timber.d("In-app review flow completed")
+                        }
+                    } else {
+                        Timber.w(request.exception, "Review flow not launched")
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "Error launching review flow")
                 }
             }
+        } catch (e: Exception) {
+            Timber.e(e, "Error requesting in-app review")
         }
     }
 
@@ -100,33 +139,7 @@ class InAppReviewManager @Inject constructor(
             Timber.d("Review prompt skipped")
             return
         }
-
-        try {
-            val manager = com.google.android.play.core.review.ReviewManagerFactory.create(context)
-            val requestInfoTask = manager.requestReviewFlow()
-            requestInfoTask.addOnCompleteListener { request ->
-                if (request.isSuccessful) {
-                    val reviewInfo = request.result
-                    val flow = manager.launchReviewFlow(activity, reviewInfo)
-                    flow.addOnCompleteListener { _ ->
-                        Timber.d("In-app review flow completed")
-                    }
-                } else {
-                    Timber.w(request.exception, "Failed to request review flow")
-                    if (force) {
-                        openPlayStore(activity)
-                    }
-                }
-            }
-            context.reviewDataStore.edit { prefs ->
-                prefs[KEY_LAST_REVIEW_REQUEST] = System.currentTimeMillis()
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Error launching in-app review")
-            if (force) {
-                openPlayStore(activity)
-            }
-        }
+        launchNativeReview(activity)
     }
 
     fun openPlayStore(context: Context) {

@@ -19,7 +19,7 @@ const DEFAULT_RUNTIME = {
 };
 function onCallSecured(opts, handler) {
     var _a, _b, _c, _d;
-    const runtime = Object.assign(Object.assign({}, DEFAULT_RUNTIME), { memory: (_a = opts.memory) !== null && _a !== void 0 ? _a : DEFAULT_RUNTIME.memory, timeoutSeconds: (_b = opts.timeoutSeconds) !== null && _b !== void 0 ? _b : DEFAULT_RUNTIME.timeoutSeconds, enforceAppCheck: (_c = opts.enforceAppCheck) !== null && _c !== void 0 ? _c : DEFAULT_RUNTIME.enforceAppCheck, consumeAppCheckToken: (_d = opts.enforceAppCheck) !== null && _d !== void 0 ? _d : DEFAULT_RUNTIME.consumeAppCheckToken });
+    const runtime = Object.assign(Object.assign(Object.assign({}, DEFAULT_RUNTIME), { memory: (_a = opts.memory) !== null && _a !== void 0 ? _a : DEFAULT_RUNTIME.memory, timeoutSeconds: (_b = opts.timeoutSeconds) !== null && _b !== void 0 ? _b : DEFAULT_RUNTIME.timeoutSeconds, enforceAppCheck: (_c = opts.enforceAppCheck) !== null && _c !== void 0 ? _c : DEFAULT_RUNTIME.enforceAppCheck, consumeAppCheckToken: (_d = opts.enforceAppCheck) !== null && _d !== void 0 ? _d : DEFAULT_RUNTIME.consumeAppCheckToken }), (opts.minInstances !== undefined ? { minInstances: opts.minInstances } : {}));
     return functions
         .region("asia-south1")
         .runWith(runtime)

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -16,12 +17,17 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.outlined.Assignment as AssignmentOutlinedIcon
+import androidx.compose.material.icons.outlined.FlashOn
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -851,5 +857,380 @@ fun openWhatsAppChat(context: Context, rawPhone: String, defaultMessage: String 
             val fallback = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$rawPhone"))
             context.startActivity(fallback)
         } catch (_: Exception) {}
+    }
+}
+
+
+// ---------------------------------------------------------------------------
+// Mockup "21 - Employer Home Dashboard" components (flat, no shadows)
+// ---------------------------------------------------------------------------
+
+private val EhBorder = Color(0xFFE2E8F0)
+private val EhNavy = Color(0xFF0F172A)
+private val EhInk = Color(0xFF0F0F0F)
+private val EhCobalt = Color(0xFF2563EB)
+private val EhRed = Color(0xFFDC2626)
+private val EhSlate = Color(0xFF64748B)
+private val EhMuted = Color(0xFF94A3B8)
+
+/** Data for one applicant in a job card facepile. */
+data class EmployerFacepileItem(val name: String, val photoUrl: String?)
+
+@Composable
+fun EmployerHomeHeader(
+    companyName: String,
+    unreadCount: Int,
+    onNotificationClick: () -> Unit,
+    onPostJobClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val displayName = companyName.ifBlank { "My Business" }
+    val initial = displayName.trim().firstOrNull()?.uppercase() ?: "M"
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .statusBarsPadding()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFEFF6FF)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = initial,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = EhCobalt
+                    )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = displayName,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = EhInk,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clickable { onNotificationClick() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.NotificationsNone,
+                        contentDescription = "Notifications",
+                        tint = EhInk,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    if (unreadCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(EhRed)
+                                .border(1.5.dp, Color.White, CircleShape)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Box(
+                    modifier = Modifier
+                        .height(36.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(EhNavy)
+                        .clickable { onPostJobClick() }
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Post Job",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(EhBorder)
+        )
+    }
+}
+
+@Composable
+fun EmployerHeroActionCards(
+    onPostRegularClick: () -> Unit,
+    onPostUrgentClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color.White)
+                .border(1.dp, EhBorder, RoundedCornerShape(12.dp))
+                .clickable { onPostRegularClick() }
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.AssignmentOutlinedIcon,
+                contentDescription = null,
+                tint = EhNavy,
+                modifier = Modifier.size(24.dp)
+            )
+            Text("Post Regular Job", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = EhInk)
+            Text("Fill a vacancy", fontSize = 12.sp, color = EhSlate)
+        }
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFFFEF2F2))
+                .border(1.dp, Color(0xFFFECACA), RoundedCornerShape(12.dp))
+                .clickable { onPostUrgentClick() }
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.FlashOn,
+                contentDescription = null,
+                tint = EhRed,
+                modifier = Modifier.size(24.dp)
+            )
+            Text("Post Urgent Need", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = EhRed)
+            Text("Find worker now", fontSize = 12.sp, color = EhMuted)
+        }
+    }
+}
+
+@Composable
+fun EmployerStatsRow(
+    activeJobs: Int,
+    applicants: Int,
+    creditsLeft: Int,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        EmployerStatCell("Active Jobs", activeJobs, Modifier.weight(1f))
+        EmployerStatCell("Applicants", applicants, Modifier.weight(1f))
+        EmployerStatCell("Credits Left", creditsLeft, Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun EmployerStatCell(label: String, value: Int, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White)
+            .border(1.dp, EhBorder, RoundedCornerShape(12.dp))
+            .padding(12.dp)
+    ) {
+        Text(
+            text = label.uppercase(),
+            fontSize = 11.sp,
+            letterSpacing = 0.6.sp,
+            color = EhMuted,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = value.toString(),
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = EhInk
+        )
+    }
+}
+
+@Composable
+fun EmployerSectionLabel(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = EhSlate,
+        modifier = modifier
+    )
+}
+
+@Composable
+fun EmployerJobManagementCard(
+    title: String,
+    applicantCount: Int,
+    isUrgent: Boolean,
+    facepile: List<EmployerFacepileItem>,
+    onReviewClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, EhBorder, shape)
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = EhInk,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "$applicantCount applicants",
+                    fontSize = 13.sp,
+                    color = EhSlate
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(if (isUrgent) Color(0xFFFEF2F2) else Color(0xFFF0FDF4))
+                    .padding(horizontal = 10.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = if (isUrgent) "URGENT" else "OPEN",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isUrgent) EhRed else Color(0xFF16A34A)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            EmployerFacepile(facepile)
+            Box(
+                modifier = Modifier
+                    .height(32.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(EhNavy)
+                    .clickable { onReviewClick() }
+                    .padding(horizontal = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Review \u2192",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmployerFacepile(items: List<EmployerFacepileItem>) {
+    val shown = items.take(3)
+    if (shown.isEmpty()) {
+        Spacer(modifier = Modifier.height(24.dp))
+        return
+    }
+    val pastel = listOf(Color(0xFFDBEAFE), Color(0xFFBBF7D0), Color(0xFFFDE68A), Color(0xFFFBCFE8))
+    Box(modifier = Modifier.width((24 + 16 * (shown.size - 1)).dp).height(24.dp)) {
+        shown.forEachIndexed { index, item ->
+            Box(
+                modifier = Modifier
+                    .offset(x = (16 * index).dp)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(pastel[index % pastel.size])
+                    .border(2.dp, Color.White, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                if (!item.photoUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = item.photoUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Text(
+                        text = item.name.trim().firstOrNull()?.uppercase() ?: "W",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = EhNavy
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EmployerNoActiveJobsCard(onPostJobClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, EhBorder, shape)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text("No active jobs yet", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = EhInk)
+        Text("Post your first job to start receiving applicants.", fontSize = 13.sp, color = EhSlate)
+        Box(
+            modifier = Modifier
+                .height(32.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(EhNavy)
+                .clickable { onPostJobClick() }
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Post Job", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+        }
     }
 }

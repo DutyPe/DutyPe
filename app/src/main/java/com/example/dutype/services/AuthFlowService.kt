@@ -1,6 +1,7 @@
 package com.example.dutype.services
 
 import com.example.dutype.models.normalizeReferralCode
+import com.example.dutype.utils.AuthPerf
 import com.example.dutype.utils.PhoneNumberUtils
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
@@ -10,6 +11,8 @@ import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -37,6 +40,7 @@ class AuthFlowService @Inject constructor(
         private const val COLLECTION_REFERRALS = "referrals"
         private const val COLLECTION_REFERRAL_CODES = "referral_codes"
         private const val LOGIN_READ_TIMEOUT_MS = 5_000L
+        private const val LEGACY_CONFLICT_CHECK_TIMEOUT_MS = 6_000L
         private val VALID_ROLES = setOf("WORKER", "EMPLOYER")
     }
 
@@ -69,21 +73,31 @@ class AuthFlowService @Inject constructor(
     }
 
     private suspend fun readRoleProfileState(userId: String): RoleProfileState {
-        val workerExists = withTimeout(LOGIN_READ_TIMEOUT_MS) {
-            firestore.collection(COLLECTION_WORKER_PROFILES)
-                .document(userId)
-                .get()
-                .await()
-                .exists()
+        // Both profile lookups are independent: read them concurrently (one round trip).
+        return coroutineScope {
+            val workerDeferred = async {
+                withTimeout(LOGIN_READ_TIMEOUT_MS) {
+                    firestore.collection(COLLECTION_WORKER_PROFILES)
+                        .document(userId)
+                        .get()
+                        .await()
+                        .exists()
+                }
+            }
+            val employerDeferred = async {
+                withTimeout(LOGIN_READ_TIMEOUT_MS) {
+                    firestore.collection(COLLECTION_EMPLOYER_PROFILES)
+                        .document(userId)
+                        .get()
+                        .await()
+                        .exists()
+                }
+            }
+            RoleProfileState(
+                workerExists = workerDeferred.await(),
+                employerExists = employerDeferred.await()
+            )
         }
-        val employerExists = withTimeout(LOGIN_READ_TIMEOUT_MS) {
-            firestore.collection(COLLECTION_EMPLOYER_PROFILES)
-                .document(userId)
-                .get()
-                .await()
-                .exists()
-        }
-        return RoleProfileState(workerExists = workerExists, employerExists = employerExists)
     }
 
     /**
@@ -314,6 +328,9 @@ class AuthFlowService @Inject constructor(
                 RegistrationResolution(userData, ownReferralCode)
             }.await()
 
+            // Account now exists: any cached "phone not registered" result is stale.
+            com.example.dutype.utils.FirestoreUtils.invalidatePhoneCheckCache()
+
             queueOwnReferralCodeEnsure(
                 userRole = role,
                 userName = (resolution.userData["fullName"] as? String)?.trim().orEmpty().ifBlank { trimmedName }
@@ -326,7 +343,16 @@ class AuthFlowService @Inject constructor(
         }
     }
 
+    /**
+     * Post-sign-in login resolution. This is also the AUTHORITATIVE single-role-per-phone
+     * enforcement point: the pre-OTP phone check may have been skipped/deferred (slow legacy
+     * fallback), so here a conflicting existing role signs the user out and fails with
+     * `phone-already-registered-as:<ROLE>` (the message the UI already maps to the
+     * role-conflict text).
+     */
     suspend fun resolveLogin(requestedRole: String): Result<LoginResolution> {
+        val perfStart = AuthPerf.now()
+        AuthPerf.log("login_resolve_start")
         return try {
             val currentUser = auth.currentUser ?: return Result.failure(Exception("User not authenticated"))
             val role = normalizeRole(requestedRole)
@@ -334,14 +360,37 @@ class AuthFlowService @Inject constructor(
                 ?: return Result.failure(IllegalArgumentException("Phone number is required"))
             val phoneRoleRef = firestore.collection(COLLECTION_PHONE_ROLES).document(normalizedPhone)
 
-            val userSnapshot = withTimeout(LOGIN_READ_TIMEOUT_MS) {
-                phoneRoleRef.get().await()
+            // phoneRoles doc + both role profiles are independent reads: run them
+            // concurrently (was 3 sequential round trips).
+            val (userSnapshot, roleProfileState) = coroutineScope {
+                val snapshotDeferred = async {
+                    withTimeout(LOGIN_READ_TIMEOUT_MS) {
+                        phoneRoleRef.get().await()
+                    }
+                }
+                val stateDeferred = async { readRoleProfileState(currentUser.uid) }
+                snapshotDeferred.await() to stateDeferred.await()
             }
-
-            val roleProfileState = readRoleProfileState(currentUser.uid)
             val userData = userSnapshot.data.orEmpty().toMutableMap()
             val hasAnyRoleProfile = roleProfileState.workerExists || roleProfileState.employerExists
             if (!userSnapshot.exists() && !hasAnyRoleProfile) {
+                // Legacy account (no phoneRoles doc, no role profile) under a different role?
+                // Only reachable when the pre-send fallback was skipped; bounded and best-effort.
+                val legacy = runCatching {
+                    withTimeoutOrNull(LEGACY_CONFLICT_CHECK_TIMEOUT_MS) {
+                        com.example.dutype.utils.FirestoreUtils.checkPhoneForRole(normalizedPhone, role)
+                    }
+                }.getOrNull()
+                if (legacy != null &&
+                    legacy.exists == com.example.dutype.utils.FirestoreUtils.PhoneExistenceResult.EXISTS &&
+                    legacy.roleConflict
+                ) {
+                    val legacyRole = legacy.existingRole?.uppercase().orEmpty().ifBlank { "UNKNOWN" }
+                    runCatching { auth.signOut() }
+                    AuthPerf.log("login_resolve_end", perfStart, "result=legacy_role_conflict")
+                    return Result.failure(IllegalStateException("phone-already-registered-as:$legacyRole"))
+                }
+                AuthPerf.log("login_resolve_end", perfStart, "result=account_not_found")
                 return Result.failure(IllegalStateException("account-not-found"))
             }
 
@@ -349,6 +398,11 @@ class AuthFlowService @Inject constructor(
             val effectiveRole = existingRole
                 ?: roleProfileState.singleExistingRole()
                 ?: role
+            if (effectiveRole != role) {
+                runCatching { auth.signOut() }
+                AuthPerf.log("login_resolve_end", perfStart, "result=role_conflict existing=$effectiveRole")
+                return Result.failure(IllegalStateException("phone-already-registered-as:$effectiveRole"))
+            }
             userData["userId"] = currentUser.uid
             userData["fullName"] = userData["name"] as? String ?: ""
             userData["phone"] = userData["phoneNumber"] as? String ?: normalizedPhone
@@ -363,6 +417,7 @@ class AuthFlowService @Inject constructor(
 
             // Login resolution complete — no lastActiveAt write to minimize
             // per-login write costs at scale.
+            AuthPerf.log("login_resolve_end", perfStart, "result=ok setup=$shouldRouteToProfileSetup")
 
             Result.success(
                 LoginResolution(

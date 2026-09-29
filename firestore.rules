@@ -35,6 +35,8 @@ service cloud.firestore {
         (request.auth.token.get('role', '') == 'ADMIN') ||
         (request.auth.token.get('activeRole', '') == 'ADMIN') ||
         (request.auth.token.get('email', '') is string &&
+          // Unverified emails can be set by any signed-in user; never trust them.
+          request.auth.token.get('email_verified', false) == true &&
           (
             request.auth.token.email.lower().matches('.*@dutype\\.com$') ||
             request.auth.token.email.lower() in [
@@ -1321,8 +1323,22 @@ service cloud.firestore {
     // ── Web App Collections (users, jobs, job_applications, etc.) ─────
     match /users/{userId} {
       allow read: if isAdmin() || isSelf(userId);
-      allow create: if isSelf(userId);
-      allow update: if isSelf(userId) || isAdmin();
+
+      // Users edit their own profile fields, but never server-owned money / trust
+      // fields: users.referralStats used to be read back as the withdrawable balance,
+      // and isAdmin / role were used to grant admin.
+      function userWriteIsSafe() {
+        let changed = request.resource.data.diff(resource == null ? {} : resource.data).affectedKeys();
+        return !changed.hasAny([
+            'referralStats', 'isAdmin', 'admin', 'isBlocked', 'referralCodeCreatedAt',
+            'rating', 'totalRatings', 'averageRating', 'workerAverageRating', 'workerTotalRatings'
+          ]) &&
+          (!changed.hasAny(['role']) || request.resource.data.role in ['WORKER', 'EMPLOYER']) &&
+          (!changed.hasAny(['activeRole']) || request.resource.data.activeRole in ['WORKER', 'EMPLOYER']);
+      }
+
+      allow create: if isSelf(userId) && userWriteIsSafe();
+      allow update: if (isSelf(userId) && userWriteIsSafe()) || isAdmin();
       
       match /tokens/{tokenId} {
         allow read, write: if isSelf(userId);

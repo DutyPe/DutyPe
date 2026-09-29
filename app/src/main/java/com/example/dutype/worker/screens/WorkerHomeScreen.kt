@@ -125,6 +125,7 @@ import com.example.dutype.viewmodels.AppConfigViewModel
 import com.example.dutype.viewmodels.ConnectivityViewModel
 import com.example.dutype.viewmodels.EarningsViewModel
 import com.example.dutype.viewmodels.FirestoreJobViewModel
+import com.example.dutype.viewmodels.WorkerHomeViewModel
 import com.example.dutype.viewmodels.InstantHelpViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
@@ -166,8 +167,10 @@ fun WorkerHomeScreen(
     val enableLocationText = stringResource(R.string.enable_location)
     // LAZY LOADING: Only instantiate ViewModels needed for HomeScreen
     // Other ViewModels are instantiated on their respective screens
-    val jobViewModel: FirestoreJobViewModel = hiltViewModel()
-    // LocationPreferences accessed via FirestoreJobViewModel (proper DI pattern)
+    // FAST HOME FEED: WorkerHomeViewModel loads cached jobs instantly, then nearest jobs and
+    // instant/urgent jobs in parallel (see HomeJobsSource). Same instance as HomeSectionsContent uses.
+    val jobViewModel: WorkerHomeViewModel = hiltViewModel()
+    // LocationPreferences accessed via the ViewModel (proper DI pattern)
     val locationPreferences = jobViewModel.locationPreferences
     val currentLocation by locationPreferences.currentLocation.collectAsStateWithLifecycle()
     val currentUser = FirebaseAuth.getInstance().currentUser
@@ -205,6 +208,7 @@ fun WorkerHomeScreen(
 
     // PERFORMANCE FIX P0: Use ViewModel's filtered jobs instead of computing in Composable
     val filteredJobs by jobViewModel.filteredJobs.collectAsStateWithLifecycle()
+    val urgentJobs by jobViewModel.filteredUrgentJobs.collectAsStateWithLifecycle()
 
     // PERFORMANCE FIX P2: Use ViewModel's vacancy statuses (cleared on refresh)
     val jobVacancyStatuses by jobViewModel.jobVacancyStatuses.collectAsStateWithLifecycle()
@@ -495,7 +499,9 @@ fun WorkerHomeScreen(
         locationPreferences.refreshLocation()
         
         // CRITICAL FIX: Check if location already exists FIRST
-        val savedLocation = locationPreferences.getSavedLocationIfFresh()
+        // Last known location (any age) so the nearest-jobs query never waits for a fresh GPS fix;
+        // a background refresh below refines it.
+        val savedLocation = locationPreferences.getSavedLocation()
         val hasValidLocation = savedLocation != null && 
                               savedLocation.latitude != 0.0 && 
                               savedLocation.longitude != 0.0
@@ -560,7 +566,10 @@ fun WorkerHomeScreen(
     LaunchedEffect(currentUser?.uid) {
         if (currentUser?.uid != null) {
             workerJobRequestViewModel.loadPendingRequests()
-            instantHelpViewModel.loadWorkerInstantHelp(currentLocation)
+            // With a known location the effect below loads instant help once; avoid a duplicate fetch.
+            if (currentLocation == null) {
+                instantHelpViewModel.loadWorkerInstantHelp(null)
+            }
             earningsViewModel.loadEarnings()
 
             runCatching {
@@ -730,6 +739,13 @@ fun WorkerHomeScreen(
         }
     }
 
+    // Short area name for the header location chip (falls back to the full location text).
+    val homeAreaName = remember(currentLocation, locationText) {
+        currentLocation?.area?.takeIf { it.isNotBlank() }
+            ?: currentLocation?.city?.takeIf { it.isNotBlank() }
+            ?: locationText
+    }
+
     val topLocationChips = remember(currentLocation) {
         TopCityChips.buildTopLocationChips(currentLocation)
     }
@@ -745,7 +761,7 @@ fun WorkerHomeScreen(
     // white surface so the role identity stays consistent across the app.
     Box(modifier = Modifier
         .fillMaxSize()
-        .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
+        .background(Color(0xFFF8FAFC))
     ) {
         WorkerHomeBackdropDecor(modifier = Modifier.fillMaxSize())
 
@@ -802,7 +818,7 @@ fun WorkerHomeScreen(
                     ) {
                         when {
                             // Show shimmer only when loading AND no jobs yet
-                            jobUiState.isLoading && jobUiState.jobs.isEmpty() -> {
+                            jobUiState.isLoading && jobUiState.jobs.isEmpty() && urgentJobs.isEmpty() -> {
                                 LoadingContent()
                             }
 
@@ -825,6 +841,8 @@ fun WorkerHomeScreen(
 
                                 HomeSectionsContent(
                                     jobListings = filteredJobs,
+                                    urgentJobs = urgentJobs,
+                                    isLoadingJobs = jobUiState.isLoading,
                                     navController = navController,
                                     rootNavController = rootNavController,
                                     savedJobsViewModel = savedJobsViewModel,
@@ -868,31 +886,10 @@ fun WorkerHomeScreen(
                                     birthdayService = birthdayService,
                                     workerJobRequests = workerRequestState.requests,
                                     updatingWorkerJobRequestId = workerRequestState.updatingRequestId,
-                                    workerAvailability = instantHelpState.workerAvailability,
                                     instantRequests = instantHelpState.instantRequests,
                                     updatingInstantRequestId = instantHelpState.updatingRequestId,
                                     isLoadingInstantRequests = instantHelpState.isLoadingRequests,
                                     instantHelpError = instantHelpState.error,
-                                    onTurnOnAvailability = {
-                                        val selectedLocation = currentLocation
-                                        if (isGuestUser) {
-                                            loginSheetTitle = context.getString(R.string.guest_apply_login_title)
-                                            loginSheetSubtitle = context.getString(R.string.please_login_instant_works)
-                                            showLoginBottomSheet = true
-                                        } else if (
-                                            selectedLocation == null ||
-                                            !GeoUtils.hasValidCoordinates(selectedLocation.latitude, selectedLocation.longitude)
-                                        ) {
-                                            android.widget.Toast.makeText(
-                                                context,
-                                                context.getString(R.string.set_location_before_instant),
-                                                android.widget.Toast.LENGTH_SHORT
-                                            ).show()
-                                        } else {
-                                            showNoUrgentJobsToastAfterSwitchOn = true
-                                            instantHelpViewModel.setWorkerAvailability(true, selectedLocation)
-                                        }
-                                    },
                                     onApplyInstantRequest = { request ->
                                         if (isGuestUser) {
                                             loginSheetTitle = context.getString(R.string.guest_apply_login_title)
@@ -948,59 +945,24 @@ fun WorkerHomeScreen(
                                     onRequestLocationPermission = {
                                         showLocationPermissionBottomSheet = true
                                     },
+                                    onMapClick = { com.example.dutype.components.navigateToWorkerTab(navController, com.example.dutype.navigation.WorkerBottomRoutes.MAP) },
+                                    onCategoryTap = { category ->
+                                        val normalizedCategory = if (category.equals("All", ignoreCase = true)) {
+                                            "All Jobs"
+                                        } else {
+                                            category
+                                        }
+                                        com.example.dutype.components.navigateToWorkerTab(
+                                            navController,
+                                            "${Routes.WORKER_ALL_JOBS}?filter=${Uri.encode(normalizedCategory)}",
+                                            restoreState = false
+                                        )
+                                    },
                                     headerContent = {
-                                        DynamicHeader(
-                                            locationText = locationText,
-                                            locationBarAlpha = locationBarAlpha,
+                                        WorkerHomeGreetingHeader(
+                                            areaName = homeAreaName,
                                             isLocationLoading = isLocationLoading && currentLocation == null,
                                             unreadNotificationCount = unreadNotificationCount,
-                                            isInstantAvailable = instantHelpState.workerAvailability.isAvailable,
-                                            isInstantAvailabilitySaving = instantHelpState.isSavingAvailability,
-                                            todayEarningsAmount = todayEarningsAmount,
-                                            todayJobsDone = todayJobsDone,
-                                            thisWeekEarningsAmount = thisWeekEarningsAmount,
-                                            weekJobsDone = thisWeekJobsDone,
-                                            ratingValue = workerRating,
-                                            reviewCount = workerReviewCount,
-                                            isUrgentJobsEnabled = dynamicFeaturesConfig.isUrgentJobsEnabled,
-                                            primaryColorHex = dynamicFeaturesConfig.primaryColor,
-                                            headerTextColorHex = dynamicFeaturesConfig.headerTextColor,
-                                            headerLottieUrl = dynamicFeaturesConfig.headerLottieUrl,
-                                            showCategoryRail = showCategoryRail,
-                                            onCategoryTap = { category ->
-                                                val normalizedCategory = if (category.equals("All", ignoreCase = true)) {
-                                                    "All Jobs"
-                                                } else {
-                                                    category
-                                                }
-                                                navController.navigate("${Routes.WORKER_ALL_JOBS}?filter=${Uri.encode(normalizedCategory)}")
-                                            },
-                                            onSearchTap = {
-                                                navController.navigate("${Routes.WORKER_ALL_JOBS}?filter=All Jobs")
-                                            },
-                                            onInstantAvailabilityChange = { isAvailable ->
-                                                val selectedLocation = currentLocation
-                                                if (isGuestUser) {
-                                                    android.widget.Toast.makeText(
-                                                        context,
-                                                        context.getString(R.string.please_login_instant_works),
-                                                        android.widget.Toast.LENGTH_SHORT
-                                                    ).show()
-                                                } else if (
-                                                    isAvailable &&
-                                                    (selectedLocation == null || !GeoUtils.hasValidCoordinates(selectedLocation.latitude, selectedLocation.longitude))
-                                                ) {
-                                                    android.widget.Toast.makeText(
-                                                        context,
-                                                        context.getString(R.string.set_location_before_instant),
-                                                        android.widget.Toast.LENGTH_SHORT
-                                                    ).show()
-                                                } else {
-                                                    showNoUrgentJobsToastAfterSwitchOn = isAvailable
-                                                    instantHelpViewModel.setWorkerAvailability(isAvailable, selectedLocation)
-                                                }
-                                            },
-                                            onMapClick = { navController.navigate(Routes.WORKER_JOB_MAP) },
                                             onNotificationClick = {
                                                 currentUser?.uid?.let { userId ->
                                                     scope.launch {

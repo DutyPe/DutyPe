@@ -6,6 +6,10 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
@@ -28,7 +33,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -47,6 +56,7 @@ import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
 import com.example.dutype.models.EmployerSubscription
 import com.example.dutype.models.PaymentRequest
+import com.example.dutype.models.Plan
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.ui.theme.MeeshoFontFamily
@@ -75,6 +85,12 @@ private val Ink400 = Color(0xFF94A3B8)
 private val Hairline = Color(0xFFE2E8F0)
 private val SurfaceMuted = Color(0xFFF8FAFC)
 private val Danger = Color(0xFFEF4444)
+private val ScreenBg = Color(0xFFF8FAFC)
+private val BlueAccent = Color(0xFF2563EB)
+private val BlueSoft = Color(0xFFEFF6FF)
+private val RingTrack = Color(0xFF1E293B)
+private val PlanTitleInk = Color(0xFF0F0F0F)
+private const val TRIAL_JOB_LIMIT = 2
 
 private fun getPlanColor(planId: String): Color = when {
     planId.contains("starter") -> IndicatorGreen
@@ -168,110 +184,68 @@ fun EmployerSubscriptionScreen(
         }
     }
 
+    val hasActiveSub = subState.status == "ACTIVE" || subState.status == "TRIAL"
+    val currentPlanObj = plans.find { it.id == subState.planId }
+
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Ink900
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
-            )
-        },
-        containerColor = Color.White
+        containerColor = ScreenBg,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { paddingValues ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(paddingValues)
+                .background(ScreenBg)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(top = 8.dp, bottom = 40.dp)
         ) {
+            PlansHeader(onBack = { navController.popBackStack() })
 
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Current plan / empty state
-            val hasActiveSub = subState.status == "ACTIVE" || subState.status == "TRIAL"
             if (hasActiveSub) {
-                item {
-                    val currentPlanObj = plans.find { it.id == subState.planId }
-                    val currentPlanName = currentPlanObj?.name ?: "Trial (2 Free Posts)"
-                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                        CurrentPlanCard(
-                            planName = currentPlanName,
-                            status = subState.status,
-                            remainingCredits = subState.normalCredits,
-                            expiryDate = subState.expiryDate,
-                            dateFormatter = dateFormatter
-                        )
-                    }
-                }
+                CurrentPlanCard(
+                    planName = currentPlanObj?.name ?: "Trial (2 Free Posts)",
+                    plan = currentPlanObj,
+                    status = subState.status,
+                    remainingJobs = subState.normalCredits,
+                    remainingContacts = subState.instantCredits,
+                    trialJobsUsed = subState.trialJobsUsed,
+                    expiryDate = subState.expiryDate
+                )
             } else {
-                item { 
-                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                        NoPlanCard() 
-                    }
-                }
+                NoPlanCard()
             }
 
-            // Plan list
-            item {
-                if (plans.isNotEmpty()) {
-                    val pagerState = rememberPagerState(
-                        initialPage = if (plans.size > 2) 2 else 0,
-                        pageCount = { plans.size }
-                    )
-                    
-                    HorizontalPager(
-                        state = pagerState,
-                        contentPadding = PaddingValues(horizontal = 20.dp),
-                        pageSpacing = 8.dp,
-                        modifier = Modifier.fillMaxWidth()
-                    ) { page ->
-                        val plan = plans[page]
-                        val isSelected = selectedPlan?.id == plan.id
-                        val isCurrentPlan = subState.planId == plan.id && (subState.status == "ACTIVE" || subState.status == "TRIAL")
-                        
-                        PlanCard(
-                            plan = plan,
-                            isSelected = isSelected,
-                            isCurrent = isCurrentPlan,
-                            isRecommended = plan.id.contains("growth"),
-                            onSelect = {
-                                selectedPlan = plan
-                                viewModel.resetSubmitState()
-                            },
-                            onProceed = {
-                                selectedPlan = plan
-                                viewModel.resetSubmitState()
-                                showPaymentSheet = true
-                            }
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
+            Spacer(modifier = Modifier.height(20.dp))
 
-                }
+            if (plans.isNotEmpty()) {
+                PlansCarousel(
+                    plans = plans,
+                    currentPlanId = subState.planId,
+                    hasActiveSub = hasActiveSub,
+                    onProceed = { plan ->
+                        selectedPlan = plan
+                        viewModel.resetSubmitState()
+                        showPaymentSheet = true
+                    },
+                    onTalkToSales = { openSalesContact(context) }
+                )
             }
 
             if (paymentRequests.isNotEmpty()) {
-                item {
-                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                        SectionHeader(title = "Recent Transactions")
-                    }
-                }
-
-                items(paymentRequests.size) { index ->
-                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, top = 24.dp, end = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    SectionHeader(title = "Recent Transactions")
+                    paymentRequests.forEach { req ->
                         TransactionCard(
-                            req = paymentRequests[index],
+                            req = req,
                             dateTimeFormatter = dateTimeFormatter,
                             dateFormatter = dateFormatter
                         )
@@ -668,59 +642,156 @@ private fun StepLabel(step: Int, text: String) {
     }
 }
 
+private fun daysRemaining(expiry: Long): Int {
+    if (expiry <= 0L) return -1
+    val ms = expiry - System.currentTimeMillis()
+    return if (ms <= 0L) 0 else ((ms + 86399999L) / 86400000L).toInt()
+}
+
+private fun openSalesContact(context: android.content.Context) {
+    val message = "Hi DutyPe Team, I would like to talk to sales about an Enterprise plan."
+    val whatsapp = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+        data = Uri.parse("https://api.whatsapp.com/send?phone=918500717800&text=${Uri.encode(message)}")
+    }
+    try {
+        context.startActivity(whatsapp)
+    } catch (e: Exception) {
+        val mail = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("mailto:support@dutype.in")
+        }
+        try {
+            context.startActivity(mail)
+        } catch (e2: Exception) {
+            Toast.makeText(context, "Email support@dutype.in to talk to sales", Toast.LENGTH_LONG).show()
+        }
+    }
+}
+
+@Composable
+private fun PlansHeader(onBack: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = Ink900,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "Plans & Credits",
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = Ink900
+        )
+    }
+}
+
+@Composable
+private fun ProgressRing(used: Int, limit: Int, color: Color, label: String) {
+    val fraction = if (limit > 0) (used.toFloat() / limit.toFloat()).coerceIn(0f, 1f) else 0f
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val strokePx = 5.dp.toPx()
+                val inset = strokePx / 2f
+                val arcSize = Size(size.width - strokePx, size.height - strokePx)
+                val arcTopLeft = Offset(inset, inset)
+                drawArc(
+                    color = RingTrack,
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    topLeft = arcTopLeft,
+                    size = arcSize,
+                    style = Stroke(width = strokePx)
+                )
+                if (fraction > 0f) {
+                    drawArc(
+                        color = color,
+                        startAngle = -90f,
+                        sweepAngle = 360f * fraction,
+                        useCenter = false,
+                        topLeft = arcTopLeft,
+                        size = arcSize,
+                        style = Stroke(width = strokePx, cap = StrokeCap.Round)
+                    )
+                }
+            }
+            Text(
+                text = "$used/$limit",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(text = label, fontSize = 11.sp, color = Color.White)
+    }
+}
+
 @Composable
 private fun CurrentPlanCard(
     planName: String,
+    plan: Plan?,
     status: String,
-    remainingCredits: Int,
-    expiryDate: Long,
-    dateFormatter: SimpleDateFormat
+    remainingJobs: Int,
+    remainingContacts: Int,
+    trialJobsUsed: Int,
+    expiryDate: Long
 ) {
-    Card(
+    val isTrial = status == "TRIAL"
+    val days = daysRemaining(expiryDate)
+    val displayName = if (planName.contains("plan", ignoreCase = true) || planName.contains("trial", ignoreCase = true)) planName else "$planName Plan"
+
+    val jobLimitBase = if (isTrial) TRIAL_JOB_LIMIT else (plan?.jobs ?: 0)
+    val jobLimit = if (isTrial) jobLimitBase else maxOf(jobLimitBase, remainingJobs)
+    val jobUsed = if (isTrial) trialJobsUsed.coerceIn(0, jobLimit) else (jobLimit - remainingJobs).coerceAtLeast(0)
+
+    val contactLimitBase = if (isTrial) 0 else (plan?.instantUnlocks ?: 0)
+    val contactLimit = maxOf(contactLimitBase, if (isTrial) 0 else remainingContacts)
+    val contactUsed = (contactLimit - remainingContacts).coerceAtLeast(0)
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, IndicatorYellow.copy(alpha = 0.3f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .padding(horizontal = 20.dp)
+            .background(Ink900, RoundedCornerShape(24.dp))
+            .padding(20.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-            // Left color bar
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(4.dp)
-                    .background(IndicatorYellow)
-            )
-            Column(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .weight(1f)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = planName,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Ink900
-                    )
-                    PlanPill(
-                        text = stringResource(R.string.sub_current_plan_pill),
-                        background = IndicatorYellow.copy(alpha = 0.15f),
-                        foreground = IndicatorYellow
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "Current: $displayName", fontSize = 13.sp, color = Ink400)
+            if (days >= 0) {
                 Text(
-                    text = stringResource(R.string.sub_posts_left_expires, remainingCredits, dateFormatter.format(Date(expiryDate))),
+                    text = if (days == 1) "1 day remaining" else "$days days remaining",
                     fontSize = 13.sp,
-                    color = Ink500
+                    color = IndicatorYellow
                 )
+            }
+        }
+        if (jobLimit > 0 || contactLimit > 0) {
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (jobLimit > 0) {
+                    ProgressRing(used = jobUsed, limit = jobLimit, color = BlueAccent, label = "Job Posts")
+                }
+                if (contactLimit > 0) {
+                    ProgressRing(used = contactUsed, limit = contactLimit, color = Success, label = "Contacts")
+                }
             }
         }
     }
@@ -728,36 +799,93 @@ private fun CurrentPlanCard(
 
 @Composable
 private fun NoPlanCard() {
-    Card(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Hairline),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .padding(horizontal = 20.dp)
+            .background(Ink900, RoundedCornerShape(24.dp))
+            .padding(20.dp)
     ) {
-        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(4.dp)
-                    .background(Ink400)
+        Text(
+            text = stringResource(R.string.sub_no_active_plan),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = stringResource(R.string.sub_choose_plan_desc),
+            fontSize = 13.sp,
+            color = Ink400
+        )
+    }
+}
+
+private fun carouselStartPage(plans: List<Plan>, currentPlanId: String, hasActiveSub: Boolean): Int {
+    if (hasActiveSub) {
+        val current = plans.indexOfFirst { it.id == currentPlanId }
+        if (current >= 0) return current
+    }
+    val growth = plans.indexOfFirst { it.name.contains("Growth", ignoreCase = true) || it.id.contains("growth") }
+    return if (growth >= 0) growth else 0
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun PlansCarousel(
+    plans: List<Plan>,
+    currentPlanId: String,
+    hasActiveSub: Boolean,
+    onProceed: (Plan) -> Unit,
+    onTalkToSales: () -> Unit
+) {
+    val totalPages = plans.size + 1
+    val pagerState = rememberPagerState(
+        initialPage = carouselStartPage(plans, currentPlanId, hasActiveSub),
+        pageCount = { totalPages }
+    )
+    HorizontalPager(
+        state = pagerState,
+        contentPadding = PaddingValues(start = 20.dp, end = 20.dp),
+        pageSpacing = 12.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) { page ->
+        if (page < plans.size) {
+            val plan = plans[page]
+            PlanPageCard(
+                plan = plan,
+                isCurrent = hasActiveSub && currentPlanId == plan.id,
+                isRecommended = plan.name.contains("Growth", ignoreCase = true) || plan.id.contains("growth"),
+                onProceed = { onProceed(plan) }
             )
-            Column(
-                modifier = Modifier.padding(16.dp).weight(1f)
-            ) {
-                Text(
-                    text = stringResource(R.string.sub_no_active_plan),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = Ink900
+        } else {
+            EnterprisePageCard(onTalkToSales = onTalkToSales)
+        }
+    }
+    Spacer(modifier = Modifier.height(16.dp))
+    PagerDots(total = totalPages, current = pagerState.currentPage)
+}
+
+@Composable
+private fun PagerDots(total: Int, current: Int) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        for (i in 0 until total) {
+            if (i == current) {
+                Box(
+                    modifier = Modifier
+                        .width(18.dp)
+                        .height(6.dp)
+                        .background(Ink900, RoundedCornerShape(50))
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = stringResource(R.string.sub_choose_plan_desc),
-                    fontSize = 13.sp,
-                    color = Ink500
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(Hairline, RoundedCornerShape(50))
                 )
             }
         }
@@ -765,169 +893,156 @@ private fun NoPlanCard() {
 }
 
 @Composable
-private fun PlanCard(
-    plan: com.example.dutype.models.Plan,
-    isSelected: Boolean,
+private fun PopularPill() {
+    Box(
+        modifier = Modifier
+            .background(BlueSoft, RoundedCornerShape(50))
+            .padding(horizontal = 10.dp, vertical = 4.dp)
+    ) {
+        Text(
+            text = "MOST POPULAR",
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = BlueAccent
+        )
+    }
+}
+
+@Composable
+private fun PlanBullets(benefits: List<AnnotatedString>, checkColor: Color) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        benefits.forEach { benefit ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = checkColor,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(text = benefit, fontSize = 14.sp, color = Ink900)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlanPageCard(
+    plan: Plan,
     isCurrent: Boolean,
     isRecommended: Boolean,
-    onSelect: () -> Unit,
     onProceed: () -> Unit
 ) {
-    val planType = when {
-        plan.name.contains("Premium", true) -> "premium"
-        plan.name.contains("Growth", true) -> "growth"
-        plan.name.contains("Starter", true) -> "starter"
-        else -> "single"
-    }
-    
-    val bgColors = when (planType) {
-        "premium" -> listOf(Color(0xFF0066FF), Color(0xFF0044CC)) // Truecaller Vibrant Blue
-        "growth" -> listOf(Color(0xFF059669), Color(0xFF047857)) // Emerald Green
-        "starter" -> listOf(Color(0xFF8B5CF6), Color(0xFF6D28D9)) // Vibrant Purple
-        else -> listOf(Color(0xFF475569), Color(0xFF1E293B)) // Slate
-    }
-    
-    val accentColor = when (planType) {
-        "premium" -> Color(0xFF60A5FA) // Lighter blue for accents
-        "growth" -> Color(0xFF34D399) // Light green
-        "starter" -> Color(0xFFA78BFA) // Light purple
-        else -> Color(0xFF9CA3AF)
-    }
-
-    val textColor = Color.White
-    val subTextColor = Color.White.copy(alpha = 0.7f)
-    val featuresBg = Color.White.copy(alpha = 0.05f)
-    val checkColor = Color.White
-
-    Card(
+    val isFree = plan.price <= 0.0
+    val benefits = planBenefits(plan)
+    val cardShape = RoundedCornerShape(16.dp)
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 450.dp, max = 550.dp)
-            .padding(horizontal = 4.dp)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onSelect
-            ),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        border = if (isSelected) BorderStroke(2.dp, accentColor) else BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isSelected) 12.dp else 4.dp)
+            .background(Color.White, cardShape)
+            .border(1.dp, Hairline, cardShape)
+            .padding(20.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(colors = bgColors)
-                )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(20.dp)
-            ) {
-                // Header Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        if (plan.tag.isNotEmpty()) {
-                            PlanPill(
-                                text = plan.tag,
-                                background = Color.White,
-                                foreground = bgColors[0]
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-                        }
-                        Text(
-                            text = plan.name,
-                            style = AppTypography.cardTitle.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = textColor,
-                                fontSize = 22.sp
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = plan.description,
-                            style = AppTypography.bodySmall.copy(color = subTextColor, fontSize = 14.sp)
-                        )
-                    }
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text(
-                            text = "₹${plan.price.toInt()}",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Black,
-                            color = textColor
-                        )
-                        Text(
-                            text = stringResource(R.string.sub_per_month),
-                            fontSize = 12.sp,
-                            color = subTextColor,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Expanded Features
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .background(featuresBg, RoundedCornerShape(16.dp))
-                        .padding(16.dp)
-                ) {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.sub_included_features),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = subTextColor,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-                        planBenefits(plan).forEach { benefit ->
-                            Row(
-                                modifier = Modifier.padding(vertical = 6.dp),
-                                verticalAlignment = Alignment.Top,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = checkColor,
-                                    modifier = Modifier.size(18.dp).offset(y = 2.dp)
-                                )
-                                Text(
-                                    text = benefit,
-                                    fontSize = 13.sp,
-                                    color = textColor,
-                                    lineHeight = 18.sp
-                                )
-                            }
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(20.dp))
-                
-                Button(
-                    onClick = onProceed,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = if (planType == "single") Brand else Color.White),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = if (isCurrent) stringResource(R.string.sub_renew_now) else stringResource(R.string.sub_get_plan, plan.name), 
-                        fontWeight = FontWeight.Bold, 
-                        color = if (planType == "single") Color.White else bgColors[1], 
-                        fontSize = 16.sp
-                    )
-                }
+            Text(
+                text = plan.name,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = PlanTitleInk
+            )
+            if (isRecommended) {
+                PopularPill()
             }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = if (isFree) "Free" else "\u20B9${plan.price.toInt()}",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = PlanTitleInk
+            )
+            if (!isFree) {
+                Text(
+                    text = " / month",
+                    fontSize = 14.sp,
+                    color = Ink500,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(18.dp))
+        PlanBullets(benefits = benefits, checkColor = if (isFree) Ink400 else BlueAccent)
+        if (!isFree) {
+            Spacer(modifier = Modifier.height(22.dp))
+            Button(
+                onClick = onProceed,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Ink900, contentColor = Color.White),
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 0.dp,
+                    pressedElevation = 0.dp,
+                    focusedElevation = 0.dp,
+                    hoveredElevation = 0.dp
+                )
+            ) {
+                Text(
+                    text = if (isCurrent) stringResource(R.string.sub_renew_now) else "Upgrade with UPI \u2192",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EnterprisePageCard(onTalkToSales: () -> Unit) {
+    val cardShape = RoundedCornerShape(16.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White, cardShape)
+            .border(1.dp, Hairline, cardShape)
+            .padding(20.dp)
+    ) {
+        Text(
+            text = "Enterprise",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = PlanTitleInk
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Custom Pricing",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = PlanTitleInk
+        )
+        Spacer(modifier = Modifier.height(22.dp))
+        OutlinedButton(
+            onClick = onTalkToSales,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(28.dp),
+            border = BorderStroke(1.5.dp, Ink900),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink900)
+        ) {
+            Text(
+                text = "Talk to Sales \u2192",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Ink900
+            )
         }
     }
 }

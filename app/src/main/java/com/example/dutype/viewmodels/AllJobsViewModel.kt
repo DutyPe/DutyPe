@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dutype.models.JobListing
+import com.example.dutype.repositories.NearbyJobsPager
 import com.example.dutype.repositories.FirestoreJobRepository
 import com.example.dutype.services.JobApplicationService
 import com.example.dutype.state.AppStateManager
@@ -29,6 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
+import kotlin.math.roundToLong
 
 /**
  * PAGINATION SETTINGS (Industry Standard)
@@ -57,7 +59,9 @@ data class JobFilters(
     val payType: String = "Any",
     val workType: String = "Any",
     val category: String = "Any",
-    val shiftTiming: String = "Any"
+    val shiftTiming: String = "Any",
+    /** Only jobs the employer marked urgent (urgency == HIGH). Lives in the filter sheet. */
+    val urgentOnly: Boolean = false
 )
 
 /**
@@ -79,12 +83,17 @@ data class AllJobsUiState(
     val error: String? = null,
     val hasError: Boolean = false,
     val hasMore: Boolean = true,
+    val loadMoreFailed: Boolean = false,
+    /** True from the moment page 1 is requested until it lands (also during silent refreshes). */
+    val isSyncing: Boolean = false,
     val lastDocumentId: String? = null, // CRITICAL FIX: Use document ID for pagination cursor
     val totalJobs: Int = 0,
     // P2-1: Filter inputs folded into the same UiState.
     val selectedChip: String = "All Jobs",
     val searchQuery: String = "",
     val searchResultsQuery: String = "",
+    /** Spelling-corrected query actually searched ("diver" -> "driver"), null when unchanged. */
+    val correctedQuery: String? = null,
     val filters: JobFilters = JobFilters(),
     val initialCategory: String? = null
 )
@@ -285,6 +294,12 @@ class AllJobsViewModel @Inject constructor(
     //          Reduces filter pipeline recomputation from 1+N to 1 per user pause
     private val debouncedSearchQuery: StateFlow<String> = _debouncedSearchQuery
 
+    /** "Showing results for …" hint when the search words were spelling-corrected. */
+    val correctedQuery: StateFlow<String?> = _uiState
+        .map { it.correctedQuery }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     private fun normalizedJobId(job: JobListing): String = job.id.ifBlank { job.jobId }
 
     private fun hasValidUserLocation(): Boolean = GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
@@ -421,44 +436,11 @@ class AllJobsViewModel @Inject constructor(
             }
         }
         
-        // Step 3: Apply category filter if initial filter is a category
-        val categoryFiltered = if (isCategory) {
-            val initialCategoryValue = initialCategory ?: "All Jobs"
-            val firestoreCategory = categoryMapping[initialCategoryValue] ?: initialCategoryValue.uppercase()
-            val selectedTokens = setOf(
-                normalizeCategoryToken(initialCategoryValue),
-                normalizeCategoryToken(firestoreCategory)
-            ).filter { it.isNotBlank() }.toSet()
-            
-            Timber.d("🔍 CATEGORY FILTER: Looking for '$firestoreCategory' with tokens=$selectedTokens")
-            
-            val filtered = activeJobs.filter { job ->
-                val jobTypeToken = normalizeCategoryToken(job.jobType)
-                val detectedToken = normalizeCategoryToken(job.getCategory())
-                val keywordMatch = selectedTokens.any { token -> matchesCategoryByKeywords(job, token) }
+        // Step 3: The category rail is applied SERVER-SIDE (category == X on the query), so every
+        // loaded job already belongs to it. Re-filtering here with title/description keyword
+        // heuristics used to drop valid jobs and produced false "no jobs" states.
+        val categoryFiltered = activeJobs
 
-                jobTypeToken in selectedTokens ||
-                detectedToken in selectedTokens ||
-                keywordMatch ||
-                job.title.contains(initialCategoryValue, ignoreCase = true)
-            }
-            
-            // ADD DEBUG: Log category mismatches
-            val mismatch = activeJobs.filterNot { it in filtered }
-            if (mismatch.isNotEmpty()) {
-                Timber.w("🔍 CATEGORY MISMATCH: ${mismatch.size} jobs don't match '$firestoreCategory'")
-                mismatch.take(3).forEach {
-                    Timber.w("🔍   - ${it.title} (detected='${it.getCategory()}')")
-                }
-            }
-            
-            Timber.d("🔍 filteredJobs: After category filter ($initialCategory): ${filtered.size} jobs")
-            filtered
-        } else {
-            Timber.d("🔍 filteredJobs: No category filter applied")
-            activeJobs
-        }
-        
         val categoryOptionFiltered = if (filters.category != "Any") {
             categoryFiltered.filter { matchesCategoryFilter(it, filters.category) }
         } else {
@@ -509,8 +491,9 @@ class AllJobsViewModel @Inject constructor(
             val workTypeMatch = matchesWorkType(job, filters.workType)
             val experienceMatch = matchesExperienceLevel(job, filters.experienceLevel)
             val shiftTimingMatch = matchesShiftTiming(job, filters.shiftTiming)
-            
-            salaryMatch && distanceMatch && payTypeMatch && workTypeMatch && experienceMatch && shiftTimingMatch
+            val urgentMatch = !filters.urgentOnly || job.urgency.equals("HIGH", ignoreCase = true)
+
+            salaryMatch && distanceMatch && payTypeMatch && workTypeMatch && experienceMatch && shiftTimingMatch && urgentMatch
         }
         
         Timber.d("🔍 filteredJobs: After advanced filters: ${advancedFiltered.size} jobs (was ${chipFiltered.size})")
@@ -536,13 +519,9 @@ class AllJobsViewModel @Inject constructor(
             "Salary: High to Low" -> searchFiltered.sortedByDescending { parseSalaryForSort(it.salary) }
             "Salary: Low to High" -> searchFiltered.sortedBy { parseSalaryForSort(it.salary) }
             "Distance" -> {
-                // User explicitly wants distance sort — re-sort all
-                val hasUsableLocation = GeoUtils.hasValidCoordinates(userLatitude, userLongitude)
-                if (hasUsableLocation) {
-                    com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(searchFiltered, userLatitude, userLongitude)
-                } else {
-                    searchFiltered
-                }
+                // Pager order is already nearest-first; a stable sort keeps loaded jobs
+                // (never drops far ones like the tiered engine would).
+                searchFiltered.sortedBy { it.distance ?: Double.MAX_VALUE }
             }
             else -> {
                 // "Relevance" and default: preserve existing order from ViewModel state
@@ -577,6 +556,7 @@ class AllJobsViewModel @Inject constructor(
         if (f.workType != "Any") count++
         if (f.category != "Any") count++
         if (f.shiftTiming != "Any") count++
+        if (f.urgentOnly) count++
         count
     }.stateIn(
         scope = viewModelScope,
@@ -584,6 +564,29 @@ class AllJobsViewModel @Inject constructor(
         initialValue = 0
     )
     
+    // ==========================================
+    // PAGING ENGINE (nearest-first, ring based)
+    // ==========================================
+
+    private enum class LoadMode {
+        /** New query (first open / category / location picked): show cache or shimmer. */
+        RESET,
+        /** Pull-to-refresh: keep the list on screen, show the pull indicator. */
+        PULL,
+        /** Background refresh (location refined, stale return to tab): keep the list, no spinner. */
+        SILENT
+    }
+
+    private var pager: NearbyJobsPager? = null
+    private var firstPageLoaded = false
+    private var started = false
+    private var generation = 0
+    private var loadJob: kotlinx.coroutines.Job? = null
+    private var moreJob: kotlinx.coroutines.Job? = null
+    private var loadedKey: String? = null
+    private var loadedAtMs = 0L
+    private var lastRouteFilter: String? = savedStateHandle.get<String>(KEY_ROUTE_FILTER)
+
     init {
         val savedLoc = locationPreferences.getSavedLocationIfFresh()
         if (savedLoc != null && (userLatitude == 0.0 && userLongitude == 0.0)) {
@@ -593,486 +596,415 @@ class AllJobsViewModel @Inject constructor(
             savedStateHandle["userLongitude"] = userLongitude
         }
         syncAppliedJobsFromBackend()
-        
-        // P0 FIX: Observe location changes and re-sort jobs immediately
+
+        // Location refinement: only reacts when the user moved more than ~500 m
+        // (or a location arrives for the first time) and never wipes the visible list.
         viewModelScope.launch {
             locationPreferences.currentLocation.collect { newLocation ->
-                if (newLocation != null && _uiState.value.jobs.isNotEmpty()) {
-                    Timber.d("📍 AllJobsVM: Location changed - re-sorting jobs")
+                if (newLocation != null) {
                     setUserLocation(newLocation.latitude, newLocation.longitude)
                 }
             }
         }
     }
 
-    
+    private fun firestoreCategoryForQuery(): String? {
+        val category = _uiState.value.initialCategory ?: return null
+        if (category == "All Jobs") return null
+        return categoryMapping[category]
+    }
+
+    private fun isSearchActive(): Boolean = _uiState.value.searchQuery.trim().length >= 2
+
+    private fun queryKey(): String {
+        val latKey = if (hasValidUserLocation()) (userLatitude * 100.0).roundToLong() else 0L
+        val lngKey = if (hasValidUserLocation()) (userLongitude * 100.0).roundToLong() else 0L
+        return "${firestoreCategoryForQuery()}|$latKey|$lngKey|${_uiState.value.filters.maxDistance}"
+    }
+
+    /**
+     * Starts (or restarts) the nearest-first pager and loads page 1.
+     * Every call bumps [generation] and cancels in-flight work, so a slow response for an
+     * old category / location / filter can never overwrite newer state.
+     */
+    private fun startLoad(mode: LoadMode) {
+        val gen = ++generation
+        loadJob?.cancel()
+        moreJob?.cancel()
+        started = true
+
+        val newPager = NearbyJobsPager(
+            repository = firestoreJobRepository,
+            userLatitude = queryUserLatitude(),
+            userLongitude = queryUserLongitude(),
+            category = firestoreCategoryForQuery(),
+            maxRadiusKm = _uiState.value.filters.maxDistance?.toDouble()
+        )
+        pager = newPager
+        firstPageLoaded = false
+        val key = queryKey()
+        loadedKey = key
+
+        val cached = if (mode == LoadMode.RESET) AllJobsFirstPageCache.get(key) else null
+        val cachedJobs = cached?.let { applyRuntimeFlags(it) }
+        _uiState.update { state ->
+            val seed = if (mode == LoadMode.RESET) (cachedJobs ?: emptyList()) else state.jobs
+            state.copy(
+                jobs = seed,
+                isLoading = mode == LoadMode.RESET && seed.isEmpty(),
+                isRefreshing = mode == LoadMode.PULL,
+                isLoadingMore = false,
+                loadMoreFailed = false,
+                isSyncing = true,
+                hasMore = true,
+                error = null,
+                hasError = false,
+                totalJobs = seed.size,
+                lastDocumentId = seed.lastOrNull()?.let { normalizedJobId(it) }
+            )
+        }
+        if (mode == LoadMode.PULL) syncAppliedJobsFromBackend()
+
+        loadJob = viewModelScope.launch {
+            val startTime = System.currentTimeMillis()
+            val result: Result<NearbyJobsPager.Page> = try {
+                newPager.nextPage(PAGE_SIZE.toInt())
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+            if (gen != generation) return@launch
+            val duration = System.currentTimeMillis() - startTime
+
+            result.fold(
+                onSuccess = { page ->
+                    performanceTracker.trackApiCall("load_all_jobs", duration, success = true)
+                    val jobs = applyRuntimeFlags(page.jobs.map { it.toJobListing() })
+                    firstPageLoaded = true
+                    loadedAtMs = System.currentTimeMillis()
+                    AllJobsFirstPageCache.put(key, jobs)
+                    Timber.d("AllJobsVM: page 1 = ${jobs.size} jobs in ${duration}ms (hasMore=${page.hasMore})")
+                    _uiState.update {
+                        it.copy(
+                            jobs = jobs,
+                            isLoading = false,
+                            isRefreshing = false,
+                            isLoadingMore = false,
+                            loadMoreFailed = false,
+                            isSyncing = false,
+                            hasMore = page.hasMore,
+                            hasError = false,
+                            error = null,
+                            totalJobs = jobs.size,
+                            lastDocumentId = jobs.lastOrNull()?.let { job -> normalizedJobId(job) }
+                        )
+                    }
+                },
+                onFailure = { exception ->
+                    performanceTracker.trackApiCall("load_all_jobs", duration, success = false)
+                    Timber.w("AllJobsVM: page 1 failed: ${exception.message}")
+                    loadedKey = null // allow ensureLoaded()/retry to try again
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            isRefreshing = false,
+                            isSyncing = false,
+                            // Only take over the screen when there is nothing to show.
+                            hasError = it.jobs.isEmpty(),
+                            error = exception.message ?: "Failed to load jobs"
+                        )
+                    }
+                }
+            )
+        }
+    }
+
     // ==========================================
     // PUBLIC API - Filter State Updates
     // ==========================================
-    
+
+    /**
+     * Applies the filter carried by the navigation route once per distinct value, so
+     * coming back to the Jobs tab does not reset the category the user picked in the rail.
+     */
+    fun applyRouteFilter(filter: String) {
+        if (filter == lastRouteFilter) return
+        lastRouteFilter = filter
+        savedStateHandle[KEY_ROUTE_FILTER] = filter
+        val category = filter.takeIf { it != "All Jobs" }
+        if (category != _uiState.value.initialCategory || filter != _uiState.value.selectedChip) {
+            _uiState.update { it.copy(initialCategory = category, selectedChip = filter) }
+            savedStateHandle[KEY_SELECTED_CHIP] = filter
+            savedStateHandle[KEY_INITIAL_CATEGORY] = category
+            loadedKey = null
+        }
+    }
+
     fun setSelectedChip(chip: String) {
         _uiState.update { it.copy(selectedChip = chip) }
         savedStateHandle[KEY_SELECTED_CHIP] = chip
-        Timber.d("📊 AllJobsVM: Chip filter changed to: $chip")
-
-        if (_uiState.value.searchQuery.isBlank() && chip != "All Jobs" && _uiState.value.jobs.size <= PAGE_SIZE.toInt()) {
-            loadJobs(limit = 60L, category = currentQueryCategory())
-        }
+        Timber.d("AllJobsVM: Chip filter changed to: $chip")
     }
-    
+
+    /**
+     * Category rail tap. Reloads from the server with the category filter applied
+     * server-side, so the nearest-first pager only ever walks jobs of that category.
+     */
     fun setCategoryAndReload(category: String) {
         val categoryForQuery = category.takeIf { it != "All Jobs" }
-        _uiState.update { 
+        val current = _uiState.value
+        if (current.selectedChip == category && current.initialCategory == categoryForQuery &&
+            !current.hasError && current.jobs.isNotEmpty() && current.searchQuery.isBlank()
+        ) {
+            return
+        }
+        searchJob?.cancel()
+        _uiState.update {
             it.copy(
                 selectedChip = category,
                 initialCategory = categoryForQuery,
-                jobs = emptyList(),
-                lastDocumentId = null,
-                hasMore = true,
-                isLoading = true,
-                error = null,
-                hasError = false
+                searchQuery = "",
+                searchResultsQuery = "",
+                correctedQuery = null
             )
         }
         savedStateHandle[KEY_SELECTED_CHIP] = category
         savedStateHandle[KEY_INITIAL_CATEGORY] = categoryForQuery
-        Timber.d("📊 AllJobsVM: Category rail tapped, reloading for: $category")
-        
-        loadJobs(limit = PAGE_SIZE, category = categoryForQuery)
+        savedStateHandle[KEY_SEARCH_QUERY] = ""
+        Timber.d("AllJobsVM: Category rail tapped, reloading for: $category")
+        startLoad(LoadMode.RESET)
     }
-    
+
+    /** "View all jobs" from the empty state: drop category, search and filters and reload. */
+    fun showAllJobs() {
+        searchJob?.cancel()
+        val defaults = JobFilters()
+        _uiState.update {
+            it.copy(
+                selectedChip = "All Jobs",
+                initialCategory = null,
+                searchQuery = "",
+                searchResultsQuery = "",
+                filters = defaults
+            )
+        }
+        savedStateHandle[KEY_SELECTED_CHIP] = "All Jobs"
+        savedStateHandle[KEY_INITIAL_CATEGORY] = null
+        savedStateHandle[KEY_SEARCH_QUERY] = ""
+        persistFiltersToSavedState(defaults)
+        startLoad(LoadMode.RESET)
+    }
+
     fun setSearchQuery(query: String) {
         val normalizedQuery = query.trim()
+        val wasShowingSearchResults = _uiState.value.searchResultsQuery.isNotBlank()
         _uiState.update {
             if (normalizedQuery.length >= 2) {
                 it.copy(
                     searchQuery = query,
                     jobs = emptyList(),
                     isLoading = true,
+                    isRefreshing = false,
+                    isLoadingMore = false,
+                    isSyncing = false,
                     hasMore = false,
                     lastDocumentId = null,
                     searchResultsQuery = "",
+                    correctedQuery = null,
                     error = null,
                     hasError = false
                 )
             } else {
-                it.copy(searchQuery = query)
+                it.copy(searchQuery = query, correctedQuery = null)
             }
         }
         savedStateHandle[KEY_SEARCH_QUERY] = query
-        Timber.d("🔍 AllJobsVM: Search query changed to: $query")
-        
-        // Cancel previous search job
+        Timber.d("AllJobsVM: Search query changed to: $query")
+
         searchJob?.cancel()
-        
-        // Trigger database search when query is not blank
+
         if (normalizedQuery.length >= 2) {
-            // Debounce: Wait 500ms before searching to avoid excessive queries
+            // Stop paging: search results replace the feed until the query is cleared.
+            generation++
+            loadJob?.cancel()
+            moreJob?.cancel()
+            loadedKey = null
             searchJob = viewModelScope.launch {
                 kotlinx.coroutines.delay(500)
                 searchJobsInDatabase(normalizedQuery)
             }
-        } else if (query.isBlank()) {
-            // Reset to show all jobs when search is cleared
+        } else if (query.isBlank() || wasShowingSearchResults) {
             _uiState.update { it.copy(searchResultsQuery = "") }
-            loadJobs(limit = PAGE_SIZE, category = currentQueryCategory())
+            startLoad(LoadMode.RESET)
         }
     }
-    
+
     fun setFilters(filters: JobFilters) {
+        val previous = _uiState.value.filters
         _uiState.update { it.copy(filters = filters) }
         persistFiltersToSavedState(filters)
-        Timber.d("🎛️ AllJobsVM: Filters updated")
+        Timber.d("AllJobsVM: Filters updated")
 
-        if (_uiState.value.searchQuery.isBlank()) {
-            val reloadLimit = if (shouldReloadForCurrentFilters(filters)) 60L else PAGE_SIZE
-            loadJobs(limit = reloadLimit, category = currentQueryCategory())
+        // Everything except the distance cap is applied client-side by filteredJobs.
+        // The distance cap bounds how far the ring pager walks, so it needs a new pager.
+        if (previous.maxDistance != filters.maxDistance && started && !isSearchActive()) {
+            startLoad(LoadMode.SILENT)
         }
     }
-    
+
     fun resetFilters() {
-        val defaults = JobFilters()
-        _uiState.update { it.copy(filters = defaults) }
-        persistFiltersToSavedState(defaults)
-        Timber.d("🔄 AllJobsVM: Filters reset to defaults")
-
-        if (_uiState.value.searchQuery.isBlank()) {
-            loadJobs(limit = PAGE_SIZE, category = currentQueryCategory())
-        }
+        setFilters(JobFilters())
     }
-    
+
     fun setInitialCategory(category: String?) {
         _uiState.update { it.copy(initialCategory = category) }
         savedStateHandle[KEY_INITIAL_CATEGORY] = category
         if (category != null) {
-            Timber.d("📂 AllJobsVM: Initial category set to: $category")
+            Timber.d("AllJobsVM: Initial category set to: $category")
         }
     }
-    
+
     fun isInitialFilterCategory(): Boolean {
         val category = _uiState.value.initialCategory
         return category != null && categoryMapping.containsKey(category)
     }
-    
+
     // ==========================================
     // PUBLIC API - Data Loading
     // ==========================================
-    
+
+    /** Manual location pick (search sheet / city chip): always reloads for the new place. */
     fun onLocationChanged(latitude: Double, longitude: Double) {
         setUserLocation(latitude, longitude, forceReload = true)
     }
 
+    /**
+     * Last-known location is used immediately; a later GPS fix only re-sorts when the user
+     * actually moved more than [LOCATION_REFINE_THRESHOLD_M], and does so without clearing
+     * the list (SILENT reload).
+     */
     fun setUserLocation(latitude: Double, longitude: Double, forceReload: Boolean = false) {
-        val sameAsCurrent =
-            kotlin.math.abs(latitude - userLatitude) < 0.00001 &&
-            kotlin.math.abs(longitude - userLongitude) < 0.00001
+        if (!GeoUtils.hasValidCoordinates(latitude, longitude)) return
+
+        val movedMeters = if (hasValidUserLocation()) {
+            GeoUtils.calculateHaversineDistance(userLatitude, userLongitude, latitude, longitude) * 1000.0
+        } else {
+            Double.MAX_VALUE
+        }
+        if (!forceReload && movedMeters <= LOCATION_REFINE_THRESHOLD_M) return
 
         userLatitude = latitude
         userLongitude = longitude
         savedStateHandle["userLatitude"] = latitude
         savedStateHandle["userLongitude"] = longitude
-        Timber.d("📍 AllJobsVM: User location set - lat=$latitude, lon=$longitude (forceReload=$forceReload)")
-        
-        if (forceReload || !sameAsCurrent || _uiState.value.jobs.isEmpty()) {
-            hasInitiallyLoaded = false
-            _uiState.update { it.copy(lastDocumentId = null, hasMore = true) }
-            loadJobs(limit = PAGE_SIZE, category = _uiState.value.initialCategory)
-        } else if (_uiState.value.jobs.isNotEmpty()) {
-            viewModelScope.launch {
-                recalculateDistances()
-            }
-        }
+        Timber.d("AllJobsVM: User location set - lat=$latitude, lon=$longitude (force=$forceReload, moved=${movedMeters.toLong()}m)")
+
+        if (!started || isSearchActive()) return
+        startLoad(if (forceReload || _uiState.value.jobs.isEmpty()) LoadMode.RESET else LoadMode.SILENT)
     }
-    
-    private suspend fun recalculateDistances() {
-        withContext(Dispatchers.Default) {
-            val jobsWithDistance = com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
-                _uiState.value.jobs, userLatitude, userLongitude
-            )
-            withContext(Dispatchers.Main) {
-                _uiState.value = _uiState.value.copy(jobs = applyRuntimeFlags(jobsWithDistance))
-            }
-        }
+
+    /**
+     * Idempotent entry point used by the screen. Returning to the tab keeps the list and
+     * scroll position when the data is fresh; stale data is refreshed silently.
+     */
+    fun ensureLoaded() {
+        loadJobs(PAGE_SIZE, _uiState.value.initialCategory)
     }
-    
+
     fun loadJobs(limit: Long = PAGE_SIZE, category: String? = null) {
-        // Allow reload if category is different from what was loaded
-        val currentCategory = _uiState.value.initialCategory
-        val isDifferentCategory = currentCategory != category
-        
-        // CRITICAL FIX: Always allow loading if category is different OR if no jobs loaded yet
-        if (_uiState.value.isLoading && hasInitiallyLoaded && !isDifferentCategory && _uiState.value.jobs.isNotEmpty()) {
-            Timber.d("🔍 AllJobsVM: loadJobs skipped - already loading same category with jobs")
+        if (category != _uiState.value.initialCategory) {
+            _uiState.update {
+                it.copy(initialCategory = category, selectedChip = category ?: "All Jobs")
+            }
+            savedStateHandle[KEY_INITIAL_CATEGORY] = category
+            savedStateHandle[KEY_SELECTED_CHIP] = category ?: "All Jobs"
+        }
+        started = true
+        if (isSearchActive()) return
+
+        val state = _uiState.value
+        val sameQuery = queryKey() == loadedKey && !state.hasError
+        val inFlight = loadJob?.isActive == true
+        val fresh = System.currentTimeMillis() - loadedAtMs < FRESH_WINDOW_MS
+        if (sameQuery && (inFlight || (firstPageLoaded && fresh))) return
+
+        startLoad(if (state.jobs.isEmpty()) LoadMode.RESET else LoadMode.SILENT)
+    }
+
+    /** "Try again" on the full-screen error. */
+    fun retry() {
+        if (isSearchActive()) {
+            searchJobsInDatabase(_uiState.value.searchQuery.trim())
+        } else {
+            startLoad(LoadMode.RESET)
+        }
+    }
+
+    /**
+     * Loads the next page. Because [NearbyJobsPager] only leaves a ring when it is empty,
+     * the returned jobs are always the next nearest ones.
+     */
+    fun loadMoreJobs(limit: Long = PAGE_SIZE, category: String? = null) {
+        val state = _uiState.value
+        val activePager = pager ?: return
+        if (!firstPageLoaded || state.isSyncing || state.isLoading || state.isRefreshing || state.isLoadingMore || !state.hasMore) {
             return
         }
-        
-        // If category changed, reset the flag to allow reload
-        if (isDifferentCategory) {
-            Timber.d("🔍 ========== CATEGORY CHANGE ==========")
-            Timber.d("🔍 AllJobsVM: From '$currentCategory' → To '$category'")
-            Timber.d("🔍 Resetting state and pagination")
-            hasInitiallyLoaded = false
-            _uiState.update {
-                it.copy(
-                    initialCategory = category,
-                    // CRITICAL FIX: Reset UI state completely when category changes
-                    isLoading = true,
-                    jobs = emptyList(),
-                    hasMore = true,
-                    lastDocumentId = null,
-                    error = null,
-                    hasError = false
-                )
-            }
-        }
-        
-        hasInitiallyLoaded = true
-        
-        viewModelScope.launch {
-            val startTime = System.currentTimeMillis()
-            com.example.dutype.performance.MainThreadChecker.assertMainThread("AllJobsViewModel.loadJobs")
-            
-            _uiState.value = _uiState.value.copy(
-                isLoading = true,
-                error = null,
-                hasError = false,
-                jobs = emptyList(),
-                lastDocumentId = null,
-                hasMore = true
-            )
-            
-            try {
-                // Determine category for Firestore query
-                val firestoreCategory = if (category != null && category != "All Jobs" && categoryMapping.containsKey(category)) {
-                    categoryMapping[category]
-                } else {
-                    null // Fetch all categories
-                }
-                
-                // P0 FIX: Use server-side filtering when filters are applied
-                val currentFilters = _uiState.value.filters
-                val useServerSideFiltering = shouldUseServerSideFiltering(currentFilters)
-                paginationUsesLocation = false
-                
-                if (useServerSideFiltering) {
-                    Timber.d("🔍 P0 FIX: Using SERVER-SIDE filtering")
-                    val queryLimit = limit
-                    loadJobsWithServerFiltering(queryLimit, firestoreCategory, currentFilters, startTime)
-                } else {
-                    Timber.d("🔍 AllJobsVM: Loading full job dataset (category: $firestoreCategory, location filter disabled)")
-                    
-                    val summaryFlow = firestoreJobRepository.getAllJobsSummary(
-                        limit = limit,
-                        lastDocumentId = null,
-                        category = firestoreCategory,
-                        userLatitude = queryUserLatitude(),
-                        userLongitude = queryUserLongitude(),
-                        radiusKm = if (hasValidUserLocation()) 50.0 else 0.0
-                    )
-                    summaryFlow.collect { result ->
-                        result.fold(
-                            onSuccess = { summaries ->
-                                val duration = System.currentTimeMillis() - startTime
-                                performanceTracker.trackApiCall("load_all_jobs", duration, success = true)
 
-                                Timber.d("✅ AllJobsVM: Loaded ${summaries.size} job summaries in ${duration}ms")
-                                var processedJobs = summaries.map { it.toJobListing() }
+        val gen = generation
+        _uiState.update { it.copy(isLoadingMore = true, loadMoreFailed = false) }
 
-                                if (userLatitude != 0.0 || userLongitude != 0.0) {
-                                    Timber.d("📍 AllJobsVM: Calculating distances with user location ($userLatitude, $userLongitude)")
-                                    processedJobs = com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
-                                        processedJobs, userLatitude, userLongitude
-                                    )
-
-                                    val jobsWithDistance = processedJobs.filter { it.distance != null }
-                                    Timber.d("📍 AllJobsVM: ${jobsWithDistance.size}/${processedJobs.size} jobs have distance calculated")
-
-                                    val nearest = jobsWithDistance.take(5)
-                                    nearest.forEachIndexed { index, job ->
-                                        Timber.d("📍 AllJobsVM Job #${index + 1}: ${job.title} - %.2f km".format(job.distance))
-                                    }
-                                } else {
-                                    Timber.w("📍 AllJobsVM: No user location set - distances will not be calculated")
-                                }
-
-                                processedJobs = applyRuntimeFlags(processedJobs)
-                                val lastSummaryId = summaries.lastOrNull()?.id
-
-                                _uiState.value = _uiState.value.copy(
-                                    jobs = processedJobs,
-                                    isLoading = false,
-                                    totalJobs = processedJobs.size,
-                                    // FIX: Use raw summaries.size, not post-filtered processedJobs.size
-                                    // processedJobs is reduced by applyRuntimeFlags (filters applied jobs)
-                                    hasMore = PaginationHelper.hasMorePages(summaries.size),
-                                    lastDocumentId = lastSummaryId
-                                )
-                            },
-                            onFailure = { exception ->
-                                val duration = System.currentTimeMillis() - startTime
-                                performanceTracker.trackApiCall("load_all_jobs", duration, success = false)
-
-                                Timber.w("❌ AllJobsVM: Failed to load jobs: ${exception.message}")
-                                _uiState.value = _uiState.value.copy(
-                                    isLoading = false,
-                                    hasError = true,
-                                    error = exception.message ?: "Failed to load jobs"
-                                )
-                            }
-                        )
-                    }
-                }
+        moreJob = viewModelScope.launch {
+            val result: Result<NearbyJobsPager.Page> = try {
+                activePager.nextPage(limit.toInt().coerceAtLeast(1))
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
-                val duration = System.currentTimeMillis() - startTime
-                performanceTracker.trackApiCall("load_all_jobs", duration, success = false)
-                
-                Timber.e("❌ AllJobsVM: Exception loading jobs: ${e.message}")
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    hasError = true,
-                    error = e.message ?: "Failed to load jobs"
-                )
+                Result.failure(e)
             }
-        }
-    }
-    
-    /**
-     * P0 FIX: Load jobs with server-side filtering
-     * Reduces bandwidth by 85% and CPU usage by 100%
-     */
-    private suspend fun loadJobsWithServerFiltering(
-        limit: Long,
-        category: String?,
-        filters: JobFilters,
-        startTime: Long
-    ) {
-        firestoreJobRepository.getJobsFiltered(
-            category = category,
-            minSalary = if (filters.salaryMin > 0) filters.salaryMin else null,
-            maxSalary = if (filters.salaryMax < 100000) filters.salaryMax else null,
-            payType = filters.payType.takeIf { it != "Any" },
-            gender = null,
-            limit = limit
-        ).collect { result ->
+            if (gen != generation || activePager !== pager) return@launch
+
             result.fold(
-                onSuccess = { summaries ->
-                    val duration = System.currentTimeMillis() - startTime
-                    performanceTracker.trackApiCall("load_all_jobs_filtered", duration, success = true)
-                    
-                    Timber.d("✅ P0 FIX: Server-side filtering returned ${summaries.size} jobs in ${duration}ms")
-                    var processedJobs = summaries.map { it.toJobListing() }
-                    
-                    // Calculate distances if location available
-                    if (userLatitude != 0.0 || userLongitude != 0.0) {
-                        processedJobs = com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
-                            processedJobs, userLatitude, userLongitude
+                onSuccess = { page ->
+                    val incoming = applyRuntimeFlags(page.jobs.map { it.toJobListing() })
+                    _uiState.update { current ->
+                        val knownIds = current.jobs.mapTo(HashSet(current.jobs.size)) { normalizedJobId(it) }
+                        val fresh = incoming.filter { normalizedJobId(it) !in knownIds }
+                        val merged = if (fresh.isEmpty()) current.jobs else current.jobs + fresh
+                        current.copy(
+                            jobs = merged,
+                            isLoadingMore = false,
+                            loadMoreFailed = false,
+                            hasMore = page.hasMore,
+                            totalJobs = merged.size,
+                            lastDocumentId = merged.lastOrNull()?.let { job -> normalizedJobId(job) }
                         )
                     }
-                    
-                    processedJobs = applyRuntimeFlags(processedJobs)
-                    val lastSummaryId = summaries.lastOrNull()?.id
-                    
-                    _uiState.value = _uiState.value.copy(
-                        jobs = processedJobs,
-                        isLoading = false,
-                        totalJobs = processedJobs.size,
-                        // FIX: Use raw summaries.size, not post-filtered processedJobs.size
-                        hasMore = PaginationHelper.hasMorePages(summaries.size),
-                        lastDocumentId = lastSummaryId
-                    )
                 },
                 onFailure = { exception ->
-                    val duration = System.currentTimeMillis() - startTime
-                    performanceTracker.trackApiCall("load_all_jobs_filtered", duration, success = false)
-                    
-                    Timber.w("❌ Server-side filtering failed: ${exception.message}")
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        hasError = true,
-                        error = exception.message ?: "Failed to load jobs"
-                    )
+                    Timber.w("AllJobsVM: load more failed: ${exception.message}")
+                    _uiState.update { it.copy(isLoadingMore = false, loadMoreFailed = true) }
                 }
             )
         }
     }
-    
-    fun loadMoreJobs(limit: Long = PAGE_SIZE, category: String? = null) {
-        if (_uiState.value.isLoadingMore || !_uiState.value.hasMore) {
+
+    /** Pull-to-refresh. Keeps the current list visible and swaps in the fresh nearest page. */
+    fun refreshJobs() {
+        if (_uiState.value.isRefreshing) return
+        if (isSearchActive()) {
+            searchJob?.cancel()
+            searchJobsInDatabase(_uiState.value.searchQuery.trim())
             return
         }
-        
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoadingMore = true)
-            
-            try {
-                val lastDocumentId = _uiState.value.lastDocumentId
-                
-                // Determine category for Firestore query
-                val firestoreCategory = if (category != null && category != "All Jobs" && categoryMapping.containsKey(category)) {
-                    categoryMapping[category]
-                } else {
-                    null
-                }
-                
-                // P0 FIX: Use server-side filtering for pagination too
-                val currentFilters = _uiState.value.filters
-                val useServerSideFiltering = shouldUseServerSideFiltering(currentFilters)
-                
-                if (useServerSideFiltering) {
-                    Timber.d("📦 P0 FIX: Loading more with SERVER-SIDE filtering")
-                    firestoreJobRepository.getJobsFiltered(
-                        category = firestoreCategory,
-                        minSalary = if (currentFilters.salaryMin > 0) currentFilters.salaryMin else null,
-                        maxSalary = if (currentFilters.salaryMax < 100000) currentFilters.salaryMax else null,
-                        payType = currentFilters.payType.takeIf { it != "Any" },
-                        gender = null,
-                        limit = limit,
-                        lastDocumentId = lastDocumentId
-                    ).collect { result ->
-                        handleLoadMoreResult(result, previousCursor = lastDocumentId)
-                    }
-                } else {
-                    Timber.d("📦 AllJobsVM: Loading more jobs (after: $lastDocumentId, category: $firestoreCategory)")
-                    
-                    firestoreJobRepository.getAllJobsSummary(
-                        limit = limit, 
-                        lastDocumentId = lastDocumentId,
-                        category = firestoreCategory,
-                        userLatitude = null,
-                        userLongitude = null,
-                        radiusKm = 0.0
-                    ).collect { result ->
-                        handleLoadMoreResult(result, previousCursor = lastDocumentId)
-                    }
-                }
-            } catch (e: Exception) {
-                if (e !is kotlinx.coroutines.CancellationException) {
-                    Timber.e("❌ AllJobsVM: Exception loading more: ${e.message}")
-                    _uiState.value = _uiState.value.copy(isLoadingMore = false)
-                }
-            }
-        }
+        startLoad(LoadMode.PULL)
     }
-    
-    fun refreshJobs() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isRefreshing = true, error = null, hasError = false)
-            
-            try {
-                paginationUsesLocation = false
-                // SMOOTH INFINITE SCROLL: Load first batch on refresh
-                firestoreJobRepository.getAllJobsSummary(
-                    limit = PAGE_SIZE, 
-                    lastDocumentId = null,
-                    category = _uiState.value.initialCategory?.takeIf { it != "All Jobs" }?.let { categoryMapping[it] ?: it },
-                    userLatitude = queryUserLatitude(),
-                    userLongitude = queryUserLongitude(),
-                    radiusKm = if (hasValidUserLocation()) 50.0 else 0.0
-                ).collect { result ->
-                    result.fold(
-                        onSuccess = { summaries ->
-                            var processedJobs = summaries.map { it.toJobListing() }
-                            
-                            if (userLatitude != 0.0 || userLongitude != 0.0) {
-                                processedJobs = com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
-                                    processedJobs, userLatitude, userLongitude
-                                )
-                            }
-                            processedJobs = applyRuntimeFlags(processedJobs)
-                            
-                            val lastSummaryId = summaries.lastOrNull()?.id
 
-                            _uiState.value = _uiState.value.copy(
-                                jobs = processedJobs,
-                                isRefreshing = false,
-                                totalJobs = processedJobs.size,
-                                hasMore = processedJobs.isNotEmpty(),
-                                lastDocumentId = lastSummaryId
-                            )
-                        },
-                        onFailure = { exception ->
-                            _uiState.value = _uiState.value.copy(
-                                isRefreshing = false,
-                                hasError = true,
-                                error = exception.message ?: "Failed to refresh"
-                            )
-                        }
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isRefreshing = false,
-                    hasError = true,
-                    error = e.message ?: "Failed to refresh"
-                )
-            }
-        }
-    }
-    
     fun clearError() {
-        _uiState.value = _uiState.value.copy(error = null, hasError = false)
+        _uiState.update { it.copy(error = null, hasError = false) }
     }
-    
+
     /**
      * Search jobs directly in database (Firestore)
      * Queries the database instead of filtering loaded jobs
@@ -1080,147 +1012,86 @@ class AllJobsViewModel @Inject constructor(
     private fun searchJobsInDatabase(query: String) {
         viewModelScope.launch {
             val startTime = System.currentTimeMillis()
-            
-            _uiState.value = _uiState.value.copy(
-                jobs = emptyList(),
-                isLoading = true,
-                hasMore = false,
-                lastDocumentId = null,
-                searchResultsQuery = "",
-                error = null,
-                hasError = false
-            )
-            
+
+            _uiState.update {
+                it.copy(
+                    jobs = emptyList(),
+                    isLoading = true,
+                    isRefreshing = false,
+                    hasMore = false,
+                    lastDocumentId = null,
+                    searchResultsQuery = "",
+                    error = null,
+                    hasError = false
+                )
+            }
+
             try {
-                Timber.d("🔍 AllJobsVM: Searching database for: '$query'")
-                
-                // Use repository's searchJobs method to query Firestore
-                firestoreJobRepository.searchJobs(query, limit = 100L).collect { result ->
+                // Typo-tolerant: "diver" searches "driver". The original query stays the key
+                // for stale-result checks and the pipeline; only the searched words change.
+                val corrected = com.example.dutype.utils.JobQueryCorrector.correct(query)
+                val searchText = corrected ?: query
+                Timber.d("AllJobsVM: Searching database for: '$searchText' (typed '$query')")
+
+                firestoreJobRepository.searchJobs(searchText, limit = 100L).collect { result ->
                     result.fold(
                         onSuccess = { searchResults ->
                             if (_uiState.value.searchQuery.trim() != query) {
-                                Timber.d("🔍 AllJobsVM: Ignoring stale search results for '$query'")
+                                Timber.d("AllJobsVM: Ignoring stale search results for '$query'")
                                 return@fold
                             }
 
                             val duration = System.currentTimeMillis() - startTime
-                            Timber.d("✅ AllJobsVM: Database search returned ${searchResults.size} jobs in ${duration}ms")
-                            
+                            Timber.d("AllJobsVM: Database search returned ${searchResults.size} jobs in ${duration}ms")
+
                             var processedJobs = searchResults
-                            
-                            // Calculate distances if location available
-                            if (userLatitude != 0.0 || userLongitude != 0.0) {
+
+                            if (hasValidUserLocation()) {
                                 processedJobs = com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
                                     processedJobs, userLatitude, userLongitude
                                 )
                             }
                             processedJobs = applyRuntimeFlags(processedJobs)
-                            
-                            _uiState.value = _uiState.value.copy(
-                                jobs = processedJobs,
-                                isLoading = false,
-                                totalJobs = processedJobs.size,
-                                hasMore = false, // Search results don't support pagination
-                                lastDocumentId = null,
-                                searchResultsQuery = query
-                            )
+
+                            _uiState.update {
+                                it.copy(
+                                    jobs = processedJobs,
+                                    isLoading = false,
+                                    totalJobs = processedJobs.size,
+                                    hasMore = false, // Search results are one relevance-ranked batch
+                                    lastDocumentId = null,
+                                    searchResultsQuery = query,
+                                    correctedQuery = corrected
+                                )
+                            }
                         },
                         onFailure = { exception ->
                             val duration = System.currentTimeMillis() - startTime
-                            Timber.w("❌ AllJobsVM: Database search failed in ${duration}ms: ${exception.message}")
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                hasError = true,
-                                error = "Search failed: ${exception.message}"
-                            )
+                            Timber.w("AllJobsVM: Database search failed in ${duration}ms: ${exception.message}")
+                            _uiState.update {
+                                it.copy(
+                                    isLoading = false,
+                                    hasError = true,
+                                    error = "Search failed: ${exception.message}"
+                                )
+                            }
                         }
                     )
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val duration = System.currentTimeMillis() - startTime
-                Timber.e("❌ AllJobsVM: Exception during database search in ${duration}ms: ${e.message}")
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    hasError = true,
-                    error = "Search error: ${e.message}"
-                )
-            }
-        }
-    }
-    
-    /**
-     * P0 FIX: Handle load more result (shared logic)
-     * CRITICAL FIX: hasMore should be true if we got ANY jobs (even 1)
-     * Only stop when we get 0 jobs from Firestore
-     */
-    private suspend fun handleLoadMoreResult(
-        result: Result<List<com.example.dutype.models.JobListingSummary>>,
-        previousCursor: String?
-    ) {
-        result.fold(
-            onSuccess = { summaries ->
-                if (summaries.isEmpty()) {
-                    _uiState.value = _uiState.value.copy(
-                        isLoadingMore = false,
-                        hasMore = false
-                    )
-                } else {
-                    val previousSize = _uiState.value.jobs.size
-                    var newJobs = summaries.map { it.toJobListing() }
-                    
-                    // FIX: Only calculate distances for NEW jobs, then APPEND.
-                    // Never re-sort the entire list — it causes the list to jump/rearrange.
-                    // Initial load is already sorted nearest-first.
-                    // LinkedIn/Indeed approach: append new pages to end, maintain scroll position.
-                    if (userLatitude != 0.0 || userLongitude != 0.0) {
-                        newJobs = com.example.dutype.engine.NearestJobsEngine.getNearbyJobs(
-                            newJobs, userLatitude, userLongitude
-                        )
-                    }
-                    
-                    // Append new jobs to existing list (no re-sorting of existing jobs)
-                    val combined = _uiState.value.jobs + newJobs
-                    val combined2 = applyRuntimeFlags(combined)
-                    
-                    val updatedList = PaginationHelper.appendJobs(
-                        emptyList(),
-                        combined2.distinctBy { job ->
-                            normalizedJobId(job).ifBlank {
-                                "${job.employerId}:${job.title.trim().lowercase()}:${job.createdAt}"
-                            }
-                        },
-                        MAX_JOBS_IN_MEMORY
-                    )
-                    val lastJobId = summaries.lastOrNull()?.id
-                    val cursorAdvanced = !lastJobId.isNullOrBlank() && lastJobId != previousCursor
-                    val noGrowth = summaries.isNotEmpty() && updatedList.size == previousSize && !cursorAdvanced
-                    val shouldContinuePaging = PaginationHelper.hasMorePages(summaries.size) &&
-                        (cursorAdvanced || updatedList.size > previousSize)
-
-                    if (noGrowth) {
-                        Timber.w("📦 AllJobsVM: Pagination page had no new unique jobs. Stopping further load-more to avoid loop.")
-                    }
-                    if (!cursorAdvanced && summaries.isNotEmpty()) {
-                        Timber.w("📦 AllJobsVM: Pagination cursor did not advance (cursor=$lastJobId). Marking end of list.")
-                    }
-                    
-                    _uiState.value = _uiState.value.copy(
-                        jobs = updatedList,
-                        isLoadingMore = false,
-                        totalJobs = updatedList.size,
-                        hasMore = !noGrowth && shouldContinuePaging,
-                        lastDocumentId = lastJobId ?: previousCursor
+                Timber.e("AllJobsVM: Exception during database search in ${duration}ms: ${e.message}")
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        hasError = true,
+                        error = "Search error: ${e.message}"
                     )
                 }
-            },
-            onFailure = { exception ->
-                Timber.w("❌ Failed to load more jobs: ${exception.message}")
-                _uiState.value = _uiState.value.copy(
-                    isLoadingMore = false,
-                    error = exception.message
-                )
             }
-        )
+        }
     }
 
     // ==========================================
@@ -1237,7 +1108,9 @@ class AllJobsViewModel @Inject constructor(
             sortBy = savedStateHandle.get<String>(KEY_FILTER_SORT_BY) ?: defaults.sortBy,
             payType = savedStateHandle.get<String>(KEY_FILTER_PAY_TYPE) ?: defaults.payType,
             workType = savedStateHandle.get<String>(KEY_FILTER_WORK_TYPE) ?: defaults.workType,
-            category = savedStateHandle.get<String>(KEY_FILTER_CATEGORY) ?: defaults.category
+            category = savedStateHandle.get<String>(KEY_FILTER_CATEGORY) ?: defaults.category,
+            shiftTiming = savedStateHandle.get<String>(KEY_FILTER_SHIFT) ?: defaults.shiftTiming,
+            urgentOnly = savedStateHandle.get<Boolean>(KEY_FILTER_URGENT) ?: defaults.urgentOnly
         )
     }
 
@@ -1250,10 +1123,15 @@ class AllJobsViewModel @Inject constructor(
         savedStateHandle[KEY_FILTER_PAY_TYPE] = filters.payType
         savedStateHandle[KEY_FILTER_WORK_TYPE] = filters.workType
         savedStateHandle[KEY_FILTER_CATEGORY] = filters.category
+        savedStateHandle[KEY_FILTER_SHIFT] = filters.shiftTiming
+        savedStateHandle[KEY_FILTER_URGENT] = filters.urgentOnly
     }
 
     private companion object {
         const val KEY_SELECTED_CHIP = "alljobs_selected_chip"
+        const val KEY_ROUTE_FILTER = "alljobs_route_filter"
+        const val LOCATION_REFINE_THRESHOLD_M = 500.0
+        const val FRESH_WINDOW_MS = 5 * 60 * 1000L
         const val KEY_SEARCH_QUERY = "alljobs_search_query"
         const val KEY_INITIAL_CATEGORY = "alljobs_initial_category"
         const val KEY_FILTER_SALARY_MIN = "alljobs_filter_salary_min"
@@ -1264,5 +1142,38 @@ class AllJobsViewModel @Inject constructor(
         const val KEY_FILTER_PAY_TYPE = "alljobs_filter_pay_type"
         const val KEY_FILTER_WORK_TYPE = "alljobs_filter_work_type"
         const val KEY_FILTER_CATEGORY = "alljobs_filter_category"
+        const val KEY_FILTER_SHIFT = "alljobs_filter_shift"
+        const val KEY_FILTER_URGENT = "alljobs_filter_urgent"
+    }
+}
+
+/**
+ * Process-wide first-page cache so returning to the Jobs tab (or reopening the app within
+ * a few minutes) paints the nearest jobs instantly while a silent refresh runs.
+ * Keyed by category + location (~1 km grid) + distance cap.
+ */
+private object AllJobsFirstPageCache {
+    private const val TTL_MS = 5 * 60 * 1000L
+    private const val MAX_ENTRIES = 8
+
+    private class Entry(val jobs: List<JobListing>, val savedAt: Long)
+
+    @Volatile
+    private var entries: Map<String, Entry> = emptyMap()
+
+    fun get(key: String): List<JobListing>? {
+        val entry = entries[key] ?: return null
+        return if (System.currentTimeMillis() - entry.savedAt < TTL_MS) entry.jobs else null
+    }
+
+    fun put(key: String, jobs: List<JobListing>) {
+        if (jobs.isEmpty()) return
+        val next = entries.toMutableMap()
+        next[key] = Entry(jobs, System.currentTimeMillis())
+        while (next.size > MAX_ENTRIES) {
+            val oldest = next.minByOrNull { it.value.savedAt }?.key ?: break
+            next.remove(oldest)
+        }
+        entries = next
     }
 }

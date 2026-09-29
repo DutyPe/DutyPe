@@ -2,6 +2,22 @@
 
 import com.dutype.app.R
 import android.content.Intent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.Lock as OutlinedLock
+import androidx.compose.material.icons.outlined.LocationOn as OutlinedLocationOn
+import androidx.compose.material.icons.outlined.PhoneAndroid as OutlinedPhoneAndroid
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
 import android.net.Uri
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
@@ -71,10 +87,7 @@ private val Ink400 = Color(0xFF94A3B8)
  */
 @Composable
 fun TermsOfServiceScreen(navController: NavController) {
-    PolicyMainContainer(
-        navController = navController,
-        initialTabIndex = 0
-    )
+    TermsAccordionScreen(navController)
 }
 
 /**
@@ -82,10 +95,35 @@ fun TermsOfServiceScreen(navController: NavController) {
  */
 @Composable
 fun PrivacyPolicyScreen(navController: NavController) {
-    PolicyMainContainer(
-        navController = navController,
-        initialTabIndex = 1
-    )
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(start = 20.dp, end = 20.dp, bottom = 32.dp)
+    ) {
+        PvBackRow(onBack = { navController.popBackStack() })
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = stringResource(R.string.privacy_policy),
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Ink900
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Last updated: Sep 2026",
+            fontSize = 12.sp,
+            color = Ink400
+        )
+        Spacer(modifier = Modifier.height(20.dp))
+        PvPermissionCards()
+        Spacer(modifier = Modifier.height(20.dp))
+        PvAccordionCard()
+        Spacer(modifier = Modifier.height(24.dp))
+        PvGrievanceFooter()
+    }
 }
 
 @Composable
@@ -414,4 +452,265 @@ private fun PolicySectionItem(
             modifier = Modifier.padding(start = 44.dp)
         )
     }
+}
+
+private val PvBorder = Color(0xFFE2E8F0)
+private val PvDivider = Color(0xFFF1F5F9)
+private val PvCircleBg = Color(0xFFF8FAFC)
+private val PvLabel = Color(0xFF0F0F0F)
+private val PvMuted = Color(0xFF64748B)
+
+@Composable
+private fun PvBackRow(onBack: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clickable { onBack() },
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = "Back",
+            tint = Ink900,
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
+@Composable
+private fun PvPermissionCards() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Max),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        PvPermissionCard(
+            icon = Icons.Outlined.OutlinedLocationOn,
+            label = "Location",
+            description = "Used only to show nearby jobs",
+            modifier = Modifier.weight(1f).fillMaxHeight()
+        )
+        PvPermissionCard(
+            icon = Icons.Outlined.OutlinedPhoneAndroid,
+            label = "Phone",
+            description = "Only for OTP, never shared",
+            modifier = Modifier.weight(1f).fillMaxHeight()
+        )
+        PvPermissionCard(
+            icon = Icons.Outlined.OutlinedLock,
+            label = "Storage",
+            description = "Photos stored encrypted, optional",
+            modifier = Modifier.weight(1f).fillMaxHeight()
+        )
+    }
+}
+
+@Composable
+private fun PvPermissionCard(
+    icon: ImageVector,
+    label: String,
+    description: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White)
+            .border(1.dp, PvBorder, RoundedCornerShape(12.dp))
+            .padding(horizontal = 8.dp, vertical = 14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(PvCircleBg),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Ink900,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = PvLabel,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = description,
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            color = PvMuted,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun PvAccordionCard() {
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, PvBorder, shape)
+    ) {
+        PvAccordionRow(
+            title = "What we collect",
+            initiallyExpanded = true,
+            showDivider = true
+        ) {
+            PvSectionBody(stringResource(R.string.policy_privacy_s1_title), stringResource(R.string.policy_privacy_s1_content))
+            PvSectionBody(stringResource(R.string.policy_privacy_s5_title), stringResource(R.string.policy_privacy_s5_content))
+        }
+        PvAccordionRow(
+            title = "How we use it",
+            initiallyExpanded = false,
+            showDivider = true
+        ) {
+            PvSectionBody(stringResource(R.string.policy_privacy_s2_title), stringResource(R.string.policy_privacy_s2_content))
+        }
+        PvAccordionRow(
+            title = "Third-party sharing",
+            initiallyExpanded = false,
+            showDivider = true
+        ) {
+            PvSectionBody(stringResource(R.string.policy_privacy_s3_title), stringResource(R.string.policy_privacy_s3_content))
+        }
+        PvAccordionRow(
+            title = "Data retention",
+            initiallyExpanded = false,
+            showDivider = true
+        ) {
+            PvSectionBody(stringResource(R.string.policy_privacy_s4_title), stringResource(R.string.policy_privacy_s4_content))
+        }
+        PvAccordionRow(
+            title = "Your rights",
+            initiallyExpanded = false,
+            showDivider = false
+        ) {
+            PvSectionBody(stringResource(R.string.policy_privacy_s6_title), stringResource(R.string.policy_privacy_s6_content))
+        }
+    }
+}
+
+@Composable
+private fun PvAccordionRow(
+    title: String,
+    initiallyExpanded: Boolean,
+    showDivider: Boolean,
+    content: @Composable () -> Unit
+) {
+    var expanded by rememberSaveable(title) { mutableStateOf(initiallyExpanded) }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .clickable { expanded = !expanded }
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = PvLabel,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = PvMuted,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                content()
+            }
+        }
+        if (showDivider) {
+            HorizontalDivider(thickness = 1.dp, color = PvDivider)
+        }
+    }
+}
+
+@Composable
+private fun PvSectionBody(heading: String, body: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = heading,
+            fontSize = 13.sp,
+            lineHeight = 20.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Ink600
+        )
+        Text(
+            text = body,
+            fontSize = 13.sp,
+            lineHeight = 20.sp,
+            color = Ink600
+        )
+    }
+}
+
+@Composable
+private fun PvGrievanceFooter() {
+    val context = LocalContext.current
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = stringResource(R.string.auto_dutype_technologies),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Ink900
+        )
+        Text(
+            text = stringResource(R.string.policy_grievance_contact),
+            fontSize = 13.sp,
+            lineHeight = 20.sp,
+            color = Ink600
+        )
+        PvEmailLink(context, "dutypein@gmail.com", "DutyPe Support & Policy Query")
+        PvEmailLink(context, "dutypefeedback@gmail.com", "DutyPe Feedback")
+        Text(
+            text = stringResource(R.string.policy_compliance),
+            fontSize = 12.sp,
+            color = Ink400
+        )
+    }
+}
+
+@Composable
+private fun PvEmailLink(context: android.content.Context, email: String, subject: String) {
+    Text(
+        text = email,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = BrandBlue,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable {
+                val intent = Intent(Intent.ACTION_SENDTO).apply {
+                    data = Uri.parse("mailto:$email")
+                    putExtra(Intent.EXTRA_SUBJECT, subject)
+                }
+                try { context.startActivity(intent) } catch (_: Exception) {}
+            }
+            .padding(vertical = 4.dp)
+    )
 }

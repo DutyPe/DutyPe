@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
@@ -12,7 +13,13 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Campaign
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,7 +29,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.dutype.models.Announcement
 import com.example.dutype.models.AnnouncementType
 import com.example.dutype.ui.theme.AppTypography
@@ -31,61 +41,58 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Get announcement styling based on type
+ * Announcement styling based on type: solid soft tint for the icon tile + accent for icon / CTA.
  */
 private data class AnnouncementStyle(
-    val containerColor: Color,
+    val tileColor: Color,
     val accentColor: Color,
-    val iconContainerColor: Color,
     val icon: ImageVector,
 )
 
 @Composable
 private fun getAnnouncementStyle(type: AnnouncementType): AnnouncementStyle {
     val isDark = isSystemInDarkTheme()
+    val blue = Color(0xFF2563EB)
+    val green = Color(0xFF16A34A)
+    val amber = Color(0xFFD97706)
+    val red = Color(0xFFDC2626)
     return when (type) {
         AnnouncementType.INFO -> AnnouncementStyle(
-            containerColor = WorkerColors.InfoLight,
-            accentColor = WorkerColors.Primary,
-            iconContainerColor = WorkerColors.InfoLight,
-            icon = Icons.Default.Info,
+            tileColor = if (isDark) blue.copy(alpha = 0.18f) else Color(0xFFEFF6FF),
+            accentColor = blue,
+            icon = Icons.Outlined.Info,
         )
         AnnouncementType.SUCCESS -> AnnouncementStyle(
-            containerColor = WorkerColors.SuccessLight,
-            accentColor = WorkerColors.Success,
-            iconContainerColor = WorkerColors.SuccessLight,
-            icon = Icons.Default.CheckCircle,
+            tileColor = if (isDark) green.copy(alpha = 0.18f) else Color(0xFFF0FDF4),
+            accentColor = green,
+            icon = Icons.Outlined.CheckCircle,
         )
         AnnouncementType.WARNING -> AnnouncementStyle(
-            containerColor = WorkerColors.WarningLight,
-            accentColor = WorkerColors.Warning,
-            iconContainerColor = WorkerColors.WarningLight,
-            icon = Icons.Default.Warning,
+            tileColor = if (isDark) amber.copy(alpha = 0.18f) else Color(0xFFFEF3C7),
+            accentColor = amber,
+            icon = Icons.Outlined.WarningAmber,
         )
         AnnouncementType.ERROR -> AnnouncementStyle(
-            containerColor = WorkerColors.ErrorLight,
-            accentColor = WorkerColors.Error,
-            iconContainerColor = WorkerColors.ErrorLight,
-            icon = Icons.Default.Error,
+            tileColor = if (isDark) red.copy(alpha = 0.18f) else Color(0xFFFEF2F2),
+            accentColor = red,
+            icon = Icons.Outlined.ErrorOutline,
         )
         AnnouncementType.FEATURE -> AnnouncementStyle(
-            containerColor = if (isDark) Color(0xFF2E1065) else Color(0xFFF5F3FF),
-            accentColor = if (isDark) Color(0xFFA78BFA) else Color(0xFF7C3AED),
-            iconContainerColor = if (isDark) Color(0xFF4C1D95) else Color(0xFFEDE9FE),
-            icon = Icons.Default.Star,
+            tileColor = if (isDark) blue.copy(alpha = 0.18f) else Color(0xFFEFF6FF),
+            accentColor = blue,
+            icon = Icons.Outlined.Campaign,
         )
         AnnouncementType.PROMOTION -> AnnouncementStyle(
-            containerColor = WorkerColors.WarningLight,
-            accentColor = WorkerColors.Warning,
-            iconContainerColor = WorkerColors.WarningLight,
-            icon = Icons.Default.LocalOffer,
+            tileColor = if (isDark) green.copy(alpha = 0.18f) else Color(0xFFF0FDF4),
+            accentColor = green,
+            icon = Icons.Outlined.Campaign,
         )
     }
 }
 
 /**
- * Beautiful Announcement Card with gradient background
- * Entire card is clickable if actionRoute is provided
+ * Public card: same signature as before. Adds the 20dp side gutter itself; the pager uses
+ * [AnnouncementCardBody] directly because it supplies its own content padding.
  */
 @Composable
 fun AnnouncementCard(
@@ -94,82 +101,172 @@ fun AnnouncementCard(
     onAction: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 6.dp)
+    ) {
+        AnnouncementCardBody(
+            announcement = announcement,
+            onDismiss = onDismiss,
+            onAction = onAction
+        )
+    }
+}
+
+/** Flat info card: icon tile, title, 2-line body, optional "View details" CTA, dismiss (x). */
+@Composable
+private fun AnnouncementCardBody(
+    announcement: Announcement,
+    onDismiss: () -> Unit,
+    onAction: (() -> Unit)?
+) {
     val style = getAnnouncementStyle(announcement.type)
+    val isDark = isSystemInDarkTheme()
+    val cardShape = RoundedCornerShape(16.dp)
+    val surface = if (isDark) WorkerColors.CardBackground else Color.White
+    val borderColor = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)
     val actionModifier = if (onAction != null) {
         Modifier.clickable(onClick = onAction)
     } else {
         Modifier
     }
-    
-    Card(
-        modifier = modifier
+
+    Row(
+        modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .height(115.dp)
-            .then(actionModifier),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, WorkerColors.Border)
+            .clip(cardShape)
+            .background(surface)
+            .border(1.dp, borderColor, cardShape)
+            .then(actionModifier)
+            .padding(16.dp),
+        verticalAlignment = Alignment.Top
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.horizontalGradient(
-                        colors = listOf(style.containerColor, WorkerColors.CardBackground)
-                    )
+        AnnouncementIconTile(icon = style.icon, tint = style.tileColor, accent = style.accentColor)
+        Spacer(modifier = Modifier.width(12.dp))
+        AnnouncementTextColumn(
+            announcement = announcement,
+            accent = style.accentColor,
+            showAction = onAction != null,
+            modifier = Modifier.weight(1f)
+        )
+        AnnouncementDismissButton(onDismiss = onDismiss)
+    }
+}
+
+@Composable
+private fun AnnouncementTextColumn(
+    announcement: Announcement,
+    accent: Color,
+    showAction: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val isDark = isSystemInDarkTheme()
+    val titleColor = if (isDark) WorkerColors.TextPrimary else Color(0xFF0F0F0F)
+    val bodyColor = if (isDark) WorkerColors.TextSecondary else Color(0xFF475569)
+    Column(modifier = modifier) {
+        Text(
+            text = announcement.title,
+            color = titleColor,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        if (announcement.message.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = announcement.message,
+                color = bodyColor,
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                letterSpacing = 0.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        if (showAction) {
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "View details",
+                    color = accent,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.sp
                 )
-        ) {
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnnouncementDismissButton(onDismiss: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .offset(x = 8.dp, y = (-8).dp)
+            .size(32.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onDismiss),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Close,
+            contentDescription = "Dismiss",
+            tint = Color(0xFF94A3B8),
+            modifier = Modifier.size(16.dp)
+        )
+    }
+}
+
+@Composable
+private fun AnnouncementIconTile(icon: ImageVector, tint: Color, accent: Color) {
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .background(tint, RoundedCornerShape(12.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = accent,
+            modifier = Modifier.size(22.dp)
+        )
+    }
+}
+
+/** Pill page indicators: active 16x6 #0F0F0F, inactive 6x6 #CBD5E1. */
+@Composable
+private fun AnnouncementDots(count: Int, current: Int) {
+    val isDark = isSystemInDarkTheme()
+    val active = if (isDark) Color.White else Color(0xFF0F0F0F)
+    val inactive = Color(0xFFCBD5E1)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        for (i in 0 until count) {
+            val isActive = i == current
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .fillMaxHeight()
-                    .width(5.dp)
-                    .background(style.accentColor)
+                    .padding(horizontal = 3.dp)
+                    .width(if (isActive) 16.dp else 6.dp)
+                    .height(6.dp)
+                    .background(if (isActive) active else inactive, RoundedCornerShape(3.dp))
             )
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, top = 14.dp, end = 10.dp, bottom = 14.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(style.iconContainerColor),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = style.icon,
-                        contentDescription = null,
-                        tint = style.accentColor,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                
-                Spacer(modifier = Modifier.width(12.dp))
-                
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                ) {
-                    Text(
-                        text = announcement.title,
-                        style = AppTypography.cardTitle.copy(color = WorkerColors.TextPrimary)
-                    )
-                    
-                    if (announcement.message.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = announcement.message,
-                            style = AppTypography.bodySmall.copy(color = WorkerColors.TextSecondary)
-                        )
-                    }
-                }
-            }
         }
     }
 }
@@ -189,11 +286,14 @@ fun AnnouncementCarousel(
 ) {
     val totalItems = announcements.size + if (promoBannerUrl.isNotBlank()) 1 else 0
     if (totalItems == 0) return
-    
+
     if (totalItems == 1) {
         // Single announcement or single banner - no carousel needed
         if (promoBannerUrl.isNotBlank()) {
-            PromoBannerSlide(promoBannerUrl = promoBannerUrl, modifier = modifier)
+            PromoBannerSlide(
+                promoBannerUrl = promoBannerUrl,
+                modifier = modifier.padding(horizontal = 20.dp, vertical = 6.dp)
+            )
         } else {
             AnnouncementCard(
                 announcement = announcements[0],
@@ -201,16 +301,16 @@ fun AnnouncementCarousel(
                 onAction = if (announcements[0].actionRoute != null) {
                     { onAction(announcements[0]) }
                 } else null,
-                modifier = modifier.padding(vertical = 8.dp)
+                modifier = modifier
             )
         }
         return
     }
-    
-    // Multiple items - show carousel
+
+    // Multiple items - show carousel with the next card peeking
     val pagerState = rememberPagerState(pageCount = { totalItems })
     val coroutineScope = rememberCoroutineScope()
-    
+
     // Auto-scroll effect
     LaunchedEffect(pagerState.currentPage) {
         delay(autoScrollDuration)
@@ -225,18 +325,20 @@ fun AnnouncementCarousel(
             )
         }
     }
-    
-    Column(modifier = modifier.padding(vertical = 8.dp)) {
+
+    Column(modifier = modifier.padding(vertical = 6.dp)) {
         HorizontalPager(
             state = pagerState,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 20.dp),
+            pageSpacing = 12.dp
         ) { page ->
             if (promoBannerUrl.isNotBlank() && page == 0) {
                 PromoBannerSlide(promoBannerUrl = promoBannerUrl)
             } else {
                 val index = if (promoBannerUrl.isNotBlank()) page - 1 else page
                 val announcement = announcements[index]
-                AnnouncementCard(
+                AnnouncementCardBody(
                     announcement = announcement,
                     onDismiss = { onDismiss(announcement.id) },
                     onAction = if (announcement.actionRoute != null) {
@@ -245,6 +347,8 @@ fun AnnouncementCarousel(
                 )
             }
         }
+        Spacer(modifier = Modifier.height(10.dp))
+        AnnouncementDots(count = totalItems, current = pagerState.currentPage)
     }
 }
 
@@ -255,9 +359,9 @@ private fun PromoBannerSlide(promoBannerUrl: String, modifier: Modifier = Modifi
         contentDescription = "Promotion banner",
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .height(115.dp) // Match AnnouncementCard height
-            .clip(RoundedCornerShape(16.dp)),
+            .height(115.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp)),
         contentScale = ContentScale.Crop,
         crossfadeMillis = 120
     )

@@ -4,6 +4,7 @@ import com.dutype.app.R
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -21,484 +22,542 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.outlined.Chat
+import androidx.compose.material.icons.outlined.Phone
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.material.icons.outlined.AttachFile
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val CuInk = Color(0xFF0F172A)
+private val CuBlack = Color(0xFF0F0F0F)
+private val CuBorder = Color(0xFFE2E8F0)
+private val CuMuted = Color(0xFF64748B)
+private val CuHint = Color(0xFF94A3B8)
+private val CuGreen = Color(0xFF16A34A)
+
 @Composable
 fun ContactUsScreen(
     navController: NavController,
     onStatusBarColorChange: (androidx.compose.ui.graphics.Color) -> Unit = {}
 ) {
     val context = LocalContext.current
+    var message by remember { mutableStateOf("") }
+    var attachedUri by remember { mutableStateOf<Uri?>(null) }
+    val pickLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri: Uri? -> if (uri != null) attachedUri = uri }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.contact_us)) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(start = 20.dp, end = 20.dp, bottom = 32.dp)
+    ) {
+        ContactBackRow(onBack = { navController.popBackStack() })
+        Spacer(Modifier.height(8.dp))
+        Text("Get in Touch", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = CuInk)
+        Spacer(Modifier.height(16.dp))
+        ContactReplyBadge()
+        Spacer(Modifier.height(16.dp))
+        ContactChannelCard(
+            icon = Icons.Outlined.Chat,
+            circleColor = Color(0xFFF0FDF4),
+            tint = CuGreen,
+            title = "Chat on WhatsApp",
+            subtitle = "Fastest · Typical reply in 5 mins",
+            onClick = {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/919876543210"))
+                context.startActivity(intent)
+            }
+        )
+        Spacer(Modifier.height(12.dp))
+        ContactChannelCard(
+            icon = Icons.Outlined.Phone,
+            circleColor = Color(0xFFEFF6FF),
+            tint = Color(0xFF2563EB),
+            title = "Call Helpline",
+            subtitle = "Toll-free · Mon–Sat 9 AM–7 PM",
+            onClick = {
+                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:+918500717800")))
+            }
+        )
+        Spacer(Modifier.height(12.dp))
+        ContactChannelCard(
+            icon = Icons.Outlined.Email,
+            circleColor = Color(0xFFFEF3C7),
+            tint = Color(0xFFD97706),
+            title = "Email Support",
+            subtitle = "For non-urgent queries · reply in 4 hrs",
+            onClick = {
+                val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@dutypeapp.com"))
+                intent.putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.email_subject_support_request))
+                context.startActivity(Intent.createChooser(intent, "Send Email"))
+            }
+        )
+        Spacer(Modifier.height(16.dp))
+        ContactFormCard(
+            message = message,
+            onMessageChange = { message = it },
+            attached = attachedUri != null,
+            onAttach = { pickLauncher.launch("image/*") },
+            onSend = {
+                val body = message.trim()
+                val shot = attachedUri
+                val subject = context.getString(R.string.email_subject_support_request)
+                val intent = if (shot != null) {
+                    Intent(Intent.ACTION_SEND).apply {
+                        type = "image/*"
+                        putExtra(Intent.EXTRA_EMAIL, arrayOf("support@dutypeapp.com"))
+                        putExtra(Intent.EXTRA_SUBJECT, subject)
+                        putExtra(Intent.EXTRA_TEXT, body)
+                        putExtra(Intent.EXTRA_STREAM, shot)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                } else {
+                    Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@dutypeapp.com")).apply {
+                        putExtra(Intent.EXTRA_SUBJECT, subject)
+                        putExtra(Intent.EXTRA_TEXT, body)
                     }
                 }
+                context.startActivity(Intent.createChooser(intent, "Send Message"))
+            }
+        )
+    }
+}
+
+@Composable
+private fun ContactBackRow(onBack: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().height(40.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+            contentDescription = "Back",
+            tint = CuInk,
+            modifier = Modifier.size(24.dp).clickable { onBack() }
+        )
+    }
+}
+
+@Composable
+private fun ContactReplyBadge() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(36.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFFF0FDF4))
+            .border(1.dp, Color(0xFFA7F3D0), RoundedCornerShape(12.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            "✓ We reply within 15 minutes",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = CuGreen
+        )
+    }
+}
+
+@Composable
+private fun ContactChannelCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    circleColor: Color,
+    tint: Color,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, CuBorder, shape)
+            .clickable { onClick() }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Box(
+            modifier = Modifier.size(40.dp).clip(CircleShape).background(circleColor),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = CuBlack)
+            Text(subtitle, fontSize = 13.sp, color = CuMuted)
+        }
+        Icon(
+            Icons.AutoMirrored.Filled.ArrowForward,
+            contentDescription = null,
+            tint = CuHint,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+
+@Composable
+private fun ContactMessageField(value: String, onValueChange: (String) -> Unit) {
+    val shape = RoundedCornerShape(12.dp)
+    var focused by remember { mutableStateOf(false) }
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = CuBlack),
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(CuInk),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(120.dp)
+            .clip(shape)
+            .border(1.dp, if (focused) CuInk else CuBorder, shape)
+            .onFocusChanged { focused = it.isFocused },
+        decorationBox = { inner ->
+            Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+                if (value.isEmpty()) {
+                    Text("How can we help?", fontSize = 14.sp, color = CuHint)
+                }
+                inner()
+            }
+        }
+    )
+}
+
+@Composable
+private fun ContactFormCard(
+    message: String,
+    onMessageChange: (String) -> Unit,
+    attached: Boolean,
+    onAttach: () -> Unit,
+    onSend: () -> Unit
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, CuBorder, shape)
+            .padding(16.dp)
+    ) {
+        Text("Or send us a message", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = CuBlack)
+        Spacer(Modifier.height(12.dp))
+        ContactMessageField(value = message, onValueChange = onMessageChange)
+        Spacer(Modifier.height(14.dp))
+        Row(
+            modifier = Modifier.clickable { onAttach() },
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Outlined.AttachFile, contentDescription = null, tint = CuMuted, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                if (attached) "Screenshot attached" else "Attach Screenshot (optional)",
+                fontSize = 13.sp,
+                color = CuMuted
             )
         }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = onSend,
+            enabled = message.isNotBlank(),
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            shape = RoundedCornerShape(24.dp),
+            elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = CuBlack,
+                contentColor = Color.White,
+                disabledContainerColor = CuBlack.copy(alpha = 0.4f),
+                disabledContentColor = Color.White
+            )
         ) {
-            Text(
-                stringResource(R.string.contact_us_need_help),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                stringResource(R.string.contact_us_subtitle),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            ElevatedCard(
-                onClick = {
-                    val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@dutypeapp.com"))
-                    intent.putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.email_subject_support_request))
-                    context.startActivity(Intent.createChooser(intent, "Send Email"))
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(Icons.Default.Email, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Column {
-                        Text(stringResource(R.string.email_support), fontWeight = FontWeight.SemiBold)
-                        Text("support@dutypeapp.com", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
-
-            ElevatedCard(
-                onClick = {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/919876543210"))
-                    context.startActivity(intent)
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(Icons.Default.Phone, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Column {
-                        Text(stringResource(R.string.whatsapp_support), fontWeight = FontWeight.SemiBold)
-                        Text(stringResource(R.string.whatsapp_support_subtitle), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-            }
+            Text("Send Message →", fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Help & FAQs — same look as the Terms / Privacy screens: white page, back arrow +
+ * centered title, a green summary card, then accordion cards (one open at a time).
+ */
 @Composable
 fun HelpMainScreen(
     navController: NavController,
     onStatusBarColorChange: (androidx.compose.ui.graphics.Color) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val statusBarColor = WorkerColors.StatusBarColor
-    androidx.compose.runtime.LaunchedEffect(statusBarColor) {
-        onStatusBarColorChange(statusBarColor)
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        onStatusBarColorChange(Color.White)
     }
-    var expandedGuideIndex by remember { mutableStateOf(-1) }
-    var expandedFaqIndex by remember { mutableStateOf(-1) }
+    // Keys like "guide_0" / "faq_2"; the first guide starts open like the Terms screen.
+    var expandedKey by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("guide_0") }
     var searchQuery by remember { mutableStateOf("") }
 
-    val accent = WorkerColors.Primary
-    val accentSoft = WorkerColors.PrimaryLight
-    val ink = WorkerColors.TextPrimary
-    val muted = WorkerColors.TextSecondary
-
     val guideItems = listOf(
-        HelpExpandableItem(
-            icon = Icons.Default.RocketLaunch,
-            title = stringResource(R.string.getting_started),
-            content = stringResource(R.string.guide_getting_started_content)
-        ),
-        HelpExpandableItem(
-            icon = Icons.Default.Search,
-            title = stringResource(R.string.finding_jobs_faster),
-            content = stringResource(R.string.guide_finding_jobs_content)
-        ),
-        HelpExpandableItem(
-            icon = Icons.Default.WorkOutline,
-            title = stringResource(R.string.applying_work_start),
-            content = stringResource(R.string.guide_applying_work_content)
-        ),
-        HelpExpandableItem(
-            icon = Icons.Default.Star,
-            title = stringResource(R.string.building_reputation),
-            content = stringResource(R.string.guide_building_reputation_content)
-        ),
-        HelpExpandableItem(
-            icon = Icons.Default.Payments,
-            title = stringResource(R.string.getting_paid_safely),
-            content = stringResource(R.string.guide_getting_paid_content)
-        )
+        HelpExpandableItem(stringResource(R.string.getting_started), stringResource(R.string.guide_getting_started_content), Icons.Default.RocketLaunch),
+        HelpExpandableItem(stringResource(R.string.finding_jobs_faster), stringResource(R.string.guide_finding_jobs_content), Icons.Default.Search),
+        HelpExpandableItem(stringResource(R.string.applying_work_start), stringResource(R.string.guide_applying_work_content), Icons.Default.WorkOutline),
+        HelpExpandableItem(stringResource(R.string.building_reputation), stringResource(R.string.guide_building_reputation_content), Icons.Default.Star),
+        HelpExpandableItem(stringResource(R.string.getting_paid_safely), stringResource(R.string.guide_getting_paid_content), Icons.Default.Payments)
     )
-
     val faqItems = listOf(
-        HelpExpandableItem(
-            icon = Icons.Default.HelpOutline,
-            title = stringResource(R.string.faq_why_not_seeing_jobs),
-            content = stringResource(R.string.faq_not_seeing_jobs_answer)
-        ),
-        HelpExpandableItem(
-            icon = Icons.Default.Assignment,
-            title = stringResource(R.string.faq_track_application),
-            content = stringResource(R.string.faq_track_application_answer)
-        ),
-        HelpExpandableItem(
-            icon = Icons.Default.SupportAgent,
-            title = stringResource(R.string.faq_contact_support),
-            content = stringResource(R.string.faq_contact_support_answer)
-        ),
-        HelpExpandableItem(
-            icon = Icons.Default.Verified,
-            title = stringResource(R.string.faq_improve_trust),
-            content = stringResource(R.string.faq_improve_trust_answer)
-        ),
-        HelpExpandableItem(
-            icon = Icons.Default.Security,
-            title = stringResource(R.string.faq_personal_data_safe),
-            content = stringResource(R.string.faq_personal_data_safe_answer)
-        ),
-        HelpExpandableItem(
-            icon = Icons.Default.MoneyOff,
-            title = stringResource(R.string.faq_cant_apply),
-            content = stringResource(R.string.faq_cant_apply_answer)
-        )
+        HelpExpandableItem(stringResource(R.string.faq_why_not_seeing_jobs), stringResource(R.string.faq_not_seeing_jobs_answer), Icons.Default.HelpOutline),
+        HelpExpandableItem(stringResource(R.string.faq_track_application), stringResource(R.string.faq_track_application_answer), Icons.Default.Assignment),
+        HelpExpandableItem(stringResource(R.string.faq_contact_support), stringResource(R.string.faq_contact_support_answer), Icons.Default.SupportAgent),
+        HelpExpandableItem(stringResource(R.string.faq_improve_trust), stringResource(R.string.faq_improve_trust_answer), Icons.Default.Verified),
+        HelpExpandableItem(stringResource(R.string.faq_personal_data_safe), stringResource(R.string.faq_personal_data_safe_answer), Icons.Default.Security),
+        HelpExpandableItem(stringResource(R.string.faq_cant_apply), stringResource(R.string.faq_cant_apply_answer), Icons.Default.MoneyOff)
     )
 
     val q = searchQuery.trim().lowercase()
-    val filteredGuides = if (q.isEmpty()) guideItems else guideItems.filter {
-        it.title.lowercase().contains(q) || it.content.lowercase().contains(q)
+    val matches: (HelpExpandableItem) -> Boolean = {
+        q.isEmpty() || it.title.lowercase().contains(q) || it.content.lowercase().contains(q)
     }
-    val filteredFaqs = if (q.isEmpty()) faqItems else faqItems.filter {
-        it.title.lowercase().contains(q) || it.content.lowercase().contains(q)
-    }
+    val filteredGuides = guideItems.filter(matches)
+    val filteredFaqs = faqItems.filter(matches)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WorkerColors.ScreenBackground)
+            .background(Color.White)
+            .statusBarsPadding()
     ) {
-        CommonHeader(
-            title = stringResource(R.string.help_faqs),
-            navController = navController
-        )
+        HelpHeader(title = stringResource(R.string.help_faqs), onBack = { navController.popBackStack() })
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 32.dp)
         ) {
-            // Hero
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-                color = WorkerColors.CardBackground,
-                tonalElevation = 0.dp,
-                shadowElevation = 0.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                listOf(accent.copy(alpha = 0.12f), accent.copy(alpha = 0.02f))
-                            )
-                        )
-                        .padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .background(accent, androidx.compose.foundation.shape.RoundedCornerShape(14.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.SupportAgent,
-                            contentDescription = null,
-                            tint = androidx.compose.ui.graphics.Color.White,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.help_hero_title),
-                            style = AppTypography.pageTitle,
-                            fontWeight = FontWeight.Bold,
-                            color = ink
-                        )
-                        Text(
-                            stringResource(R.string.help_hero_subtitle),
-                            style = AppTypography.bodyMedium,
-                            color = muted
-                        )
-                    }
-                }
-            }
-
-            // Search
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text(stringResource(R.string.search_help_topics)) },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Close, contentDescription = "Clear")
-                        }
-                    }
-                },
-                singleLine = true,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = accent,
-                    unfocusedBorderColor = WorkerColors.Border,
-                    focusedContainerColor = WorkerColors.CardBackground,
-                    unfocusedContainerColor = WorkerColors.CardBackground
-                )
-            )
-
-            // Quick actions
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                QuickActionTile(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Default.Phone,
-                    label = stringResource(R.string.whatsapp_label),
-                    bg = WorkerColors.SuccessLight,
-                    tint = WorkerColors.Success
-                ) {
+            HelpSummaryCard(
+                onWhatsApp = {
                     val msg = context.getString(R.string.whatsapp_worker_message)
                     val url = "https://wa.me/918500717800?text=" + java.net.URLEncoder.encode(msg, "UTF-8")
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                }
-                QuickActionTile(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Default.Email,
-                    label = stringResource(R.string.email_label),
-                    bg = accentSoft,
-                    tint = accent
-                ) {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                },
+                onEmail = {
                     val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:dutypein@gmail.com"))
                     intent.putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.email_subject_worker_support))
-                    context.startActivity(Intent.createChooser(intent, "Send Email"))
-                }
-                QuickActionTile(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Default.BugReport,
-                    label = stringResource(R.string.report),
-                    bg = WorkerColors.ErrorLight,
-                    tint = WorkerColors.Error
-                ) {
-                    navController.navigate(com.example.dutype.navigation.Routes.REPORT)
-                }
-            }
+                    runCatching { context.startActivity(Intent.createChooser(intent, "Send Email")) }
+                },
+                onReport = { navController.navigate(com.example.dutype.navigation.Routes.REPORT) }
+            )
+            Spacer(Modifier.height(16.dp))
+            HelpSearchField(value = searchQuery, onValueChange = { searchQuery = it })
 
-            // Worker Guide (Single Page Layout - No Accordion)
             if (filteredGuides.isNotEmpty()) {
-                SectionLabel(title = stringResource(R.string.worker_guide), count = filteredGuides.size, accent = accent)
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    filteredGuides.forEach { item ->
-                        SinglePageHelpItem(item = item, accent = accent)
+                HelpSectionLabel(stringResource(R.string.worker_guide))
+                filteredGuides.forEachIndexed { index, item ->
+                    if (index > 0) Spacer(Modifier.height(10.dp))
+                    val key = "guide_${guideItems.indexOf(item)}"
+                    // While searching, every match is shown open.
+                    HelpAccordionCard(item, expanded = q.isNotEmpty() || expandedKey == key) {
+                        expandedKey = if (expandedKey == key) "" else key
                     }
                 }
             }
 
-            // FAQs (Single Page Layout - No Accordion)
             if (filteredFaqs.isNotEmpty()) {
-                SectionLabel(title = stringResource(R.string.frequently_asked), count = filteredFaqs.size, accent = accent)
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    filteredFaqs.forEach { item ->
-                        SinglePageHelpItem(item = item, accent = accent)
+                HelpSectionLabel(stringResource(R.string.frequently_asked))
+                filteredFaqs.forEachIndexed { index, item ->
+                    if (index > 0) Spacer(Modifier.height(10.dp))
+                    val key = "faq_${faqItems.indexOf(item)}"
+                    HelpAccordionCard(item, expanded = q.isNotEmpty() || expandedKey == key) {
+                        expandedKey = if (expandedKey == key) "" else key
                     }
                 }
             }
 
             if (filteredGuides.isEmpty() && filteredFaqs.isEmpty()) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-                    color = WorkerColors.CardBackground
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            Icons.Default.SearchOff,
-                            contentDescription = null,
-                            tint = muted,
-                            modifier = Modifier.size(40.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            stringResource(R.string.no_matching_topics),
-                            fontWeight = FontWeight.SemiBold,
-                            color = ink
-                        )
-                        Text(
-                            stringResource(R.string.no_matching_topics_hint),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = muted
-                        )
-                    }
-                }
+                Spacer(Modifier.height(24.dp))
+                Text(stringResource(R.string.no_matching_topics), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = CuInk)
+                Spacer(Modifier.height(4.dp))
+                Text(stringResource(R.string.no_matching_topics_hint), fontSize = 13.sp, color = CuMuted)
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
 
 @Composable
-private fun QuickActionTile(
-    modifier: Modifier = Modifier,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+private fun HelpHeader(title: String, onBack: () -> Unit) {
+    Box(modifier = Modifier.fillMaxWidth().height(52.dp)) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .size(40.dp)
+                .clickable { onBack() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CuInk, modifier = Modifier.size(24.dp))
+        }
+        Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CuInk, modifier = Modifier.align(Alignment.Center))
+    }
+}
+
+/** Green summary card (matches the Terms "Plain Language Summary") with the 3 quick contacts. */
+@Composable
+private fun HelpSummaryCard(onWhatsApp: () -> Unit, onEmail: () -> Unit, onReport: () -> Unit) {
+    val shape = RoundedCornerShape(20.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF0FDF4), shape)
+            .border(1.dp, Color(0xFFA7F3D0), shape)
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("Need help fast?", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = CuGreen)
+        Text(
+            "Most questions are answered below. Still stuck? Reach us directly and we usually reply within minutes.",
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            color = CuInk
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HelpContactPill(stringResource(R.string.whatsapp_label), Icons.Default.Phone, Modifier.weight(1f), onWhatsApp)
+            HelpContactPill(stringResource(R.string.email_label), Icons.Default.Email, Modifier.weight(1f), onEmail)
+            HelpContactPill(stringResource(R.string.report), Icons.Default.BugReport, Modifier.weight(1f), onReport)
+        }
+    }
+}
+
+@Composable
+private fun HelpContactPill(
     label: String,
-    bg: androidx.compose.ui.graphics.Color,
-    tint: androidx.compose.ui.graphics.Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier,
     onClick: () -> Unit
 ) {
-    Surface(
-        modifier = modifier.clickable { onClick() },
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
-        color = WorkerColors.CardBackground,
-        shadowElevation = 0.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(bg, androidx.compose.foundation.shape.RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                label,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = WorkerColors.TextPrimary
-            )
-        }
-    }
-}
-
-@Composable
-private fun SectionLabel(title: String, count: Int, accent: androidx.compose.ui.graphics.Color) {
+    val shape = RoundedCornerShape(18.dp)
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+        modifier = modifier
+            .height(36.dp)
+            .clip(shape)
+            .background(Color.White, shape)
+            .border(1.dp, Color(0xFFA7F3D0), shape)
+            .clickable { onClick() },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
     ) {
-        Text(
-            text = title,
-            style = AppTypography.sectionHeader,
-            fontWeight = FontWeight.Bold,
-            color = WorkerColors.TextPrimary
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Surface(
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
-            color = accent.copy(alpha = 0.12f)
-        ) {
-            Text(
-                text = count.toString(),
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp),
-                style = AppTypography.labelSmall,
-                color = accent,
-                fontWeight = FontWeight.Bold
-            )
-        }
+        Icon(icon, contentDescription = null, tint = CuGreen, modifier = Modifier.size(15.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CuInk, maxLines = 1)
     }
 }
 
 @Composable
-private fun SinglePageHelpItem(
-    item: HelpExpandableItem,
-    accent: androidx.compose.ui.graphics.Color
-) {
+private fun HelpSearchField(value: String, onValueChange: (String) -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = CuBlack),
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(CuInk),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .clip(shape)
+            .border(1.dp, CuBorder, shape),
+        decorationBox = { inner ->
+            Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Search, contentDescription = null, tint = CuMuted, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(10.dp))
+                Box(modifier = Modifier.weight(1f)) {
+                    if (value.isEmpty()) Text(stringResource(R.string.search_help_topics), fontSize = 14.sp, color = CuHint)
+                    inner()
+                }
+                if (value.isNotEmpty()) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = "Clear",
+                        tint = CuMuted,
+                        modifier = Modifier.size(18.dp).clickable { onValueChange("") }
+                    )
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun HelpSectionLabel(title: String) {
+    Text(
+        text = title,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = CuMuted,
+        modifier = Modifier.padding(top = 22.dp, bottom = 10.dp)
+    )
+}
+
+/** Accordion card: same shape, height and chevrons as the Terms screen sections. */
+@Composable
+private fun HelpAccordionCard(item: HelpExpandableItem, expanded: Boolean, onToggle: () -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
     Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(Color.White, shape)
+            .border(1.dp, CuBorder, shape)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 52.dp)
+                .clickable { onToggle() }
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (item.icon != null) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(Color(0xFFF1F5F9), androidx.compose.foundation.shape.CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(item.icon, contentDescription = null, tint = Color(0xFF0F172A), modifier = Modifier.size(16.dp))
-                }
-                Spacer(modifier = Modifier.width(10.dp))
+                Icon(item.icon, contentDescription = null, tint = CuInk, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(12.dp))
             }
             Text(
                 text = item.title,
-                style = AppTypography.bodyLarge,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = CuBlack,
                 modifier = Modifier.weight(1f)
             )
+            Icon(
+                imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = CuMuted,
+                modifier = Modifier.size(18.dp)
+            )
         }
-        Text(
-            text = item.content,
-            style = AppTypography.bodyMedium,
-            color = Color(0xFF475569),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = if (item.icon != null) 42.dp else 0.dp),
-            lineHeight = 22.sp
-        )
+        androidx.compose.animation.AnimatedVisibility(visible = expanded) {
+            Text(
+                text = item.content,
+                fontSize = 14.sp,
+                lineHeight = 22.sp,
+                color = Color(0xFF475569),
+                modifier = Modifier.padding(
+                    start = if (item.icon != null) 46.dp else 16.dp,
+                    end = 16.dp,
+                    bottom = 18.dp
+                )
+            )
+        }
     }
 }
 

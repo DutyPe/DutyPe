@@ -525,7 +525,8 @@ internal fun UrgentMatchedWorkerCard(
             .clickable { onOpenProfile() },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, EmployerColors.Border)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -825,9 +826,10 @@ private fun EmployerUrgentNeedCard(
     val canMarkFilled = normalizedStatus in setOf("open", "failed") && selectedCount > 0
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, EmployerColors.Border)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

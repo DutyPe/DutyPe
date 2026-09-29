@@ -9,9 +9,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -57,6 +61,14 @@ import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.SupportAgent
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.ui.unit.TextUnit
+import com.example.dutype.navigation.WorkerBottomRoutes
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -150,10 +162,8 @@ fun WorkerProfileScreen(
     var isUploadingImage by remember { mutableStateOf(false) }
     var isLoadingProfile by remember { mutableStateOf(true) }
     var showEditDialog by remember { mutableStateOf(false) }
-    var showLogoutDialog by remember { mutableStateOf(false) }
     var showAccountDeletionDialog by remember { mutableStateOf(false) }
     var showFeedbackSheet by remember { mutableStateOf(false) }
-    var showLanguageBottomSheet by remember { mutableStateOf(false) }
     // var showThemeBottomSheet by remember { mutableStateOf(false) }
     var isVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -194,6 +204,58 @@ fun WorkerProfileScreen(
     
     // Firebase profile data state for reactive updates
     var firebaseProfileData by remember { mutableStateOf<Map<String, Any?>?>(null) }
+
+    // Hero / completeness data (visual layer only; read-only loads)
+    var profileSkills by remember { mutableStateOf<List<String>>(emptyList()) }
+    var profileCity by remember { mutableStateOf("") }
+    var profileRating by remember { mutableStateOf(0.0) }
+    var profileReviewCount by remember { mutableStateOf(0) }
+    var memberSinceMillis by remember { mutableStateOf(0L) }
+    var completionPercent by remember { mutableStateOf<Int?>(null) }
+
+    LaunchedEffect(currentUserId) {
+        if (currentUserId.isNotEmpty()) {
+            try {
+                profileCompletionViewModel.getWorkerProfileData(currentUserId).fold(
+                    onSuccess = { data ->
+                        val rawSkills = data["skills"]
+                        profileSkills = when (rawSkills) {
+                            is List<*> -> rawSkills.filterIsInstance<String>()
+                            is String -> rawSkills.split(",")
+                            else -> emptyList()
+                        }.map { it.trim() }.filter { it.isNotEmpty() }
+                        profileCity = ((data["city"] as? String)
+                            ?: ((data["location"] as? Map<*, *>)?.get("city") as? String)
+                            ?: "").trim()
+                        // Two aggregators exist (aggregates.ts -> rating/totalRatings,
+                        // ratings.ts -> workerAverageRating/workerTotalRatings); read either.
+                        profileRating = listOf("rating", "workerAverageRating", "averageRating")
+                            .firstNotNullOfOrNull { (data[it] as? Number)?.toDouble()?.takeIf { v -> v > 0.0 } } ?: 0.0
+                        profileReviewCount = listOf("totalRatings", "workerTotalRatings", "ratingCount")
+                            .firstNotNullOfOrNull { (data[it] as? Number)?.toInt()?.takeIf { v -> v > 0 } } ?: 0
+                        memberSinceMillis = when (val created = data["createdAt"]) {
+                            is Number -> created.toLong()
+                            is com.google.firebase.Timestamp -> created.toDate().time
+                            else -> 0L
+                        }
+                    },
+                    onFailure = { e -> Timber.w(e, "Worker profile hero data unavailable") }
+                )
+            } catch (e: Exception) {
+                Timber.w(e, "Worker profile hero data load failed")
+            }
+        }
+    }
+
+    LaunchedEffect(currentUserId, profileImageUrl, isUploadingImage) {
+        if (currentUserId.isNotEmpty() && !isUploadingImage) {
+            completionPercent = try {
+                profileCompletionService.calculateWorkerProfileCompletion(currentUserId)
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
     
     // REMOVED: Heavy profile completion calculation from main screen
     // This now happens only in profile details screen
@@ -239,7 +301,7 @@ fun WorkerProfileScreen(
 
     // Status bar color - White for profile screen
     LaunchedEffect(Unit) {
-        onStatusBarColorChange(Color.White)
+        onStatusBarColorChange(Color(0xFFF8FAFC))
         delay(200)
         isVisible = true
     }
@@ -387,520 +449,295 @@ fun WorkerProfileScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                // Flat, fully white page (no cards) — also behind the status bar.
+                .background(Color.White)
                 .windowInsetsPadding(WindowInsets.statusBars)
-                // Solid role background — no gradient.
-                .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
         ) {
             // Offline banner at the very top
             val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
             val isOnline by connectivityViewModel.isOnline.collectAsState()
             com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
-            
-            // Header using CommonHeader (no back button for profile)
-            com.example.dutype.components.CommonHeader( 
-                title = stringResource(R.string.profile),
-                showBackButton = false,
-                backgroundColor = Color.Transparent,
-                titleColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                actions = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    ) {
-                        // Language Change Icon
-                        val currentLanguage = LocaleHelper.getLanguage(context)
-                        IconButton(onClick = { showLanguageBottomSheet = true }) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.translate_indic_24),
-                                contentDescription = if (currentLanguage == LocaleHelper.LANGUAGE_TELUGU) "భాష మార్చు" else "Change Language",
-                                tint = Color(0xFFE91E63), // Pink/magenta color
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
 
-                        // IconButton(onClick = { showThemeBottomSheet = true }) {
-                        //     Icon(
-                        //         imageVector = Icons.Default.DarkMode,
-                        //         contentDescription = stringResource(R.string.appearance),
-                        //         tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
-                        //         modifier = Modifier.size(24.dp)
-                        //     )
-                        // }
-                        
-                        // WhatsApp Support Icon
-                        IconButton(onClick = {
-                            val whatsappNumber = "918500717800" // DutyPe support number
-                            val message = "Hello DutyPe Team! I am a worker on DutyPe and I need help with the app."
-                            val encodedMessage = java.net.URLEncoder.encode(message, "UTF-8")
-                            val whatsappUrl = "https://wa.me/$whatsappNumber?text=$encodedMessage"
-                            
-                            try {
-                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                    data = android.net.Uri.parse(whatsappUrl)
-                                    setPackage("com.whatsapp")
-                                }
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                // If WhatsApp is not installed, open in browser
-                                val browserIntent = android.content.Intent(
-                                    android.content.Intent.ACTION_VIEW,
-                                    android.net.Uri.parse(whatsappUrl)
-                                )
-                                context.startActivity(browserIntent)
-                            }
-                        }) {
-                            Icon(
-                                painter = painterResource(id = com.dutype.app.R.drawable.ic_whatsapp),
-                                contentDescription = "WhatsApp Support",
-                                tint = Color(0xFF25D366), // WhatsApp green color
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
+            val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
+            val isLoggedIn = currentUserId.isNotEmpty()
+            val hasPhoto = profileImageUri != null || !profileImageUrl.isNullOrBlank()
+            val openProfileDetails: () -> Unit = {
+                if (isLoggedIn) {
+                    rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS)
+                } else {
+                    pendingMenuAction = "profile"
+                    showLoginBottomSheet = true
                 }
-            )
-            
+            }
+            val startImagePicker: () -> Unit = {
+                if (isLoggedIn) imagePickerLauncher.launch("image/*")
+                else { pendingMenuAction = "profile"; showLoginBottomSheet = true }
+            }
+            val whatsappSupport: () -> Unit = {
+                val whatsappNumber = "918500717800" // DutyPe support number
+                val message = "Hello DutyPe Team! I am a worker on DutyPe and I need help with the app."
+                val encodedMessage = java.net.URLEncoder.encode(message, "UTF-8")
+                val whatsappUrl = "https://wa.me/$whatsappNumber?text=$encodedMessage"
+                try {
+                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                        data = android.net.Uri.parse(whatsappUrl)
+                        setPackage("com.whatsapp")
+                    }
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    // If WhatsApp is not installed, open in browser
+                    val browserIntent = android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse(whatsappUrl)
+                    )
+                    context.startActivity(browserIntent)
+                }
+            }
+
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(top = 0.dp, bottom = 100.dp)
-        ) {
-        // User Profile Card — polished hero card
-        item {
-            Spacer(modifier = Modifier.height(12.dp))
-            val isLoggedIn = currentUserId.isNotEmpty()
-
-            androidx.compose.material3.Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                color = Color.White,
-                shadowElevation = 2.dp,
-                tonalElevation = 0.dp
+                contentPadding = PaddingValues(start = 0.dp, top = 4.dp, end = 0.dp, bottom = 100.dp)
             ) {
-                Column {
-                    // Avatar row
-                    Row(
+                // HERO (flat, no card)
+                item {
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable {
-                                if (isLoggedIn) {
-                                    rootNavController.navigate(Routes.WORKER_PROFILE_DETAILS)
-                                } else {
-                                    pendingMenuAction = "profile"
-                                    showLoginBottomSheet = true
-                                }
-                            }
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(horizontal = 24.dp)
                     ) {
-                        // Profile Picture — 72dp with camera badge
-                        Box(modifier = Modifier.size(72.dp)) {
-                            when {
-                                isUploadingImage -> {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(72.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFFE0F2FE)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        if (isLoggedIn) {
+                            val authPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber ?: ""
+                            val userPhone = userStats.phone.ifBlank { personalInfo.phone }.ifBlank { authPhone }
+                            val hasName = userName.isNotBlank() && userName != "User"
+
+                            // Avatar with 3dp green ring
+                            Box(
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFF0FDF4))
+                                    .border(3.dp, Color(0xFF10B981), CircleShape)
+                                    .clickable { startImagePicker() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                when {
+                                    isUploadingImage -> {
                                         CircularProgressIndicator(
                                             modifier = Modifier.size(24.dp),
-                                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                                            color = Color(0xFF10B981),
                                             strokeWidth = 2.dp
                                         )
                                     }
-                                }
-                                profileImageUri != null -> {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(72.dp)
-                                            .clip(CircleShape)
-                                            .clickable {
-                                                if (isLoggedIn) imagePickerLauncher.launch("image/*")
-                                                else { pendingMenuAction = "profile"; showLoginBottomSheet = true }
-                                            }
-                                    ) {
+                                    profileImageUri != null -> {
                                         com.example.dutype.components.OptimizedProfileImage(
                                             imageUrl = profileImageUri.toString(),
                                             contentDescription = "Profile Picture",
                                             modifier = Modifier.fillMaxSize()
                                         )
                                     }
-                                }
-                                !profileImageUrl.isNullOrBlank() -> {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(72.dp)
-                                            .clip(CircleShape)
-                                            .clickable {
-                                                if (isLoggedIn) imagePickerLauncher.launch("image/*")
-                                                else { pendingMenuAction = "profile"; showLoginBottomSheet = true }
-                                            }
-                                    ) {
+                                    !profileImageUrl.isNullOrBlank() -> {
                                         com.example.dutype.components.OptimizedProfileImage(
                                             imageUrl = profileImageUrl,
                                             contentDescription = "Profile Picture",
                                             modifier = Modifier.fillMaxSize()
                                         )
                                     }
-                                }
-                                else -> {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(72.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(0xFFE0F2FE))
-                                            .clickable {
-                                                if (isLoggedIn) imagePickerLauncher.launch("image/*")
-                                                else { pendingMenuAction = "profile"; showLoginBottomSheet = true }
-                                            },
-                                        contentAlignment = Alignment.Center
-                                    ) {
+                                    hasName -> {
+                                        Text(
+                                            text = userName.trim().take(1).uppercase(),
+                                            style = profileTextStyle(28.sp, FontWeight.Bold, Color(0xFF10B981))
+                                        )
+                                    }
+                                    else -> {
                                         Icon(
                                             imageVector = Icons.Default.Person,
                                             contentDescription = "Default Profile",
-                                            tint = Color(0xFF9CA3AF),
-                                            modifier = Modifier.size(36.dp)
+                                            tint = Color(0xFF10B981),
+                                            modifier = Modifier.size(32.dp)
                                         )
                                     }
                                 }
                             }
-                            // Camera badge overlay
-                            if (!isUploadingImage && isLoggedIn) {
-                                Box(
-                                    modifier = Modifier
-                                        .align(Alignment.BottomEnd)
-                                        .size(22.dp)
-                                        .background(com.example.dutype.ui.theme.WorkerColors.Primary, CircleShape)
-                                        .border(1.5.dp, Color.White, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CameraAlt,
-                                        contentDescription = "Change Photo",
-                                        tint = Color.White,
-                                        modifier = Modifier.size(11.dp)
-                                    )
-                                }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            val nameText = when {
+                                hasName -> userName
+                                userPhone.isNotBlank() -> userPhone
+                                else -> stringResource(R.string.profile_set_up_profile)
                             }
-                        }
+                            Text(
+                                text = nameText,
+                                style = profileTextStyle(22.sp, FontWeight.Bold, Color(0xFF0F0F0F)),
+                                maxLines = 1,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.clickable { openProfileDetails() }
+                            )
 
-                        Spacer(modifier = Modifier.width(14.dp))
-
-                        // User info / guest CTA
-                        Column(modifier = Modifier.weight(1f)) {
-                            if (isLoggedIn) {
-                                val authPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber ?: ""
-                                val userPhone = userStats.phone.ifBlank { personalInfo.phone }.ifBlank { authPhone }
-                                val hasName = userName.isNotBlank() && userName != "User"
-
-                                if (hasName) {
-                                    Text(
-                                        text = userName,
-                                        style = com.example.dutype.ui.theme.AppTypography.pageTitle.copy(
-                                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                                        ),
-                                        maxLines = 1
-                                    )
-                                    if (userPhone.isNotBlank()) {
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = userPhone,
-                                            style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
-                                                color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
-                                            )
-                                        )
-                                    }
-                                } else {
-                                    if (userPhone.isNotBlank()) {
-                                        Text(
-                                            text = userPhone,
-                                            style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
-                                                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                                            )
-                                        )
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = stringResource(R.string.profile_tap_add_name),
-                                            style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
-                                                color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
-                                            )
-                                        )
-                                    } else {
-                                        Text(
-                                            text = stringResource(R.string.profile_set_up_profile),
-                                            style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
-                                                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                                            )
-                                        )
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = stringResource(R.string.profile_tap_add_details),
-                                            style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
-                                                color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
-                                            )
-                                        )
-                                    }
-                                }
+                            val subtitleText = if (hasName) {
+                                listOf(profileSkills.firstOrNull().orEmpty(), profileCity)
+                                    .filter { it.isNotBlank() }
+                                    .joinToString(" · ")
+                            } else if (userPhone.isNotBlank()) {
+                                stringResource(R.string.profile_tap_add_name)
                             } else {
-                                Button(
-                                    onClick = {
-                                        rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
-                                    },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = com.example.dutype.ui.theme.WorkerColors.Primary.copy(alpha = 0.08f),
-                                        contentColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                                    ),
-                                    shape = RoundedCornerShape(10.dp),
-                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-                                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
-                                    modifier = Modifier.height(48.dp)
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.profile_login_signup),
-                                        style = com.example.dutype.ui.theme.AppTypography.cardTitle.copy(
-                                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
+                                stringResource(R.string.profile_tap_add_details)
+                            }
+                            if (subtitleText.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = stringResource(R.string.profile_view_update_data),
-                                    style = com.example.dutype.ui.theme.AppTypography.bodySmall.copy(
-                                        color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
-                                    )
+                                    text = subtitleText,
+                                    style = profileTextStyle(14.sp, FontWeight.Normal, Color(0xFF64748B)),
+                                    textAlign = TextAlign.Center
                                 )
                             }
-                        }
 
-                        if (isLoggedIn) {
-                            Icon(
-                                imageVector = Icons.Default.ChevronRight,
-                                contentDescription = null,
-                                tint = com.example.dutype.ui.theme.WorkerColors.IconSecondary,
-                                modifier = Modifier.size(22.dp)
+                            val joinMillis = if (memberSinceMillis > 0L) memberSinceMillis else userStats.createdAt
+                            val hasRating = profileReviewCount > 0 && profileRating > 0.0
+                            // Rating always sits left of "Member since" (shows "No reviews yet" until rated).
+                            run {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Text(
+                                        text = if (hasRating) {
+                                            "★ " + String.format(java.util.Locale.US, "%.1f", profileRating) +
+                                                " ($profileReviewCount " + (if (profileReviewCount == 1) "review" else "reviews") + ")"
+                                        } else {
+                                            "★ No reviews yet"
+                                        },
+                                        style = profileTextStyle(13.sp, FontWeight.Normal, Color(0xFF64748B))
+                                    )
+                                    if (joinMillis > 0L) {
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(horizontal = 10.dp)
+                                                .size(3.dp)
+                                                .background(Color(0xFFCBD5E1), CircleShape)
+                                        )
+                                    }
+                                    if (joinMillis > 0L) {
+                                        val joinLabel = java.text.SimpleDateFormat("MMM yyyy", java.util.Locale.ENGLISH)
+                                            .format(java.util.Date(joinMillis))
+                                        Text(
+                                            text = "Member since $joinLabel",
+                                            style = profileTextStyle(11.sp, FontWeight.Normal, Color(0xFF94A3B8))
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            // Guest mode: login CTA inside the same hero card
+                            Box(
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFF0FDF4))
+                                    .border(3.dp, Color(0xFF10B981), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Default Profile",
+                                    tint = Color(0xFF10B981),
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Button(
+                                onClick = {
+                                    rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF0F0F0F),
+                                    contentColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                                modifier = Modifier.height(44.dp)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.profile_login_signup),
+                                    style = profileTextStyle(15.sp, FontWeight.SemiBold, Color.White)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = stringResource(R.string.profile_view_update_data),
+                                style = profileTextStyle(14.sp, FontWeight.Normal, Color(0xFF64748B)),
+                                textAlign = TextAlign.Center
                             )
                         }
                     }
-
-
+                    }
                 }
-            }
-        }
-        
-        // My Activity Section
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.profile_my_activity),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A),
-                    fontSize = 16.sp
-                ),
-                modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
-            )
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(0.6.dp, Color(0xFFE2E8F0))
-            ) {
-                Column {
-                    MeeshoMenuItem(
-                        icon = Icons.Outlined.Description,
-                        title = stringResource(R.string.my_applications),
-                        iconColor = Color(0xFF2563EB),
-                        onClick = { 
-                            if (currentUserId.isEmpty()) {
+
+                // COMPLETENESS CARD
+                val pct = completionPercent
+                if (isLoggedIn && pct != null && pct < 100) {
+                    item {
+                        ProfileCompletenessCard(
+                            percent = pct.coerceIn(0, 100),
+                            hint = when {
+                                !hasPhoto -> "Add profile photo to reach 100%"
+                                profileSkills.isEmpty() -> "Add your skills to reach 100%"
+                                profileCity.isBlank() -> "Add your city to reach 100%"
+                                else -> "Complete your profile to reach 100%"
+                            },
+                            onAdd = openProfileDetails
+                        )
+                    }
+                }
+
+                // SETTINGS LIST CARD (mockup: exactly 5 rows)
+                item {
+                    ProfileSettingsCard(
+                        onEditProfile = openProfileDetails,
+                        onWorkHistory = {
+                            if (isLoggedIn) {
+                                localNavController?.navigate(Routes.WORKER_HISTORY) ?: rootNavController.navigate(Routes.WORKER_HISTORY)
+                            } else {
                                 pendingMenuAction = "applications"
                                 showLoginBottomSheet = true
-                            } else {
-                                localNavController?.navigate(Routes.WORKER_HISTORY) ?: rootNavController.navigate(Routes.WORKER_HISTORY) 
                             }
-                        }
-                    )
-                    
-                    HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
-
-                    MeeshoMenuItem(
-                        icon = Icons.Outlined.Star,
-                        title = stringResource(R.string.my_earnings),
-                        iconColor = Color(0xFF10B981),
-                        onClick = { 
-                            if (currentUserId.isEmpty()) {
+                        },
+                        onEarnings = {
+                            if (isLoggedIn) {
+                                localNavController?.navigate(Routes.WORKER_EARNINGS) ?: rootNavController.navigate(Routes.WORKER_EARNINGS)
+                            } else {
                                 pendingMenuAction = "earnings"
                                 showLoginBottomSheet = true
-                            } else {
-                                localNavController?.navigate(Routes.WORKER_EARNINGS) ?: rootNavController.navigate(Routes.WORKER_EARNINGS) 
                             }
-                        }
-                    )
-                }
-            }
-        }
-        
-        // Rewards Section
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = stringResource(R.string.profile_rewards),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A),
-                    fontSize = 16.sp
-                ),
-                modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
-            )
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(0.6.dp, Color(0xFFE2E8F0))
-            ) {
-                Column {
-                    MeeshoMenuItem(
-                        icon = Icons.Outlined.CardGiftcard,
-                        title = stringResource(R.string.refer_earn),
-                        badgeText = stringResource(R.string.profile_badge_new),
-                        iconColor = Color(0xFF8B5CF6),
-                        onClick = { 
-                            if (currentUserId.isNotEmpty()) {
+                        },
+                        onReferEarn = {
+                            if (isLoggedIn) {
                                 localNavController?.navigate(Routes.WORKER_REFER_EARN) ?: rootNavController.navigate(Routes.WORKER_REFER_EARN)
                             } else {
                                 pendingMenuAction = "refer_earn"
                                 showLoginBottomSheet = true
                             }
-                        }
+                        },
+                        onRateApp = { openPlayStoreListing(context) },
+                        onJoinCommunity = { openWhatsAppCommunity(context) },
+                        onHelp = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) },
+                        onSettings = { rootNavController.navigate(Routes.SETTINGS) },
+                        isTelugu = isTelugu
                     )
                 }
-            }
-        }
-        
-        // Support Section
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "సపోర్ట్" else "Support",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A),
-                    fontSize = 16.sp
-                ),
-                modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
-            )
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(0.6.dp, Color(0xFFE2E8F0))
-            ) {
-                Column {
-                    MeeshoMenuItem(
-                        icon = Icons.Outlined.Phone,
-                        title = stringResource(R.string.help_faqs),
-                        iconColor = Color(0xFF0EA5E9),
-                        onClick = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) }
-                    )
 
-                    HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
-
-                    MeeshoMenuItem(
-                        icon = Icons.Outlined.Info,
-                        title = stringResource(R.string.about_us),
-                        iconColor = Color(0xFF6366F1),
-                        onClick = { localNavController?.navigate(Routes.ABOUT_US) ?: rootNavController.navigate(Routes.ABOUT_US) }
-                    )
-
-                    HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
-
-                    MeeshoMenuItem(
-                        icon = Icons.Outlined.Settings,
-                        title = if (LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU) "సెట్టింగ్‌లు" else "Settings",
-                        iconColor = Color(0xFF64748B),
-                        onClick = { rootNavController.navigate(Routes.SETTINGS) }
-                    )
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
                 }
             }
-        }
-
-        // Community Section
-        item {
-            val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = if (isTelugu) "కమ్యూనిటీ" else "Community",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A),
-                    fontSize = 16.sp
-                ),
-                modifier = Modifier.padding(start = 20.dp, bottom = 6.dp)
-            )
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                border = BorderStroke(0.6.dp, Color(0xFFE2E8F0))
-            ) {
-                Column {
-                    MeeshoMenuItem(
-                        icon = Icons.Outlined.Star,
-                        title = if (isTelugu) "ప్లే స్టోర్‌లో రేటింగ్ ఇవ్వండి (5★)" else "Rate DutyPe on Play Store (5★)",
-                        iconColor = Color(0xFFF59E0B),
-                        onClick = {
-                            val inAppReviewManager = com.example.dutype.utils.InAppReviewManager(context)
-                            inAppReviewManager.openPlayStore(context)
-                        }
-                    )
-
-                    HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp)
-
-                    MeeshoMenuItem(
-                        icon = Icons.AutoMirrored.Filled.Chat,
-                        title = if (isTelugu) "డ్యూటీపే జాబ్స్ వాట్సాప్ గ్రూప్" else "Join DutyPe Jobs Group",
-                        iconColor = Color(0xFF25D366),
-                        onClick = {
-                            val whatsAppGroupUrl = "https://chat.whatsapp.com/ITnhw0jk2G0I9TNlDCaNQI?s=cl&p=a&ilr=4"
-                            try {
-                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(whatsAppGroupUrl)).apply {
-                                    setPackage("com.whatsapp")
-                                }
-                                context.startActivity(intent)
-                            } catch (_: Exception) {
-                                try {
-                                    val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(whatsAppGroupUrl))
-                                    context.startActivity(browserIntent)
-                                } catch (_: Exception) {
-                                    android.widget.Toast.makeText(context, "Unable to open WhatsApp link", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }
-                    )
-                }
-            }
-        }
-        
-        item {
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-        }
     }
     } // End of else block for loading check
 
@@ -972,18 +809,6 @@ fun WorkerProfileScreen(
         )
     }
 
-    if (showLogoutDialog) {
-        ProfessionalLogoutDialog(
-            isVisible = showLogoutDialog,
-            onDismiss = { showLogoutDialog = false },
-            navController = rootNavController,
-            userRole = "Worker",
-            authManager = authManager,
-            profileCompletionViewModel = profileCompletionViewModel,
-            scope = scope
-        )
-    }
-
     if (showAccountDeletionDialog) {
         com.example.dutype.components.AccountDeletionDialog(
             isVisible = showAccountDeletionDialog,
@@ -1003,13 +828,6 @@ fun WorkerProfileScreen(
         userRole = "worker"
     )
     
-    // Language Selection Bottom Sheet
-    if (showLanguageBottomSheet) {
-        com.example.dutype.components.LanguageSelectionBottomSheet(
-            onDismiss = { showLanguageBottomSheet = false }
-        )
-    }
-
     // if (showThemeBottomSheet) {
     //     val themeSheetState = androidx.compose.material3.rememberModalBottomSheetState(
     //         skipPartiallyExpanded = true
@@ -1092,7 +910,7 @@ private fun ModernEditDialog(
                 .fillMaxHeight(0.8f)    
                 .padding(16.dp),
             shape = RoundedCornerShape(0.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -1286,6 +1104,178 @@ private fun ModernEditDialog(
 // ============================================
 // MEESHO-STYLE COMPONENTS
 // ============================================
+
+@Composable
+private fun profileTextStyle(size: TextUnit, weight: FontWeight, color: Color) =
+    MaterialTheme.typography.bodyMedium.copy(
+        fontSize = size,
+        fontWeight = weight,
+        color = color,
+        lineHeight = TextUnit.Unspecified,
+        letterSpacing = 0.sp
+    )
+
+@Composable
+private fun ProfileListRow(
+    title: String,
+    onClick: () -> Unit,
+    icon: ImageVector? = null,
+    iconRes: Int? = null,
+    showStars: Boolean = false
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (iconRes != null) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                tint = Color.Unspecified,
+                modifier = Modifier.size(20.dp)
+            )
+        } else if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color(0xFF0F0F0F),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = title,
+            style = profileTextStyle(15.sp, FontWeight.SemiBold, Color(0xFF0F0F0F)),
+            maxLines = 1,
+            modifier = Modifier.weight(1f)
+        )
+        if (showStars) {
+            Text(
+                text = "\u2605\u2605\u2605\u2605\u2605",
+                style = profileTextStyle(11.sp, FontWeight.Normal, Color(0xFFF59E0B))
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+        Text(
+            text = "\u203A",
+            style = profileTextStyle(16.sp, FontWeight.Normal, Color(0xFF94A3B8))
+        )
+    }
+}
+
+@Composable
+private fun ProfileCompletenessCard(percent: Int, hint: String, onAdd: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 24.dp, top = 4.dp, end = 24.dp, bottom = 8.dp)
+    ) {
+        Text(
+            text = "Profile $percent% complete",
+            style = profileTextStyle(14.sp, FontWeight.Medium, Color(0xFF0F0F0F))
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(Color(0xFFE2E8F0))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(percent / 100f)
+                    .fillMaxHeight()
+                    .background(Color(0xFF10B981))
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = hint,
+                style = profileTextStyle(12.sp, FontWeight.Normal, Color(0xFF64748B)),
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = "Add \u2192",
+                style = profileTextStyle(12.sp, FontWeight.SemiBold, Color(0xFF10B981)),
+                modifier = Modifier.clickable(onClick = onAdd)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProfileSettingsCard(
+    onEditProfile: () -> Unit,
+    onWorkHistory: () -> Unit,
+    onEarnings: () -> Unit,
+    onReferEarn: () -> Unit,
+    onRateApp: () -> Unit,
+    onJoinCommunity: () -> Unit,
+    onHelp: () -> Unit,
+    onSettings: () -> Unit,
+    isTelugu: Boolean
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .padding(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 0.dp)
+    ) {
+        ProfileListRow(title = stringResource(R.string.edit_profile), onClick = onEditProfile, iconRes = R.drawable.ic_profile_person)
+        ProfileRowDivider()
+        ProfileListRow(title = "Work History", onClick = onWorkHistory, iconRes = R.drawable.ic_profile_history)
+        ProfileRowDivider()
+        ProfileListRow(title = "My Earnings", onClick = onEarnings, iconRes = R.drawable.ic_profile_wallet)
+        ProfileRowDivider()
+        ProfileListRow(title = stringResource(R.string.refer_earn), onClick = onReferEarn, iconRes = R.drawable.ic_profile_gift)
+        ProfileRowDivider()
+        ProfileListRow(title = "Rate DutyPe on Play Store", onClick = onRateApp, iconRes = R.drawable.ic_profile_star, showStars = true)
+        ProfileRowDivider()
+        ProfileListRow(title = "Join WhatsApp Community", onClick = onJoinCommunity, iconRes = R.drawable.ic_profile_message)
+        ProfileRowDivider()
+        ProfileListRow(title = "Help & FAQ", onClick = onHelp, iconRes = R.drawable.ic_profile_help)
+        ProfileRowDivider()
+        ProfileListRow(title = if (isTelugu) "సెట్టింగ్‌లు" else "Settings", onClick = onSettings, iconRes = R.drawable.ic_profile_settings)
+    }
+}
+
+// TODO: replace with the real community invite if this one changes.
+private const val WHATSAPP_COMMUNITY_URL = "https://chat.whatsapp.com/ITnhw0jk2G0I9TNlDCaNQI?s=cl&p=a&ilr=4"
+private const val PLAY_STORE_PACKAGE = "com.dutype.app"
+
+private fun openPlayStoreListing(context: android.content.Context) {
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$PLAY_STORE_PACKAGE")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (e: android.content.ActivityNotFoundException) {
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$PLAY_STORE_PACKAGE")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e2: Exception) {
+            Timber.e(e2, "Unable to open Play Store")
+        }
+    }
+}
+
+private fun openWhatsAppCommunity(context: android.content.Context) {
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(WHATSAPP_COMMUNITY_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (e: Exception) {
+        Timber.e(e, "Unable to open WhatsApp community")
+    }
+}
+
+@Composable
+private fun ProfileRowDivider() {
+    HorizontalDivider(thickness = 1.dp, color = Color(0xFFF1F5F9))
+}
 
 /**
  * Clean lightweight profile menu item — plain outline icon, no background circle

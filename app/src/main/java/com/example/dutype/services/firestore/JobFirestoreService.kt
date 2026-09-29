@@ -182,6 +182,7 @@ class JobFirestoreService @Inject constructor(
             "title" to normalizeString(data["title"]),
             "location" to mapOf("lat" to latitude, "lng" to longitude),
             "geohash" to normalizeString(data["geohash"]),
+            "urgency" to normalizeString(data["urgency"]).uppercase().ifBlank { "MEDIUM" },
             "salary" to salary,
             "salaryType" to salaryType,
             "jobType" to summaryJobType(data),

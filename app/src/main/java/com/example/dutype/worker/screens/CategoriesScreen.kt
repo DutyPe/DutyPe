@@ -345,26 +345,18 @@ private fun JobsListSection(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 100.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 itemsIndexed(
                     items = jobs,
                     key = { index, job -> "${selectedCategory}_${job.id.ifBlank { "job" }}_$index" }
                 ) { _, job ->
-                    JobCard(
+                    // Same card as Home and Find Jobs so every job list looks identical.
+                    com.example.dutype.worker.components.WorkerHomeJobCard(
                         job = job,
-                        isSaved = job.isSaved,
                         onCardClick = { jobId ->
                             navController.navigate(Routes.jobDetailRoute(jobId))
-                        },
-                        onSaveClick = { jobId ->
-                            val currentlySaved = job.isSaved
-                            if (currentlySaved) {
-                                savedJobsViewModel.unsaveJob(jobId)
-                            } else {
-                                savedJobsViewModel.saveJob(jobId)
-                            }
                         }
                     )
                 }

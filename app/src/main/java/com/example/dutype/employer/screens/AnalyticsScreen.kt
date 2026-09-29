@@ -2,6 +2,10 @@ package com.example.dutype.employer.screens
 
 import com.dutype.app.R
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -82,88 +86,255 @@ private fun InstantRequest.toJobListing(): JobListing {
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val HiBg = Color(0xFFF8FAFC)
+private val HiInk = Color(0xFF0F172A)
+private val HiBlack = Color(0xFF0F0F0F)
+private val HiBorder = Color(0xFFE2E8F0)
+private val HiMuted = Color(0xFF94A3B8)
+private val HiGreen = Color(0xFF10B981)
+private val HiRanges = listOf("This Week", "This Month", "3 Months")
+private val HiRangeDays = listOf(7, 30, 90)
+private val HiDays = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+// PLACEHOLDER scale used when there is no application data yet (mock design values)
+private val HiMockBars = listOf(70f, 96f, 58f, 140f, 110f, 44f, 32f)
+
 @Composable
 fun AnalyticsScreen(navController: NavController) {
     val viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    
-    // Get application statistics
+
     val applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
-    val appStats by applicationViewModel.stats.collectAsStateWithLifecycle()
     val appUiState by applicationViewModel.uiState.collectAsStateWithLifecycle()
 
-    // Get instant request statistics
     val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
-    val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
-    
-    val urgentRequests = instantHelpState.employerInstantRequests
-    
-    // Calculate stats directly from JobListing + InstantRequest
-    val activeJobs = uiState.myJobs.count { it.status == "open" } + urgentRequests.count { it.status == "open" }
-    val totalJobs = uiState.myJobs.size + urgentRequests.size
-    val todayJobs = uiState.myJobs.count { DateTimeUtils.isToday(it.createdAt) } + urgentRequests.count { DateTimeUtils.isToday(it.createdAt) }
-    val totalApplications = appStats.totalApplications
-    
-    val jobStats = JobStats(
-        activeJobs = activeJobs,
-        totalApplications = totalApplications,
-        todayJobs = todayJobs,
-        totalJobs = totalJobs
-    )
 
-    val combinedJobs = (uiState.myJobs + urgentRequests.map { it.toJobListing() })
-        .sortedByDescending { it.createdAt }
-
-    // Load applications data when screen loads.
     LaunchedEffect(Unit) {
         viewModel.loadMyJobs()
         applicationViewModel.loadEmployerApplications()
         instantHelpViewModel.loadEmployerUrgentNeeds()
     }
 
+    var rangeIndex by rememberSaveable { mutableStateOf(0) }
+    val selected = rangeIndex
+    val cutoff = System.currentTimeMillis() - HiRangeDays[selected] * 86_400_000L
+    val inRange = appUiState.applications.filter { it.createdAt >= cutoff }
+    val applicationsCount = inRange.size
+    val hiredCount = inRange.count { it.status == ApplicationStatus.HIRED }
+    val weekdayCounts = hiWeekdayCounts(inRange)
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
+            .background(HiBg)
+            .statusBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp)
     ) {
-        // Common Header
-        CommonHeader(
-            title = stringResource(R.string.analytics_dashboard),
-            navController = navController
+        HiTitleRow(navController)
+        Spacer(modifier = Modifier.height(16.dp))
+        HiFilterChips(selected = selected, onSelect = { rangeIndex = it })
+        Spacer(modifier = Modifier.height(20.dp))
+        HiKpiGrid(applications = applicationsCount, hired = hiredCount)
+        Spacer(modifier = Modifier.height(16.dp))
+        HiBarChartCard(counts = weekdayCounts)
+        Spacer(modifier = Modifier.height(16.dp))
+        HiInsightCard()
+    }
+}
+
+private fun hiWeekdayCounts(apps: List<JobApplication>): List<Int> {
+    val counts = IntArray(7)
+    val cal = Calendar.getInstance()
+    apps.forEach {
+        cal.timeInMillis = it.createdAt
+        val idx = (cal.get(Calendar.DAY_OF_WEEK) + 5) % 7
+        counts[idx] = counts[idx] + 1
+    }
+    return counts.toList()
+}
+
+@Composable
+private fun HiTitleRow(navController: NavController) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = Icons.Default.ArrowBack,
+            contentDescription = "Back",
+            tint = HiInk,
+            modifier = Modifier
+                .size(24.dp)
+                .clickable { navController.popBackStack() }
         )
-        
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Overview Stats Grid
-            item {
-                OverviewStatsSection(
-                    jobStats = jobStats,
-                    activeJobs = activeJobs,
-                )
-            }
-            
-            // Application Stats Section
-            item {
-                ApplicationStatsCard(appStats = appStats)
-            }
-            
-            // Recent Applications Section
-            item {
-                RecentApplicationsSection(
-                    applications = appUiState.applications,
-                    navController = navController
-                )
-            }
-            
-            // Recent Jobs Activity
-            item {
-                RecentJobsActivitySection(jobs = combinedJobs)
-            }
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = "Hiring Insights",
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = HiInk
+        )
+    }
+}
+
+@Composable
+private fun HiFilterChips(selected: Int, onSelect: (Int) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        HiRanges.forEachIndexed { index, label ->
+            HiChip(label = label, active = index == selected, onClick = { onSelect(index) })
         }
+    }
+}
+
+@Composable
+private fun HiChip(label: String, active: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(18.dp)
+    val base = Modifier
+        .height(36.dp)
+        .clip(shape)
+        .background(if (active) HiBlack else Color.White, shape)
+    val bordered = if (active) base else base.border(1.dp, HiBorder, shape)
+    Box(
+        modifier = bordered
+            .clickable { onClick() }
+            .padding(start = 16.dp, end = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (active) Color.White else HiInk
+        )
+    }
+}
+
+@Composable
+private fun HiKpiGrid(applications: Int, hired: Int) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // PLACEHOLDER: job views are not tracked yet
+            HiKpiCard("Job Views", "1,240", "↑ 12%", Modifier.weight(1f))
+            // Real count; delta is a placeholder
+            HiKpiCard("Applications", applications.toString(), "↑ 8%", Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Real count; delta is a placeholder
+            HiKpiCard("Workers Hired", hired.toString(), "↑ 5%", Modifier.weight(1f))
+            // PLACEHOLDER: response time is not tracked yet
+            HiKpiCard("Avg Response", "18 min", "↓ Better", Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun HiKpiCard(label: String, value: String, delta: String, modifier: Modifier) {
+    val shape = RoundedCornerShape(12.dp)
+    Column(
+        modifier = modifier
+            .background(Color.White, shape)
+            .border(1.dp, HiBorder, shape)
+            .padding(16.dp)
+    ) {
+        Text(text = label, fontSize = 11.sp, color = HiMuted)
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(text = value, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = HiBlack)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(text = delta, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = HiGreen)
+    }
+}
+
+@Composable
+private fun HiBarChartCard(counts: List<Int>) {
+    val shape = RoundedCornerShape(16.dp)
+    val maxCount = counts.maxOrNull() ?: 0
+    val heights: List<Float> = if (maxCount <= 0) {
+        HiMockBars
+    } else {
+        counts.map { maxOf(4f, it.toFloat() / maxCount * 140f) }
+    }
+    val maxIndex = heights.indexOf(heights.maxOrNull() ?: 0f)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White, shape)
+            .border(1.dp, HiBorder, shape)
+            .padding(20.dp)
+    ) {
+        Text(
+            text = "Weekly Applications",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = HiBlack
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        HiBars(heights = heights, highlight = maxIndex)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(HiBorder)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        HiBarLabels()
+    }
+}
+
+@Composable
+private fun HiBars(heights: List<Float>, highlight: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(150.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        heights.forEachIndexed { index, h ->
+            Box(
+                modifier = Modifier
+                    .width(24.dp)
+                    .height(h.dp)
+                    .background(
+                        if (index == highlight) HiInk else HiBorder,
+                        RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
+                    )
+            )
+        }
+    }
+}
+
+@Composable
+private fun HiBarLabels() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        HiDays.forEach { day ->
+            Text(
+                text = day,
+                modifier = Modifier.width(24.dp),
+                fontSize = 11.sp,
+                color = HiMuted,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                softWrap = false
+            )
+        }
+    }
+}
+
+@Composable
+private fun HiInsightCard() {
+    val shape = RoundedCornerShape(12.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFEFF6FF), shape)
+            .border(1.dp, Color(0xFFBFDBFE), shape)
+            .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 14.dp)
+    ) {
+        Text(
+            text = "💡 Post urgent needs before 9 AM for 2× faster responses",
+            fontSize = 13.sp,
+            color = Color(0xFF1D4ED8)
+        )
     }
 }
 
@@ -298,7 +469,7 @@ fun RecentApplicationsSection(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -375,7 +546,7 @@ fun RecentJobsActivitySection(jobs: List<JobListing>) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -614,7 +785,7 @@ fun RecentApplicationItem(
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = EmployerColors.ChipBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),

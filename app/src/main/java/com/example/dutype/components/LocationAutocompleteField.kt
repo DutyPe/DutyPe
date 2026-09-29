@@ -14,6 +14,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import com.example.dutype.ui.theme.WorkerColors
 import kotlinx.coroutines.delay
@@ -33,6 +35,7 @@ import timber.log.Timber
  * @param enabled Whether the field is enabled
  * @param singleLine Whether to show single line
  * @param maxLines Maximum number of lines
+ * @param autoDetectOnStart When true, invokes onCurrentLocationClick once on first composition
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,8 +52,16 @@ fun LocationAutocompleteField(
     maxLines: Int = 1,
     colors: TextFieldColors = OutlinedTextFieldDefaults.colors(),
     showCurrentLocationButton: Boolean = false,
-    onCurrentLocationClick: (() -> Unit)? = null
+    onCurrentLocationClick: (() -> Unit)? = null,
+    shape: Shape = OutlinedTextFieldDefaults.shape,
+    leadingIcon: ImageVector = Icons.Default.Search,
+    autoDetectOnStart: Boolean = false
 ) {
+    // Optionally trigger the detect callback once on first composition
+    LaunchedEffect(Unit) {
+        if (autoDetectOnStart) onCurrentLocationClick?.invoke()
+    }
+
     // Autocomplete state
     var placeSuggestions by remember { mutableStateOf<List<com.example.dutype.models.PlaceSuggestion>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
@@ -91,6 +102,7 @@ fun LocationAutocompleteField(
             singleLine = singleLine,
             maxLines = maxLines,
             enabled = enabled,
+            shape = shape,
             modifier = Modifier.fillMaxWidth(),
             leadingIcon = {
                 if (isSearching) {
@@ -100,7 +112,7 @@ fun LocationAutocompleteField(
                     )
                 } else {
                     Icon(
-                        Icons.Default.Search,
+                        leadingIcon,
                         contentDescription = "Search",
                         tint = WorkerColors.TextSecondary
                     )

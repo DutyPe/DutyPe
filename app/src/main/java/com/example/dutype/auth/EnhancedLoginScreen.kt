@@ -58,6 +58,7 @@ import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.FirestoreUtils
 import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.ValidationUtils
+import com.example.dutype.utils.isDebuggableBuild
 import com.example.dutype.viewmodels.OtpViewModel
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -68,10 +69,12 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.animateFloat
+import com.example.dutype.ui.theme.WorkerColors
 
-private val BrandBluePrimary = Color(0xFF2563EB)
-private val BrandBlueLight = Color(0xFFEFF6FF)
-private val BrandBlueBorder = Color(0xFFBFDBFE)
+private val BrandBluePrimary = Color(0xFF0F0F0F)
+private val BrandBlueLight = Color(0xFFF8FAFC)
+private val BrandBlueBorder = Color(0xFFE2E8F0)
+private val BrandEmeraldAccent = Color(0xFF10B981)
 private val Ink900 = Color(0xFF0F172A)
 private val Ink600 = Color(0xFF475569)
 private val Ink400 = Color(0xFF94A3B8)
@@ -258,128 +261,55 @@ private fun OtpLoginScreen(
             )
         }
     } else {
-        // Clean, Seamless Single-Page Design (M3 Container, vertically centered content)
+        // Phone-entry screen — matches the Stitch design spec pixel-for-pixel:
+        // title, subtitle, flag+code input, Send OTP pill, "or" divider,
+        // Continue with Google, and the Terms/Privacy footer pinned to the bottom.
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .background(Color.White)
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .padding(horizontal = 24.dp)
         ) {
-            // Top Action Header Bar: Back Arrow | WhatsApp Help & Language Chip (Anchored Top)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.TopCenter),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { safeAuthBackNavigation(navController) },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.onBackground
-                    )
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-
-                    // WhatsApp Help Button
-                    Surface(
-                        onClick = {
-                            val whatsappUrl = "https://wa.me/918500717800?text=Hello%20DutyPe%20Team!%20I%20need%20help%20logging%20in."
-                            try {
-                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                    data = android.net.Uri.parse(whatsappUrl)
-                                    setPackage("com.whatsapp")
-                                }
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                val browserIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(whatsappUrl))
-                                context.startActivity(browserIntent)
-                            }
-                        },
-                        shape = RoundedCornerShape(20.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, CardBorder)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                painter = painterResource(id = R.drawable.ic_whatsapp),
-                                contentDescription = null,
-                                tint = Color(0xFF25D366),
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = stringResource(R.string.auth_help),
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Main Vertically Centered Content Block
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.Center)
+                    .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(top = 48.dp, bottom = 24.dp),
-                horizontalAlignment = Alignment.Start
+                    .padding(bottom = 132.dp)
             ) {
+                Spacer(modifier = Modifier.height(40.dp))
+
                 // Title & Subtitle Hero Block
                 Text(
-                    text = stringResource(R.string.auth_welcome_back),
+                    text = "Enter your mobile number",
                     style = MaterialTheme.typography.headlineMedium.copy(
-                        fontSize = 28.sp,
+                        fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
+                        color = Ink900
                     )
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = stringResource(R.string.auth_sign_in_subtitle),
+                    text = "We'll send a 6-digit OTP",
                     style = MaterialTheme.typography.bodyLarge.copy(
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = Ink600,
                         fontSize = 15.sp
                     )
                 )
 
                 Spacer(modifier = Modifier.height(28.dp))
 
-                // Inline Input Section (Part of the screen, no elevated card box)
-                Text(
-                    text = stringResource(R.string.auth_mobile_number),
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Outlined Phone Number Box with Blue Accent Border
+                // Outlined Phone Number Box: 🇮🇳 flag | +91 | divider | number
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(14.dp),
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
                     color = Color.White,
-                    border = BorderStroke(1.5.dp, if (phoneNumber.isNotEmpty()) BrandBluePrimary else BrandBlueBorder)
+                    border = BorderStroke(if (phoneNumber.isNotEmpty()) 2.dp else 1.dp, if (phoneNumber.isNotEmpty()) BrandBluePrimary else BrandBlueBorder)
                 ) {
                     Row(
                         modifier = Modifier
@@ -387,28 +317,20 @@ private fun OtpLoginScreen(
                             .padding(horizontal = 14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Call,
-                            contentDescription = null,
-                            tint = BrandBluePrimary,
-                            modifier = Modifier.size(18.dp)
+                        Text(
+                            text = "🇮🇳",
+                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = selectedCountryCode,
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
+                                fontSize = 17.sp,
                                 color = Ink900
                             )
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Icon(
-                            imageVector = Icons.Default.KeyboardArrowDown,
-                            contentDescription = null,
-                            tint = Ink600,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
 
                         Box(
                             modifier = Modifier
@@ -485,7 +407,10 @@ private fun OtpLoginScreen(
                             try {
                                 val phoneCheck = FirestoreUtils.checkPhoneForRole(
                                     phoneNumber = fullPhoneNumber,
-                                    requestedRole = role.name
+                                    requestedRole = role.name,
+                                    // Login: if the legacy fallback is slow, still send the OTP;
+                                    // AuthFlowService.resolveLogin enforces role conflicts after sign-in.
+                                    assumeRegisteredWhenFallbackSlow = true
                                 )
                                 when (phoneCheck.exists) {
                                     FirestoreUtils.PhoneExistenceResult.NOT_EXISTS -> {
@@ -537,9 +462,9 @@ private fun OtpLoginScreen(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
+                        .height(56.dp),
                     enabled = buttonEnabled,
-                    shape = RoundedCornerShape(26.dp),
+                    shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = BrandBluePrimary,
                         contentColor = Color.White,
@@ -559,7 +484,7 @@ private fun OtpLoginScreen(
                         ) {
                             Box(modifier = Modifier.size(18.dp)) // Empty space balancer
                             Text(
-                                text = stringResource(R.string.auth_send_otp),
+                                text = "Send OTP",
                                 style = MaterialTheme.typography.labelLarge.copy(
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
@@ -576,9 +501,145 @@ private fun OtpLoginScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(28.dp))
+                // DEV-ONLY: Skip OTP and jump straight to the role's home screen.
+                // Only rendered in debuggable builds (never shows in a release/Play build).
+                // This bypasses real Firebase Auth, so anything reading FirebaseAuth's
+                // currentUser downstream may behave as "not logged in" - it's a UI/navigation
+                // shortcut for testing screens, not a real sign-in.
+                if (LocalContext.current.isDebuggableBuild()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = { navigateToHome(role, navController) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = WorkerColors.TextSecondary
+                        ),
+                        border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                    ) {
+                        Text(
+                            text = "Skip (Dev) → ${role.name} home",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        )
+                    }
+                }
 
-                // Footer Registration Navigation
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // "or" divider
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(1.dp)
+                            .background(CardBorder)
+                    )
+                    Text(
+                        text = "or",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Ink600),
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(1.dp)
+                            .background(CardBorder)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Continue with Google
+                OutlinedButton(
+                    onClick = {
+                        Toast.makeText(
+                            context,
+                            "Google sign-in is coming soon",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(28.dp),
+                    border = BorderStroke(1.dp, CardBorder),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink900)
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_google),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Continue with Google",
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Ink900
+                        )
+                    )
+                }
+
+            }
+
+            // Terms & Privacy footer + Register link, pinned to the bottom of the
+            // screen (not inside the scrollable column — a scrollable Column can't
+            // also use weight()/fill-to-bottom, so this is a sibling anchored here).
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
+            ) {
+                val termsAnnotated = buildAnnotatedString {
+                    append("By continuing, you agree to our ")
+                    pushStringAnnotation(tag = "TERMS", annotation = "terms")
+                    withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
+                        append("Terms")
+                    }
+                    pop()
+                    append(" & ")
+                    pushStringAnnotation(tag = "PRIVACY", annotation = "privacy")
+                    withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
+                        append("Privacy Policy")
+                    }
+                    pop()
+                }
+                androidx.compose.foundation.text.ClickableText(
+                    text = termsAnnotated,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Ink600,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = { offset ->
+                        termsAnnotated.getStringAnnotations(tag = "TERMS", start = offset, end = offset)
+                            .firstOrNull()?.let {
+                                navController.navigate(Routes.TERMS_OF_SERVICE)
+                            }
+                        termsAnnotated.getStringAnnotations(tag = "PRIVACY", start = offset, end = offset)
+                            .firstOrNull()?.let {
+                                navController.navigate(Routes.PRIVACY_POLICY)
+                            }
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Footer Registration Navigation — kept off the main mockup but
+                // necessary so a phone number that comes back "not registered"
+                // (see the toast above) still has somewhere to go.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
@@ -586,7 +647,7 @@ private fun OtpLoginScreen(
                 ) {
                     Text(
                         text = stringResource(R.string.auth_dont_have_account),
-                        style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Ink600)
                     )
                     TextButton(
                         onClick = {
@@ -605,8 +666,6 @@ private fun OtpLoginScreen(
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -648,28 +707,39 @@ private fun OtpInputSection(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.Start
     ) {
+        // Back arrow, top-left — matches the Stitch design spec exactly
+        IconButton(
+            onClick = onBackClick,
+            modifier = Modifier.size(40.dp)
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = Ink900
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         Text(
-            text = stringResource(R.string.auth_enter_otp),
+            text = "Verify your number",
             style = MaterialTheme.typography.titleLarge.copy(
-                fontSize = 22.sp,
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
+                color = Ink900
             )
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        val enterSmsCodePrefix = stringResource(R.string.auth_enter_sms_code)
-        val changeNumberText = stringResource(R.string.auth_change_number)
+        // "+91 98765 43210 · Change number"
+        val changeNumberText = "Change number"
 
         val annotatedText = buildAnnotatedString {
-            append(enterSmsCodePrefix)
-            withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground)) {
-                append("+91 $phoneNumber")
-            }
-            append("  ")
+            append("+91 $phoneNumber")
+            append("  ·  ")
             pushStringAnnotation(tag = "CHANGE", annotation = "change")
-            withStyle(SpanStyle(color = BrandBluePrimary, fontWeight = FontWeight.Bold, textDecoration = TextDecoration.Underline)) {
+            withStyle(SpanStyle(color = BrandBluePrimary, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
                 append(changeNumberText)
             }
             pop()
@@ -677,7 +747,7 @@ private fun OtpInputSection(
 
         androidx.compose.foundation.text.ClickableText(
             text = annotatedText,
-            style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant),
+            style = MaterialTheme.typography.bodyMedium.copy(color = Ink600, fontSize = 14.sp),
             modifier = Modifier.fillMaxWidth(),
             onClick = { offset ->
                 annotatedText.getStringAnnotations(tag = "CHANGE", start = offset, end = offset)
@@ -687,10 +757,7 @@ private fun OtpInputSection(
             }
         )
 
-        Spacer(modifier = Modifier.height(28.dp))
-
-
-        // ────────────────────────────────────────────────────────────────────
+        Spacer(modifier = Modifier.height(32.dp))
 
         // Clean 6-Digit OTP Box Layout
         AuthOtpBoxes(
@@ -699,55 +766,23 @@ private fun OtpInputSection(
             digitCount = 6
         )
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // Verify OTP Button
-        Button(
-            onClick = onVerifyClick,
-            enabled = otpValue.length == 6 && !otpState.isLoading,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = BrandBluePrimary,
-                contentColor = Color.White,
-                disabledContainerColor = Color(0xFFE2E8F0),
-                disabledContentColor = Color(0xFF475569)
-            )
-        ) {
-            if (otpState.isLoading) {
-                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
-            } else {
-                Text(
-                    text = stringResource(R.string.auth_verify_otp),
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (otpValue.length == 6 && !otpState.isLoading) Color.White else Color(0xFF475569)
-                    )
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // Resend OTP Row with Timer
+        // Resend OTP line — single centered line, exactly as in the design spec:
+        // "Resend OTP in 0:28" while cooling down, tappable "Resend OTP" after.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = stringResource(R.string.auth_didnt_receive_code),
-                style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
-            )
             if (resendCooldownSeconds > 0) {
+                val minutes = resendCooldownSeconds / 60
+                val seconds = resendCooldownSeconds % 60
                 Text(
-                    text = stringResource(R.string.auth_resend_in, resendCooldownSeconds),
+                    text = "Resend OTP in %d:%02d".format(minutes, seconds),
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        color = Ink600,
+                        fontSize = 14.sp
                     )
                 )
             } else {
@@ -756,11 +791,55 @@ private fun OtpInputSection(
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
                 ) {
                     Text(
-                        text = stringResource(R.string.auth_resend_otp),
+                        text = "Resend OTP",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = BrandBluePrimary
+                            fontSize = 14.sp,
+                            color = BrandEmeraldAccent
                         )
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // Verify & Continue button — grayed out until all 6 digits are entered
+        Button(
+            onClick = onVerifyClick,
+            enabled = otpValue.length == 6 && !otpState.isLoading,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(28.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = BrandBluePrimary,
+                contentColor = Color.White,
+                disabledContainerColor = Color(0xFFE2E8F0),
+                disabledContentColor = Color(0xFF94A3B8)
+            )
+        ) {
+            if (otpState.isLoading) {
+                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+            } else {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "Verify & Continue",
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (otpValue.length == 6 && !otpState.isLoading) Color.White else Color(0xFF94A3B8)
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = if (otpValue.length == 6 && !otpState.isLoading) Color.White else Color(0xFF94A3B8),
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }

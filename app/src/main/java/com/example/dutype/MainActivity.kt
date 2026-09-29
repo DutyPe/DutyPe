@@ -54,7 +54,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.example.dutype.navigation.MainNavGraph
 import com.example.dutype.services.FCMTokenManager
-import com.example.dutype.components.PlayStoreRatingPrompt
 import com.example.dutype.di.rememberInAppReviewManager
 import com.example.dutype.ui.theme.LocalDarkMode
 import com.example.dutype.ui.theme.dutypeTheme
@@ -63,6 +62,7 @@ import com.example.dutype.utils.InAppUpdateManager
 import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.NotificationPermissionManager
 import com.example.dutype.utils.buildVariantName
+import com.example.dutype.utils.isDebuggableBuild
 import com.example.dutype.utils.appVersionName
 import com.example.dutype.utils.rememberWindowSizeClass
 import com.google.firebase.auth.FirebaseAuth
@@ -98,11 +98,15 @@ class MainActivity : ComponentActivity() {
     // Hilt was forced to construct their entire transitive graph (Firestore, Auth,
     // DataStore, etc.) on every cold start. Inject them where they're actually used.
 
+    // PERF: Lazy so their dependency graphs are built on the background thread that first
+    // uses them, not on the main thread during Activity injection.
     @Inject
-    lateinit var fcmTokenManager: FCMTokenManager
+    lateinit var fcmTokenManagerLazy: dagger.Lazy<FCMTokenManager>
+    private val fcmTokenManager: FCMTokenManager get() = fcmTokenManagerLazy.get()
     
     @Inject
-    lateinit var updateManager: com.example.dutype.utils.InAppUpdateManager
+    lateinit var updateManagerLazy: dagger.Lazy<com.example.dutype.utils.InAppUpdateManager>
+    private val updateManager: com.example.dutype.utils.InAppUpdateManager get() = updateManagerLazy.get()
 
     /**
      * P2-4: Deep-link bus replaces the prior `LocalBroadcastManager` relay
@@ -177,25 +181,14 @@ class MainActivity : ComponentActivity() {
         var startupOverlayCommitted = false
         splashScreen.setKeepOnScreenCondition { keepSplashOnScreen && !startupOverlayCommitted }
 
-        // Fast-path: Attach OnPreDrawListener to content view to dismiss splash
-        // on the EXACT millisecond the first frame of Compose is ready to draw (~50-100ms).
-        val contentView = findViewById<android.view.View>(android.R.id.content)
-        contentView?.viewTreeObserver?.addOnPreDrawListener(
-            object : android.view.ViewTreeObserver.OnPreDrawListener {
-                override fun onPreDraw(): Boolean {
-                    contentView.viewTreeObserver.removeOnPreDrawListener(this)
-                    keepSplashOnScreen = false
-                    startupOverlayCommitted = true
-                    return true
-                }
-            }
-        )
-
-        // Ultra-short safety fallback (150ms cap instead of 500ms)
+        // The splash is held only until MainNavGraph has resolved the start route from the
+        // locally cached value (mainNavReady, ~1-2 frames on the fast path), so the user never
+        // sees a blank frame between the splash and the first screen. No network is involved.
+        // Hard cap: never keep the splash longer than 700ms even if routing is slow.
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             keepSplashOnScreen = false
             startupOverlayCommitted = true
-        }, 150L)
+        }, 700L)
         
         super.onCreate(savedInstanceState)
         val launchIntent = normalizeNotificationLaunchIntent(intent)
@@ -203,14 +196,17 @@ class MainActivity : ComponentActivity() {
         cancelTappedSystemNotification(launchIntent)
         
         // Initialize Timber for logging (if not already initialized in Application class)
-        if (Timber.treeCount == 0) {
+        // PERF: only in debuggable builds; a DebugTree in release logs every Timber call to logcat.
+        if (Timber.treeCount == 0 && isDebuggableBuild()) {
             Timber.plant(Timber.DebugTree())
         }
         
-        Timber.d("✅ MainActivity.onCreate() - Activity created")
-        Timber.d("Package: ${packageName}")
-        Timber.d("App version: ${appVersionName()}")
-        Timber.d("Build variant: ${buildVariantName()}")
+        if (Timber.treeCount > 0) {
+            Timber.d("✅ MainActivity.onCreate() - Activity created")
+            Timber.d("Package: ${packageName}")
+            Timber.d("App version: ${appVersionName()}")
+            Timber.d("Build variant: ${buildVariantName()}")
+        }
         logNotificationTapTelemetry(source = "on_create", sourceIntent = launchIntent)
         
         // Log notification intent if present
@@ -224,14 +220,9 @@ class MainActivity : ComponentActivity() {
         notificationPermissionManager = NotificationPermissionManager(this)
         Timber.d("✅ NotificationPermissionManager initialized")
 
-        // Dynamic Launcher Icon Updater (2026 Enterprise Feature)
-        lifecycleScope.launch {
-            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                appConfigRepository.dynamicFeaturesConfig.collect { config ->
-                    com.example.dutype.utils.DynamicIconManager.queueIconSwitch(this@MainActivity, config.activeLauncherIcon)
-                }
-            }
-        }
+        // Launch promo + launcher icon are driven by the cached, versioned launch config
+        // (com.example.dutype.promo). Nothing is fetched or applied here: the WorkManager job is
+        // scheduled from onResume (background, delayed) and the icon is applied from onStop.
 
         // Guest engagement notifications.
         // PERF: Run off the main thread — FirebaseAuth.currentUser triggers a token
@@ -333,30 +324,12 @@ class MainActivity : ComponentActivity() {
                         if (darkTheme && statusBarColor == Color.White) MaterialTheme.colorScheme.background else statusBarColor
 
                     var mainNavReady by remember { mutableStateOf(false) }
-                    var launchExperienceResolved by remember { mutableStateOf(false) }
-                    var showLaunchPromo by remember { mutableStateOf(false) }
-                    var showStartupOverlay by remember { mutableStateOf(false) }
-                    var committedStartupUsesPromo by remember { mutableStateOf<Boolean?>(null) }
-
-                    LaunchedEffect(dynamicFeatures) {
-                        if (dynamicFeatures.launchPromoEnabled && dynamicFeatures.launchPromoBannerUrl.isNotBlank()) {
-                            showLaunchPromo = true
-                        }
-                        launchExperienceResolved = true
-                    }
-
+                    // The launch promo no longer participates in startup: the splash is released as soon
+                    // as the start route is ready, and the promo (if any) appears later as an overlay.
                     LaunchedEffect(mainNavReady) {
                         if (mainNavReady) {
-                            launchExperienceResolved = true
-                        }
-                    }
-
-                    LaunchedEffect(mainNavReady, launchExperienceResolved) {
-                        if (mainNavReady && launchExperienceResolved && committedStartupUsesPromo == null) {
-                            committedStartupUsesPromo = showLaunchPromo
                             startupOverlayCommitted = true
                             keepSplashOnScreen = false
-                            showStartupOverlay = showLaunchPromo
                         }
                     }
 
@@ -416,16 +389,9 @@ class MainActivity : ComponentActivity() {
                             notificationIntent = launchIntent
                         )
 
-                        // Startup experience: a backend-controlled full-screen promo banner
-                        // can replace the branded splash during special events/deals.
-                        if (showStartupOverlay && committedStartupUsesPromo == true) {
-                            com.example.dutype.components.LaunchPromoScreen(
-                                mediaType = dynamicFeatures.launchPromoMediaType,
-                                bannerUrl = dynamicFeatures.launchPromoBannerUrl,
-                                animationUrl = dynamicFeatures.launchPromoAnimationUrl,
-                                onAnimationEnd = { showStartupOverlay = false }
-                            )
-                        }
+                        // Backend-controlled promo (banner / fullscreen). Cache-only, shown ~800ms after a
+                        // home screen is visible, never during onboarding/login/setup.
+                        com.example.dutype.promo.PromoOverlayHost(navController = navController)
 
                         // Maintenance Mode Sheet
                         if (showMaintenanceMode) {
@@ -453,9 +419,17 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // Google Play Rating & Review Prompt (forcefully triggered on job application, posting, or active usage)
-                        val reviewManager = rememberInAppReviewManager()
-                        PlayStoreRatingPrompt(reviewManager = reviewManager)
+                        // Native Google Play In-App Review (triggered on job application, posting, etc.)
+                        // PERF: only wire up the review manager after the first screen is ready.
+                        if (mainNavReady) {
+                            val reviewManager = rememberInAppReviewManager()
+                            val reviewRequested by reviewManager.showRatingPromptFlow.collectAsStateWithLifecycle()
+                            LaunchedEffect(reviewRequested) {
+                                if (reviewRequested) {
+                                    reviewManager.launchNativeReview(this@MainActivity)
+                                }
+                            }
+                        }
                     }
 
                     // Report fully drawn when the main navigation graph is composed.
@@ -600,6 +574,12 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         Timber.d("📱 MainActivity.onResume()")
 
+        // Launch promo/icon config refresh: background thread, after the first frame settles.
+        lifecycleScope.launch(Dispatchers.IO) {
+            delay(3000L)
+            com.example.dutype.promo.LaunchConfigScheduler.onAppForeground(applicationContext)
+        }
+
         lifecycleScope.launch(Dispatchers.IO) {
             runCatching {
                 if (FirebaseAuth.getInstance().currentUser != null) {
@@ -613,6 +593,9 @@ class MainActivity : ComponentActivity() {
         // Check for in-app updates. Native Play Core prompts are disabled in
         // release builds so small hotfixes do not carry the Play update SDK dex.
         lifecycleScope.launch {
+            // PERF: keep the Play update check out of the cold-start window.
+            delay(2500L)
+            if (!lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@launch
             updateManager.checkForUpdate(
                 activity = this@MainActivity,
                 activityResultLauncher = updateResultLauncher,
@@ -662,7 +645,9 @@ class MainActivity : ComponentActivity() {
             val isUserLoggedIn = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser != null
             if (isUserLoggedIn) {
                 Timber.d("📱 MainActivity.onStop() - App is ACTUALLY in background and user is logged in, applying launcher icon switch")
-                com.example.dutype.utils.DynamicIconManager.applyPendingIconSwitch(this)
+                // Applied only while in the background: switching launcher components in the
+                // foreground can close the app on some launchers/OEMs. Runs on an IO thread.
+                com.example.dutype.promo.AppIconManager.reconcileAsync(applicationContext)
             } else {
                 Timber.d("📱 MainActivity.onStop() - App is in background but user is NOT logged in (auth flow safety), skipping icon switch")
             }

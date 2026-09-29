@@ -8,15 +8,24 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.dutype.models.JobListing
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.*
@@ -24,6 +33,29 @@ import com.google.maps.android.compose.*
 import kotlinx.coroutines.delay
 import timber.log.Timber
 import androidx.compose.ui.res.stringResource
+
+// Pixel-exact marker colors (matches the approved Job Map mockup)
+private val MarkerInk = Color(0xFF0F0F0F)
+
+// Light, minimal Google Maps style: light-grey roads, white/light buildings, muted labels.
+// Applied only where MapProperties already supports a style override (low-risk addition).
+private val LightMapStyleJson = """
+[
+  {"elementType":"geometry","stylers":[{"color":"#f5f6f8"}]},
+  {"elementType":"labels.icon","stylers":[{"visibility":"off"}]},
+  {"elementType":"labels.text.fill","stylers":[{"color":"#94a3b8"}]},
+  {"elementType":"labels.text.stroke","stylers":[{"color":"#ffffff"}]},
+  {"featureType":"administrative","elementType":"geometry","stylers":[{"visibility":"off"}]},
+  {"featureType":"poi","stylers":[{"visibility":"off"}]},
+  {"featureType":"road","elementType":"geometry","stylers":[{"color":"#e2e8f0"}]},
+  {"featureType":"road","elementType":"labels","stylers":[{"visibility":"off"}]},
+  {"featureType":"road.arterial","elementType":"geometry","stylers":[{"color":"#e2e8f0"}]},
+  {"featureType":"road.highway","elementType":"geometry","stylers":[{"color":"#e2e8f0"}]},
+  {"featureType":"transit","stylers":[{"visibility":"off"}]},
+  {"featureType":"landscape","elementType":"geometry","stylers":[{"color":"#f5f6f8"}]},
+  {"featureType":"water","elementType":"geometry","stylers":[{"color":"#e6eef8"}]}
+]
+""".trimIndent()
 
 // Urgency colors for pulsing markers
 private val UrgentRed = Color(0xFFEF4444)
@@ -222,11 +254,14 @@ fun EnhancedGoogleMapView(
         mutableStateOf(
             MapProperties(
                 isMyLocationEnabled = false,
-                mapType = MapType.NORMAL
+                mapType = MapType.NORMAL,
+                // Low-risk visual-only addition: MapProperties already supports a style
+                // override, so this doesn't touch any functional map behavior.
+                mapStyleOptions = runCatching { MapStyleOptions(LightMapStyleJson) }.getOrNull()
             )
         )
     }
-    
+
     val mapUiSettings by remember {
         mutableStateOf(
             MapUiSettings(
@@ -289,32 +324,63 @@ fun EnhancedGoogleMapView(
         jobs.forEach { job ->
             val position = LatLng(job.lat, job.lng)
             val isUrgent = job.urgency.equals("HIGH", ignoreCase = true)
-            val isNearby = job.distance != null && job.distance!! < 1.0
             val isSelected = selectedJob?.id == job.id
             val isRouteTarget = routeJob?.id == job.id
+            val markerSelected = isSelected || isRouteTarget
 
-            val markerIcon = createJobMarkerChip(
-                context = context,
-                jobTitle = job.title.take(14) + if (job.title.length > 14) ".." else "",
-                vacancy = 1,
-                isUrgent = isUrgent,
-                isNearby = isNearby,
-                isSelected = isSelected || isRouteTarget
-            )
-
-            Marker(
+            // Real, custom Composable marker content (maps-compose MarkerComposable) —
+            // a price-tag bubble showing the job's real daily wage, per the approved mock.
+            MarkerComposable(
                 state = MarkerState(position = position),
-                icon = markerIcon,
                 anchor = Offset(0.5f, 1f),
-                zIndex = if (isSelected || isRouteTarget) 99f else if (isUrgent) 50f else 10f,
+                zIndex = if (markerSelected) 99f else if (isUrgent) 50f else 10f,
                 onClick = {
                     Timber.d("Map marker clicked: ${job.title}")
                     onMarkerClick(job)
                     true
                 }
-            )
+            ) {
+                JobPriceTagMarker(job = job, isSelected = markerSelected)
+            }
         }
     }
+}
+
+/**
+ * Pixel-exact price-tag marker bubble: real daily wage, white/#0F0F0F border when
+ * unselected; solid #0F0F0F background, white text, 4dp shadow, slightly enlarged
+ * when selected (tapped, or the currently-focused carousel card).
+ */
+@Composable
+private fun JobPriceTagMarker(job: JobListing, isSelected: Boolean) {
+    val shape = RoundedCornerShape(50)
+    Box(
+        modifier = Modifier
+            .scale(if (isSelected) 1.12f else 1f)
+            .let { if (isSelected) it.shadow(elevation = 4.dp, shape = shape) else it }
+            .background(if (isSelected) MarkerInk else Color.White, shape)
+            .border(1.dp, MarkerInk, shape)
+            .padding(horizontal = if (isSelected) 12.dp else 10.dp, vertical = if (isSelected) 7.dp else 6.dp)
+    ) {
+        Text(
+            text = jobMarkerWageLabel(job),
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (isSelected) Color.White else MarkerInk
+        )
+    }
+}
+
+// Real daily-wage marker label, e.g. "₹850/d" — driven by the job's own salary fields.
+private fun jobMarkerWageLabel(job: JobListing): String {
+    val amount = job.salary.ifBlank { "--" }
+    if (amount.equals("Negotiable", ignoreCase = true)) return "₹Neg"
+    val suffix = when (job.salaryType.uppercase()) {
+        "HOURLY" -> "/hr"
+        "MONTHLY" -> "/mo"
+        else -> "/d"
+    }
+    return "₹$amount$suffix"
 }
 
 /**

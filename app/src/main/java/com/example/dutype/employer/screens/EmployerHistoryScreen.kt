@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -559,7 +560,8 @@ private fun TimelineJobCard(
             colors = CardDefaults.cardColors(
                 containerColor = if (isExpired || isClosed) EmployerColors.ChipBackground else EmployerColors.CardBackground
             ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            border = BorderStroke(1.dp, EmployerColors.Border)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp)
@@ -767,7 +769,8 @@ private fun HistoryJobCard(
         colors = CardDefaults.cardColors(
             containerColor = if (isExpired || isClosed) EmployerColors.ChipBackground else EmployerColors.CardBackground
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, EmployerColors.Border)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)

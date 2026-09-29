@@ -24,6 +24,11 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.ui.text.style.TextAlign
 import com.example.dutype.ui.theme.MeeshoFontFamily
 import androidx.compose.foundation.layout.*
@@ -55,7 +60,6 @@ import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.findActivity
 import com.example.dutype.viewmodels.FirestoreJobViewModel
-import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.example.dutype.viewmodels.ProfileViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -81,9 +85,6 @@ fun JobApplicationScreen(
     val jobViewModel: FirestoreJobViewModel = hiltViewModel()
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val applicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
-    
-    // Get InAppReviewTriggerService from Hilt
-    val reviewTriggerService = rememberInAppReviewTriggerService()
     
     val currentUser = FirebaseAuth.getInstance().currentUser
     val jobUiState by jobViewModel.uiState.collectAsStateWithLifecycle()
@@ -127,13 +128,12 @@ fun JobApplicationScreen(
     // clearing the VM state for the next apply doesn't immediately tear
     // down the success UI.
     var showSuccess by remember { mutableStateOf(false) }
+    val reviewTriggerService = com.example.dutype.di.rememberInAppReviewTriggerService()
     LaunchedEffect(applicationUiState.applicationSuccess) {
         if (applicationUiState.applicationSuccess) {
             showSuccess = true
             applicationViewModel.clearSuccessStates()
-            context.findActivity()?.let { activity ->
-                reviewTriggerService.onWorkerJobApplication(activity)
-            }
+            context.findActivity()?.let { reviewTriggerService.onWorkerJobApplication(it) }
         }
     }
     
@@ -144,6 +144,10 @@ fun JobApplicationScreen(
             applicationViewModel.clearError()
         }
     }
+
+    // Quick Apply sheet: selected quick-select note chips, folded into the
+    // existing `coverLetter` field on submit (no new backend field).
+    var selectedQuickNotes by remember { mutableStateOf(setOf<String>()) }
 
     val recordingHelper = remember { AudioRecordingHelper(context) }
     val playbackHelper = remember { AudioPlaybackHelper() }
@@ -235,28 +239,22 @@ fun JobApplicationScreen(
         isRecording = false
     }
     
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
-    ) {
-        // Header
-        CommonHeader(
-            title = stringResource(R.string.apply_for_job),
-            onBackClick = {
-                if (showSuccess) {
-                    // Treat back the same as the CTA so we don't strand the
-                    // user on a stale apply form.
-                    navigateToWorkerHome(navController)
-                } else {
-                    navController.popBackStack()
-                }
-            },
-            backgroundColor = WorkerColors.CardBackground
-        )
-
-        when {
-            showSuccess && displayJob != null -> {
+    when {
+        showSuccess && displayJob != null -> {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
+            ) {
+                CommonHeader(
+                    title = stringResource(R.string.apply_for_job),
+                    onBackClick = {
+                        // Treat back the same as the CTA so we don't strand the
+                        // user on a stale apply form.
+                        navigateToWorkerHome(navController)
+                    },
+                    backgroundColor = WorkerColors.CardBackground
+                )
                 // Batch-l: in-screen success state replaces the prior
                 // toast-then-popBackStack flow. Renders an animated check
                 // tick and a single "Return to Home" CTA that pops the
@@ -280,7 +278,18 @@ fun JobApplicationScreen(
                     onReturnHome = { navigateToWorkerHome(navController) }
                 )
             }
-            displayJob == null || profileUiState.isLoading -> {
+        }
+        displayJob == null || profileUiState.isLoading -> {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground)
+            ) {
+                CommonHeader(
+                    title = stringResource(R.string.apply_for_job),
+                    onBackClick = { navController.popBackStack() },
+                    backgroundColor = WorkerColors.CardBackground
+                )
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -288,72 +297,264 @@ fun JobApplicationScreen(
                     CircularProgressIndicator(color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
                 }
             }
-            else -> {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(bottom = 132.dp)
-                    ) {
-                        // Job Summary Card
-                        JobSummaryCard(job = displayJob)
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // 15-Sec Voice Intro Recording Card
-                        VoiceIntroRecordingCard(
-                            recordedAudioFile = recordedAudioFile,
-                            recordedDurationSec = recordedDurationSec,
-                            isRecording = isRecording,
-                            recordingProgressSeconds = recordingProgressSeconds,
-                            isPlayingPreview = isPlayingPreview,
-                            playbackProgress = playbackProgress,
-                            onStartRecording = handleStartRecording,
-                            onStopRecording = handleStopRecording,
-                            onTogglePlayPreview = {
-                                recordedAudioFile?.let { file ->
-                                    playbackHelper.playFile(file)
-                                }
-                            },
-                            onReRecord = {
-                                playbackHelper.stop()
-                                recordingHelper.cleanup()
-                                recordedAudioFile = null
-                                recordedDurationSec = 0
-                            }
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        WorkerWorkTipsSection()
-
-                        Spacer(modifier = Modifier.height(24.dp))
+        }
+        else -> {
+            // Quick Apply Confirmation Sheet — pixel-exact modal bottom sheet
+            // design. Dims whatever was behind this destination and slides a
+            // white, rounded-top sheet up from the bottom.
+            QuickApplyConfirmationSheet(
+                job = displayJob,
+                workerName = profileUiState.user?.fullName,
+                workerPhotoUrl = profileUiState.user?.profileImageUrl,
+                isSubmitting = applicationUiState.isApplying,
+                selectedQuickNotes = selectedQuickNotes,
+                onToggleQuickNote = { note ->
+                    selectedQuickNotes = if (selectedQuickNotes.contains(note)) {
+                        selectedQuickNotes - note
+                    } else {
+                        selectedQuickNotes + note
                     }
+                },
+                onDismiss = { navController.popBackStack() },
+                onSubmit = {
+                    // Selected quick-select chips are folded into the existing
+                    // `coverLetter` field the submit call already accepts —
+                    // no new backend field is introduced.
+                    val note = selectedQuickNotes.takeIf { it.isNotEmpty() }?.joinToString(", ")
+                    applicationViewModel.applyForJob(
+                        jobId = jobId,
+                        coverLetter = note,
+                        audioFile = recordedAudioFile,
+                        audioDurationSec = if (recordedAudioFile != null) recordedDurationSec else null
+                    )
+                }
+            )
+        }
+    }
+}
 
-                    Surface(
+/**
+ * Quick Apply Confirmation Sheet — pixel-exact restyle of the worker
+ * "Apply Now (1-Tap) →" flow into a modal-bottom-sheet-styled layout.
+ *
+ * NOTE: this is rendered as the sole content of the `job_application` nav
+ * destination (a regular screen route, not a `dialog`/bottom-sheet nav
+ * destination), so it fakes the sheet chrome — dimmed scrim + white,
+ * rounded-top card pinned to the bottom — rather than using a real
+ * ModalBottomSheet. Converting the nav destination itself to a true
+ * bottom-sheet route would touch WorkerNavGraph/WorkerMainScreen routing
+ * and was out of scope for a visual-only restyle.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun QuickApplyConfirmationSheet(
+    job: JobListing,
+    workerName: String?,
+    workerPhotoUrl: String?,
+    isSubmitting: Boolean,
+    selectedQuickNotes: Set<String>,
+    onToggleQuickNote: (String) -> Unit,
+    onDismiss: () -> Unit,
+    onSubmit: () -> Unit
+) {
+    val quickNoteOptions = listOf("Can join today", "Have own tools", "Available overtime")
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.45f))
+            .clickable(
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() },
+                onClick = onDismiss
+            )
+    ) {
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .clickable(
+                    // Swallow taps so they don't fall through to the scrim's
+                    // dismiss handler above.
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                    onClick = {}
+                ),
+            color = Color.White,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                // Drag handle
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp, bottom = 16.dp),
+                    contentAlignment = Alignment.TopCenter
+                ) {
+                    Box(
                         modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth(),
-                        color = com.example.dutype.ui.theme.LocalRoleColors.current.screenBackground,
-                        shadowElevation = 8.dp
-                    ) {
-                        SubmitApplicationButton(
-                            modifier = Modifier.padding(
-                                top = 12.dp,
-                                bottom = 12.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-                            ),
-                            isSubmitting = applicationUiState.isApplying,
-                            onSubmit = {
-                                applicationViewModel.applyForJob(
-                                    jobId = jobId,
-                                    coverLetter = null,
-                                    audioFile = recordedAudioFile,
-                                    audioDurationSec = if (recordedAudioFile != null) recordedDurationSec else null
+                            .size(width = 32.dp, height = 4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(Color(0xFFE2E8F0))
+                    )
+                }
+
+                Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+                    Text(
+                        text = "APPLYING FOR:",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.8.sp,
+                        color = Color(0xFF94A3B8)
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    val employerName = job.companyName.trim()
+                    Text(
+                        text = if (employerName.isNotEmpty()) "${job.title} — $employerName" else job.title,
+                        fontSize = 18.sp,
+                        lineHeight = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F0F0F)
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(thickness = 1.dp, color = Color(0xFFE2E8F0))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Worker profile preview
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFF0FDF4))
+                                .border(1.dp, Color(0xFFA7F3D0), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (!workerPhotoUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = workerPhotoUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Text(
+                                    text = workerName?.trim()?.firstOrNull()?.uppercaseChar()?.toString() ?: "W",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF10B981)
                                 )
                             }
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column {
+                            Text(
+                                text = workerName?.trim()?.takeIf { it.isNotEmpty() } ?: "You",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF0F0F0F)
+                            )
+                            // Worker-level trade/experience isn't loaded by this
+                            // screen's view models (ProfileViewModel's `User`
+                            // only carries name + photo). Using the job's real
+                            // detected category here instead of fabricating an
+                            // "X yrs exp" figure that has no backing data.
+                            Text(
+                                text = job.getCategory(),
+                                fontSize = 13.sp,
+                                color = Color(0xFF64748B)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Text(
+                        text = "Add a quick note (optional)",
+                        fontSize = 13.sp,
+                        color = Color(0xFF64748B)
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        quickNoteOptions.forEach { option ->
+                            val isSelected = selectedQuickNotes.contains(option)
+                            Box(
+                                modifier = Modifier
+                                    .height(34.dp)
+                                    .clip(RoundedCornerShape(17.dp))
+                                    .background(if (isSelected) Color(0xFF0F0F0F) else Color.White)
+                                    .border(
+                                        1.dp,
+                                        if (isSelected) Color(0xFF0F0F0F) else Color(0xFFE2E8F0),
+                                        RoundedCornerShape(17.dp)
+                                    )
+                                    .clickable { onToggleQuickNote(option) }
+                                    .padding(horizontal = 14.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = option,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = if (isSelected) Color.White else Color(0xFF0F0F0F)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Button(
+                        onClick = onSubmit,
+                        enabled = !isSubmitting,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF10B981),
+                            disabledContainerColor = Color(0xFF10B981).copy(alpha = 0.6f)
+                        ),
+                        shape = RoundedCornerShape(28.dp)
+                    ) {
+                        Text(
+                            text = if (isSubmitting) "Sending…" else "Confirm & Send Application →",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "Employer will be notified instantly",
+                        fontSize = 12.sp,
+                        color = Color(0xFF64748B),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(
+                            12.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                        )
+                    )
                 }
             }
         }
@@ -543,23 +744,16 @@ private fun WorkerWorkTipsSection() {
  * silently no-op'd and the Return-to-Home button appeared dead.
  */
 private fun navigateToWorkerHome(navController: NavController) {
-    navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
-        popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
-            inclusive = false
-            saveState = false
-        }
-        launchSingleTop = true
-    }
+    com.example.dutype.components.navigateToWorkerTab(navController, com.example.dutype.navigation.WorkerBottomRoutes.HOME)
 }
 
 private fun navigateToWorkerMyJobs(navController: NavController) {
-    navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS) {
-        popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
-            inclusive = false
-            saveState = false
-        }
-        launchSingleTop = true
-    }
+    // Fresh My Jobs so the just-submitted application is shown, not a stale saved tab.
+    com.example.dutype.components.navigateToWorkerTab(
+        navController,
+        com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS,
+        restoreState = false
+    )
 }
 
 @Composable
@@ -732,11 +926,11 @@ private fun ApplicationSentSuccess(
             onClick = if (canCallEmployer) onCallEmployer else onViewMyJobs,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
+                .height(56.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (canCallEmployer) WorkerColors.Success else WorkerColors.Primary
             ),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(28.dp)
         ) {
             Icon(
                 imageVector = if (canCallEmployer) Icons.Default.Call else Icons.Default.Work,
@@ -759,8 +953,8 @@ private fun ApplicationSentSuccess(
             onClick = if (canCallEmployer) onViewMyJobs else onReturnHome,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp),
-            shape = RoundedCornerShape(12.dp)
+                .height(56.dp),
+            shape = RoundedCornerShape(28.dp)
         ) {
             Text(
                 text = if (canCallEmployer) "View My Jobs" else "Return to Home",
@@ -900,13 +1094,13 @@ private fun SubmitApplicationButton(
             onClick = onSubmit,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
+                .height(56.dp),
             enabled = !isSubmitting,
             colors = ButtonDefaults.buttonColors(
-                containerColor = WorkerColors.Primary,
+                containerColor = WorkerColors.Accent,
                 disabledContainerColor = WorkerColors.TextDisabled
             ),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(28.dp)
         ) {
             if (isSubmitting) {
                 val pulse = rememberInfiniteTransition(label = "submit_check_pulse")

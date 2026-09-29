@@ -177,8 +177,8 @@ fun NotificationDetailScreen(
                         onClick = {
                             when (actionButton.route) {
                                 "job_detail" -> jobId?.let { navController.navigate(Routes.jobDetailRoute(it)) }
-                                "my_jobs" -> navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS)
-                                "all_jobs" -> navController.navigate(Routes.WORKER_ALL_JOBS)
+                                "my_jobs" -> com.example.dutype.components.navigateToWorkerTab(navController, com.example.dutype.navigation.WorkerBottomRoutes.MY_JOBS)
+                                "all_jobs" -> com.example.dutype.components.navigateToWorkerTab(navController, com.example.dutype.navigation.WorkerBottomRoutes.JOBS)
                             }
                         },
                         modifier = Modifier.fillMaxWidth().height(52.dp),

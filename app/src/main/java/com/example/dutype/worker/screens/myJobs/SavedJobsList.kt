@@ -132,9 +132,8 @@ fun SavedJobsList(
                         onBrowse = {
                             // Navigate to home tab to browse jobs
                             runCatching {
-                                navController?.navigate(com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
-                                    popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.HOME) { inclusive = false }
-                                    launchSingleTop = true
+                                navController?.let {
+                                    com.example.dutype.components.navigateToWorkerTab(it, com.example.dutype.navigation.WorkerBottomRoutes.HOME)
                                 }
                             }.onFailure { error ->
                                 Timber.e(error, "Failed to navigate to home tab from saved jobs")

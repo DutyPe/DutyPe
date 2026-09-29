@@ -179,7 +179,11 @@
                 tools:node="remove" />
         </provider>
 
-        <!-- Launcher Aliases for Dynamic App Icons -->
+        <!-- Launcher Aliases for Dynamic App Icons.
+             Exactly ONE alias is enabled at a time; MainActivity itself has no LAUNCHER filter.
+             Switching is done by com.example.dutype.promo.AppIconManager (background only).
+             To add a variant: copy an alias below (enabled="false", own icon/roundIcon), then add
+             one line to AppIconManager.ALIASES and ship the app. Never enable two by default. -->
         <activity-alias
             android:name="com.example.dutype.DefaultAlias"
             android:targetActivity="com.example.dutype.MainActivity"

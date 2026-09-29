@@ -39,9 +39,15 @@ fun WorkerNavGraph(
     scrollStateManager: ScrollStateManager? = null,
     notificationPermissionManager: com.example.dutype.utils.NotificationPermissionManager
 ) {
+    // Short fades: the default 700 ms crossfade kept the outgoing tab (e.g. the Google
+    // map) composed and animating, which made quick tab switches feel unresponsive.
     NavHost(
         navController = navController,
-        startDestination = WorkerBottomRoutes.HOME
+        startDestination = WorkerBottomRoutes.HOME,
+        enterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(150)) },
+        exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)) },
+        popEnterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(150)) },
+        popExitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(150)) }
     ) {
         // Home Tab
         composable(WorkerBottomRoutes.HOME) {
@@ -280,6 +286,8 @@ fun WorkerNavGraph(
  */
 object WorkerBottomRoutes {
     const val HOME = "home"
+    const val JOBS = "${Routes.WORKER_ALL_JOBS}?filter=All Jobs"
+    const val MAP = Routes.WORKER_JOB_MAP
     const val MY_JOBS = "myjobs"
     const val PROFILE = "profile"
 }

@@ -5,56 +5,79 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.example.dutype.ui.theme.AppTypography
-import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import timber.log.Timber
-import androidx.compose.ui.res.stringResource
+
+// ---------------------------------------------------------------------------
+// Screen 38 design tokens (Employer "Company Details")
+// ---------------------------------------------------------------------------
+private val CdNavy = Color(0xFF0F172A)
+private val CdCobalt = Color(0xFF2563EB)
+private val CdBorder = Color(0xFFE2E8F0)
+private val CdMuted = Color(0xFF64748B)
+private val CdHint = Color(0xFF94A3B8)
+private val CdChipText = Color(0xFF475569)
+private val CdGreen = Color(0xFF16A34A)
+private val CdGreenBg = Color(0xFFF0FDF4)
+private val CdGstGreen = Color(0xFF10B981)
+
+private val CdCategories = listOf(
+    "Retail Shop",
+    "Construction",
+    "Logistics",
+    "Hotel/Restaurant",
+    "Manufacturing",
+    "Individual"
+)
+
+// Local format check only. Server-side GST verification is NOT implemented.
+private val CdGstinRegex = Regex("^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$")
 
 /**
- * Employer Company Details screen.
- *
- * Refactored Apr 2026 to mirror the structure and polish of
- * WorkerProfileDetailsScreen — same Surface-based custom top bar,
- * staggered AnimatedVisibility entrance, LazyColumn body, view/edit
- * mode separation, sticky bottom Save/Cancel bar, and EmployerColors
- * theming throughout.
+ * Employer Company Details screen (business profile editor).
+ * Layout follows Screen38-CompanyDetails mockup.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EmployerCompanyDetailsScreen(
     navController: NavController
@@ -63,46 +86,26 @@ fun EmployerCompanyDetailsScreen(
     val scope = rememberCoroutineScope()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
 
-    // Identity
-    var currentUserId by remember { mutableStateOf("") }
-
-    // Form state — basic info
+    // Form state
     var employerType by remember { mutableStateOf("COMPANY") }
     var companyName by remember { mutableStateOf("") }
+    var tradeName by remember { mutableStateOf("") }
+    var contactPerson by remember { mutableStateOf("") }
     var contactPhone by remember { mutableStateOf("") }
+    var contactEmail by remember { mutableStateOf("") }
     var businessAddress by remember { mutableStateOf("") }
-
-    // Form state — company details
     var industry by remember { mutableStateOf("") }
+    var gstin by remember { mutableStateOf("") }
+    var gstVerified by remember { mutableStateOf(false) }
 
     // Profile image
     var profileImageUrl by remember { mutableStateOf<String?>(null) }
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
     var isUploadingImage by remember { mutableStateOf(false) }
 
-    // Edit / save state
-    var isEditMode by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
 
-    // Ratings
-    var employerRating by remember { mutableStateOf(0f) }
-    var employerTotalRatings by remember { mutableStateOf(0) }
-    var employerReviews by remember {
-        mutableStateOf<List<com.example.dutype.services.Rating>>(emptyList())
-    }
-    var employerGivenReviews by remember {
-        mutableStateOf<List<com.example.dutype.services.Rating>>(emptyList())
-    }
-    var showReviewsSheet by remember { mutableStateOf(false) }
-    var isReviewsLoading by remember { mutableStateOf(false) }
-    val ratingService = remember {
-        com.example.dutype.services.RatingService(
-            com.example.dutype.di.firestoreFromHilt(context),
-            com.example.dutype.di.authFromHilt(context)
-        )
-    }
-
-    // Image picker
+    // Image picker + upload (unchanged behavior)
     val imagePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -157,7 +160,6 @@ fun EmployerCompanyDetailsScreen(
     LaunchedEffect(Unit) {
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
-            currentUserId = currentUser.uid
             try {
                 val employerProfileData =
                     profileCompletionViewModel.getEmployerProfileData(currentUser.uid)
@@ -165,10 +167,16 @@ fun EmployerCompanyDetailsScreen(
                     onSuccess = { data ->
                         employerType = data["employerType"] as? String ?: "COMPANY"
                         companyName = data["companyName"] as? String ?: ""
+                        tradeName = data["tradeName"] as? String ?: ""
+                        contactPerson = data["contactPerson"] as? String ?: ""
                         contactPhone = data["contactPhone"] as? String
                             ?: data["phone"] as? String ?: ""
+                        contactEmail = data["contactEmail"] as? String ?: ""
                         businessAddress = data["businessAddress"] as? String ?: ""
                         industry = data["industry"] as? String ?: ""
+                        gstin = data["gstin"] as? String ?: ""
+                        gstVerified = (data["gstVerified"] as? Boolean == true) &&
+                            CdGstinRegex.matches(gstin)
                         profileImageUrl = data["profileImageUrl"] as? String
                     },
                     onFailure = { exception ->
@@ -181,766 +189,585 @@ fun EmployerCompanyDetailsScreen(
         }
     }
 
-    // Load rating summary
-    LaunchedEffect(currentUserId) {
-        if (currentUserId.isNotEmpty()) {
-            try {
-                val employerDoc = com.example.dutype.di.firestoreFromHilt(context)
-                    .collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES)
-                    .document(currentUserId)
-                    .get()
-                    .await()
-                employerRating = (employerDoc.getDouble("rating") ?: 0.0).toFloat()
-                employerTotalRatings = (employerDoc.getLong("totalRatings") ?: 0L).toInt()
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
-                Timber.e(e, "Error loading employer rating summary")
+    val doSave: () -> Unit = {
+        if (!isSaving) {
+            if (gstin.isNotBlank() && !CdGstinRegex.matches(gstin)) {
+                Toast.makeText(context, "Enter a valid 15-character GSTIN", Toast.LENGTH_SHORT).show()
+            } else {
+                isSaving = true
+                scope.launch {
+                    try {
+                        val currentUser = FirebaseAuth.getInstance().currentUser
+                        if (currentUser != null) {
+                            val data = mutableMapOf<String, Any>(
+                                "companyName" to companyName,
+                                "fullName" to companyName,
+                                "tradeName" to tradeName,
+                                "contactPerson" to contactPerson,
+                                "contactEmail" to contactEmail,
+                                "businessAddress" to businessAddress,
+                                "industry" to industry,
+                                "gstin" to gstin,
+                                "gstVerified" to (gstVerified && gstin.isNotBlank()),
+                                "employerType" to employerType
+                            )
+                            profileImageUrl?.takeIf { it.isNotBlank() }?.let {
+                                data["profileImageUrl"] = it
+                            }
+                            profileCompletionViewModel.saveEmployerProfileData(data)
+                            Toast.makeText(
+                                context,
+                                "Profile details saved successfully!",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error saving company details")
+                        Toast.makeText(
+                            context,
+                            "Failed to save profile details",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    } finally {
+                        isSaving = false
+                    }
+                }
             }
         }
     }
 
-    var isVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { isVisible = true }
-
-    Scaffold(
-        topBar = {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = EmployerColors.CardBackground,
-                shadowElevation = 2.dp
-            ) {
-                Column {
-                    Spacer(modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 4.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = { navController.popBackStack() }) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = EmployerColors.TextPrimary
-                            )
-                        }
-                        Text(
-                            text = stringResource(R.string.company_details_section),
-                            style = AppTypography.screenTitle,
-                            color = EmployerColors.TextPrimary,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (!isEditMode) {
-                            IconButton(onClick = { isEditMode = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = "Edit Company Details",
-                                    tint = EmployerColors.TextPrimary
-                                )
-                            }
-                        }
-                    }
-                    HorizontalDivider(color = EmployerColors.Divider, thickness = 1.dp)
-                }
-            }
-        },
-        containerColor = EmployerColors.ScreenBackground
-    ) { paddingValues ->
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White)
+            .imePadding()
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .statusBarsPadding()
         ) {
-            LazyColumn(
+            CdTopBar(
+                isSaving = isSaving,
+                onBack = { navController.popBackStack() },
+                onSave = doSave
+            )
+            Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .weight(1f),
-                contentPadding = PaddingValues(bottom = 24.dp)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Logo + headline
-                item {
-                    Spacer(modifier = Modifier.height(24.dp))
-                    AnimatedVisibility(
-                        visible = isVisible,
-                        enter = fadeIn(tween(600)) + slideInVertically(tween(600))
-                    ) {
-                        CompanyLogoSection(
-                            profileImageUrl = profileImageUrl,
-                            profileImageUri = profileImageUri,
-                            isUploadingImage = isUploadingImage,
-                            companyName = companyName,
-                            onImageClick = { imagePickerLauncher.launch("image/*") }
-                        )
-                    }
-                }
-
-                // Ratings & Reviews
-                if (currentUserId.isNotEmpty()) {
-                    item {
-                        Spacer(modifier = Modifier.height(20.dp))
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(700, 50)) + slideInVertically(tween(700, 50))
-                        ) {
-                            RatingsCard(
-                                rating = employerRating,
-                                totalRatings = employerTotalRatings,
-                                onClick = {
-                                    scope.launch {
-                                        isReviewsLoading = true
-                                        employerReviews = ratingService.getUserRatings(currentUserId)
-                                        employerGivenReviews = ratingService.getRatingsGivenByUser(currentUserId)
-                                        isReviewsLoading = false
-                                        showReviewsSheet = true
-                                    }
-                                }
-                            )
-                        }
-                    }
-                }
-
-                // Basic Information
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    AnimatedVisibility(
-                        visible = isVisible,
-                        enter = fadeIn(tween(800, 100)) + slideInVertically(tween(800, 100))
-                    ) {
-                        if (isEditMode) {
-                            EditableBasicInfoCard(
-                                companyName = companyName,
-                                onCompanyNameChange = { companyName = it },
-                                contactPhone = contactPhone,
-                                onContactPhoneChange = { contactPhone = it },
-                                businessAddress = businessAddress,
-                                onBusinessAddressChange = { businessAddress = it }
-                            )
+                CdPhotoCard(
+                    profileImageUrl = profileImageUrl,
+                    profileImageUri = profileImageUri,
+                    isUploading = isUploadingImage,
+                    onChoose = { imagePickerLauncher.launch("image/*") }
+                )
+                CdBasicsCard(
+                    companyName = companyName,
+                    onCompanyName = { companyName = it },
+                    tradeName = tradeName,
+                    onTradeName = { tradeName = it },
+                    contactPerson = contactPerson,
+                    onContactPerson = { contactPerson = it },
+                    contactPhone = contactPhone,
+                    contactEmail = contactEmail,
+                    onContactEmail = { contactEmail = it }
+                )
+                CdCategoryTaxCard(
+                    industry = industry,
+                    onIndustry = { industry = it },
+                    gstin = gstin,
+                    gstVerified = gstVerified,
+                    onGstin = { input ->
+                        gstin = input.uppercase().filter { it.isLetterOrDigit() }.take(15)
+                        gstVerified = false
+                    },
+                    onVerify = {
+                        // Format validation only; server verification not implemented.
+                        if (CdGstinRegex.matches(gstin)) {
+                            gstVerified = true
                         } else {
-                            CompanyInfoCard(
-                                title = stringResource(R.string.basic_information),
-                                items = listOf(
-                                    stringResource(R.string.company_name) to companyName,
-                                    stringResource(R.string.contact_phone) to contactPhone,
-                                    stringResource(R.string.business_address) to businessAddress
-                                )
-                            )
-                        }
-                    }
-                }
-
-                // Company details
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    AnimatedVisibility(
-                        visible = isVisible,
-                        enter = fadeIn(tween(1000, 200)) + slideInVertically(tween(1000, 200))
-                    ) {
-                        if (isEditMode) {
-                            EditableCompanyDetailsCard(
-                                industry = industry,
-                                onIndustryChange = { industry = it }
-                            )
-                        } else {
-                            CompanyInfoCard(
-                                title = stringResource(R.string.company_details_section),
-                                items = listOf(
-                                    stringResource(R.string.industry) to industry
-                                )
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (isEditMode) {
-                EditModeButtons(
-                    isSaving = isSaving,
-                    onCancel = { isEditMode = false },
-                    onSave = {
-                        isSaving = true
-                        scope.launch {
-                            try {
-                                val currentUser = FirebaseAuth.getInstance().currentUser
-                                if (currentUser != null) {
-                                    val data = mutableMapOf<String, Any>(
-                                        "companyName" to companyName,
-                                        "fullName" to companyName,
-                                        "businessAddress" to businessAddress,
-                                        "industry" to industry,
-                                        "employerType" to employerType
-                                    )
-                                    profileImageUrl?.takeIf { it.isNotBlank() }?.let {
-                                        data["profileImageUrl"] = it
-                                    }
-                                    profileCompletionViewModel.saveEmployerProfileData(data)
-                                    Toast.makeText(
-                                        context,
-                                        "Profile details saved successfully!",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                                isEditMode = false
-                            } catch (e: Exception) {
-                                Timber.e(e, "Error saving company details")
-                                Toast.makeText(
-                                    context,
-                                    "Failed to save profile details",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            } finally {
-                                isSaving = false
-                            }
+                            gstVerified = false
+                            Toast.makeText(
+                                context,
+                                "Enter a valid 15-character GSTIN",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }
                 )
             }
         }
-    }
 
-    com.example.dutype.components.UserReviewsBottomSheet(
-        isVisible = showReviewsSheet,
-        title = stringResource(R.string.employer_ratings_reviews),
-        averageRating = employerRating,
-        totalRatings = employerTotalRatings,
-        reviews = employerReviews,
-        givenReviews = employerGivenReviews,
-        isLoading = isReviewsLoading,
-        isGivenLoading = isReviewsLoading,
-        receivedTabTitle = stringResource(R.string.workers_rated_you),
-        givenTabTitle = stringResource(R.string.you_rated_workers),
-        onDismiss = { showReviewsSheet = false }
+        CdBottomBar(
+            isSaving = isSaving,
+            onSave = doSave,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
+    }
+}
+
+// ============================================
+// SECTIONS
+// ============================================
+
+@Composable
+private fun CdTopBar(
+    isSaving: Boolean,
+    onBack: () -> Unit,
+    onSave: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "Back",
+                tint = CdNavy,
+                modifier = Modifier
+                    .size(24.dp)
+                    .clickable(onClick = onBack)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = "Company Details",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = CdNavy
+            )
+        }
+        Text(
+            text = "Save",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = CdCobalt,
+            modifier = Modifier.clickable(enabled = !isSaving, onClick = onSave)
+        )
+    }
+}
+
+@Composable
+private fun CdPhotoCard(
+    profileImageUrl: String?,
+    profileImageUri: Uri?,
+    isUploading: Boolean,
+    onChoose: () -> Unit
+) {
+    val dashColor = CdHint
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .drawBehind {
+                val sw = 1.5.dp.toPx()
+                drawRoundRect(
+                    color = dashColor,
+                    topLeft = Offset(sw / 2f, sw / 2f),
+                    size = Size(size.width - sw, size.height - sw),
+                    cornerRadius = CornerRadius(16.dp.toPx()),
+                    style = Stroke(
+                        width = sw,
+                        pathEffect = PathEffect.dashPathEffect(
+                            floatArrayOf(6.dp.toPx(), 4.dp.toPx()), 0f
+                        )
+                    )
+                )
+            }
+            .padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        val hasImage = profileImageUri != null || !profileImageUrl.isNullOrBlank()
+        when {
+            isUploading -> {
+                Box(
+                    modifier = Modifier.size(72.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(32.dp),
+                        color = CdCobalt,
+                        strokeWidth = 3.dp
+                    )
+                }
+            }
+            hasImage -> {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                ) {
+                    com.example.dutype.components.OptimizedProfileImage(
+                        imageUrl = profileImageUri?.toString() ?: profileImageUrl.orEmpty(),
+                        contentDescription = "Company photo",
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            }
+            else -> {
+                Icon(
+                    imageVector = Icons.Outlined.CameraAlt,
+                    contentDescription = null,
+                    tint = CdMuted,
+                    modifier = Modifier.size(36.dp)
+                )
+            }
+        }
+        Text(
+            text = "Upload Shop Front or Office Photo",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = CdNavy,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+        Text(
+            text = "Candidates are 3x more likely to accept offers when they see your verified workplace.",
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+            color = CdMuted,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+        Box(
+            modifier = Modifier
+                .padding(top = 12.dp)
+                .height(36.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .border(BorderStroke(1.dp, CdNavy), RoundedCornerShape(18.dp))
+                .clickable(enabled = !isUploading, onClick = onChoose)
+                .padding(horizontal = 18.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Choose Photo",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = CdNavy
+            )
+        }
+    }
+}
+
+@Composable
+private fun CdCard(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(BorderStroke(1.dp, CdBorder), RoundedCornerShape(16.dp))
+            .padding(16.dp),
+        content = content
     )
 }
 
-// ============================================
-// HELPER COMPOSABLES
-// ============================================
-
 @Composable
-private fun CompanyLogoSection(
-    profileImageUrl: String?,
-    profileImageUri: Uri?,
-    isUploadingImage: Boolean,
+private fun CdBasicsCard(
     companyName: String,
-    onImageClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(
-            modifier = Modifier.size(120.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            when {
-                isUploadingImage -> {
-                    Box(
-                        modifier = Modifier
-                            .size(120.dp)
-                            .clip(CircleShape)
-                            .background(EmployerColors.ChipBackground),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(32.dp),
-                            color = EmployerColors.Primary,
-                            strokeWidth = 3.dp
-                        )
-                    }
-                }
-                profileImageUri != null -> {
-                    Box(
-                        modifier = Modifier
-                            .size(120.dp)
-                            .clip(CircleShape)
-                            .clickable(onClick = onImageClick)
-                    ) {
-                        com.example.dutype.components.OptimizedProfileImage(
-                            imageUrl = profileImageUri.toString(),
-                            contentDescription = "Company Logo",
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                }
-                !profileImageUrl.isNullOrBlank() -> {
-                    Box(
-                        modifier = Modifier
-                            .size(120.dp)
-                            .clip(CircleShape)
-                            .clickable(onClick = onImageClick)
-                    ) {
-                        com.example.dutype.components.OptimizedProfileImage(
-                            imageUrl = profileImageUrl,
-                            contentDescription = "Company Logo",
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                }
-                else -> {
-                    DefaultCompanyLogo(companyName = companyName, onClick = onImageClick)
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(EmployerColors.Primary)
-                    .clickable(onClick = onImageClick),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CameraAlt,
-                    contentDescription = "Change Logo",
-                    tint = Color.White,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = if (companyName.isNotBlank()) companyName else "Add Your Company",
-            style = AppTypography.pageTitle,
-            color = if (companyName.isNotBlank()) EmployerColors.TextPrimary else EmployerColors.TextSecondary
-        )
-
-        Text(
-            text = stringResource(R.string.auto_tap_logo_to_change),
-            style = AppTypography.caption,
-            color = EmployerColors.TextSecondary
-        )
-    }
-}
-
-@Composable
-private fun DefaultCompanyLogo(
-    companyName: String,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .size(120.dp)
-            .clip(CircleShape)
-            .background(EmployerColors.PrimaryLight)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        if (companyName.isNotBlank()) {
-            Text(
-                text = companyName.take(2).uppercase(),
-                style = AppTypography.displayTitle,
-                color = EmployerColors.Primary
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Default.Person,
-                contentDescription = "Default Logo",
-                tint = EmployerColors.IconSecondary,
-                modifier = Modifier.size(56.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun RatingsCard(
-    rating: Float,
-    totalRatings: Int,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(
-                    text = stringResource(R.string.auto_ratings_reviews),
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        color = EmployerColors.TextPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = if (totalRatings > 0) {
-                        "★ ${"%.1f".format(rating)}  •  $totalRatings review${if (totalRatings != 1) "s" else ""}"
-                    } else {
-                        "No ratings yet"
-                    },
-                    style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
-                )
-            }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
-                contentDescription = "View reviews",
-                tint = EmployerColors.TextSecondary,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun CompanyInfoCard(
-    title: String,
-    items: List<Pair<String, String>>
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Divider)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = title,
-                style = AppTypography.sectionHeader,
-                color = EmployerColors.TextPrimary,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-            items.forEachIndexed { index, (label, value) ->
-                CompanyFieldDisplay(label = label, value = value)
-                if (index < items.size - 1) {
-                    HorizontalDivider(
-                        color = EmployerColors.Divider,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CompanyFieldDisplay(
-    label: String,
-    value: String
-) {
-    Column {
-        Text(
-            text = label,
-            style = AppTypography.caption,
-            color = EmployerColors.TextSecondary
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = value.ifBlank { "Not provided" },
-            style = AppTypography.bodyMedium,
-            color = if (value.isNotBlank()) EmployerColors.TextPrimary else EmployerColors.TextSecondary
-        )
-    }
-}
-
-@Composable
-private fun EditableBasicInfoCard(
-    companyName: String,
-    onCompanyNameChange: (String) -> Unit,
+    onCompanyName: (String) -> Unit,
+    tradeName: String,
+    onTradeName: (String) -> Unit,
+    contactPerson: String,
+    onContactPerson: (String) -> Unit,
     contactPhone: String,
-    onContactPhoneChange: (String) -> Unit,
-    businessAddress: String,
-    onBusinessAddressChange: (String) -> Unit
+    contactEmail: String,
+    onContactEmail: (String) -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Divider)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(R.string.basic_information),
-                style = AppTypography.sectionHeader,
-                color = EmployerColors.TextPrimary,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            CompanyTextField(
-                label = stringResource(R.string.company_name),
-                value = companyName,
-                onValueChange = onCompanyNameChange,
-                placeholder = stringResource(R.string.enter_company_name)
-            )
-            CompanyTextField(
-                label = stringResource(R.string.contact_phone),
-                value = contactPhone,
-                onValueChange = onContactPhoneChange,
-                placeholder = stringResource(R.string.login_phone_number),
-                keyboardType = KeyboardType.Phone,
-                enabled = false
-            )
-            CompanyTextField(
-                label = stringResource(R.string.business_address),
-                value = businessAddress,
-                onValueChange = onBusinessAddressChange,
-                placeholder = stringResource(R.string.enter_business_address),
-                singleLine = false,
-                minLines = 2
-            )
-        }
-    }
-}
-
-@Composable
-private fun EditableCompanyDetailsCard(
-    industry: String,
-    onIndustryChange: (String) -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, EmployerColors.Divider)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = stringResource(R.string.company_details_section),
-                style = AppTypography.sectionHeader,
-                color = EmployerColors.TextPrimary,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            CompanyTextField(
-                label = stringResource(R.string.industry),
-                value = industry,
-                onValueChange = onIndustryChange,
-                placeholder = "e.g. Hospitality, Retail, IT services"
-            )
-        }
-    }
-}
-
-@Composable
-private fun CompanyTextField(
-    label: String,
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    keyboardType: KeyboardType = KeyboardType.Text,
-    enabled: Boolean = true,
-    singleLine: Boolean = true,
-    minLines: Int = 1
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var isFetchingLocation by remember { mutableStateOf(false) }
-
-    // Local helper so both the direct tap (permission already granted) and the
-    // post-grant callback share the exact same fetch path.
-    suspend fun runLocationFetch() {
-        try {
-            val locationService = com.example.dutype.utils.LocationService(context)
-            val locationInfo = locationService.getCurrentLocation()
-            if (locationInfo != null) {
-                onValueChange(locationInfo.getFullAddress())
-            } else {
-                Toast.makeText(
-                    context,
-                    "Unable to fetch location. Please check permissions.",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        } catch (e: Exception) {
-            Toast.makeText(
-                context,
-                "Error fetching location: ${e.message}",
-                Toast.LENGTH_SHORT
-            ).show()
-        } finally {
-            isFetchingLocation = false
-        }
-    }
-
-    // Re-prompt the OS location permission on every tap if it hasn't been granted
-    // yet — including recoveries from a previous denial.
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
-        val granted = results[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-            results[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        if (granted) {
-            scope.launch { runLocationFetch() }
-        } else {
-            isFetchingLocation = false
-            Toast.makeText(
-                context,
-                "Location permission required to use this button.",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    }
-
-    val isAddressField = label == "Business Address"
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-    ) {
+    CdCard {
         Text(
-            text = label,
-            style = AppTypography.caption,
-            color = EmployerColors.TextSecondary,
-            modifier = Modifier.padding(bottom = 4.dp)
+            text = "BUSINESS BASICS",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = CdHint,
+            letterSpacing = 0.6.sp
         )
-
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = {
-                Text(
-                    text = placeholder,
-                    style = AppTypography.bodyMedium,
-                    color = EmployerColors.TextSecondary.copy(alpha = 0.6f)
-                )
-            },
-            textStyle = AppTypography.bodyMedium.copy(color = EmployerColors.TextPrimary),
-            enabled = enabled,
-            singleLine = singleLine,
-            minLines = minLines,
-            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = EmployerColors.Primary,
-                unfocusedBorderColor = EmployerColors.Border,
-                disabledBorderColor = EmployerColors.Border.copy(alpha = 0.5f),
-                disabledTextColor = EmployerColors.TextSecondary
-            ),
-            shape = RoundedCornerShape(8.dp),
-            trailingIcon = if (isAddressField && enabled && !isFetchingLocation) {
-                {
-                    IconButton(
-                        onClick = {
-                            isFetchingLocation = true
-                            val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(
-                                context,
-                                android.Manifest.permission.ACCESS_FINE_LOCATION
-                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
-                                androidx.core.content.ContextCompat.checkSelfPermission(
-                                    context,
-                                    android.Manifest.permission.ACCESS_COARSE_LOCATION
-                                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-                            if (hasPermission) {
-                                scope.launch { runLocationFetch() }
-                            } else {
-                                locationPermissionLauncher.launch(
-                                    arrayOf(
-                                        android.Manifest.permission.ACCESS_FINE_LOCATION,
-                                        android.Manifest.permission.ACCESS_COARSE_LOCATION
-                                    )
-                                )
-                            }
-                        }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.MyLocation,
-                            contentDescription = "Fetch current location",
-                            tint = EmployerColors.Primary
-                        )
-                    }
-                }
-            } else if (isAddressField && isFetchingLocation) {
-                {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp,
-                        color = EmployerColors.Primary
-                    )
-                }
+        Spacer(modifier = Modifier.height(10.dp))
+        CdField(
+            label = "Legal Business Name",
+            value = companyName,
+            onValueChange = onCompanyName
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        CdField(
+            label = "Trade / Display Name",
+            value = tradeName,
+            onValueChange = onTradeName
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        CdField(
+            label = "Contact Person Name & Role",
+            value = contactPerson,
+            onValueChange = onContactPerson
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        CdField(
+            label = "Contact Phone Number (+91)",
+            value = contactPhone,
+            onValueChange = {},
+            enabled = false,
+            keyboardType = KeyboardType.Phone,
+            trailing = if (contactPhone.isNotBlank()) {
+                { CdVerifiedBadge() }
             } else null
         )
+        Spacer(modifier = Modifier.height(10.dp))
+        CdField(
+            label = "Contact Email (Optional)",
+            value = contactEmail,
+            onValueChange = onContactEmail,
+            placeholder = "name@business.com",
+            keyboardType = KeyboardType.Email
+        )
+    }
+}
 
-        if (!enabled && label == stringResource(R.string.contact_phone)) {
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = stringResource(R.string.auto_phone_number_cannot_be_changed_from_login),
-                style = AppTypography.caption.copy(
-                    color = EmployerColors.TextSecondary.copy(alpha = 0.7f),
-                    fontSize = 11.sp
+@Composable
+private fun CdCategoryTaxCard(
+    industry: String,
+    onIndustry: (String) -> Unit,
+    gstin: String,
+    gstVerified: Boolean,
+    onGstin: (String) -> Unit,
+    onVerify: () -> Unit
+) {
+    CdCard {
+        Text(
+            text = "Business Category",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = CdNavy
+        )
+        Row(
+            modifier = Modifier
+                .padding(top = 10.dp)
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            CdCategories.forEach { name ->
+                CdChip(
+                    text = name,
+                    selected = industry == name,
+                    onClick = { onIndustry(name) }
                 )
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        CdField(
+            label = "GSTIN (Optional)",
+            value = gstin,
+            onValueChange = onGstin,
+            capitalization = KeyboardCapitalization.Characters,
+            trailing = {
+                Box(
+                    modifier = Modifier
+                        .height(36.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(CdCobalt)
+                        .clickable(onClick = onVerify)
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Verify",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                }
+            }
+        )
+        if (gstVerified && gstin.isNotBlank()) {
+            Text(
+                text = "✓ GST Active: $gstin",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = CdGstGreen,
+                modifier = Modifier.padding(top = 8.dp)
             )
         }
     }
 }
 
 @Composable
-private fun EditModeButtons(
+private fun CdBottomBar(
     isSaving: Boolean,
-    onCancel: () -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = EmployerColors.CardBackground,
-        shadowElevation = 8.dp
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .navigationBarsPadding()
     ) {
-        Row(
+        HorizontalDivider(thickness = 1.dp, color = CdBorder)
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .height(79.dp)
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center
         ) {
-            OutlinedButton(
-                onClick = onCancel,
-                modifier = Modifier.weight(1f),
-                enabled = !isSaving,
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = EmployerColors.TextPrimary
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.auto_cancel),
-                    style = AppTypography.buttonMedium
-                )
-            }
-
-            Button(
-                onClick = onSave,
-                modifier = Modifier.weight(1f),
-                enabled = !isSaving,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = EmployerColors.Primary
-                ),
-                shape = RoundedCornerShape(8.dp)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(CdNavy)
+                    .clickable(enabled = !isSaving, onClick = onSave),
+                contentAlignment = Alignment.Center
             ) {
                 if (isSaving) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(22.dp),
                         strokeWidth = 2.dp,
                         color = Color.White
                     )
                 } else {
                     Text(
-                        text = stringResource(R.string.auto_save_changes),
-                        style = AppTypography.buttonMedium,
+                        text = "Save Company Details →",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = Color.White
                     )
                 }
             }
+        }
+    }
+}
+
+// ============================================
+// SMALL BUILDING BLOCKS
+// ============================================
+
+@Composable
+private fun CdChip(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(17.dp)
+    Box(
+        modifier = Modifier
+            .height(34.dp)
+            .clip(shape)
+            .background(if (selected) CdNavy else Color.White)
+            .border(BorderStroke(1.dp, if (selected) CdNavy else CdBorder), shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            fontSize = 13.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+            color = if (selected) Color.White else CdChipText,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun CdVerifiedBadge() {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(999.dp))
+            .background(CdGreenBg)
+            .padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Check,
+            contentDescription = null,
+            tint = CdGreen,
+            modifier = Modifier.size(12.dp)
+        )
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = "Verified",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = CdGreen,
+            maxLines = 1
+        )
+    }
+}
+
+/**
+ * 56dp outlined field with a stacked label (11sp) above the value (14sp).
+ */
+@Composable
+private fun CdField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String = "",
+    enabled: Boolean = true,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    capitalization: KeyboardCapitalization = KeyboardCapitalization.None,
+    trailing: (@Composable () -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .border(BorderStroke(1.dp, CdBorder), RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                lineHeight = 14.sp,
+                color = CdMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                enabled = enabled,
+                singleLine = true,
+                textStyle = TextStyle(
+                    fontSize = 14.sp,
+                    lineHeight = 18.sp,
+                    color = CdNavy
+                ),
+                cursorBrush = SolidColor(CdCobalt),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = keyboardType,
+                    capitalization = capitalization
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+                decorationBox = { innerTextField ->
+                    Box {
+                        if (value.isEmpty() && placeholder.isNotEmpty()) {
+                            Text(
+                                text = placeholder,
+                                fontSize = 14.sp,
+                                lineHeight = 18.sp,
+                                color = CdHint,
+                                maxLines = 1
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
+            )
+        }
+        if (trailing != null) {
+            Spacer(modifier = Modifier.width(8.dp))
+            trailing()
         }
     }
 }
