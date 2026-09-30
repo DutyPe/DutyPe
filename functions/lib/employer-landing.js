@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.employerLanding = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const schema_1 = require("./schema");
 // Firestore is already initialized in worker-landing.ts
 const db = admin.firestore();
 /**
@@ -23,7 +24,7 @@ const db = admin.firestore();
  * Generates SEO-friendly landing page with Open Graph tags
  * Uses Android Intent URLs for reliable app opening (LinkedIn/Instagram pattern)
  */
-exports.employerLanding = functions.https.onRequest(async (req, res) => {
+exports.employerLanding = functions.region("asia-south1").https.onRequest(async (req, res) => {
     try {
         // Extract employer ID from path: /employer/USER_123
         const pathParts = req.path.split("/").filter((p) => p);
@@ -33,7 +34,7 @@ exports.employerLanding = functions.https.onRequest(async (req, res) => {
             return;
         }
         // Fetch employer data from Firestore
-        const employerDoc = await db.collection("users").doc(employerId).get();
+        const employerDoc = await db.collection(schema_1.EmployerProfiles.COLLECTION).doc(employerId).get();
         if (!employerDoc.exists) {
             res.status(404).send("Employer not found");
             return;
@@ -44,19 +45,17 @@ exports.employerLanding = functions.https.onRequest(async (req, res) => {
             return;
         }
         // Extract employer details
-        const companyName = employerData.companyName || employerData.fullName || "Company";
-        const companyPhone = employerData.phone || employerData.phoneNumber || "";
-        const trustTier = employerData.trustTier || "NEW";
-        const profileImageUrl = employerData.profileImageUrl || "";
-        const postedJobsCount = employerData.postedJobsCount || 0;
-        const companyRating = employerData.companyRating || 0;
+        const isCompany = employerData[schema_1.EmployerProfiles.EMPLOYER_TYPE] === "COMPANY";
+        const companyName = (isCompany && employerData[schema_1.EmployerProfiles.BUSINESS_NAME]) ||
+            employerData[schema_1.EmployerProfiles.OWNER_NAME] || "Employer";
+        const verified = employerData[schema_1.EmployerProfiles.VERIFIED] === true;
+        const profileImageUrl = employerData[schema_1.EmployerProfiles.PHOTO_URL] || "";
+        const postedJobsCount = Number(employerData[schema_1.EmployerProfiles.TOTAL_HIRES] || 0);
+        const companyRating = Number(employerData[schema_1.EmployerProfiles.RATING] || 0);
         // Trust badge text
-        const trustBadgeText = trustTier === "GOLD" ? "🏆 Gold Verified" :
-            trustTier === "SILVER" ? "🥈 Silver Verified" :
-                trustTier === "BRONZE" ? "🥉 Bronze Verified" :
-                    "✅ Verified";
+        const trustBadgeText = verified ? "✅ Verified" : "";
         // Create description
-        const description = `${companyName} - ${trustBadgeText} Employer${postedJobsCount > 0 ? ` | ${postedJobsCount} jobs posted` : ""}${companyRating > 0 ? ` | ${companyRating.toFixed(1)}⭐` : ""}`;
+        const description = `${companyName} -${trustBadgeText ? ` ${trustBadgeText}` : ""} Employer${postedJobsCount > 0 ? ` | ${postedJobsCount} hires` : ""}${companyRating > 0 ? ` | ${companyRating.toFixed(1)}⭐` : ""}`;
         // Android Intent URL (Industry Standard - LinkedIn, Instagram, Uber pattern)
         const intentUrl = `intent://employer/${employerId}#Intent;scheme=dutype;package=com.dutype.app;S.browser_fallback_url=https://play.google.com/store/apps/details?id=com.dutype.app;end`;
         // Generate HTML with Open Graph tags and auto-redirect
@@ -68,21 +67,21 @@ exports.employerLanding = functions.https.onRequest(async (req, res) => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <!-- Primary Meta Tags -->
-    <title>${companyName} - ${trustBadgeText} | DutyPe</title>
-    <meta name="title" content="${companyName} - ${trustBadgeText} | DutyPe">
+    <title>${companyName}${trustBadgeText ? ` - ${trustBadgeText}` : ""} | DutyPe</title>
+    <meta name="title" content="${companyName}${trustBadgeText ? ` - ${trustBadgeText}` : ""} | DutyPe">
     <meta name="description" content="${description}">
     
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="business.business">
     <meta property="og:url" content="https://dutypeapp.web.app/employer/${employerId}">
-    <meta property="og:title" content="${companyName} - ${trustBadgeText}">
+    <meta property="og:title" content="${companyName}${trustBadgeText ? ` - ${trustBadgeText}` : ""}">
     <meta property="og:description" content="${description}">
     ${profileImageUrl ? `<meta property="og:image" content="${profileImageUrl}">` : ""}
     
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="https://dutypeapp.web.app/employer/${employerId}">
-    <meta name="twitter:title" content="${companyName} - ${trustBadgeText}">
+    <meta name="twitter:title" content="${companyName}${trustBadgeText ? ` - ${trustBadgeText}` : ""}">
     <meta name="twitter:description" content="${description}">
     ${profileImageUrl ? `<meta name="twitter:image" content="${profileImageUrl}">` : ""}
     

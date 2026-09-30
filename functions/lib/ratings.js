@@ -1,82 +1,92 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.submitRating = void 0;
+/**
+ * Ratings — ratings/{jobOrRequestId}_{workerId}_{raterRole}, one per side of a finished piece of work.
+ *
+ *   submitRating  checks the work was completed (application or instant response), creates the rating
+ *                 and updates the target's running average in the same transaction:
+ *                 workers → worker_cards.rating/ratingCount, employers → employer_profiles.rating/ratingCount.
+ */
 const admin = require("firebase-admin");
-const functions = require("firebase-functions");
-const crypto_1 = require("crypto");
-const validation_1 = require("./validation");
+const secure_callable_1 = require("./secure-callable");
+const input_1 = require("./lib/input");
+const schema_1 = require("./schema");
 const db = admin.firestore();
-exports.submitRating = functions.https.onCall(async (data, context) => {
-    var _a;
-    const userId = (_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid;
-    if (!userId)
-        throw new functions.https.HttpsError("unauthenticated", "Sign in to submit a review");
-    const applicationId = (0, validation_1.validateString)(data === null || data === void 0 ? void 0 : data.applicationId, "applicationId", {
-        required: true, maxLength: 256, pattern: /^[a-zA-Z0-9_-]+$/
-    });
-    if (!Number.isInteger(data.rating) || data.rating < 1 || data.rating > 5) {
-        throw new functions.https.HttpsError("invalid-argument", "Rating must be an integer from 1 to 5");
-    }
-    if (data.userId !== undefined && data.userId !== userId) {
-        throw new functions.https.HttpsError("permission-denied", "Account changed before review submission");
-    }
-    const review = (0, validation_1.validateString)(data.review, "review", { maxLength: 2000 });
-    const tags = Array.from(new Set((0, validation_1.validateArray)(data.tags, "tags", { maxLength: 10 })
-        .map(tag => (0, validation_1.validateString)(tag, "tag", { required: true, maxLength: 50 }))));
-    const ratingId = (0, crypto_1.createHash)("sha256").update(`${applicationId}\0${userId}`).digest("hex");
-    const ratingRef = db.collection("ratings").doc(ratingId);
-    const applicationRef = db.collection("job_applications").doc(applicationId);
-    const legacyRatings = await db.collection("ratings")
-        .where("applicationId", "==", applicationId).where("raterId", "==", userId).limit(1).get();
-    return db.runTransaction(async (transaction) => {
-        var _a, _b;
-        const [applicationDoc, ratingDoc, raterDoc] = await transaction.getAll(applicationRef, ratingRef, db.collection("users").doc(userId));
-        if (!applicationDoc.exists)
-            throw new functions.https.HttpsError("not-found", "Application not found");
-        const application = applicationDoc.data();
-        if (application.workerId !== userId && application.employerId !== userId) {
-            throw new functions.https.HttpsError("permission-denied", "Only participants can review this work");
-        }
-        if (application.status !== "COMPLETED" || application.workerId === application.employerId) {
-            throw new functions.https.HttpsError("failed-precondition", "Only completed work with another participant can be reviewed");
-        }
-        const raterRole = application.workerId === userId ? "WORKER" : "EMPLOYER";
-        const targetRole = raterRole === "WORKER" ? "EMPLOYER" : "WORKER";
-        const targetUserId = raterRole === "WORKER" ? application.employerId : application.workerId;
-        if (typeof targetUserId !== "string" || !targetUserId || !raterDoc.exists) {
-            throw new functions.https.HttpsError("failed-precondition", "Participant profile is unavailable");
-        }
-        if (ratingDoc.exists) {
-            const previous = ratingDoc.data();
-            if (previous.rating !== data.rating || previous.review !== review || JSON.stringify(previous.tags) !== JSON.stringify(tags)) {
-                throw new functions.https.HttpsError("already-exists", "This application has already been reviewed");
+const { Timestamp } = admin.firestore;
+const ID = /^[A-Za-z0-9_-]+$/;
+exports.submitRating = (0, secure_callable_1.onCallSecured)({}, async (raw, context) => {
+    const uid = context.auth.uid;
+    const data = (0, input_1.obj)(raw);
+    const source = (0, input_1.oneOf)(data, "source", ["job", "instant"], "job");
+    const workId = (0, input_1.str)(data, "id", { max: 128, pattern: ID });
+    const targetId = (0, input_1.str)(data, "targetId", { max: 128, pattern: ID });
+    const stars = (0, input_1.int)(data, "stars", { min: 1, max: 5 });
+    const review = (0, input_1.text)(data, "review", { max: 1000, optional: true });
+    const tags = (0, input_1.stringList)(data, "tags", { maxItems: 10, maxLength: 40 });
+    if (targetId === uid)
+        (0, input_1.fail)("invalid-argument", "You cannot rate yourself");
+    // Who is the worker in this pair, and did the work finish?
+    let workerId = "";
+    let employerId = "";
+    if (source === "job") {
+        for (const candidate of [uid, targetId]) {
+            const app = await db.collection(schema_1.Applications.COLLECTION).doc(`${workId}_${candidate}`).get();
+            if (app.exists) {
+                workerId = String(app.get(schema_1.Applications.WORKER_ID));
+                employerId = String(app.get(schema_1.Applications.EMPLOYER_ID));
+                const status = app.get(schema_1.Applications.STATUS);
+                if (status !== schema_1.Values.ApplicationStatus.COMPLETED && status !== schema_1.Values.ApplicationStatus.HIRED) {
+                    (0, input_1.fail)("failed-precondition", "You can rate only after the work is done");
+                }
+                break;
             }
-            return { success: true, ratingId, duplicate: true };
         }
-        const targetRef = db.collection("users").doc(targetUserId);
-        const targetDoc = await transaction.get(targetRef);
-        if (legacyRatings.docs.some(document => document.id !== ratingId)) {
-            throw new functions.https.HttpsError("already-exists", "This application has already been reviewed");
+    }
+    else {
+        const requestRef = db.collection(schema_1.InstantRequests.COLLECTION).doc(workId);
+        const request = await requestRef.get();
+        employerId = String(request.get(schema_1.InstantRequests.EMPLOYER_ID) || "");
+        workerId = employerId === uid ? targetId : uid;
+        const response = await requestRef.collection(schema_1.InstantRequests.Responses.COLLECTION).doc(workerId).get();
+        if (!request.exists || !response.exists)
+            workerId = "";
+        else if (response.get(schema_1.InstantRequests.Responses.STATUS) !== schema_1.Values.InstantResponseStatus.COMPLETED &&
+            response.get(schema_1.InstantRequests.Responses.STATUS) !== schema_1.Values.InstantResponseStatus.ACCEPTED) {
+            (0, input_1.fail)("failed-precondition", "You can rate only after the work is done");
         }
-        if (!targetDoc.exists)
-            throw new functions.https.HttpsError("failed-precondition", "Participant profile is unavailable");
-        const averageField = targetRole === "WORKER" ? "workerAverageRating" : "averageRating";
-        const countField = targetRole === "WORKER" ? "workerTotalRatings" : "totalRatings";
-        const average = (_a = targetDoc.get(averageField)) !== null && _a !== void 0 ? _a : 0;
-        const count = (_b = targetDoc.get(countField)) !== null && _b !== void 0 ? _b : 0;
-        if (!Number.isSafeInteger(count) || count < 0 || typeof average !== "number" || !Number.isFinite(average) || average < 0 || average > 5) {
-            throw new functions.https.HttpsError("failed-precondition", "Rating summary needs reconciliation");
-        }
-        transaction.create(ratingRef, {
-            id: ratingId, applicationId, jobId: application.jobId, raterId: userId,
-            raterName: raterDoc.get("fullName") || "", raterRole, targetRole, targetUserId,
-            targetUserName: targetDoc.get("fullName") || "", rating: data.rating, review, tags, createdAt: Date.now()
+    }
+    if (!workerId || !employerId || ![workerId, employerId].includes(uid) || ![workerId, employerId].includes(targetId)) {
+        (0, input_1.fail)("permission-denied", "Only the two people who worked together can rate each other");
+    }
+    const raterRole = uid === workerId ? schema_1.Values.Role.WORKER : schema_1.Values.Role.EMPLOYER;
+    const ratingRef = db.collection(schema_1.Ratings.COLLECTION).doc(`${workId}_${workerId}_${raterRole}`);
+    const targetRef = raterRole === schema_1.Values.Role.WORKER ?
+        db.collection(schema_1.EmployerProfiles.COLLECTION).doc(employerId) :
+        db.collection(schema_1.WorkerCards.COLLECTION).doc(workerId);
+    const ratingKey = raterRole === schema_1.Values.Role.WORKER ? schema_1.EmployerProfiles.RATING : schema_1.WorkerCards.RATING;
+    const countKey = raterRole === schema_1.Values.Role.WORKER ? schema_1.EmployerProfiles.RATING_COUNT : schema_1.WorkerCards.RATING_COUNT;
+    return db.runTransaction(async (tx) => {
+        const [existing, target] = await Promise.all([tx.get(ratingRef), tx.get(targetRef)]);
+        if (existing.exists)
+            return { ok: true, duplicate: true };
+        tx.create(ratingRef, {
+            [schema_1.Ratings.RATER_ID]: uid,
+            [schema_1.Ratings.TARGET_ID]: targetId,
+            [schema_1.Ratings.STARS]: stars,
+            [schema_1.Ratings.REVIEW]: review,
+            [schema_1.Ratings.TAGS]: tags,
+            [schema_1.Ratings.CREATED_AT]: Timestamp.now(),
         });
-        transaction.update(targetRef, {
-            [averageField]: (average * count + data.rating) / (count + 1),
-            [countField]: count + 1
-        });
-        return { success: true, ratingId, duplicate: false };
+        if (target.exists) {
+            const count = Number(target.get(countKey) || 0);
+            const avg = Number(target.get(ratingKey) || 0);
+            tx.update(targetRef, {
+                [ratingKey]: Math.round(((avg * count + stars) / (count + 1)) * 100) / 100,
+                [countKey]: count + 1,
+            });
+        }
+        return { ok: true, duplicate: false };
     });
 });
 //# sourceMappingURL=ratings.js.map

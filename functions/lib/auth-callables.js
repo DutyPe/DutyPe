@@ -594,7 +594,8 @@ exports.lookupPhoneRole = (0, secure_callable_1.onCallSecured)({
     enforceAppCheck: false,
     memory: "256MB",
     timeoutSeconds: 10,
-    minInstances: 1,
+    // No always-on instance (cost). The app waits for this answer instead of guessing.
+    minInstances: 0,
 }, async (data, _context) => {
     const phoneE164 = normalizePhoneE164(data === null || data === void 0 ? void 0 : data.phone);
     if (!phoneE164) {
@@ -604,29 +605,46 @@ exports.lookupPhoneRole = (0, secure_callable_1.onCallSecured)({
     const requestedRole = requestedRoleRaw === "WORKER" || requestedRoleRaw === "EMPLOYER"
         ? requestedRoleRaw
         : "";
-    const snap = await db().collection("phoneRoles").doc(phoneE164).get();
+    // A number counts as registered only when it owns a real role. Order:
+    //  1. phoneRoles (every stored number format),
+    //  2. the Firebase Auth account for this phone -> its worker/employer profile,
+    //  3. profiles whose phone field matches.
+    // (The old fallback matched users/{uid} docs, which are created for EVERY verified
+    // OTP, so abandoned sign-ups looked registered and real accounts without a phoneRoles
+    // doc were missed.)
+    const rawDigits = phoneE164.replace(/^\+91/, "");
+    const variants = Array.from(new Set([phoneE164, rawDigits, `91${rawDigits}`, `+${rawDigits}`]));
     let existingRole = "";
     let name = "";
     let exists = false;
-    if (snap.exists) {
-        const d = snap.data() || {};
-        existingRole = String(d.role || "").toUpperCase();
-        name = String(d.name || "");
+    const roleDocs = await db().getAll(...variants.map((v) => db().collection("phoneRoles").doc(v)));
+    const roleDoc = roleDocs.find((d) => d.exists && String(d.get("role") || "").trim());
+    if (roleDoc) {
+        existingRole = String(roleDoc.get("role") || "").toUpperCase();
+        name = String(roleDoc.get("name") || roleDoc.get("fullName") || "");
         exists = true;
     }
-    else {
-        const rawDigits = phoneE164.replace(/^\+91/, "");
-        const userSnaps = await db()
-            .collection("users")
-            .where("phone", "in", [phoneE164, rawDigits, `+${rawDigits}`])
-            .limit(1)
-            .get()
-            .catch(() => null);
-        if (userSnaps && !userSnaps.empty) {
-            const u = userSnaps.docs[0].data() || {};
-            existingRole = String(u.role || u.activeRole || "").toUpperCase();
-            name = String(u.fullName || u.name || "");
-            exists = true;
+    if (!exists) {
+        const authUser = await admin.auth().getUserByPhoneNumber(phoneE164).catch(() => null);
+        if (authUser) {
+            const [workerDoc, employerDoc] = await db().getAll(db().collection("worker_profiles").doc(authUser.uid), db().collection("employer_profiles").doc(authUser.uid));
+            const profile = workerDoc.exists ? workerDoc : employerDoc.exists ? employerDoc : null;
+            if (profile) {
+                existingRole = workerDoc.exists ? "WORKER" : "EMPLOYER";
+                name = String(profile.get("fullName") || profile.get("companyName") || profile.get("name") || "");
+                exists = true;
+            }
+        }
+    }
+    if (!exists) {
+        for (const [collection, role] of [["worker_profiles", "WORKER"], ["employer_profiles", "EMPLOYER"]]) {
+            const match = await db().collection(collection).where("phone", "in", variants).limit(1).get().catch(() => null);
+            if (match && !match.empty) {
+                existingRole = role;
+                name = String(match.docs[0].get("fullName") || match.docs[0].get("companyName") || "");
+                exists = true;
+                break;
+            }
         }
     }
     if (!exists) {

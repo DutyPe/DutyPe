@@ -106,12 +106,11 @@ import com.example.dutype.components.GuestWelcomeBonusCard
 import com.example.dutype.components.WelcomeCelebrationOverlay
 import com.example.dutype.components.consumeWelcomeCelebrationFlag
 import com.example.dutype.employer.components.EmployerJobCard
-import com.example.dutype.employer.models.JobPostingModel
 import com.example.dutype.employer.models.JobCategory
 import com.example.dutype.employer.models.PayType
-import com.example.dutype.employer.models.ShiftTiming
+import com.example.dutype.employer.models.JobShift
 import com.example.dutype.employer.models.JobStats
-import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
+import com.example.dutype.viewmodels.EmployerJobsViewModel
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import com.example.dutype.viewmodels.InstantHelpViewModel
 import com.example.dutype.services.ProfileCompletionService
@@ -176,7 +175,7 @@ fun EmployerHomeScreen(
     val context = LocalContext.current
     val hiltFirestore = remember(context) { com.example.dutype.di.firestoreFromHilt(context) }
     val hiltAuth = remember(context) { com.example.dutype.di.authFromHilt(context) }
-    val viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
+    val viewModel: EmployerJobsViewModel = hiltViewModel()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
     val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
@@ -187,9 +186,9 @@ fun EmployerHomeScreen(
     val subscriptionViewModel: com.example.dutype.viewmodels.SubscriptionViewModel = hiltViewModel()
     val subscription by subscriptionViewModel.activeSubscription.collectAsStateWithLifecycle()
     val appVersionInfo = remember(context) { context.appVersionInfo() }
-    
+
     // NotificationService for unread count (lightweight)
-    val notificationService = remember { 
+    val notificationService = remember {
         com.example.dutype.services.NotificationService(
             context,
             hiltFirestore
@@ -198,17 +197,17 @@ fun EmployerHomeScreen(
     val employerJobUiState by viewModel.uiState.collectAsStateWithLifecycle()
     val appStats by applicationViewModel.stats.collectAsStateWithLifecycle()
     val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
-    
+
     // Announcement ViewModel for in-app announcements
     val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
     val announcements by announcementViewModel.announcements.collectAsStateWithLifecycle()
     val reviewTriggerService = rememberInAppReviewTriggerService()
-    
+
     // Unread notification count for badge (lightweight - only count, not full notifications)
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
-    
-    // Birthday wish state 
-    val birthdayService = remember { 
+
+    // Birthday wish state
+    val birthdayService = remember {
         BirthdayService(
             hiltFirestore,
             hiltAuth,
@@ -217,34 +216,35 @@ fun EmployerHomeScreen(
     }
     var birthdayInfo by remember { mutableStateOf<BirthdayInfo?>(null) }
     var showBirthdayBanner by remember { mutableStateOf(false) }
-    
+
     // State for sharing job actions
     var jobToShare by remember { mutableStateOf<Pair<String, String>?>(null) }
-    
+
     // Permission handling - Check permissions only once
-    var hasNotificationPermission by remember { 
-        mutableStateOf(notificationPermissionManager.isNotificationPermissionGranted()) 
+    var hasNotificationPermission by remember {
+        mutableStateOf(notificationPermissionManager.isNotificationPermissionGranted())
     }
     // Location permission removed - not needed for employer side
-    
+
     // Track if permissions have been requested to avoid repeated requests
     var permissionsRequested by remember { mutableStateOf(false) }
     var isFirstTimeUser by remember { mutableStateOf(true) }
-    
+
     // Bottom sheet state
     var showNotificationBottomSheet by remember { mutableStateOf(false) }
-    
+
     // Track if bottom sheets have been shown in this app session
     var bottomSheetsShownInSession by remember { mutableStateOf(false) }
-    
+
     // Location permission launcher removed - not needed for employer side
-    
+
     // CRITICAL FIX: Don't cache employerId - get fresh value to handle role switches
     // Using remember would cache the value and break after role switch
     val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
     val employerId = currentUser?.uid
     val isGuestEmployer = currentUser == null || currentUser.isAnonymous
     var showLoginBottomSheet by remember { mutableStateOf(false) }
+    var showVoiceJobSheet by remember { mutableStateOf(false) }
     LaunchedEffect(employerId) {
         if (employerId != null) {
             Timber.d("EMPLOYER_HOME: Loading jobs for employerId=$employerId")
@@ -255,7 +255,7 @@ fun EmployerHomeScreen(
             Timber.w("EMPLOYER_HOME: No employerId - user not authenticated")
         }
     }
-    
+
     // Refresh subscription and metadata when returning to this screen
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
@@ -265,7 +265,7 @@ fun EmployerHomeScreen(
                 coroutineScope.launch {
                     val user = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                     if (user != null && !user.isAnonymous) {
-                        profileCompletionViewModel.metadataManager.userMetadata.refresh(com.example.dutype.models.UserRole.EMPLOYER)
+                        profileCompletionViewModel.profileStore.start(com.example.dutype.firestore.FirestoreSchema.Values.Role.EMPLOYER)
                         viewModel.loadMyJobs()
                         instantHelpViewModel.loadEmployerUrgentNeeds()
                         applicationViewModel.loadEmployerApplications()
@@ -286,11 +286,11 @@ fun EmployerHomeScreen(
             reviewTriggerService.onAppUsedForSomeTime(activity)
         }
     }
-        
+
     LaunchedEffect(employerId) {
         // Load announcements for employer role
         announcementViewModel.loadAnnouncements("employer")
-        
+
         // Fetch unread notification count for badge (lightweight - only count)
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         currentUser?.uid?.let { userId ->
@@ -302,7 +302,7 @@ fun EmployerHomeScreen(
                 result.onSuccess { count ->
                     unreadNotificationCount = count
                 }
-                
+
                 //  Check if today is user's birthday
                 if (!birthdayService.hasWishedToday(context, userId)) {
                     val bday = birthdayService.checkIfBirthday(userId)
@@ -322,17 +322,16 @@ fun EmployerHomeScreen(
         }
     }
 
-    
     // Check subscription expiry to trigger on-device push warning
     LaunchedEffect(subscription) {
         val currentUserId = hiltAuth.currentUser?.uid
-        val hasActiveSub = subscription.status == "ACTIVE" || subscription.status == "TRIAL"
-        if (currentUserId != null && hasActiveSub && subscription.expiryDate > 0L) {
-            val msRemaining = subscription.expiryDate - System.currentTimeMillis()
+        val hasActiveSub = subscription.isActive
+        if (currentUserId != null && hasActiveSub && subscription.expiresAt > 0L) {
+            val msRemaining = subscription.expiresAt - System.currentTimeMillis()
             val fiveDaysMs = 5L * 24L * 60L * 60L * 1000L
             if (msRemaining in 0L..fiveDaysMs) {
                 val daysRemaining = (msRemaining / (24L * 60L * 60L * 1000L)).coerceAtLeast(0).toInt()
-                
+
                 // Only notify once per day to prevent spam
                 val sharedPrefs = context.getSharedPreferences("dutype_employer_prefs", android.content.Context.MODE_PRIVATE)
                 val lastShownKey = "sub_expiry_notif_last_shown"
@@ -343,11 +342,11 @@ fun EmployerHomeScreen(
                     set(Calendar.SECOND, 0)
                     set(Calendar.MILLISECOND, 0)
                 }.timeInMillis
-                
+
                 if (lastShown < todayStart) {
                     try {
                         val notification = com.example.dutype.models.NotificationData(
-                            id = "sub_expiry_${subscription.expiryDate}",
+                            id = "sub_expiry_${subscription.expiresAt}",
                             recipientId = currentUserId,
                             title = "Subscription Expiring Soon!",
                             message = "Your plan expires in $daysRemaining days. Renew now to avoid interruption.",
@@ -366,13 +365,13 @@ fun EmployerHomeScreen(
             }
         }
     }
-    
+
     // Handle permissions: Permissions are now requested on SelectRoleScreen after onboarding
     // Here we only show bottom sheets for returning users who denied permissions
     LaunchedEffect(Unit) {
         Timber.d("EmployerHomeScreen - Checking permission status for bottom sheets")
         Timber.d("EmployerHomeScreen - hasNotificationPermission: $hasNotificationPermission")
-        
+
         // Only show bottom sheets for denied permissions (permissions are requested on SelectRoleScreen)
         if (!bottomSheetsShownInSession) {
             bottomSheetsShownInSession = true
@@ -382,10 +381,10 @@ fun EmployerHomeScreen(
             }
         }
     }
-    
+
     // Note: Permission requests moved to SelectRoleScreen after onboarding
     // Bottom sheets will show once per app session when user returns after denying permissions
-    
+
     // Handle job sharing
     LaunchedEffect(jobToShare) {
         jobToShare?.let { (jobId, jobTitle) ->
@@ -393,10 +392,10 @@ fun EmployerHomeScreen(
             jobToShare = null
         }
     }
-    
+
     // Helper functions to handle job actions
     val handleJobShare = remember { { jobId: String, jobTitle: String -> jobToShare = Pair(jobId, jobTitle) } }
-    
+
     val isDark = com.example.dutype.ui.theme.isAppInDarkTheme()
     val employerStatusBarColor = Color.White
     LaunchedEffect(employerStatusBarColor) {
@@ -412,7 +411,7 @@ fun EmployerHomeScreen(
         totalJobs = recentJobs.size + urgentRequests.size
     )
     val isLoading = employerJobUiState.isLoading
-    val isRefreshing = employerJobUiState.isRefreshing
+    val isRefreshing = false
     val error = employerJobUiState.error
     val showEmployerCashBonus = false
     val showEmployerWelcomeCard = false
@@ -422,10 +421,10 @@ fun EmployerHomeScreen(
         showEmployerCashBonus -> stringResource(R.string.guest_employer_welcome_message_bonus)
         else -> stringResource(R.string.guest_employer_welcome_message_posts)
     }
-    
-    // Company name state - loaded instantly from UserMetadata
-    val userStats by applicationViewModel.userMetadata.userStats.collectAsStateWithLifecycle()
-    val companyName = userStats.companyName.ifBlank { userStats.fullName }
+
+    // Company name from the live own profile (one shared listener)
+    val employerProfile by applicationViewModel.profileStore.employer.collectAsStateWithLifecycle()
+    val companyName = employerProfile?.displayName.orEmpty()
     var profileSetupStatus by remember { mutableStateOf<com.example.dutype.state.ProfileSetupStatus?>(null) }
 
     Box(
@@ -441,7 +440,7 @@ fun EmployerHomeScreen(
         val connectivityViewModel: com.example.dutype.viewmodels.ConnectivityViewModel = hiltViewModel()
         val isOnline by connectivityViewModel.isOnline.collectAsState()
         com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
-        
+
         //  Birthday Banner - Shows if today is user's birthday
         if (showBirthdayBanner && birthdayInfo != null) {
             BirthdayBanner(
@@ -449,7 +448,7 @@ fun EmployerHomeScreen(
                 onDismiss = { showBirthdayBanner = false }
             )
         }
-        
+
         // Profile completion prompt removed - not needed for hyper-local employers
 
         // Show dashboard content directly with pull-to-refresh
@@ -461,7 +460,6 @@ fun EmployerHomeScreen(
             onRefresh = {
                 coroutineScope.launch {
                     isPullRefreshing = true
-                    viewModel.refreshMyJobs()
                     instantHelpViewModel.loadEmployerUrgentNeeds()
                     announcementViewModel.loadAnnouncements("EMPLOYER")
                     kotlinx.coroutines.delay(1000)
@@ -490,7 +488,6 @@ fun EmployerHomeScreen(
                 scrollStateManager = scrollStateManager,
                 onShareJob = handleJobShare,
                 context = context,
-                applicationCountsByJobId = employerJobUiState.applicationCountsByJobId,
                 announcements = announcements,
                 onDismissAnnouncement = { announcementId ->
                     announcementViewModel.dismissAnnouncement(announcementId)
@@ -518,6 +515,9 @@ fun EmployerHomeScreen(
                     } else {
                         navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_NOTIFICATIONS)
                     }
+                },
+                onVoiceJobClick = {
+                    showVoiceJobSheet = true
                 }
             )
         }
@@ -553,7 +553,7 @@ fun EmployerHomeScreen(
                 }
             }
         } // Column
-        
+
         // Notification permission bottom sheet
         NotificationPermissionBottomSheet(
             isVisible = showNotificationBottomSheet,
@@ -582,15 +582,31 @@ fun EmployerHomeScreen(
             subtitle = stringResource(R.string.guest_post_job_desc),
             navController = navController
         )
-    } // Box
-}
 
-@Composable
-private fun EmployerHomeBackdropDecor(modifier: Modifier = Modifier) {
-    // Intentionally empty: the role theme provides a single solid screen
-    // background, and the design rule forbids gradient halos. Kept as a
-    // no-op so existing call-sites continue to work without restructuring.
-    Box(modifier = modifier)
+        // Voice Job Posting Bottom Sheet
+        if (showVoiceJobSheet) {
+            com.example.dutype.employer.components.VoiceJobPostingBottomSheet(
+                onDismiss = { showVoiceJobSheet = false },
+                onPostUrgentJob = { input ->
+                    coroutineScope.launch {
+                        instantHelpViewModel.createUrgentNeed(input) { requestId ->
+                            android.widget.Toast.makeText(context, "Urgent job posted!", android.widget.Toast.LENGTH_SHORT).show()
+                            navController.navigate(
+                                com.example.dutype.navigation.Routes.employerUrgentNeedDetailRoute(requestId)
+                            )
+                        }
+                    }
+                },
+                onEditManually = { input ->
+                    navController.navigate(
+                        com.example.dutype.navigation.Routes.employerPostUrgentNeedRoute(input.category)
+                    )
+                },
+                employerPhone = employerProfile?.phone.orEmpty(),
+                defaultAddress = employerProfile?.address.orEmpty()
+            )
+        }
+    } // Box
 }
 
 @Composable
@@ -600,11 +616,10 @@ fun DashboardContent(
     isLoading: Boolean,
     isRefreshing: Boolean,
     navController: NavController,
-    viewModel: FirestoreEmployerJobViewModel,
+    viewModel: EmployerJobsViewModel,
     scrollStateManager: ScrollStateManager? = null,
     onShareJob: (String, String) -> Unit = { _, _ -> },
     context: android.content.Context,
-    applicationCountsByJobId: Map<String, Int> = emptyMap(),
     announcements: List<com.example.dutype.models.Announcement> = emptyList(),
     onDismissAnnouncement: (String) -> Unit = {},
     employerPromoBannerUrl: String = "",
@@ -623,6 +638,7 @@ fun DashboardContent(
     unreadCount: Int = 0,
     headerLottieUrl: String = "",
     onNotificationClick: () -> Unit = {},
+    onVoiceJobClick: () -> Unit = {},
     applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
 ) {
     // Move view model & state collection to composable scope (not inside LazyListScope)
@@ -667,6 +683,13 @@ fun DashboardContent(
         }.onFailure {
             android.widget.Toast.makeText(context, "Unable to open phone dialer", android.widget.Toast.LENGTH_SHORT).show()
         }
+    }
+
+    /** Reveals the applicant's phone (recorded as an unlock) and hands it to [then]. */
+    fun callWorker(jobId: String, workerId: String, then: (String) -> Unit) {
+        applicationViewModel.fetchPhoneNumberForWorker(jobId, workerId, onSuccess = then, onFailure = {
+            android.widget.Toast.makeText(context, "Worker phone number not available", android.widget.Toast.LENGTH_SHORT).show()
+        })
     }
 
     fun handleHireWorker(application: com.example.dutype.models.JobApplication) {
@@ -730,6 +753,13 @@ fun DashboardContent(
                 }
 
                 item {
+                    com.example.dutype.employer.components.VoiceJobTriggerCard(
+                        onClick = onVoiceJobClick,
+                        modifier = Modifier.padding(top = 10.dp)
+                    )
+                }
+
+                item {
                     EmployerStatsRow(
                         activeJobs = updatedStats.activeJobs,
                         applicants = updatedStats.totalApplications,
@@ -757,13 +787,13 @@ fun DashboardContent(
                 } else {
                     items(activeOpenJobs, key = { it.id }) { job ->
                         val jobApps = applicationsByJobId[job.id].orEmpty()
-                        val count = applicationCountsByJobId[job.id] ?: maxOf(job.applicationCount, jobApps.size)
+                        val count = maxOf(job.applicationCount, jobApps.size)
                         EmployerJobManagementCard(
                             title = job.title,
                             applicantCount = count,
                             isUrgent = job.urgency.equals("HIGH", ignoreCase = true),
                             facepile = jobApps.take(3).map {
-                                EmployerFacepileItem(it.workerName, it.workerProfileImageUrl)
+                                EmployerFacepileItem(it.workerName, it.workerPhoto)
                             },
                             onReviewClick = {
                                 navController.navigate(
@@ -790,17 +820,22 @@ fun DashboardContent(
                             id = app.id,
                             name = app.workerName.ifBlank { "Worker" },
                             initials = app.workerName.trim().split("\\s+".toRegex()).mapNotNull { it.firstOrNull()?.uppercase() }.take(2).joinToString("").ifBlank { "W" },
-                            trade = app.jobTitle.ifBlank { "General Worker" },
-                            distanceText = if (app.distanceKm != null && app.distanceKm > 0.0) "${"%.1f".format(app.distanceKm)} km away" else "Nearby",
-                            rating = "4.8",
-                            jobsDone = 15,
-                            phone = app.workerPhone.orEmpty()
+                            trade = com.example.dutype.employer.models.JobCategory.fromKey(app.workerSkill).displayName,
+                            distanceText = app.worker?.distanceKm?.let { "${"%.1f".format(it)} km away" } ?: "Nearby",
+                            rating = app.worker?.takeIf { it.ratingCount > 0 }?.let { "%.1f".format(it.rating) } ?: "New",
+                            jobsDone = app.worker?.jobsCompleted ?: 0,
+                            jobId = app.jobId,
+                            workerId = app.workerId
                         )
                     }
                     RecentCallRequestsSection(
                         candidates = candidateItems,
-                        onCallClick = { phone -> openPhoneDialer(phone) },
-                        onWhatsAppClick = { phone -> openWhatsAppChat(context, phone, "Hello, saw your application on DutyPe!") },
+                        onCallClick = { c -> callWorker(c.jobId, c.workerId) { phone -> openPhoneDialer(phone) } },
+                        onWhatsAppClick = { c ->
+                            callWorker(c.jobId, c.workerId) { phone ->
+                                openWhatsAppChat(context, phone, "Hello, saw your application on DutyPe!")
+                            }
+                        },
                         modifier = Modifier.padding(top = 12.dp)
                     )
                 }
@@ -850,7 +885,7 @@ fun DashboardContent(
                             val targetJobId = app.jobId
                             applicationViewModel.updateApplicationStatus(app.id, com.example.dutype.models.ApplicationStatus.HIRED, "Hired from home nudge (calls stopped)")
                             if (targetJobId.isNotBlank()) {
-                                viewModel.updateJob(targetJobId, mapOf("callsStopped" to true, "status" to "filled")) { _, _ -> }
+                                viewModel.markFilled(targetJobId) { _, _ -> }
                             }
                             dismissedNudgeApplicationId = app.id
                             showNudgeStopCallsDialog = false
@@ -878,433 +913,6 @@ fun DashboardContent(
                     }
                 }
             )
-        }
-    }
-}
-
-@Composable
-private fun EmployerTrustSignalsCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            EmployerTrustSignalItem(
-                icon = Icons.Default.CheckCircle,
-                title = "Verified Workers",
-                subtitle = "100% verified professionals",
-                iconTint = EmployerColors.Success,
-                modifier = Modifier.weight(1f)
-            )
-            EmployerTrustSignalItem(
-                icon = Icons.Default.Schedule,
-                title = "Quick Response",
-                subtitle = "Get responses in minutes",
-                iconTint = EmployerColors.Warning,
-                modifier = Modifier.weight(1f)
-            )
-            EmployerTrustSignalItem(
-                icon = Icons.Default.CheckCircle,
-                title = "Safe & Secure",
-                subtitle = "Your data is always protected",
-                iconTint = EmployerColors.Info,
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun EmployerTrustSignalItem(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    iconTint: Color,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier.padding(horizontal = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .background(iconTint.copy(alpha = 0.14f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-        Text(
-            text = title,
-            style = MaterialTheme.typography.labelMedium.copy(
-                color = EmployerColors.TextPrimary,
-                fontWeight = FontWeight.SemiBold
-            ),
-            textAlign = TextAlign.Center,
-            maxLines = 1
-        )
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.labelSmall.copy(color = EmployerColors.TextSecondary),
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-private fun InviteEarnEmployerCard(inviteEarnAmount: Int = 20) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = EmployerColors.SuccessLight),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .background(EmployerColors.Success.copy(alpha = 0.18f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.PersonAdd,
-                    contentDescription = null,
-                    tint = EmployerColors.Success,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Invite & Earn ₹$inviteEarnAmount",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        color = EmployerColors.Success,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-                Text(
-                    text = "Invite other employers and earn ₹$inviteEarnAmount when they post their first job.",
-                    style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Success)
-                )
-            }
-
-            Button(
-                onClick = {},
-                shape = RoundedCornerShape(999.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = EmployerColors.Success,
-                    contentColor = Color.White
-                )
-            ) {
-                Text(stringResource(R.string.invite_now))
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmployerPostJobSection(
-    onPostUrgentNeed: () -> Unit,
-    onPostNormalJob: () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Column {
-            Text(
-                text = stringResource(R.string.auto_create_a_new_posting),
-                style = AppTypography.sectionHeader.copy(
-                    color = EmployerColors.TextPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                ),
-                fontFamily = MeeshoFontFamily
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = stringResource(R.string.auto_choose_the_posting_format_that_fits_your_i),
-                style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
-            )
-        }
-
-        // Card 1: Urgent Need
-        val isDark = com.example.dutype.ui.theme.isAppInDarkTheme()
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
-            border = BorderStroke(1.dp, EmployerColors.Border),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(
-                                if (isDark) Color(0xFF4C0519) else Color(0xFFFEF2F2),
-                                CircleShape
-                            )
-                            .border(
-                                1.dp,
-                                if (isDark) Color(0xFF9F1239) else Color(0xFFFEE2E2),
-                                CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FlashOn,
-                            contentDescription = null,
-                            tint = if (isDark) Color(0xFFF43F5E) else Color(0xFFEF4444),
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.post_urgent_need_title),
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    color = EmployerColors.TextPrimary,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        if (isDark) Color(0xFF4C0519) else Color(0xFFFEF2F2),
-                                        RoundedCornerShape(99.dp)
-                                    )
-                                    .border(
-                                        1.dp,
-                                        if (isDark) Color(0xFF9F1239) else Color(0xFFFEE2E2),
-                                        RoundedCornerShape(99.dp)
-                                    )
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.instant_match),
-                                    color = if (isDark) Color(0xFFF43F5E) else Color(0xFFEF4444),
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = stringResource(R.string.urgent_need_desc),
-                            style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
-                        )
-                    }
-                }
-                
-                Button(
-                    onClick = onPostUrgentNeed,
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isDark) Color(0xFFF43F5E) else Color(0xFFEF4444),
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text(stringResource(R.string.post_urgent_need_title), fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        // Card 2: Normal Job
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
-            border = BorderStroke(1.dp, EmployerColors.Border),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(
-                                if (isDark) Color(0xFF2E1065) else Color(0xFFF5F3FF),
-                                CircleShape
-                            )
-                            .border(
-                                1.dp,
-                                if (isDark) Color(0xFF5B21B6) else Color(0xFFEDE9FE),
-                                CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Work,
-                            contentDescription = null,
-                            tint = if (isDark) Color(0xFFA78BFA) else Color(0xFF6D28D9),
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.post_normal_job),
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    color = EmployerColors.TextPrimary,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            )
-                            Box(
-                                modifier = Modifier
-                                    .background(
-                                        if (isDark) Color(0xFF2E1065) else Color(0xFFF5F3FF),
-                                        RoundedCornerShape(99.dp)
-                                    )
-                                    .border(
-                                        1.dp,
-                                        if (isDark) Color(0xFF5B21B6) else Color(0xFFEDE9FE),
-                                        RoundedCornerShape(99.dp)
-                                    )
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.standard_job_tag),
-                                    color = if (isDark) Color(0xFFA78BFA) else Color(0xFF6D28D9),
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = stringResource(R.string.standard_job_desc),
-                            style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
-                        )
-                    }
-                }
-                
-                Button(
-                    onClick = onPostNormalJob,
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isDark) Color(0xFFA78BFA) else Color(0xFF6D28D9),
-                        contentColor = if (isDark) Color.Black else Color.White
-                    )
-                ) {
-                    Text(stringResource(R.string.post_normal_job), fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun UrgentNeedCtaCard(
-    title: String,
-    body: String,
-    urgentButtonLabel: String,
-    showNormalJobAction: Boolean,
-    onPostUrgentNeed: () -> Unit,
-    onPostNormalJob: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = EmployerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(EmployerColors.Warning.copy(alpha = 0.18f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Schedule,
-                        contentDescription = null,
-                        tint = EmployerColors.Warning,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            color = EmployerColors.TextPrimary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
-                    Text(
-                        text = body,
-                        style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Button(
-                    onClick = onPostUrgentNeed,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
-                ) {
-                    Text(urgentButtonLabel)
-                }
-                if (showNormalJobAction) {
-                    TextButton(
-                        onClick = onPostNormalJob,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Text(stringResource(R.string.post_normal_job))
-                    }
-                }
-            }
         }
     }
 }
@@ -1377,7 +985,7 @@ fun LoadingScreen() {
         start = Offset.Zero,
         end = Offset(x = translateAnim.value, y = translateAnim.value)
     )
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1408,7 +1016,7 @@ fun LoadingScreen() {
                 )
             }
         }
-        
+
         // Stats grid shimmer
         Row(
             modifier = Modifier
@@ -1449,96 +1057,12 @@ fun LoadingScreen() {
                 }
             }
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // Job cards shimmer
         repeat(3) {
             JobCardShimmer()
-        }
-    }
-}
-
-@Composable
-fun WelcomeHeader(
-    companyName: String,
-    unreadCount: Int = 0,
-    headerLottieUrl: String = "",
-    employerPrimaryColorHex: String = "#8B5CF6",
-    onNotificationClick: () -> Unit = {}
-) {
-    val headerColor = remember(employerPrimaryColorHex) {
-        try {
-            Color(android.graphics.Color.parseColor(employerPrimaryColorHex))
-        } catch (_: Exception) {
-            Color(0xFF8B5CF6)
-        }
-    }
-
-    val compositionResult = rememberLottieComposition(
-        spec = LottieCompositionSpec.Url(headerLottieUrl.ifBlank { "https://localhost/dummy.json" })
-    )
-    val composition = compositionResult.value
-    val progress by animateLottieCompositionAsState(
-        composition = composition,
-        iterations = LottieConstants.IterateForever
-    )
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFFEFF6FF))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            val greetingText = when (java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)) {
-                in 0..11 -> "Good Morning!"
-                in 12..16 -> "Good Afternoon!"
-                else -> "Good Evening!"
-            }
-
-            Text(
-                text = if (companyName.isNotEmpty()) companyName else greetingText,
-                style = AppTypography.displayTitle.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
-                    color = Color(0xFF0F172A)
-                ),
-                modifier = Modifier.weight(1f)
-            )
-
-            Box {
-                IconButton(
-                    onClick = onNotificationClick,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Notifications,
-                        contentDescription = "Notifications",
-                        tint = Color(0xFF0F172A),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                if (unreadCount > 0) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .background(
-                                Color.Red,
-                                shape = CircleShape
-                            )
-                            .align(Alignment.TopEnd)
-                            .offset(x = 2.dp, y = (-2).dp)
-                    )
-                }
-            }
         }
     }
 }
@@ -1639,9 +1163,8 @@ fun RecentJobsSection(
     onTabSwitch: (Int) -> Unit,
     onShareJob: (String, String) -> Unit = { _, _ -> },
     context: android.content.Context,
-    applicationCountsByJobId: Map<String, Int> = emptyMap(),
     applicationsByJobId: Map<String, List<com.example.dutype.models.JobApplication>> = emptyMap(),
-    onCallWorker: (String) -> Unit = {},
+    onCallWorker: (com.example.dutype.models.JobApplication) -> Unit = {},
     onHireWorker: (com.example.dutype.models.JobApplication) -> Unit = {}
 ) {
     Column {
@@ -1715,49 +1238,8 @@ fun RecentJobsSection(
                 jobs
                     .take(5) // Show more recent jobs
                     .map { job ->
-                    // Convert JobListing to JobPostingModel for display
-                    val shiftDisplay = job.shiftTiming.ifBlank { ShiftTiming.FLEXIBLE.displayName }
-                    val shiftEnum = ShiftTiming.values().firstOrNull { shift ->
-                        shift.name.equals(shiftDisplay, ignoreCase = true) ||
-                            shift.displayName.equals(shiftDisplay, ignoreCase = true)
-                    } ?: ShiftTiming.FLEXIBLE
-                    val jobPosting = JobPostingModel(
-                        jobId = job.id,
-                        title = job.title,
-                        description = job.description,
-                        location = job.addressText.ifBlank { job.location },
-                        // Bug #6 fix: salary is now a free-form String —
-                        // pass it through verbatim so "Negotiable",
-                        // ranges, and "+" suffixes survive the round-trip.
-                        payAmount = job.salary,
-                        payType = when (job.salaryType.uppercase()) {
-                            "HOURLY" -> PayType.HOURLY
-                            "WEEKLY" -> PayType.WEEKLY
-                            "MONTHLY" -> PayType.MONTHLY
-                            "TASK" -> PayType.TASK
-                            else -> PayType.DAILY
-                        },
-                        category = try { JobCategory.valueOf(job.getCategory().uppercase()) } catch (e: Exception) { JobCategory.HELPER },
-                        shiftTiming = shiftEnum,
-                        shiftTimingText = shiftDisplay,
-                        // Batch-p #8: surface the actual posted vacancies +
-                        // application count instead of hard-coding 0. The
-                        // job card was reading 0 positions / 0 applications
-                        // for every post regardless of reality.
-                        vacancies = job.vacancies,
-                        employerId = job.employerId,
-                        employerName = job.companyName,
-                        postedTime = job.createdAt,
-                        contactNumber = job.contactNumber,
-                        applicationsReceived = applicationCountsByJobId[job.id] ?: 0,
-                        isFilled = job.status == "closed",
-                        status = job.status,
-                        expiresAt = job.expiresAt,
-                        imageUrl = job.jobImageUrl
-                    )
-                    
                     EmployerJobCard(
-                        jobPosting = jobPosting,
+                        jobPosting = job,
                         applications = applicationsByJobId[job.id].orEmpty(),
                         onCallWorker = onCallWorker,
                         onHireWorker = onHireWorker,
@@ -1765,10 +1247,10 @@ fun RecentJobsSection(
                             try {
                                 Timber.d("EmployerHomeScreen - Edit clicked for job ID: $jobId")
                                 Timber.d("EmployerHomeScreen - Job title: ${job.title}")
-                                
+
                                 val currentTime = System.currentTimeMillis()
                                 val jobPostedTime = job.createdAt
-                                
+
                                 if (!JobEditPolicy.canEdit(jobPostedTime, currentTime)) {
                                     Toast.makeText(
                                         context,
@@ -1798,19 +1280,17 @@ fun RecentJobsSection(
                         onShareClick = { jobId ->
                                 // Share job functionality
                                 Timber.d(" SHARE: onShareClick called with jobId='$jobId', title='${job.title}'")
-                                Timber.d(" SHARE: JobPosting.jobId='${jobPosting.jobId}', Job.id='${job.id}'")
                                 onShareJob(jobId, job.title)
                             },
                         showActions = true, // Show actions for better interaction
                     )
                 }
-                
+
                 // View All button removed - all jobs now shown below
             }
         }
     }
 }
-
 
 @Composable
 fun EmptyJobsState(onPostJob: () -> Unit) {
@@ -1851,117 +1331,6 @@ fun EmptyJobsState(onPostJob: () -> Unit) {
     }
 }
 
-@Composable
-private fun EmployerProfileCompletionPrompt(
-    completionPercentage: Int,
-    missingFields: List<String>,
-    onCompleteProfile: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = EmployerColors.InfoLight),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Icon(
-                    Icons.Default.Business,
-                    contentDescription = "Profile",
-                    tint = EmployerColors.Info,
-                    modifier = Modifier.size(24.dp)
-                )
-                Text(
-                    text = stringResource(R.string.auto_complete_your_company_profile),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = EmployerColors.Primary
-                    )
-                )
-            }
-            
-            Text(
-                text = stringResource(R.string.auto_complete_your_profile_to_access_all_featur),
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = EmployerColors.Primary
-                )
-            )
-            
-            // Progress bar
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = stringResource(R.string.auto_profile_completion),
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.Medium,
-                            color = EmployerColors.Primary
-                        )
-                    )
-                    Text(
-                        text = "$completionPercentage%",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = EmployerColors.Primary
-                        )
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(6.dp)
-                        .background(EmployerColors.Primary.copy(alpha = 0.18f), RoundedCornerShape(3.dp))
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(completionPercentage / 100f)
-                            .background(EmployerColors.Info, RoundedCornerShape(3.dp))
-                    )
-                }
-            }
-            
-            if (missingFields.isNotEmpty()) {
-                Text(
-                    text = "Missing: ${missingFields.joinToString(", ")}",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = EmployerColors.TextSecondary
-                    )
-                )
-            }
-            
-            androidx.compose.material3.Button(
-                onClick = onCompleteProfile,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = EmployerColors.Info
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.auto_complete_profile),
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontWeight = FontWeight.SemiBold
-                    )
-                )
-            }
-        }
-    }
-}
-
 // NOTE: isToday() and getTimeAgo() removed - use DateTimeUtils instead
 // Import: import com.example.dutype.utils.DateTimeUtils
 // Usage: DateTimeUtils.isToday(timestamp), DateTimeUtils.formatRelativeTime(timestamp)
@@ -1970,16 +1339,16 @@ private fun EmployerProfileCompletionPrompt(
 // Share job functionality with deep link
 private fun shareJob(jobId: String, jobTitle: String, context: android.content.Context) {
     Timber.d(" SHARE: Sharing job - jobId='$jobId', title='$jobTitle'")
-    
+
     if (jobId.isBlank()) {
         Timber.e(" SHARE: ERROR - jobId is blank!")
         Toast.makeText(context, context.getString(R.string.share_job_invalid), Toast.LENGTH_SHORT).show()
         return
     }
-    
+
     val jobDeepLink = com.example.dutype.utils.DeepLinkHandler.generateJobWebLink(jobId)
     Timber.d(" SHARE: Generated deep link: $jobDeepLink")
-    
+
     val shareText = """
 Hiring Now: $jobTitle
 
@@ -1987,16 +1356,16 @@ Apply now: $jobDeepLink
 
 Download DutyPe app for instant job alerts
     """.trimIndent()
-    
+
     Timber.d(" SHARE: Share text prepared, length=${shareText.length}")
-    
+
     val shareIntent = Intent().apply {
         action = Intent.ACTION_SEND
         type = "text/plain"
         putExtra(Intent.EXTRA_TEXT, shareText)
         putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.share_job_subject, jobTitle))
     }
-    
+
     try {
         context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.share_job_title)))
         Timber.d(" SHARE: Share intent launched successfully")
@@ -2010,285 +1379,7 @@ Download DutyPe app for instant job alerts
     }
 }
 
-@Composable
-fun ApplicationAnalyticsSection(
-    navController: NavController,
-    applicationViewModel: EmployerApplicationViewModel,
-    modifier: Modifier = Modifier,
-    viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
-) {
-    val uiState by viewModel.uiState.collectAsState()
-    
-    // Get application statistics from EmployerApplicationViewModel
-    val appStats by applicationViewModel.stats.collectAsState()
-    
-    // Calculate real analytics from job data and application stats
-    val totalApplications = appStats.totalApplications
-    val activeJobs = uiState.myJobs.count { it.status == "open" }
-    
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.job_analytics),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
-                    )
-                )
-                TextButton(
-                    onClick = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_APPLICATIONS) }
-                ) {
-                    Text(
-                        text = stringResource(R.string.view_applications),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = EmployerColors.Info
-                        )
-                    )
-                }
-            }
-            
-            // Quick Stats Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Active Jobs
-                AnalyticsItem(
-                    label = stringResource(R.string.active_jobs),
-                    value = activeJobs.toString(),
-                    icon = Icons.Default.Work,
-                    color = EmployerColors.Success,
-                    modifier = Modifier.weight(1f)
-                )
-                AnalyticsItem(
-                    label = stringResource(R.string.total_jobs),
-                    value = uiState.myJobs.size.toString(),
-                    icon = Icons.Default.Analytics,
-                    color = Color(0xFF8B5CF6),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            
-            // Recent Activity - Show actual job activity
-            if (uiState.myJobs.isNotEmpty()) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                        text = stringResource(R.string.auto_recent_job_activity),
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = EmployerColors.TextSecondary
-                    )
-                )
-                
-                    // Show recent job activities
-                    uiState.myJobs.take(3).forEach { job ->
-                com.example.dutype.employer.screens.ActivityItem(
-                            title = "${job.title} - applications",
-                            time = DateTimeUtils.formatRelativeTime(job.createdAt),
-                            icon = Icons.Default.Work
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
 // NOTE: AnalyticsItem and ActivityItem functions moved to AnalyticsScreen.kt
 // Import from there: com.example.dutype.employer.screens.AnalyticsItem
 // Import from there: com.example.dutype.employer.screens.ActivityItem
-
-@Composable
-fun CandidateHiringNudgeCard(
-    candidate: com.example.dutype.models.JobApplication,
-    onCallClick: () -> Unit = {},
-    onHiredClick: () -> Unit,
-    onShortlistClick: () -> Unit,
-    onRejectClick: () -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
-        border = BorderStroke(1.5.dp, Color(0xFF86EFAC)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text("⚡", fontSize = 16.sp)
-                    Text(
-                        text = "1-TAP CANDIDATE CHECK-IN",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF166534),
-                        letterSpacing = 0.5.sp
-                    )
-                }
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.size(24.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Dismiss",
-                        tint = Color(0xFF94A3B8),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-
-            Text(
-                text = "${candidate.workerName.ifBlank { "A worker" }} applied / called for ${candidate.jobTitle.ifBlank { "your job vacancy" }}.",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF1E293B)
-            )
-
-            // Metadata badges: audio intro, distance, salary
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (!candidate.audioIntroUrl.isNullOrBlank()) {
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color(0xFFEFF6FF)
-                    ) {
-                        Text(
-                            text = "🎙️ 15s Audio Intro",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF1D4ED8),
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-                if (candidate.distanceKm != null && candidate.distanceKm > 0.0) {
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color(0xFFEFF6FF)
-                    ) {
-                        Text(
-                            text = "📍 ${"%.1f".format(candidate.distanceKm)} km",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF1D4ED8),
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-                if (!candidate.expectedSalary.isNullOrBlank()) {
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color(0xFFECFDF5)
-                    ) {
-                        Text(
-                            text = "💰 ₹${candidate.expectedSalary}",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Color(0xFF047857),
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-            }
-
-            // Primary Action: 1-Tap Direct Phone Call (Tier 2/3 optimized)
-            Button(
-                onClick = onCallClick,
-                modifier = Modifier.fillMaxWidth().height(44.dp),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Call,
-                    contentDescription = "Call",
-                    modifier = Modifier.size(18.dp),
-                    tint = Color.White
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "📞 Call ${candidate.workerName.ifBlank { "Worker" }} Now",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-
-            Text(
-                text = "Already spoke with ${candidate.workerName.ifBlank { "them" }}?",
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color(0xFF334155)
-            )
-
-            // 3 Action Buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = onHiredClick,
-                    modifier = Modifier.weight(1f).height(42.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
-                    contentPadding = PaddingValues(horizontal = 4.dp)
-                ) {
-                    Text("✅ Yes, Hired", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                }
-
-                OutlinedButton(
-                    onClick = onShortlistClick,
-                    modifier = Modifier.weight(1.1f).height(42.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF1E293B)),
-                    border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
-                    contentPadding = PaddingValues(horizontal = 4.dp)
-                ) {
-                    Text("💬 Considering", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                }
-
-                OutlinedButton(
-                    onClick = onRejectClick,
-                    modifier = Modifier.weight(0.9f).height(42.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFDC2626)),
-                    border = BorderStroke(1.dp, Color(0xFFFECACA)),
-                    contentPadding = PaddingValues(horizontal = 4.dp)
-                ) {
-                    Text("❌ Not Hired", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFDC2626))
-                }
-            }
-        }
-    }
-}
-
 

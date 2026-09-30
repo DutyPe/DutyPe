@@ -4,7 +4,8 @@ exports.onCallSecured = void 0;
 /**
  * Hardened wrapper around functions.https.onCall:
  *   • runtime options pinned (region asia-south1, memory, timeout)
- *   • consumeAppCheckToken rejects tokens already used (replay protection)
+ *   • App Check tokens are verified but not consumed (consuming adds a round trip per call and the
+ *     app does not use limited-use tokens); admin-only callables opt out of App Check (web panel)
  *   • reject unverified callers — App Check must be present
  *   • auth required unless explicitly opted out
  */
@@ -15,11 +16,11 @@ const DEFAULT_RUNTIME = {
     // Enforce App Check at the platform layer. Requests without a valid App
     // Check token are rejected before our handler runs.
     enforceAppCheck: true,
-    consumeAppCheckToken: true,
+    consumeAppCheckToken: false,
 };
 function onCallSecured(opts, handler) {
-    var _a, _b, _c, _d;
-    const runtime = Object.assign(Object.assign(Object.assign({}, DEFAULT_RUNTIME), { memory: (_a = opts.memory) !== null && _a !== void 0 ? _a : DEFAULT_RUNTIME.memory, timeoutSeconds: (_b = opts.timeoutSeconds) !== null && _b !== void 0 ? _b : DEFAULT_RUNTIME.timeoutSeconds, enforceAppCheck: (_c = opts.enforceAppCheck) !== null && _c !== void 0 ? _c : DEFAULT_RUNTIME.enforceAppCheck, consumeAppCheckToken: (_d = opts.enforceAppCheck) !== null && _d !== void 0 ? _d : DEFAULT_RUNTIME.consumeAppCheckToken }), (opts.minInstances !== undefined ? { minInstances: opts.minInstances } : {}));
+    var _a, _b, _c;
+    const runtime = Object.assign(Object.assign(Object.assign({}, DEFAULT_RUNTIME), { memory: (_a = opts.memory) !== null && _a !== void 0 ? _a : DEFAULT_RUNTIME.memory, timeoutSeconds: (_b = opts.timeoutSeconds) !== null && _b !== void 0 ? _b : DEFAULT_RUNTIME.timeoutSeconds, enforceAppCheck: (_c = opts.enforceAppCheck) !== null && _c !== void 0 ? _c : DEFAULT_RUNTIME.enforceAppCheck, consumeAppCheckToken: false }), (opts.minInstances !== undefined ? { minInstances: opts.minInstances } : {}));
     return functions
         .region("asia-south1")
         .runWith(runtime)

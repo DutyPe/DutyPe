@@ -19,7 +19,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.jobLanding = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-exports.jobLanding = functions.https.onRequest(async (req, res) => {
+const schema_1 = require("./schema");
+exports.jobLanding = functions.region("asia-south1").https.onRequest(async (req, res) => {
     try {
         const pathParts = req.path.split("/");
         const jobId = pathParts[pathParts.length - 1];
@@ -27,16 +28,22 @@ exports.jobLanding = functions.https.onRequest(async (req, res) => {
             res.send(getGenericJobsPage());
             return;
         }
-        const jobDoc = await admin.firestore().collection("jobs").doc(jobId).get();
-        if (!jobDoc.exists) {
+        const jobDoc = await admin.firestore().collection(schema_1.Jobs.COLLECTION).doc(jobId).get();
+        const card = jobDoc.data();
+        if (!card) {
             res.status(404).send(get404Page());
             return;
         }
-        const job = jobDoc.data();
-        if (!job) {
-            res.status(404).send(get404Page());
-            return;
-        }
+        const payType = String(card[schema_1.Jobs.PAY_TYPE] || "");
+        const job = {
+            title: card[schema_1.Jobs.TITLE] || "Job",
+            companyName: card[schema_1.Jobs.COMPANY_NAME] || "DutyPe employer",
+            payAmount: payType === "NEGOTIABLE" ? 0 : Number(card[schema_1.Jobs.PAY_AMOUNT] || 0),
+            payType: { DAILY: "day", MONTHLY: "month", HOURLY: "hour" }[payType] || "month",
+            location: card[schema_1.Jobs.AREA] || "",
+            imageUrl: card[schema_1.Jobs.PHOTO_URL] || "",
+            jobType: String(card[schema_1.Jobs.EMPLOYMENT_TYPE] || "").replace("_", " ").toLowerCase(),
+        };
         const html = generateJobLandingPage(job, jobId);
         // CRITICAL: No-cache headers to prevent WhatsApp from showing old preview
         res.set("Cache-Control", "no-cache, no-store, must-revalidate");

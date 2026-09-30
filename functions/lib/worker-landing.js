@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.workerLanding = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const schema_1 = require("./schema");
 // Initialize Firestore (only if not already initialized)
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -26,7 +27,7 @@ const db = admin.firestore();
  * Generates SEO-friendly landing page with Open Graph tags
  * Uses Android Intent URLs for reliable app opening (LinkedIn/Instagram pattern)
  */
-exports.workerLanding = functions.https.onRequest(async (req, res) => {
+exports.workerLanding = functions.region("asia-south1").https.onRequest(async (req, res) => {
     try {
         // Extract worker ID from path: /worker/USER_123
         const pathParts = req.path.split("/").filter((p) => p);
@@ -36,7 +37,7 @@ exports.workerLanding = functions.https.onRequest(async (req, res) => {
             return;
         }
         // Fetch worker data from Firestore
-        const workerDoc = await db.collection("users").doc(workerId).get();
+        const workerDoc = await db.collection(schema_1.WorkerCards.COLLECTION).doc(workerId).get();
         if (!workerDoc.exists) {
             res.status(404).send("Worker not found");
             return;
@@ -47,18 +48,18 @@ exports.workerLanding = functions.https.onRequest(async (req, res) => {
             return;
         }
         // Extract worker details
-        const workerName = workerData.fullName || workerData.name || "Professional Worker";
-        const workerPhone = workerData.phone || workerData.phoneNumber || "";
-        const workerSkills = workerData.skills || "";
-        const workerExperience = workerData.experience || "";
-        const profileImageUrl = workerData.profileImageUrl || "";
-        const isVerified = workerData.isVerified || false;
-        const completedJobs = workerData.completedJobsCount || 0;
-        const rating = workerData.averageRating || 0;
-        // Format skills for display
-        const skillsList = workerSkills
-            ? workerSkills.split(",").map((s) => s.trim()).filter((s) => s).slice(0, 3)
-            : [];
+        // Public card only: the phone number is never shown on a public page.
+        const workerName = workerData[schema_1.WorkerCards.NAME] || "Professional Worker";
+        const years = Number(workerData[schema_1.WorkerCards.EXPERIENCE_YEARS] || 0);
+        const workerExperience = years > 0 ? `${years}+ years` : "";
+        const profileImageUrl = workerData[schema_1.WorkerCards.PHOTO_URL] || "";
+        const isVerified = false;
+        const completedJobs = Number(workerData[schema_1.WorkerCards.JOBS_COMPLETED] || 0);
+        const rating = Number(workerData[schema_1.WorkerCards.RATING] || 0);
+        // Skills are category keys (DRIVER, OFFICE_STAFF) → "Driver", "Office staff"
+        const skillsList = (workerData[schema_1.WorkerCards.SKILLS] || [])
+            .map((k) => k.charAt(0) + k.slice(1).toLowerCase().replace(/_/g, " "))
+            .slice(0, 3);
         const primarySkill = skillsList[0] || "Professional Worker";
         const skillsText = skillsList.join(", ");
         // Create description

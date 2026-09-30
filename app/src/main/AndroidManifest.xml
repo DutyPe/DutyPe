@@ -4,6 +4,8 @@
     <!-- Essential Network Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Audio permission for Voice Job Posting ("Bol kar post karein") -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- Package Visibility Queries for Google Play Services & Play Store (Android 11+) -->
     <queries>
@@ -29,7 +31,6 @@
     <!-- Camera Permission & Features: Fixed-focus budget devices & devices without front camera -->
     <!-- Used for: Profile photo capture, QR code scanning for work verification -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <uses-feature android:name="android.hardware.camera.front" android:required="false" />

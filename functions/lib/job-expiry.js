@@ -20,11 +20,15 @@ exports.expireOpenJobs = functions
     .timeZone("Asia/Kolkata")
     .onRun(async () => {
     const now = admin.firestore.Timestamp.now();
+    // Only jobs that expired recently. Without this lower bound every run (96/day) re-read
+    // EVERY job that had ever expired plus its metadata doc, which grows forever.
+    const since = admin.firestore.Timestamp.fromMillis(now.toMillis() - 2 * 24 * 60 * 60 * 1000);
     let swept = 0;
     let cursor = null;
     while (true) {
         let q = db.collection("job_details")
             .where("expiresAt", "<=", now)
+            .where("expiresAt", ">", since)
             .orderBy("expiresAt", "asc")
             .limit(PAGE);
         if (cursor)

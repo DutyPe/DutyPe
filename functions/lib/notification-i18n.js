@@ -91,6 +91,22 @@ exports.NOTIFICATION_TEMPLATES = {
             body: "{workerName} ने आपकी नौकरी {jobTitle} के लिए आवेदन किया है।",
         },
     },
+    // ── instant help (urgent same-day work) ───────────────────────────
+    INSTANT_REQUEST_NEARBY: {
+        en: { title: "Urgent work near you: {title}", body: "{area} · ₹{pay} per person. Tap to call now." },
+        te: { title: "మీ దగ్గర అత్యవసర పని: {title}", body: "{area} · ఒక్కరికి ₹{pay}. ఇప్పుడే కాల్ చేయండి." },
+        hi: { title: "आपके पास तुरंत काम: {title}", body: "{area} · प्रति व्यक्ति ₹{pay}. अभी कॉल करें।" },
+    },
+    INSTANT_RESPONSE_RECEIVED: {
+        en: { title: "{workerName} can help", body: "A worker responded to your urgent need {title}." },
+        te: { title: "{workerName} సహాయం చేయగలరు", body: "మీ అత్యవసర అవసరం {title}కి ఒక వర్కర్ స్పందించారు." },
+        hi: { title: "{workerName} मदद कर सकते हैं", body: "आपकी तुरंत ज़रूरत {title} पर एक वर्कर ने जवाब दिया।" },
+    },
+    INSTANT_SELECTED: {
+        en: { title: "Hi {recipient}, you're selected! 🎉", body: "The employer selected you for {title}. Please reach on time." },
+        te: { title: "హాయ్ {recipient}, మీరు ఎంపికయ్యారు! 🎉", body: "{title} కోసం యజమాని మిమ్మల్ని ఎంచుకున్నారు. సమయానికి చేరుకోండి." },
+        hi: { title: "नमस्ते {recipient}, आपको चुना गया! 🎉", body: "{title} के लिए नियोक्ता ने आपको चुना है। समय पर पहुँचें।" },
+    },
     // ── referral system ───────────────────────────────────────────────
     REFERRAL_REWARD_BASIC: {
         en: {
@@ -132,6 +148,62 @@ exports.NOTIFICATION_TEMPLATES = {
         hi: {
             title: "स्वागत बोनस",
             body: "DutyPe से जुड़ने पर आपने ₹{amount} कमाए।",
+        },
+    },
+    WITHDRAWAL_COMPLETED: {
+        en: {
+            title: "Withdrawal sent",
+            body: "₹{amount} has been sent to your UPI account.",
+        },
+        te: {
+            title: "డబ్బు పంపబడింది",
+            body: "₹{amount} మీ UPI ఖాతాకు పంపబడింది.",
+        },
+        hi: {
+            title: "निकासी भेज दी गई",
+            body: "₹{amount} आपके UPI खाते में भेज दिए गए हैं।",
+        },
+    },
+    SUBSCRIPTION_ACTIVATED: {
+        en: {
+            title: "Plan activated",
+            body: "Your payment is verified. Job post credits have been added.",
+        },
+        te: {
+            title: "ప్లాన్ యాక్టివేట్ అయింది",
+            body: "మీ చెల్లింపు ధృవీకరించబడింది. జాబ్ పోస్ట్ క్రెడిట్‌లు జోడించబడ్డాయి.",
+        },
+        hi: {
+            title: "प्लान सक्रिय हुआ",
+            body: "आपका भुगतान सत्यापित हो गया। जॉब पोस्ट क्रेडिट जोड़ दिए गए हैं।",
+        },
+    },
+    SUBSCRIPTION_REJECTED: {
+        en: {
+            title: "Payment not verified",
+            body: "We could not verify your payment. {reason}",
+        },
+        te: {
+            title: "చెల్లింపు ధృవీకరించబడలేదు",
+            body: "మీ చెల్లింపును ధృవీకరించలేకపోయాము. {reason}",
+        },
+        hi: {
+            title: "भुगतान सत्यापित नहीं हुआ",
+            body: "हम आपका भुगतान सत्यापित नहीं कर सके। {reason}",
+        },
+    },
+    WITHDRAWAL_FAILED: {
+        en: {
+            title: "Withdrawal failed",
+            body: "We could not send ₹{amount}. The money is back in your wallet.",
+        },
+        te: {
+            title: "విత్‌డ్రా విఫలమైంది",
+            body: "₹{amount} పంపలేకపోయాము. డబ్బు మీ వాలెట్‌కు తిరిగి వచ్చింది.",
+        },
+        hi: {
+            title: "निकासी विफल",
+            body: "₹{amount} नहीं भेजे जा सके। पैसे आपके वॉलेट में वापस आ गए हैं।",
         },
     },
     EMPLOYER_WELCOME_BENEFIT: {
@@ -575,7 +647,7 @@ async function getUserDisplayName(db, userId, fallback = "") {
             db.collection("worker_profiles").doc(userId).get(),
             db.collection("employer_profiles").doc(userId).get(),
         ]);
-        const fullName = String((_b = (_a = workerSnap.get("fullName")) !== null && _a !== void 0 ? _a : employerSnap.get("fullName")) !== null && _b !== void 0 ? _b : "").trim();
+        const fullName = String((_b = (_a = workerSnap.get("name")) !== null && _a !== void 0 ? _a : employerSnap.get("ownerName")) !== null && _b !== void 0 ? _b : "").trim();
         if (!fullName)
             return fallback;
         // First token only — keeps notification bodies concise and avoids

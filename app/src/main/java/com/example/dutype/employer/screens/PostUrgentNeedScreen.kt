@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.example.dutype.employer.components.VoiceJobPostingBottomSheet
+import com.example.dutype.employer.components.VoiceJobTriggerCard
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,19 +47,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.dutype.app.R
-import com.example.dutype.firestore.FirestoreCollections
+import com.example.dutype.firestore.FirestoreSchema.EmployerProfiles
 import com.example.dutype.models.QuickUrgentNeedInput
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.utils.GeoUtils
 import com.example.dutype.utils.LocationService
 import com.example.dutype.viewmodels.InstantHelpViewModel
-import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.ZoneId
 
@@ -180,33 +178,20 @@ fun PostUrgentNeedContent(
 
     var showLocationDialog by rememberSaveable { mutableStateOf(false) }
     var tempManualAddress by rememberSaveable { mutableStateOf("") }
+    var showVoiceSheet by rememberSaveable { mutableStateOf(false) }
+
+    val profileCompletionService = hiltViewModel<com.example.dutype.viewmodels.ProfileCompletionViewModel>().profileCompletionService
 
     suspend fun refreshEmployerLocationState(): Boolean {
         val userId = FirebaseAuth.getInstance().currentUser?.uid
-        if (userId.isNullOrBlank()) {
-            hasEmployerLocation = false
-            return false
-        }
-        val snapshot = runCatching {
-            FirebaseFirestore.getInstance()
-                .collection(FirestoreCollections.EMPLOYER_PROFILES)
-                .document(userId)
-                .get()
-                .await()
-        }.getOrNull()
-        val location = snapshot?.get("businessLocation") as? Map<*, *>
-        val latitude = (location?.get("lat") as? Number)?.toDouble() ?: 0.0
-        val longitude = (location?.get("lng") as? Number)?.toDouble() ?: 0.0
-        val valid = GeoUtils.hasValidCoordinates(latitude, longitude)
+        val employer = userId?.let { profileCompletionService.getEmployer(it).getOrNull() }
+        val valid = employer != null && GeoUtils.hasValidCoordinates(employer.lat, employer.lng)
         hasEmployerLocation = valid
-
-        if (addressText.isBlank()) {
-            val addr = snapshot?.getString("businessAddress")
-                ?: snapshot?.getString("address")
-                ?: ""
-            if (addr.isNotBlank()) {
-                addressText = addr
-            }
+        if (addressText.isBlank() && employer != null && employer.address.isNotBlank()) {
+            addressText = employer.address
+        }
+        if (contactNumber.isBlank()) {
+            contactNumber = employer?.phone.orEmpty().ifBlank { FirebaseAuth.getInstance().currentUser?.phoneNumber.orEmpty() }
         }
         return valid
     }
@@ -230,24 +215,14 @@ fun PostUrgentNeedContent(
                 false
             } else {
                 val addr = locationInfo.getFullAddress()
-                val updateData = mutableMapOf<String, Any>(
-                    "businessLocation" to mapOf(
-                        "lat" to locationInfo.latitude,
-                        "lng" to locationInfo.longitude
-                    ),
-                    "geohash" to GeoUtils.encodeGeohash(locationInfo.latitude, locationInfo.longitude),
-                    "updatedAt" to Timestamp.now()
-                )
-                if (addr.isNotBlank()) {
-                    updateData["businessAddress"] = addr
-                    addressText = addr
-                }
-
-                FirebaseFirestore.getInstance()
-                    .collection(FirestoreCollections.EMPLOYER_PROFILES)
-                    .document(userId)
-                    .set(updateData, SetOptions.merge())
-                    .await()
+                if (addr.isNotBlank()) addressText = addr
+                profileCompletionService.saveEmployer(
+                    buildMap {
+                        put(EmployerProfiles.LAT, locationInfo.latitude)
+                        put(EmployerProfiles.LNG, locationInfo.longitude)
+                        if (addr.isNotBlank()) put(EmployerProfiles.ADDRESS, addr)
+                    }
+                ).getOrThrow()
                 hasEmployerLocation = true
                 urgentLocationError = null
                 Toast.makeText(context, context.getString(R.string.location_updated), Toast.LENGTH_SHORT).show()
@@ -275,25 +250,6 @@ fun PostUrgentNeedContent(
     }
 
     LaunchedEffect(Unit) {
-        val authPhone = FirebaseAuth.getInstance().currentUser?.phoneNumber.orEmpty()
-        val userId = FirebaseAuth.getInstance().currentUser?.uid
-        val profilePhone = if (userId.isNullOrBlank()) {
-            authPhone
-        } else {
-            runCatching {
-                FirebaseFirestore.getInstance()
-                    .collection(FirestoreCollections.EMPLOYER_PROFILES)
-                    .document(userId)
-                    .get()
-                    .await()
-            }.getOrNull()?.let { snapshot ->
-                snapshot.getString("phone")
-                    ?: snapshot.getString("phoneNumber")
-                    ?: snapshot.getString("contactNumber")
-            }.orEmpty().ifBlank { authPhone }
-        }
-        if (contactNumber.isBlank()) contactNumber = profilePhone
-
         val hasSavedLocation = refreshEmployerLocationState()
         if (!hasSavedLocation && locationService.hasLocationPermission()) {
             autoPickEmployerLocation()
@@ -354,7 +310,7 @@ fun PostUrgentNeedContent(
 
         viewModel.createUrgentNeed(
             QuickUrgentNeedInput(
-                title = effectiveCategory,
+                title = (if (notes.isBlank()) effectiveCategory else "$effectiveCategory: ${notes.trim()}").take(80),
                 description = notes.ifBlank { "$effectiveCategory needed - $selectedDuration" },
                 category = effectiveCategory,
                 workersNeeded = workersNeeded,
@@ -398,7 +354,11 @@ fun PostUrgentNeedContent(
                     .verticalScroll(rememberScrollState())
                     .padding(start = 20.dp, end = 20.dp)
             ) {
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+                VoiceJobTriggerCard(
+                    onClick = { showVoiceSheet = true }
+                )
+                Spacer(modifier = Modifier.height(20.dp))
                 Text(
                     text = "What do you need right now?",
                     fontSize = 20.sp,
@@ -495,6 +455,47 @@ fun PostUrgentNeedContent(
                 showLocationDialog = false
             },
             onDismiss = { showLocationDialog = false }
+        )
+    }
+
+    if (showVoiceSheet) {
+        VoiceJobPostingBottomSheet(
+            onDismiss = { showVoiceSheet = false },
+            onPostUrgentJob = { input ->
+                scope.launch {
+                    if (!hasEmployerLocation) {
+                        autoPickEmployerLocation()
+                    }
+                    viewModel.createUrgentNeed(input) { requestId ->
+                        Toast.makeText(context, "Urgent job posted!", Toast.LENGTH_SHORT).show()
+                        onPosted(requestId)
+                    }
+                }
+            },
+            onEditManually = { input ->
+                val matched = URGENT_CATEGORIES.firstOrNull {
+                    it.title.equals(input.category, ignoreCase = true) ||
+                    it.label.equals(input.category, ignoreCase = true)
+                }
+                if (matched != null) {
+                    selectedCategoryItem = matched.id
+                } else {
+                    selectedCategoryItem = "other"
+                    otherCategory = input.category
+                }
+                workersNeeded = input.workersNeeded
+                if (input.perPersonPayment > 0) {
+                    perPersonPaymentText = input.perPersonPayment.toInt().toString()
+                }
+                if (input.addressText.isNotBlank()) {
+                    addressText = input.addressText
+                }
+                if (input.description.isNotBlank()) {
+                    notes = input.description
+                }
+            },
+            employerPhone = contactNumber,
+            defaultAddress = addressText
         )
     }
 }
@@ -907,7 +908,7 @@ private fun UrgentBroadcastButton(
             Spacer(modifier = Modifier.width(8.dp))
         }
         Text(
-            text = "\u26A1 Broadcast Urgent Need Now \u2192",
+            text = "\u26A1 Post Urgent Job Now \u2192",
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = Color.White
