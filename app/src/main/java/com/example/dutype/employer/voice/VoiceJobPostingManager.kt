@@ -18,7 +18,38 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.util.Locale
+
+enum class VoiceLanguage(
+    val code: String,
+    val nativeName: String,
+    val englishName: String,
+    val sampleHint: String,
+    val locale: Locale
+) {
+    TELUGU(
+        code = "te-IN",
+        nativeName = "తెలుగు",
+        englishName = "Telugu",
+        sampleHint = "ఉదా: రేపు ఉదయం 9 గంటలకు 2 గుమస్తాలు కావాలి, ₹800 ఇస్తాము",
+        locale = Locale("te", "IN")
+    ),
+    ENGLISH(
+        code = "en-IN",
+        nativeName = "English",
+        englishName = "English",
+        sampleHint = "e.g. Need 2 warehouse helpers tomorrow 9 AM, 800 rupees each",
+        locale = Locale.ENGLISH
+    ),
+    HINDI(
+        code = "hi-IN",
+        nativeName = "हिंदी",
+        englishName = "Hindi",
+        sampleHint = "जैसे: कल सुबह 9 बजे 2 हेल्पर चाहिए, ₹700 देंगे",
+        locale = Locale("hi", "IN")
+    )
+}
 
 data class VoiceJobParsedData(
     val title: String = "",
@@ -51,6 +82,8 @@ class VoiceJobPostingManager(
     private var speechRecognizer: SpeechRecognizer? = null
     private var textToSpeech: TextToSpeech? = null
     private var isTtsReady = false
+    var currentLanguage: VoiceLanguage = VoiceLanguage.TELUGU
+        private set
 
     private val _state = MutableStateFlow<VoicePostingState>(VoicePostingState.Idle)
     val state: StateFlow<VoicePostingState> = _state.asStateFlow()
@@ -69,6 +102,19 @@ class VoiceJobPostingManager(
         initTextToSpeech()
     }
 
+    fun setLanguage(lang: VoiceLanguage) {
+        currentLanguage = lang
+        if (isTtsReady) {
+            try {
+                if (textToSpeech?.isLanguageAvailable(lang.locale) ?: TextToSpeech.LANG_NOT_SUPPORTED >= TextToSpeech.LANG_AVAILABLE) {
+                    textToSpeech?.language = lang.locale
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Could not set TTS language to ${lang.code}")
+            }
+        }
+    }
+
     private fun initSpeechRecognizer() {
         if (SpeechRecognizer.isRecognitionAvailable(context)) {
             speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
@@ -83,17 +129,23 @@ class VoiceJobPostingManager(
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            val hindi = Locale("hi", "IN")
-            if (textToSpeech?.isLanguageAvailable(hindi) == TextToSpeech.LANG_AVAILABLE) {
-                textToSpeech?.language = hindi
-            } else {
+            try {
+                if (textToSpeech?.isLanguageAvailable(currentLanguage.locale) ?: TextToSpeech.LANG_NOT_SUPPORTED >= TextToSpeech.LANG_AVAILABLE) {
+                    textToSpeech?.language = currentLanguage.locale
+                } else {
+                    textToSpeech?.language = Locale.ENGLISH
+                }
+            } catch (_: Exception) {
                 textToSpeech?.language = Locale.ENGLISH
             }
             isTtsReady = true
         }
     }
 
-    fun startListening() {
+    fun startListening(language: VoiceLanguage? = null) {
+        if (language != null) {
+            currentLanguage = language
+        }
         stopSpeaking()
         _partialTranscript.value = ""
         _soundLevel.value = 0f
@@ -107,12 +159,18 @@ class VoiceJobPostingManager(
             initSpeechRecognizer()
         }
 
+        val additionalLangs = when (currentLanguage) {
+            VoiceLanguage.TELUGU -> arrayOf("en-IN", "hi-IN")
+            VoiceLanguage.HINDI -> arrayOf("en-IN", "te-IN")
+            VoiceLanguage.ENGLISH -> arrayOf("te-IN", "hi-IN")
+        }
+
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "hi-IN")
-            putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf("te-IN", "en-IN"))
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, currentLanguage.code)
+            putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", additionalLangs)
         }
 
         try {

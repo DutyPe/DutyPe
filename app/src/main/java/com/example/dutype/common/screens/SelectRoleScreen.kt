@@ -29,6 +29,8 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Check
@@ -86,29 +88,7 @@ fun SelectRoleScreen(
             androidx.hilt.navigation.compose.hiltViewModel()
 
         var selectedRole by remember { mutableStateOf("WORKER") }
-        var activeLanguage by remember {
-            mutableStateOf(com.example.dutype.utils.LocaleHelper.getLanguage(context))
-        }
-
-        // Mirrors LanguageSelectionBottomSheet's switch: persist + apply the
-        // locale, then restart MainActivity so every screen re-composes in
-        // the new language (Compose won't re-read string resources otherwise).
-        fun switchLanguage(code: String) {
-            if (activeLanguage == code) return
-            activeLanguage = code
-            com.example.dutype.utils.LocaleHelper.saveLanguage(context, code)
-            com.example.dutype.utils.LocaleHelper.setLocale(context.applicationContext, code)
-            com.example.dutype.utils.LocaleHelper.setLocale(context, code)
-
-            val activity = context as? Activity
-            if (activity != null) {
-                val intent = Intent(activity, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                }
-                activity.startActivity(intent)
-                activity.finish()
-            }
-        }
+        var showLanguageSheet by remember { mutableStateOf(false) }
 
         fun applyRole(role: String) {
             Timber.d("🔍 Role selected: $role")
@@ -134,7 +114,7 @@ fun SelectRoleScreen(
                 .navigationBarsPadding()
                 .padding(start = 24.dp, end = 24.dp)
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             // Top row: wordmark + compact language switcher
             Row(
@@ -150,26 +130,12 @@ fun SelectRoleScreen(
                         color = InkColor
                     )
                 )
-                LanguagePill(
-                    label = "EN",
-                    selected = activeLanguage == com.example.dutype.utils.LocaleHelper.LANGUAGE_ENGLISH,
-                    onClick = { switchLanguage(com.example.dutype.utils.LocaleHelper.LANGUAGE_ENGLISH) }
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                LanguagePill(
-                    label = "हिन्दी",
-                    selected = activeLanguage == com.example.dutype.utils.LocaleHelper.LANGUAGE_HINDI,
-                    onClick = { switchLanguage(com.example.dutype.utils.LocaleHelper.LANGUAGE_HINDI) }
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                LanguagePill(
-                    label = "తెలుగు",
-                    selected = activeLanguage == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU,
-                    onClick = { switchLanguage(com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU) }
-                )
+                // Same language chip + bottom sheet as the onboarding screen.
+                LanguageSelectorChip(onClick = { showLanguageSheet = true })
             }
 
-            Spacer(modifier = Modifier.height(48.dp))
+            // More space above than below pushes the headline and cards comfortably lower down
+            Spacer(modifier = Modifier.weight(1.35f))
 
             HeadlineBlock()
 
@@ -197,11 +163,61 @@ fun SelectRoleScreen(
                 onClick = { selectedRole = "EMPLOYER" }
             )
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.weight(0.85f))
 
             ContinueButton(onClick = { applyRole(selectedRole) })
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        if (showLanguageSheet) {
+            com.example.dutype.components.LanguageSelectionBottomSheet(
+                onDismiss = { showLanguageSheet = false }
+            )
+        }
+    }
+}
+
+/** Identical to the onboarding header chip: translate icon, current language, chevron. */
+@Composable
+private fun LanguageSelectorChip(onClick: () -> Unit) {
+    val context = LocalContext.current
+    val activeLangName = when (com.example.dutype.utils.LocaleHelper.getLanguage(context)) {
+        com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU -> "తెలుగు"
+        com.example.dutype.utils.LocaleHelper.LANGUAGE_HINDI -> "हिन्दी"
+        else -> "English"
+    }
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Translate,
+                contentDescription = null,
+                tint = Color(0xFF2563EB),
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = activeLangName,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF0F172A)
+                )
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = null,
+                tint = Color(0xFF475569),
+                modifier = Modifier.size(16.dp)
+            )
         }
     }
 }
@@ -262,35 +278,6 @@ private fun ContinueButton(onClick: () -> Unit) {
                 contentDescription = null,
                 tint = Color.White,
                 modifier = Modifier.size(18.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun LanguagePill(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.height(28.dp),
-        shape = RoundedCornerShape(14.dp),
-        color = if (selected) InkColor else Color.White,
-        border = if (selected) null else BorderStroke(1.dp, BorderNeutral)
-    ) {
-        Box(
-            modifier = Modifier.padding(start = 10.dp, end = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (selected) Color.White else SubtitleGray
-                )
             )
         }
     }

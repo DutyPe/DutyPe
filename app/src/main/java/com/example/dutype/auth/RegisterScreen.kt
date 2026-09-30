@@ -172,41 +172,8 @@ private fun RegisterContent(
                             role = role
                         )
 
-                        // PERF: applying a referral code calls a Cloud Function (cold start + RTT).
-                        // It must not hold the user on the OTP screen: navigate immediately and
-                        // apply in a process-level scope (the profile-setup fallback still retries
-                        // if this fails, because the code is only cleared on success).
-                        if (!pendingReferralCode.isNullOrBlank()) {
-                            val resolvedPhone = currentUser.phoneNumber ?: otpState.phoneNumber ?: ""
-                            val referralUserId = currentUser.uid
-                            val referralName = resolvedName.ifBlank { resolvedPhone.ifBlank { "DutyPe User" } }
-                            val referralRoleName = role.name
-                            val appContext = context.applicationContext
-                            val successMessage = context.getString(R.string.referral_code_applied_success)
-                            val retryMessage = if (isTelugu) "రిఫరల్ కోడ్ వర్తించలేదు. ప్రొఫైల్ పూర్తయిన తర్వాత మళ్లీ ప్రయత్నిస్తాం." else "Couldn't apply referral now — we'll retry after profile setup."
-                            kotlinx.coroutines.CoroutineScope(
-                                kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main
-                            ).launch {
-                                val applyResult = profileCompletionViewModel.applyReferralCode(
-                                    referralCode = pendingReferralCode,
-                                    newUserId = referralUserId,
-                                    newUserRole = referralRoleName,
-                                    newUserName = referralName,
-                                    newUserPhone = resolvedPhone
-                                )
-                                applyResult.fold(
-                                    onSuccess = {
-                                        Timber.d("REGISTER - Referral applied for user $referralUserId")
-                                        Toast.makeText(appContext, successMessage, Toast.LENGTH_LONG).show()
-                                    },
-                                    onFailure = { error ->
-                                        Timber.w(error, "REGISTER - Immediate referral apply failed; fallback will run after profile completion")
-                                        val msg = error.message?.takeIf { it.isNotBlank() } ?: retryMessage
-                                        Toast.makeText(appContext, msg, Toast.LENGTH_LONG).show()
-                                    }
-                                )
-                            }
-                        }
+                        // completeRegistration already applied the referral code server-side.
+                        if (!pendingReferralCode.isNullOrBlank()) profileCompletionViewModel.clearReferralCode()
 
                         otpViewModel.resetState()
                         navigateToProfileSetup(role, navController)
@@ -313,7 +280,7 @@ private fun RegisterContent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp),
+                        .padding(top = 16.dp),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -361,7 +328,8 @@ private fun RegisterContent(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                // Pushes the form comfortably lower down toward the middle of the screen.
+                Spacer(modifier = Modifier.height(authTopGap(0.18f) + 16.dp))
 
                 Text(
                     text = if (isTelugu) "మీ ఖాతాను సృష్టించండి" else "Create your account",
@@ -1241,7 +1209,9 @@ private fun RegisterOtpSection(
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp),
         horizontalAlignment = Alignment.Start
     ) {
         // Back arrow, top-left
@@ -1256,7 +1226,7 @@ private fun RegisterOtpSection(
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
             text = if (isTelugu) "మీ నంబర్‌ను ధృవీకరించండి" else "Verify your number",

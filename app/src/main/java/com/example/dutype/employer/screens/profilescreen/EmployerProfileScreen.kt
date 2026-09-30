@@ -18,7 +18,9 @@ import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -111,11 +113,11 @@ private fun empPillText(sub: EmployerSubscription, planName: String?): String? {
     if (!sub.isActive) return null
     var name: String = planName ?: ""
     if (name.isBlank()) {
-        name = if (sub.status == "TRIAL") "Trial" else sub.planId.replaceFirstChar { it.uppercase() }
+        name = if (sub.isUnlimitedCampaign) "Unlimited" else sub.planId.substringBefore('_').replaceFirstChar { it.uppercase() }
     }
     if (name.isBlank()) return null
-    if (sub.expiryDate > 0L) {
-        val left = Math.ceil((sub.expiryDate - System.currentTimeMillis()) / 86400000.0).toInt()
+    if (sub.expiresAt > 0L) {
+        val left = Math.ceil((sub.expiresAt - System.currentTimeMillis()) / 86400000.0).toInt()
         if (left >= 0) return name + " (" + left + "d left)"
     }
     return name
@@ -431,133 +433,123 @@ private fun EmpCompletenessCard(ui: EmpProfileUi, onClick: () -> Unit) {
 }
 
 @Composable
+private fun profileTextStyle(size: androidx.compose.ui.unit.TextUnit, weight: FontWeight, color: Color) =
+    MaterialTheme.typography.bodyMedium.copy(
+        fontSize = size,
+        fontWeight = weight,
+        color = color,
+        lineHeight = androidx.compose.ui.unit.TextUnit.Unspecified,
+        letterSpacing = 0.sp
+    )
+
+@Composable
+private fun ProfileRowDivider() {
+    HorizontalDivider(thickness = 1.dp, color = Color(0xFFF1F5F9))
+}
+
+@Composable
 private fun EmpMenuRow(
     iconRes: Int,
     title: String,
-    pill: String?,
-    showDivider: Boolean,
+    pill: String? = null,
     onClick: () -> Unit
 ) {
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(52.dp)
             .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                painter = painterResource(id = iconRes),
-                contentDescription = null,
-                tint = Color.Unspecified,
-                modifier = Modifier.size(22.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = title,
-                color = EmpNavy,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-            if (!pill.isNullOrBlank()) {
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(Color(0xFFEFF6FF))
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                ) {
-                    Text(
-                        text = pill,
-                        color = EmpCobalt,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-            Text(text = "›", color = EmpSlate, fontSize = 16.sp)
-        }
-        if (showDivider) {
+        Icon(
+            painter = painterResource(id = iconRes),
+            contentDescription = null,
+            tint = Color.Unspecified,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = title,
+            style = profileTextStyle(15.sp, FontWeight.SemiBold, Color(0xFF0F0F0F)),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        if (!pill.isNullOrBlank()) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(EmpDivider)
-            )
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Color(0xFFEFF6FF))
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = pill,
+                    style = profileTextStyle(11.sp, FontWeight.SemiBold, Color(0xFF2563EB)),
+                    maxLines = 1
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
         }
+        Text(
+            text = "›",
+            style = profileTextStyle(16.sp, FontWeight.Normal, Color(0xFF94A3B8))
+        )
     }
 }
 
 @Composable
 private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
-    val shape = RoundedCornerShape(16.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(shape)
             .background(Color.White)
-            .border(1.dp, EmpBorder, shape)
+            .padding(start = 0.dp, top = 4.dp, end = 0.dp, bottom = 0.dp)
     ) {
-        EmpMenuRow(R.drawable.ic_emp_building, "Company Details & Photos", null, true, actions.onCompany)
-        EmpMenuRow(R.drawable.ic_emp_pin, "Work Locations & Job Sites", null, true, actions.onLocations)
-        EmpMenuRow(R.drawable.ic_emp_card, "Subscription & Credits", ui.pill, true, actions.onSubscription)
-        EmpMenuRow(R.drawable.ic_emp_archive, "Hiring History & Closed Posts", null, true, actions.onHistory)
-        EmpMenuRow(R.drawable.ic_emp_gift, "Refer an Employer (Earn ₹" + EmpReferAmount + ")", null, true, actions.onRefer)
-        EmpMenuRow(R.drawable.ic_emp_headset, "Help & Support", null, false, actions.onHelp)
-    }
-}
-
-@Composable
-private fun EmpAccountRow(text: String, color: Color, showDivider: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(46.dp)
-            .clickable(onClick = onClick)
-    ) {
-        Text(
-            text = text,
-            color = color,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = 16.dp)
-        )
-        if (showDivider) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(EmpDivider)
-            )
-        }
+        EmpMenuRow(R.drawable.ic_profile_person, "Company Details & Photos", null, actions.onCompany)
+        ProfileRowDivider()
+        EmpMenuRow(R.drawable.ic_profile_globe, "Work Locations & Job Sites", null, actions.onLocations)
+        ProfileRowDivider()
+        EmpMenuRow(R.drawable.ic_profile_wallet, "Subscription & Credits", ui.pill, actions.onSubscription)
+        ProfileRowDivider()
+        EmpMenuRow(R.drawable.ic_profile_history, "Hiring History & Closed Posts", null, actions.onHistory)
+        ProfileRowDivider()
+        EmpMenuRow(R.drawable.ic_profile_gift, "Refer an Employer (Earn ₹" + EmpReferAmount + ")", null, actions.onRefer)
+        ProfileRowDivider()
+        EmpMenuRow(R.drawable.ic_profile_help, "Help & Support", null, actions.onHelp)
     }
 }
 
 @Composable
 private fun EmpAccountCard(ui: EmpProfileUi, actions: EmpProfileActions) {
-    val shape = RoundedCornerShape(16.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(shape)
             .background(Color.White)
-            .border(1.dp, EmpBorder, shape)
     ) {
-        EmpAccountRow("Switch to Worker Mode", EmpCobalt, ui.isLoggedIn, actions.onSwitch)
+        EmpMenuRow(
+            iconRes = R.drawable.ic_profile_settings,
+            title = "Switch to Worker Mode",
+            pill = null,
+            onClick = actions.onSwitch
+        )
         if (ui.isLoggedIn) {
-            EmpAccountRow("Log Out", Color(0xFFEF4444), false, actions.onLogout)
+            ProfileRowDivider()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .clickable(onClick = actions.onLogout)
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Log Out",
+                    style = profileTextStyle(15.sp, FontWeight.SemiBold, Color(0xFFEF4444)),
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }
@@ -567,15 +559,20 @@ private fun EmpProfileBody(ui: EmpProfileUi, actions: EmpProfileActions, modifie
     Column(
         modifier = modifier
             .verticalScroll(rememberScrollState())
-            .padding(top = 4.dp)
-            .padding(horizontal = 16.dp),
+            .padding(top = 4.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        EmpHeroCard(ui = ui, actions = actions)
+        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+            EmpHeroCard(ui = ui, actions = actions)
+        }
         if (ui.isLoggedIn) {
-            EmpSnapshotRow(ui = ui)
+            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                EmpSnapshotRow(ui = ui)
+            }
             if (ui.pct < 100) {
-                EmpCompletenessCard(ui = ui, onClick = actions.onCompany)
+                Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    EmpCompletenessCard(ui = ui, onClick = actions.onCompany)
+                }
             }
         }
         EmpMenuCard(ui = ui, actions = actions)
@@ -606,9 +603,10 @@ fun EmployerProfileScreen(
     // Services accessed via ProfileCompletionViewModel (proper DI pattern)
     val authManager = profileCompletionViewModel.authManager
 
-    // LIGHTWEIGHT PROFILE: Use metadata for basic profile info (name, phone, image)
-    val userStats by profileCompletionViewModel.metadataManager.userMetadata.userStats.collectAsState()
-    val employerStats by profileCompletionViewModel.metadataManager.userMetadata.employerStats.collectAsState()
+    // Live own profile from the shared store (one listener for the whole app)
+    val employerProfile by profileCompletionViewModel.profileStore.employer.collectAsState()
+    var openJobsCount by remember { mutableStateOf(0) }
+    var waitingApplicants by remember { mutableStateOf(0) }
 
     var companyName by remember { mutableStateOf("") }
     var companyPhone by remember { mutableStateOf("") }
@@ -634,55 +632,43 @@ fun EmployerProfileScreen(
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var pendingMenuAction by remember { mutableStateOf<String?>(null) }
 
-    // LIGHTWEIGHT: Load only basic profile info using metadata
-    LaunchedEffect(Unit) {
-        isLoadingProfile = true
-        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-        if (currentUser != null) {
-            currentUserId = currentUser.uid
-            try {
-                // LIGHTWEIGHT: Only load basic profile (name, phone, image) - no heavy stats
-                profileCompletionViewModel.metadataManager.userMetadata.loadBasicProfile()
-
-                // Use metadata for profile image URL
-                profileImageUrl = userStats.profileImageUrl.ifEmpty { null }
-
-                val employerData = profileCompletionViewModel.getEmployerProfileData(currentUser.uid)
-                employerData.onSuccess { data ->
-                    employerType = data["employerType"] as? String ?: "COMPANY"
-                    profCompany = data["companyName"] as? String ?: ""
-                    profContact = data["fullName"] as? String ?: ""
-                    profIndustry = data["industry"] as? String ?: ""
-                    profGstin = data["gstin"] as? String ?: ""
-                    profAddress = data["businessAddress"] as? String ?: ""
-                    profPhotoUrl = data["profileImageUrl"] as? String ?: ""
-                    profRating = (data["rating"] as? Number)?.toDouble()
-                        ?: (data["averageRating"] as? Number)?.toDouble() ?: 0.0
-                }
-                storedPct = try {
-                    profileCompletionViewModel.getCompletionPercentage(com.example.dutype.models.UserRole.EMPLOYER)
-                } catch (e: Exception) {
-                    0
-                }
-
-                Timber.i("Employer profile (lightweight) - Name: ${userStats.fullName}, Phone: ${userStats.phone}, Type: $employerType")
-            } catch (e: Exception) {
-                Timber.e("Error loading lightweight profile: ${e.message}")
-            }
+    fun applyEmployer(p: com.example.dutype.profile.EmployerProfile) {
+        employerType = p.employerType
+        companyName = p.displayName
+        profCompany = p.displayName
+        profContact = p.ownerName
+        profIndustry = p.businessType
+        profGstin = p.gstin
+        profAddress = p.address
+        profPhotoUrl = p.photoUrl
+        profRating = p.rating
+        storedPct = p.completionPercent
+        companyPhone = p.phone.ifBlank {
+            com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber.orEmpty()
         }
-        isLoadingProfile = false
+        if (p.photoUrl.isNotBlank() && profileImageUri == null) profileImageUrl = p.photoUrl
     }
 
-    // Update company name and phone from metadata (lightweight)
-    // Also get phone from Firebase Auth as fallback for new users
-    LaunchedEffect(userStats) {
-        companyName = userStats.companyName.ifBlank { userStats.fullName }
-        // Get phone from metadata, fallback to Firebase Auth
-        val authPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber ?: ""
-        companyPhone = userStats.phone.ifBlank { authPhone }
-        if (userStats.profileImageUrl.isNotBlank() && profileImageUrl == null) {
-            profileImageUrl = userStats.profileImageUrl
+    LaunchedEffect(Unit) {
+        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        if (currentUser == null || currentUser.isAnonymous) {
+            isLoadingProfile = false
+            return@LaunchedEffect
         }
+        currentUserId = currentUser.uid
+        profileCompletionViewModel.profileStore.start(com.example.dutype.firestore.FirestoreSchema.Values.Role.EMPLOYER)
+        subscriptionViewModel.loadPlans()
+        if (employerProfile == null) {
+            profileCompletionViewModel.getEmployer(currentUser.uid).getOrNull()?.let { applyEmployer(it) }
+        }
+        isLoadingProfile = false
+        val (open, waiting) = profileCompletionViewModel.profileCompletionService.employerCounts(currentUser.uid)
+        openJobsCount = open
+        waitingApplicants = waiting
+    }
+
+    LaunchedEffect(employerProfile) {
+        employerProfile?.let { applyEmployer(it) }
     }
 
     val imagePickerLauncher =
@@ -772,8 +758,8 @@ fun EmployerProfileScreen(
             rating = profRating,
             imageModel = if (profileImageUri != null) profileImageUri.toString() else photoUrl.ifBlank { null },
             uploading = isUploadingImage,
-            activeJobs = employerStats.activeJobs,
-            applicants = (employerStats.totalApplicationsReceived - employerStats.totalHires).coerceAtLeast(0),
+            activeJobs = openJobsCount,
+            applicants = waitingApplicants,
             locCount = if (profAddress.isNotBlank()) 1 else 0,
             city = if (profAddress.isNotBlank()) empCityFrom(profAddress) else "Add a work location",
             pct = pct,

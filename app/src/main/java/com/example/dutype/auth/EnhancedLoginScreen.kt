@@ -278,7 +278,8 @@ private fun OtpLoginScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(bottom = 132.dp)
             ) {
-                Spacer(modifier = Modifier.height(40.dp))
+                // Pushes the form comfortably lower down toward the middle of the screen.
+                Spacer(modifier = Modifier.height(authTopGap(0.22f) + 24.dp))
 
                 // Title & Subtitle Hero Block
                 Text(
@@ -704,7 +705,9 @@ private fun OtpInputSection(
     )
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp),
         horizontalAlignment = Alignment.Start
     ) {
         // Back arrow, top-left — matches the Stitch design spec exactly
@@ -719,7 +722,7 @@ private fun OtpInputSection(
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
         Text(
             text = "Verify your number",

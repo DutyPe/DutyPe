@@ -62,6 +62,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -245,6 +246,8 @@ fun EmployerHomeScreen(
     val isGuestEmployer = currentUser == null || currentUser.isAnonymous
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var showVoiceJobSheet by remember { mutableStateOf(false) }
+    var showVoiceLanguageSheet by remember { mutableStateOf(false) }
+    var selectedVoiceLanguage by remember { mutableStateOf(com.example.dutype.employer.voice.VoiceLanguage.TELUGU) }
     LaunchedEffect(employerId) {
         if (employerId != null) {
             Timber.d("EMPLOYER_HOME: Loading jobs for employerId=$employerId")
@@ -517,7 +520,7 @@ fun EmployerHomeScreen(
                     }
                 },
                 onVoiceJobClick = {
-                    showVoiceJobSheet = true
+                    showVoiceLanguageSheet = true
                 }
             )
         }
@@ -583,10 +586,33 @@ fun EmployerHomeScreen(
             navController = navController
         )
 
+        // Pulsing Voice FAB Button
+        VoicePulsingFab(
+            onClick = {
+                showVoiceLanguageSheet = true
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 80.dp)
+        )
+
+        // Language Picker Bottom Sheet (Prompt: Telugu, English, Hindi)
+        if (showVoiceLanguageSheet) {
+            com.example.dutype.employer.components.VoiceLanguagePickerBottomSheet(
+                onDismiss = { showVoiceLanguageSheet = false },
+                onLanguageSelected = { lang ->
+                    selectedVoiceLanguage = lang
+                    showVoiceLanguageSheet = false
+                    showVoiceJobSheet = true
+                }
+            )
+        }
+
         // Voice Job Posting Bottom Sheet
         if (showVoiceJobSheet) {
             com.example.dutype.employer.components.VoiceJobPostingBottomSheet(
                 onDismiss = { showVoiceJobSheet = false },
+                initialLanguage = selectedVoiceLanguage,
                 onPostUrgentJob = { input ->
                     coroutineScope.launch {
                         instantHelpViewModel.createUrgentNeed(input) { requestId ->
@@ -607,6 +633,67 @@ fun EmployerHomeScreen(
             )
         }
     } // Box
+}
+
+@Composable
+private fun VoicePulsingFab(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val infiniteTransition = rememberInfiniteTransition(label = "voice_fab_pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.35f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "fab_pulse_scale"
+    )
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.40f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "fab_pulse_alpha"
+    )
+
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        // Outer pulsing wave
+        Box(
+            modifier = Modifier
+                .size(68.dp * pulseScale)
+                .clip(CircleShape)
+                .background(Color(0xFF10B981).copy(alpha = pulseAlpha))
+        )
+
+        // Floating Action Button
+        FloatingActionButton(
+            onClick = onClick,
+            shape = CircleShape,
+            containerColor = Color(0xFF0F172A),
+            contentColor = Color.White,
+            elevation = FloatingActionButtonDefaults.elevation(
+                defaultElevation = 6.dp,
+                pressedElevation = 12.dp
+            ),
+            modifier = Modifier.size(56.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Default.Mic,
+                    contentDescription = "Voice Job Posting",
+                    tint = Color(0xFF10B981),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
+    }
 }
 
 @Composable

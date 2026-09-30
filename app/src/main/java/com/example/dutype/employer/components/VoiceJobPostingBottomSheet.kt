@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.example.dutype.employer.voice.VoiceJobParsedData
 import com.example.dutype.employer.voice.VoiceJobPostingManager
+import com.example.dutype.employer.voice.VoiceLanguage
 import com.example.dutype.employer.voice.VoicePostingState
 import com.example.dutype.models.QuickUrgentNeedInput
 
@@ -46,6 +47,7 @@ fun VoiceJobPostingBottomSheet(
     onDismiss: () -> Unit,
     onPostUrgentJob: (QuickUrgentNeedInput) -> Unit,
     onEditManually: (QuickUrgentNeedInput) -> Unit = {},
+    initialLanguage: VoiceLanguage = VoiceLanguage.TELUGU,
     employerPhone: String = "",
     defaultAddress: String = "",
     modifier: Modifier = Modifier
@@ -55,8 +57,12 @@ fun VoiceJobPostingBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val manager = remember {
-        VoiceJobPostingManager(context, scope)
+        VoiceJobPostingManager(context, scope).apply {
+            setLanguage(initialLanguage)
+        }
     }
+
+    var currentLanguage by remember { mutableStateOf(initialLanguage) }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -82,13 +88,13 @@ fun VoiceJobPostingBottomSheet(
     ) { granted ->
         hasAudioPermission = granted
         if (granted) {
-            manager.startListening()
+            manager.startListening(currentLanguage)
         }
     }
 
     LaunchedEffect(Unit) {
         if (hasAudioPermission) {
-            manager.startListening()
+            manager.startListening(currentLanguage)
         } else {
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
@@ -128,13 +134,13 @@ fun VoiceJobPostingBottomSheet(
             ) {
                 Column {
                     Text(
-                        text = "Speak to Post (बोलकर पोस्ट करें)",
+                        text = "Speak to Post Instant Job",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = VoicePrimaryNavy
                     )
                     Text(
-                        text = "Hindi, Telugu or English",
+                        text = "बोलकर या మాట్లాడి పోస్ట్ చేయండి",
                         fontSize = 12.sp,
                         color = Color(0xFF64748B)
                     )
@@ -153,7 +159,50 @@ fun VoiceJobPostingBottomSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Language Selector Chips (Telugu, English, Hindi)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                VoiceLanguage.values().forEach { lang ->
+                    val isSelected = currentLanguage == lang
+                    Surface(
+                        onClick = {
+                            if (currentLanguage != lang) {
+                                currentLanguage = lang
+                                manager.setLanguage(lang)
+                                if (hasAudioPermission) {
+                                    manager.startListening(lang)
+                                }
+                            }
+                        },
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (isSelected) VoiceEmerald.copy(alpha = 0.12f) else Color(0xFFF1F5F9),
+                        border = BorderStroke(
+                            width = if (isSelected) 1.5.dp else 1.dp,
+                            color = if (isSelected) VoiceEmerald else Color(0xFFE2E8F0)
+                        ),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier.padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "${lang.nativeName} (${lang.englishName})",
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) VoiceEmerald else Color(0xFF475569)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             if (!hasAudioPermission) {
                 // Audio permission needed card
@@ -237,8 +286,14 @@ fun VoiceJobPostingBottomSheet(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
+                        val listeningPrompt = when (currentLanguage) {
+                            VoiceLanguage.TELUGU -> "Listening... మాట్లాడండి"
+                            VoiceLanguage.HINDI -> "Listening... बोलना शुरू करें"
+                            VoiceLanguage.ENGLISH -> "Listening... Start speaking"
+                        }
+
                         Text(
-                            text = if (isListening) "Listening... Bolna shuru karein" else "Tap mic to speak",
+                            text = if (isListening) listeningPrompt else "Tap mic to speak",
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = if (isListening) VoiceEmerald else VoicePrimaryNavy
@@ -247,7 +302,7 @@ fun VoiceJobPostingBottomSheet(
                         Spacer(modifier = Modifier.height(6.dp))
 
                         Text(
-                            text = "e.g. \"Kal subah 9 baje 2 helper chahiye, 700 rupaye denge\"",
+                            text = currentLanguage.sampleHint,
                             fontSize = 12.sp,
                             color = Color(0xFF64748B),
                             textAlign = TextAlign.Center
@@ -653,6 +708,122 @@ fun VoiceJobTriggerCard(
                     color = Color.White,
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                 )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun VoiceLanguagePickerBottomSheet(
+    onDismiss: () -> Unit,
+    onLanguageSelected: (VoiceLanguage) -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(vertical = 10.dp)
+                    .width(40.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color(0xFFCBD5E1))
+            )
+        }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 36.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Speak to Post Instant Job",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = VoicePrimaryNavy
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Select language / భాషను ఎంచుకోండి / भाषा चुनें",
+                        fontSize = 12.sp,
+                        color = Color(0xFF64748B)
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF64748B))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            VoiceLanguage.values().forEach { lang ->
+                Surface(
+                    onClick = {
+                        onLanguageSelected(lang)
+                        onDismiss()
+                    },
+                    shape = RoundedCornerShape(16.dp),
+                    color = VoiceSurfaceBg,
+                    border = BorderStroke(1.dp, VoiceBorder),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(VoiceEmerald.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Mic,
+                                contentDescription = null,
+                                tint = VoiceEmerald,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "${lang.nativeName} (${lang.englishName})",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = VoicePrimaryNavy
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = lang.sampleHint,
+                                fontSize = 12.sp,
+                                color = Color(0xFF64748B),
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                            )
+                        }
+                        Text(
+                            text = "›",
+                            fontSize = 20.sp,
+                            color = Color(0xFF94A3B8),
+                            fontWeight = FontWeight.Light
+                        )
+                    }
+                }
             }
         }
     }
