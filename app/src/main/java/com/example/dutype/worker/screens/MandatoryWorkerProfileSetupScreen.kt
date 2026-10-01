@@ -1,5 +1,8 @@
 package com.example.dutype.worker.screens
 
+import com.example.dutype.profile.ExperienceBucket
+import com.example.dutype.employer.models.JobCategory
+import com.example.dutype.firestore.FirestoreSchema.WorkerProfiles
 import com.dutype.app.R
 import android.app.Activity
 import android.net.Uri
@@ -258,10 +261,10 @@ private fun StitchSectionLabel(text: String) {
  * Mandatory Worker Profile Setup Screen
  * Enhanced with 30+ years of Android development experience
  * Pre-fills Google Sign-In email and makes profile setup mandatory
- * 
+ *
  * REFACTORED: Removed ServiceProvider anti-pattern
  * Services are now accessed via ProfileCompletionViewModel
- * 
+ *
  * FIX: Using rememberSaveable for form state to survive activity recreation
  * when camera is launched (process death scenario)
  */
@@ -280,7 +283,7 @@ fun MandatoryWorkerProfileSetupScreen(
     val locationService = profileCompletionViewModel.locationService
     val fcmTokenManager = profileCompletionViewModel.fcmTokenManager
     val notificationService = profileCompletionViewModel.notificationService
-    
+
     // Form state - using rememberSaveable to survive activity recreation (camera launch)
     var fullName by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
@@ -299,14 +302,14 @@ fun MandatoryWorkerProfileSetupScreen(
     var selfieUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var isUploadingSelfie by remember { mutableStateOf(false) }
     var selfieError by remember { mutableStateOf<String?>(null) }
-    
+
     // Aadhaar Identity state
     var aadhaarNumber by rememberSaveable { mutableStateOf("") }
     var aadhaarNumberError by remember { mutableStateOf<String?>(null) }
     var aadhaarPhotoUriString by rememberSaveable { mutableStateOf<String?>(null) }
     val aadhaarPhotoUri = aadhaarPhotoUriString?.let { Uri.parse(it) }
     var aadhaarPhotoUrl by rememberSaveable { mutableStateOf<String?>(null) }
-    
+
     val aadhaarPhotoPicker = rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -315,7 +318,7 @@ fun MandatoryWorkerProfileSetupScreen(
             aadhaarPhotoUrl = null
         }
     }
-    
+
     // Referral code state - REMOVED: Now handled in login flow before profile setup
     // Referral codes must be entered during registration, not profile setup
     var referralCode by rememberSaveable { mutableStateOf("") }
@@ -323,7 +326,7 @@ fun MandatoryWorkerProfileSetupScreen(
     var referralValidationResult by remember { mutableStateOf<ReferralValidationResult?>(null) }
     var hasAlreadyUsedReferral by remember { mutableStateOf(true) } // Always true to hide referral section
     var showReferralSection by remember { mutableStateOf(false) } // Always false - referral handled in login
-    
+
     // UI state - currentStep must survive activity recreation
     var isLoading by remember { mutableStateOf(false) }
     var isLoadingExistingData by remember { mutableStateOf(true) } // Loading existing profile data
@@ -347,7 +350,7 @@ fun MandatoryWorkerProfileSetupScreen(
             extras.forEach { (k, v) -> crashlytics.setCustomKey("profile_funnel_$k", v) }
         }.onFailure { Timber.w(it, "Failed to log worker funnel telemetry") }
     }
-    
+
     // INDUSTRY BEST PRACTICE: Load existing profile data from Firebase (Single Source of Truth)
     // This handles both new users and existing users with partial data
     // Pattern used by: Google, Uber, Airbnb, LinkedIn
@@ -362,94 +365,26 @@ fun MandatoryWorkerProfileSetupScreen(
             // Get auth method to determine which field to prefill
             authMethod = profileCompletionViewModel.getAuthMethod()
             Timber.d("MandatoryWorkerProfileSetupScreen - Auth Method: $authMethod")
-            
+
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
-                // REMOVED: Referral code retrieval - now handled in login screen
-                // Referral is applied immediately after OTP, not during profile setup
-                
-                // Check if user has already used a referral code
-                hasAlreadyUsedReferral = profileCompletionViewModel.hasUserUsedReferralCode(currentUser.uid)
-                showReferralSection = !hasAlreadyUsedReferral
-                Timber.d("🎁 REFERRAL: hasAlreadyUsedReferral=$hasAlreadyUsedReferral, showReferralSection=$showReferralSection")
-                
-                // Load full profile data for prefilling (all fields needed for form)
-                val existingDataResult = profileCompletionViewModel.loadExistingProfileData()
-                existingDataResult.onSuccess { existingData ->
-                    Timber.d("📦 PREFILL: Loading existing worker profile data (lightweight)")
-                    
-                    // Prefill form fields with existing data (schema-compliant fields only)
-                    val savedFullName = existingData["fullName"] as? String
-                    val savedPhone = existingData["phone"] as? String
-                    val savedEmail = existingData["email"] as? String
-                    val savedDateOfBirth = existingData["dateOfBirth"] as? String
-                    val savedGender = existingData["gender"] as? String
-                    val savedExperience = existingData["experience"] as? String
-                    val savedEducationQualification = existingData["educationQualification"] as? String
-                    val savedBio = existingData["bio"] as? String
-                    // skills from worker_profiles (List<String>) — joined for display in skills field
-                    val savedSkills = when (val rawSkills = existingData["skills"]) {
-                        is List<*> -> rawSkills.filterIsInstance<String>()
-                        is String -> rawSkills.split(",").map { it.trim() }.filter { it.isNotBlank() }
-                        else -> emptyList()
+                profileCompletionViewModel.getWorker(currentUser.uid).getOrNull()?.let { saved ->
+                    if (fullName.isBlank()) fullName = saved.name
+                    if (phoneNumber.isBlank()) phoneNumber = saved.phone.removePrefix("+91").trim()
+                    if (skills.isBlank() && saved.skills.isNotEmpty()) {
+                        skills = saved.skills.joinToString(", ") { JobCategory.fromKey(it).displayName }
+                        // Experience is only meaningful once the profile was filled in before.
+                        if (experience.isBlank()) experience = ExperienceBucket.forYears(saved.experienceYears).label
                     }
-                    val savedProfileImageUrl = existingData["profileImageUrl"] as? String
-                    val savedAadhaarNumber = existingData["aadhaarNumber"] as? String
-                    val savedAadhaarPhotoUrl = existingData["aadhaarPhotoUrl"] as? String
-                    
-                    // Apply prefilled values (only if current field is empty)
-                    if (fullName.isBlank() && !savedFullName.isNullOrBlank()) {
-                        fullName = savedFullName
-                        Timber.d("📦 PREFILL: fullName = $fullName")
-                    }
-                    if (phoneNumber.isBlank() && !savedPhone.isNullOrBlank()) {
-                        // Clean phone number (remove country code if present)
-                        phoneNumber = savedPhone.replace("+91", "").trim()
-                        Timber.d("📦 PREFILL: phoneNumber = $phoneNumber")
-                    }
-                    if (email.isBlank() && !savedEmail.isNullOrBlank()) {
-                        email = savedEmail
-                        isEmailLoaded = true
-                        Timber.d("PREFILL: email restored")
-                    }
-                    if (skills.isBlank() && savedSkills.isNotEmpty()) {
-                        skills = savedSkills.joinToString(", ")
-                        Timber.d("📦 PREFILL: skills from jobTypes = $skills")
-                    }
-                    if (dateOfBirth.isBlank() && !savedDateOfBirth.isNullOrBlank()) {
-                        dateOfBirth = savedDateOfBirth
-                        Timber.d("📦 PREFILL: dateOfBirth = $dateOfBirth")
-                    }
-                    if (gender.isBlank() && (savedGender == "Male" || savedGender == "Female")) {
-                        gender = savedGender
-                        Timber.d("📦 PREFILL: gender = $gender")
-                    }
-                    if (experience.isBlank() && !savedExperience.isNullOrBlank()) {
-                        experience = savedExperience
-                        Timber.d("📦 PREFILL: experience restored")
-                    }
-                    if (educationQualification.isBlank() && !savedEducationQualification.isNullOrBlank()) {
-                        educationQualification = savedEducationQualification
-                        Timber.d("PREFILL: education qualification restored")
-                    }
-                    if (workerBio.isBlank() && !savedBio.isNullOrBlank()) {
-                        workerBio = savedBio
-                        Timber.d("PREFILL: worker bio restored")
-                    }
-                    if (!savedProfileImageUrl.isNullOrBlank()) {
-                        selfieUrl = savedProfileImageUrl
-                        Timber.d("📦 PREFILL: profileImageUrl exists")
-                    }
-                    if (aadhaarNumber.isBlank() && !savedAadhaarNumber.isNullOrBlank()) {
-                        aadhaarNumber = savedAadhaarNumber
-                        Timber.d("📦 PREFILL: aadhaarNumber = ****${savedAadhaarNumber.takeLast(4)}")
-                    }
-                    if (aadhaarPhotoUrl.isNullOrBlank() && !savedAadhaarPhotoUrl.isNullOrBlank()) {
-                        aadhaarPhotoUrl = savedAadhaarPhotoUrl
-                    }
+                    if (dateOfBirth.isBlank()) dateOfBirth = saved.dateOfBirth
+                    if (gender.isBlank() && (saved.gender == "Male" || saved.gender == "Female")) gender = saved.gender
+                    if (educationQualification.isBlank()) educationQualification = saved.education
+                    if (workerBio.isBlank()) workerBio = saved.bio
+                    if (address.isBlank()) address = saved.address
+                    if (saved.photoUrl.isNotBlank()) selfieUrl = saved.photoUrl
                 }
             }
-            
+
             // Fallback: Load from auth methods if fields still empty
             when (authMethod) {
                 "GOOGLE" -> {
@@ -470,7 +405,7 @@ fun MandatoryWorkerProfileSetupScreen(
                         }
                     }
                 }
-                
+
                 "PHONE_OTP" -> {
                     // OTP Auth Flow: Prefill phone number only
                     if (phoneNumber.isBlank()) {
@@ -490,13 +425,13 @@ fun MandatoryWorkerProfileSetupScreen(
                         }
                     }
                 }
-                
+
                 else -> {
                     Timber.w("Unknown auth method: $authMethod")
                     isEmailLoaded = true
                 }
             }
-            
+
             Timber.d("📦 PREFILL: Final values - email=$email, fullName=$fullName, phoneNumber=$phoneNumber")
         } catch (e: Exception) {
             Timber.e(e, "📦 PREFILL: Error loading existing profile data")
@@ -508,42 +443,42 @@ fun MandatoryWorkerProfileSetupScreen(
     LaunchedEffect(currentStep) {
         logFunnelEvent("step_viewed", mapOf("step" to currentStep.toString()))
     }
-    
+
     // Email is locked and cannot be changed
     val isEmailLocked = when (authMethod) {
         "GOOGLE" -> email.isNotBlank()  // Google auth: email is read-only if provided
         "PHONE_OTP" -> false            // OTP auth: email is optional, user can enter it
         else -> email.isNotBlank()
     }
-    
+
     // Phone is locked and cannot be changed for OTP auth
     val isPhoneLocked = when (authMethod) {
         "PHONE_OTP" -> phoneNumber.isNotBlank()  // OTP auth: phone is read-only if provided
         "GOOGLE" -> false                         // Google auth: phone is optional, user must enter it
         else -> false
     }
-    
+
     // Email is required only for Google auth
     val isEmailRequired = authMethod == "GOOGLE"
-    
+
     // Phone is always required
     val isPhoneRequired = true
-    
+
     // Simple white background
     val backgroundColor = WorkerColors.CardBackground
-    
+
     // Animation state for smooth transitions
     val animatedProgress by animateFloatAsState(
         targetValue = currentStep.toFloat() / totalSteps.toFloat(),
         animationSpec = tween(600, easing = EaseInOutCubic),
         label = "progress"
     )
-    
+
     // Step-specific validation based on auth method
     // For GOOGLE auth: fullName (prefilled), email (prefilled, read-only), phoneNumber (user enters), address
     // For OTP auth: fullName (user enters), email (optional), phoneNumber (prefilled, read-only), address
 
-    
+
     // Step 1 (Basic information): name, valid date of birth, gender (+ phone/email per auth method).
     val isStep1Valid = fullName.isNotBlank() &&
         ValidationUtils.isValidIndianPhoneNumber(phoneNumber) &&
@@ -556,11 +491,11 @@ fun MandatoryWorkerProfileSetupScreen(
     // Step 3 (Where are you based?): address only.
     val isStep3Valid = address.isNotBlank()
     val isStep4Valid = true // Identity Verification step removed
-    
+
     // Overall form validation
     val isFormValid = isStep1Valid && isStep2Valid && isStep3Valid
-    
-    
+
+
     // Current step validation
     val isCurrentStepValid = when (currentStep) {
         1 -> isStep1Valid
@@ -569,7 +504,7 @@ fun MandatoryWorkerProfileSetupScreen(
         4 -> isStep4Valid
         else -> false
     }
-    
+
     // Validation error messages - Show only when user clicks Next
     var phoneError by remember { mutableStateOf<String?>(null) }
     var emailError by remember { mutableStateOf<String?>(null) }
@@ -580,7 +515,7 @@ fun MandatoryWorkerProfileSetupScreen(
     var skillsError by remember { mutableStateOf<String?>(null) }
     var experienceError by remember { mutableStateOf<String?>(null) }
     var bioError by remember { mutableStateOf<String?>(null) }
-    
+
     // Debug logging for form validation
     LaunchedEffect(fullName, email, phoneNumber, address, dateOfBirth, gender, skills, experience, workerBio, currentStep, isCurrentStepValid, showValidationErrors) {
         // Show DOB age errors immediately when a DOB is selected/typed,
@@ -595,46 +530,46 @@ fun MandatoryWorkerProfileSetupScreen(
                 !ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && phoneNumber.isNotBlank() -> "Enter a valid 10-digit phone number"
                 else -> null
             }
-            
+
             // Update email error
             emailError = when {
                 email.isNotBlank() && !ValidationUtils.isValidEmail(email) -> "Enter a valid email address"
                 else -> null
             }
-            
+
             // Update full name error
             fullNameError = when {
                 fullName.isBlank() -> "Full name is required"
                 else -> null
             }
-            
+
             // Update address error
             addressError = when {
                 address.isBlank() -> "Address is required"
                 else -> null
             }
-            
+
             // Update Aadhaar error
             aadhaarNumberError = when {
                 aadhaarNumber.length < 4 -> "Must be exactly 4 digits"
                 else -> null
             }
-            
+
             // Update date of birth error with age validation
             dateOfBirthError = ValidationUtils.getDateOfBirthError(dateOfBirth)
-            
+
             // Update gender error
             genderError = when {
                 gender != "Male" && gender != "Female" -> "Gender is required"
                 else -> null
             }
-            
+
             // Update skills error
             skillsError = when {
                 skills.isBlank() -> "Skills are required"
                 else -> null
             }
-            
+
             // Update experience error
             experienceError = when {
                 experience.isBlank() -> "Experience is required"
@@ -657,10 +592,10 @@ fun MandatoryWorkerProfileSetupScreen(
             experienceError = null
             bioError = null
         }
-        
+
         Timber.d("Form validation - step=$currentStep, step1Valid=$isStep1Valid, step2Valid=$isStep2Valid, step3Valid=$isStep3Valid, currentValid=$isCurrentStepValid")
     }
-    
+
     // Show loading while fetching existing profile data
     if (isLoadingExistingData) {
         Box(
@@ -684,7 +619,7 @@ fun MandatoryWorkerProfileSetupScreen(
         }
         return
     }
-    
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -699,7 +634,7 @@ fun MandatoryWorkerProfileSetupScreen(
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
             ) {
-                
+
                 // PREMIUM Main Content Card with stunning design
                 AnimatedVisibility(
                     visible = true,
@@ -846,10 +781,10 @@ fun MandatoryWorkerProfileSetupScreen(
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(24.dp))
             }
-            
+
             // Enhanced Navigation Buttons - Fixed at bottom
             Surface(
                 modifier = Modifier
@@ -877,25 +812,25 @@ fun MandatoryWorkerProfileSetupScreen(
                                 contentColor = WorkerColors.Primary
                             ),
                             border = androidx.compose.foundation.BorderStroke(
-                                1.5.dp, 
+                                1.5.dp,
                                 Color(0xFF1F2937).copy(alpha = 0.3f)
                             ),
                             contentPadding = PaddingValues(0.dp)
                         ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Go back",
+                                contentDescription = stringResource(R.string.back),
                                 modifier = Modifier.size(24.dp)
                             )
                         }
                     }
-                    
+
                     // Next/Complete Button
                     Button(
                         onClick = {
                             // Show validation errors when Next is clicked
                             showValidationErrors = true
-                            
+
                             if (isCurrentStepValid) {
                                 if (currentStep < totalSteps) {
                                     val previousStep = currentStep
@@ -914,15 +849,15 @@ fun MandatoryWorkerProfileSetupScreen(
                                         Timber.w("📍 Profile completion already in progress, ignoring duplicate call")
                                         return@Button
                                     }
-                                    
+
                                     isCompletionInProgress = true
-                                    
+
                                     // Complete profile setup
                                     scope.launch {
                                         isLoading = true
                                         errorMessage = null
                                         selfieError = null
-                                        
+
                                         try {
                                             // Save profile data to Firestore
                                             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
@@ -949,17 +884,17 @@ fun MandatoryWorkerProfileSetupScreen(
                                                             onFailure = { e ->
                                                                 Timber.e(e, "📸 Failed to upload worker selfie")
                                                                 // Show error but continue - selfie upload is not blocking
-                                                                selfieError = "Photo upload failed. Your profile will be saved without photo."
+                                                                selfieError = context.getString(R.string.worker_setup_photo_failed_toast)
                                                             }
                                                         )
                                                     } catch (e: Exception) {
                                                         Timber.e(e, "📸 Exception during selfie upload")
-                                                        selfieError = "Photo upload failed. Your profile will be saved without photo."
+                                                        selfieError = context.getString(R.string.worker_setup_photo_failed_toast)
                                                     } finally {
                                                         isUploadingSelfie = false
                                                     }
                                                 }
-                                                
+
                                                 // Upload Aadhaar photo if available
                                                 var uploadedAadhaarPhotoUrl: String? = null
                                                 if (false && aadhaarPhotoUri != null) { // Identity Verification step removed
@@ -987,92 +922,43 @@ fun MandatoryWorkerProfileSetupScreen(
                                                         throw e
                                                     }
                                                 }
-                                                
-                                                // skills are normalized in ProfileCompletionService.saveWorkerProfileData
-                                                val workerProfileData = mutableMapOf<String, Any>(
-                                                    "fullName" to fullName,
-                                                    "phone" to phoneNumber,
-                                                    "address" to address.trim(),
-                                                    "skills" to skills,
-                                                    "dateOfBirth" to dateOfBirth,
-                                                    "gender" to gender,
-                                                    "experience" to experience,
-                                                    "bio" to workerBio.trim()
-                                                    // "aadhaarNumber" to aadhaarNumber
+
+                                                val workerProfileData = mutableMapOf<String, Any?>(
+                                                    WorkerProfiles.NAME to fullName.trim(),
+                                                    WorkerProfiles.ADDRESS to address.trim(),
+                                                    WorkerProfiles.SKILLS to skillKeys(skills),
+                                                    WorkerProfiles.DATE_OF_BIRTH to dateOfBirth,
+                                                    WorkerProfiles.GENDER to gender,
+                                                    WorkerProfiles.EXPERIENCE_YEARS to
+                                                        (ExperienceBucket.entries.firstOrNull { it.label == experience }?.years ?: 0),
+                                                    WorkerProfiles.EDUCATION to educationQualification.trim(),
+                                                    WorkerProfiles.BIO to workerBio.trim(),
+                                                    WorkerProfiles.AVAILABLE to true
                                                 )
-
-                                                // Store email if provided
-                                                if (email.isNotBlank()) {
-                                                    workerProfileData["email"] = email.trim()
-                                                }
-                                                if (educationQualification.isNotBlank()) {
-                                                    workerProfileData["educationQualification"] = educationQualification.trim()
-                                                }
-
                                                 profileCompletionViewModel.locationPreferences
                                                     .getSavedLocationIfFresh()
                                                     ?.takeIf { it.hasValidCoordinates() }
                                                     ?.let { savedLocation ->
-                                                        workerProfileData["location"] = mapOf(
-                                                            "lat" to savedLocation.latitude,
-                                                            "lng" to savedLocation.longitude,
-                                                            "address" to address.trim()
-                                                        )
+                                                        workerProfileData[WorkerProfiles.LAT] = savedLocation.latitude
+                                                        workerProfileData[WorkerProfiles.LNG] = savedLocation.longitude
                                                     }
-                                                
-                                                // Add selfie URL if uploaded
-                                                if (uploadedSelfieUrl != null) {
-                                                    workerProfileData["profileImageUrl"] = uploadedSelfieUrl!!
-                                                }
-                                                
-                                                // Add Aadhaar Photo URL if uploaded
-                                                // Identity Verification step removed
-                                                profileCompletionViewModel
-                                                    .saveWorkerProfileData(workerProfileData)
-                                                    .getOrThrow()
-
-                                                val savedReferralCode = profileCompletionViewModel.getReferralCode()
-                                                    ?.takeIf { it.isNotBlank() }
-                                                    ?: (workerProfileData["referredByCode"] as? String)?.takeIf { it.isNotBlank() }
-                                                if (!savedReferralCode.isNullOrBlank()) {
-                                                    scope.launch {
-                                                        runCatching {
-                                                            val referralApplyResult = profileCompletionViewModel.applyReferralCode(
-                                                                referralCode = savedReferralCode,
-                                                                newUserId = currentUser.uid,
-                                                                newUserRole = UserRole.WORKER.name,
-                                                                newUserName = fullName.ifBlank { phoneNumber },
-                                                                newUserPhone = phoneNumber
-                                                            )
-
-                                                            if (referralApplyResult.isSuccess) {
-                                                                Toast.makeText(
-                                                                    context,
-                                                                    context.getString(R.string.referral_code_applied_success),
-                                                                    Toast.LENGTH_LONG
-                                                                ).show()
-                                                            } else {
-                                                                Timber.w(
-                                                                    "🎁 REFERRAL: Worker fallback apply failed: ${referralApplyResult.exceptionOrNull()?.message}"
-                                                                )
-                                                            }
-                                                        }.onFailure { Timber.w(it, "🎁 REFERRAL: Worker background apply error") }
-                                                    }
-                                                }
+                                                // The photo URL was saved by uploadProfileImage itself.
+                                                if (uploadedSelfieUrl != null) Timber.d("Worker photo saved")
+                                                profileCompletionViewModel.saveWorker(workerProfileData).getOrThrow()
                                             }
 
                                             // Save role to local DataStore so app knows which home to navigate to on reopen
                                             profileCompletionViewModel.saveUserInfoToLocalStorage(fullName, UserRole.WORKER)
-                                            
+
                                             // Check if this is the FIRST time completing profile (not an update)
                                             val wasAlreadyComplete = profileCompletionViewModel.isProfileComplete(UserRole.WORKER)
-                                            
+
                                             // Mark profile as complete
                                             profileCompletionViewModel.markProfileComplete(UserRole.WORKER)
 
                                             // Mark profile setup as shown for worker
                                             profileCompletionViewModel.markProfileSetupAsShown(UserRole.WORKER)
-                                            
+
                                             // Send profile completion notification ONLY on first completion (not on updates)
                                             if (!wasAlreadyComplete) {
                                                 // Flag for welcome celebration overlay on home screen
@@ -1090,7 +976,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                                         }.onFailure { error ->
                                                             Timber.e(error, "📬 Worker profile completion notification failed")
                                                         }
-                                                        
+
                                                         // Register FCM token with role for push notifications
                                                         fcmTokenManager.registerTokenWithRole("WORKER")
                                                         Timber.d("📬 FCM token registered with WORKER role")
@@ -1106,7 +992,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                             } else {
                                                 Timber.d("📬 Profile already complete - skipping notification (this is a profile update)")
                                             }
-                                            
+
                                             // Navigate to return route (job application) or location fetching screen
                                             if (returnRoute != null) {
                                                 navController.navigate(returnRoute) {
@@ -1121,7 +1007,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                             }
                                         } catch (e: Exception) {
                                             logFunnelEvent("completion_failed", mapOf("reason" to "exception"))
-                                            errorMessage = e.message ?: "Failed to complete profile setup"
+                                            errorMessage = e.message ?: context.getString(R.string.worker_setup_failed_generic)
                                         } finally {
                                             isLoading = false
                                             isCompletionInProgress = false
@@ -1152,9 +1038,9 @@ fun MandatoryWorkerProfileSetupScreen(
                         } else {
                             Text(
                                 text = when (currentStep) {
-                                    1 -> "Next: Skills →"
-                                    2 -> "Next: Location →"
-                                    else -> "Complete Profile ✓"
+                                    1 -> stringResource(R.string.worker_setup_next_skills)
+                                    2 -> stringResource(R.string.worker_setup_next_location)
+                                    else -> stringResource(R.string.worker_setup_complete_profile)
                                 },
                                 color = StitchWhite,
                                 fontSize = 16.sp,
@@ -1203,13 +1089,13 @@ private fun PersonalInformationStep(
         // Step header
         Column(modifier = Modifier.padding(bottom = 4.dp)) {
             Text(
-                text = "Basic information",
+                text = stringResource(R.string.worker_setup_basic_info_title),
                 color = StitchTitle,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "Your photo, name, birth date, gender and short bio",
+                text = stringResource(R.string.worker_setup_basic_info_sub),
                 color = StitchSubtitle,
                 fontSize = 14.sp,
                 modifier = Modifier.padding(top = 2.dp)
@@ -1228,7 +1114,7 @@ private fun PersonalInformationStep(
 
         // GENDER
         Column {
-            StitchSectionLabel("GENDER")
+            StitchSectionLabel(stringResource(R.string.worker_setup_section_gender))
             GenderChipsRow(gender = gender, onGenderChange = onGenderChange)
             if (genderError != null) {
                 Text(
@@ -1266,7 +1152,7 @@ private fun FullNameField(fullName: String, error: String?, onChange: (String) -
             onValueChange = onChange,
             label = {
                 Text(
-                    "Full Name",
+                    stringResource(R.string.full_name),
                     color = StitchFieldLabel,
                     fontSize = 12.sp
                 )
@@ -1352,7 +1238,7 @@ private fun ProfilePhotoPicker(selfieUri: Uri?, onSelfieSelected: (Uri) -> Unit)
             }
         }
         Text(
-            text = "Add profile photo (optional)",
+            text = stringResource(R.string.worker_setup_add_photo_optional),
             color = StitchSubtitle,
             fontSize = 13.sp,
             modifier = Modifier.padding(top = 10.dp)
@@ -1375,7 +1261,7 @@ private fun ContactDetailsSection(
         // Contact details — required for account/auth (phone always, email for Google
         // auth) but not part of the Stitch screenshot, so styled as a secondary,
         // lower-emphasis block underneath the primary design elements above.
-        StitchSectionLabel("CONTACT DETAILS")
+        StitchSectionLabel(stringResource(R.string.worker_setup_section_contact_details))
 
         // Email - Behavior differs based on authentication method
         if (authMethod == "GOOGLE") {
@@ -1562,11 +1448,11 @@ private fun LocationStep(
             locationPreferences.setPermissionGranted(true)
         } else {
             Timber.w("📍 Fetch - Could not resolve location")
-            fetchError = "Could not get location. Please enter address manually or try again."
+            fetchError = context.getString(R.string.worker_setup_could_not_get_location)
             if (!silent) {
                 Toast.makeText(
                     context,
-                    "Could not get location. Please enter address manually or try again.",
+                    R.string.worker_setup_could_not_get_location,
                     Toast.LENGTH_SHORT
                 ).show()
             }
@@ -1630,13 +1516,13 @@ private fun LocationStep(
     ) {
         Column(modifier = Modifier.padding(bottom = 2.dp)) {
             Text(
-                text = "Where are you based?",
+                text = stringResource(R.string.worker_setup_where_based_title),
                 color = StitchTitle,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "We use this to show jobs near you",
+                text = stringResource(R.string.worker_setup_where_based_sub),
                 color = StitchSubtitle,
                 fontSize = 14.sp,
                 modifier = Modifier.padding(top = 2.dp)
@@ -1726,7 +1612,7 @@ private fun LocationStatusRow(
         ) {
             if (isFetching) {
                 Text(
-                    text = "Detecting your location…",
+                    text = stringResource(R.string.worker_setup_detecting_location),
                     color = StitchSubtitle,
                     fontSize = 12.sp
                 )
@@ -1745,7 +1631,7 @@ private fun LocationStatusRow(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Location detected",
+                    text = stringResource(R.string.worker_setup_location_detected),
                     color = StitchSuccess,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -1777,7 +1663,7 @@ private fun LocationStatusRow(
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = if (isFetching) "Detecting…" else "Detect",
+                text = if (isFetching) stringResource(R.string.worker_setup_detecting) else stringResource(R.string.worker_setup_detect),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = StitchAccent
@@ -1795,8 +1681,13 @@ private fun GenderChipsRow(gender: String, onGenderChange: (String) -> Unit) {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         listOf("Male", "Female").forEach { option ->
+            val label = when (option.lowercase()) {
+                "male" -> stringResource(R.string.gender_male)
+                "female" -> stringResource(R.string.gender_female)
+                else -> option
+            }
             StitchPill(
-                text = option,
+                text = label,
                 selected = gender == option,
                 leadingIcon = genderIcon(option),
                 onClick = { onGenderChange(option) }
@@ -1819,8 +1710,9 @@ private fun SkillChipsFlow(
     ) {
         skills.forEach { skill ->
             val isSelected = selected.contains(skill)
+            val label = if (skill == OTHERS_SKILL) stringResource(R.string.category_other) else skill
             StitchPill(
-                text = skill,
+                text = label,
                 selected = isSelected,
                 leadingIcon = skillIcon(skill),
                 onClick = { onSkillClick(skill, isSelected) }
@@ -1889,13 +1781,13 @@ private fun DateOfBirthField(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "Date of birth",
+            text = stringResource(R.string.date_of_birth),
             color = StitchFieldLabel,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold
         )
         Text(
-            text = "Enter as DD/MM/YYYY or pick from calendar",
+            text = stringResource(R.string.worker_setup_dob_subtitle),
             color = StitchLabel,
             fontSize = 12.sp,
             modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)
@@ -1980,7 +1872,7 @@ private fun DobInputBox(
         IconButton(onClick = onCalendarClick) {
             Icon(
                 imageVector = Icons.Default.CalendarToday,
-                contentDescription = "Pick date of birth from calendar",
+                contentDescription = stringResource(R.string.worker_setup_pick_dob_calendar),
                 tint = StitchSubtitle,
                 modifier = Modifier.size(22.dp)
             )
@@ -2089,18 +1981,22 @@ private fun whiteDatePickerColors(): DatePickerColors {
 
 /** Chips shown by default (first 9 visible, the rest behind "N more skills"). */
 private val DEFAULT_SKILLS = listOf(
-    "Cooking", "Cleaning", "Driving", "Delivery", "Childcare", "Elderly care",
-    "Tailoring", "Plumbing", "Electrical", "Painting", "Gardening", "Security", "Others"
-)
+    JobCategory.COOK, JobCategory.MAID, JobCategory.DRIVER, JobCategory.DELIVERY, JobCategory.HELPER,
+    JobCategory.CARETAKER, JobCategory.TAILOR, JobCategory.PLUMBER, JobCategory.ELECTRICIAN,
+    JobCategory.PAINTER, JobCategory.GARDENER, JobCategory.SECURITY
+).map { it.displayName } + "Others"
 
 /** Extra skills that are NOT shown as chips by default; found through the search bar. */
-private val EXTRA_SKILLS = listOf("Tile Fitter", "Welder", "Mason", "AC Technician", "Mechanic")
+private val EXTRA_SKILLS = JobCategory.entries
+    .filter { it != JobCategory.OTHER }
+    .map { it.displayName }
+    .filter { it !in DEFAULT_SKILLS }
 
 private const val OTHERS_SKILL = "Others"
 private const val DEFAULT_VISIBLE_SKILLS = 9
 private const val MAX_CUSTOM_SKILL_LENGTH = 30
 
-private val EXPERIENCE_OPTIONS = listOf("No experience", "< 1 yr", "1-3 yrs", "3-5 yrs", "5+ yrs")
+private val EXPERIENCE_OPTIONS = ExperienceBucket.entries.map { it.label }
 
 private val EDUCATION_OPTIONS = listOf(
     "No formal education", "Below 10th", "10th pass", "12th pass",
@@ -2115,9 +2011,13 @@ private fun normalizeSkillInput(raw: String): String {
     val cleaned = raw.replace(",", " ").trim().replace(Regex("\\s+"), " ")
         .take(MAX_CUSTOM_SKILL_LENGTH).trim()
     if (cleaned.isEmpty() || cleaned.equals(OTHERS_SKILL, ignoreCase = true)) return ""
-    val known = (DEFAULT_SKILLS + EXTRA_SKILLS).firstOrNull { it.equals(cleaned, ignoreCase = true) }
-    if (known != null) return known
-    return cleaned.split(" ").joinToString(" ") { word -> word.replaceFirstChar { it.uppercase() } }
+    // Skills are job categories (they drive job matching), so only known categories are accepted.
+    return (DEFAULT_SKILLS + EXTRA_SKILLS).firstOrNull { it.equals(cleaned, ignoreCase = true) }.orEmpty()
+}
+
+/** "Cook, Driver" → ["COOK", "DRIVER"]. */
+private fun skillKeys(raw: String): List<String> = parseSkills(raw).mapNotNull { name ->
+    JobCategory.entries.firstOrNull { it.displayName.equals(name, ignoreCase = true) }?.name
 }
 
 /** 13sp SemiBold gray label used for the sub-sections of a step. */
@@ -2151,13 +2051,13 @@ private fun SkillsExperienceStep(
     ) {
         Column {
             Text(
-                text = "Skills & experience",
+                text = stringResource(R.string.worker_setup_skills_exp_title),
                 color = StitchTitle,
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
-                text = "What you do, how long, and your background",
+                text = stringResource(R.string.worker_setup_skills_exp_sub),
                 color = StitchSubtitle,
                 fontSize = 14.sp,
                 modifier = Modifier.padding(top = 2.dp)
@@ -2165,7 +2065,7 @@ private fun SkillsExperienceStep(
         }
 
         Column {
-            SubSectionHeader("What are your skills?")
+            SubSectionHeader(stringResource(R.string.worker_setup_what_are_skills))
             SkillsPickerSection(
                 skills = skills,
                 skillsError = skillsError,
@@ -2174,7 +2074,7 @@ private fun SkillsExperienceStep(
         }
 
         Column {
-            SubSectionHeader("How much experience do you have?")
+            SubSectionHeader(stringResource(R.string.worker_setup_how_much_exp))
             ChipOptionsFlow(
                 options = EXPERIENCE_OPTIONS,
                 selected = experience,
@@ -2198,7 +2098,7 @@ private fun SkillsExperienceStep(
         )
 
         Column {
-            SubSectionHeader("Your education (optional)")
+            SubSectionHeader(stringResource(R.string.worker_setup_education_optional))
             ChipOptionsFlow(
                 options = EDUCATION_OPTIONS,
                 selected = educationQualification,
@@ -2221,8 +2121,22 @@ private fun ChipOptionsFlow(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         options.forEach { option ->
+            val label = when (option) {
+                "Fresher" -> stringResource(R.string.exp_fresher)
+                "1-2 years" -> stringResource(R.string.exp_1_to_2_years)
+                "3-5 years" -> stringResource(R.string.exp_3_to_5_years)
+                "5+ years" -> stringResource(R.string.exp_5_plus_years)
+                "No formal education" -> stringResource(R.string.edu_no_formal)
+                "Below 10th" -> stringResource(R.string.edu_below_10th)
+                "10th pass" -> stringResource(R.string.edu_10th_pass)
+                "12th pass" -> stringResource(R.string.edu_12th_pass)
+                "ITI / Diploma" -> stringResource(R.string.edu_iti_diploma)
+                "Graduate" -> stringResource(R.string.edu_graduate)
+                "Any qualification" -> stringResource(R.string.edu_any)
+                else -> option
+            }
             StitchPill(
-                text = option,
+                text = label,
                 selected = selected == option,
                 onClick = { onSelect(option) }
             )
@@ -2237,7 +2151,7 @@ private fun WorkerBioSection(
     onWorkerBioChange: (String) -> Unit
 ) {
     Column {
-        SubSectionHeader("Short bio (optional)")
+        SubSectionHeader(stringResource(R.string.worker_setup_bio_optional))
         OutlinedTextField(
             value = workerBio,
             onValueChange = { onWorkerBioChange(it.take(MAX_WORKER_BIO_LENGTH)) },
@@ -2255,7 +2169,11 @@ private fun WorkerBioSection(
             ),
             supportingText = {
                 Text(
-                    text = bioError ?: "${workerBio.trim().length}/$MAX_WORKER_BIO_LENGTH characters",
+                    text = bioError ?: stringResource(
+                        R.string.worker_setup_bio_char_count,
+                        workerBio.trim().length,
+                        MAX_WORKER_BIO_LENGTH
+                    ),
                     color = if (bioError != null) WorkerColors.Error else StitchSubtitle
                 )
             }
@@ -2308,7 +2226,7 @@ private fun SkillsPickerSection(
         val addedSkills = selected.filter { it !in DEFAULT_SKILLS }
         if (addedSkills.isNotEmpty()) {
             Text(
-                text = "Added skills (tap to remove)",
+                text = stringResource(R.string.worker_setup_added_skills),
                 color = StitchLabel,
                 fontSize = 12.sp
             )
@@ -2369,7 +2287,7 @@ private fun SkillSearchField(
         onValueChange = onValueChange,
         placeholder = {
             Text(
-                "Search or type your own skill...",
+                stringResource(R.string.worker_setup_search_skill_placeholder),
                 color = StitchSubtitle,
                 fontSize = 14.sp
             )
@@ -2421,7 +2339,7 @@ private fun SkillSearchResults(
         }
         if (!alreadyKnown) {
             StitchPill(
-                text = "Add \"$typed\"",
+                text = stringResource(R.string.worker_setup_add_custom_skill, typed),
                 selected = false,
                 leadingIcon = Icons.Default.Add,
                 onClick = { onPick(typed) }
@@ -2430,7 +2348,7 @@ private fun SkillSearchResults(
     }
     if (matches.isEmpty() && alreadyKnown) {
         Text(
-            text = "\"$query\" is already added",
+            text = stringResource(R.string.worker_setup_skill_already_added, query),
             color = StitchSubtitle,
             fontSize = 13.sp
         )
@@ -2457,7 +2375,7 @@ private fun DefaultSkillsGrid(
         )
         if (remainingCount > 0) {
             Text(
-                text = "$remainingCount more skills →",
+                text = stringResource(R.string.worker_setup_more_skills, remainingCount),
                 color = StitchSubtitle,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
@@ -2478,7 +2396,7 @@ private fun GenderSelectionField(
     onGenderSelected: (String) -> Unit
 ) {
     val genderOptions = listOf("Male", "Female")
-    
+
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -2490,7 +2408,7 @@ private fun GenderSelectionField(
             ),
             modifier = Modifier.padding(bottom = 12.dp)
         )
-        
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -2505,7 +2423,7 @@ private fun GenderSelectionField(
                             selected = (gender == selectedGender),
                             onClick = { onGenderSelected(gender) },
                             role = Role.RadioButton
-                        ),  
+                        ),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     RadioButton(
@@ -2518,7 +2436,11 @@ private fun GenderSelectionField(
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        text = gender,
+                        text = when (gender.lowercase()) {
+                            "male" -> stringResource(R.string.gender_male)
+                            "female" -> stringResource(R.string.gender_female)
+                            else -> gender
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(start = 8.dp),
                         color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
