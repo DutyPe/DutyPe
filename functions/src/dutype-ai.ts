@@ -15,6 +15,7 @@ import { onCallSecured } from "./secure-callable";
 import { fail, obj, str } from "./lib/input";
 import { ai, cleanDraft, missingFields, refundAi, useAi, LOCKED, FORM, FREE_AI_TRIAL } from "./ai-hiring";
 import { Applications, CATEGORY_KEYS, EmployerProfiles, InstantRequests, Jobs } from "./schema";
+import { CosmosContainers, cosmosAdd } from "./lib/azure";
 
 const db = admin.firestore();
 const LANGS = ["en", "te", "hi"] as const;
@@ -205,7 +206,9 @@ Return JSON: {"reply": "...", "action": null or {"type": "...", "args": {...}}}`
   if (reply0 === null) {
     // The AI did not answer: give the action back and still answer counts / hires from the data.
     await refundAi(uid, access);
-    return { reply: quickAnswer(message, facts, l) ?? BUSY[l], action: null, stats: facts.stats, aiDown: true };
+    const fallback = quickAnswer(message, facts, l) ?? BUSY[l];
+    await logConversation(uid, l, message, fallback, null, true);
+    return { reply: fallback, action: null, stats: facts.stats, aiDown: true };
   }
   const out = obj(reply0);
   const action = validateAction(out.action, facts);
@@ -214,5 +217,11 @@ Return JSON: {"reply": "...", "action": null or {"type": "...", "args": {...}}}`
     te: "క్షమించండి, అర్థం కాలేదు. మీరు: పని పోస్ట్ చేయి, ఎంత మంది దరఖాస్తు చేశారు, ఎవరిని తీసుకున్నాను అని అడగవచ్చు.",
     hi: "माफ़ कीजिए, समझ नहीं आया। आप कह सकते हैं: नौकरी पोस्ट करो, कितने लोगों ने आवेदन किया, किसे रखा है।",
   }[l]);
+  await logConversation(uid, l, message, reply, action?.type ?? null, false);
   return { reply, action, stats: facts.stats };
 });
+
+/** What employers ask DutyPe AI, kept in Azure Cosmos DB (container "ai_logs") to improve the AI. */
+async function logConversation(uid: string, l: Lang, message: string, reply: string, action: string | null, aiDown: boolean) {
+  await cosmosAdd(CosmosContainers.AI_LOGS, { uid, lang: l, message, reply, action, aiDown });
+}

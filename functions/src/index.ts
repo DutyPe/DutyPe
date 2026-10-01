@@ -20,3 +20,4 @@ export { updateReferralConfig, getReferralConfigCallable } from "./app-config";
 export * from "./ai-job-parser";
 export * from "./ai-hiring";
 export * from "./dutype-ai";
+export * from "./feedback";

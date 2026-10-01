@@ -29,7 +29,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -356,19 +355,18 @@ fun FeedbackBottomSheet(
                                 scope.launch {
                                     try {
                                         val currentUser = FirebaseAuth.getInstance().currentUser
-                                        val F = com.example.dutype.firestore.FirestoreSchema.Feedback
                                         if (currentUser != null && !currentUser.isAnonymous) {
-                                            com.example.dutype.di.firestoreFromHilt(context).collection(F.COLLECTION).add(
-                                                mapOf(
-                                                    F.UID to currentUser.uid,
-                                                    F.ROLE to userRole,
-                                                    F.RATING to selectedRating,
-                                                    F.CATEGORY to selectedCategory,
-                                                    F.TEXT to feedbackText.trim().take(1000),
-                                                    F.APP_VERSION to appVersion,
-                                                    F.CREATED_AT to com.google.firebase.Timestamp.now()
-                                                )
-                                            ).await()
+                                            // Stored in Azure Cosmos DB by the submitFeedback function (not Firestore).
+                                            com.example.dutype.di.functionsFromHilt(context)
+                                                .getHttpsCallable("submitFeedback")
+                                                .call(
+                                                    mapOf(
+                                                        "rating" to selectedRating,
+                                                        "category" to selectedCategory,
+                                                        "text" to feedbackText.trim().take(1000),
+                                                        "appVersion" to appVersion.take(40)
+                                                    )
+                                                ).await()
                                         }
 
                                         Timber.i("Feedback submitted: rating=$selectedRating, category=$selectedCategory, version=$appVersion")

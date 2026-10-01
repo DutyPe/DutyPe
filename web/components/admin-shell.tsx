@@ -24,6 +24,8 @@ import {
   BarChart3,
   Ticket,
   Sliders,
+  Sparkles,
+  History,
   Rocket,
   CreditCard,
   Smartphone,
@@ -101,7 +103,10 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
       { href: "/admin/app-update", label: "App Update", icon: Smartphone, summary: "Control Android OTA update prompts." },
       { href: "/admin/notifications", label: "Push Notifications", icon: Bell, summary: "Campaign sends and delivery logs." },
       { href: "/admin/announcements", label: "Announcements", icon: Megaphone, summary: "Broadcast messages in-app." },
-      { href: "/admin/dynamic-config", label: "Dynamic Config", icon: Settings, summary: "Feature flags, launcher icons & configs." }
+      { href: "/admin/dynamic-config", label: "Dynamic Config", icon: Settings, summary: "Feature flags, launcher icons & configs." },
+      { href: "/admin/feedback", label: "Feedback", icon: MessageSquare, summary: "In-app feedback (Azure)." },
+      { href: "/admin/ai-logs", label: "DutyPe AI Logs", icon: Sparkles, summary: "Employer questions and AI replies (Azure)." },
+      { href: "/admin/admin-activity", label: "Admin Activity", icon: History, summary: "Who changed what in the admin panel (Azure)." }
     ]
   }
 ];

@@ -12,12 +12,13 @@
  * [FREE_AI_TRIAL] free actions; without access the features fall back to the fixed score / rules.
  * Fairness: the AI never sees names, phone numbers, photos, gender, religion, caste or age — only
  * job-relevant facts — and every pick is shown with the facts behind it. Cost control: per-user
- * hourly caps and caching; without GEMINI_API_KEY (or on any AI error) everything still works from
+ * hourly caps and caching; without an AI key (or on any AI error) everything still works from
  * the fixed score / rules.
  */
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { onCallSecured } from "./secure-callable";
+import { azureOpenAiConfigured, chatJson } from "./lib/azure";
 import { fail, obj, str, latLng } from "./lib/input";
 import { coveringCells, decodeGeohash, distanceKm } from "./lib/geo";
 import { Applications, CATEGORY_KEYS, EmployerProfiles, Idempotency, JobDetails, Jobs, WorkerCards, MAX_PAY_RUPEES } from "./schema";
@@ -37,38 +38,49 @@ const LANGS = ["en", "te", "hi"] as const;
 type Lang = typeof LANGS[number];
 const LANG_NAME: Record<Lang, string> = { en: "simple English", te: "simple Telugu (Telugu script)", hi: "simple Hindi (Devanagari)" };
 
-// ─────────────────────────────── Gemini ───────────────────────────────
+// ─────────────────────────────── AI provider ───────────────────────────────
+
+/** True when any AI provider is set up (Azure OpenAI first, Gemini as the fallback). */
+export function aiConfigured(): boolean {
+  return azureOpenAiConfigured() || Boolean(process.env.GEMINI_API_KEY);
+}
 
 /** Test seam: replaced in tests so no network call is made. */
 export const ai = {
+  /** Azure OpenAI when configured (paid from the Azure credits), otherwise Gemini. */
   async json(prompt: string): Promise<unknown | null> {
-    const key = process.env.GEMINI_API_KEY || "";
-    if (!key) return null;
-    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12_000);
-    try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2, responseMimeType: "application/json", maxOutputTokens: 1024 },
-        }),
-        signal: controller.signal,
-      });
-      if (!res.ok) throw new Error(`Gemini ${res.status}`);
-      const body = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-      const text = body.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
-      return JSON.parse(text);
-    } catch (e) {
-      functions.logger.warn("Gemini call failed", e);
-      return null;
-    } finally {
-      clearTimeout(timer);
-    }
+    if (azureOpenAiConfigured()) return chatJson(prompt);
+    return geminiJson(prompt);
   },
 };
+
+async function geminiJson(prompt: string): Promise<unknown | null> {
+  const key = process.env.GEMINI_API_KEY || "";
+  if (!key) return null;
+  const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.2, responseMimeType: "application/json", maxOutputTokens: 1024 },
+      }),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`Gemini ${res.status}`);
+    const body = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+    const text = body.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
+    return JSON.parse(text);
+  } catch (e) {
+    functions.logger.warn("Gemini call failed", e);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export type AiAccess = "plan" | "trial" | "upgrade" | "limit";
 

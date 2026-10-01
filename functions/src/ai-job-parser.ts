@@ -1,6 +1,6 @@
 import * as functions from "firebase-functions";
 import { onCallSecured } from "./secure-callable";
-import { useAi } from "./ai-hiring";
+import { ai, aiConfigured, useAi } from "./ai-hiring";
 
 const VALID_CATEGORIES = [
   "Cook",
@@ -46,7 +46,7 @@ export interface VoiceJobParseResponse {
 }
 
 export const parseVoiceJobDetails = onCallSecured<VoiceJobParseRequest, VoiceJobParseResponse>(
-  // Logged-in users of the real app only: every call spends Gemini tokens.
+  // Logged-in users of the real app only: every call spends AI tokens.
   { timeoutSeconds: 25 },
   async (data, context) => {
     const rawTranscript = String(data?.transcript || "").trim();
@@ -68,18 +68,18 @@ export const parseVoiceJobDetails = onCallSecured<VoiceJobParseRequest, VoiceJob
     }
 
     const current = data.currentInput || {};
-    const apiKey = process.env.GEMINI_API_KEY || "";
+    const configured = aiConfigured();
 
-    // Gemini only with DutyPe AI (plan or free trial); otherwise the built-in rules below.
-    const access = apiKey ? await useAi(context.auth!.uid) : "upgrade";
-    if (apiKey && (access === "plan" || access === "trial")) {
+    // AI (Azure OpenAI, else Gemini) only with DutyPe AI (plan or free trial); otherwise the built-in rules below.
+    const access = configured ? await useAi(context.auth!.uid) : "upgrade";
+    if (configured && (access === "plan" || access === "trial")) {
       try {
-        const aiResult = await callGeminiForJobExtraction(rawTranscript, current, apiKey);
+        const aiResult = await aiJobExtraction(rawTranscript, current);
         if (aiResult) {
           return aiResult;
         }
       } catch (err: unknown) {
-        functions.logger.warn("Gemini voice parse failed, using rule-based fallback", err);
+        functions.logger.warn("AI voice parse failed, using rule-based fallback", err);
       }
     }
 
@@ -88,10 +88,9 @@ export const parseVoiceJobDetails = onCallSecured<VoiceJobParseRequest, VoiceJob
   }
 );
 
-async function callGeminiForJobExtraction(
+async function aiJobExtraction(
   transcript: string,
-  current: Record<string, unknown>,
-  apiKey: string
+  current: Record<string, unknown>
 ): Promise<VoiceJobParseResponse | null> {
   const prompt = `You are an Indian hyperlocal recruitment assistant for the DutyPe app.
 Extract blue-collar job posting details from an employer's spoken voice transcript.
@@ -136,33 +135,11 @@ Extract the following fields into JSON:
 
 Respond with pure JSON only without markdown or code fences.`;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        temperature: 0.1,
-      },
-    }),
-  });
-
-  if (!response.ok) {
-    functions.logger.warn(`Gemini API returned status ${response.status}`);
-    return null;
-  }
-
-  const json: unknown = await response.json();
-  const textContent = (json as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> })
-    ?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-  if (!textContent) return null;
+  const result = await ai.json(prompt);
+  if (!result || typeof result !== "object") return null;
 
   try {
-    const parsed = JSON.parse(textContent);
+    const parsed = result as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
     const category = VALID_CATEGORIES.includes(parsed.category) ? parsed.category : "Other Work";
     const payment = Number(parsed.perPersonPayment) || 0;
     const workers = Math.max(1, Math.min(20, Number(parsed.workersNeeded) || 1));
@@ -183,7 +160,7 @@ Respond with pure JSON only without markdown or code fences.`;
       summaryText: String(parsed.summaryText || `${workers} ${category} · ₹${payment}/day`),
     };
   } catch (err: unknown) {
-    functions.logger.warn("Failed to parse Gemini JSON response", err);
+    functions.logger.warn("Failed to read AI JSON response", err);
     return null;
   }
 }

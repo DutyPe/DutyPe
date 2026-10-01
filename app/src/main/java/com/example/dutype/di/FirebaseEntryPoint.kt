@@ -47,6 +47,12 @@ fun authFromHilt(context: Context): FirebaseAuth =
         .fromApplication(context.applicationContext, FirebaseEntryPoint::class.java)
         .auth()
 
+/** Resolve the Hilt-provided [FirebaseFunctions] singleton from a Compose context. */
+fun functionsFromHilt(context: Context): FirebaseFunctions =
+    EntryPointAccessors
+        .fromApplication(context.applicationContext, FirebaseEntryPoint::class.java)
+        .functions()
+
 /** Resolve the Hilt-provided [ReferralService] singleton from a Compose context. */
 fun referralServiceFromHilt(context: Context): ReferralService =
     EntryPointAccessors

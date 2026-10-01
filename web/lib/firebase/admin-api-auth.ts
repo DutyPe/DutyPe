@@ -18,25 +18,42 @@ function readBearerToken(request: NextRequest) {
   return fallback || null;
 }
 
-async function isAuthorizedByBearerToken(request: NextRequest) {
+type AdminActor = { uid: string; email: string };
+
+async function adminFromBearerToken(request: NextRequest): Promise<AdminActor | null> {
   const token = readBearerToken(request);
 
   if (!token) {
-    return false;
+    return null;
   }
 
   try {
     const decodedToken = await getFirebaseAdminAuth().verifyIdToken(token, true);
-    return getAdminAuthorization(decodedToken).isAuthorized;
+    return getAdminAuthorization(decodedToken).isAuthorized
+      ? { uid: decodedToken.uid, email: decodedToken.email ?? "" }
+      : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** Every admin write is recorded in Azure Cosmos DB (container "admin_activity"): who, what, when. */
+async function logAdminActivity(request: NextRequest, actor: AdminActor) {
+  const url = new URL(request.url);
+  const { CosmosContainers, cosmosAdd } = await import("@/lib/azure/cosmos");
+  await cosmosAdd(CosmosContainers.ADMIN_ACTIVITY, {
+    uid: actor.uid,
+    email: actor.email,
+    method: request.method,
+    path: url.pathname,
+    query: url.search.slice(0, 300)
+  });
 }
 
 export async function requireAuthorizedAdminRequest(request: NextRequest) {
   const session = await getAdminSession();
-  const authorized = Boolean(session) || await isAuthorizedByBearerToken(request);
-  if (authorized) {
+  const actor: AdminActor | null = session ? { uid: session.uid, email: session.email } : await adminFromBearerToken(request);
+  if (actor) {
     // Any admin write makes cached admin reads stale: drop them so the next screen is fresh.
     if (request.method !== "GET" && request.method !== "HEAD") {
       const [{ invalidateAdminResponseCache }, { invalidateCollectionCache }] = await Promise.all([
@@ -45,6 +62,7 @@ export async function requireAuthorizedAdminRequest(request: NextRequest) {
       ]);
       invalidateAdminResponseCache();
       invalidateCollectionCache();
+      await logAdminActivity(request, actor);
     }
     return null;
   }

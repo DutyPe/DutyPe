@@ -438,18 +438,6 @@ object FirestoreSchema {
         const val EXPIRES_AT = "expiresAt"
     }
 
-    /** feedback/{auto} — in-app feedback (create-only for the signed-in user; read in the admin panel). */
-    object Feedback {
-        const val COLLECTION = "feedback"
-        const val UID = "uid"
-        const val ROLE = "role"
-        const val RATING = "rating"               // 1..5
-        const val CATEGORY = "category"
-        const val TEXT = "text"
-        const val APP_VERSION = "appVersion"
-        const val CREATED_AT = "createdAt"
-    }
-
     /** location_demand/{auto} — "tell me when DutyPe launches here" leads (create-only; admin reads). */
     object LocationDemand {
         const val COLLECTION = "location_demand"

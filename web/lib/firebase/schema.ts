@@ -369,17 +369,6 @@ export const Announcements = {
   EXPIRES_AT: "expiresAt",
 } as const;
 
-export const Feedback = {
-  COLLECTION: "feedback",
-  UID: "uid",
-  ROLE: "role",
-  RATING: "rating",
-  CATEGORY: "category",
-  TEXT: "text",
-  APP_VERSION: "appVersion",
-  CREATED_AT: "createdAt",
-} as const;
-
 export const LocationDemand = {
   COLLECTION: "location_demand",
   UID: "uid",

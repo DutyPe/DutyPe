@@ -6,7 +6,7 @@ rules_version = '2';
 //     instant needs, ratings, wallets, subscriptions) is written ONLY by Cloud Functions
 //     (Admin SDK bypasses these rules).
 //   • The app writes just its own profile fields, push token, saved jobs, saved places,
-//     notification read-state, payment proofs, feedback and launch-demand leads —
+//     notification read-state, payment proofs and launch-demand leads —
 //     each field-whitelisted.
 //   • Reads are scoped to the caller; collections with personal data can't be listed.
 //   • Admins (web panel) can read and write everything.
@@ -243,16 +243,6 @@ service cloud.firestore {
 
     match /announcements/{announcementId} {
       allow get, list: if true;
-    }
-
-    match /feedback/{feedbackId} {
-      allow create: if signedIn() &&
-        request.resource.data.keys().hasOnly(['uid', 'role', 'rating', 'category', 'text', 'appVersion', 'createdAt']) &&
-        request.resource.data.uid == me() &&
-        request.resource.data.rating is int && request.resource.data.rating >= 1 && request.resource.data.rating <= 5 &&
-        optString(request.resource.data, 'text', 1000) &&
-        optString(request.resource.data, 'category', 40) &&
-        request.resource.data.createdAt is timestamp;
     }
 
     match /location_demand/{leadId} {
