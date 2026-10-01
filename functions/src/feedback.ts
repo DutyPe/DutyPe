@@ -7,9 +7,9 @@
  */
 import { onCallSecured } from "./secure-callable";
 import { fail, int, obj, str, text } from "./lib/input";
-import { CosmosContainers, cosmosAdd, cosmosConfigured } from "./lib/azure";
+import { AZURE_COSMOS_SECRET, CosmosContainers, cosmosAdd, cosmosConfigured } from "./lib/azure";
 
-export const submitFeedback = onCallSecured({ timeoutSeconds: 15 }, async (raw: unknown, context) => {
+export const submitFeedback = onCallSecured({ timeoutSeconds: 15, secrets: [AZURE_COSMOS_SECRET] }, async (raw: unknown, context) => {
   if (!cosmosConfigured()) fail("unavailable", "Feedback is not available right now");
   const data = obj(raw);
   const saved = await cosmosAdd(CosmosContainers.FEEDBACK, {

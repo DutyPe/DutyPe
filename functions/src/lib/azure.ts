@@ -4,13 +4,10 @@
  *   chatJson     Azure OpenAI chat completion that returns JSON (DutyPe AI, voice job parser)
  *   cosmosAdd    add one item to a Cosmos DB container (feedback, AI logs)
  *
- * Settings (functions/.env):
- *   AZURE_OPENAI_ENDPOINT    https://<name>.openai.azure.com
- *   AZURE_OPENAI_KEY
- *   AZURE_OPENAI_DEPLOYMENT  deployment name, e.g. dutype-chat
- *   AZURE_COSMOS_ENDPOINT    https://<name>.documents.azure.com:443/
- *   AZURE_COSMOS_KEY
- *   AZURE_COSMOS_DATABASE    default "dutype"
+ * Settings: endpoints and names are in functions/.env.dutype-860ac (committed, not secret);
+ * the two keys are Firebase secrets (Secret Manager), never in a file:
+ *   firebase functions:secrets:set AZURE_OPENAI_KEY
+ *   firebase functions:secrets:set AZURE_COSMOS_KEY
  *
  * Every call returns null / false when the service is not configured or fails, so callers keep
  * their existing fallbacks.
@@ -20,6 +17,10 @@ import { CosmosClient, type Container } from "@azure/cosmos";
 import { randomUUID } from "crypto";
 
 const OPENAI_API_VERSION = "2024-10-21";
+
+/** Secret names to bind on the functions that call Azure OpenAI / Cosmos DB. */
+export const AZURE_OPENAI_SECRET = "AZURE_OPENAI_KEY";
+export const AZURE_COSMOS_SECRET = "AZURE_COSMOS_KEY";
 
 export function azureOpenAiConfigured(): boolean {
   return Boolean(process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_KEY && process.env.AZURE_OPENAI_DEPLOYMENT);

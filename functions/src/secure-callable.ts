@@ -24,6 +24,8 @@ export interface SecuredCallableOptions {
   enforceAppCheck?: boolean;
   /** Keep N warm instances to avoid cold starts on latency-critical callables (billed while idle). */
   minInstances?: number;
+  /** Secret Manager secrets exposed to this function as env vars (set with firebase functions:secrets:set). */
+  secrets?: string[];
 }
 
 export function onCallSecured<T = unknown, R = unknown>(
@@ -37,6 +39,7 @@ export function onCallSecured<T = unknown, R = unknown>(
     enforceAppCheck: opts.enforceAppCheck ?? DEFAULT_RUNTIME.enforceAppCheck,
     consumeAppCheckToken: false,
     ...(opts.minInstances !== undefined ? { minInstances: opts.minInstances } : {}),
+    ...(opts.secrets?.length ? { secrets: opts.secrets } : {}),
   };
 
   return functions

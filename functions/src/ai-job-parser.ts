@@ -1,6 +1,7 @@
 import * as functions from "firebase-functions";
 import { onCallSecured } from "./secure-callable";
 import { ai, aiConfigured, useAi } from "./ai-hiring";
+import { AZURE_OPENAI_SECRET } from "./lib/azure";
 
 const VALID_CATEGORIES = [
   "Cook",
@@ -47,7 +48,7 @@ export interface VoiceJobParseResponse {
 
 export const parseVoiceJobDetails = onCallSecured<VoiceJobParseRequest, VoiceJobParseResponse>(
   // Logged-in users of the real app only: every call spends AI tokens.
-  { timeoutSeconds: 25 },
+  { timeoutSeconds: 25, secrets: [AZURE_OPENAI_SECRET] },
   async (data, context) => {
     const rawTranscript = String(data?.transcript || "").trim();
     if (!rawTranscript) {

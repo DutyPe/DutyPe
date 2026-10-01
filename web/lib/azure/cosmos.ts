@@ -9,7 +9,8 @@ import { NextRequest, NextResponse } from "next/server";
  * Holds data that is not linked to any Firestore collection: in-app feedback, DutyPe AI
  * conversation logs and the admin activity log.
  *
- * Env: AZURE_COSMOS_ENDPOINT, AZURE_COSMOS_KEY, AZURE_COSMOS_DATABASE (optional).
+ * The key is the Firebase secret AZURE_COSMOS_KEY (bound in firebase.json → hosting.frameworksBackend);
+ * AZURE_COSMOS_ENDPOINT / AZURE_COSMOS_DATABASE can override the defaults below.
  */
 export const CosmosContainers = {
   FEEDBACK: "feedback",
@@ -18,12 +19,13 @@ export const CosmosContainers = {
 } as const;
 
 const MAX_LIMIT = 200;
+const DEFAULT_ENDPOINT = "https://dutype-cosmos.documents.azure.com:443/";
 let client: CosmosClient | null = null;
 
 function container(name: string): Container | null {
-  const endpoint = process.env.AZURE_COSMOS_ENDPOINT;
+  const endpoint = process.env.AZURE_COSMOS_ENDPOINT || DEFAULT_ENDPOINT;
   const key = process.env.AZURE_COSMOS_KEY;
-  if (!endpoint || !key) return null;
+  if (!key) return null;
   client ??= new CosmosClient({ endpoint, key });
   return client.database(process.env.AZURE_COSMOS_DATABASE || "dutype").container(name);
 }
@@ -52,7 +54,7 @@ export async function listCosmos(request: NextRequest, name: string, dataKey = "
   const c = container(name);
   if (!c) {
     return NextResponse.json(
-      { error: "Azure Cosmos DB is not configured (AZURE_COSMOS_ENDPOINT / AZURE_COSMOS_KEY)." },
+      { error: "Azure Cosmos DB is not configured (Firebase secret AZURE_COSMOS_KEY)." },
       { status: 503 }
     );
   }

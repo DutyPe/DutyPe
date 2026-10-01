@@ -15,7 +15,7 @@ import { onCallSecured } from "./secure-callable";
 import { fail, obj, str } from "./lib/input";
 import { ai, cleanDraft, missingFields, refundAi, useAi, LOCKED, FORM, FREE_AI_TRIAL } from "./ai-hiring";
 import { Applications, CATEGORY_KEYS, EmployerProfiles, InstantRequests, Jobs } from "./schema";
-import { CosmosContainers, cosmosAdd } from "./lib/azure";
+import { AZURE_COSMOS_SECRET, AZURE_OPENAI_SECRET, CosmosContainers, cosmosAdd } from "./lib/azure";
 
 const db = admin.firestore();
 const LANGS = ["en", "te", "hi"] as const;
@@ -173,7 +173,7 @@ const BUSY: Record<"en" | "te" | "hi", string> = {
   hi: "DutyPe AI अभी व्यस्त है। एक मिनट बाद फिर कोशिश करें। आपका मुफ़्त मौका इस्तेमाल नहीं हुआ।",
 };
 
-export const dutypeAi = onCallSecured({ timeoutSeconds: 30, memory: "512MB" }, async (raw: unknown, context) => {
+export const dutypeAi = onCallSecured({ timeoutSeconds: 30, memory: "512MB", secrets: [AZURE_OPENAI_SECRET, AZURE_COSMOS_SECRET] }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   if (context.auth?.token.role !== "EMPLOYER") fail("permission-denied", "DutyPe AI is for employers");
   const data = obj(raw);
