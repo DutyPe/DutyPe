@@ -168,15 +168,12 @@ private fun OtpLoginScreen(
                             val msg = error.message.orEmpty()
                             val toastText = if (msg.startsWith("phone-already-registered-as:")) {
                                 val existingRole = msg.substringAfter(":").lowercase()
-                                val existingRoleLabel = if (existingRole == "employer") "employer" else "worker"
-                                if (isTelugu)
-                                    "ఈ నంబర్ ${existingRoleLabel}గా నమోదైంది. దయచేసి ${existingRoleLabel}గా లాగిన్ అవ్వండి."
-                                else
-                                    "This number is already registered as a $existingRoleLabel. Please log in as a $existingRoleLabel."
+                                val existingRoleLabel = if (existingRole == "employer") context.getString(R.string.employer) else context.getString(R.string.worker)
+                                context.getString(R.string.auth_phone_registered_as_role, existingRoleLabel, existingRoleLabel)
                             } else if (msg == "account-not-found") {
-                                if (isTelugu) "ఈ నంబర్‌కు సంబంధించిన ఖాతా కనబడలేదు. దయచేసి ముందుగా నమోదు చేయండి." else "No account found with this number. Please Register first."
+                                context.getString(R.string.auth_no_account_found)
                             } else {
-                                error.message ?: if (isTelugu) "మీ ఖాతాను లోడ్ చేయలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి." else "Could not load your account. Please try again."
+                                error.message ?: context.getString(R.string.auth_verification_failed)
                             }
                             Toast.makeText(context, toastText, Toast.LENGTH_LONG).show()
                         }
@@ -283,7 +280,7 @@ private fun OtpLoginScreen(
 
                 // Title & Subtitle Hero Block
                 Text(
-                    text = "Enter your mobile number",
+                    text = stringResource(R.string.auth_enter_mobile_number),
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
@@ -294,7 +291,7 @@ private fun OtpLoginScreen(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "We'll send a 6-digit OTP",
+                    text = stringResource(R.string.auth_we_will_send_otp),
                     style = MaterialTheme.typography.bodyLarge.copy(
                         color = Ink600,
                         fontSize = 15.sp
@@ -408,17 +405,14 @@ private fun OtpLoginScreen(
                             try {
                                 val phoneCheck = FirestoreUtils.checkPhoneForRole(
                                     phoneNumber = fullPhoneNumber,
-                                    requestedRole = role.name,
-                                    // Login: if the legacy fallback is slow, still send the OTP;
-                                    // AuthFlowService.resolveLogin enforces role conflicts after sign-in.
-                                    assumeRegisteredWhenFallbackSlow = true
+                                    requestedRole = role.name
                                 )
                                 when (phoneCheck.exists) {
                                     FirestoreUtils.PhoneExistenceResult.NOT_EXISTS -> {
                                         isCheckingPhone = false
                                         Toast.makeText(
                                             context,
-                                            if (isTelugu) "ఈ నంబర్‌కు ఖాతా లేదు. దయచేసి నమోదు చేయండి." else "No account found with this number. Please Register first.",
+                                            context.getString(R.string.auth_no_account_found),
                                             Toast.LENGTH_LONG
                                         ).show()
                                         return@launch
@@ -427,14 +421,13 @@ private fun OtpLoginScreen(
                                         if (phoneCheck.roleConflict) {
                                             isCheckingPhone = false
                                             val existingRoleLabel = when (phoneCheck.existingRole?.uppercase()) {
-                                                "WORKER" -> if (isTelugu) "వర్కర్" else "worker"
-                                                "EMPLOYER" -> if (isTelugu) "ఎంప్లాయర్" else "employer"
-                                                else -> if (isTelugu) "వేరే పాత్ర" else "different role"
+                                                "WORKER" -> context.getString(R.string.worker)
+                                                "EMPLOYER" -> context.getString(R.string.employer)
+                                                else -> context.getString(R.string.select_role)
                                             }
                                             Toast.makeText(
                                                 context,
-                                                if (isTelugu) "ఈ నంబర్ $existingRoleLabel గా నమోదు అయింది. దయచేసి $existingRoleLabel గా లాగిన్ చేయండి."
-                                                else "This number is registered as a $existingRoleLabel. Please log in as a $existingRoleLabel.",
+                                                context.getString(R.string.auth_phone_registered_as_role, existingRoleLabel, existingRoleLabel),
                                                 Toast.LENGTH_LONG
                                             ).show()
                                             return@launch
@@ -444,8 +437,7 @@ private fun OtpLoginScreen(
                                         isCheckingPhone = false
                                         Toast.makeText(
                                             context,
-                                            if (isTelugu) "ఖాతా ధృవీకరణ విఫలమైంది. దయచేసి ఇంటర్నెట్ కనెక్షన్ తనిఖీ చేసి మళ్లీ ప్రయత్నించండి."
-                                            else "Could not verify account. Please check your internet connection and try again.",
+                                            FirestoreUtils.unknownMessage(context, phoneCheck),
                                             Toast.LENGTH_LONG
                                         ).show()
                                         return@launch
@@ -457,7 +449,7 @@ private fun OtpLoginScreen(
                                 otpViewModel.sendOtp(fullPhoneNumber, context)
                             } catch (e: Exception) {
                                 isCheckingPhone = false
-                                Toast.makeText(context, "Verification failed. Please try again.", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, context.getString(R.string.auth_verification_failed), Toast.LENGTH_LONG).show()
                             }
                         }
                     },
@@ -485,7 +477,7 @@ private fun OtpLoginScreen(
                         ) {
                             Box(modifier = Modifier.size(18.dp)) // Empty space balancer
                             Text(
-                                text = "Send OTP",
+                                text = stringResource(R.string.auth_send_otp),
                                 style = MaterialTheme.typography.labelLarge.copy(
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
@@ -530,67 +522,6 @@ private fun OtpLoginScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // "or" divider
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(1.dp)
-                            .background(CardBorder)
-                    )
-                    Text(
-                        text = "or",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = Ink600),
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(1.dp)
-                            .background(CardBorder)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Continue with Google
-                OutlinedButton(
-                    onClick = {
-                        Toast.makeText(
-                            context,
-                            "Google sign-in is coming soon",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(28.dp),
-                    border = BorderStroke(1.dp, CardBorder),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink900)
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_google),
-                        contentDescription = null,
-                        tint = Color.Unspecified,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(
-                        text = "Continue with Google",
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = Ink900
-                        )
-                    )
-                }
-
             }
 
             // Terms & Privacy footer + Register link, pinned to the bottom of the
@@ -602,17 +533,20 @@ private fun OtpLoginScreen(
                     .fillMaxWidth()
                     .padding(bottom = 8.dp)
             ) {
+                val termsPrefix = stringResource(R.string.auth_by_continuing_agree)
+                val termsTitle = stringResource(R.string.auth_terms)
+                val privacyTitle = stringResource(R.string.auth_privacy_policy_short)
                 val termsAnnotated = buildAnnotatedString {
-                    append("By continuing, you agree to our ")
+                    append(termsPrefix)
                     pushStringAnnotation(tag = "TERMS", annotation = "terms")
                     withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
-                        append("Terms")
+                        append(termsTitle)
                     }
                     pop()
                     append(" & ")
                     pushStringAnnotation(tag = "PRIVACY", annotation = "privacy")
                     withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
-                        append("Privacy Policy")
+                        append(privacyTitle)
                     }
                     pop()
                 }
@@ -725,7 +659,7 @@ private fun OtpInputSection(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Verify your number",
+            text = stringResource(R.string.auth_verify_your_number),
             style = MaterialTheme.typography.titleLarge.copy(
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
@@ -736,7 +670,7 @@ private fun OtpInputSection(
         Spacer(modifier = Modifier.height(8.dp))
 
         // "+91 98765 43210 · Change number"
-        val changeNumberText = "Change number"
+        val changeNumberText = stringResource(R.string.auth_change_number_action)
 
         val annotatedText = buildAnnotatedString {
             append("+91 $phoneNumber")
@@ -782,7 +716,7 @@ private fun OtpInputSection(
                 val minutes = resendCooldownSeconds / 60
                 val seconds = resendCooldownSeconds % 60
                 Text(
-                    text = "Resend OTP in %d:%02d".format(minutes, seconds),
+                    text = stringResource(R.string.auth_resend_otp_in, minutes, seconds),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = Ink600,
                         fontSize = 14.sp
@@ -794,7 +728,7 @@ private fun OtpInputSection(
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
                 ) {
                     Text(
-                        text = "Resend OTP",
+                        text = stringResource(R.string.auth_resend_otp),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
@@ -830,7 +764,7 @@ private fun OtpInputSection(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = "Verify & Continue",
+                        text = stringResource(R.string.auth_verify_and_continue),
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,

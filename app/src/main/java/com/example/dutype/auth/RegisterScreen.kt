@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -131,6 +132,8 @@ private fun RegisterContent(
     navController: NavController
 ) {
     var fullName by remember { mutableStateOf("") }
+    /** Employers only: the name typed is a person (INDIVIDUAL) or a business (COMPANY). */
+    var employerType by remember { mutableStateOf(com.example.dutype.firestore.FirestoreSchema.Values.EmployerType.INDIVIDUAL) }
     var phoneNumber by remember { mutableStateOf("") }
     var otpValue by remember { mutableStateOf("") }
     var isCheckingPhone by remember { mutableStateOf(false) }
@@ -161,7 +164,8 @@ private fun RegisterContent(
                     val registrationResult = otpViewModel.completeRegistration(
                         role = role,
                         fullName = fullName.trim(),
-                        referralCode = pendingReferralCode
+                        referralCode = pendingReferralCode,
+                        employerType = employerType.takeIf { role == UserRole.EMPLOYER }
                     )
 
                     if (registrationResult.isSuccess) {
@@ -182,7 +186,7 @@ private fun RegisterContent(
                         Timber.e(error, "REGISTER - Registration finalization failed")
                         Toast.makeText(
                             context,
-                            error?.message ?: if (isTelugu) "నమోదును పూర్తి చేయలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి." else "Could not finish registration. Please try again.",
+                            error?.message ?: context.getString(R.string.auth_verification_failed),
                             Toast.LENGTH_LONG
                         ).show()
                         otpViewModel.resetState()
@@ -262,7 +266,7 @@ private fun RegisterContent(
         // Register entry screen - same Stitch design language as EnhancedLoginScreen:
         // white background, left-aligned 24sp title, flat outlined fields, black pill CTA,
         // "or" divider + Google, and the Terms/Privacy + Log in footer pinned to the bottom.
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.White)
@@ -270,229 +274,205 @@ private fun RegisterContent(
                 .navigationBarsPadding()
                 .padding(horizontal = 24.dp)
         ) {
-            Column(
+            // Top Action Header Bar: WhatsApp Help & Language Chip (End aligned, no back arrow)
+            Row(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(bottom = 132.dp)
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Top Action Header Bar: WhatsApp Help & Language Chip (End aligned, no back arrow)
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
 
-                        // WhatsApp Help Button
-                        Surface(
-                            onClick = {
-                                val whatsappUrl = "https://wa.me/918500717800?text=Hello%20DutyPe%20Team!%20I%20need%20help%20creating%20an%20account."
-                                try {
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                        data = android.net.Uri.parse(whatsappUrl)
-                                        setPackage("com.whatsapp")
-                                    }
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    val browserIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(whatsappUrl))
-                                    context.startActivity(browserIntent)
+                    // WhatsApp Help Button
+                    Surface(
+                        onClick = {
+                            val whatsappUrl = "https://wa.me/918500717800?text=Hello%20DutyPe%20Team!%20I%20need%20help%20creating%20an%20account."
+                            try {
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                    data = android.net.Uri.parse(whatsappUrl)
+                                    setPackage("com.whatsapp")
                                 }
-                            },
-                            shape = RoundedCornerShape(20.dp),
-                            color = Color.White,
-                            border = BorderStroke(1.dp, CardBorder)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    painter = painterResource(id = R.drawable.ic_whatsapp),
-                                    contentDescription = null,
-                                    tint = Color(0xFF25D366),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = if (isTelugu) "సహాయం" else "Help",
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, color = Ink900)
-                                )
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                val browserIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(whatsappUrl))
+                                context.startActivity(browserIntent)
                             }
+                        },
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, CardBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_whatsapp),
+                                contentDescription = null,
+                                tint = Color(0xFF25D366),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = stringResource(R.string.auth_help),
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, color = Ink900)
+                            )
                         }
                     }
                 }
+            }
 
-                // Pushes the form comfortably lower down toward the middle of the screen.
-                Spacer(modifier = Modifier.height(authTopGap(0.18f) + 16.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-                Text(
-                    text = if (isTelugu) "మీ ఖాతాను సృష్టించండి" else "Create your account",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Ink900
-                    )
+            Text(
+                text = stringResource(R.string.auth_create_your_account),
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Ink900
                 )
+            )
 
-                Spacer(modifier = Modifier.height(28.dp))
-                RegisterInputSection(
-                    fullName = fullName,
-                    onFullNameChange = { fullName = it },
-                    phoneNumber = phoneNumber,
-                    onPhoneNumberChange = { newValue ->
-                        if (newValue.all { it.isDigit() } && newValue.length <= 10) {
-                            phoneNumber = newValue
-                        }
-                    },
-                    selectedCountryCode = selectedCountryCode,
-                    otpState = otpState,
-                    isCheckingPhone = isCheckingPhone,
-                    profileCompletionViewModel = profileCompletionViewModel,
-                    onContinueClick = {
-                        val fullPhoneNumber = selectedCountryCode + phoneNumber
-                        scope.launch {
-                            try {
-                                isCheckingPhone = true
-                                val phoneCheck = FirestoreUtils.checkPhoneForRole(
-                                    phoneNumber = fullPhoneNumber,
-                                    requestedRole = role.name
-                                )
-                                when (phoneCheck.exists) {
-                                    FirestoreUtils.PhoneExistenceResult.EXISTS -> {
-                                        isCheckingPhone = false
-                                        val existingRoleLabel = when (phoneCheck.existingRole?.uppercase()) {
-                                            "WORKER" -> if (isTelugu) "వర్కర్" else "worker"
-                                            "EMPLOYER" -> if (isTelugu) "ఎంప్లాయర్" else "employer"
-                                            else -> null
-                                        }
-                                        val message = if (existingRoleLabel != null) {
-                                            if (isTelugu)
-                                                "ఈ ఫోన్ నంబర్ ఇప్పటికే $existingRoleLabel గా ఉంది. దయచేసి $existingRoleLabel గా లాగిన్ అవ్వండి."
-                                            else
-                                                "This phone number is already registered as a $existingRoleLabel. Please log in as a $existingRoleLabel."
-                                        } else {
-                                            if (isTelugu)
-                                                "ఈ ఫోన్ నంబర్‌తో ఖాతా ఉంది. దయచేసి లాగిన్ అవ్వండి."
-                                            else
-                                                "This phone number is already registered. Please log in."
-                                        }
-                                        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            Spacer(modifier = Modifier.height(20.dp))
+            RegisterInputSection(
+                fullName = fullName,
+                onFullNameChange = { fullName = it },
+                employerType = employerType,
+                onEmployerTypeChange = { employerType = it },
+                phoneNumber = phoneNumber,
+                onPhoneNumberChange = { newValue ->
+                    if (newValue.all { it.isDigit() } && newValue.length <= 10) {
+                        phoneNumber = newValue
+                    }
+                },
+                selectedCountryCode = selectedCountryCode,
+                otpState = otpState,
+                isCheckingPhone = isCheckingPhone,
+                profileCompletionViewModel = profileCompletionViewModel,
+                onContinueClick = {
+                    val fullPhoneNumber = selectedCountryCode + phoneNumber
+                    scope.launch {
+                        try {
+                            isCheckingPhone = true
+                            val phoneCheck = FirestoreUtils.checkPhoneForRole(
+                                phoneNumber = fullPhoneNumber,
+                                requestedRole = role.name
+                            )
+                            when (phoneCheck.exists) {
+                                FirestoreUtils.PhoneExistenceResult.EXISTS -> {
+                                    isCheckingPhone = false
+                                    val existingRoleLabel = when (phoneCheck.existingRole?.uppercase()) {
+                                        "WORKER" -> context.getString(R.string.worker)
+                                        "EMPLOYER" -> context.getString(R.string.employer)
+                                        else -> null
                                     }
-                                    FirestoreUtils.PhoneExistenceResult.NOT_EXISTS -> {
-                                        isCheckingPhone = false
-                                        profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
-                                        profileCompletionViewModel.savePhoneNumber(fullPhoneNumber)
-                                        profileCompletionViewModel.saveUserInfoToLocalStorage(email = "", name = fullName.trim(), role = role)
-                                        otpViewModel.sendOtp(fullPhoneNumber, context)
+                                    val message = if (existingRoleLabel != null) {
+                                        context.getString(R.string.auth_phone_registered_as_role, existingRoleLabel, existingRoleLabel)
+                                    } else {
+                                        context.getString(R.string.auth_already_registered)
                                     }
-                                    FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
-                                        isCheckingPhone = false
-                                        Toast.makeText(
-                                            context,
-                                            if (isTelugu) "ఖాతా ధృవీకరణ విఫలమైంది. దయచేసి ఇంటర్నెట్ కనెక్షన్ తనిఖీ చేసి మళ్లీ ప్రయత్నించండి."
-                                            else "Could not verify account. Please check your internet connection and try again.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                    }
+                                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                                 }
-                            } catch (e: Exception) {
-                                isCheckingPhone = false
-                                Toast.makeText(context, "Verification failed. Please try again.", Toast.LENGTH_LONG).show()
+                                FirestoreUtils.PhoneExistenceResult.NOT_EXISTS -> {
+                                    isCheckingPhone = false
+                                    profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
+                                    profileCompletionViewModel.savePhoneNumber(fullPhoneNumber)
+                                    profileCompletionViewModel.saveUserInfoToLocalStorage(email = "", name = fullName.trim(), role = role)
+                                    otpViewModel.sendOtp(fullPhoneNumber, context)
+                                }
+                                FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
+                                    isCheckingPhone = false
+                                    Toast.makeText(
+                                        context,
+                                        FirestoreUtils.unknownMessage(context, phoneCheck),
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
                             }
+                        } catch (e: Exception) {
+                            isCheckingPhone = false
+                            Toast.makeText(context, context.getString(R.string.auth_verification_failed), Toast.LENGTH_LONG).show()
                         }
-                    },
-                    onBackClick = { safeAuthBackNavigation(navController) },
-                    onLoginClick = {
+                    }
+                },
+                onBackClick = { safeAuthBackNavigation(navController) },
+                onLoginClick = {
+                    navController.navigate("${Routes.ENHANCED_LOGIN}?role=${role.name}") {
+                        popUpTo("${Routes.REGISTER}?role=${role.name}") { inclusive = true }
+                    }
+                },
+                role = role
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            val termsPrefix = stringResource(R.string.auth_by_continuing_agree)
+            val termsTitle = stringResource(R.string.auth_terms)
+            val privacyTitle = stringResource(R.string.auth_privacy_policy_short)
+            val termsAnnotated = buildAnnotatedString {
+                append(termsPrefix)
+                pushStringAnnotation(tag = "TERMS", annotation = "terms")
+                withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
+                    append(termsTitle)
+                }
+                pop()
+                append(" & ")
+                pushStringAnnotation(tag = "PRIVACY", annotation = "privacy")
+                withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
+                    append(privacyTitle)
+                }
+                pop()
+            }
+            androidx.compose.foundation.text.ClickableText(
+                text = termsAnnotated,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Ink600,
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                onClick = { offset ->
+                    termsAnnotated.getStringAnnotations(tag = "TERMS", start = offset, end = offset)
+                        .firstOrNull()?.let {
+                            navController.navigate(Routes.TERMS_OF_SERVICE)
+                        }
+                    termsAnnotated.getStringAnnotations(tag = "PRIVACY", start = offset, end = offset)
+                        .firstOrNull()?.let {
+                            navController.navigate(Routes.PRIVACY_POLICY)
+                        }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.auth_already_have_account),
+                    style = MaterialTheme.typography.bodyMedium.copy(color = Ink600)
+                )
+                TextButton(
+                    onClick = {
                         navController.navigate("${Routes.ENHANCED_LOGIN}?role=${role.name}") {
                             popUpTo("${Routes.REGISTER}?role=${role.name}") { inclusive = true }
                         }
                     },
-                    role = role
-                )
-
-            }
-
-            // Terms & Privacy footer + Log in link, pinned to the bottom (sibling of the
-            // scrollable column, since a scrollable Column cannot use weight()).
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .background(Color.White)
-                    .padding(bottom = 8.dp)
-            ) {
-                val termsAnnotated = buildAnnotatedString {
-                    if (isTelugu) {
-                        append("కొనసాగడం ద్వారా, మీరు మా ")
-                    } else {
-                        append("By continuing, you agree to our ")
-                    }
-                    pushStringAnnotation(tag = "TERMS", annotation = "terms")
-                    withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
-                        append(if (isTelugu) "సేవా నిబంధనలు" else "Terms")
-                    }
-                    pop()
-                    append(" & ")
-                    pushStringAnnotation(tag = "PRIVACY", annotation = "privacy")
-                    withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
-                        append(if (isTelugu) "గోప్యతా విధానం" else "Privacy Policy")
-                    }
-                    pop()
-                    if (isTelugu) append(" లకు అంగీకరిస్తున్నారు")
-                }
-                androidx.compose.foundation.text.ClickableText(
-                    text = termsAnnotated,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Ink600,
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = { offset ->
-                        termsAnnotated.getStringAnnotations(tag = "TERMS", start = offset, end = offset)
-                            .firstOrNull()?.let {
-                                navController.navigate(Routes.TERMS_OF_SERVICE)
-                            }
-                        termsAnnotated.getStringAnnotations(tag = "PRIVACY", start = offset, end = offset)
-                            .firstOrNull()?.let {
-                                navController.navigate(Routes.PRIVACY_POLICY)
-                            }
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
                 ) {
                     Text(
-                        text = if (isTelugu) "ఇప్పటికే ఖాతా ఉందా?" else "Already have an account?",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = Ink600)
-                    )
-                    TextButton(
-                        onClick = {
-                            navController.navigate("${Routes.ENHANCED_LOGIN}?role=${role.name}") {
-                                popUpTo("${Routes.REGISTER}?role=${role.name}") { inclusive = true }
-                            }
-                        },
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-                    ) {
-                        Text(
-                            text = if (isTelugu) "లాగిన్" else "Log in",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = BrandBluePrimary
-                            )
+                        text = stringResource(R.string.auth_login),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = BrandBluePrimary
                         )
-                    }
+                    )
                 }
             }
         }
@@ -511,6 +491,8 @@ private fun RegisterContent(
 private fun RegisterInputSection(
     fullName: String,
     onFullNameChange: (String) -> Unit,
+    employerType: String,
+    onEmployerTypeChange: (String) -> Unit,
     phoneNumber: String,
     onPhoneNumberChange: (String) -> Unit,
     selectedCountryCode: String,
@@ -547,6 +529,8 @@ private fun RegisterInputSection(
     RegisterEntrySection(
         fullName = fullName,
         onFullNameChange = onFullNameChange,
+        employerType = employerType,
+        onEmployerTypeChange = onEmployerTypeChange,
         phoneNumber = phoneNumber,
         onPhoneNumberChange = onPhoneNumberChange,
         selectedCountryCode = selectedCountryCode,
@@ -581,6 +565,8 @@ private fun RegisterInputSection(
 private fun RegisterEntrySection(
     fullName: String,
     onFullNameChange: (String) -> Unit,
+    employerType: String,
+    onEmployerTypeChange: (String) -> Unit,
     phoneNumber: String,
     onPhoneNumberChange: (String) -> Unit,
     selectedCountryCode: String,
@@ -605,12 +591,26 @@ private fun RegisterEntrySection(
         horizontalAlignment = Alignment.Start
     ) {
 
-        // Full Name / Company Name label
+        val isCompany = role == UserRole.EMPLOYER &&
+            employerType == com.example.dutype.firestore.FirestoreSchema.Values.EmployerType.COMPANY
+        if (role == UserRole.EMPLOYER) {
+            // Same choice as the employer profile setup: hiring as a person, or as a business.
+            com.example.dutype.employer.screens.StitchSegmentedToggle(
+                isIndividual = !isCompany,
+                onIndividualSelected = { onEmployerTypeChange(com.example.dutype.firestore.FirestoreSchema.Values.EmployerType.INDIVIDUAL) },
+                onCompanySelected = { onEmployerTypeChange(com.example.dutype.firestore.FirestoreSchema.Values.EmployerType.COMPANY) },
+                individualLabel = stringResource(R.string.auth_personal_individual),
+                companyLabel = stringResource(R.string.auth_company_business)
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // Name label: person or business
         Text(
-            text = if (role == UserRole.EMPLOYER) {
-                if (isTelugu) "కంపెనీ పేరు" else "Company name"
-            } else {
-                if (isTelugu) "పూర్తి పేరు" else "Full name"
+            text = when {
+                isCompany -> stringResource(R.string.auth_company_shop_name)
+                role == UserRole.EMPLOYER -> stringResource(R.string.auth_your_full_name)
+                else -> stringResource(R.string.auth_full_name)
             },
             style = MaterialTheme.typography.bodySmall.copy(
                 fontWeight = FontWeight.Medium,
@@ -624,6 +624,7 @@ private fun RegisterEntrySection(
             isTelugu = isTelugu,
             textColor = Ink900,
             role = role,
+            isCompany = isCompany,
             onValueChange = onFullNameChange
         )
 
@@ -631,7 +632,7 @@ private fun RegisterEntrySection(
 
         // Phone Number label
         Text(
-            text = if (isTelugu) "మొబైల్ నంబర్" else "Mobile number",
+            text = stringResource(R.string.auth_mobile_number),
             style = MaterialTheme.typography.bodySmall.copy(
                 fontWeight = FontWeight.Medium,
                 fontSize = 12.sp,
@@ -782,7 +783,7 @@ private fun RegisterEntrySection(
                 ) {
                     Box(modifier = Modifier.size(18.dp)) // Equal weight balance box
                     Text(
-                        text = if (isTelugu) "OTP పంపండి" else "Send OTP",
+                        text = stringResource(R.string.auth_send_otp),
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
@@ -797,67 +798,6 @@ private fun RegisterEntrySection(
                     )
                 }
             }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // "or" divider
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(1.dp)
-                    .background(CardBorder)
-            )
-            Text(
-                text = if (isTelugu) "లేదా" else "or",
-                style = MaterialTheme.typography.bodyMedium.copy(color = Ink600),
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(1.dp)
-                    .background(CardBorder)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Continue with Google (placeholder)
-        OutlinedButton(
-            onClick = {
-                Toast.makeText(
-                    appContext,
-                    "Google sign-in is coming soon",
-                    Toast.LENGTH_SHORT
-                ).show()
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(28.dp),
-            border = BorderStroke(1.dp, CardBorder),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink900)
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_google),
-                contentDescription = null,
-                tint = Color.Unspecified,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = if (isTelugu) "Google తో కొనసాగండి" else "Continue with Google",
-                style = MaterialTheme.typography.labelLarge.copy(
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Ink900
-                )
-            )
         }
 
         AnimatedVisibility(
@@ -879,6 +819,7 @@ private fun RegisterNameField(
     isTelugu: Boolean,
     textColor: Color,
     role: UserRole,
+    isCompany: Boolean,
     onValueChange: (String) -> Unit
 ) {
     OutlinedTextField(
@@ -893,16 +834,12 @@ private fun RegisterNameField(
         },
         placeholder = {
             Text(
-                if (role == UserRole.EMPLOYER) {
-                    if (isTelugu) "కంపెనీ పేరు నమోదు చేయండి" else "Enter company name"
-                } else {
-                    if (isTelugu) "మీ పూర్తి పేరు నమోదు చేయండి" else "Enter full name"
-                },
+                text = if (isCompany) stringResource(R.string.auth_company_name_hint) else stringResource(R.string.auth_enter_full_name_hint),
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, color = Ink600)
             )
         },
         leadingIcon = {
-            Icon(Icons.Filled.Person, contentDescription = null, tint = Ink400, modifier = Modifier.size(20.dp))
+            Icon(if (isCompany) Icons.Filled.Business else Icons.Filled.Person, contentDescription = null, tint = Ink400, modifier = Modifier.size(20.dp))
         },
         modifier = Modifier
             .fillMaxWidth()
@@ -998,7 +935,7 @@ private fun RegisterReferralSection(
                             onValidatedCodeChanged(normalizedCode)
                             Toast.makeText(
                                 appContext,
-                                if (isTelugu) "✓ ${validation.referrerName} నుండి చెల్లుబాటు అయ్యే కోడ్" else "✓ Valid code from ${validation.referrerName}",
+                                appContext.getString(R.string.auth_valid_code_from, validation.referrerName),
                                 Toast.LENGTH_SHORT
                             ).show()
                         } else {
@@ -1007,13 +944,13 @@ private fun RegisterReferralSection(
                             onValidatedCodeChanged(null)
                             Toast.makeText(
                                 appContext,
-                                validation.errorMessage ?: if (isTelugu) "చెల్లని కోడ్" else "Invalid code",
+                                validation.errorMessage ?: appContext.getString(R.string.auth_invalid_code),
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
                     } catch (e: Exception) {
                         isValidatingCode = false
-                        codeValidationError = if (isTelugu) "కోడ్ ధృవీకరణ విఫలమైంది" else "Failed to validate code"
+                        codeValidationError = appContext.getString(R.string.auth_verification_failed)
                         validatedReferrerName = null
                         onValidatedCodeChanged(null)
                         Timber.e(e, "🎁 REFERRAL: Validation error")
@@ -1049,7 +986,7 @@ private fun RegisterReferralCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (isTelugu) "రిఫరల్ కోడ్ ఉందా?" else "Have a referral code?",
+                text = stringResource(R.string.auth_have_referral_code),
                 style = AppTypography.bodyMedium.copy(
                     color = textColor,
                     fontWeight = FontWeight.Medium
@@ -1061,11 +998,7 @@ private fun RegisterReferralCard(
                 contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
             ) {
                 Text(
-                    text = if (showReferralInput) {
-                        if (isTelugu) "దాచు" else "Hide"
-                    } else {
-                        if (isTelugu) "కోడ్ నమోదు" else "Enter Code"
-                    },
+                    text = if (showReferralInput) stringResource(R.string.auth_hide) else stringResource(R.string.auth_enter_code),
                     style = AppTypography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = textColor
@@ -1091,7 +1024,7 @@ private fun RegisterReferralCard(
                         onValueChange = onCodeChange,
                         placeholder = {
                             Text(
-                                if (isTelugu) "ఉదా: DUTY4F9A" else "e.g. DUTY4F9A",
+                                stringResource(R.string.auth_referral_hint),
                                 style = AppTypography.bodyMedium.copy(color = Ink400)
                             )
                         },
@@ -1104,7 +1037,7 @@ private fun RegisterReferralCard(
                                 )
                                 validatedReferrerName != null -> Icon(
                                     Icons.Filled.CheckCircle,
-                                    contentDescription = if (isTelugu) "చెల్లుబాటు అయ్యింది" else "Valid",
+                                    contentDescription = stringResource(R.string.valid),
                                     tint = WorkerColors.Success,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -1112,7 +1045,7 @@ private fun RegisterReferralCard(
                                 referralCode.isNotEmpty() -> IconButton(onClick = onClear) {
                                     Icon(
                                         painter = painterResource(id = android.R.drawable.ic_menu_close_clear_cancel),
-                                        contentDescription = if (isTelugu) "తీసివేయండి" else "Clear",
+                                        contentDescription = stringResource(R.string.clear),
                                         tint = WorkerColors.IconSecondary,
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -1165,7 +1098,7 @@ private fun RegisterReferralCard(
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
                         } else {
                             Text(
-                                text = if (validatedReferrerName != null) "✓" else if (isTelugu) "ధృవీకరించండి" else "Verify",
+                                text = if (validatedReferrerName != null) "✓" else stringResource(R.string.verify),
                                 style = AppTypography.buttonMedium
                             )
                         }
@@ -1175,15 +1108,15 @@ private fun RegisterReferralCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 when {
                     validatedReferrerName != null -> Text(
-                        if (isTelugu) "✓ $validatedReferrerName నుండి చెల్లుబాటు అయ్యే కోడ్" else "✓ Valid code from $validatedReferrerName",
+                        stringResource(R.string.auth_valid_code_from, validatedReferrerName),
                         style = AppTypography.caption.copy(color = WorkerColors.Success)
                     )
                     codeValidationError != null && referralCode.length >= 7 -> Text(
-                        codeValidationError ?: if (isTelugu) "చెల్లని కోడ్" else "Invalid code",
+                        codeValidationError ?: stringResource(R.string.auth_invalid_code),
                         style = AppTypography.caption.copy(color = WorkerColors.Error)
                     )
                     else -> Text(
-                        if (isTelugu) "మీ స్నేహితుడి రిఫరల్ కోడ్ ఉంటే ఇక్కడ నమోదు చేయండి" else "Enter your friend's referral code if you have one",
+                        stringResource(R.string.auth_referral_explanation),
                         style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
                     )
                 }
@@ -1221,7 +1154,7 @@ private fun RegisterOtpSection(
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(R.string.back),
                 tint = Ink900
             )
         }
@@ -1229,7 +1162,7 @@ private fun RegisterOtpSection(
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = if (isTelugu) "మీ నంబర్‌ను ధృవీకరించండి" else "Verify your number",
+            text = stringResource(R.string.auth_verify_your_number),
             style = MaterialTheme.typography.titleLarge.copy(
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
@@ -1240,12 +1173,13 @@ private fun RegisterOtpSection(
         Spacer(modifier = Modifier.height(8.dp))
 
         // "+91 98765 43210 · Change number"
+        val changeNumberLabel = stringResource(R.string.auth_change_number_action)
         val annotatedText = buildAnnotatedString {
             append("+91 $phoneNumber")
             append("  ·  ")
             pushStringAnnotation(tag = "CHANGE", annotation = "change")
             withStyle(SpanStyle(color = BrandBluePrimary, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
-                append(if (isTelugu) "నంబర్ మార్చండి" else "Change number")
+                append(changeNumberLabel)
             }
             pop()
         }
@@ -1277,8 +1211,7 @@ private fun RegisterOtpSection(
                 val minutes = resendCooldownSeconds / 60
                 val seconds = resendCooldownSeconds % 60
                 Text(
-                    text = if (isTelugu) "OTP మళ్లీ పంపడానికి %d:%02d".format(minutes, seconds)
-                    else "Resend OTP in %d:%02d".format(minutes, seconds),
+                    text = stringResource(R.string.auth_resend_otp_in, minutes, seconds),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = Ink600,
                         fontSize = 14.sp
@@ -1290,7 +1223,7 @@ private fun RegisterOtpSection(
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
                 ) {
                     Text(
-                        text = if (isTelugu) "OTP మళ్లీ పంపండి" else "Resend OTP",
+                        text = stringResource(R.string.auth_resend_otp),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
@@ -1328,7 +1261,7 @@ private fun RegisterOtpSection(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = if (isTelugu) "ధృవీకరించి కొనసాగండి" else "Verify & Continue",
+                        text = stringResource(R.string.auth_verify_and_continue),
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,

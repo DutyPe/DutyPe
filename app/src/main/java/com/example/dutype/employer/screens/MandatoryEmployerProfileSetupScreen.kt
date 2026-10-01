@@ -201,7 +201,7 @@ internal fun StitchSegmentedToggle(
     onIndividualSelected: () -> Unit,
     onCompanySelected: () -> Unit,
     modifier: Modifier = Modifier,
-    individualLabel: String = stringResource(R.string.auth_individual),
+    individualLabel: String = stringResource(R.string.auth_personal_individual),
     companyLabel: String = stringResource(R.string.auth_company_business)
 ) {
     Row(
