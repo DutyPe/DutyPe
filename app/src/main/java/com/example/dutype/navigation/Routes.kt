@@ -20,6 +20,12 @@ object Routes {
     const val WORKER_CATEGORIES = "worker_categories"
     const val WORKER_CATEGORIES_FILTERED = "worker_categories/{category}"
     const val JOB_DETAIL = "job_detail_route/{jobId}"
+    /** Full-screen urgent job offer (Accept / Skip). Deep link: dutype://urgent/{requestId}. */
+    const val URGENT_OFFER = "urgent_offer/{requestId}"
+    /** DutyPe AI (employer voice assistant). Deep link: dutype://ai?listen=true (home-screen shortcut). */
+    const val DUTYPE_AI = "dutype_ai?listen={listen}"
+    fun dutypeAiRoute(listen: Boolean = false): String = "dutype_ai?listen=$listen"
+    fun urgentOfferRoute(requestId: String): String = "urgent_offer/$requestId"
     const val JOB_APPLICATION = "job_application/{jobId}"
     const val PROFILE_SETUP = "profile_setup"
     const val PROFILE_SETUP_WITH_RETURN = "profile_setup?returnRoute={returnRoute}"

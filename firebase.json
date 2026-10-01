@@ -11,6 +11,13 @@
   },
   "hosting": {
     "source": "web",
+    "frameworksBackend": {
+      "region": "asia-east1",
+      "memory": "512MiB",
+      "minInstances": 0,
+      "maxInstances": 5,
+      "concurrency": 80
+    },
     "ignore": [
       "firebase.json",
       "**/node_modules/**"
@@ -95,8 +102,308 @@
           }
         ]
       }
+    ],
+    "redirects": [
+      {
+        "source": "/legal/privacy",
+        "destination": "/privacy",
+        "type": 301
+      },
+      {
+        "source": "/legal/terms",
+        "destination": "/terms",
+        "type": 301
+      },
+      {
+        "source": "/legal/refund",
+        "destination": "/refund",
+        "type": 301
+      },
+      {
+        "source": "/legal/safety",
+        "destination": "/safety",
+        "type": 301
+      },
+      {
+        "source": "/legal/contact",
+        "destination": "/contact",
+        "type": 301
+      },
+      {
+        "source": "/legal/account-deletion",
+        "destination": "/accountdeletion",
+        "type": 301
+      },
+      {
+        "source": "/account-deletion",
+        "destination": "/accountdeletion",
+        "type": 301
+      },
+      {
+        "source": "/delete-account",
+        "destination": "/accountdeletion",
+        "type": 301
+      },
+      {
+        "source": "/index.html",
+        "destination": "/",
+        "type": 301
+      },
+      {
+        "source": "/jobs/index.html",
+        "destination": "/jobs",
+        "type": 301
+      },
+      {
+        "source": "/worker/index.html",
+        "destination": "/worker",
+        "type": 301
+      },
+      {
+        "source": "/employer/index.html",
+        "destination": "/employer",
+        "type": 301
+      },
+      {
+        "source": "/privacy.html",
+        "destination": "/privacy",
+        "type": 301
+      },
+      {
+        "source": "/terms.html",
+        "destination": "/terms",
+        "type": 301
+      },
+      {
+        "source": "/refund.html",
+        "destination": "/refund",
+        "type": 301
+      },
+      {
+        "source": "/safety.html",
+        "destination": "/safety",
+        "type": 301
+      },
+      {
+        "source": "/contact.html",
+        "destination": "/contact",
+        "type": 301
+      },
+      {
+        "source": "/faq.html",
+        "destination": "/faq",
+        "type": 301
+      },
+      {
+        "source": "/refer.html",
+        "destination": "/refer",
+        "type": 301
+      },
+      {
+        "source": "/worker.html",
+        "destination": "/worker",
+        "type": 301
+      },
+      {
+        "source": "/employer.html",
+        "destination": "/employer",
+        "type": 301
+      },
+      {
+        "source": "/account-deletion.html",
+        "destination": "/accountdeletion",
+        "type": 301
+      },
+      {
+        "source": "/accountdeletion.html",
+        "destination": "/accountdeletion",
+        "type": 301
+      },
+      {
+        "source": "/admin/index.html",
+        "destination": "/admin",
+        "type": 301
+      },
+      {
+        "source": "/admin/dashboard.html",
+        "destination": "/admin",
+        "type": 301
+      },
+      {
+        "source": "/admin/login.html",
+        "destination": "/admin/login",
+        "type": 301
+      },
+      {
+        "source": "/admin/users.html",
+        "destination": "/admin/users",
+        "type": 301
+      },
+      {
+        "source": "/admin/jobs.html",
+        "destination": "/admin/jobs",
+        "type": 301
+      },
+      {
+        "source": "/admin/applications.html",
+        "destination": "/admin/applications",
+        "type": 301
+      },
+      {
+        "source": "/admin/referrals.html",
+        "destination": "/admin/referrals",
+        "type": 301
+      },
+      {
+        "source": "/admin/announcements.html",
+        "destination": "/admin/announcements",
+        "type": 301
+      },
+      {
+        "source": "/admin/post-job.html",
+        "destination": "/admin/post-job",
+        "type": 301
+      },
+      {
+        "source": "/admin/check-and-create-code.html",
+        "destination": "/admin",
+        "type": 301
+      },
+      {
+        "source": "/admin/create-test-referral.html",
+        "destination": "/admin",
+        "type": 301
+      },
+      {
+        "source": "/admin/test-referral.html",
+        "destination": "/admin",
+        "type": 301
+      },
+      {
+        "source": "/admin/dashboard",
+        "destination": "/admin",
+        "type": 301
+      },
+      {
+        "source": "/admin/workers",
+        "destination": "/admin/worker-profiles",
+        "type": 301
+      },
+      {
+        "source": "/admin/worker-profiles.html",
+        "destination": "/admin/worker-profiles",
+        "type": 301
+      },
+      {
+        "source": "/admin/employers",
+        "destination": "/admin/employer-profiles",
+        "type": 301
+      },
+      {
+        "source": "/admin/employer-profiles.html",
+        "destination": "/admin/employer-profiles",
+        "type": 301
+      },
+      {
+        "source": "/admin/profiles",
+        "destination": "/admin/users",
+        "type": 301
+      },
+      {
+        "source": "/admin/job-posts",
+        "destination": "/admin/jobs",
+        "type": 301
+      },
+      {
+        "source": "/admin/referral-withdrawals",
+        "destination": "/admin/referral-stats",
+        "type": 301
+      },
+      {
+        "source": "/admin/check-and-create-code",
+        "destination": "/admin",
+        "type": 301
+      },
+      {
+        "source": "/admin/create-test-referral",
+        "destination": "/admin",
+        "type": 301
+      },
+      {
+        "source": "/admin/test-referral",
+        "destination": "/admin",
+        "type": 301
+      },
+      {
+        "source": "/admin/whatsapp-groups",
+        "destination": "/admin",
+        "type": 301
+      },
+      {
+        "source": "/job",
+        "destination": "/jobs",
+        "type": 301
+      },
+      {
+        "source": "/help",
+        "destination": "/contact",
+        "type": 301
+      },
+      {
+        "source": "/support",
+        "destination": "/contact",
+        "type": 301
+      },
+      {
+        "source": "/contact-us",
+        "destination": "/contact",
+        "type": 301
+      },
+      {
+        "source": "/worker/refer",
+        "destination": "/refer",
+        "type": 301
+      },
+      {
+        "source": "/worker/referrals",
+        "destination": "/refer",
+        "type": 301
+      },
+      {
+        "source": "/employer/refer",
+        "destination": "/refer",
+        "type": 301
+      },
+      {
+        "source": "/employer/referrals",
+        "destination": "/refer",
+        "type": 301
+      },
+      {
+        "regex": "^/(?:job|worker/jobs|app/worker/jobs)/(?P<id>[^/]+)/?$",
+        "destination": "/jobs/:id",
+        "type": 301
+      },
+      {
+        "regex": "^/jobs/(?P<id>[^/]+)/renew/?$",
+        "destination": "/jobs/:id",
+        "type": 301
+      },
+      {
+        "regex": "^/(?:app/)?worker/applications/(?P<id>[^/]+)/?$",
+        "destination": "/application/:id",
+        "type": 301
+      },
+      {
+        "regex": "^/(?:app(?:/.*)?|post-job|applications?|chat/.*|(?:worker|employer)/(?:home|dashboard|jobs|applications|my-jobs|map|location|locations|profile|notifications|post-job|company|company-details|verification|urgent)(?:/.*)?)/?$",
+        "destination": "/app-redirect",
+        "type": 301
+      },
+      {
+        "regex": "^/(?P<page>.+)\\.html$",
+        "destination": "/:page",
+        "type": 301
+      }
     ]
   }
 }
-
-

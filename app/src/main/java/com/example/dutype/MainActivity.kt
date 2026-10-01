@@ -1,5 +1,7 @@
 package com.example.dutype
 
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.compose.ui.res.stringResource
 import android.content.Context
@@ -92,7 +94,7 @@ class MainActivity : ComponentActivity() {
      * trace captures everything from `super.onCreate` through the first usable frame, which
      * is the metric we actually optimize.
      */
-    
+
     // PERF: Removed unused eager @Inject fields (jobApplicationService, reviewManager,
     // metadataManager). They were declared but never referenced in this Activity, yet
     // Hilt was forced to construct their entire transitive graph (Firestore, Auth,
@@ -103,7 +105,7 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var fcmTokenManagerLazy: dagger.Lazy<FCMTokenManager>
     private val fcmTokenManager: FCMTokenManager get() = fcmTokenManagerLazy.get()
-    
+
     @Inject
     lateinit var updateManagerLazy: dagger.Lazy<com.example.dutype.utils.InAppUpdateManager>
     private val updateManager: com.example.dutype.utils.InAppUpdateManager get() = updateManagerLazy.get()
@@ -117,7 +119,7 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var appConfigRepository: com.example.dutype.repositories.AppConfigRepository
-    
+
     // Activity result launcher kept for the update manager API.
     private val updateResultLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()
@@ -138,12 +140,12 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     override fun attachBaseContext(newBase: Context) {
         // Apply saved language preference
         super.attachBaseContext(LocaleHelper.setLocale(newBase))
     }
-    
+
     private fun sanitizeLaunchIntent(launchIntent: Intent?): Boolean {
         if (launchIntent == null) return false
         // Detect duplicate Activity instance launched directly from Google Play Store installer button
@@ -189,18 +191,18 @@ class MainActivity : ComponentActivity() {
             keepSplashOnScreen = false
             startupOverlayCommitted = true
         }, 700L)
-        
+
         super.onCreate(savedInstanceState)
         val launchIntent = normalizeNotificationLaunchIntent(intent)
         launchIntent?.let(::setIntent)
         cancelTappedSystemNotification(launchIntent)
-        
+
         // Initialize Timber for logging (if not already initialized in Application class)
         // PERF: only in debuggable builds; a DebugTree in release logs every Timber call to logcat.
         if (Timber.treeCount == 0 && isDebuggableBuild()) {
             Timber.plant(Timber.DebugTree())
         }
-        
+
         if (Timber.treeCount > 0) {
             Timber.d("✅ MainActivity.onCreate() - Activity created")
             Timber.d("Package: ${packageName}")
@@ -208,7 +210,7 @@ class MainActivity : ComponentActivity() {
             Timber.d("Build variant: ${buildVariantName()}")
         }
         logNotificationTapTelemetry(source = "on_create", sourceIntent = launchIntent)
-        
+
         // Log notification intent if present
         if (launchIntent?.getBooleanExtra("from_notification", false) == true) {
             Timber.i("📱 App opened from notification")
@@ -233,11 +235,9 @@ class MainActivity : ComponentActivity() {
                 if (FirebaseAuth.getInstance().currentUser == null) {
                     fcmTokenManager.subscribeToTopic(FCMTokenManager.TOPIC_GUEST_USERS)
                     fcmTokenManager.subscribeToLanguageTopicPublic(FCMTokenManager.TOPIC_GUEST_USERS)
-                    com.example.dutype.workers.GuestEngagementWorker.cancelAll(this@MainActivity)
                 } else {
                     fcmTokenManager.unsubscribeFromTopic(FCMTokenManager.TOPIC_GUEST_USERS)
                     fcmTokenManager.unsubscribeFromLanguageTopicPublic(FCMTokenManager.TOPIC_GUEST_USERS)
-                    com.example.dutype.workers.GuestEngagementWorker.scheduleRecurring(this@MainActivity)
                 }
             }.onFailure { Timber.w(it, "Guest engagement topic setup failed (non-fatal)") }
         }
@@ -269,37 +269,37 @@ class MainActivity : ComponentActivity() {
             // removes the "blank loading" flash between splash dismissal and the
             // first real screen and matches the pattern used by Google apps,
             // LinkedIn, Instagram, Uber. No Compose splash is drawn on top.
-            
+
             val windowSizeClass = rememberWindowSizeClass()
-            
+
 
             var showMaintenanceMode by remember { mutableStateOf(false) }
             var showForceUpdate by remember { mutableStateOf(false) }
             val lifecycleOwner = LocalLifecycleOwner.current
-            
+
             // REMOVED: Metadata checks - only load when actually needed
             // Metadata is now loaded lazily when user navigates to screens that need it
-            
+
             // REMOVED: Blacklist check - only check when user performs sensitive actions
             // This prevents unnecessary Firestore calls on every app start
-            
+
             // REMOVED: FCM token refresh - only refresh when user is actively using the app
             // Token refresh moved to when user performs their first action
-            
+
             // REMOVED: In-app review - only show after user completes meaningful actions
             // Review prompt moved to after job application or job posting
-            
+
             // REMOVED: Developer mode check - only check when user tries sensitive actions
             // This prevents unnecessary checks on every app start
-            
+
             // REMOVED: Blacklist check on startup - only check when user performs actions
             // This saves a Firestore call on every app start
-            
+
             // REMOVED: Re-check on resume - unnecessary overhead
-            
+
             // REMOVED: FCM token refresh on startup - only refresh when user is active
             // Token refresh moved to when user performs their first meaningful action
-            
+
             dutypeTheme {
                 ResponsiveTheme(windowSizeClass = windowSizeClass) {
                     val navController = rememberNavController()
@@ -354,7 +354,9 @@ class MainActivity : ComponentActivity() {
                         luminance < 0.5
                     }
 
-                    LaunchedEffect(effectiveStatusBarColor, darkTheme, isColorDark) {
+                    val currentRouteForBars = navController.currentBackStackEntryFlow
+                        .collectAsStateWithLifecycle(initialValue = null).value?.destination?.route
+                    LaunchedEffect(effectiveStatusBarColor, darkTheme, isColorDark, currentRouteForBars) {
                         @Suppress("DEPRECATION")
                         window.statusBarColor = android.graphics.Color.TRANSPARENT
                         WindowCompat.getInsetsController(window, window.decorView).apply {
@@ -364,7 +366,7 @@ class MainActivity : ComponentActivity() {
                             isAppearanceLightNavigationBars = !darkTheme
                         }
                     }
-                    
+
                     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                         // PERF: Log only once when MainNavGraph first mounts. Without this
                         // gate, every parent recomposition (e.g. statusBarColor change from
@@ -397,7 +399,7 @@ class MainActivity : ComponentActivity() {
                         if (showMaintenanceMode) {
                             MaintenanceModeSheet()
                         }
-                        
+
                         // Force Update Sheet
                         if (showForceUpdate) {
                             ForceUpdateSheet(
@@ -417,6 +419,25 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             )
+                        }
+
+                        // Launch wordmark ("DutyPe", letters fading up) over the black splash colour while
+                        // the first screen loads underneath. Cold starts only; skipped when opened from a
+                        // notification or link so those land on their screen straight away.
+                        var showBrandIntro by androidx.compose.runtime.saveable.rememberSaveable {
+                            mutableStateOf(
+                                savedInstanceState == null &&
+                                    launchIntent?.getBooleanExtra("from_notification", false) != true &&
+                                    launchIntent?.data == null
+                            )
+                        }
+                        if (showBrandIntro) {
+                            // The intro covers the screen, so the plain system splash can go at once.
+                            androidx.compose.runtime.SideEffect {
+                                startupOverlayCommitted = true
+                                keepSplashOnScreen = false
+                            }
+                            com.example.dutype.ui.BrandIntro(onFinished = { showBrandIntro = false })
                         }
 
                         // Native Google Play In-App Review (triggered on job application, posting, etc.)
@@ -443,11 +464,11 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     /**
      * Handle new intents when app is already running (e.g., notification clicks, shared links)
      * This is CRITICAL for deep links to work when app is in background or already open
-     * 
+     *
      * INDUSTRY STANDARD: This is how LinkedIn, Instagram, Uber handle deep links
      */
     override fun onNewIntent(newIntent: Intent) {
@@ -564,12 +585,12 @@ class MainActivity : ComponentActivity() {
             Timber.w(error, "Failed to log notification tap telemetry")
         }
     }
-    
+
     override fun onStart() {
         super.onStart()
         Timber.d("📱 MainActivity.onStart()")
     }
-    
+
     override fun onResume() {
         super.onResume()
         Timber.d("📱 MainActivity.onResume()")
@@ -589,7 +610,7 @@ class MainActivity : ComponentActivity() {
                 Timber.w(error, "FCM token refresh on app open failed")
             }
         }
-        
+
         // Check for in-app updates. Native Play Core prompts are disabled in
         // release builds so small hotfixes do not carry the Play update SDK dex.
         lifecycleScope.launch {
@@ -601,7 +622,7 @@ class MainActivity : ComponentActivity() {
                 activityResultLauncher = updateResultLauncher,
                 onUpdateAvailable = { appUpdateInfo, updateType ->
                     Timber.i("🔄 Update available - type: ${if (updateType == InAppUpdateManager.UPDATE_TYPE_IMMEDIATE) "IMMEDIATE" else "FLEXIBLE"}")
-                    
+
                     // Register listener for flexible updates to auto-complete when downloaded
                     if (updateType == InAppUpdateManager.UPDATE_TYPE_FLEXIBLE) {
                         updateManager.registerFlexibleUpdateListener(
@@ -622,7 +643,7 @@ class MainActivity : ComponentActivity() {
                     Timber.w("⚠️ Update check failed (non-fatal): ${exception.message}")
                 }
             )
-            
+
             // Also check for pending flexible updates
             updateManager.checkForPendingUpdate {
                 Timber.i("⏳ Pending update found - prompting user to install")
@@ -630,12 +651,10 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-    
+
     override fun onPause() {
         super.onPause()
         Timber.d("📱 MainActivity.onPause()")
-        // Schedule background re-engagement check (worker itself skips guests).
-        com.example.dutype.workers.GuestEngagementWorker.scheduleBackground(this)
     }
 
     override fun onStop() {
@@ -655,7 +674,7 @@ class MainActivity : ComponentActivity() {
             Timber.d("📱 MainActivity.onStop() - App still in foreground (active activity present), skipping icon switch")
         }
     }
-    
+
     override fun onDestroy() {
         super.onDestroy()
         Timber.d("📱 MainActivity.onDestroy()")
@@ -691,7 +710,7 @@ private fun MaintenanceModeSheet() {
             Text(
                 text = stringResource(R.string.auto_we_re_making_dutype_even_better_for_you_pl),
                 style = MaterialTheme.typography.bodyLarge,
-                color = Color(0xFF6B7280),
+                color = Color(0xFF6B7280).fg(),
                 textAlign = TextAlign.Center
             )
         }
@@ -727,14 +746,14 @@ private fun ForceUpdateSheet(onUpdateClick: () -> Unit) {
             Text(
                 text = stringResource(R.string.auto_a_new_version_of_dutype_is_available_with),
                 style = MaterialTheme.typography.bodyLarge,
-                color = Color(0xFF6B7280),
+                color = Color(0xFF6B7280).fg(),
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(16.dp))
             Button(
                 onClick = onUpdateClick,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF1F2937)
+                    containerColor = Color(0xFF1F2937).bg()
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier

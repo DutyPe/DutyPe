@@ -2,420 +2,109 @@ package com.example.dutype.viewmodels
 
 import android.net.Uri
 import androidx.lifecycle.ViewModel
+import com.example.dutype.models.UserRole
+import com.example.dutype.profile.CurrentProfileStore
+import com.example.dutype.profile.EmployerProfile
+import com.example.dutype.profile.WorkerProfile
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ProfileSetupStateManager
-import com.example.dutype.models.UserRole
-import com.example.dutype.metadata.MetadataManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import timber.log.Timber
 
 /**
- * ViewModel for Profile Completion operations
- * Wraps ProfileCompletionService and ProfileSetupStateManager for Compose integration
- * 
- * REFACTORED: Added AuthManager, RatingService, LocationService, FCMTokenManager, NotificationService
- * This eliminates the need for ServiceProvider anti-pattern
+ * Profile setup / editing for Compose screens: typed profile reads and field saves
+ * ([ProfileCompletionService]), the live own profile ([CurrentProfileStore]) and the
+ * local onboarding flags ([ProfileSetupStateManager]).
  */
 @HiltViewModel
 class ProfileCompletionViewModel @Inject constructor(
     val profileCompletionService: ProfileCompletionService,
     private val profileSetupStateManager: ProfileSetupStateManager,
+    val profileStore: CurrentProfileStore,
     val authManager: com.example.dutype.auth.AuthManager,
     val locationService: com.example.dutype.utils.LocationService,
     val fcmTokenManager: com.example.dutype.services.FCMTokenManager,
     val notificationService: com.example.dutype.services.NotificationService,
     val locationPreferences: com.example.dutype.location.LocationPreferences,
-    val metadataManager: MetadataManager
+    private val referralService: com.example.dutype.services.ReferralService
 ) : ViewModel() {
 
-    /**
-     * Check if user has complete profile for their role
-     */
-    suspend fun isProfileComplete(userId: String, role: UserRole) = 
+    // ─────────────────────────────── Firestore profile ───────────────────────────────
+
+    suspend fun isProfileComplete(userId: String, role: UserRole) =
         profileCompletionService.isProfileComplete(userId, role.name)
 
-    /**
-     * Save user info for profile setup (to Firebase)
-     */
-    suspend fun saveUserInfo(email: String, name: String, role: UserRole) =
-        profileCompletionService.saveUserInfo(email, name, role.name)
+    suspend fun getWorker(userId: String): Result<WorkerProfile?> = profileCompletionService.getWorker(userId)
 
-    suspend fun saveUserInfo(name: String, role: UserRole) =
-        profileCompletionService.saveUserInfo("", name, role.name)
-    
-    /**
-     * Save user info to local storage for profile setup screen
-     */
+    suspend fun getEmployer(userId: String): Result<EmployerProfile?> = profileCompletionService.getEmployer(userId)
+
+    /** Keys from `FirestoreSchema.WorkerProfiles`. */
+    suspend fun saveWorker(fields: Map<String, Any?>) = profileCompletionService.saveWorker(fields)
+
+    /** Keys from `FirestoreSchema.EmployerProfiles`. */
+    suspend fun saveEmployer(fields: Map<String, Any?>) = profileCompletionService.saveEmployer(fields)
+
+    suspend fun uploadProfileImage(imageUri: Uri, userId: String, userRole: String) =
+        profileCompletionService.uploadProfileImage(imageUri, userId, userRole)
+
+    // ─────────────────────────────── local onboarding state ───────────────────────────────
+
     suspend fun saveUserInfoToLocalStorage(email: String, name: String, role: UserRole) =
         profileSetupStateManager.saveUserInfo(email, name, role)
 
     suspend fun saveUserInfoToLocalStorage(name: String, role: UserRole) =
         profileSetupStateManager.saveUserInfo("", name, role)
-    
-    suspend fun updateUserRole(newRole: UserRole) {
-        // Update role in Firebase
-        profileCompletionService.updateUserRole(newRole.name).getOrThrow()
-        // Also update role in local DataStore
-        profileSetupStateManager.saveUserRole(newRole)
-    }
 
-    /**
-     * Check if profile setup should be shown
-     */
-    suspend fun shouldRedirectToProfileSetup(role: UserRole) = 
-        profileCompletionService.shouldRedirectToProfileSetup(role.name)
+    suspend fun hasProfileSetupBeenShown(role: UserRole) = profileSetupStateManager.hasProfileSetupBeenShown(role)
 
-    /**
-     * Check if profile setup has been shown
-     */
-    suspend fun hasProfileSetupBeenShown(role: UserRole) = 
-        profileSetupStateManager.hasProfileSetupBeenShown(role)
+    suspend fun isProfileComplete(role: UserRole) = profileSetupStateManager.isProfileComplete(role)
 
-    /**
-     * Check if profile is complete
-     */
-    suspend fun isProfileComplete(role: UserRole) = 
-        profileSetupStateManager.isProfileComplete(role)
+    suspend fun getUserEmail() = profileSetupStateManager.getUserEmail()
 
-    /**
-     * Get user email
-     */
-    suspend fun getUserEmail() = 
-        profileSetupStateManager.getUserEmail()
+    suspend fun getUserName() = profileSetupStateManager.getUserName()
 
-    /**
-     * Get user name
-     */
-    suspend fun getUserName() = 
-        profileSetupStateManager.getUserName()
+    suspend fun getUserRole() = profileSetupStateManager.getUserRole()
 
-    /**
-     * Get user role
-     */
-    suspend fun getUserRole() = 
-        profileSetupStateManager.getUserRole()
+    suspend fun getCompletionPercentage(role: UserRole) = profileSetupStateManager.getCompletionPercentage(role)
 
-    /**
-     * Get completion percentage
-     */
-    suspend fun getCompletionPercentage(role: UserRole) = 
-        profileSetupStateManager.getCompletionPercentage(role)
+    suspend fun getMissingFields(role: UserRole) = profileSetupStateManager.getMissingFields(role)
 
-    /**
-     * Get missing fields
-     */
-    suspend fun getMissingFields(role: UserRole) = 
-        profileSetupStateManager.getMissingFields(role)
+    suspend fun markProfileComplete(role: UserRole) = profileSetupStateManager.markProfileComplete(role)
 
-    /**
-     * Mark profile as complete
-     */
-    suspend fun markProfileComplete(role: UserRole) = 
-        profileSetupStateManager.markProfileComplete(role)
+    suspend fun getProfileSetupStatus(role: UserRole) = profileSetupStateManager.getProfileSetupStatus(role)
 
-    /**
-     * Get profile setup status
-     */
-    suspend fun getProfileSetupStatus(role: UserRole) = 
-        profileSetupStateManager.getProfileSetupStatus(role)
+    suspend fun resetProfileSetupState() = profileSetupStateManager.resetProfileSetupState()
 
-    /**
-     * Reset profile setup state
-     */
-    suspend fun resetProfileSetupState() = 
-        profileSetupStateManager.resetProfileSetupState()
+    suspend fun markProfileSetupAsShown(role: UserRole) = profileSetupStateManager.markProfileSetupAsShown(role)
 
-        /**
-         * Mark profile setup as shown for a specific role
-         */
-        suspend fun markProfileSetupAsShown(role: UserRole) =
-            profileSetupStateManager.markProfileSetupAsShown(role)
+    suspend fun hasAppBeenOpenedBefore(): Boolean = profileSetupStateManager.hasAppBeenOpenedBefore()
 
-        /**
-         * Save worker profile data to Firestore
-         */
-        suspend fun saveWorkerProfileData(profileData: Map<String, Any>) =
-            profileCompletionService.saveWorkerProfileData(profileData)
+    suspend fun hasOnboardingBeenCompleted(): Boolean = profileSetupStateManager.hasOnboardingBeenCompleted()
 
-        /**
-         * Save employer profile data to Firestore
-         */
-        suspend fun saveEmployerProfileData(profileData: Map<String, Any>) =
-            profileCompletionService.saveEmployerProfileData(profileData)
+    suspend fun markOnboardingCompleted() = profileSetupStateManager.markOnboardingCompleted()
 
-        /**
-         * Get employer profile data from Firestore
-         */
-        suspend fun getEmployerProfileData(userId: String) =
-            profileCompletionService.getEmployerProfileData(userId)
+    suspend fun markAppAsOpened() = profileSetupStateManager.markAppAsOpened()
 
-        /**
-         * Get worker profile data from Firestore
-         */
-        suspend fun getWorkerProfileData(userId: String) =
-            profileCompletionService.getWorkerProfileData(userId)
+    suspend fun saveAuthMethod(authMethod: String) = profileSetupStateManager.saveAuthMethod(authMethod)
 
-        /**
-         * Upload profile image to Firebase Storage
-         */
-        suspend fun uploadProfileImage(imageUri: Uri, userId: String, userRole: String) =
-            profileCompletionService.uploadProfileImage(imageUri, userId, userRole)
+    suspend fun getAuthMethod(): String? = profileSetupStateManager.getAuthMethod()
 
-        /**
-         * Check if the app has been opened before
-         */
-        suspend fun hasAppBeenOpenedBefore(): Boolean =
-            profileSetupStateManager.hasAppBeenOpenedBefore()
+    suspend fun savePhoneNumber(phone: String) = profileSetupStateManager.savePhoneNumber(phone)
 
-        /**
-         * Check if onboarding has been completed
-         * This is separate from hasAppBeenOpenedBefore to handle app restart during language selection
-         */
-        suspend fun hasOnboardingBeenCompleted(): Boolean =
-            profileSetupStateManager.hasOnboardingBeenCompleted()
+    suspend fun getPhoneNumber(): String? = profileSetupStateManager.getPhoneNumber()
 
-        /**
-         * Mark onboarding as completed
-         * Called when user finishes all onboarding screens and reaches role selection
-         */
-        suspend fun markOnboardingCompleted() =
-            profileSetupStateManager.markOnboardingCompleted()
+    /** A code typed before sign-up; sent with `completeRegistration`, which applies it server-side. */
+    suspend fun saveReferralCode(code: String) = profileSetupStateManager.saveReferralCode(code)
 
-    /**
-     * High-level approach: Check if user has existing profile using multiple strategies
-     * Now properly checks ROLE-SPECIFIC profile completion
-     */
-    suspend fun checkExistingProfileHighLevel(email: String, role: UserRole): Boolean {
-        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Checking for email: $email, role: $role")
-        
-        // First check if user document exists and has basic profile complete
-        val currentUserCheck = profileCompletionService.checkExistingProfileByCurrentUser().getOrElse { false }
-        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Current user check result: $currentUserCheck")
-        
-        if (!currentUserCheck) {
-            // Phone-role identity can be briefly unavailable on cold start.
-            // Continue to the role profile read so completed users are not
-            // sent back to setup just because the identity pre-check missed.
-            Timber.d("ProfileCompletionViewModel.checkExistingProfileHighLevel: Basic identity check false; continuing with role profile check")
-        }
-        
-        // Profile exists, now check ROLE-SPECIFIC completion
-        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-        if (currentUser == null) {
-            Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: No authenticated user")
-            return false
-        }
-        
-        return when (role) {
-            UserRole.EMPLOYER -> {
-                // For EMPLOYER: Check if employer-specific fields are complete (companyName is mandatory)
-                val employerProfileResult = profileCompletionService.getEmployerProfileData(currentUser.uid)
-                val hasEmployerProfile = employerProfileResult.fold(
-                    onSuccess = { data ->
-                        val companyName = (data["companyName"] as? String)?.takeIf { it.isNotBlank() }
-                            ?: (data["fullName"] as? String)?.takeIf { it.isNotBlank() }
-                        val hasCompanyName = !companyName.isNullOrBlank()
-                        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: EMPLOYER - name/company: $companyName, hasName: $hasCompanyName")
-                        hasCompanyName
-                    },
-                    onFailure = { 
-                        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: EMPLOYER - Failed to get employer profile data")
-                        false 
-                    }
-                )
-                Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: EMPLOYER profile complete: $hasEmployerProfile")
-                hasEmployerProfile
-            }
-            UserRole.WORKER -> {
-                // For WORKER: Check the same mandatory fields used by the
-                // worker setup flow. This keeps cold-start routing aligned
-                // with the profile form instead of sending completed workers
-                // back to setup after reopening the app.
-                val workerProfileResult = profileCompletionService.getWorkerProfileData(currentUser.uid)
-                val hasWorkerProfile = workerProfileResult.fold(
-                    onSuccess = { data ->
-                        val fullName = data["fullName"] as? String
-                        val phone = data["phone"] as? String
-                        val bio = data["bio"] as? String
-                        val skills = when (val rawSkills = data["skills"]) {
-                            is List<*> -> rawSkills.filterIsInstance<String>()
-                            is String -> rawSkills.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-                            else -> emptyList()
-                        }
-                        val hasRequiredFields = !fullName.isNullOrBlank() &&
-                            !phone.isNullOrBlank() &&
-                            skills.isNotEmpty() &&
-                            !bio.isNullOrBlank()
-                        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: WORKER - fullName: $fullName, phone: $phone, skills=${skills.size}, hasBio=${!bio.isNullOrBlank()}, hasRequiredFields: $hasRequiredFields")
-                        hasRequiredFields
-                    },
-                    onFailure = { 
-                        Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: WORKER - Failed to get worker profile data")
-                        false 
-                    }
-                )
-                Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: WORKER profile complete: $hasWorkerProfile")
-                hasWorkerProfile
-            }
-            else -> {
-                Timber.d("🔍 ProfileCompletionViewModel.checkExistingProfileHighLevel: Unknown role, returning false")
-                false
-            }
-        }
-    }
+    suspend fun getReferralCode(): String? = profileSetupStateManager.getReferralCode()
 
-    /**
-         * Load existing profile data for current authenticated user
-         * Returns Result with profile data map or failure
-         * 
-         * INDUSTRY BEST PRACTICE: Single Source of Truth pattern
-         * - Always fetch from Firebase (authoritative source)
-         * - No stale data issues
-         * - Works for both new and existing users
-         */
-        suspend fun loadExistingProfileData(): Result<Map<String, Any?>> {
-            return profileCompletionService.loadExistingProfileDataByCurrentUser()
-        }
+    suspend fun clearReferralCode() = profileSetupStateManager.clearReferralCode()
 
-        /**
-         * Mark that the app has been opened
-         */
-        suspend fun markAppAsOpened() =
-            profileSetupStateManager.markAppAsOpened()
+    suspend fun hasUserUsedReferralCode(): Boolean = referralService.hasUsedReferralCode()
 
-        /**
-         * Save authentication method ("GOOGLE" or "PHONE_OTP")
-         */
-        suspend fun saveAuthMethod(authMethod: String) =
-            profileSetupStateManager.saveAuthMethod(authMethod)
+    /** Applies a code during profile setup (server checks it and the 7-day window). */
+    suspend fun applyReferralCode(code: String): Result<Unit> =
+        referralService.applyReferralCode(code).onSuccess { profileSetupStateManager.clearReferralCode() }
 
-        /**
-         * Get authentication method
-         */
-        suspend fun getAuthMethod(): String? =
-            profileSetupStateManager.getAuthMethod()
-
-        /**
-         * Save phone number (from OTP verification)
-         */
-        suspend fun savePhoneNumber(phone: String) =
-            profileSetupStateManager.savePhoneNumber(phone)
-
-        /**
-         * Get saved phone number
-         */
-        suspend fun getPhoneNumber(): String? =
-            profileSetupStateManager.getPhoneNumber()
-
-        /**
-         * Save referral code (from signup)
-         */
-        suspend fun saveReferralCode(code: String) =
-            profileSetupStateManager.saveReferralCode(code)
-
-        /**
-         * Get saved referral code
-         */
-        suspend fun getReferralCode(): String? =
-            profileSetupStateManager.getReferralCode()
-
-        /**
-         * Clear saved referral code (after applying)
-         */
-        suspend fun clearReferralCode() =
-            profileSetupStateManager.clearReferralCode()
-        
-        // ============================================
-        // REFERRAL SYSTEM METHODS
-        // ============================================
-        
-        /**
-         * Validate a referral code
-         * Returns the referrer's userId and role if valid
-         */
-        suspend fun validateReferralCode(code: String): Result<Pair<String, String>?> {
-            return try {
-                profileCompletionService.validateReferralCode(code)
-            } catch (e: Exception) {
-                Timber.e(e, "Error validating referral code")
-                Result.failure(e)
-            }
-        }
-        
-        /**
-         * Apply a referral code for a new user
-         */
-        suspend fun applyReferralCode(
-            referralCode: String,
-            newUserId: String,
-            newUserRole: String,
-            newUserName: String,
-            newUserPhone: String
-        ): Result<com.example.dutype.services.ApplyReferralResult> {
-            return try {
-                val result = profileCompletionService.applyReferralCode(
-                    referralCode = referralCode,
-                    newUserId = newUserId,
-                    newUserRole = newUserRole,
-                    newUserName = newUserName,
-                    newUserPhone = newUserPhone
-                )
-                if (result.isSuccess) {
-                    profileSetupStateManager.clearReferralCode()
-                }
-                result
-            } catch (e: Exception) {
-                Timber.e(e, "Error applying referral code")
-                Result.failure(e)
-            }
-        }
-        
-        /**
-         * Complete a referral when user finishes profile setup
-         */
-        suspend fun completeReferral(userId: String): Result<Unit> {
-            return try {
-                profileCompletionService.completeReferral(userId)
-            } catch (e: Exception) {
-                Timber.e(e, "Error completing referral")
-                Result.failure(e)
-            }
-        }
-        
-        /**
-         * Check if user has already used a referral code
-         */
-        suspend fun hasUserUsedReferralCode(userId: String): Boolean {
-            return try {
-                profileCompletionService.hasUserUsedReferralCode(userId)
-            } catch (e: Exception) {
-                Timber.e(e, "Error checking if user used referral code")
-                false
-            }
-        }
-        
-        /**
-         * Get referral stats for current user
-         */
-        suspend fun getReferralStats() = profileCompletionService.getReferralStats()
-        
-        /**
-         * Get referral history for current user
-         */
-        suspend fun getReferralHistory(limit: Int = 20) = profileCompletionService.getReferralHistory(limit)
-        
-        /**
-         * Create referral stats for a new user (generates their unique referral code)
-         * Called when user completes profile setup
-         */
-        suspend fun createReferralStats(userId: String, userRole: String, userName: String = ""): Result<Unit> {
-            return try {
-                profileCompletionService.createReferralStats(userId, userRole, userName)
-            } catch (e: Exception) {
-                Timber.e(e, "Error creating referral stats")
-                Result.failure(e)
-            }
-        }
-    }
-
+    suspend fun validateReferralCode(code: String) = referralService.validateReferralCode(code)
+}

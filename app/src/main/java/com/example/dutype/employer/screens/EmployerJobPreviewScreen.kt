@@ -1,5 +1,8 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.fg
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
 import com.example.dutype.employer.models.JobShift
 import com.example.dutype.employer.models.EmploymentType
 import com.example.dutype.jobs.toForm
@@ -198,7 +201,7 @@ fun EmployerJobPreviewScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = EmployerColors.Primary)
+                        CircularProgressIndicator(color = EmployerColors.Primary.fg())
                     }
                 }
                 notFound || job == null -> {
@@ -419,7 +422,7 @@ private fun HeroBlock(
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(
-                            color = EmployerColors.Primary,
+                            color = EmployerColors.Primary.fg(),
                             strokeWidth = 2.5.dp,
                             modifier = Modifier.size(32.dp)
                         )
@@ -487,7 +490,7 @@ private fun HeroBlock(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.35f)),
+                        .background(Color.Black.bg().copy(alpha = 0.35f)),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(color = Color.White)
@@ -512,7 +515,7 @@ private fun TitleBlock(job: JobListing) {
             )
             if (job.addressText.isNotBlank()) {
                 Spacer(Modifier.height(12.dp))
-                HorizontalDivider(color = Color(0xFFEDF2F7))
+                HorizontalDivider(color = Color(0xFFEDF2F7).bd())
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -569,7 +572,7 @@ private fun DetailsCard(job: JobListing) {
             ) {
                 Column {
                     Spacer(Modifier.height(8.dp))
-                    HorizontalDivider(color = Color(0xFFEDF2F7))
+                    HorizontalDivider(color = Color(0xFFEDF2F7).bd())
 
                     InfoRow(stringResource(R.string.work_type), EmploymentType.fromKey(job.employmentType).displayName)
                     InfoRow(stringResource(R.string.salary), job.payText)
@@ -680,7 +683,7 @@ private fun StickyEditBar(
                                 if (isPaused) EmployerColors.Primary else EmployerColors.TextSecondary
                             ),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = if (isPaused) EmployerColors.Primary else EmployerColors.TextSecondary
+                                contentColor = if (isPaused) EmployerColors.Primary.fg() else EmployerColors.TextSecondary
                             )
                         ) {
                             if (isProcessing) {
@@ -730,9 +733,9 @@ private fun StickyEditBar(
                     onClick = onHome,
                     modifier = Modifier.height(52.dp),
                     shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.5.dp, EmployerColors.Primary),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, EmployerColors.Primary.bd()),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = EmployerColors.Primary
+                        contentColor = EmployerColors.Primary.fg()
                     ),
                     contentPadding = PaddingValues(horizontal = 14.dp)
                 ) {

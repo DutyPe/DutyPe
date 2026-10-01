@@ -18,7 +18,7 @@ import javax.inject.Singleton
 class JobShareService @Inject constructor() {
 
     private fun formatPay(job: JobListing): String =
-        "₹" + com.example.dutype.utils.SalaryFormatter.display(job.salary, job.salaryType)
+        job.payText
 
     fun shareJob(context: Context, job: JobListing) {
         try {

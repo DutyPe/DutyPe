@@ -97,7 +97,8 @@ fun EmployerMainScreen(
         Routes.WORKER_PROFILE_VIEW, // Batch-p #6.1: hide bottom bar on worker profile view
         Routes.CONTACT_US,
         Routes.EMPLOYER_NOTIFICATIONS,
-        Routes.EMPLOYER_POST_JOB,
+        Routes.EMPLOYER_POST_JOB, // full-screen posting flow
+        Routes.DUTYPE_AI, // full-screen assistant
         Routes.EMPLOYER_POST_URGENT_NEED,
         Routes.EMPLOYER_URGENT_NEED_DETAIL,
         Routes.EMPLOYER_COMPANY_DETAILS,
@@ -223,6 +224,15 @@ fun EmployerMainScreen(
                     composable(Routes.EMPLOYER_COMPANY_DETAILS) {
                         EmployerCompanyDetailsScreen(
                             navController = navController
+                        )
+                    }
+                    composable(
+                        route = Routes.DUTYPE_AI,
+                        arguments = listOf(androidx.navigation.navArgument("listen") { type = androidx.navigation.NavType.BoolType; defaultValue = false })
+                    ) { backStackEntry ->
+                        com.example.dutype.employer.ai.DutyPeAiScreen(
+                            navController = navController,
+                            startListening = backStackEntry.arguments?.getBoolean("listen") == true
                         )
                     }
                     composable(Routes.EMPLOYER_SUBSCRIPTION) {

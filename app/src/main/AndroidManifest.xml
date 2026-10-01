@@ -149,6 +149,11 @@
         </activity>
         
         <!-- Firebase Cloud Messaging Service - Enterprise Grade -->
+        <!-- Accept / Skip on urgent job offer notifications -->
+        <receiver
+            android:name="com.example.dutype.urgent.UrgentOfferReceiver"
+            android:exported="false" />
+
         <service
             android:name="com.example.dutype.services.DutyPeMessagingService"
             android:exported="false">

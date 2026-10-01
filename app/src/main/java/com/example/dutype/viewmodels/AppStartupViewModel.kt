@@ -3,7 +3,7 @@ package com.example.dutype.viewmodels
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.dutype.firestore.FirestoreCollections
+import com.example.dutype.firestore.FirestoreSchema.PhoneRoles
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.navigation.StartDestinationCache
@@ -82,6 +82,14 @@ class AppStartupViewModel @Inject constructor(
                     return@launch
                 }
 
+                // Accounts whose login token predates the role claim (set by the server, e.g. after the
+                // data migration) refresh it once in the background, so role-checked server calls work.
+                viewModelScope.launch {
+                    runCatching {
+                        if (currentUser.getIdToken(false).await().claims["role"] == null) currentUser.getIdToken(true).await()
+                    }.onFailure { Timber.w(it, "role claim refresh failed") }
+                }
+
                 // 3. Fast Path: Check DataStore
                 if (dataStoreRole != null && profileSetupStateManager.isProfileComplete(dataStoreRole)) {
                     val dest = if (dataStoreRole == UserRole.WORKER) Routes.WORKER_HOME else Routes.EMPLOYER_HOME
@@ -90,42 +98,22 @@ class AppStartupViewModel @Inject constructor(
                     return@launch
                 }
 
-                // 4. Slow Path: Check Firestore asynchronously with timeout
-                val normalizedPhone: String = currentUser.phoneNumber
-                    ?.let(PhoneNumberUtils::normalize)
-                    .orEmpty()
-
-                val phoneRoleDoc = try {
-                    withTimeoutOrNull(2000L) {
-                        if (normalizedPhone.isNotBlank()) {
-                            firestore.collection(FirestoreCollections.PHONE_ROLES)
-                                .document(normalizedPhone)
-                                .get()
-                                .await()
-                        } else null
+                // 4. Slow Path: the role is a custom claim on the ID token (no read); phoneRoles
+                // is read only for accounts whose token predates the claim.
+                val claimRole = try {
+                    withTimeoutOrNull(2000L) { currentUser.getIdToken(false).await().claims["role"] as? String }
+                } catch (e: Exception) {
+                    Timber.w(e, "🚀 AppStartupViewModel - token read failed")
+                    null
+                }
+                val firestoreRoleStr = claimRole ?: try {
+                    val phone = currentUser.phoneNumber?.let(PhoneNumberUtils::normalize).orEmpty()
+                    if (phone.isBlank()) null else withTimeoutOrNull(2000L) {
+                        firestore.collection(PhoneRoles.COLLECTION).document(phone).get().await().getString(PhoneRoles.ROLE)
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "🚀 AppStartupViewModel - Error reading phoneRoles doc")
                     null
-                }
-                val firestoreRoleStr = phoneRoleDoc?.getString("role")
-
-                val profileDocExists: Boolean = try {
-                    val profileCollection = if (firestoreRoleStr?.uppercase() == "EMPLOYER") {
-                        FirestoreCollections.EMPLOYER_PROFILES
-                    } else {
-                        FirestoreCollections.WORKER_PROFILES
-                    }
-                    withTimeoutOrNull(2000L) {
-                        firestore.collection(profileCollection)
-                            .document(currentUser.uid)
-                            .get()
-                            .await()
-                            .exists()
-                    } ?: true
-                } catch (e: Exception) {
-                    Timber.e(e, "🚀 AppStartupViewModel - Error reading profile doc")
-                    true
                 }
 
                 var userRole: UserRole? = null
@@ -140,7 +128,7 @@ class AppStartupViewModel @Inject constructor(
                 }
 
                 val targetDestination = if (userRole != null) {
-                    val localProfileComplete = profileDocExists && profileSetupStateManager.isProfileComplete(userRole)
+                    val localProfileComplete = profileSetupStateManager.isProfileComplete(userRole)
                     var completionUnknown = false
                     val firestoreProfileComplete = if (!localProfileComplete) {
                         val check = runCatching {

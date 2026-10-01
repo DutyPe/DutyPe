@@ -1,5 +1,8 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
+import androidx.compose.material.icons.filled.Add
 import com.dutype.app.R
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -375,14 +378,10 @@ fun EmployerHomeScreen(
         Timber.d("EmployerHomeScreen - Checking permission status for bottom sheets")
         Timber.d("EmployerHomeScreen - hasNotificationPermission: $hasNotificationPermission")
 
-        // Only show bottom sheets for denied permissions (permissions are requested on SelectRoleScreen)
-        if (!bottomSheetsShownInSession) {
-            bottomSheetsShownInSession = true
-            if (!hasNotificationPermission) {
-                Timber.d("EmployerHomeScreen - Showing notification bottom sheet for denied permission")
-                showNotificationBottomSheet = true
-            }
-        }
+        // Employers are not asked on the home screen: notifications are asked for right after their
+        // first job is posted (PostJobScreen), when "new applicant" alerts start to matter, and on the
+        // notifications screen.
+        bottomSheetsShownInSession = true
     }
 
     // Note: Permission requests moved to SelectRoleScreen after onboarding
@@ -433,7 +432,7 @@ fun EmployerHomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(Color(0xFFF8FAFC).bg())
     ) {
         Column(
             modifier = Modifier
@@ -476,8 +475,8 @@ fun EmployerHomeScreen(
                     state = pullToRefreshState,
                     isRefreshing = isRefreshingActive,
                     modifier = Modifier.align(Alignment.TopCenter),
-                    containerColor = Color.White,
-                    color = com.example.dutype.ui.theme.EmployerColors.Primary
+                    containerColor = Color.White.bg(),
+                    color = com.example.dutype.ui.theme.EmployerColors.Primary.fg()
                 )
             }
         ) {
@@ -513,14 +512,12 @@ fun EmployerHomeScreen(
                 unreadCount = unreadNotificationCount,
                 headerLottieUrl = dynamicFeatures.headerLottieUrl,
                 onNotificationClick = {
-                    if (isGuestEmployer) {
-                        showLoginBottomSheet = true
-                    } else {
-                        navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_NOTIFICATIONS)
-                    }
+                    // Open for guests too: the screen shows its friendly empty state, no login wall.
+                    navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_NOTIFICATIONS)
                 },
                 onVoiceJobClick = {
-                    showVoiceLanguageSheet = true
+                    // DutyPe AI: post jobs, hear applicants and hires, all by voice.
+                    navController.navigate(com.example.dutype.navigation.Routes.dutypeAiRoute(listen = true))
                 }
             )
         }
@@ -586,14 +583,14 @@ fun EmployerHomeScreen(
             navController = navController
         )
 
-        // Pulsing Voice FAB Button
+        // Pulsing Voice FAB Button (positioned above bottom navigation bar)
         VoicePulsingFab(
             onClick = {
-                showVoiceLanguageSheet = true
+                navController.navigate(com.example.dutype.navigation.Routes.dutypeAiRoute(listen = true))
             },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 80.dp)
+                .padding(end = 16.dp, bottom = 105.dp)
         )
 
         // Language Picker Bottom Sheet (Prompt: Telugu, English, Hindi)
@@ -616,7 +613,7 @@ fun EmployerHomeScreen(
                 onPostUrgentJob = { input ->
                     coroutineScope.launch {
                         instantHelpViewModel.createUrgentNeed(input) { requestId ->
-                            android.widget.Toast.makeText(context, "Urgent job posted!", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(context, context.getString(R.string.urgent_need_posted_success), android.widget.Toast.LENGTH_SHORT).show()
                             navController.navigate(
                                 com.example.dutype.navigation.Routes.employerUrgentNeedDetailRoute(requestId)
                             )
@@ -643,7 +640,7 @@ private fun VoicePulsingFab(
     val infiniteTransition = rememberInfiniteTransition(label = "voice_fab_pulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.35f,
+        targetValue = 1.30f,
         animationSpec = infiniteRepeatable(
             animation = tween(1200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -651,7 +648,7 @@ private fun VoicePulsingFab(
         label = "fab_pulse_scale"
     )
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.40f,
+        initialValue = 0.35f,
         targetValue = 0f,
         animationSpec = infiniteRepeatable(
             animation = tween(1200, easing = FastOutSlowInEasing),
@@ -660,38 +657,37 @@ private fun VoicePulsingFab(
         label = "fab_pulse_alpha"
     )
 
+    // Fixed 80.dp container keeps the button and mic icon completely static
     Box(
-        modifier = modifier,
+        modifier = modifier.size(80.dp),
         contentAlignment = Alignment.Center
     ) {
-        // Outer pulsing wave
+        // Outer pulsing wave expands outward around the fixed button
         Box(
             modifier = Modifier
-                .size(68.dp * pulseScale)
+                .size(56.dp + (22.dp * pulseScale))
                 .clip(CircleShape)
-                .background(Color(0xFF10B981).copy(alpha = pulseAlpha))
+                .background(Color(0xFF10B981).bg().copy(alpha = pulseAlpha))
         )
 
-        // Floating Action Button
+        // Floating Action Button - FIXED 56.dp, strictly non-moving
         FloatingActionButton(
             onClick = onClick,
             shape = CircleShape,
-            containerColor = Color(0xFF0F172A),
+            containerColor = Color(0xFF0F172A).bg(),
             contentColor = Color.White,
             elevation = FloatingActionButtonDefaults.elevation(
                 defaultElevation = 6.dp,
-                pressedElevation = 12.dp
+                pressedElevation = 10.dp
             ),
             modifier = Modifier.size(56.dp)
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = Icons.Default.Mic,
-                    contentDescription = "Voice Job Posting",
-                    tint = Color(0xFF10B981),
-                    modifier = Modifier.size(28.dp)
-                )
-            }
+            Icon(
+                imageVector = Icons.Default.Mic,
+                contentDescription = "Voice Job Posting",
+                tint = Color(0xFF10B981).fg(),
+                modifier = Modifier.size(28.dp)
+            )
         }
     }
 }
@@ -761,21 +757,21 @@ fun DashboardContent(
 
     fun openPhoneDialer(phone: String?) {
         if (phone.isNullOrBlank()) {
-            android.widget.Toast.makeText(context, "Worker phone number not available", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, context.getString(R.string.employer_phone_not_available), android.widget.Toast.LENGTH_SHORT).show()
             return
         }
         runCatching {
             val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))
             context.startActivity(intent)
         }.onFailure {
-            android.widget.Toast.makeText(context, "Unable to open phone dialer", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, context.getString(R.string.employer_unable_open_dialer), android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
     /** Reveals the applicant's phone (recorded as an unlock) and hands it to [then]. */
     fun callWorker(jobId: String, workerId: String, then: (String) -> Unit) {
         applicationViewModel.fetchPhoneNumberForWorker(jobId, workerId, onSuccess = then, onFailure = {
-            android.widget.Toast.makeText(context, "Worker phone number not available", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, context.getString(R.string.employer_phone_not_available), android.widget.Toast.LENGTH_SHORT).show()
         })
     }
 
@@ -785,7 +781,7 @@ fun DashboardContent(
             newStatus = com.example.dutype.models.ApplicationStatus.HIRED,
             notes = "Hired directly from home screen"
         )
-        android.widget.Toast.makeText(context, "🎉 ${application.workerName.ifBlank { "Worker" }} marked as Hired!", android.widget.Toast.LENGTH_SHORT).show()
+        android.widget.Toast.makeText(context, context.getString(R.string.employer_home_worker_marked_hired, application.workerName.ifBlank { "Worker" }), android.widget.Toast.LENGTH_SHORT).show()
     }
 
     val recentNudgeCandidate = remember(applicationUiState.applications, dismissedNudgeApplicationId) {
@@ -801,15 +797,12 @@ fun DashboardContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFF8FAFC))
+                .background(Color(0xFFF8FAFC).bg())
         ) {
             EmployerHomeHeader(
                 companyName = companyName,
                 unreadCount = unreadCount,
                 onNotificationClick = onNotificationClick,
-                onPostJobClick = {
-                    navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)
-                },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -826,7 +819,21 @@ fun DashboardContent(
                 verticalArrangement = Arrangement.spacedBy(0.dp),
                 scrollStateManager = scrollStateManager
             ) {
-                item {
+                // A new employer (no jobs, no urgent requests yet) gets one welcome section: how to
+                // start, in a clean layout, instead of zero counters and three unrelated cards.
+                val isFirstTime = recentJobs.isEmpty() && urgentRequests.isEmpty() && !isLoadingUrgentRequests
+                if (isFirstTime) item {
+                    EmployerWelcomeSection(
+                        ownerName = companyName,
+                        onPostJob = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) },
+                        onPostUrgent = {
+                            navController.navigate(com.example.dutype.navigation.Routes.employerPostUrgentNeedRoute(null))
+                        },
+                        onVoice = onVoiceJobClick
+                    )
+                }
+
+                if (!isFirstTime) item {
                     EmployerHeroActionCards(
                         onPostRegularClick = {
                             navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)
@@ -839,14 +846,14 @@ fun DashboardContent(
                     )
                 }
 
-                item {
+                if (!isFirstTime) item {
                     com.example.dutype.employer.components.VoiceJobTriggerCard(
                         onClick = onVoiceJobClick,
                         modifier = Modifier.padding(top = 10.dp)
                     )
                 }
 
-                item {
+                if (!isFirstTime) item {
                     EmployerStatsRow(
                         activeJobs = updatedStats.activeJobs,
                         applicants = updatedStats.totalApplications,
@@ -855,15 +862,17 @@ fun DashboardContent(
                     )
                 }
 
-                item {
+                if (!isFirstTime) item {
                     EmployerSectionLabel(
-                        text = "Active Job Openings",
+                        text = stringResource(R.string.employer_home_active_openings),
                         modifier = Modifier.padding(top = 22.dp, bottom = 10.dp)
                     )
                 }
 
                 val activeOpenJobs = recentJobs.filter { it.status.equals("open", ignoreCase = true) }
-                if (activeOpenJobs.isEmpty()) {
+                if (isFirstTime) {
+                    // The welcome card above already leads to posting.
+                } else if (activeOpenJobs.isEmpty()) {
                     item {
                         EmployerNoActiveJobsCard(
                             onPostJobClick = {
@@ -893,50 +902,6 @@ fun DashboardContent(
                 }
 
                 item {
-                    QuickRoleTemplatesSection(
-                        onRoleSelected = { _ ->
-                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)
-                        },
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
-                }
-
-                item {
-                    val candidateItems = uncontactedApplications.take(5).map { app ->
-                        CandidateDisplayItem(
-                            id = app.id,
-                            name = app.workerName.ifBlank { "Worker" },
-                            initials = app.workerName.trim().split("\\s+".toRegex()).mapNotNull { it.firstOrNull()?.uppercase() }.take(2).joinToString("").ifBlank { "W" },
-                            trade = com.example.dutype.employer.models.JobCategory.fromKey(app.workerSkill).displayName,
-                            distanceText = app.worker?.distanceKm?.let { "${"%.1f".format(it)} km away" } ?: "Nearby",
-                            rating = app.worker?.takeIf { it.ratingCount > 0 }?.let { "%.1f".format(it.rating) } ?: "New",
-                            jobsDone = app.worker?.jobsCompleted ?: 0,
-                            jobId = app.jobId,
-                            workerId = app.workerId
-                        )
-                    }
-                    RecentCallRequestsSection(
-                        candidates = candidateItems,
-                        onCallClick = { c -> callWorker(c.jobId, c.workerId) { phone -> openPhoneDialer(phone) } },
-                        onWhatsAppClick = { c ->
-                            callWorker(c.jobId, c.workerId) { phone ->
-                                openWhatsAppChat(context, phone, "Hello, saw your application on DutyPe!")
-                            }
-                        },
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
-                }
-
-                item {
-                    HelplineTrustStrip(
-                        onCallNow = {
-                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_HELP)
-                        },
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
-                }
-
-                item {
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
@@ -952,17 +917,17 @@ fun DashboardContent(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("🎉", fontSize = 20.sp)
-                        Text("Confirm Hiring", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text(stringResource(R.string.employer_nudge_confirm_hiring), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     }
                 },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("You are hiring ${app.workerName.ifBlank { "this worker" }} for ${app.jobTitle.ifBlank { "this job" }}.")
+                        Text(stringResource(R.string.employer_nudge_hiring_for, app.workerName.ifBlank { "this worker" }, app.jobTitle.ifBlank { "this job" }))
                         Text(
-                            "Do you want to STOP incoming calls for this job now to prevent spam calls?",
+                            stringResource(R.string.employer_nudge_stop_calls_question),
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
-                            color = Color(0xFFDC2626)
+                            color = Color(0xFFDC2626).fg()
                         )
                     }
                 },
@@ -977,12 +942,12 @@ fun DashboardContent(
                             dismissedNudgeApplicationId = app.id
                             showNudgeStopCallsDialog = false
                             pendingNudgeHiredApp = null
-                            Toast.makeText(context, "Hired! Incoming calls stopped.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.employer_nudge_calls_stopped_toast), Toast.LENGTH_SHORT).show()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626).bg()),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("Stop Calls (Job Filled)", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.employer_nudge_stop_calls_btn), color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 },
                 dismissButton = {
@@ -992,11 +957,11 @@ fun DashboardContent(
                             dismissedNudgeApplicationId = app.id
                             showNudgeStopCallsDialog = false
                             pendingNudgeHiredApp = null
-                            Toast.makeText(context, "Hired! Job remains open for more calls.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.employer_nudge_keep_open_toast), Toast.LENGTH_SHORT).show()
                         },
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text("Keep Open (Need More)")
+                        Text(stringResource(R.string.employer_nudge_keep_open_btn))
                     }
                 }
             )
@@ -1150,6 +1115,7 @@ fun LoadingScreen() {
         // Job cards shimmer
         repeat(3) {
             JobCardShimmer()
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }
@@ -1172,7 +1138,7 @@ fun EnhancedStatsGrid(stats: JobStats, onViewAnalytics: (() -> Unit)? = null) {
             )
             if (onViewAnalytics != null) {
                 TextButton(onClick = onViewAnalytics) {
-                    Text(stringResource(R.string.view_analytics), style = AppTypography.buttonMedium.copy(color = EmployerColors.Primary))
+                    Text(stringResource(R.string.view_analytics), style = AppTypography.buttonMedium.copy(color = EmployerColors.Primary.fg()))
                 }
             }
         }
@@ -1381,41 +1347,26 @@ fun RecentJobsSection(
 
 @Composable
 fun EmptyJobsState(onPostJob: () -> Unit) {
-    Card(
+    com.example.dutype.components.DutyPeEmptyState(
+        icon = Icons.Default.Work,
+        badge = Icons.Filled.Add,
+        tone = com.example.dutype.components.EmptyTone.BLUE,
+        title = stringResource(R.string.empty_employer_jobs_title),
+        message = stringResource(R.string.empty_employer_jobs_body),
+        tips = listOf(
+            stringResource(R.string.empty_employer_tip_pay),
+            stringResource(R.string.empty_employer_tip_nearby)
+        ),
+        primary = com.example.dutype.components.EmptyStateAction(
+            label = stringResource(R.string.post_a_job),
+            icon = Icons.Filled.Add,
+            onClick = onPostJob
+        ),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, EmployerColors.Border, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground.copy(alpha = 0.9f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Icon(
-                Icons.Default.Work,
-                contentDescription = null,
-                modifier = Modifier.size(64.dp),
-                tint = EmployerColors.TextSecondary
-            )
-            Text(
-                text = stringResource(R.string.auto_no_recent_jobs),
-                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                color = EmployerColors.TextPrimary,
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text = stringResource(R.string.auto_start_by_posting_your_first_job_to_find_gr),
-                style = MaterialTheme.typography.bodyMedium,
-                color = EmployerColors.TextSecondary,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
+            .background(EmployerColors.CardBackground, RoundedCornerShape(20.dp))
+            .border(1.dp, EmployerColors.Border, RoundedCornerShape(20.dp))
+    )
 }
 
 // NOTE: isToday() and getTimeAgo() removed - use DateTimeUtils instead

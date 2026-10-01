@@ -98,24 +98,48 @@ export function AdminCollectionViewer({ apiPath, dataKey, label, hiddenFields = 
   const [pageSize, setPageSize] = useState(25);
   const hiddenFieldSet = new Set(hiddenFields);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        setLoading(true);
-        const response = await adminApiFetch(apiPath);
-        const payload = (await response.json()) as Record<string, unknown>;
-        if (!response.ok) {
-          throw new Error((payload.error as string) || "Failed to load data.");
-        }
-        setRows((payload[dataKey] as Record<string, unknown>[]) ?? []);
-      } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Failed to load.");
-      } finally {
-        setLoading(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [lookupId, setLookupId] = useState("");
+  const [query, setQuery] = useState("");
+
+  async function load(params: string, append: boolean) {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await adminApiFetch(`${apiPath}${params ? `?${params}` : ""}`);
+      const payload = (await response.json()) as Record<string, unknown>;
+      if (!response.ok) {
+        throw new Error((payload.error as string) || "Failed to load data.");
       }
+      const page = (payload[dataKey] as Record<string, unknown>[]) ?? [];
+      setRows((current) => (append ? [...current, ...page] : page));
+      setNextCursor((payload.nextCursor as string | null) ?? null);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Failed to load.");
+    } finally {
+      setLoading(false);
     }
-    void load();
+  }
+
+  useEffect(() => {
+    setQuery("");
+    void load("", false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiPath, dataKey]);
+
+  function loadMore() {
+    if (!nextCursor) return;
+    const params = new URLSearchParams(query);
+    params.set("after", nextCursor);
+    void load(params.toString(), true);
+  }
+
+  function findById() {
+    const id = lookupId.trim();
+    const params = id ? new URLSearchParams({ id }).toString() : "";
+    setQuery(params);
+    void load(params, false);
+  }
 
   useEffect(() => {
     setCurrentPage(1);
@@ -152,7 +176,7 @@ export function AdminCollectionViewer({ apiPath, dataKey, label, hiddenFields = 
     startIndex
   } = paginateRows(filtered, currentPage, pageSize);
 
-  if (loading) {
+  if (loading && rows.length === 0) {
     return (
       <section className="section">
         <div className="empty-state">Loading {label}…</div>
@@ -173,7 +197,7 @@ export function AdminCollectionViewer({ apiPath, dataKey, label, hiddenFields = 
           <div>
             <span className="tag">{label}</span>
             <h2>
-              {filtered.length} of {rows.length} documents
+              {filtered.length} of {rows.length} loaded{nextCursor ? " (more available)" : ""}
             </h2>
           </div>
           <p>
@@ -231,8 +255,19 @@ export function AdminCollectionViewer({ apiPath, dataKey, label, hiddenFields = 
             onChange={(e) => setSearch(e.target.value)}
           />
           <span className="admin-count">
-            {search ? `${filtered.length} matches` : `${rows.length} rows`}
+            {search ? `${filtered.length} matches` : `${rows.length} rows loaded`}
           </span>
+          <input
+            type="text"
+            className="admin-search"
+            placeholder="Exact document ID…"
+            value={lookupId}
+            onChange={(e) => setLookupId(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") findById(); }}
+          />
+          <button type="button" className="button ghost" onClick={findById} disabled={loading}>
+            {lookupId.trim() ? "Find" : "Reset"}
+          </button>
         </div>
 
         {filtered.length === 0 ? (
@@ -280,6 +315,13 @@ export function AdminCollectionViewer({ apiPath, dataKey, label, hiddenFields = 
               onPageChange={setCurrentPage}
               onPageSizeChange={setPageSize}
             />
+            {nextCursor ? (
+              <div className="admin-toolbar">
+                <button type="button" className="button ghost" onClick={loadMore} disabled={loading}>
+                  {loading ? "Loading…" : "Load more"}
+                </button>
+              </div>
+            ) : null}
           </>
         )}
       </section>

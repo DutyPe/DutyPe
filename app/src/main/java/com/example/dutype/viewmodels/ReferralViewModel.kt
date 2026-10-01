@@ -2,321 +2,103 @@ package com.example.dutype.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.dutype.models.*
+import com.example.dutype.models.LeaderboardEntry
+import com.example.dutype.models.LedgerEntry
+import com.example.dutype.models.Referral
+import com.example.dutype.models.Wallet
+import com.example.dutype.models.WithdrawalRequest
 import com.example.dutype.services.ReferralService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import javax.inject.Inject
 
-/**
- * ViewModel for Referral screens (Worker & Employer)
- * Handles all referral-related operations including analytics and success stories
- */
-@HiltViewModel
-class ReferralViewModel @Inject constructor(
-    private val referralService: ReferralService,
-    private val performanceTracker: com.example.dutype.performance.PerformanceTracker,
-    appConfigRepository: com.example.dutype.repositories.AppConfigRepository
-) : ViewModel() {
-    
-    private val _uiState = MutableStateFlow(ReferralUiState())
-    val uiState: StateFlow<ReferralUiState> = _uiState.asStateFlow()
-    private var statsObserverJob: Job? = null
-    private var historyObserverJob: Job? = null
-    private var withdrawalObserverJob: Job? = null
-
-    /** Admin-editable referral config. UI consumes this for reward amounts. */
-    val referralConfig: StateFlow<com.example.dutype.repositories.ReferralConfig> =
-        appConfigRepository.referralConfig
-    
-    private val _analytics = MutableStateFlow<ReferralAnalytics?>(null)
-    val analytics: StateFlow<ReferralAnalytics?> = _analytics.asStateFlow()
-    
-    private val _successStories = MutableStateFlow<List<ReferralSuccessStory>>(emptyList())
-    val successStories: StateFlow<List<ReferralSuccessStory>> = _successStories.asStateFlow()
-
-    private val _referrerInfo = MutableStateFlow(ReferrerInfo())
-    val referrerInfo: StateFlow<ReferrerInfo> = _referrerInfo.asStateFlow()
-    
-    /**
-     * Load referral data for current user.
-     *
-     * Single bootstrap fetch + one realtime observer for stats. The history
-     * observer and referrer-info fetch are kept separate because they write
-     * to independent state slices. The old code ran a one-shot AND a
-     * realtime observer for stats — both resolving the same referral code
-     * chain (8-10 Firestore reads). Now we run ONE bootstrap fetch; the
-     * realtime observer only starts if the bootstrap fails, so best-case
-     * traffic is halved.
-     */
-    fun loadReferralData() {
-        viewModelScope.launch {
-            val bootstrapOk = bootstrapReferralSnapshot()
-            ensureRealtimeObservers()
-            if (!bootstrapOk) {
-                Timber.d("Referral bootstrap failed; realtime observer is active for recovery")
-            }
-        }
-        loadReferrerInfo()
-    }
-
-    /**
-     * Returns true if the bootstrap succeeded and stats were populated.
-     */
-    private suspend fun bootstrapReferralSnapshot(): Boolean {
-        return try {
-            referralService.getCurrentUserReferralStats().fold(
-                onSuccess = { stats ->
-                    _uiState.value = _uiState.value.copy(
-                        stats = stats,
-                        isLoading = false,
-                        error = null
-                    )
-                    true
-                },
-                onFailure = { e ->
-                    Timber.w(e, "Failed to bootstrap referral stats snapshot")
-                    _uiState.value = _uiState.value.copy(isLoading = false)
-                    false
-                }
-            )
-        } catch (e: Exception) {
-            Timber.w(e, "Error bootstrapping referral stats snapshot")
-            _uiState.value = _uiState.value.copy(isLoading = false)
-            false
-        }
-    }
-
-    fun refreshReferralStats() {
-        loadReferralData()
-    }
-
-    private fun ensureRealtimeObservers() {
-        if (statsObserverJob == null) {
-            statsObserverJob = viewModelScope.launch {
-                referralService.getCurrentUserReferralStatsFlow().collect { stats ->
-                    if (stats != null) {
-                        _uiState.value = _uiState.value.copy(
-                            stats = stats,
-                            isLoading = false,
-                            error = null
-                        )
-                    }
-                }
-            }
-        }
-
-        if (historyObserverJob == null) {
-            historyObserverJob = viewModelScope.launch {
-                referralService.getReferralHistoryFlow().collect { history ->
-                    _uiState.value = _uiState.value.copy(
-                        referralHistory = history
-                        // NOTE: do NOT touch isLoading here — the stats path
-                        // owns that flag. Setting it false here used to cause
-                        // the UI to flip from spinner → empty content before
-                        // the referral code had loaded.
-                    )
-                }
-            }
-        }
-
-        if (withdrawalObserverJob == null) {
-            withdrawalObserverJob = viewModelScope.launch {
-                referralService.getWithdrawalHistoryFlow().collect { withdrawals ->
-                    _uiState.value = _uiState.value.copy(withdrawalHistory = withdrawals)
-                }
-            }
-        }
-    }
-
-    private fun loadReferrerInfo() {
-        viewModelScope.launch {
-            try {
-                val result = referralService.getCurrentUserReferrerInfo()
-                result.fold(
-                    onSuccess = { info -> _referrerInfo.value = info },
-                    onFailure = { e -> Timber.e(e, "Failed to load referrer info") }
-                )
-            } catch (e: Exception) {
-                Timber.e(e, "Error loading referrer info")
-            }
-        }
-    }
-
-    /**
-     * Load analytics data for professional dashboard
-     */
-    fun loadAnalytics() {
-        viewModelScope.launch {
-            try {
-                val result = referralService.getReferralAnalytics()
-                result.fold(
-                    onSuccess = { analytics ->
-                        _analytics.value = analytics
-                        Timber.d("🎁 REFERRAL: Analytics loaded successfully")
-                    },
-                    onFailure = { e ->
-                        Timber.e(e, "Failed to load analytics")
-                        _analytics.value = ReferralAnalytics() // Default empty analytics
-                    }
-                )
-            } catch (e: Exception) {
-                Timber.e(e, "Error loading analytics")
-                _analytics.value = ReferralAnalytics()
-            }
-        }
-    }
-
-    /**
-     * Load success stories for social proof
-     */
-    fun loadSuccessStories() {
-        viewModelScope.launch {
-            try {
-                val result = referralService.getSuccessStories(10)
-                result.fold(
-                    onSuccess = { stories ->
-                        _successStories.value = stories
-                        Timber.d("🎁 REFERRAL: Loaded ${stories.size} success stories")
-                    },
-                    onFailure = { e ->
-                        Timber.e(e, "Failed to load success stories")
-                        _successStories.value = emptyList()
-                    }
-                )
-            } catch (e: Exception) {
-                Timber.e(e, "Error loading success stories")
-                _successStories.value = emptyList()
-            }
-        }
-    }
-
-    /**
-     * Request withdrawal
-     */
-    fun requestWithdrawal(upiId: String) {
-        // Ignore repeat taps while a request is in flight (the first call can take a few
-        // seconds on a cold Cloud Function, which is how a second request slipped in).
-        if (_uiState.value.isProcessingWithdrawal) return
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isProcessingWithdrawal = true, withdrawalError = null)
-            
-            try {
-                // The server caps a single day's withdrawal; asking for the whole balance
-                // above that cap was always rejected, so the user could never withdraw.
-                val balance = _uiState.value.stats?.availableBalance ?: 0.0
-                val amount = kotlin.math.floor(minOf(balance, referralConfig.value.maxWithdrawalPerDay) * 100) / 100
-                val result = referralService.requestWithdrawal(
-                    amount = amount,
-                    paymentMethod = PaymentMethod.UPI,
-                    upiId = upiId.trim()
-                )
-                
-                result.fold(
-                    onSuccess = { withdrawalResult ->
-                        // Show the new balance right away instead of waiting for the listener.
-                        val current = _uiState.value.stats
-                        val newBalance = ((current?.availableBalance ?: 0.0) - amount).coerceAtLeast(0.0)
-                        _uiState.value = _uiState.value.copy(
-                            stats = current?.copy(
-                                availableBalance = newBalance,
-                                canWithdraw = newBalance >= referralConfig.value.minWithdrawal
-                            ),
-                            isProcessingWithdrawal = false,
-                            withdrawalSuccess = true,
-                            lastWithdrawalId = withdrawalResult.withdrawalId,
-                            lastWithdrawalAmount = amount
-                        )
-                        // Reload data to update balance
-                        loadReferralData()
-                    },
-                    onFailure = { e ->
-                        _uiState.value = _uiState.value.copy(
-                            isProcessingWithdrawal = false,
-                            withdrawalError = e.message ?: "Withdrawal failed"
-                        )
-                    }
-                )
-            } catch (e: Exception) {
-                Timber.e(e, "Error requesting withdrawal")
-                _uiState.value = _uiState.value.copy(
-                    isProcessingWithdrawal = false,
-                    withdrawalError = e.message ?: "Withdrawal failed"
-                )
-            }
-        }
-    }
-    
-    override fun onCleared() {
-        statsObserverJob?.cancel()
-        historyObserverJob?.cancel()
-        withdrawalObserverJob?.cancel()
-        super.onCleared()
-    }
-    
-    /**
-     * Get top referrers for leaderboard
-     */
-    fun loadLeaderboard(role: String? = null) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoadingLeaderboard = true)
-            
-            try {
-                val result = referralService.getTopReferrers(role, 10)
-                result.fold(
-                    onSuccess = { topReferrers ->
-                        _uiState.value = _uiState.value.copy(
-                            leaderboard = topReferrers,
-                            isLoadingLeaderboard = false
-                        )
-                    },
-                    onFailure = { e ->
-                        Timber.e(e, "Failed to load leaderboard")
-                        _uiState.value = _uiState.value.copy(isLoadingLeaderboard = false)
-                    }
-                )
-            } catch (e: Exception) {
-                Timber.e(e, "Error loading leaderboard")
-                _uiState.value = _uiState.value.copy(isLoadingLeaderboard = false)
-            }
-        }
-    }
-    
-    /**
-     * Clear withdrawal success state
-     */
-    fun clearWithdrawalSuccess() {
-        _uiState.value = _uiState.value.copy(withdrawalSuccess = false, lastWithdrawalId = null)
-    }
-    
-    /**
-     * Clear error state
-     */
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(error = null, withdrawalError = null)
-    }
-}
-
-/**
- * UI State for Referral screens
- */
 data class ReferralUiState(
     val isLoading: Boolean = true,
     val error: String? = null,
-    val stats: ReferralStats? = null,
+    val wallet: Wallet? = null,
+    val ledger: List<LedgerEntry> = emptyList(),
     val referralHistory: List<Referral> = emptyList(),
     val withdrawalHistory: List<WithdrawalRequest> = emptyList(),
-    val leaderboard: List<ReferralStats> = emptyList(),
+    /** The referral I joined with (null when I joined without a code). */
+    val myReferrer: Referral? = null,
+    val leaderboard: List<LeaderboardEntry> = emptyList(),
     val isLoadingLeaderboard: Boolean = false,
     val isProcessingWithdrawal: Boolean = false,
     val withdrawalError: String? = null,
     val withdrawalSuccess: Boolean = false,
-    val lastWithdrawalId: String? = null,
-    val lastWithdrawalAmount: Double = 0.0
+    val lastWithdrawalPaise: Long = 0L
 )
+
+/** Refer & Earn (worker and employer): wallet, referrals, money history, withdrawals. */
+@HiltViewModel
+class ReferralViewModel @Inject constructor(
+    private val referralService: ReferralService,
+    appConfigRepository: com.example.dutype.repositories.AppConfigRepository
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(ReferralUiState())
+    val uiState: StateFlow<ReferralUiState> = _uiState.asStateFlow()
+
+    /** Admin-editable reward amounts. */
+    val referralConfig: StateFlow<com.example.dutype.repositories.ReferralConfig> = appConfigRepository.referralConfig
+
+    private val jobs = mutableListOf<Job>()
+
+    /** Starts the live wallet / referrals / withdrawals once for this screen. */
+    fun loadReferralData() {
+        if (jobs.isNotEmpty()) return
+        jobs += viewModelScope.launch {
+            referralService.wallet().collect { wallet -> _uiState.update { it.copy(wallet = wallet, isLoading = false) } }
+        }
+        jobs += viewModelScope.launch {
+            referralService.myReferrals().collect { list -> _uiState.update { it.copy(referralHistory = list) } }
+        }
+        jobs += viewModelScope.launch {
+            referralService.ledger().collect { entries -> _uiState.update { it.copy(ledger = entries) } }
+        }
+        jobs += viewModelScope.launch {
+            referralService.withdrawals().collect { list -> _uiState.update { it.copy(withdrawalHistory = list) } }
+        }
+        viewModelScope.launch { _uiState.update { it.copy(myReferrer = referralService.myReferrer()) } }
+    }
+
+    fun refreshReferralStats() {
+        jobs.forEach { it.cancel() }
+        jobs.clear()
+        loadReferralData()
+    }
+
+    fun loadLeaderboard() {
+        _uiState.update { it.copy(isLoadingLeaderboard = true) }
+        viewModelScope.launch {
+            val rows = referralService.leaderboard().getOrDefault(emptyList())
+            _uiState.update { it.copy(leaderboard = rows, isLoadingLeaderboard = false) }
+        }
+    }
+
+    fun requestWithdrawal(upiId: String) {
+        if (_uiState.value.isProcessingWithdrawal) return
+        _uiState.update { it.copy(isProcessingWithdrawal = true, withdrawalError = null) }
+        viewModelScope.launch {
+            referralService.requestWithdrawal(upiId)
+                .onSuccess { paise ->
+                    _uiState.update { it.copy(isProcessingWithdrawal = false, withdrawalSuccess = true, lastWithdrawalPaise = paise) }
+                }
+                .onFailure { e ->
+                    _uiState.update { it.copy(isProcessingWithdrawal = false, withdrawalError = e.message ?: "Withdrawal failed") }
+                }
+        }
+    }
+
+    fun shareMessage(userName: String): String =
+        referralService.shareMessage(_uiState.value.wallet?.referralCode.orEmpty(), userName)
+
+    fun clearWithdrawalSuccess() = _uiState.update { it.copy(withdrawalSuccess = false) }
+
+    fun clearError() = _uiState.update { it.copy(error = null, withdrawalError = null) }
+}

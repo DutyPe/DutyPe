@@ -1,5 +1,8 @@
 package com.example.dutype.employer.components.postjob
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -61,7 +64,7 @@ fun PostJobStepIndicator(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFFF8FAFC))
+                .background(Color(0xFFF8FAFC).bg())
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -85,7 +88,7 @@ fun PostJobStepIndicator(
                     Text(
                         text = stepDescriptions.getOrElse(currentStep - 1) { "" },
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF6B7280)
+                        color = Color(0xFF6B7280).fg()
                     )
                 }
             }
@@ -123,7 +126,7 @@ fun PostJobStepIndicator(
                     targetValue = when {
                         isCompleted -> primaryColor
                         isCurrent -> primaryColor.copy(alpha = 0.5f)
-                        else -> Color(0xFFE5E7EB)
+                        else -> Color(0xFFE5E7EB).bd()
                     },
                     animationSpec = tween(300),
                     label = "stepColor"

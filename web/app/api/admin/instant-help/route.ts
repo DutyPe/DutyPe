@@ -1,7 +1,10 @@
+import { cachedAdminGet } from "@/lib/firebase/admin-response-cache";
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
 import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
+
+import { InstantRequests, Values } from "@/lib/firebase/schema";
 
 export const runtime = "nodejs";
 
@@ -28,76 +31,53 @@ function minutesBetween(startMs: number, endMs: number) {
   return Math.round((endMs - startMs) / 60000);
 }
 
-export async function GET(request: NextRequest) {
+async function getUncached(request: NextRequest) {
   const unauthorized = await requireAuthorizedAdminRequest(request);
   if (unauthorized) return unauthorized;
 
   try {
     const db = getFirebaseAdminDb();
-    const [requestsSnap, responsesSnap] = await Promise.all([
-      db.collection("instant_requests").orderBy("createdAt", "desc").limit(300).get(),
-      db.collection("instant_responses").orderBy("createdAt", "desc").limit(500).get()
+    const col = db.collection(InstantRequests.COLLECTION);
+    const S = Values.InstantStatus;
+    // Totals are count aggregations (1 read per 1,000 docs), not document downloads.
+    const count = async (status?: string) =>
+      (await (status ? col.where(InstantRequests.STATUS, "==", status) : col).count().get()).data().count;
+    const [recentSnap, totalRequests, openRequests, filled, completedRequests, cancelled, expiredRequests] = await Promise.all([
+      col.orderBy(InstantRequests.CREATED_AT, "desc").limit(50).get(),
+      count(), count(S.OPEN), count(S.FILLED), count(S.COMPLETED), count(S.CANCELLED), count(S.EXPIRED)
     ]);
 
-    const requests = requestsSnap.docs.map((doc) => {
+    const recentRequests = recentSnap.docs.map((doc) => {
       const data = asRecord(doc.data());
-      const createdAt = readMillis(data.createdAt as FirestoreValue);
-      const firstResponseAt = readMillis(data.firstResponseAt as FirestoreValue);
-      const completedAt = readMillis(data.completedAt as FirestoreValue);
-      const expiresAt = readMillis(data.expiresAt as FirestoreValue);
-      const scheduledAt = readMillis(data.scheduledAt as FirestoreValue);
+      const pay = Number(data[InstantRequests.PAY_PER_PERSON] ?? 0);
+      const needed = Number(data[InstantRequests.WORKERS_NEEDED] ?? 1);
       return {
         id: doc.id,
-        title: String(data.title ?? "Urgent request"),
-        category: String(data.category ?? ""),
-        status: String(data.status ?? "open").toLowerCase(),
-        employerName: String(data.employerName ?? ""),
-        employerPhone: String(data.employerPhone ?? data.contactNumber ?? ""),
-        workersNeeded: Number(data.workersNeeded ?? 1),
-        perPersonPayment: Number(data.perPersonPayment ?? 0),
-        totalPayment: Number(data.totalPayment ?? 0),
-        durationText: String(data.durationText ?? ""),
-        addressText: String(data.addressText ?? ""),
-        scheduledAt,
-        scheduleLabel: String(data.scheduleLabel ?? ""),
-        urgencyType: String(data.urgencyType ?? data.urgency ?? ""),
-        responseCount: Number(data.responseCount ?? 0),
-        callCount: Number(data.callCount ?? 0),
-        notifiedWorkerCount: Number(data.notifiedWorkerCount ?? 0),
-        createdAt,
-        expiresAt,
-        firstResponseAt,
-        completedAt,
-        timeToFirstResponseMinutes: minutesBetween(createdAt, firstResponseAt)
+        title: String(data[InstantRequests.TITLE] ?? "Urgent request"),
+        category: String(data[InstantRequests.CATEGORY] ?? ""),
+        status: String(data[InstantRequests.STATUS] ?? "open"),
+        employerName: String(data[InstantRequests.EMPLOYER_ID] ?? ""),
+        employerPhone: String(data[InstantRequests.CONTACT_NUMBER] ?? ""),
+        workersNeeded: needed,
+        perPersonPayment: pay,
+        totalPayment: pay * needed,
+        durationText: String(data[InstantRequests.DURATION_TEXT] ?? ""),
+        addressText: String(data[InstantRequests.ADDRESS_TEXT] ?? data[InstantRequests.AREA] ?? ""),
+        scheduledAt: readMillis(data[InstantRequests.SCHEDULED_AT] as FirestoreValue),
+        scheduleLabel: "",
+        urgencyType: "",
+        responseCount: Number(data[InstantRequests.RESPONSE_COUNT] ?? 0),
+        callCount: 0,
+        notifiedWorkerCount: 0,
+        createdAt: readMillis(data[InstantRequests.CREATED_AT] as FirestoreValue),
+        expiresAt: readMillis(data[InstantRequests.EXPIRES_AT] as FirestoreValue),
+        firstResponseAt: null,
+        completedAt: null,
+        timeToFirstResponseMinutes: null
       };
     });
-
-    const responses = responsesSnap.docs.map((doc) => {
-      const data = asRecord(doc.data());
-      return {
-        id: doc.id,
-        requestId: String(data.requestId ?? ""),
-        workerId: String(data.workerId ?? ""),
-        employerId: String(data.employerId ?? ""),
-        workerName: String(data.workerName ?? "Worker"),
-        status: String(data.status ?? "viewed").toLowerCase(),
-        createdAt: readMillis(data.createdAt as FirestoreValue),
-        updatedAt: readMillis(data.updatedAt as FirestoreValue)
-      };
-    });
-
-    const totalRequests = requests.length;
-    const openRequests = requests.filter((item) => item.status === "open").length;
-    const filledRequests = requests.filter((item) => item.status === "filled" || item.status === "completed").length;
-    const completedRequests = requests.filter((item) => item.status === "completed").length;
-    const failedRequests = requests.filter((item) => item.status === "failed" || item.status === "cancelled").length;
-    const expiredRequests = requests.filter((item) => item.status === "expired").length;
-    const firstResponseTimes = requests
-      .map((item) => item.timeToFirstResponseMinutes)
-      .filter((value): value is number => typeof value === "number");
-    const avgTimeToFirstResponseMinutes = firstResponseTimes.length
-      ? Math.round(firstResponseTimes.reduce((sum, value) => sum + value, 0) / firstResponseTimes.length)
-      : null;
+    const recentResponses = recentRequests.reduce((sum, r) => sum + r.responseCount, 0);
+    const filledRequests = filled + completedRequests;
 
     return NextResponse.json({
       metrics: {
@@ -105,19 +85,22 @@ export async function GET(request: NextRequest) {
         openRequests,
         filledRequests,
         completedRequests,
-        failedRequests,
+        failedRequests: cancelled,
         expiredRequests,
-        responseCount: responses.length,
-        avgResponsesPerRequest: totalRequests ? Number((responses.length / totalRequests).toFixed(1)) : 0,
+        responseCount: recentResponses,
+        avgResponsesPerRequest: recentRequests.length ? Number((recentResponses / recentRequests.length).toFixed(1)) : 0,
         filledRate: totalRequests ? Number(((filledRequests / totalRequests) * 100).toFixed(1)) : 0,
         expiredRate: totalRequests ? Number(((expiredRequests / totalRequests) * 100).toFixed(1)) : 0,
-        avgTimeToFirstResponseMinutes
+        avgTimeToFirstResponseMinutes: null
       },
-      recentRequests: requests.slice(0, 50),
-      recentResponses: responses.slice(0, 50)
+      recentRequests,
+      recentResponses: []
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to load instant-help metrics.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+// Read guard: served from a short-lived server cache; cleared on any admin write.
+export const GET = cachedAdminGet(getUncached);

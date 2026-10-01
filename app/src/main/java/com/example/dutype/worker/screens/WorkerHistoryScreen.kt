@@ -68,7 +68,7 @@ fun WorkerHistoryScreen(
     val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val currentUser = FirebaseAuth.getInstance().currentUser
-    
+
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf(
         stringResource(R.string.tab_timeline),
@@ -77,7 +77,7 @@ fun WorkerHistoryScreen(
         stringResource(R.string.urgent)
     )
     val urgentTabIndex = 3
-    
+
     val screenBg = com.example.dutype.ui.theme.WorkerColors.ScreenBackground
     LaunchedEffect(screenBg) {
         onStatusBarColorChange(screenBg)
@@ -86,7 +86,7 @@ fun WorkerHistoryScreen(
         jobApplicationViewModel.loadMyApplications()
         instantHelpViewModel.loadWorkerUrgentHistory()
     }
-    
+
     // Filter applications based on selected tab.
     // Bug #13 fix: Tabs were broken — tab 0 (Timeline) and tab 1 (Completed)
     // both filtered by HIRED, so they showed identical lists. Timeline should
@@ -107,7 +107,7 @@ fun WorkerHistoryScreen(
             else -> uiState.applications
         }
     }
-    
+
     // Group applications by month for timeline view
     val groupedApplications = remember(filteredApplications) {
         filteredApplications.groupBy { app ->
@@ -115,7 +115,7 @@ fun WorkerHistoryScreen(
             SimpleDateFormat("MMM yyyy", Locale.getDefault()).format(calendar.time).uppercase()
         }
     }
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -126,7 +126,7 @@ fun WorkerHistoryScreen(
             title = stringResource(R.string.work_history),
             navController = navController
         )
-        
+
         // Tab Row
         ScrollableTabRow(
             selectedTabIndex = selectedTab,
@@ -154,7 +154,7 @@ fun WorkerHistoryScreen(
                 )
             }
         }
-        
+
         // Content
         if (selectedTab == urgentTabIndex) {
             WorkerUrgentHistoryContent(
@@ -231,7 +231,7 @@ private fun TimelineView(
             item(key = "header_$monthYear") {
                 MonthHeader(monthYear = monthYear)
             }
-            
+
             // Timeline items for this month
             itemsIndexed(
                 items = applications,
@@ -245,7 +245,7 @@ private fun TimelineView(
                     onClick = { onJobClick(application) }
                 )
             }
-            
+
             // Spacer between months
             item(key = "spacer_$monthYear") {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -276,9 +276,9 @@ private fun MonthHeader(monthYear: String) {
                 modifier = Modifier.size(20.dp)
             )
         }
-        
+
         Spacer(modifier = Modifier.width(12.dp))
-        
+
         Text(
             text = monthYear,
             style = MaterialTheme.typography.titleMedium.copy(
@@ -495,7 +495,7 @@ private fun TimelineJobCard(
     onClick: () -> Unit
 ) {
     val lineColor = WorkerColors.Border
-    
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -541,9 +541,9 @@ private fun TimelineJobCard(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.width(12.dp))
-        
+
         // Job Card
         Card(
             modifier = Modifier
@@ -569,24 +569,8 @@ private fun TimelineJobCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         ApplicationStatusBadge(status = application.status)
-                        if (application.viewedAt > 0L && application.status == ApplicationStatus.APPLIED) {
-                            Surface(
-                                color = WorkerColors.Primary.copy(alpha = 0.12f),
-                                shape = RoundedCornerShape(6.dp)
-                            ) {
-                                Text(
-                                    text = "👁 Viewed ${DateTimeUtils.formatTimeAgoExactDays(application.viewedAt)}",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        color = WorkerColors.Primary,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 11.sp
-                                    ),
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
                     }
-                    
+
                     Text(
                         text = formatTimelineDate(application.createdAt),
                         style = MaterialTheme.typography.bodySmall.copy(
@@ -594,9 +578,9 @@ private fun TimelineJobCard(
                         )
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 // Job title
                 Text(
                     text = application.jobTitle,
@@ -607,9 +591,9 @@ private fun TimelineJobCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                
+
                 Spacer(modifier = Modifier.height(4.dp))
-                
+
                 // Company name
                 Text(
                     text = application.companyName,
@@ -617,9 +601,9 @@ private fun TimelineJobCard(
                         color = WorkerColors.TextSecondary
                     )
                 )
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 // Job details row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -640,50 +624,17 @@ private fun EmptyHistoryState(selectedTab: Int) {
         2 -> Triple(stringResource(R.string.history_no_applications_yet), stringResource(R.string.history_applications_appear_here), Icons.Default.History)
         else -> Triple(stringResource(R.string.history_no_applications), stringResource(R.string.history_your_applications_here), Icons.Default.History)
     }
-    
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(32.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .clip(CircleShape)
-                    .background(WorkerColors.ChipBackground),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = WorkerColors.TextTertiary,
-                    modifier = Modifier.size(48.dp)
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Text(
-                text = message,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = WorkerColors.TextSecondary
-                ),
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text = subMessage,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = WorkerColors.TextTertiary
-                ),
-                textAlign = TextAlign.Center
-            )
+    com.example.dutype.components.DutyPeEmptyScreen(
+        icon = icon,
+        title = message,
+        message = subMessage,
+        art = com.example.dutype.components.EmptyArt.QUIET,
+        tone = when (selectedTab) {
+            1 -> com.example.dutype.components.EmptyTone.GREEN
+            2 -> com.example.dutype.components.EmptyTone.BLUE
+            else -> com.example.dutype.components.EmptyTone.PURPLE
         }
-    }
+    )
 }
 
 @Composable
@@ -725,28 +676,28 @@ private fun HistoryApplicationCard(
                         )
                     )
                 }
-                
+
                 ApplicationStatusBadge(status = application.status)
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                if (application.jobLocation.isNotBlank()) {
+                if (application.jobArea.isNotBlank()) {
                     InfoChip(
                         icon = Icons.Default.LocationOn,
-                        text = application.jobLocation.take(20),
+                        text = application.jobArea.take(20),
                         backgroundColor = WorkerColors.ChipBackground,
                         iconColor = WorkerColors.TextSecondary
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 text = stringResource(R.string.history_applied_time, DateTimeUtils.formatRelativeTime(application.createdAt)),
                 style = MaterialTheme.typography.bodySmall.copy(

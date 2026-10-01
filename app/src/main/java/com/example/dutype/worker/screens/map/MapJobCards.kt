@@ -1,5 +1,7 @@
 package com.example.dutype.worker.screens.map
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.BorderStroke
@@ -113,7 +115,7 @@ private fun MapJobCard(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
         color = colors.surface,
-        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) MapEmerald else colors.border)
+        border = BorderStroke(if (selected) 1.5.dp else 1.dp, if (selected) MapEmerald.bd() else colors.border)
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -174,7 +176,7 @@ private fun JobCardInfo(job: JobListingSummary, colors: MapColors, modifier: Mod
                 modifier = Modifier.weight(1f, fill = false)
             )
             if (urgent) {
-                Text(stringResource(R.string.urgent), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MapUrgentRed)
+                Text(stringResource(R.string.urgent), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MapUrgentRed.fg())
             }
         }
     }

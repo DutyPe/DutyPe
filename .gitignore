@@ -61,3 +61,4 @@ out/
 .env.local
 web/.env.local
 /web/test-results/
+backups/

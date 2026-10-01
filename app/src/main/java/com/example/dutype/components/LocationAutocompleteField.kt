@@ -1,5 +1,6 @@
 package com.example.dutype.components
 
+import com.example.dutype.ui.theme.fg
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -81,6 +82,8 @@ fun LocationAutocompleteField(
             val suggestions = locationService.searchPlaces(value)
             placeSuggestions = suggestions
             Timber.d("LocationAutocomplete: Found ${suggestions.size} suggestions for: $value")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e // a newer query replaced this one
         } catch (e: Exception) {
             Timber.e(e, "LocationAutocomplete: Failed to search places")
             placeSuggestions = emptyList()
@@ -124,7 +127,7 @@ fun LocationAutocompleteField(
                         Icon(
                             Icons.Default.MyLocation,
                             contentDescription = "Use Current Location",
-                            tint = WorkerColors.Primary
+                            tint = WorkerColors.Primary.fg()
                         )
                     }
                 }

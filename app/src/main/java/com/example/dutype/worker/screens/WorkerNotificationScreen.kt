@@ -1,5 +1,10 @@
 package com.example.dutype.worker.screens
 
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
+import androidx.compose.material.icons.filled.NotificationsNone
 import com.dutype.app.R
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -102,13 +107,14 @@ private val NotifEmeraldTint = Color(0xFFF0FDF4)
 private val NotifCobaltTint = Color(0xFFEFF6FF)
 
 /** Filter categories shown as chips. */
-private enum class NotifCategory(val label: String) {
-    ALL("All"), JOBS("Jobs"), PAYMENTS("Payments"), UPDATES("Updates")
+private enum class NotifCategory {
+    ALL, JOBS, PAYMENTS, UPDATES
 }
 
 /** Maps the app's real notification types onto the three concrete categories. */
 private fun categoryOf(type: NotificationType): NotifCategory = when (type) {
-    NotificationType.REFERRAL_MILESTONE -> NotifCategory.PAYMENTS
+    NotificationType.REFERRAL_MILESTONE,
+    NotificationType.PAYMENT -> NotifCategory.PAYMENTS
     NotificationType.APPLICATION_STATUS,
     NotificationType.APPLICATION_STATUS_UPDATE,
     NotificationType.APPLICATION_REMINDER,
@@ -147,6 +153,7 @@ fun WorkerNotificationScreen(
     ) { granted ->
         Timber.d("🔔 WorkerNotificationScreen - POST_NOTIFICATIONS granted=$granted")
     }
+
     LaunchedEffect(Unit) {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             val granted = androidx.core.content.ContextCompat.checkSelfPermission(
@@ -200,7 +207,7 @@ fun WorkerNotificationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(NotifBg)
+            .background(NotifBg.bg())
             // Title used to sit under the status bar (touching the top edge).
             .statusBarsPadding()
     ) {
@@ -208,23 +215,35 @@ fun WorkerNotificationScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 14.dp),
+                .padding(start = 8.dp, end = 20.dp, top = 8.dp, bottom = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.IconButton(
+                    onClick = onBackClick,
+                    modifier = Modifier.size(40.dp).padding(end = 4.dp)
+                ) {
+                    androidx.compose.material3.Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.back),
+                        tint = NotifInk.fg()
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.notifications),
+                    fontFamily = MeeshoFontFamily,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = NotifInk.fg()
+                )
+            }
             Text(
-                text = stringResource(R.string.notifications),
-                fontFamily = MeeshoFontFamily,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = NotifInk
-            )
-            Text(
-                text = "Mark all read",
+                text = stringResource(R.string.mark_all_read),
                 fontFamily = MeeshoFontFamily,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Normal,
-                color = NotifMuted,
+                color = NotifMuted.fg(),
                 modifier = Modifier.clickable {
                     // Uses the existing per-notification mark-as-read action
                     allNotifications.filter { !it.isRead }.forEach { viewModel.markAsRead(it.id) }
@@ -243,22 +262,28 @@ fun WorkerNotificationScreen(
             NotifCategory.values().forEach { category ->
                 val selected = category == selectedCategory
                 val chipShape = RoundedCornerShape(12.dp)
+                val label = when (category) {
+                    NotifCategory.ALL -> stringResource(R.string.all)
+                    NotifCategory.JOBS -> stringResource(R.string.notif_filter_jobs)
+                    NotifCategory.PAYMENTS -> stringResource(R.string.notif_filter_payments)
+                    NotifCategory.UPDATES -> stringResource(R.string.notif_filter_updates)
+                }
                 Box(
                     modifier = Modifier
                         .height(36.dp)
                         .clip(chipShape)
-                        .background(if (selected) NotifInk else Color.White)
-                        .border(1.dp, if (selected) NotifInk else NotifBorder, chipShape)
+                        .background(if (selected) NotifInk.bg() else Color.White.bg())
+                        .border(1.dp, if (selected) NotifInk.bd() else NotifBorder.bd(), chipShape)
                         .clickable { selectedCategory = category }
                         .padding(horizontal = 16.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = category.label,
+                        text = label,
                         fontFamily = MeeshoFontFamily,
                         fontSize = 13.sp,
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                        color = if (selected) Color.White else NotifInk
+                        color = if (selected) Color.White else NotifInk.fg()
                     )
                 }
             }
@@ -289,8 +314,8 @@ fun WorkerNotificationScreen(
                     ) {
                         Icon(
                             Icons.Default.Notifications,
-                            contentDescription = "Error",
-                            tint = NotifFaint,
+                            contentDescription = stringResource(R.string.error),
+                            tint = NotifFaint.fg(),
                             modifier = Modifier.size(64.dp)
                         )
                         Text(
@@ -298,13 +323,13 @@ fun WorkerNotificationScreen(
                             fontFamily = MeeshoFontFamily,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Medium,
-                            color = NotifInk
+                            color = NotifInk.fg()
                         )
                         Button(
                             onClick = { viewModel.loadNotifications() },
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = NotifInk,
+                                containerColor = NotifInk.bg(),
                                 contentColor = Color.White
                             )
                         ) {
@@ -320,52 +345,13 @@ fun WorkerNotificationScreen(
                 }
             }
             visibleNotifications.isEmpty() -> {
-                // Empty state (same look for guests, signed-in users and empty filters)
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(120.dp)
-                                .clip(CircleShape)
-                                .background(Color.White)
-                                .border(1.dp, NotifBorder, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Notifications,
-                                contentDescription = "No notifications",
-                                tint = NotifFaint,
-                                modifier = Modifier.size(48.dp)
-                            )
-                        }
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.notif_no_notifications),
-                                fontFamily = MeeshoFontFamily,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = NotifInk
-                            )
-                            Text(
-                                text = stringResource(R.string.notif_worker_empty_desc),
-                                fontFamily = MeeshoFontFamily,
-                                fontSize = 13.sp,
-                                color = NotifMuted,
-                                modifier = Modifier.padding(horizontal = 40.dp),
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                }
+                com.example.dutype.components.DutyPeEmptyScreen(
+                    icon = Icons.Filled.NotificationsNone,
+                    tone = com.example.dutype.components.EmptyTone.PURPLE,
+                    art = com.example.dutype.components.EmptyArt.LETTER,
+                    title = stringResource(R.string.notif_no_notifications),
+                    message = stringResource(R.string.notif_worker_empty_desc)
+                )
             }
             else -> {
                 // Notifications list with swipe to delete
@@ -410,7 +396,7 @@ fun WorkerNotificationScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 androidx.compose.material3.CircularProgressIndicator(
-                                    color = NotifMuted,
+                                    color = NotifMuted.fg(),
                                     strokeWidth = 2.dp,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -491,15 +477,15 @@ fun NotificationItemContent(
     val category = categoryOf(notification.type)
     val isJobLike = category != NotifCategory.UPDATES
     val accent = if (isJobLike) NotifEmerald else NotifCobalt
-    val tint = if (isJobLike) NotifEmeraldTint else NotifCobaltTint
+    val tint = if (isJobLike) NotifEmeraldTint.fg() else NotifCobaltTint.fg()
     val cardShape = RoundedCornerShape(16.dp)
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(cardShape)
-            .background(if (isUnread) NotifBg else Color.White)
-            .border(1.dp, NotifBorder, cardShape)
+            .background(if (isUnread) NotifBg.bg() else Color.White.bg())
+            .border(1.dp, NotifBorder.bd(), cardShape)
             .clickable { onClick() }
     ) {
         if (isUnread) {
@@ -550,7 +536,7 @@ fun NotificationItemContent(
                     fontFamily = MeeshoFontFamily,
                     fontSize = 15.sp,
                     fontWeight = if (isUnread) FontWeight.Bold else FontWeight.Medium,
-                    color = NotifInk,
+                    color = NotifInk.fg(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -560,7 +546,7 @@ fun NotificationItemContent(
                     fontFamily = MeeshoFontFamily,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Normal,
-                    color = NotifMuted,
+                    color = NotifMuted.fg(),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -579,7 +565,7 @@ fun NotificationItemContent(
                     fontFamily = MeeshoFontFamily,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Normal,
-                    color = NotifFaint,
+                    color = NotifFaint.fg(),
                     maxLines = 1
                 )
                 if (isUnread) {
@@ -587,7 +573,7 @@ fun NotificationItemContent(
                         modifier = Modifier
                             .size(8.dp)
                             .clip(CircleShape)
-                            .background(NotifCobalt)
+                            .background(NotifCobalt.bg())
                     )
                 }
             }
@@ -605,17 +591,18 @@ private fun getNotificationIcon(category: NotifCategory): ImageVector = when (ca
  * Relative time: "Just now", "10m ago", "1h ago", "Yesterday", "2d ago";
  * falls back to the centralized DateTimeUtils for anything older than a week.
  */
+@Composable
 private fun formatNotificationTime(timestamp: Long): String {
     val diff = (System.currentTimeMillis() - timestamp).coerceAtLeast(0L)
     val minutes = diff / 60_000L
     val hours = minutes / 60L
     val days = hours / 24L
     return when {
-        minutes < 1L -> "Just now"
-        minutes < 60L -> "${minutes}m ago"
-        hours < 24L -> "${hours}h ago"
-        days == 1L -> "Yesterday"
-        days < 7L -> "${days}d ago"
+        minutes < 1L -> stringResource(R.string.just_now)
+        minutes < 60L -> stringResource(R.string.time_short_m_ago, minutes.toInt())
+        hours < 24L -> stringResource(R.string.time_short_h_ago, hours.toInt())
+        days == 1L -> stringResource(R.string.yesterday)
+        days < 7L -> stringResource(R.string.time_short_d_ago, days.toInt())
         else -> DateTimeUtils.formatTimeAgo(timestamp)
     }
 }

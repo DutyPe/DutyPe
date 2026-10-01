@@ -18,7 +18,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.dutype.models.generateReferralCode as generateCanonicalReferralCode
 import com.example.dutype.models.isValidNormalizedReferralCode
 import com.example.dutype.models.normalizeReferralCode
 import com.example.dutype.ui.theme.WorkerColors
@@ -40,10 +39,6 @@ fun isValidReferralCode(code: String): Boolean {
     return code.isNotBlank() && isValidNormalizedReferralCode(code)
 }
 
-/**
- * Generate the canonical referral code format used by Cloud Functions.
- */
-fun generateReferralCode(userName: String = ""): String = generateCanonicalReferralCode()
 
 /**
  * Referral Code Input Component

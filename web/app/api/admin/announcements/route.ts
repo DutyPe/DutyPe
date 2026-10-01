@@ -1,3 +1,4 @@
+import { cachedAdminGet } from "@/lib/firebase/admin-response-cache";
 import { NextRequest, NextResponse } from "next/server";
 import { Timestamp } from "firebase-admin/firestore";
 
@@ -21,7 +22,7 @@ function asRecord(value: unknown) {
   return (value ?? {}) as Record<string, unknown>;
 }
 
-export async function GET(request: NextRequest) {
+async function getUncached(request: NextRequest) {
   const unauthorized = await requireAuthorizedAdminRequest(request);
   if (unauthorized) {
     return unauthorized;
@@ -35,10 +36,10 @@ export async function GET(request: NextRequest) {
       .limit(100)
       .get();
 
-    const announcements = snapshot.docs.map((item) => ({
-      id: item.id,
-      ...(asRecord(item.data()) as Record<string, unknown>)
-    }));
+    const announcements = snapshot.docs.map((item) => {
+      const data = asRecord(item.data()) as Record<string, unknown>;
+      return { id: item.id, ...data, isActive: data.active !== false };
+    });
 
     return NextResponse.json({ announcements });
   } catch (error) {
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
       priority: announcementPriority,
       targetRole,
       actionRoute: deepLink,
-      isActive: true,
+      active: true,
       createdAt: Timestamp.fromDate(now),
       expiresAt: Timestamp.fromDate(endDateValue)
     });
@@ -141,8 +142,7 @@ export async function PATCH(request: NextRequest) {
     const db = getFirebaseAdminDb();
     await db.collection("announcements").doc(announcementId).set(
       {
-        isActive: body.isActive,
-        updatedAt: Timestamp.fromDate(new Date())
+        active: body.isActive
       },
       { merge: true }
     );
@@ -187,3 +187,6 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+// Read guard: served from a short-lived server cache; cleared on any admin write.
+export const GET = cachedAdminGet(getUncached);

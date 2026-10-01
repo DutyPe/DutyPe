@@ -4,34 +4,35 @@ import { useEffect, useMemo, useState } from "react";
 import {
   collection,
   doc,
-  getDocs,
-  getDoc,
+  limit,
   query,
-  where,
   updateDoc,
   setDoc,
   deleteDoc,
   onSnapshot,
+  serverTimestamp,
   Timestamp,
   orderBy
 } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getFirebaseServices } from "@/lib/firebase/client";
+import { PaymentQrCodes, SubscriptionPayments } from "@/lib/firebase/schema";
+
+const millis = (v: unknown) => (v instanceof Timestamp ? v.toMillis() : typeof v === "number" ? v : 0);
 
 type PaymentRequestRow = {
   id: string;
   employerId: string;
-  employerPhone: string;
   planId: string;
-  amount: number;
+  amountPaise: number;
   upiIdUsed: string;
   utrNumber: string;
   screenshotUrl: string;
   status: string;
-  requestTimestamp: number;
-  verifiedTimestamp?: number | null;
-  expiryTimestamp?: number | null;
-  rejectionReason?: string | null;
+  createdAt: number;
+  verifiedAt: number;
+  rejectionReason: string;
 };
 
 type QrCodeRow = {
@@ -42,19 +43,9 @@ type QrCodeRow = {
   createdAt: number;
 };
 
-type JobRow = {
-  id: string;
-  title: string;
-  companyName: string;
-  employerPhone: string;
-  employerId: string;
-  createdAt: any;
-  expiresAt: any;
-};
-
 export function AdminPaymentsClient() {
   const services = useMemo(() => getFirebaseServices(), []);
-  const [activeTab, setActiveTab] = useState<"requests" | "qrs" | "extensions">("requests");
+  const [activeTab, setActiveTab] = useState<"requests" | "qrs">("requests");
 
   // Requests State
   const [requests, setRequests] = useState<PaymentRequestRow[]>([]);
@@ -67,12 +58,6 @@ export function AdminPaymentsClient() {
   const [qrFile, setQrFile] = useState<File | null>(null);
   const [uploadingQr, setUploadingQr] = useState(false);
 
-  // Job Search State
-  const [searchPhone, setSearchPhone] = useState("");
-  const [jobs, setJobs] = useState<JobRow[]>([]);
-  const [searchingJobs, setSearchingJobs] = useState(false);
-  const [extensionDays, setExtensionDays] = useState<{ [jobId: string]: string }>({});
-
   // Global messages
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -80,15 +65,25 @@ export function AdminPaymentsClient() {
   // Listen for requests
   useEffect(() => {
     if (!services) return;
-    const q = query(
-      collection(services.db, "subscription_payment_requests"),
-      orderBy("requestTimestamp", "desc")
-    );
+    const S = SubscriptionPayments;
+    const q = query(collection(services.db, S.COLLECTION), orderBy(S.CREATED_AT, "desc"), limit(100));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const rows = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data()
-      })) as PaymentRequestRow[];
+      const rows: PaymentRequestRow[] = snapshot.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          employerId: String(data[S.EMPLOYER_ID] ?? ""),
+          planId: String(data[S.PLAN_ID] ?? ""),
+          amountPaise: Number(data[S.AMOUNT_PAISE] ?? 0),
+          upiIdUsed: String(data[S.UPI_ID_USED] ?? ""),
+          utrNumber: String(data[S.UTR_NUMBER] ?? ""),
+          screenshotUrl: String(data[S.SCREENSHOT_URL] ?? ""),
+          status: String(data[S.STATUS] ?? "PENDING"),
+          createdAt: millis(data[S.CREATED_AT]),
+          verifiedAt: millis(data[S.VERIFIED_AT]),
+          rejectionReason: String(data[S.REJECTION_REASON] ?? "")
+        };
+      });
       setRequests(rows);
       setLoadingRequests(false);
     }, (err) => {
@@ -101,106 +96,50 @@ export function AdminPaymentsClient() {
   // Listen for QR codes
   useEffect(() => {
     if (!services) return;
-    const q = query(collection(services.db, "active_qr_codes"), orderBy("createdAt", "desc"));
+    const q = query(collection(services.db, PaymentQrCodes.COLLECTION), orderBy(PaymentQrCodes.CREATED_AT, "desc"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const rows = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data()
-      })) as QrCodeRow[];
+      const rows: QrCodeRow[] = snapshot.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          imageUrl: String(data[PaymentQrCodes.IMAGE_URL] ?? ""),
+          label: String(data[PaymentQrCodes.LABEL] ?? ""),
+          isActive: data[PaymentQrCodes.ACTIVE] === true,
+          createdAt: millis(data[PaymentQrCodes.CREATED_AT])
+        };
+      });
       setQrs(rows);
     });
     return () => unsubscribe();
   }, [services]);
 
-  // Handle Request Approval
-  async function handleApprove(req: PaymentRequestRow) {
+  /** Approve/reject runs on the server (verifySubscriptionPayment): it grants the plan's credits atomically. */
+  async function decide(req: PaymentRequestRow, approve: boolean, reason = "") {
     if (!services) return;
-    if (!confirm(`Are you sure you want to approve transaction UTR: ${req.utrNumber}?`)) return;
-
+    setMessage(approve ? "Activating the plan..." : "Rejecting...");
+    setError(null);
     try {
-      setMessage(`Approving & activating plan for ${req.employerPhone}...`);
-      setError(null);
-
-      // 1. Calculate limits & credits
-      let normalCredits = 3;
-      let instantCredits = 5;
-      if (req.planId === "growth_149") {
-        normalCredits = 6;
-        instantCredits = 15;
-      } else if (req.planId === "premium_299") {
-        normalCredits = 12;
-        instantCredits = 40;
-      } else if (req.planId === "single_49") {
-        normalCredits = 1;
-        instantCredits = 0;
-      } else if (req.planId === "starter_99") {
-        normalCredits = 3;
-        instantCredits = 5;
-      }
-
-      const now = Date.now();
-      const expiry = now + 30 * 24 * 60 * 60 * 1000; // 30 days
-
-      // 2. Update Subscription on Employer Profile Document
-      const profileRef = doc(services.db, "employer_profiles", req.employerId);
-      const profileSnap = await getDoc(profileRef);
-      if (!profileSnap.exists()) {
-        throw new Error("Employer profile document not found. Ensure the user is registered correctly.");
-      }
-
-      await updateDoc(profileRef, {
-        subscription: {
-          status: "ACTIVE",
-          planId: req.planId,
-          startDate: now,
-          expiryDate: expiry,
-          credits: {
-            normal: normalCredits,
-            instant: instantCredits
-          }
-        }
-      });
-
-      // 3. Mark payment request as VERIFIED
-      const reqRef = doc(services.db, "subscription_payment_requests", req.id);
-      await updateDoc(reqRef, {
-        status: "VERIFIED",
-        verifiedTimestamp: now,
-        expiryTimestamp: expiry
-      });
-
-      setMessage("Subscription activated and payment verified successfully!");
-    } catch (err: any) {
-      setError(err.message || "Failed to approve request.");
+      await httpsCallable(services.functions, "verifySubscriptionPayment")({ requestId: req.id, approve, reason });
+      setMessage(approve ? "Plan activated and payment verified." : "Payment request rejected.");
+      if (!approve) setRejectReason((prev) => ({ ...prev, [req.id]: "" }));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to update the payment request.");
     }
   }
 
-  // Handle Request Rejection
+  async function handleApprove(req: PaymentRequestRow) {
+    if (!confirm(`Approve UTR ${req.utrNumber} and activate ${req.planId}?`)) return;
+    await decide(req, true);
+  }
+
   async function handleReject(req: PaymentRequestRow) {
-    if (!services) return;
     const reason = rejectReason[req.id]?.trim();
     if (!reason) {
       alert("Please provide a rejection reason first.");
       return;
     }
-    if (!confirm(`Are you sure you want to reject transaction UTR: ${req.utrNumber}?`)) return;
-
-    try {
-      setMessage(`Rejecting transaction UTR: ${req.utrNumber}...`);
-      setError(null);
-
-      const reqRef = doc(services.db, "subscription_payment_requests", req.id);
-      await updateDoc(reqRef, {
-        status: "REJECTED",
-        rejectionReason: reason,
-        verifiedTimestamp: Date.now()
-      });
-
-      setMessage("Payment request rejected successfully.");
-      setRejectReason(prev => ({ ...prev, [req.id]: "" }));
-    } catch (err: any) {
-      setError(err.message || "Failed to reject request.");
-    }
+    if (!confirm(`Reject UTR ${req.utrNumber}?`)) return;
+    await decide(req, false, reason);
   }
 
   // Handle QR upload
@@ -218,13 +157,12 @@ export function AdminPaymentsClient() {
       await uploadBytes(fileRef, qrFile);
       const downloadUrl = await getDownloadURL(fileRef);
 
-      const newQrRef = doc(collection(services.db, "active_qr_codes"));
+      const newQrRef = doc(collection(services.db, PaymentQrCodes.COLLECTION));
       await setDoc(newQrRef, {
-        id: newQrRef.id,
-        imageUrl: downloadUrl,
-        label: qrLabel.trim(),
-        isActive: true,
-        createdAt: Date.now()
+        [PaymentQrCodes.IMAGE_URL]: downloadUrl,
+        [PaymentQrCodes.LABEL]: qrLabel.trim(),
+        [PaymentQrCodes.ACTIVE]: true,
+        [PaymentQrCodes.CREATED_AT]: serverTimestamp()
       });
 
       setQrLabel("");
@@ -241,10 +179,8 @@ export function AdminPaymentsClient() {
   async function handleToggleQr(qr: QrCodeRow) {
     if (!services) return;
     try {
-      const qrRef = doc(services.db, "active_qr_codes", qr.id);
-      await updateDoc(qrRef, {
-        isActive: !qr.isActive
-      });
+      const qrRef = doc(services.db, PaymentQrCodes.COLLECTION, qr.id);
+      await updateDoc(qrRef, { [PaymentQrCodes.ACTIVE]: !qr.isActive });
       setMessage(`QR code status updated!`);
     } catch (err: any) {
       setError(err.message);
@@ -256,86 +192,8 @@ export function AdminPaymentsClient() {
     if (!services) return;
     if (!confirm("Are you sure you want to delete this QR code?")) return;
     try {
-      const qrRef = doc(services.db, "active_qr_codes", qr.id);
-      await deleteDoc(qrRef);
+      await deleteDoc(doc(services.db, PaymentQrCodes.COLLECTION, qr.id));
       setMessage("QR code deleted successfully.");
-    } catch (err: any) {
-      setError(err.message);
-    }
-  }
-
-  // Handle Job Search
-  async function handleSearchJobs() {
-    if (!services) return;
-    setSearchingJobs(true);
-    setJobs([]);
-    setError(null);
-
-    try {
-      const q = query(
-        collection(services.db, "jobs"),
-        where("employerPhone", "==", searchPhone.trim())
-      );
-      const snap = await getDocs(q);
-      const rows = snap.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          title: String(data.title || ""),
-          companyName: String(data.companyName || ""),
-          employerPhone: String(data.employerPhone || ""),
-          employerId: String(data.employerId || ""),
-          createdAt: data.createdAt,
-          expiresAt: data.expiresAt
-        };
-      }) as JobRow[];
-
-      setJobs(rows);
-      if (rows.length === 0) {
-        setMessage("No jobs found for this employer phone.");
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setSearchingJobs(false);
-    }
-  }
-
-  // Handle Job Extension
-  async function handleExtendJob(job: JobRow) {
-    if (!services) return;
-    const daysStr = extensionDays[job.id]?.trim();
-    const days = parseInt(daysStr || "0");
-    if (isNaN(days) || days <= 0) {
-      alert("Please enter a valid number of days (> 0) to extend.");
-      return;
-    }
-
-    try {
-      setMessage(`Extending job "${job.title}" by ${days} days...`);
-      setError(null);
-
-      // Determine current expiry timestamp
-      let currentExpiry = Date.now();
-      if (job.expiresAt) {
-        if (typeof job.expiresAt.toMillis === "function") {
-          currentExpiry = job.expiresAt.toMillis();
-        } else if (typeof job.expiresAt === "number") {
-          currentExpiry = job.expiresAt;
-        } else if (job.expiresAt.seconds) {
-          currentExpiry = job.expiresAt.seconds * 1000;
-        }
-      }
-
-      const newExpiry = currentExpiry + days * 24 * 60 * 60 * 1000;
-
-      const jobRef = doc(services.db, "jobs", job.id);
-      await updateDoc(jobRef, {
-        expiresAt: Timestamp.fromMillis(newExpiry)
-      });
-
-      setMessage("Job extended successfully!");
-      handleSearchJobs(); // Refresh jobs listing
     } catch (err: any) {
       setError(err.message);
     }
@@ -361,12 +219,6 @@ export function AdminPaymentsClient() {
         >
           📱 Active QR Codes
         </button>
-        <button
-          className={`tab-btn ${activeTab === "extensions" ? "active" : ""}`}
-          onClick={() => { setActiveTab("extensions"); setMessage(null); setError(null); }}
-        >
-          🔄 Job Extensions
-        </button>
       </div>
 
       {/* Tab Contents */}
@@ -382,7 +234,7 @@ export function AdminPaymentsClient() {
               <table className="admin-table">
                 <thead>
                   <tr>
-                    <th>Phone</th>
+                    <th>Employer</th>
                     <th>Plan</th>
                     <th>Amount</th>
                     <th>UTR Number</th>
@@ -394,9 +246,9 @@ export function AdminPaymentsClient() {
                 <tbody>
                   {requests.map((req) => (
                     <tr key={req.id}>
-                      <td><strong>{req.employerPhone}</strong></td>
+                      <td><code>{req.employerId}</code><div>{req.createdAt ? new Date(req.createdAt).toLocaleString() : ""}</div></td>
                       <td><code>{req.planId}</code></td>
-                      <td>₹{req.amount}</td>
+                      <td>₹{(req.amountPaise / 100).toLocaleString("en-IN")}</td>
                       <td><code className="utr-code">{req.utrNumber}</code></td>
                       <td>
                         <span className={`status-badge ${req.status.toLowerCase()}`}>
@@ -446,13 +298,12 @@ export function AdminPaymentsClient() {
                           <div className="processed-details">
                             {req.status === "VERIFIED" && (
                               <div className="verified-info">
-                                <div>✅ Accepted: {req.verifiedTimestamp ? new Date(req.verifiedTimestamp).toLocaleString() : "N/A"}</div>
-                                <div>📅 Expires: {req.expiryTimestamp ? new Date(req.expiryTimestamp).toLocaleDateString() : "N/A"}</div>
+                                <div>✅ Accepted: {req.verifiedAt ? new Date(req.verifiedAt).toLocaleString() : "N/A"}</div>
                               </div>
                             )}
                             {req.status === "REJECTED" && (
                               <div className="rejected-info">
-                                <div>❌ Rejected: {req.verifiedTimestamp ? new Date(req.verifiedTimestamp).toLocaleString() : "N/A"}</div>
+                                <div>❌ Rejected: {req.verifiedAt ? new Date(req.verifiedAt).toLocaleString() : "N/A"}</div>
                                 <div className="reject-reason">Reason: {req.rejectionReason || "None"}</div>
                               </div>
                             )}
@@ -530,79 +381,6 @@ export function AdminPaymentsClient() {
           </section>
         )}
 
-        {activeTab === "extensions" && (
-          <section className="admin-section">
-            <h2 className="admin-section-title">Manual Job Expiry Extension Panel</h2>
-            <div className="search-bar mb-6">
-              <input
-                type="text"
-                placeholder="Search Employer Phone..."
-                value={searchPhone}
-                onChange={(e) => setSearchPhone(e.target.value)}
-                className="search-input"
-              />
-              <button
-                onClick={handleSearchJobs}
-                disabled={searchingJobs}
-                className="btn btn-search"
-              >
-                {searchingJobs ? "Searching..." : "Search Jobs"}
-              </button>
-            </div>
-
-            {jobs.length > 0 && (
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Company</th>
-                    <th>Expires At</th>
-                    <th>Extend Expiry</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {jobs.map((job) => {
-                    const exp = job.expiresAt;
-                    let displayExp = "N/A";
-                    if (exp) {
-                      if (typeof exp.toDate === "function") {
-                        displayExp = exp.toDate().toLocaleDateString();
-                      } else if (typeof exp === "number") {
-                        displayExp = new Date(exp).toLocaleDateString();
-                      } else if (exp.seconds) {
-                        displayExp = new Date(exp.seconds * 1000).toLocaleDateString();
-                      }
-                    }
-                    return (
-                      <tr key={job.id}>
-                        <td><strong>{job.title}</strong></td>
-                        <td>{job.companyName}</td>
-                        <td><code>{displayExp}</code></td>
-                        <td>
-                          <div className="extend-row">
-                            <input
-                              type="number"
-                              placeholder="Days"
-                              value={extensionDays[job.id] || ""}
-                              onChange={(e) => setExtensionDays({ ...extensionDays, [job.id]: e.target.value })}
-                              className="days-input"
-                            />
-                            <button
-                              onClick={() => handleExtendJob(job)}
-                              className="btn btn-extend"
-                            >
-                              Extend
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </section>
-        )}
       </div>
 
       <style jsx>{`

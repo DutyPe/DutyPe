@@ -1,5 +1,6 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.bg
 import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -39,12 +40,12 @@ fun EmployerAboutScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color.White.bg())
     ) {
         CommonHeader(
             title = stringResource(R.string.about_us),
             navController = navController,
-            backgroundColor = Color.White
+            backgroundColor = Color.White.bg()
         )
 
         Column(

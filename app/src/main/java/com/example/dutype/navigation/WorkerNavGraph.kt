@@ -101,7 +101,6 @@ fun WorkerNavGraph(
         ) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
             Timber.i("🔗 DEEP LINK: JobDescriptionScreen opened with jobId: $jobId")
-            val firestoreJobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
             com.example.dutype.worker.screens.JobDescriptionScreen(
                 jobId = jobId,
                 navController = navController,
@@ -109,6 +108,18 @@ fun WorkerNavGraph(
             )
         }
         
+        // Urgent job offer (from the home urgent list or a notification)
+        composable(
+            route = Routes.URGENT_OFFER,
+            arguments = listOf(navArgument("requestId") { type = NavType.StringType }),
+            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://urgent/{requestId}" })
+        ) { backStackEntry ->
+            com.example.dutype.urgent.UrgentOfferScreen(
+                requestId = backStackEntry.arguments?.getString("requestId").orEmpty(),
+                navController = navController
+            )
+        }
+
         // Job Application Screen
         composable(
             route = Routes.JOB_APPLICATION,

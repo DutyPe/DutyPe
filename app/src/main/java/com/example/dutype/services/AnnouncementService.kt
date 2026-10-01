@@ -23,7 +23,7 @@ class AnnouncementService @Inject constructor(
 ) {
     
     companion object {
-        private const val COLLECTION_ANNOUNCEMENTS = com.example.dutype.firestore.FirestoreCollections.ANNOUNCEMENTS
+        private const val COLLECTION_ANNOUNCEMENTS = com.example.dutype.firestore.FirestoreSchema.Announcements.COLLECTION
     }
 
     private fun mapAnnouncement(doc: com.google.firebase.firestore.DocumentSnapshot): Announcement? {
@@ -48,7 +48,7 @@ class AnnouncementService @Inject constructor(
             targetRole = data["targetRole"] as? String,
             actionRoute = data["actionRoute"] as? String,
             expiresAt = data["expiresAt"] as? Timestamp,
-            isActive = data["isActive"] as? Boolean ?: true,
+            isActive = data[com.example.dutype.firestore.FirestoreSchema.Announcements.ACTIVE] as? Boolean ?: true,
             createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now()
         )
     }
@@ -64,7 +64,7 @@ class AnnouncementService @Inject constructor(
 
         try {
             val snapshot = firestore.collection(COLLECTION_ANNOUNCEMENTS)
-                .whereEqualTo("isActive", true)
+                .whereEqualTo(com.example.dutype.firestore.FirestoreSchema.Announcements.ACTIVE, true)
                 .get()
                 .await()
 

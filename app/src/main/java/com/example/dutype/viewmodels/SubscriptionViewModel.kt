@@ -2,29 +2,32 @@ package com.example.dutype.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.dutype.models.PaymentRequest
+import com.example.dutype.firestore.FirestoreSchema.Values
+import com.example.dutype.models.EmployerSubscription
 import com.example.dutype.models.Plan
 import com.example.dutype.models.QrCode
-import com.example.dutype.models.EmployerSubscription
-import com.example.dutype.metadata.UserMetadata
+import com.example.dutype.profile.CurrentProfileStore
+import com.example.dutype.repositories.PaymentRequest
 import com.example.dutype.repositories.SubscriptionRepository
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
 class SubscriptionViewModel @Inject constructor(
     private val subscriptionRepository: SubscriptionRepository,
-    private val userMetadata: UserMetadata
+    private val profileStore: CurrentProfileStore,
+    private val auth: FirebaseAuth
 ) : ViewModel() {
 
-    val activeSubscription: StateFlow<EmployerSubscription> = userMetadata.subscription
+    val activeSubscription: StateFlow<EmployerSubscription> = profileStore.subscription
+
+    /** For the free DutyPe AI tries left. */
+    val employer = profileStore.employer
 
     private val _activeQrCodes = MutableStateFlow<List<QrCode>>(emptyList())
     val activeQrCodes: StateFlow<List<QrCode>> = _activeQrCodes.asStateFlow()
@@ -38,85 +41,42 @@ class SubscriptionViewModel @Inject constructor(
     private val _submitState = MutableStateFlow<SubmitState>(SubmitState.Idle)
     val submitState: StateFlow<SubmitState> = _submitState.asStateFlow()
 
+    private var purchaseDataLoaded = false
+
     init {
-        loadActiveQrCodes()
-        observePaymentRequests()
+        profileStore.start(Values.Role.EMPLOYER)
+    }
+
+    /** Plan names/limits only (one read). */
+    fun loadPlans() {
+        if (_plans.value.isNotEmpty()) return
+        viewModelScope.launch { _plans.value = subscriptionRepository.getPlans() }
+    }
+
+    /** Plans, QR codes and payment history: only the subscription screen needs them. */
+    fun loadPurchaseData() {
+        if (purchaseDataLoaded) return
+        purchaseDataLoaded = true
         loadPlans()
-    }
-
-    private fun loadPlans() {
-        viewModelScope.launch {
-            subscriptionRepository.getPlans()
-                .catch { e ->
-                    Timber.w(e, "Error collecting subscription plans flow")
-                    emit(emptyList())
-                }
-                .collectLatest { fetchedPlans ->
-                    _plans.value = fetchedPlans
-                }
-        }
-    }
-
-    private fun loadActiveQrCodes() {
-        viewModelScope.launch {
-            subscriptionRepository.getActiveQrCodes()
-                .catch { e ->
-                    Timber.w(e, "Error collecting active QR codes flow")
-                    emit(emptyList())
-                }
-                .collectLatest { qrs ->
-                    _activeQrCodes.value = qrs
-                }
-        }
-    }
-
-    private fun observePaymentRequests() {
-        viewModelScope.launch {
-            userMetadata.userStats.collectLatest { stats ->
-                if (stats.userId.isNotEmpty()) {
-                    subscriptionRepository.getPaymentRequests(stats.userId)
-                        .catch { e ->
-                            Timber.w(e, "Error collecting payment requests flow")
-                            emit(emptyList())
-                        }
-                        .collectLatest { requests ->
-                            _paymentRequests.value = requests
-                        }
-                }
+        viewModelScope.launch { _activeQrCodes.value = subscriptionRepository.getActiveQrCodes() }
+        auth.currentUser?.uid?.let { uid ->
+            viewModelScope.launch {
+                subscriptionRepository.getPaymentRequests(uid).collect { _paymentRequests.value = it }
             }
         }
     }
 
-    fun submitPayment(planId: String, amount: Double, utrNumber: String, screenshotUrl: String) {
-        val employerId = userMetadata.userStats.value.userId
-        val employerPhone = userMetadata.userStats.value.phone
-
+    fun submitPayment(plan: Plan, utrNumber: String, screenshotUrl: String, upiIdUsed: String = "") {
         if (utrNumber.trim().length != 12) {
             _submitState.value = SubmitState.Error("UTR number must be exactly 12 digits")
             return
         }
-
+        if (_submitState.value == SubmitState.Loading) return
         viewModelScope.launch {
             _submitState.value = SubmitState.Loading
-            val request = PaymentRequest(
-                employerId = employerId,
-                employerPhone = employerPhone,
-                planId = planId,
-                amount = amount,
-                utrNumber = utrNumber.trim(),
-                screenshotUrl = screenshotUrl,
-                status = "PENDING",
-                requestTimestamp = System.currentTimeMillis()
-            )
-            val result = subscriptionRepository.submitPaymentRequest(request)
-            result.fold(
-                onSuccess = {
-                    _submitState.value = SubmitState.Success
-                },
-                onFailure = { error ->
-                    _submitState.value = SubmitState.Error(error.message ?: "Failed to submit request")
-                }
-            )
+            subscriptionRepository.submitPaymentRequest(plan.id, plan.pricePaise, upiIdUsed, utrNumber, screenshotUrl)
+                .onSuccess { _submitState.value = SubmitState.Success }
+                .onFailure { _submitState.value = SubmitState.Error(it.message ?: "Failed to submit request") }
         }
     }
 

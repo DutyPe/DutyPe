@@ -1,5 +1,7 @@
 package com.example.dutype.components
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -76,13 +78,13 @@ fun FeedbackBottomSheet(
     var isSubmitting by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf("General") }
     var showSuccessAnimation by remember { mutableStateOf(false) }
-    
+
     // Get dynamic app version
     val appVersion = remember { getAppVersion(context) }
     val appVersionCode = remember { getAppVersionCode(context) }
-    
+
     val categories = listOf("General", "Bug Report", "Feature Request", "UI/UX", "Performance", "Other")
-    
+
     if (isVisible) {
         ModalBottomSheet(
             onDismissRequest = {
@@ -141,9 +143,9 @@ fun FeedbackBottomSheet(
                                 )
                             }
                         }
-                        
+
                         Spacer(modifier = Modifier.height(23.dp))
-                        
+
                         Text(
                             text = stringResource(R.string.auto_thank_you),
                             style = MaterialTheme.typography.headlineSmall.copy(
@@ -151,16 +153,16 @@ fun FeedbackBottomSheet(
                                 color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                             )
                         )
-                        
+
                         Spacer(modifier = Modifier.height(8.dp))
-                        
+
                         Text(
                             text = stringResource(R.string.auto_your_feedback_helps_us_improve_dutype),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = WorkerColors.TextSecondary
                             )
                         )
-                        
+
                         Spacer(modifier = Modifier.height(32.dp))
                     }
                 }
@@ -181,9 +183,9 @@ fun FeedbackBottomSheet(
                             color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                         )
                     )
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     Text(
                         text = stringResource(R.string.auto_help_us_improve_dutype_by_sharing_your_exp),
                         style = MaterialTheme.typography.bodyMedium.copy(
@@ -191,9 +193,9 @@ fun FeedbackBottomSheet(
                             textAlign = TextAlign.Center
                         )
                     )
-                    
+
                     Spacer(modifier = Modifier.height(24.dp))
-                    
+
                     // Rating Section
                     Text(
                         text = stringResource(R.string.auto_how_would_you_rate_your_experience),
@@ -202,9 +204,9 @@ fun FeedbackBottomSheet(
                             color = WorkerColors.TextSecondary
                         )
                     )
-                    
+
                     Spacer(modifier = Modifier.height(12.dp))
-                    
+
                     // Star Rating
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -214,14 +216,14 @@ fun FeedbackBottomSheet(
                             Icon(
                                 imageVector = if (rating <= selectedRating) Icons.Filled.Star else Icons.Filled.StarBorder,
                                 contentDescription = "Rating $rating",
-                                tint = if (rating <= selectedRating) Color(0xFFFBBF24) else WorkerColors.TextTertiary,
+                                tint = if (rating <= selectedRating) Color(0xFFFBBF24).fg() else WorkerColors.TextTertiary,
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clickable { selectedRating = rating }
                             )
                         }
                     }
-                    
+
                     // Rating text
                     if (selectedRating > 0) {
                         Spacer(modifier = Modifier.height(8.dp))
@@ -239,9 +241,9 @@ fun FeedbackBottomSheet(
                             )
                         )
                     }
-                    
+
                     Spacer(modifier = Modifier.height(24.dp))
-                    
+
                     // Category Selection
                     Text(
                         text = stringResource(R.string.auto_feedback_category),
@@ -251,9 +253,9 @@ fun FeedbackBottomSheet(
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     // Category Chips
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -266,14 +268,14 @@ fun FeedbackBottomSheet(
                                 label = { Text(category, fontSize = 12.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = WorkerColors.Primary.copy(alpha = 0.1f),
-                                    selectedLabelColor = WorkerColors.Primary
+                                    selectedLabelColor = WorkerColors.Primary.fg()
                                 )
                             )
                         }
                     }
-                    
+
                     Spacer(modifier = Modifier.height(8.dp))
-                    
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -285,14 +287,14 @@ fun FeedbackBottomSheet(
                                 label = { Text(category, fontSize = 12.sp) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = WorkerColors.Primary.copy(alpha = 0.1f),
-                                    selectedLabelColor = WorkerColors.Primary
+                                    selectedLabelColor = WorkerColors.Primary.fg()
                                 )
                             )
                         }
                     }
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     // Feedback Text Field
                     OutlinedTextField(
                         value = feedbackText,
@@ -304,14 +306,14 @@ fun FeedbackBottomSheet(
                             .height(120.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = WorkerColors.Primary,
+                            focusedBorderColor = WorkerColors.Primary.bd(),
                             unfocusedBorderColor = WorkerColors.Border
                         ),
                         maxLines = 4
                     )
-                    
+
                     Spacer(modifier = Modifier.height(24.dp))
-                    
+
                     // Action Buttons Row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -341,7 +343,7 @@ fun FeedbackBottomSheet(
                                 )
                             )
                         }
-                        
+
                         // Submit Button
                         Button(
                             onClick = {
@@ -349,43 +351,41 @@ fun FeedbackBottomSheet(
                                     Toast.makeText(context, context.getString(R.string.please_select_rating), Toast.LENGTH_SHORT).show()
                                     return@Button
                                 }
-                                
+
                                 isSubmitting = true
                                 scope.launch {
                                     try {
                                         val currentUser = FirebaseAuth.getInstance().currentUser
-                                        val feedbackData = mapOf(
-                                            "userId" to (currentUser?.uid ?: "anonymous"),
-                                            "userEmail" to (currentUser?.email ?: "anonymous"),
-                                            "userRole" to userRole,
-                                            "rating" to selectedRating,
-                                            "category" to selectedCategory,
-                                            "feedback" to feedbackText,
-                                            "timestamp" to System.currentTimeMillis(),
-                                            "appVersion" to appVersion,
-                                            "appVersionCode" to appVersionCode,
-                                            "platform" to "Android",
-                                            "deviceModel" to android.os.Build.MODEL,
-                                            "androidVersion" to android.os.Build.VERSION.RELEASE
-                                        )
-                                        
-                                        Timber.d("Feedback strict mode: skipping Firestore write for app_feedback")
-                                        
+                                        val F = com.example.dutype.firestore.FirestoreSchema.Feedback
+                                        if (currentUser != null && !currentUser.isAnonymous) {
+                                            com.example.dutype.di.firestoreFromHilt(context).collection(F.COLLECTION).add(
+                                                mapOf(
+                                                    F.UID to currentUser.uid,
+                                                    F.ROLE to userRole,
+                                                    F.RATING to selectedRating,
+                                                    F.CATEGORY to selectedCategory,
+                                                    F.TEXT to feedbackText.trim().take(1000),
+                                                    F.APP_VERSION to appVersion,
+                                                    F.CREATED_AT to com.google.firebase.Timestamp.now()
+                                                )
+                                            ).await()
+                                        }
+
                                         Timber.i("Feedback submitted: rating=$selectedRating, category=$selectedCategory, version=$appVersion")
-                                        
+
                                         // Show success animation
                                         showSuccessAnimation = true
-                                        
+
                                         // Auto close after animation
                                         delay(2000)
-                                        
+
                                         // Reset and close
                                         selectedRating = 0
                                         feedbackText = ""
                                         selectedCategory = "General"
                                         showSuccessAnimation = false
                                         onDismiss()
-                                        
+
                                     } catch (e: Exception) {
                                         Timber.e(e, "Error submitting feedback")
                                         Toast.makeText(context, context.getString(R.string.failed_submit_feedback_retry), Toast.LENGTH_SHORT).show()

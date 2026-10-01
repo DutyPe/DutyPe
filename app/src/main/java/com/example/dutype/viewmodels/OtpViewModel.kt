@@ -25,7 +25,6 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
-import com.example.dutype.metadata.MetadataManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import android.content.Context
@@ -35,13 +34,11 @@ import android.content.Context
  *
  * - Injects AuthManager singleton instead of creating a new instance.
  * - Uses FirestoreUtils.getUserByUid() for profile checks (canonical implementation).
- * - Initializes MetadataManager after successful authentication.
  */
 @HiltViewModel
 class OtpViewModel @Inject constructor(
     private val fcmTokenManager: FCMTokenManager,
     private val authManager: AuthManager,
-    private val metadataManager: MetadataManager,
     private val authFlowService: AuthFlowService,
     private val performanceTracker: com.example.dutype.performance.PerformanceTracker,
     private val errorHandler: com.example.dutype.core.error.ErrorHandler
@@ -68,22 +65,11 @@ class OtpViewModel @Inject constructor(
         backgroundScope.launch {
             runCatching {
                 com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                    .collection(com.example.dutype.firestore.FirestoreCollections.APP_CONFIG)
+                    .collection(com.example.dutype.firestore.FirestoreSchema.AppConfig.COLLECTION)
                     .document("app_update")
                     .get(com.google.firebase.firestore.Source.SERVER)
                     .await()
             }.onFailure { Timber.d(it, "Firestore warm-up skipped") }
-        }
-    }
-
-    /** Authenticated metadata loads only after login is resolved so it never competes with it. */
-    private fun initMetadataInBackground() {
-        backgroundScope.launch {
-            try {
-                metadataManager.initializeWithAuth()
-            } catch (e: Exception) {
-                Timber.w(e, "Failed to initialize metadata after auth")
-            }
         }
     }
 
@@ -104,11 +90,11 @@ class OtpViewModel @Inject constructor(
     // Resend cooldown timer - prevents spam and reduces rate limiting
     private val _resendCooldownSeconds = MutableStateFlow(0)
     val resendCooldownSeconds: StateFlow<Int> = _resendCooldownSeconds.asStateFlow()
-    
+
     private val auth = FirebaseAuth.getInstance()
     private var storedVerificationId: String? = null
     private var resendToken: PhoneAuthProvider.ForceResendingToken? = null
-    
+
     // Role context for FCM registration - set by LoginBottomSheet before OTP flow
     private var pendingRole: UserRole = UserRole.WORKER
 
@@ -136,9 +122,9 @@ class OtpViewModel @Inject constructor(
         viewModelScope.launch {
             val startTime = System.currentTimeMillis()
             com.example.dutype.performance.MainThreadChecker.assertMainThread("OtpViewModel.sendOtp")
-            
+
             _otpState.value = _otpState.value.copy(isLoading = true, error = null)
-            
+
             // Log to crash reports
             errorHandler.logBreadcrumb("OTP send started: $phoneNumber")
 
@@ -183,10 +169,10 @@ class OtpViewModel @Inject constructor(
                 Timber.w(err, "📱 OTP pre-send role check failed; continuing to PhoneAuth for $phoneNumber")
                 errorHandler.logEvent("otp_send_precheck_failed_continuing", true)
             }
-            
+
             // Start 60-second cooldown timer for initial OTP send
             startResendCooldown()
-            
+
 
             try {
                 // Get activity from context (required for PhoneAuthProvider). Compose can
@@ -195,7 +181,7 @@ class OtpViewModel @Inject constructor(
                 if (activity == null) {
                     val duration = System.currentTimeMillis() - startTime
                     performanceTracker.trackApiCall("send_otp", duration, success = false)
-                    
+
                     _otpState.value = _otpState.value.copy(
                         isLoading = false,
                         error = "Activity context required for phone authentication"
@@ -214,7 +200,7 @@ class OtpViewModel @Inject constructor(
                                 // Auto-verification completed (instant verification or auto-retrieval)
                                 val duration = System.currentTimeMillis() - startTime
                                 performanceTracker.trackApiCall("send_otp", duration, success = true)
-                                
+
                                 Timber.i("Phone verification completed automatically")
                                 signInWithPhoneAuthCredential(credential, context)
                             }
@@ -222,19 +208,19 @@ class OtpViewModel @Inject constructor(
                             override fun onVerificationFailed(e: FirebaseException) {
                                 val duration = System.currentTimeMillis() - startTime
                                 performanceTracker.trackApiCall("send_otp", duration, success = false)
-                                
+
                                 Timber.e(e, "Phone verification failed")
                                 // Log for debugging Play Integrity issues
                                 Timber.e("Exception class: ${e::class.simpleName}")
                                 Timber.e("Full error: $e")
-                                
+
                                 Timber.e("❌ OTP verification failed: ${e.message}")
                                 Timber.e("Exception: ${e::class.simpleName} - $e")
-                                
+
                                 // Log to crash reports for Play Console
                                 errorHandler.logEvent("otp_verification_failed", e.message ?: "unknown")
                                 errorHandler.logBreadcrumb("OTP verification failed: ${e::class.simpleName}")
-                                
+
                                 // Specific error handling for Play Store app recognition delay
                                 if (e.message?.contains("app not Recognized", ignoreCase = true) == true) {
                                     Timber.w("⚠️ CRITICAL: App not recognized by Play Store yet!")
@@ -246,7 +232,7 @@ class OtpViewModel @Inject constructor(
                                     errorHandler.logEvent("otp_billing_not_enabled", true)
                                     errorHandler.logBreadcrumb("OTP blocked: Firebase phone auth billing not enabled")
                                 }
-                                
+
                                 _otpState.value = _otpState.value.copy(
                                     isLoading = false,
                                     error = mapPhoneAuthError(e),
@@ -264,7 +250,7 @@ class OtpViewModel @Inject constructor(
                         ) {
                             val duration = System.currentTimeMillis() - startTime
                             performanceTracker.trackApiCall("send_otp", duration, success = true)
-                            
+
                             Timber.i("OTP code sent successfully in ${duration}ms")
                             storedVerificationId = verificationId
                             resendToken = token
@@ -275,7 +261,7 @@ class OtpViewModel @Inject constructor(
                                 message = "OTP sent to $phoneNumber"
                             )
                         }
-                        
+
                         override fun onCodeAutoRetrievalTimeOut(verificationId: String) {
                             // Auto-retrieval timeout - always keep otpSent=true so UI never goes blank/crashes
                             Timber.i("Auto-retrieval timeout - manual entry mode")
@@ -290,12 +276,12 @@ class OtpViewModel @Inject constructor(
                         }
                     })
                     .build()
-                
+
                 PhoneAuthProvider.verifyPhoneNumber(options)
             } catch (e: Exception) {
                 val duration = System.currentTimeMillis() - startTime
                 performanceTracker.trackApiCall("send_otp", duration, success = false)
-                
+
                 Timber.e(e, "Exception sending OTP")
                 _otpState.value = _otpState.value.copy(
                     isLoading = false,
@@ -313,10 +299,10 @@ class OtpViewModel @Inject constructor(
     fun verifyOtp(otp: String, context: Context) {
         viewModelScope.launch {
             _otpState.value = _otpState.value.copy(isLoading = true, error = null)
-            
+
             // Track OTP verification attempt for crash investigation
             errorHandler.logBreadcrumb("OTP verification started - Code: ${otp.take(1)}***")
-            
+
             try {
                 val verificationId = storedVerificationId
                        if (verificationId != null) {
@@ -350,12 +336,12 @@ class OtpViewModel @Inject constructor(
             try {
                 val result = auth.signInWithCredential(credential).await()
                 val firebaseUser = result.user
-                
+
                 if (firebaseUser != null) {
                     val phoneNumber = firebaseUser.phoneNumber ?: ""
                     val userId = firebaseUser.uid
                     errorHandler.logBreadcrumb("Firebase sign-in successful: $phoneNumber")
-                    
+
                     // PERF: do NOT read the profile docs here. completeLogin()/completeRegistration()
                     // (called immediately after otpVerified) resolve role + profile with one
                     // concurrent read and re-cache the user, so an extra round trip here only
@@ -407,57 +393,18 @@ class OtpViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Check if user profile is complete based on Firestore data
-     * REFACTORED: Extracted from inline logic for better readability
-     */
-    private fun isProfileComplete(userData: Map<String, Any>?): Boolean {
-        if (userData == null) return false
-
-        val hasEssentialData = !((userData["phone"] as? String).isNullOrBlank()) &&
-            !((userData["fullName"] as? String).isNullOrBlank())
-
-        val hasRoleData = when {
-            (userData["role"] as? String)?.isNotBlank() == true -> true
-            else -> false
-        }
-
-        Timber.d("isProfileComplete - hasEssentialData: $hasEssentialData, hasRoleData: $hasRoleData")
-
-        return hasEssentialData && hasRoleData
-    }
-
-    /**
-     * Update profile complete status in ProfileSetupStateManager via context
-     * This needs to be called from the UI layer to properly update the datastore
-     */
-    private suspend fun updateProfileComplete(userId: String, role: UserRole, isComplete: Boolean) {
+    private fun cacheResolvedUser(user: AuthFlowService.SessionUser, fallbackRole: UserRole) {
         try {
-            // Note: This will be called from UI layer which has access to ProfileCompletionViewModel
-            Timber.d("updateProfileComplete - userId: $userId, role: $role, isComplete: $isComplete")
-            // The actual update will happen in the UI layer via LaunchedEffect
-        } catch (e: Exception) {
-            Timber.e(e, "updateProfileComplete - Error")
-        }
-    }
-
-    private fun cacheResolvedUser(userData: Map<String, Any>, fallbackRole: UserRole) {
-        try {
-            val resolvedRole = run {
-                val raw = (userData["role"] as? String)
-                    ?: fallbackRole.name
-                runCatching { UserRole.valueOf(raw.uppercase()) }.getOrDefault(fallbackRole)
-            }
-
-            val cachedUser = User(
-                id = userData["userId"] as? String ?: auth.currentUser?.uid.orEmpty(),
-                fullName = userData["fullName"] as? String ?: "",
-                phone = userData["phone"] as? String ?: auth.currentUser?.phoneNumber.orEmpty(),
-                role = resolvedRole,
-                profileImageUrl = userData["profileImageUrl"] as? String
+            val role = runCatching { UserRole.valueOf(user.role) }.getOrDefault(fallbackRole)
+            authManager.saveUser(
+                User(
+                    id = user.uid,
+                    fullName = user.name,
+                    phone = user.phone,
+                    role = role,
+                    profileImageUrl = user.photoUrl
+                )
             )
-
-            authManager.saveUser(cachedUser)
             authManager.setLoggedIn(true)
         } catch (e: Exception) {
             Timber.w(e, "Failed to cache resolved user")
@@ -467,23 +414,30 @@ class OtpViewModel @Inject constructor(
     suspend fun completeRegistration(
         role: UserRole,
         fullName: String,
-        referralCode: String?
+        referralCode: String?,
+        employerType: String? = null
     ): Result<PostOtpNavigation> {
         return try {
             authFlowService.completeRegistration(
                 requestedRole = role.name,
-                fullName = fullName,
-                referralCode = referralCode
+                name = fullName,
+                referralCode = referralCode,
+                employerType = employerType
             ).fold(
                 onSuccess = { resolution ->
-                    cacheResolvedUser(resolution.userData, role)
+                    cacheResolvedUser(resolution.user, role)
                     registerFcmInBackground(role.name)
-                    initMetadataInBackground()
                     Result.success(PostOtpNavigation(PostOtpDestination.PROFILE_SETUP, role))
                 },
-                onFailure = { Result.failure(it) }
+                onFailure = {
+                    // Registration was refused (e.g. number already registered with the other
+                    // role): don't leave the user signed in to a half-created account.
+                    runCatching { auth.signOut() }
+                    Result.failure(it)
+                }
             )
         } catch (e: Exception) {
+            runCatching { auth.signOut() }
             Result.failure(e)
         }
     }
@@ -497,22 +451,8 @@ class OtpViewModel @Inject constructor(
                     // refuse the login and surface a precise error so the screen
                     // can show "this number is registered as <role>" toast and
                     // sign the user back out.
-                    val existingRole = resolution.roleForFcm.uppercase()
-                    if (resolution.userData != null &&
-                        existingRole.isNotBlank() &&
-                        existingRole != role.name.uppercase()
-                    ) {
-                        runCatching { auth.signOut() }
-                        return@fold Result.failure(
-                            IllegalStateException("phone-already-registered-as:$existingRole")
-                        )
-                    }
-
-                    resolution.userData?.let { userData ->
-                        cacheResolvedUser(userData, role)
-                        registerFcmInBackground(resolution.roleForFcm)
-                    }
-                    initMetadataInBackground()
+                    cacheResolvedUser(resolution.user, role)
+                    registerFcmInBackground(resolution.user.role)
 
                     Result.success(
                         PostOtpNavigation(
@@ -522,12 +462,18 @@ class OtpViewModel @Inject constructor(
                                 PostOtpDestination.HOME
                             },
                             role = runCatching {
-                                UserRole.valueOf(resolution.roleForFcm.uppercase())
+                                UserRole.valueOf(resolution.user.role)
                             }.getOrDefault(role)
                         )
                     )
                 },
-                onFailure = { Result.failure(it) }
+                onFailure = { error ->
+                    val msg = error.message.orEmpty()
+                    if (msg == "account-not-found" || msg.startsWith("phone-already-registered-as:")) {
+                        runCatching { authManager.logout() }
+                    }
+                    Result.failure(error)
+                }
             )
         } catch (e: Exception) {
             Result.failure(e)
@@ -543,10 +489,10 @@ class OtpViewModel @Inject constructor(
             )
             return
         }
-        
+
         viewModelScope.launch {
             _otpState.value = _otpState.value.copy(isLoading = true, error = null)
-            
+
             // Track OTP resend attempt for crash investigation
             errorHandler.logBreadcrumb("OTP resend started: $phoneNumber")
 
@@ -581,10 +527,10 @@ class OtpViewModel @Inject constructor(
                 Timber.w(err, "📱 OTP resend role check failed; continuing to PhoneAuth for $phoneNumber")
                 errorHandler.logEvent("otp_resend_precheck_failed_continuing", true)
             }
-            
+
             // Start 60-second cooldown timer
             startResendCooldown()
-            
+
 
             try {
                 // Get activity from context (required for PhoneAuthProvider). Compose can
@@ -649,7 +595,7 @@ class OtpViewModel @Inject constructor(
                                 message = "OTP resent to $phoneNumber"
                             )
                         }
-                        
+
                         override fun onCodeAutoRetrievalTimeOut(verificationId: String) {
                             Timber.i("Auto-retrieval timeout (resend) - manual entry required")
                             storedVerificationId = verificationId
@@ -660,12 +606,12 @@ class OtpViewModel @Inject constructor(
                             )
                         }
                     })
-                
+
                 // Only set force resending token if it's not null
                 resendToken?.let { token ->
                     optionsBuilder.setForceResendingToken(token)
                 }
-                
+
                 val options = optionsBuilder.build()
                 PhoneAuthProvider.verifyPhoneNumber(options)
             } catch (e: Exception) {
@@ -688,7 +634,7 @@ class OtpViewModel @Inject constructor(
         return safeMessage.contains("BILLING_NOT_ENABLED", ignoreCase = true) ||
             safeMessage.contains("17499", ignoreCase = true)
     }
-    
+
     /**
      * Start 60-second cooldown timer for resend button
      * Prevents spam and reduces Firebase rate limiting
@@ -706,7 +652,7 @@ class OtpViewModel @Inject constructor(
         /**
          * Map known phone-auth exceptions to friendly messages.
          * Handles specific Play Integrity API errors that prevent SMS auto-retrieval.
-         * 
+         *
          * CRITICAL: If you see "app not Recognized by Play Store" error on Play Store version:
          * → App needs 24-48 hours to be recognized by Google Play Store
          * → Works locally because debug apps bypass Play Integrity checks
@@ -725,12 +671,12 @@ class OtpViewModel @Inject constructor(
                 msg.contains("INVALID_CODE", ignoreCase = true) ||
                 msg.contains("SESSION_EXPIRED", ignoreCase = true) ->
                     "The verification code you entered is incorrect. Please check and try again."
-                
+
                 // Expired OTP
                 msg.contains("expired", ignoreCase = true) ||
                 msg.contains("code has expired", ignoreCase = true) ->
                     "This verification code has expired. Please request a new one."
-                
+
                 // Too many attempts - ENHANCED MESSAGE with device-specific guidance
                 msg.contains("too many", ignoreCase = true) ||
                 msg.contains("TOO_MANY_REQUESTS", ignoreCase = true) ||
@@ -738,32 +684,32 @@ class OtpViewModel @Inject constructor(
                 msg.contains("unusual activity", ignoreCase = true) ||
                 msg.contains("rate limit", ignoreCase = true) ->
                     "This phone number has been temporarily blocked on this device due to multiple verification attempts. Please try: 1) Wait 1-2 hours, 2) Try from a different device, or 3) Use a different phone number. This is a security measure by our verification provider."
-                
+
                 // Play Store recognition delay (MOST COMMON - works locally but not on Play Store)
                 msg.contains("app not Recognized by Play Store", ignoreCase = true) ||
                 msg.contains("18002", ignoreCase = true) ->
                     "App recognition pending. Please wait 24-48 hours after installation for Play Store to recognize your app."
-                
+
                 // Play Integrity API errors (status codes 17028)
                 msg.contains("17028", ignoreCase = true) ||
                 msg.contains("Play Integrity", ignoreCase = true) ||
                 msg.contains("integrity", ignoreCase = true) ->
                     "Couldn't verify this device. Update Google Play services / Play Store and try again."
-                    
+
                 msg.contains("BILLING_NOT_ENABLED", ignoreCase = true) ||
                 msg.contains("17499", ignoreCase = true) ->
                     "Phone verification failed due to Firebase billing configuration. Enable billing on project 'dutype-860ac' and try again."
-                    
+
                 msg.contains("quota", ignoreCase = true) ->
                     "SMS quota exceeded. Please try again later."
-                    
+
                 msg.contains("network", ignoreCase = true) ->
                     "Network error. Please check your connection and try again."
-                    
+
                 msg.contains("invalid phone", ignoreCase = true) ||
                 msg.contains("invalid format", ignoreCase = true) ->
                     "Invalid phone number format. Please enter a valid 10-digit number."
-                    
+
                 else -> "Verification failed. Please try again."
             }
         }

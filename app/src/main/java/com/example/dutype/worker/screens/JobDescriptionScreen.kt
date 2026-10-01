@@ -1,5 +1,10 @@
 package com.example.dutype.worker.screens
 
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.WorkOff
 import com.dutype.app.R
 import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -125,17 +130,15 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.dutype.components.OfflineBanner
 import com.example.dutype.components.ShareJobIconButton
-import com.example.dutype.components.CallUpdateBottomSheet
 import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.parseTrustTier
 import com.example.dutype.navigation.Routes
-import com.example.dutype.services.JobAvailabilityFeedback
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.ValidationUtils
 import com.example.dutype.utils.findActivity
 import com.example.dutype.viewmodels.ConnectivityViewModel
-import com.example.dutype.viewmodels.FirestoreJobViewModel
+import com.example.dutype.viewmodels.JobDetailViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.worker.components.JobCard
 import kotlinx.coroutines.launch
@@ -150,7 +153,7 @@ fun JobDescriptionScreen(
     onStatusBarColorChange: (Color) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val jobViewModel: FirestoreJobViewModel = hiltViewModel()
+    val jobViewModel: JobDetailViewModel = hiltViewModel()
     val smartApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
     val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel = hiltViewModel()
     val savedJobsViewModel: com.example.dutype.viewmodels.SavedJobsViewModel = hiltViewModel()
@@ -198,45 +201,28 @@ fun JobDescriptionScreen(
 
     // ReportingService accessed via SmartJobApplicationViewModel (proper DI pattern)
     val reportingService = smartApplicationViewModel.reportingService
-    val jobCallFeedbackService = smartApplicationViewModel.jobCallFeedbackService
-    var pendingCallFeedbackJob by remember { mutableStateOf<JobListing?>(null) }
-    var showCallFeedbackSheet by remember { mutableStateOf(false) }
     val reviewTriggerService = com.example.dutype.di.rememberInAppReviewTriggerService()
     val callLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
         context.findActivity()?.let { reviewTriggerService.onWorkerDirectContact(it) }
-        val feedbackJob = pendingCallFeedbackJob
-        if (feedbackJob != null) {
-            scope.launch {
-                showCallFeedbackSheet = !jobCallFeedbackService.hasSubmittedFeedback(feedbackJob.id.ifBlank { feedbackJob.jobId })
-            }
-        }
     }
+    /** Calling counts as applying: the employer sees the caller among the applicants. */
     val launchEmployerDialer: (JobListing) -> Unit = { currentJob ->
-        val phone = currentJob.contactNumber.trim()
-        if (phone.isBlank()) {
-            android.widget.Toast.makeText(context, context.getString(R.string.contact_number_not_available), android.widget.Toast.LENGTH_SHORT).show()
-        } else {
-            scope.launch {
-                smartApplicationViewModel.jobInteractionService.logCallButtonTap(currentJob)
-                    .onSuccess {
-                        pendingCallFeedbackJob = currentJob
-                        val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
-                            data = android.net.Uri.parse("tel:$phone")
-                        }
-                        try {
-                            callLauncher.launch(intent)
-                        } catch (e: Exception) {
-                            pendingCallFeedbackJob = null
-                            Timber.e(e, "Failed to start dialer for $phone")
-                            android.widget.Toast.makeText(context, context.getString(R.string.no_dialer_app_available), android.widget.Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                    .onFailure { e ->
-                        Timber.e(e, "📞 Failed to log call tap for job: ${currentJob.id}")
-                        android.widget.Toast.makeText(context, context.getString(R.string.save_feedback_failed), android.widget.Toast.LENGTH_SHORT).show()
-                    }
+        scope.launch {
+            val phone = smartApplicationViewModel.callEmployer(currentJob.id)
+            if (phone == null) {
+                android.widget.Toast.makeText(context, context.getString(R.string.contact_number_not_available), android.widget.Toast.LENGTH_SHORT).show()
+            } else {
+                val intent = android.content.Intent(android.content.Intent.ACTION_DIAL).apply {
+                    data = android.net.Uri.parse("tel:$phone")
+                }
+                try {
+                    callLauncher.launch(intent)
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to start dialer")
+                    android.widget.Toast.makeText(context, context.getString(R.string.no_dialer_app_available), android.widget.Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -300,7 +286,7 @@ fun JobDescriptionScreen(
     // Consolidated: Handle application success and error
     LaunchedEffect(applicationUiState.applicationSuccess, applicationUiState.error) {
         if (applicationUiState.applicationSuccess) {
-            snackbarMessage = "Application submitted successfully!"
+            snackbarMessage = context.getString(R.string.job_desc_application_submitted)
             showSnackbar = true
             smartApplicationViewModel.clearSuccessStates()
         }
@@ -325,44 +311,35 @@ fun JobDescriptionScreen(
             isLoading = true
             error = null
             try {
-                // Apr 2026 fast-path: collect the live Flow so the cached
-                // JobListing renders INSTANTLY on screen entry, then the
-                // fresh Firestore copy quietly replaces it once the network
-                // fetch completes. The user no longer sees a blank loading
-                // state on jobs they just scrolled past or recently viewed.
-                jobViewModel.getJobByIdLive(jobId).collect { result ->
-                    result.fold(
-                        onSuccess = { fetchedJob ->
-                            val jobWithDistance = if (fetchedJob != null &&
-                                currentLocation != null &&
-                                (currentLocation!!.latitude != 0.0 || currentLocation!!.longitude != 0.0) &&
-                                (fetchedJob.lat != 0.0 || fetchedJob.lng != 0.0)) {
-                                val distance = jobViewModel.locationService.calculateDistance(
-                                    currentLocation!!.latitude, currentLocation!!.longitude,
-                                    fetchedJob.lat, fetchedJob.lng
+                // Same origin as the feed: a place the worker picked (e.g. Delhi) when they chose one,
+                // else where the phone is now (last known position), else the saved location.
+                val device = if (locationPreferences.isManualLocationLocked()) null
+                    else com.example.dutype.worker.components.lastDeviceLatLng(context)
+                jobViewModel.getJob(jobId).fold(
+                    onSuccess = { fetchedJob ->
+                        val here = device ?: currentLocation
+                            ?.takeIf { it.latitude != 0.0 || it.longitude != 0.0 }
+                            ?.let { it.latitude to it.longitude }
+                        job = if (fetchedJob != null && here != null &&
+                            (fetchedJob.lat != 0.0 || fetchedJob.lng != 0.0)
+                        ) {
+                            fetchedJob.copy(
+                                distance = com.example.dutype.jobs.Geohash.distanceKm(
+                                    here.first, here.second, fetchedJob.lat, fetchedJob.lng
                                 )
-                                fetchedJob.copy(distance = distance)
-                            } else fetchedJob
-                            job = jobWithDistance
-                            // Drop the loading state on the FIRST emission
-                            // (cached or network) so the description and
-                            // benefits surface immediately.
-                            isLoading = false
-                        },
-                        onFailure = { exception ->
-                            // If we already have a job from a cache emission,
-                            // keep showing it; only set the error state on
-                            // hard failure with no fallback.
-                            if (job == null) {
-                                error = exception.message ?: "Failed to load job details"
-                            }
-                            isLoading = false
-                        }
-                    )
-                }
+                            )
+                        } else fetchedJob
+                        if (fetchedJob == null) error = context.getString(R.string.job_desc_job_no_longer_available)
+                        isLoading = false
+                    },
+                    onFailure = { exception ->
+                        error = exception.message ?: context.getString(R.string.job_desc_failed_load)
+                        isLoading = false
+                    }
+                )
             } catch (e: Exception) {
                 if (job == null) {
-                    error = e.message ?: "Failed to load job details"
+                    error = e.message ?: context.getString(R.string.job_desc_failed_load)
                 }
                 isLoading = false
             }
@@ -372,7 +349,7 @@ fun JobDescriptionScreen(
     LaunchedEffect(job?.id, currentLocation?.latitude, currentLocation?.longitude) {
         val currentJob = job ?: return@LaunchedEffect
         similarJobs = try {
-            jobViewModel.getRecommendedJobsForJob(currentJob, limit = 5)
+            jobViewModel.similarJobs(currentJob, limit = 5)
                 .getOrElse { exception ->
                     Timber.w(exception, "JobDescriptionScreen: Failed to load recommended jobs for ${currentJob.id}")
                     emptyList()
@@ -411,10 +388,10 @@ fun JobDescriptionScreen(
                 } else {
                     if (isSaved) {
                         savedJobsViewModel.unsaveJob(resolvedJobId)
-                        snackbarMessage = "Job removed from saved!"
+                        snackbarMessage = context.getString(R.string.job_desc_job_removed)
                     } else {
                         savedJobsViewModel.saveJob(resolvedJobId)
-                        snackbarMessage = "Job saved!"
+                        snackbarMessage = context.getString(R.string.job_desc_job_saved)
                         val hasNotifPerm = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                             androidx.core.content.ContextCompat.checkSelfPermission(
                                 context,
@@ -451,26 +428,44 @@ fun JobDescriptionScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.ArrowBack,
-                        contentDescription = "Back",
+                        contentDescription = stringResource(R.string.back),
                         tint = WorkerColors.TextPrimary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
 
                 job?.let { currentJob ->
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(WorkerColors.CardBackground)
-                            .border(1.dp, WorkerColors.Border, RoundedCornerShape(12.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        ShareJobIconButton(
-                            job = currentJob,
-                            tint = WorkerColors.TextPrimary,
-                            modifier = Modifier.size(40.dp)
-                        )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(WorkerColors.CardBackground)
+                                .border(1.dp, WorkerColors.Border, RoundedCornerShape(12.dp))
+                                .clickable { handleSaveClick() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                contentDescription = if (isSaved) stringResource(R.string.job_desc_remove_from_saved) else stringResource(R.string.save_job),
+                                tint = if (isSaved) WorkerColors.Error else WorkerColors.TextPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(WorkerColors.CardBackground)
+                                .border(1.dp, WorkerColors.Border, RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            ShareJobIconButton(
+                                job = currentJob,
+                                tint = WorkerColors.TextPrimary,
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -527,7 +522,16 @@ fun JobDescriptionScreen(
             Box(modifier = Modifier.fillMaxSize().weight(1f).graphicsLayer(alpha = contentAlpha)) {
                 when {
                     isLoading -> JobDescriptionLoadingContent()
-                    error != null -> JobDescriptionErrorContent(error!!) { retryTrigger++ }
+                    error != null -> JobDescriptionErrorContent(
+                        jobGone = error == stringResource(R.string.job_desc_job_no_longer_available),
+                        onRetry = { retryTrigger++ },
+                        onFindJobs = {
+                            runCatching {
+                                com.example.dutype.components.navigateToWorkerTab(navController, com.example.dutype.navigation.WorkerBottomRoutes.JOBS)
+                            }.onFailure { navController.popBackStack() }
+                        },
+                        onBack = { navController.popBackStack() }
+                    )
                     job != null -> JobDetailsContent(
                         job = job!!,
                         listState = detailsListState,
@@ -606,7 +610,7 @@ fun JobDescriptionScreen(
             }
         }
     }
-    
+
     // Report Job Bottom Sheet
     if (showReportSheet && job != null) {
         com.example.dutype.components.ReportJobSheet(
@@ -636,11 +640,11 @@ fun JobDescriptionScreen(
             }
         )
     }
-    
+
     // Guest Mode - Login Bottom Sheet
     com.example.dutype.components.LoginBottomSheet(
         isVisible = showLoginBottomSheet,
-        onDismiss = { 
+        onDismiss = {
             showLoginBottomSheet = false
             pendingAction = null
         },
@@ -658,7 +662,7 @@ fun JobDescriptionScreen(
                         scope.launch {
                             try {
                                 savedJobsViewModel.saveJob(currentJob.id.ifBlank { currentJob.jobId })
-                                snackbarMessage = "Job saved!"
+                                snackbarMessage = context.getString(R.string.job_desc_job_saved)
                                 showSnackbar = true
                             } catch (e: Exception) {
                                 Timber.e(e, "Error saving job after login")
@@ -704,46 +708,6 @@ fun JobDescriptionScreen(
         userRole = "worker"
     )
 
-    if (showCallFeedbackSheet && pendingCallFeedbackJob != null) {
-        CallUpdateBottomSheet(
-            jobTitle = pendingCallFeedbackJob?.title.orEmpty(),
-            companyName = pendingCallFeedbackJob?.companyName.orEmpty(),
-            onDismiss = {
-                showCallFeedbackSheet = false
-                pendingCallFeedbackJob = null
-            },
-            onSubmit = { spokeWithEmployer, availability, jobOfferAccepted ->
-                val feedbackJob = pendingCallFeedbackJob
-                val currentUserId = currentUser?.uid
-                if (feedbackJob == null) {
-                    Result.failure(Exception(context.getString(R.string.job_not_found)))
-                } else {
-                    val feedbackResult = jobCallFeedbackService.submitCallFeedback(
-                        job = feedbackJob,
-                        spokeWithEmployer = spokeWithEmployer,
-                        availability = availability,
-                        jobOfferAccepted = jobOfferAccepted
-                    )
-                    if (feedbackResult.isFailure) {
-                        feedbackResult
-                    } else if (jobOfferAccepted == true && currentUserId != null) {
-                        smartApplicationViewModel.jobApplicationService.applyFromCall(
-                            feedbackJob.id.ifBlank { feedbackJob.jobId },
-                            currentUserId
-                        ).map { }
-                    } else {
-                        Result.success(Unit)
-                    }
-                }
-            },
-            onSubmitted = {
-                showCallFeedbackSheet = false
-                pendingCallFeedbackJob = null
-                snackbarMessage = context.getString(R.string.job_fresh_update_saved)
-                showSnackbar = true
-            }
-        )
-    }
 }
 
 @Composable
@@ -780,32 +744,17 @@ private fun BottomActionBar(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(WorkerColors.CardBackground)
-                    .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp))
-                    .clickable(onClick = onSaveClick),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (isSaved) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                    contentDescription = if (isSaved) "Remove from saved" else "Save job",
-                    tint = if (isSaved) WorkerColors.Error else WorkerColors.TextPrimary,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-
-            ApplyNowFullWidthButton(
+            // Call the employer + Apply now (save moved to the top bar, next to share).
+            ActionButtonsContent(
                 job = job,
                 currentUser = currentUser,
+                context = context,
+                navController = navController,
                 hasApplied = hasApplied,
                 applicationStatus = applicationStatus,
-                navController = navController,
+                onCallClick = onCallClick,
                 onApplyClick = onApplyClick,
-                onLoginRequired = onLoginRequired,
-                modifier = Modifier.weight(1f)
+                onLoginRequired = onLoginRequired
             )
         }
     }
@@ -871,17 +820,17 @@ private fun ApplyNowFullWidthButton(
                 enabled = false,
                 modifier = modifier.height(56.dp),
                 colors = ButtonDefaults.buttonColors(
-                    disabledContainerColor = Color(0xFFE2E8F0),
-                    disabledContentColor = Color(0xFF64748B)
+                    disabledContainerColor = Color(0xFFE2E8F0).bg(),
+                    disabledContentColor = Color(0xFF64748B).fg()
                 ),
                 shape = RoundedCornerShape(999.dp)
             ) {
                 Text(
                     text = when (job.status.lowercase()) {
-                        "filled" -> "Position Filled"
-                        "deleted" -> "Job Removed"
-                        "expired" -> "Job Expired"
-                        else -> "Job Closed"
+                        "filled" -> stringResource(R.string.job_desc_position_filled)
+                        "deleted" -> stringResource(R.string.job_desc_job_removed_status)
+                        "expired" -> stringResource(R.string.job_desc_job_expired)
+                        else -> stringResource(R.string.job_desc_job_closed)
                     },
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 14.sp
@@ -898,7 +847,7 @@ private fun ApplyNowFullWidthButton(
                 shape = RoundedCornerShape(999.dp)
             ) {
                 Text(
-                    text = "Apply Now (1-Tap) →",
+                    text = stringResource(R.string.job_desc_apply_now_1tap),
                     color = Color.White,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 15.sp
@@ -990,17 +939,17 @@ private fun RowScope.ActionButtonsContent(
             enabled = false,
             modifier = Modifier.weight(1f).height(56.dp),
             colors = ButtonDefaults.buttonColors(
-                disabledContainerColor = Color(0xFFE2E8F0),
-                disabledContentColor = Color(0xFF64748B)
+                disabledContainerColor = Color(0xFFE2E8F0).bg(),
+                disabledContentColor = Color(0xFF64748B).fg()
             ),
             shape = RoundedCornerShape(28.dp)
         ) {
             Text(
                 text = when (job.status.lowercase()) {
-                    "filled" -> "Position Filled"
-                    "deleted" -> "Job Removed"
-                    "expired" -> "Job Expired"
-                    else -> "Job Closed"
+                    "filled" -> stringResource(R.string.job_desc_position_filled)
+                    "deleted" -> stringResource(R.string.job_desc_job_removed_status)
+                    "expired" -> stringResource(R.string.job_desc_job_expired)
+                    else -> stringResource(R.string.job_desc_job_closed)
                 },
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp
@@ -1040,8 +989,8 @@ private fun JobDetailsContent(
     inlineActions: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val heroImageUrl = remember(job.jobImageUrl) {
-        job.jobImageUrl?.takeIf { it.isNotBlank() }
+    val heroImageUrl = remember(job.photoUrl) {
+        job.photoUrl?.takeIf { it.isNotBlank() }
     }
 
     // Fullscreen image preview state. Tapping the hero image opens the
@@ -1115,9 +1064,9 @@ private fun JobDetailsContent(
 
             item { Spacer(modifier = Modifier.height(12.dp)) }
         }
-        
+
         // Location Section removed from top - now in Job Details Card
-        
+
         // ACCESSIBILITY: Landmark Navigation - removed in optimization
         // if (job.landmark.isNotBlank()) {
         //     item {
@@ -1139,7 +1088,7 @@ private fun JobDetailsContent(
         //         }
         //     }
         // }
-        
+
         item { Spacer(modifier = Modifier.height(16.dp)) }
 
         // Stitch design spec: job header card — title, employer + Verified
@@ -1168,26 +1117,6 @@ private fun JobDetailsContent(
                                 text = job.companyName,
                                 style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary, fontSize = 14.sp)
                             )
-                            if (job.isVerified) {
-                                Text(
-                                    text = "·",
-                                    style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary)
-                                )
-                                Icon(
-                                    imageVector = Icons.Default.Verified,
-                                    contentDescription = null,
-                                    tint = WorkerColors.Success,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Text(
-                                    text = "Verified Employer",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = WorkerColors.Success,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 13.sp
-                                    )
-                                )
-                            }
                         }
                     }
                     if (job.createdAt > 0) {
@@ -1208,28 +1137,22 @@ private fun JobDetailsContent(
         // fixed design copy since the data model has no per-job "start
         // availability" field yet.
         item {
-            val statSalaryStr = job.salary.ifBlank { "Negotiable" }
-            val statPayTypeSuffix = when (job.salaryType.uppercase()) {
-                "HOURLY" -> "/hr"
-                "MONTHLY" -> "/mo"
-                else -> "/day"
-            }
-            val statSalaryValue = if (statSalaryStr == "Negotiable") "Negotiable" else "₹$statSalaryStr$statPayTypeSuffix"
-            val statTypeValue = job.jobType.ifBlank { "Not specified" }
+            val statSalaryValue = job.payText
+            val statTypeValue = com.example.dutype.employer.models.EmploymentType.fromKey(job.employmentType).displayName
             val statDistanceValue = when {
-                job.distance == null || job.distance!! <= 0 -> "Nearby"
-                job.distance!! < 1.0 -> "${(job.distance!! * 1000).toInt()} m Away"
-                else -> "${"%.1f".format(job.distance)} km Away"
+                job.distance == null || job.distance!! <= 0 -> stringResource(R.string.nearby)
+                job.distance!! < 1.0 -> stringResource(R.string.job_desc_distance_m_away, (job.distance!! * 1000).toInt())
+                else -> stringResource(R.string.job_desc_distance_km_away, "%.1f".format(job.distance))
             }
 
             Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    JobStatCard(label = "SALARY", value = statSalaryValue, modifier = Modifier.weight(1f))
-                    JobStatCard(label = "TYPE", value = statTypeValue, modifier = Modifier.weight(1f))
+                    JobStatCard(label = stringResource(R.string.job_desc_stat_salary), value = statSalaryValue, modifier = Modifier.weight(1f))
+                    JobStatCard(label = stringResource(R.string.job_desc_stat_type), value = statTypeValue, modifier = Modifier.weight(1f))
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    JobStatCard(label = "DISTANCE", value = statDistanceValue, modifier = Modifier.weight(1f))
-                    JobStatCard(label = "START", value = "Join Today", modifier = Modifier.weight(1f))
+                    JobStatCard(label = stringResource(R.string.job_desc_stat_distance), value = statDistanceValue, modifier = Modifier.weight(1f))
+                    JobStatCard(label = stringResource(R.string.job_desc_stat_start), value = stringResource(R.string.job_desc_stat_join_today), modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -1238,23 +1161,15 @@ private fun JobDetailsContent(
 
         // Combined Job Details Card - White background with light border (like worker job cards)
         item {
-            // Get pay info from schema fields
-            // Bug #6: salary is a free-form String now.
-            val salaryStr = job.salary.ifBlank { "Negotiable" }
-            val payTypeDisplay = when (job.salaryType.uppercase()) {
-                "HOURLY" -> "per hour"
-                "MONTHLY" -> "per month"
-                else -> "per day"
-            }
-            val payAmount = salaryStr
-            
+            val payAmount = job.payText
+
             // Job type (Full-time / Part-time / etc.).
-            val displayLocation = job.addressText.ifBlank { job.location }
-            val jobTypeDisplay = job.jobType.ifBlank { "Not specified" }
-            val shiftTimingDisplay = job.shiftTiming.ifBlank { "Not specified" }
+            val displayLocation = job.addressText.ifBlank { job.area }
+            val jobTypeDisplay = com.example.dutype.employer.models.EmploymentType.fromKey(job.employmentType).displayName
+            val shiftTimingDisplay = com.example.dutype.employer.models.JobShift.fromKey(job.shift).displayName
             val experienceDisplay = job.experienceRequired.ifBlank { "Not specified" }
             // Employer joined time should be fetched from employer profile if needed
-            
+
             Card(
                 modifier = Modifier.fillMaxWidth().border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
                 colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
@@ -1267,7 +1182,7 @@ private fun JobDetailsContent(
                         JobDetailRow(Icons.Filled.Business, Color(0xFF7C3AED), "Company:", job.companyName)
                         Spacer(modifier = Modifier.height(10.dp))
                     }
-                    
+
                     // Location - Column format: location on one line, distance below
                     val distanceText = when {
                         job.distance == null || job.distance!! <= 0 -> stringResource(R.string.distance_unavailable)
@@ -1276,11 +1191,11 @@ private fun JobDetailsContent(
                         job.distance!! < 2.0 -> String.format("%.1f km ${stringResource(R.string.walkable)}", job.distance)
                         else -> String.format("%.1f km ${stringResource(R.string.away)}", job.distance)
                     }
-                    
+
                     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                         Icon(
-                            Icons.Default.LocationOn, 
-                            null, 
+                            Icons.Default.LocationOn,
+                            null,
                             tint = WorkerColors.Error, // Bright red for location
                             modifier = Modifier.size(22.dp)
                         )
@@ -1292,7 +1207,7 @@ private fun JobDetailsContent(
                                 verticalAlignment = Alignment.Top
                             ) {
                                 Text(
-                                    "Location:", 
+                                    "Location:",
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = WorkerColors.TextSecondary,
                                         fontWeight = FontWeight.Medium
@@ -1303,7 +1218,7 @@ private fun JobDetailsContent(
                                     displayLocation.ifBlank { "Not specified" },
                                     modifier = Modifier.weight(1f),
                                     style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.SemiBold, 
+                                        fontWeight = FontWeight.SemiBold,
                                         color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                                     ),
                                     softWrap = true
@@ -1325,11 +1240,11 @@ private fun JobDetailsContent(
                     Spacer(modifier = Modifier.height(10.dp))
 
                     // Salary/Pay
-                    JobDetailRow(Icons.Default.Payments, WorkerColors.Success, "Salary:", if (payAmount != "Not specified") "₹$payAmount $payTypeDisplay" else payAmount)
+                    JobDetailRow(Icons.Default.Payments, WorkerColors.Success, "Salary:", payAmount)
                     Spacer(modifier = Modifier.height(10.dp))
-                    
+
                     // Vacancies — not in schema, removed
-                    
+
                     // Experience
                     JobDetailRow(Icons.Default.Star, Color(0xFFFBBF24), "Experience:", experienceDisplay)
                     Spacer(modifier = Modifier.height(10.dp))
@@ -1338,7 +1253,7 @@ private fun JobDetailsContent(
                         Icons.Outlined.WorkOutline,
                         WorkerColors.Primary,
                         "Education:",
-                        job.educationRequired.ifBlank { "No qualification required" }
+                        job.educationRequired.ifBlank { stringResource(R.string.job_desc_no_qualification) }
                     )
                     Spacer(modifier = Modifier.height(10.dp))
 
@@ -1361,14 +1276,14 @@ private fun JobDetailsContent(
                         Icons.Default.Person,
                         Color(0xFFEC4899),
                         "Gender:",
-                        job.gender.ifBlank { "Any" }
+                        job.gender.ifBlank { stringResource(R.string.all) }
                     )
                 }
             }
         }
-        
+
         item { Spacer(modifier = Modifier.height(16.dp)) }
-        
+
         // "About this Job" card — Stitch design spec title + small filled
         // circle bullets. Bullet content is still the job's real description
         // (parseDescriptionToBullets(job.description)); the timestamp moved
@@ -1382,7 +1297,7 @@ private fun JobDetailsContent(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "About this Job",
+                        text = stringResource(R.string.job_desc_about_job),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
@@ -1400,7 +1315,7 @@ private fun JobDetailsContent(
                                         .padding(top = 7.dp)
                                         .size(6.dp)
                                         .background(WorkerColors.Success, CircleShape)
-                                )
+                                        )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Text(point, style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary, lineHeight = 22.sp))
                             }
@@ -1425,7 +1340,7 @@ private fun JobDetailsContent(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Job Location",
+                        text = stringResource(R.string.auto_job_location),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = WorkerColors.TextPrimary
@@ -1435,53 +1350,16 @@ private fun JobDetailsContent(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     if (job.lat != 0.0 || job.lng != 0.0) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(160.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                        ) {
-                            com.example.dutype.worker.screens.map.GoogleMapView(
-                                modifier = Modifier.fillMaxSize(),
-                                jobs = listOf(job),
-                                userLatitude = null,
-                                userLongitude = null,
-                                initialLatitude = job.lat,
-                                initialLongitude = job.lng,
-                                initialZoom = 15f
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Text(
-                            text = "Get Directions →",
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFF2563EB),
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.sp
-                            ),
-                            modifier = Modifier.clickable {
-                                try {
-                                    val uri = android.net.Uri.parse(
-                                        "google.navigation:q=${job.lat},${job.lng}"
-                                    )
-                                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri).apply {
-                                        setPackage("com.google.android.apps.maps")
-                                    }
-                                    context.startActivity(intent)
-                                } catch (e: Exception) {
-                                    // Google Maps app not installed — fall back to a browser maps URL.
-                                    val webUri = android.net.Uri.parse(
-                                        "https://www.google.com/maps/dir/?api=1&destination=${job.lat},${job.lng}"
-                                    )
-                                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, webUri))
-                                }
-                            }
+                        com.example.dutype.worker.components.JobLocationPreview(
+                            jobId = job.id,
+                            lat = job.lat,
+                            lng = job.lng,
+                            placeLabel = job.area.ifBlank { job.district },
+                            distanceKm = null
                         )
                     } else {
                         Text(
-                            text = job.addressText.ifBlank { job.location }.ifBlank { "Location not available" },
+                            text = job.addressText.ifBlank { job.area }.ifBlank { stringResource(R.string.job_desc_location_not_available) },
                             style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary)
                         )
                     }
@@ -1503,11 +1381,11 @@ private fun JobDetailsContent(
                     modifier = Modifier.fillMaxWidth().padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Outlined.Shield, null, tint = WorkerColors.Primary, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+                    Icon(Icons.Outlined.Shield, null, tint = WorkerColors.Primary.fg(), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                     Spacer(modifier = Modifier.width(8.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.dont_pay_fee_for_jobs), style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold, color = WorkerColors.Info))
-                        Text(stringResource(R.string.report_suspicious_jobs), style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.Primary))
+                        Text(stringResource(R.string.report_suspicious_jobs), style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.Primary.fg()))
                     }
                     TextButton(
                         onClick = onReportClick,
@@ -1591,7 +1469,7 @@ private fun JobDetailsContent(
                         Icon(
                             Icons.Outlined.WorkOutline,
                             contentDescription = null,
-                            tint = WorkerColors.Primary,
+                            tint = WorkerColors.Primary.fg(),
                             modifier = Modifier.size(21.dp)
                         )
                     }
@@ -1633,7 +1511,7 @@ private fun JobDetailsContent(
                 }
             }
         }
-        
+
         item { Spacer(modifier = Modifier.height(24.dp)) }
         }
 
@@ -1644,7 +1522,7 @@ private fun JobDetailsContent(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.96f))
+                    .background(Color.Black.bg().copy(alpha = 0.96f))
                     .clickable(
                         indication = null,
                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -1673,7 +1551,7 @@ private fun JobDetailsContent(
                         .padding(12.dp)
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.55f))
+                        .background(Color.Black.bg().copy(alpha = 0.55f))
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
@@ -1691,14 +1569,14 @@ private fun JobDetailsContent(
 private fun JobDetailRow(icon: ImageVector, iconColor: Color, label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
         Icon(
-            icon, 
-            null, 
-            tint = iconColor, 
+            icon,
+            null,
+            tint = iconColor,
             modifier = Modifier.size(22.dp) // Increased from IconSizes.Standard (20dp) to 22dp for better visibility
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
-            label, 
+            label,
             style = MaterialTheme.typography.bodyMedium.copy(
                 color = WorkerColors.TextSecondary,
                 fontWeight = FontWeight.Medium // Added Medium weight for better readability
@@ -1709,7 +1587,7 @@ private fun JobDetailRow(icon: ImageVector, iconColor: Color, label: String, val
             value,
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.SemiBold, 
+                fontWeight = FontWeight.SemiBold,
                 color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
             ),
             softWrap = true
@@ -1763,45 +1641,55 @@ private fun parseDescriptionToBullets(description: String): List<String> {
 @Composable
 private fun JobDescriptionLoadingContent() {
     LazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        item { ShimmerBox(height = 100.dp) }
-        item { ShimmerBox(height = 30.dp, width = 250.dp) }
-        item { ShimmerBox(height = 50.dp) }
-        item { ShimmerBox(height = 180.dp) }
-        item { ShimmerBox(height = 60.dp) }
-        item { ShimmerBox(height = 150.dp) }
+        item { ShimmerBox(height = 22.dp, width = 230.dp) }
+        item { ShimmerBox(height = 14.dp, width = 150.dp) }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                repeat(3) { ShimmerBox(modifier = Modifier.weight(1f), height = 64.dp) }
+            }
+        }
+        item { com.example.dutype.components.JobCardShimmer() }
+        item { ShimmerBox(height = 170.dp) }
+        item { ShimmerBox(height = 56.dp) }
     }
 }
 
 @Composable
-private fun JobDescriptionErrorContent(error: String, onRetry: () -> Unit) {
-    val errorAnimation by rememberInfiniteTransition(label = "error").animateFloat(
-        initialValue = 0.8f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(animation = tween(2000, easing = EaseInOutSine), repeatMode = RepeatMode.Reverse),
-        label = "errorPulse"
-    )
-
-    Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-            elevation = CardDefaults.cardElevation(8.dp),
-            shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, WorkerColors.Border)
-        ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp), modifier = Modifier.padding(32.dp)) {
-                Box(modifier = Modifier.size(80.dp).scale(errorAnimation).background(WorkerColors.Error.copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Error, "Error", tint = WorkerColors.Error, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.ExtraLarge))
-                }
-                Text(stringResource(R.string.oops_something_wrong), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary), textAlign = TextAlign.Center)
-                Text(error, style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary), textAlign = TextAlign.Center)
-                Button(onClick = onRetry, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary), shape = RoundedCornerShape(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Refresh, null, tint = Color.White)
-                        Text(stringResource(R.string.try_again_button), color = Color.White, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-        }
+private fun JobDescriptionErrorContent(
+    jobGone: Boolean,
+    onRetry: () -> Unit,
+    onFindJobs: () -> Unit,
+    onBack: () -> Unit
+) {
+    if (jobGone) {
+        // Filled, closed or removed: point the worker at the other jobs instead of a dead end.
+        com.example.dutype.components.DutyPeEmptyScreen(
+            icon = Icons.Default.WorkOff,
+            tone = com.example.dutype.components.EmptyTone.PURPLE,
+            art = com.example.dutype.components.EmptyArt.SEARCH,
+            title = stringResource(R.string.job_gone_title),
+            message = stringResource(R.string.job_gone_body),
+            primary = com.example.dutype.components.EmptyStateAction(
+                label = stringResource(R.string.job_gone_find_more),
+                icon = Icons.Default.Search,
+                onClick = onFindJobs
+            ),
+            secondary = com.example.dutype.components.EmptyStateAction(label = stringResource(R.string.go_back), onClick = onBack)
+        )
+    } else {
+        com.example.dutype.components.DutyPeEmptyScreen(
+            icon = Icons.Default.CloudOff,
+            tone = com.example.dutype.components.EmptyTone.ORANGE,
+            art = com.example.dutype.components.EmptyArt.OFFLINE,
+            title = stringResource(R.string.job_load_failed_title),
+            message = stringResource(R.string.job_load_failed_body),
+            primary = com.example.dutype.components.EmptyStateAction(
+                label = stringResource(R.string.try_again_button),
+                icon = Icons.Default.Refresh,
+                onClick = onRetry
+            ),
+            secondary = com.example.dutype.components.EmptyStateAction(label = stringResource(R.string.go_back), onClick = onBack)
+        )
     }
 }
 

@@ -1,5 +1,6 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.content.Intent
 import android.net.Uri
@@ -263,12 +264,12 @@ fun EmployerHistoryScreen(
         ScrollableTabRow(
             selectedTabIndex = selectedTab,
             containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
-            contentColor = EmployerColors.Primary,
+            contentColor = EmployerColors.Primary.fg(),
             edgePadding = 16.dp,
             indicator = { tabPositions ->
                 TabRowDefaults.Indicator(
                     Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color = EmployerColors.Primary,
+                    color = EmployerColors.Primary.fg(),
                     height = 3.dp
                 )
             }
@@ -324,7 +325,7 @@ fun EmployerHistoryScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = EmployerColors.Primary)
+                    CircularProgressIndicator(color = EmployerColors.Primary.fg())
                 }
             }
             uiState.hasError -> {
@@ -642,14 +643,14 @@ private fun TimelineJobCard(
                         Icon(
                             imageVector = Icons.Default.People,
                             contentDescription = null,
-                            tint = EmployerColors.Primary,
+                            tint = EmployerColors.Primary.fg(),
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
                             text = stringResource(R.string.history_view_applications),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.SemiBold,
-                                color = EmployerColors.Primary
+                                color = EmployerColors.Primary.fg()
                             )
                         )
                     }
@@ -700,50 +701,18 @@ private fun EmptyHistoryState(selectedTab: Int) {
         3 -> Triple(stringResource(R.string.history_no_jobs_posted), stringResource(R.string.history_start_posting_here), Icons.Default.WorkHistory)
         else -> Triple(stringResource(R.string.history_no_jobs), stringResource(R.string.history_postings_appear_here), Icons.Default.WorkHistory)
     }
-
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(32.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .clip(CircleShape)
-                    .background(EmployerColors.ChipBackground),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = EmployerColors.TextTertiary,
-                    modifier = Modifier.size(48.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = message,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = EmployerColors.TextSecondary
-                ),
-                textAlign = TextAlign.Center
-            )
-            Text(
-                text = subMessage,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = EmployerColors.TextTertiary
-                ),
-                textAlign = TextAlign.Center
-            )
+    com.example.dutype.components.DutyPeEmptyScreen(
+        icon = icon,
+        title = message,
+        message = subMessage,
+        art = com.example.dutype.components.EmptyArt.QUIET,
+        tone = when (selectedTab) {
+            1 -> com.example.dutype.components.EmptyTone.GREEN
+            2 -> com.example.dutype.components.EmptyTone.ORANGE
+            3 -> com.example.dutype.components.EmptyTone.BLUE
+            else -> com.example.dutype.components.EmptyTone.PURPLE
         }
-    }
+    )
 }
 
 @Composable
@@ -834,14 +803,14 @@ private fun HistoryJobCard(
                     Icon(
                         imageVector = Icons.Default.People,
                         contentDescription = null,
-                        tint = EmployerColors.Primary,
+                        tint = EmployerColors.Primary.fg(),
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
                         text = stringResource(R.string.history_view_applications),
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontWeight = FontWeight.Bold,
-                            color = EmployerColors.Primary
+                            color = EmployerColors.Primary.fg()
                         )
                     )
                 }

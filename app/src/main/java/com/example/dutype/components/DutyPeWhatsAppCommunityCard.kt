@@ -1,5 +1,8 @@
 package com.example.dutype.components
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.core.LinearEasing
@@ -56,8 +59,8 @@ fun DutyPeWhatsAppCommunityCard(
 ) {
     val context = LocalContext.current
     val isDark = com.example.dutype.ui.theme.isAppInDarkTheme()
-    val cardBg = if (isDark) Color(0xFF1E293B) else Color(0xFFFFFFFF)
-    val borderColor = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)
+    val cardBg = if (isDark) Color(0xFF1E293B).bg() else Color(0xFFFFFFFF).bg()
+    val borderColor = if (isDark) Color(0xFF334155).bd() else Color(0xFFE2E8F0).bd()
 
     Surface(
         modifier = modifier
@@ -94,13 +97,13 @@ fun DutyPeWhatsAppCommunityCard(
                 modifier = Modifier
                     .size(42.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF25D366).copy(alpha = 0.15f)),
+                    .background(Color(0xFF25D366).bg().copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Chat,
                     contentDescription = "WhatsApp Group",
-                    tint = Color(0xFF25D366),
+                    tint = Color(0xFF25D366).fg(),
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -121,7 +124,7 @@ fun DutyPeWhatsAppCommunityCard(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(4.dp))
-                            .background(Color(0xFF25D366))
+                            .background(Color(0xFF25D366).bg())
                             .padding(horizontal = 5.dp, vertical = 1.5.dp)
                     ) {
                         Text(
@@ -150,7 +153,7 @@ fun DutyPeWhatsAppCommunityCard(
             // Join Button Pill
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = Color(0xFF25D366)
+                color = Color(0xFF25D366).bg()
             ) {
                 Text(
                     text = "JOIN",

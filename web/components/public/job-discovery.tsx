@@ -204,7 +204,7 @@ export function CityJobGuide({ page, liveJobs }: { page: LegacyPageDescriptor; l
       </section>
       <section className="discovery-section">
         <h2>Hiring in {page.city}?</h2>
-        <Link href="/app/employer/post-job" className="button">Post a job<SiteIcon name="plus" /></Link>
+        <Link href={PLAY_STORE_URL} className="button">Post a job<SiteIcon name="plus" /></Link>
       </section>
       <section className="discovery-section" aria-labelledby="other-city-heading">
         <h2 id="other-city-heading">Explore jobs by city</h2>

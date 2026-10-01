@@ -1,5 +1,8 @@
 package com.example.dutype.components
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
@@ -73,7 +76,7 @@ fun LaunchPromoScreen(
     autoDismissMillis: Long = 6000L
 ) {
     val view = LocalView.current
-    val systemBarColor = Color.Black
+    val systemBarColor = Color.Black.fg()
     var loaded by remember(promo.id) { mutableStateOf(false) }
 
     DisposableEffect(systemBarColor) {
@@ -112,7 +115,7 @@ fun LaunchPromoScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(if (loaded) Color.Black else Color.Transparent)
+            .background(if (loaded) Color.Black.bg() else Color.Transparent)
             .pointerInput(Unit) { } // swallow touches so the screen below is not tapped through
     ) {
         PromoImage(
@@ -148,13 +151,13 @@ fun LaunchPromoScreen(
                     .fillMaxWidth()
                     .height(48.dp)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White)
+                    .background(Color.White.bg())
                     .clickable(onClick = onCta),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = promo.ctaLabel,
-                    color = Color.Black,
+                    color = Color.Black.fg(),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -198,8 +201,8 @@ fun LaunchPromoBanner(
                 .fillMaxWidth()
                 .alpha(if (imageOk) 1f else 0f)
                 .clip(RoundedCornerShape(16.dp))
-                .background(Color.White)
-                .border(BorderStroke(1.dp, Color(0xFFE5E7EB)), RoundedCornerShape(16.dp))
+                .background(Color.White.bg())
+                .border(BorderStroke(1.dp, Color(0xFFE5E7EB).bd()), RoundedCornerShape(16.dp))
                 .clickable(enabled = imageOk, onClick = onCta)
                 .padding(start = 12.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -221,7 +224,7 @@ fun LaunchPromoBanner(
                 if (promo.title.isNotBlank()) {
                     Text(
                         text = promo.title,
-                        color = Color(0xFF111827),
+                        color = Color(0xFF111827).fg(),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
@@ -231,7 +234,7 @@ fun LaunchPromoBanner(
                 if (promo.body.isNotBlank()) {
                     Text(
                         text = promo.body,
-                        color = Color(0xFF4B5563),
+                        color = Color(0xFF4B5563).fg(),
                         fontSize = 12.sp,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
@@ -240,7 +243,7 @@ fun LaunchPromoBanner(
                 if (promo.ctaLabel.isNotBlank()) {
                     Text(
                         text = promo.ctaLabel,
-                        color = Color(0xFF1E3A8A),
+                        color = Color(0xFF1E3A8A).fg(),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(top = 4.dp)
@@ -265,14 +268,14 @@ private fun PromoCloseButton(
         modifier = modifier
             .size(44.dp)
             .clip(CircleShape)
-            .background(if (dark) Color.Transparent else Color(0x66000000))
+            .background(if (dark) Color.Transparent else Color(0x66000000).bg())
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = Icons.Default.Close,
             contentDescription = "Close",
-            tint = if (dark) Color(0xFF6B7280) else Color.White,
+            tint = if (dark) Color(0xFF6B7280).fg() else Color.White,
             modifier = Modifier.size(20.dp)
         )
     }

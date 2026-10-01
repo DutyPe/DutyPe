@@ -1,5 +1,6 @@
 package com.example.dutype.worker.screens.map
 
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedVisibility
@@ -73,7 +74,7 @@ private fun MapAreaPill(label: String, isLoading: Boolean, colors: MapColors, mo
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(Icons.Default.LocationOn, null, tint = MapEmerald, modifier = Modifier.size(18.dp))
+            Icon(Icons.Default.LocationOn, null, tint = MapEmerald.fg(), modifier = Modifier.size(18.dp))
             Text(
                 text = label,
                 fontSize = 13.sp,
@@ -87,7 +88,7 @@ private fun MapAreaPill(label: String, isLoading: Boolean, colors: MapColors, mo
                 CircularProgressIndicator(
                     modifier = Modifier.size(14.dp),
                     strokeWidth = 2.dp,
-                    color = MapEmerald
+                    color = MapEmerald.fg()
                 )
             }
         }

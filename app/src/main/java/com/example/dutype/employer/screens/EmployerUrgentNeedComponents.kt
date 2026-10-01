@@ -1,5 +1,9 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
+import androidx.compose.material.icons.filled.Bolt
 import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -112,14 +116,14 @@ internal fun EmployerUrgentNeedSummarySection(
                     UrgentIcon(Icons.Default.Schedule)
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "⚡ Instant Hiring Rooms",
+                            text = stringResource(R.string.instant_hiring_rooms),
                             style = MaterialTheme.typography.titleMedium.copy(
                                 color = EmployerColors.TextPrimary,
                                 fontWeight = FontWeight.Bold
                             )
                         )
                         Text(
-                            text = "Call workers directly & hire instantly",
+                            text = stringResource(R.string.instant_hiring_room_subtitle),
                             style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -175,7 +179,7 @@ internal fun EmployerUrgentNeedHistoryContent(
     ratedResponseIds: Set<String>,
     onOpenRequest: (InstantRequest) -> Unit,
     onOpenWorkerProfile: (InstantResponse) -> Unit,
-    onCallWorker: (String) -> Unit,
+    onCallWorker: (com.example.dutype.models.InstantResponse) -> Unit,
     onSelectResponse: (InstantResponse) -> Unit,
     onCompleteResponse: (InstantResponse) -> Unit,
     onNoShowResponse: (InstantResponse) -> Unit,
@@ -188,39 +192,21 @@ internal fun EmployerUrgentNeedHistoryContent(
     when {
         isLoading -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = EmployerColors.Primary)
+                CircularProgressIndicator(color = EmployerColors.Primary.fg())
             }
         }
         requests.isEmpty() -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.padding(32.dp)
-                ) {
-                    UrgentIcon(Icons.Default.Schedule, size = 64)
-                    Text(
-                        text = stringResource(R.string.urgent_empty_title),
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            color = EmployerColors.TextPrimary,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = stringResource(R.string.urgent_empty_body),
-                        style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary),
-                        textAlign = TextAlign.Center
-                    )
-                    Button(
-                        onClick = onPostUrgentNeed,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
-                    ) {
-                        Text(stringResource(R.string.post_urgent_need_title))
-                    }
-                }
-            }
+            com.example.dutype.components.DutyPeEmptyScreen(
+                icon = Icons.Filled.Bolt,
+                tone = com.example.dutype.components.EmptyTone.ORANGE,
+                title = stringResource(R.string.urgent_empty_title),
+                message = stringResource(R.string.urgent_empty_body),
+                primary = com.example.dutype.components.EmptyStateAction(
+                    label = stringResource(R.string.post_urgent_need_title),
+                    icon = Icons.Filled.Bolt,
+                    onClick = onPostUrgentNeed
+                )
+            )
         }
         else -> {
             LazyColumn(
@@ -263,10 +249,9 @@ internal fun EmployerUrgentNeedDetailContent(
     matchedWorkersState: MatchedWorkersUiState = MatchedWorkersUiState(),
     onRefreshMatchedWorkers: () -> Unit = {},
     onCallMatchedWorker: (MatchedWorker) -> Unit = {},
-    onRequestMatchedWorker: (MatchedWorker) -> Unit = {},
     onOpenMatchedWorkerProfile: (MatchedWorker) -> Unit = {},
     onOpenWorkerProfile: (InstantResponse) -> Unit,
-    onCallWorker: (String) -> Unit,
+    onCallWorker: (com.example.dutype.models.InstantResponse) -> Unit,
     onSelectResponse: (InstantResponse) -> Unit,
     onCompleteResponse: (InstantResponse) -> Unit,
     onNoShowResponse: (InstantResponse) -> Unit,
@@ -279,7 +264,7 @@ internal fun EmployerUrgentNeedDetailContent(
     when {
         isLoading -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = EmployerColors.Primary)
+                CircularProgressIndicator(color = EmployerColors.Primary.fg())
             }
         }
         request == null -> {
@@ -355,7 +340,7 @@ internal fun EmployerUrgentNeedDetailContent(
                             onClick = { selectedTab = 0 },
                             text = {
                                 Text(
-                                    text = "Nearby Matches (${matchedWorkersState.workers.size})",
+                                    text = stringResource(R.string.nearby_matches_format, matchedWorkersState.workers.size),
                                     fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal
                                 )
                             },
@@ -366,7 +351,7 @@ internal fun EmployerUrgentNeedDetailContent(
                             onClick = { selectedTab = 1 },
                             text = {
                                 Text(
-                                    text = "Ready Workers (${responses.size})",
+                                    text = stringResource(R.string.ready_workers_format, responses.size),
                                     fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal
                                 )
                             },
@@ -386,19 +371,19 @@ internal fun EmployerUrgentNeedDetailContent(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Available Workers Near You",
+                                    text = stringResource(R.string.available_workers_near_you),
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = EmployerColors.TextPrimary
                                     )
                                 )
                                 Text(
-                                    text = "Nearest workers ready for instant work. Tap 'Call Worker' to connect directly.",
+                                    text = stringResource(R.string.nearest_workers_ready_desc),
                                     style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
                                 )
                             }
                             IconButton(onClick = onRefreshMatchedWorkers) {
-                                Icon(Icons.Default.Refresh, contentDescription = "Refresh workers", tint = EmployerColors.Primary)
+                                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh_workers), tint = EmployerColors.Primary.fg())
                             }
                         }
                     }
@@ -406,47 +391,30 @@ internal fun EmployerUrgentNeedDetailContent(
                     if (matchedWorkersState.isLoading) {
                         item(key = "nearby_loading") {
                             Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(color = EmployerColors.Primary, modifier = Modifier.size(32.dp))
+                                CircularProgressIndicator(color = EmployerColors.Primary.fg(), modifier = Modifier.size(32.dp))
                             }
                         }
                     } else if (matchedWorkersState.workers.isEmpty()) {
                         item(key = "nearby_empty") {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(14.dp),
-                                color = Color(0xFFF8FAFC)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(24.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Icon(Icons.Default.PersonSearch, contentDescription = null, tint = EmployerColors.TextSecondary, modifier = Modifier.size(40.dp))
-                                    Text(
-                                        text = "Finding Nearby Workers...",
-                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = EmployerColors.TextPrimary)
-                                    )
-                                    Text(
-                                        text = "Workers in your area have been broadcast notified of this urgent post. You can tap Refresh to check for newly active workers.",
-                                        style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
-                                        textAlign = TextAlign.Center
-                                    )
-                                    OutlinedButton(onClick = onRefreshMatchedWorkers, shape = RoundedCornerShape(10.dp)) {
-                                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("Refresh Nearby Workers")
-                                    }
-                                }
-                            }
+                            com.example.dutype.components.DutyPeEmptyState(
+                                icon = Icons.Filled.PersonSearch,
+                                tone = com.example.dutype.components.EmptyTone.BLUE,
+                                compact = true,
+                                title = stringResource(R.string.finding_nearby_workers),
+                                message = stringResource(R.string.finding_nearby_workers_desc),
+                                secondary = com.example.dutype.components.EmptyStateAction(
+                                    label = stringResource(R.string.refresh_nearby_workers),
+                                    icon = Icons.Filled.Refresh,
+                                    onClick = onRefreshMatchedWorkers
+                                ),
+                                modifier = Modifier.fillMaxWidth().background(Color(0xFFF8FAFC).bg(), RoundedCornerShape(14.dp))
+                            )
                         }
                     } else {
                         itemsIndexed(matchedWorkersState.workers, key = { index, w -> "matched_${w.workerId}_$index" }) { _, worker ->
                             UrgentMatchedWorkerCard(
                                 worker = worker,
-                                isRequesting = matchedWorkersState.requestingWorkerId == worker.workerId,
-                                isRequested = worker.requestStatus.equals("pending", ignoreCase = true) || worker.requestStatus.equals("accepted", ignoreCase = true),
                                 onCallWorker = { onCallMatchedWorker(worker) },
-                                onRequestWorker = { onRequestMatchedWorker(worker) },
                                 onOpenProfile = { onOpenMatchedWorkerProfile(worker) }
                             )
                         }
@@ -455,37 +423,20 @@ internal fun EmployerUrgentNeedDetailContent(
                     // TAB 1: WORKER RESPONSES
                     if (responses.isEmpty()) {
                         item(key = "responses_empty") {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(14.dp),
-                                color = Color(0xFFF8FAFC)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(24.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Icon(Icons.Default.Schedule, contentDescription = null, tint = EmployerColors.TextSecondary, modifier = Modifier.size(36.dp))
-                                    Text(
-                                        text = "No responses received yet",
-                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = EmployerColors.TextPrimary)
-                                    )
-                                    Text(
-                                        text = "Workers have been notified and responses will show here once accepted. For immediate hiring, you can directly call nearby workers from the 'Nearby Workers' tab.",
-                                        style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
-                                        textAlign = TextAlign.Center
-                                    )
-                                    Button(
-                                        onClick = { selectedTab = 0 },
-                                        shape = RoundedCornerShape(10.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
-                                    ) {
-                                        Icon(Icons.Default.Verified, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text("View & Call Nearby Workers")
-                                    }
-                                }
-                            }
+                            com.example.dutype.components.DutyPeEmptyState(
+                                icon = Icons.Filled.Schedule,
+                                badge = Icons.Filled.Bolt,
+                                tone = com.example.dutype.components.EmptyTone.ORANGE,
+                                compact = true,
+                                title = stringResource(R.string.no_responses_received_yet),
+                                message = stringResource(R.string.no_responses_received_desc),
+                                primary = com.example.dutype.components.EmptyStateAction(
+                                    label = stringResource(R.string.view_call_nearby_workers),
+                                    icon = Icons.Filled.Verified,
+                                    onClick = { selectedTab = 0 }
+                                ),
+                                modifier = Modifier.fillMaxWidth().background(Color(0xFFF8FAFC).bg(), RoundedCornerShape(14.dp))
+                            )
                         }
                     } else {
                         itemsIndexed(responses, key = { _, r -> "resp_${r.responseId}" }) { _, response ->
@@ -512,10 +463,7 @@ internal fun EmployerUrgentNeedDetailContent(
 @Composable
 internal fun UrgentMatchedWorkerCard(
     worker: MatchedWorker,
-    isRequesting: Boolean,
-    isRequested: Boolean,
     onCallWorker: () -> Unit,
-    onRequestWorker: () -> Unit,
     onOpenProfile: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -541,7 +489,7 @@ internal fun UrgentMatchedWorkerCard(
                     modifier = Modifier
                         .size(52.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFF1F5F9)),
+                        .background(Color(0xFFF1F5F9).bg()),
                     contentAlignment = Alignment.Center
                 ) {
                     if (worker.profileImageUrl.isNotBlank()) {
@@ -577,15 +525,15 @@ internal fun UrgentMatchedWorkerCard(
                         )
                         Icon(
                             imageVector = Icons.Default.Verified,
-                            contentDescription = "Verified",
-                            tint = EmployerColors.Primary,
+                            contentDescription = stringResource(R.string.verified_label),
+                            tint = EmployerColors.Primary.fg(),
                             modifier = Modifier.size(16.dp)
                         )
                     }
                     Text(
-                        text = if (worker.isAvailable) "Available now" else "Active recently",
+                        text = if (worker.isAvailable) stringResource(R.string.available_now) else stringResource(R.string.active_recently),
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = if (worker.isAvailable) Color(0xFF16A34A) else EmployerColors.TextSecondary,
+                            color = if (worker.isAvailable) Color(0xFF16A34A).fg() else EmployerColors.TextSecondary,
                             fontWeight = FontWeight.Medium
                         )
                     )
@@ -593,12 +541,12 @@ internal fun UrgentMatchedWorkerCard(
 
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFEFF6FF)
+                    color = Color(0xFFEFF6FF).bg()
                 ) {
                     Text(
-                        text = "${worker.matchScore}% Match",
+                        text = stringResource(R.string.match_percent_format, worker.matchScore),
                         style = MaterialTheme.typography.labelSmall.copy(
-                            color = EmployerColors.Primary,
+                            color = EmployerColors.Primary.fg(),
                             fontWeight = FontWeight.Bold
                         ),
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -614,7 +562,7 @@ internal fun UrgentMatchedWorkerCard(
                 Surface(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFFF0FDF4)
+                    color = Color(0xFFF0FDF4).bg()
                 ) {
                     Row(
                         modifier = Modifier.padding(8.dp),
@@ -624,14 +572,14 @@ internal fun UrgentMatchedWorkerCard(
                         Icon(
                             imageVector = Icons.Default.LocationOn,
                             contentDescription = null,
-                            tint = Color(0xFF16A34A),
+                            tint = Color(0xFF16A34A).fg(),
                             modifier = Modifier.size(14.dp)
                         )
                         Text(
-                            text = worker.distanceKm?.let { String.format(Locale.ROOT, "%.1f km", it) } ?: "Nearby",
+                            text = worker.distanceKm?.let { stringResource(R.string.distance_km_format, it) } ?: stringResource(R.string.nearby),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF16A34A)
+                                color = Color(0xFF16A34A).fg()
                             ),
                             maxLines = 1
                         )
@@ -641,7 +589,7 @@ internal fun UrgentMatchedWorkerCard(
                 Surface(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFFFFFBEB)
+                    color = Color(0xFFFFFBEB).bg()
                 ) {
                     Row(
                         modifier = Modifier.padding(8.dp),
@@ -651,14 +599,14 @@ internal fun UrgentMatchedWorkerCard(
                         Icon(
                             imageVector = Icons.Default.Star,
                             contentDescription = null,
-                            tint = Color(0xFFD97706),
+                            tint = Color(0xFFD97706).fg(),
                             modifier = Modifier.size(14.dp)
                         )
                         Text(
                             text = String.format(Locale.ROOT, "%.1f", worker.rating),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF92400E)
+                                color = Color(0xFF92400E).fg()
                             ),
                             maxLines = 1
                         )
@@ -668,7 +616,7 @@ internal fun UrgentMatchedWorkerCard(
                 Surface(
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFFF8FAFC)
+                    color = Color(0xFFF8FAFC).bg()
                 ) {
                     Row(
                         modifier = Modifier.padding(8.dp),
@@ -682,7 +630,7 @@ internal fun UrgentMatchedWorkerCard(
                             modifier = Modifier.size(14.dp)
                         )
                         Text(
-                            text = "${worker.completedJobs} jobs",
+                            text = stringResource(R.string.worker_stat_jobs_count, worker.completedJobs),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 color = EmployerColors.TextSecondary
@@ -711,39 +659,20 @@ internal fun UrgentMatchedWorkerCard(
                 }
             }
 
-            // Action buttons: Request & Call
+            // Action: call the worker (nearby workers were already broadcast-notified)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(
-                    onClick = onRequestWorker,
-                    enabled = !isRequested && !isRequesting,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    if (isRequesting) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(
-                            imageVector = if (isRequested) Icons.Default.CheckCircle else Icons.AutoMirrored.Filled.Send,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (isRequested) "Requested" else "Request")
-                    }
-                }
-
                 Button(
                     onClick = onCallWorker,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A).bg())
                 ) {
                     Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Call Worker")
+                    Text(stringResource(R.string.call_worker))
                 }
             }
         }
@@ -763,8 +692,8 @@ private fun EmployerUrgentNeedMiniRow(
             .fillMaxWidth()
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
-        color = if (hasReadyWorkers) Color(0xFFF0FDF4) else Color(0xFFFFFBEB),
-        border = if (hasReadyWorkers) BorderStroke(1.dp, Color(0xFF86EFAC)) else null
+        color = if (hasReadyWorkers) Color(0xFFF0FDF4).bg() else Color(0xFFFFFBEB).bg(),
+        border = if (hasReadyWorkers) BorderStroke(1.dp, Color(0xFF86EFAC).bd()) else null
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
@@ -783,9 +712,9 @@ private fun EmployerUrgentNeedMiniRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = if (hasReadyWorkers) "🟢 $responseCount Ready! Tap to Open Hiring Room →" else stringResource(R.string.urgent_mini_meta, request.category, selectedCount, request.workersNeeded, responseCount),
+                    text = if (hasReadyWorkers) stringResource(R.string.ready_open_hiring_room_format, responseCount) else stringResource(R.string.urgent_mini_meta, request.category, selectedCount, request.workersNeeded, responseCount),
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = if (hasReadyWorkers) Color(0xFF15803D) else EmployerColors.TextSecondary,
+                        color = if (hasReadyWorkers) Color(0xFF15803D).fg() else EmployerColors.TextSecondary,
                         fontWeight = if (hasReadyWorkers) FontWeight.SemiBold else FontWeight.Normal
                     ),
                     maxLines = 1,
@@ -806,7 +735,7 @@ private fun EmployerUrgentNeedCard(
     ratedResponseIds: Set<String>,
     onOpenRequest: (InstantRequest) -> Unit,
     onOpenWorkerProfile: (InstantResponse) -> Unit,
-    onCallWorker: (String) -> Unit,
+    onCallWorker: (com.example.dutype.models.InstantResponse) -> Unit,
     onSelectResponse: (InstantResponse) -> Unit,
     onCompleteResponse: (InstantResponse) -> Unit,
     onNoShowResponse: (InstantResponse) -> Unit,
@@ -880,6 +809,10 @@ private fun EmployerUrgentNeedCard(
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 item { InfoPill(Icons.Default.Group, stringResource(R.string.urgent_need_count, requiredWorkers)) }
                 item { InfoPill(Icons.Default.CheckCircle, stringResource(R.string.urgent_selected_count, selectedCount, requiredWorkers)) }
+                // Dispatch progress: offers go to online workers 5 → 10 → 15 → 20 km until filled.
+                if (normalizedStatus == "open" && request.dispatchRadiusKm > 0) {
+                    item { InfoPill(Icons.Default.Schedule, stringResource(R.string.urgent_offers_sent_within, request.dispatchRadiusKm)) }
+                }
                 item { InfoPill(Icons.Default.Group, stringResource(R.string.urgent_responses_count, responses.size)) }
                 if (completedCount > 0) {
                     item { InfoPill(Icons.Default.DoneAll, stringResource(R.string.urgent_done_count, completedCount)) }
@@ -906,7 +839,7 @@ private fun EmployerUrgentNeedCard(
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFFF8FAFC)
+                        color = Color(0xFFF8FAFC).bg()
                     ) {
                         Text(
                             text = stringResource(R.string.urgent_no_worker_responses),
@@ -936,12 +869,12 @@ private fun EmployerUrgentNeedCard(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFFFF1F2)
+                    color = Color(0xFFFFF1F2).bg()
                 ) {
                     Text(
                         text = request.failureReason,
                         modifier = Modifier.padding(12.dp),
-                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFBE123C))
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFBE123C).fg())
                     )
                 }
             }
@@ -955,12 +888,12 @@ private fun EmployerUrgentNeedCard(
                         onClick = { onOpenRequest(request) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB).bg())
                     ) {
                         Icon(Icons.Default.FlashOn, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (responses.isNotEmpty()) "⚡ Open Instant Hiring Room (${responses.size} Ready)" else "⚡ Open Instant Hiring Room",
+                            text = if (responses.isNotEmpty()) stringResource(R.string.open_instant_hiring_room_ready, responses.size) else stringResource(R.string.open_instant_hiring_room),
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
                         )
@@ -980,7 +913,7 @@ private fun EmployerUrgentNeedCard(
                                 enabled = !isRequestUpdating,
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A).bg())
                             ) {
                                 if (isRequestUpdating) {
                                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -1026,7 +959,7 @@ private fun EmployerUrgentNeedCard(
                         } else {
                             Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = EmployerColors.Error)
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Delete Post")
+                            Text(stringResource(R.string.delete_post))
                         }
                     }
                 }
@@ -1042,7 +975,7 @@ private fun InstantResponseRow(
     hasAlreadyRated: Boolean,
     canSelectMore: Boolean,
     onOpenWorkerProfile: (InstantResponse) -> Unit,
-    onCallWorker: (String) -> Unit,
+    onCallWorker: (com.example.dutype.models.InstantResponse) -> Unit,
     onSelectResponse: (InstantResponse) -> Unit,
     onCompleteResponse: (InstantResponse) -> Unit,
     onNoShowResponse: (InstantResponse) -> Unit,
@@ -1056,7 +989,7 @@ private fun InstantResponseRow(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
-        color = Color(0xFFF8FAFC)
+        color = Color(0xFFF8FAFC).bg()
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -1101,16 +1034,16 @@ private fun InstantResponseRow(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(stringResource(R.string.profile))
                 }
-                if (response.workerPhone.isNotBlank()) {
+                if (response.status != "rejected") {
                     Button(
-                        onClick = { onCallWorker(response.workerPhone) },
+                        onClick = { onCallWorker(response) },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A).bg())
                     ) {
                         Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("📞 Call Worker", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(stringResource(R.string.call_worker_btn), fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }
@@ -1135,7 +1068,7 @@ private fun InstantResponseRow(
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("✅ Hire Worker", fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.hire_worker_btn), fontWeight = FontWeight.Bold)
                         }
                     }
                     !canSelectMore && status in setOf("viewed", "applied", "interested", "called") -> {
@@ -1146,7 +1079,7 @@ private fun InstantResponseRow(
                             onClick = { onCompleteResponse(response) },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A).bg())
                         ) {
                             Text(stringResource(R.string.mark_done))
                         }
@@ -1165,7 +1098,7 @@ private fun InstantResponseRow(
                             onClick = { onRateResponse(response) },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B))
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B).bg())
                         ) {
                             Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
@@ -1186,13 +1119,13 @@ private fun UrgentIcon(icon: ImageVector, size: Int = 44) {
     Box(
         modifier = Modifier
             .size(size.dp)
-            .background(Color(0xFFFFEDD5), CircleShape),
+            .background(Color(0xFFFFEDD5).bg(), CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = Color(0xFFEA580C),
+            tint = Color(0xFFEA580C).fg(),
             modifier = Modifier.size((size / 2).dp)
         )
     }
@@ -1209,7 +1142,16 @@ private fun UrgentStatusBadge(status: String) {
         "cancelled", "failed" -> Color(0xFFDC2626)
         else -> Color(0xFF64748B)
     }
-    StatusBadge(text = normalized.ifBlank { "open" }, color = color)
+    val label = when (normalized) {
+        "open" -> stringResource(R.string.open_status)
+        "filled" -> stringResource(R.string.filled)
+        "completed" -> stringResource(R.string.completed)
+        "expired" -> stringResource(R.string.history_expired)
+        "cancelled" -> stringResource(R.string.status_cancelled)
+        "failed" -> stringResource(R.string.status_failed)
+        else -> normalized.ifBlank { stringResource(R.string.open_status) }
+    }
+    StatusBadge(text = label, color = color)
 }
 
 @Composable
@@ -1222,7 +1164,18 @@ private fun ResponseStatusBadge(status: String) {
         "busy", "rejected", "cancelled", "no_show" -> Color(0xFFDC2626)
         else -> Color(0xFF64748B)
     }
-    val label = if (normalized == "no_show") stringResource(R.string.no_show) else normalized.ifBlank { "viewed" }
+    val label = when (normalized) {
+        "applied" -> stringResource(R.string.applied)
+        "interested" -> stringResource(R.string.status_interested)
+        "called" -> stringResource(R.string.status_called)
+        "accepted" -> stringResource(R.string.status_accepted)
+        "completed" -> stringResource(R.string.completed)
+        "busy" -> stringResource(R.string.status_busy)
+        "rejected" -> stringResource(R.string.status_rejected)
+        "cancelled" -> stringResource(R.string.status_cancelled)
+        "no_show" -> stringResource(R.string.no_show)
+        else -> if (normalized.isBlank()) stringResource(R.string.viewed) else normalized.replace('_', ' ').replaceFirstChar { it.uppercase() }
+    }
     StatusBadge(text = label, color = color)
 }
 
@@ -1233,7 +1186,7 @@ private fun StatusBadge(text: String, color: Color) {
         color = color.copy(alpha = 0.12f)
     ) {
         Text(
-            text = text.replace('_', ' ').replaceFirstChar { it.uppercase() },
+            text = text,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
             style = MaterialTheme.typography.bodySmall.copy(
                 color = color,
@@ -1249,18 +1202,18 @@ private fun StatusBadge(text: String, color: Color) {
 private fun InfoPill(icon: ImageVector, text: String) {
     Surface(
         shape = RoundedCornerShape(10.dp),
-        color = Color(0xFFF1F5F9)
+        color = Color(0xFFF1F5F9).bg()
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
             horizontalArrangement = Arrangement.spacedBy(5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, contentDescription = null, tint = Color(0xFF475569), modifier = Modifier.size(14.dp))
+            Icon(icon, contentDescription = null, tint = Color(0xFF475569).fg(), modifier = Modifier.size(14.dp))
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFF475569),
+                    color = Color(0xFF475569).fg(),
                     fontWeight = FontWeight.Medium
                 ),
                 maxLines = 1,

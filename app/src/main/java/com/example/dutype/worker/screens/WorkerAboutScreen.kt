@@ -1,5 +1,8 @@
 package com.example.dutype.worker.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -32,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -96,22 +100,22 @@ fun WorkerAboutScreen(
     }
 
     val context = LocalContext.current
-    val versionText = "Version " + context.appVersionName() + " (Stable Build)"
+    val versionText = stringResource(R.string.about_version_format, context.appVersionName())
 
     val items = listOf(
-        AboutNavItem(R.drawable.ic_about_shield, "Safety & Fair Work Guidelines") {
+        AboutNavItem(R.drawable.ic_about_shield, stringResource(R.string.about_nav_safety_guidelines)) {
             safeNavigate(navController, Routes.HELP)
         },
-        AboutNavItem(R.drawable.ic_about_scale, "Worker Rights & Zero-Exploitation Policy") {
+        AboutNavItem(R.drawable.ic_about_scale, stringResource(R.string.about_nav_worker_rights)) {
             safeNavigate(navController, Routes.TERMS_OF_SERVICE)
         },
-        AboutNavItem(R.drawable.ic_about_star, "Rate Us on Google Play Store") {
+        AboutNavItem(R.drawable.ic_about_star, stringResource(R.string.about_nav_rate_playstore)) {
             openPlayStore(context)
         },
-        AboutNavItem(R.drawable.ic_about_message, "Join DutyPe WhatsApp Community") {
+        AboutNavItem(R.drawable.ic_about_message, stringResource(R.string.about_nav_whatsapp_community)) {
             openUrl(context, ABOUT_WHATSAPP_URL)
         },
-        AboutNavItem(R.drawable.ic_about_file, "Open Source Licenses & Legal") {
+        AboutNavItem(R.drawable.ic_about_file, stringResource(R.string.about_nav_licenses_legal)) {
             safeNavigate(navController, Routes.PRIVACY_POLICY)
         }
     )
@@ -119,7 +123,7 @@ fun WorkerAboutScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(AboutBg)
+            .background(AboutBg.bg())
             .statusBarsPadding()
     ) {
         AboutTopBar(onBack = { navController.popBackStack() })
@@ -139,7 +143,7 @@ fun WorkerAboutScreen(
                     .fillMaxWidth()
                     .padding(top = 2.dp, bottom = 8.dp),
                 fontSize = 11.sp,
-                color = AboutSlate400,
+                color = AboutSlate400.fg(),
                 textAlign = TextAlign.Center
             )
         }
@@ -158,17 +162,18 @@ private fun AboutTopBar(onBack: () -> Unit) {
     ) {
         Icon(
             painter = painterResource(R.drawable.ic_about_back),
-            contentDescription = "Back",
-            tint = Color.Unspecified,
+            contentDescription = stringResource(R.string.back),
+            // Black line icons: drawn light in dark mode.
+            tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color.Unspecified,
             modifier = Modifier
                 .size(24.dp)
                 .clickable { onBack() }
         )
         Text(
-            text = "About DutyPe",
+            text = stringResource(R.string.about_dutype),
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = AboutInk
+            color = AboutInk.fg()
         )
     }
 }
@@ -183,8 +188,8 @@ private fun AboutCardBox(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Color.White)
-            .border(1.dp, AboutBorder, shape)
+            .background(Color.White.bg())
+            .border(1.dp, AboutBorder.bd(), shape)
             .padding(padding.dp)
     ) {
         content()
@@ -202,40 +207,40 @@ private fun AboutBrandCard(versionText: String) {
                 text = "DutyPe",
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold,
-                color = AboutInk
+                color = AboutInk.fg()
             )
             Box(
                 modifier = Modifier
                     .padding(top = 6.dp)
                     .size(width = 40.dp, height = 4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(AboutEmerald)
+                    .background(AboutEmerald.bg())
             )
             Text(
                 text = versionText,
                 modifier = Modifier
                     .padding(top = 12.dp)
                     .clip(RoundedCornerShape(999.dp))
-                    .background(AboutPill)
+                    .background(AboutPill.bg())
                     .padding(horizontal = 12.dp, vertical = 5.dp),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
-                color = AboutSlate500
+                color = AboutSlate500.fg()
             )
             Text(
-                text = "Empowering India's Blue-Collar Workforce with Dignity, Direct Access & 100% Fair Pay.",
+                text = stringResource(R.string.about_tagline),
                 modifier = Modifier.padding(top = 12.dp),
                 fontSize = 14.sp,
                 lineHeight = 22.sp,
-                color = AboutSlate600,
+                color = AboutSlate600.fg(),
                 textAlign = TextAlign.Center
             )
             Text(
-                text = "Made with pride in India",
+                text = stringResource(R.string.about_made_in_india),
                 modifier = Modifier.padding(top = 10.dp),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = AboutEmerald
+                color = AboutEmerald.fg()
             )
         }
     }
@@ -246,23 +251,23 @@ private fun AboutPromiseCard() {
     AboutCardBox(padding = 16) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
-                text = "OUR WORKER PROMISE",
+                text = stringResource(R.string.about_worker_promise_title),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = AboutSlate400,
+                color = AboutSlate400.fg(),
                 letterSpacing = 0.6.sp
             )
             AboutPromiseRow(
-                "0% Commission:",
-                " You keep 100% of your earnings. DutyPe never takes cuts from worker wages."
+                stringResource(R.string.about_promise_commission_title),
+                stringResource(R.string.about_promise_commission_desc)
             )
             AboutPromiseRow(
-                "Direct Contact:",
-                " Speak directly to the business owner or employer with zero middlemen."
+                stringResource(R.string.about_promise_direct_title),
+                stringResource(R.string.about_promise_direct_desc)
             )
             AboutPromiseRow(
-                "Verified Gigs:",
-                " Employers must complete mobile & business verification before posting."
+                stringResource(R.string.about_promise_verified_title),
+                stringResource(R.string.about_promise_verified_desc)
             )
         }
     }
@@ -283,7 +288,7 @@ private fun AboutPromiseRow(lead: String, rest: String) {
         )
         Text(
             text = buildAnnotatedString {
-                withStyle(SpanStyle(color = AboutInk, fontWeight = FontWeight.SemiBold)) {
+                withStyle(SpanStyle(color = AboutInk.fg(), fontWeight = FontWeight.SemiBold)) {
                     append(lead)
                 }
                 append(rest)
@@ -291,7 +296,7 @@ private fun AboutPromiseRow(lead: String, rest: String) {
             modifier = Modifier.weight(1f),
             fontSize = 13.sp,
             lineHeight = 19.sp,
-            color = AboutSlate600
+            color = AboutSlate600.fg()
         )
     }
 }
@@ -303,8 +308,8 @@ private fun AboutNavCard(items: List<AboutNavItem>) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Color.White)
-            .border(1.dp, AboutBorder, shape)
+            .background(Color.White.bg())
+            .border(1.dp, AboutBorder.bd(), shape)
     ) {
         items.forEachIndexed { index, item ->
             AboutNavRow(item, showDivider = index < items.size - 1)
@@ -330,7 +335,8 @@ private fun AboutNavRow(item: AboutNavItem, showDivider: Boolean) {
             Icon(
                 painter = painterResource(item.icon),
                 contentDescription = null,
-                tint = Color.Unspecified,
+                // Black line icons: drawn light in dark mode.
+                tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color.Unspecified,
                 modifier = Modifier.size(20.dp)
             )
             Text(
@@ -338,9 +344,9 @@ private fun AboutNavRow(item: AboutNavItem, showDivider: Boolean) {
                 modifier = Modifier.weight(1f),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium,
-                color = AboutInk
+                color = AboutInk.fg()
             )
-            Text(text = "›", fontSize = 16.sp, color = AboutSlate400)
+            Text(text = "›", fontSize = 16.sp, color = AboutSlate400.fg())
         }
         if (showDivider) {
             Spacer(
@@ -348,7 +354,7 @@ private fun AboutNavRow(item: AboutNavItem, showDivider: Boolean) {
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .height(1.dp)
-                    .background(AboutPill)
+                    .background(AboutPill.bg())
             )
         }
     }

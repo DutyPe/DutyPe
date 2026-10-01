@@ -2,804 +2,43 @@ package com.example.dutype.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.dutype.models.JobApplication
-import com.example.dutype.models.ApplicationStatus
+import com.example.dutype.applications.ApplicationRepository
+import com.example.dutype.firestore.FirestoreSchema.EmployerProfiles
+import com.example.dutype.profile.CurrentProfileStore
 import com.example.dutype.models.ApplicationStats
-import com.example.dutype.metadata.UserMetadata
+import com.example.dutype.models.ApplicationStatus
+import com.example.dutype.models.JobApplication
 import com.example.dutype.models.MatchedWorker
-import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.WorkerMatchingService
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.functions.FirebaseFunctions
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import timber.log.Timber
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import timber.log.Timber
 import javax.inject.Inject
 
-/**
- * Enterprise-level Employer Application Management ViewModel
- * Handles all application-related operations for employers
- * 
- * SCALABILITY: Worker profile data is fetched dynamically when viewing application details
- * instead of storing redundant data in each application document.
- * 
- * PERFORMANCE FIX P0: LRU cache with bounded size for worker profiles
- */
-@HiltViewModel
-class EmployerApplicationViewModel @Inject constructor(
-    private val jobApplicationService: JobApplicationService,
-    private val profileCompletionService: com.example.dutype.services.ProfileCompletionService,
-    private val workerMatchingService: WorkerMatchingService,
-    private val performanceTracker: com.example.dutype.performance.PerformanceTracker,
-    val userMetadata: UserMetadata
-) : ViewModel() {
-    
-    companion object {
-        // P0 FIX: Maximum worker profiles to cache (prevents unbounded memory growth)
-        private const val MAX_WORKER_PROFILE_CACHE_SIZE = 100
-    }
-    
-    private val _uiState = MutableStateFlow(EmployerApplicationUiState())
-    val uiState: StateFlow<EmployerApplicationUiState> = _uiState.asStateFlow()
-    
-    private val _stats = MutableStateFlow(ApplicationStats())
-    val stats: StateFlow<ApplicationStats> = _stats.asStateFlow()
-
-    private val _matchedWorkersState = MutableStateFlow(MatchedWorkersUiState())
-    val matchedWorkersState: StateFlow<MatchedWorkersUiState> = _matchedWorkersState.asStateFlow()
-
-    // P0 FIX: LRU cache for worker profiles with bounded size
-    // Uses LinkedHashMap with accessOrder=true for LRU eviction
-    private val workerProfileCache = object : LinkedHashMap<String, Map<String, Any?>>(
-        MAX_WORKER_PROFILE_CACHE_SIZE, 0.75f, true
-    ) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Map<String, Any?>>?): Boolean {
-            val shouldRemove = size > MAX_WORKER_PROFILE_CACHE_SIZE
-            if (shouldRemove) {
-                Timber.d("[EmployerVM] 🧹 LRU evicting oldest worker profile from cache (size: $size)")
-            }
-            return shouldRemove
-        }
-    }
-    
-    private val auth = FirebaseAuth.getInstance()
-    
-    init {
-        loadUnlockedContacts()
-    }
-    
-    private fun loadUnlockedContacts() {
-        val uid = auth.currentUser?.uid ?: return
-        val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-        db.collection("employer_profiles").document(uid).get()
-            .addOnSuccessListener { doc ->
-                val contacts = (doc.get("unlockedContacts") as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
-                _uiState.update { state -> 
-                    state.copy(unlockedContacts = state.unlockedContacts + contacts) 
-                }
-            }
-            .addOnFailureListener { e ->
-                Timber.e(e, "[EmployerVM] Failed to load unlocked contacts")
-            }
-    }
-    
-    // Note: Don't load applications in init - let the screen decide what to load
-    // based on whether it's viewing all applications or job-specific applications
-    
-    /**
-     * Load all applications for current employer
-     * SCALABILITY: Enriches applications with worker profile data dynamically
-     */
-    fun loadEmployerApplications() {
-        val currentUser = auth.currentUser
-        if (currentUser == null) {
-            _uiState.value = _uiState.value.copy(
-                hasError = true,
-                error = "Employer not authenticated"
-            )
-            return
-        }
-        
-        viewModelScope.launch {
-            val startTime = System.currentTimeMillis()
-            com.example.dutype.performance.MainThreadChecker.assertMainThread("EmployerApplicationViewModel.loadEmployerApplications")
-
-            _uiState.value = _uiState.value.copy(isLoading = true, hasError = false)
-
-            try {
-                Timber.d("[EmployerVM] Loading employer applications for ${currentUser.uid}")
-
-                jobApplicationService.getEmployerApplications(currentUser.uid).collect { result ->
-                    result.fold(
-                        onSuccess = { applications ->
-                            val duration = System.currentTimeMillis() - startTime
-                            performanceTracker.trackApiCall("load_employer_applications", duration, success = true)
-
-                            Timber.d("[EmployerVM] Loaded ${applications.size} applications for employer in ${duration}ms")
-
-                            val enrichedApplications = coroutineScope {
-                                applications.map { app ->
-                                    async { enrichApplicationWithWorkerProfile(app) }
-                                }.awaitAll()
-                            }
-
-                            _uiState.value = _uiState.value.copy(
-                                applications = enrichedApplications,
-                                allApplications = enrichedApplications,
-                                isLoading = false,
-                                hasError = false,
-                                error = null
-                            )
-
-                            updateApplicationStats(enrichedApplications)
-                        },
-                        onFailure = { error ->
-                            val duration = System.currentTimeMillis() - startTime
-                            performanceTracker.trackApiCall("load_employer_applications", duration, success = false)
-
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                hasError = true,
-                                error = error.message ?: "Failed to load applications"
-                            )
-                        }
-                    )
-                }
-            } catch (e: Exception) {
-                val duration = System.currentTimeMillis() - startTime
-                performanceTracker.trackApiCall("load_employer_applications", duration, success = false)
-                
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    hasError = true,
-                    error = e.message ?: "Unknown error occurred"
-                )
-            }
-        }
-    }
-    
-    /**
-     * Load applications for a specific job
-     * SCALABILITY: Enriches applications with worker profile data dynamically
-     */
-    fun loadJobApplications(jobId: String) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, hasError = false)
-            
-            try {
-                Timber.d("[EmployerApplicationViewModel] Loading job applications for jobId=$jobId")
-                jobApplicationService.getJobApplications(jobId).collect { result ->
-                    result.fold(
-                        onSuccess = { applications ->
-                            Timber.d("[EmployerApplicationViewModel] Successfully loaded ${applications.size} applications for job $jobId")
-                            
-                            // P1 FIX: Batch worker profile enrichment in parallel
-                            val enrichedApplications = coroutineScope {
-                                applications.map { app ->
-                                    async { enrichApplicationWithWorkerProfile(app) }
-                                }.awaitAll()
-                            }
-                            
-                            _uiState.value = _uiState.value.copy(
-                                applications = enrichedApplications,
-                                allApplications = enrichedApplications,
-                                isLoading = false,
-                                hasError = false,
-                                error = null
-                            )
-
-                            // Keep summary chips in sync for job-specific application screens
-                            updateApplicationStats(enrichedApplications)
-                        },
-                        onFailure = { error ->
-                            Timber.e("[EmployerApplicationViewModel] Failed to load job applications for $jobId: ${error.message}")
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                hasError = true,
-                                error = error.message ?: "Failed to load job applications"
-                            )
-                        }
-                    )
-                }
-            } catch (e: Exception) {
-                Timber.e("[EmployerApplicationViewModel] Exception loading job applications for $jobId: ${e.message}")
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    hasError = true,
-                    error = e.message ?: "Unknown error occurred"
-                )
-            }
-        }
-    }
-
-    fun loadMatchedWorkers(jobId: String, force: Boolean = false) {
-        val currentState = _matchedWorkersState.value
-        if (!force && currentState.loadedJobId == jobId && currentState.workers.isNotEmpty()) {
-            return
-        }
-
-        viewModelScope.launch {
-            _matchedWorkersState.value = currentState.copy(
-                isLoading = true,
-                hasError = false,
-                error = null,
-                loadedJobId = jobId
-            )
-
-            workerMatchingService.getMatchedWorkersForJob(jobId).collect { result ->
-                result.fold(
-                    onSuccess = { workers ->
-                        _matchedWorkersState.value = MatchedWorkersUiState(
-                            workers = workers,
-                            isLoading = false,
-                            loadedJobId = jobId
-                        )
-                    },
-                    onFailure = { error ->
-                        _matchedWorkersState.value = MatchedWorkersUiState(
-                            isLoading = false,
-                            hasError = true,
-                            error = error.message ?: "Failed to load matched workers",
-                            loadedJobId = jobId
-                        )
-                    }
-                )
-            }
-        }
-    }
-
-    fun fetchPhoneNumberForWorker(jobId: String, workerId: String, onSuccess: (String) -> Unit, onFailure: () -> Unit) {
-        viewModelScope.launch {
-            try {
-                val profileResult = profileCompletionService.getWorkerProfileForEmployer(workerId, jobId)
-                profileResult.fold(
-                    onSuccess = { profile ->
-                        val phone = profile["phone"]?.toString() ?: ""
-                        
-                        // Also update the local state so the button stays responsive
-                        val currentWorkers = _matchedWorkersState.value.workers
-                        val updatedWorkers = currentWorkers.map { 
-                            if (it.workerId == workerId) it.copy(phone = phone) else it 
-                        }
-                        _matchedWorkersState.value = _matchedWorkersState.value.copy(workers = updatedWorkers)
-                        
-                        onSuccess(phone)
-                    },
-                    onFailure = { 
-                        onFailure() 
-                    }
-                )
-            } catch (e: Exception) {
-                Timber.e(e, "[EmployerVM] Failed to fetch phone number for worker $workerId")
-                onFailure()
-            }
-        }
-    }
-
-    fun requestMatchedWorker(jobId: String, workerId: String) {
-        viewModelScope.launch {
-            _matchedWorkersState.update { it.copy(requestingWorkerId = workerId, actionError = null) }
-            val result = workerMatchingService.requestWorkerForJob(jobId, workerId)
-            result.fold(
-                onSuccess = { requestId ->
-                    _matchedWorkersState.update { state ->
-                        state.copy(
-                            requestingWorkerId = null,
-                            workers = state.workers.map { worker ->
-                                if (worker.workerId == workerId) {
-                                    worker.copy(
-                                        requestId = requestId.ifBlank { worker.requestId },
-                                        requestStatus = "pending"
-                                    )
-                                } else {
-                                    worker
-                                }
-                            }
-                        )
-                    }
-                },
-                onFailure = { error ->
-                    _matchedWorkersState.update {
-                        it.copy(
-                            requestingWorkerId = null,
-                            actionError = error.message ?: "Failed to request worker"
-                        )
-                    }
-                }
-            )
-        }
-    }
-    
-    /**
-     * Load a single application by ID
-     */
-    fun loadApplicationById(applicationId: String) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, hasError = false)
-            
-            try {
-                Timber.d("[EmployerApplicationViewModel] Loading application by ID: $applicationId")
-                val result = jobApplicationService.getApplicationById(applicationId)
-                
-                result.fold(
-                    onSuccess = { application ->
-                        if (application != null) {
-                            Timber.d("[EmployerApplicationViewModel] Successfully loaded application: ${application.id}")
-                            
-                            // SCALABILITY: Enrich application with worker profile data
-                            val enrichedApplication = enrichApplicationWithWorkerProfile(application)
-                            
-                            // Add to applications list if not already present
-                            val currentApps = _uiState.value.applications.toMutableList()
-                            val existingIndex = currentApps.indexOfFirst { it.id == applicationId }
-                            if (existingIndex >= 0) {
-                                currentApps[existingIndex] = enrichedApplication
-                            } else {
-                                currentApps.add(enrichedApplication)
-                            }
-                            _uiState.value = _uiState.value.copy(
-                                applications = currentApps,
-                                isLoading = false,
-                                hasError = false,
-                                error = null
-                            )
-                        } else {
-                            Timber.w("[EmployerApplicationViewModel] Application not found: $applicationId")
-                            _uiState.value = _uiState.value.copy(
-                                isLoading = false,
-                                hasError = true,
-                                error = "Application not found"
-                            )
-                        }
-                    },
-                    onFailure = { error ->
-                        Timber.e("[EmployerApplicationViewModel] Failed to load application $applicationId: ${error.message}")
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            hasError = true,
-                            error = error.message ?: "Failed to load application"
-                        )
-                    }
-                )
-            } catch (e: Exception) {
-                Timber.e("[EmployerApplicationViewModel] Exception loading application $applicationId: ${e.message}")
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    hasError = true,
-                    error = e.message ?: "Unknown error occurred"
-                )
-            }
-        }
-    }
-    
-    /**
-     * SCALABILITY: Enrich application with worker profile data
-     * Fetches worker profile dynamically instead of storing redundant data
-     * Uses caching to avoid repeated fetches for the same worker
-     */
-    private suspend fun enrichApplicationWithWorkerProfile(application: JobApplication): JobApplication {
-        val workerId = application.workerId
-        if (workerId.isBlank()) return application
-        
-        // Check cache first
-        val cachedProfile = workerProfileCache[workerId]
-        if (cachedProfile != null) {
-            return applyWorkerProfileToApplication(application, cachedProfile)
-        }
-        
-        // Fetch worker profile from worker_profiles.
-        return try {
-            // Bug #19 fix: rules block direct employer reads of worker_profiles —
-            // route through the authorising callable.
-            val profileResult = profileCompletionService.getWorkerProfileForEmployer(workerId, application.jobId)
-            profileResult.fold(
-                onSuccess = { profile ->
-                    // Cache the profile
-                    workerProfileCache[workerId] = profile
-                    Timber.d("[EmployerVM] Enriched application with worker profile for workerId=$workerId")
-                    applyWorkerProfileToApplication(application, profile)
-                },
-                onFailure = { error ->
-                    Timber.w("[EmployerVM] Failed to fetch worker profile for $workerId: ${error.message}")
-                    application // Return original application if profile fetch fails
-                }
-            )
-        } catch (e: Exception) {
-            Timber.e(e, "[EmployerVM] Error enriching application with worker profile")
-            application
-        }
-    }
-    
-    /**
-     * Apply worker profile data to application object
-    * Reads worker profile data from the target schema only.
-     */
-    private fun applyWorkerProfileToApplication(
-        application: JobApplication,
-        profile: Map<String, Any?>
-    ): JobApplication {
-        val workerName = profile["fullName"] as? String ?: application.workerName
-        val workerPhone = profile["phone"] as? String ?: application.workerPhone
-        val workerProfileImageUrl = profile["profileImageUrl"] as? String ?: application.workerProfileImageUrl
-        val workerSkills = ((profile["skills"] as? List<*>).orEmpty() + (profile["jobTypes"] as? List<*>).orEmpty())
-            .mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
-            .distinct()
-
-        return application.copy(
-            workerName = workerName,
-            workerPhone = workerPhone,
-            workerEmail = (profile["email"] as? String)?.takeIf { it.isNotBlank() } ?: application.workerEmail,
-            workerProfileImageUrl = workerProfileImageUrl,
-            workerSkills = workerSkills.ifEmpty { application.workerSkills },
-            workerGender = (profile["gender"] as? String).orEmpty().ifBlank { application.workerGender },
-            workerExperience = (profile["experience"] as? String).orEmpty().ifBlank { application.workerExperience },
-            workerEducationQualification = (profile["educationQualification"] as? String).orEmpty()
-                .ifBlank { application.workerEducationQualification },
-            workerDateOfBirth = (profile["dateOfBirth"] as? String).orEmpty().ifBlank { application.workerDateOfBirth },
-            workerBio = (profile["bio"] as? String).orEmpty().ifBlank { application.workerBio }
-        )
-    }
-    
-    /**
-     * Update application status with enterprise features
-     */
-    fun updateApplicationStatus(
-        applicationId: String,
-        newStatus: ApplicationStatus,
-        notes: String? = null
-    ) {
-        viewModelScope.launch {
-            updateApplicationStatusForResult(applicationId, newStatus, notes)
-        }
-    }
-
-    suspend fun updateApplicationStatusForResult(
-        applicationId: String,
-        newStatus: ApplicationStatus,
-        notes: String? = null
-    ): Result<JobApplication> {
-        val currentUser = auth.currentUser
-        if (currentUser == null) {
-            _uiState.value = _uiState.value.copy(
-                hasError = true,
-                error = "Employer not authenticated"
-            )
-            return Result.failure(IllegalStateException("Employer not authenticated"))
-        }
-
-        _uiState.value = _uiState.value.copy(isUpdating = true)
-
-        return try {
-            val result = jobApplicationService.updateApplicationStatus(
-                applicationId = applicationId,
-                newStatus = newStatus,
-                updatedBy = currentUser.uid,
-                notes = notes
-            )
-
-            result.fold(
-                onSuccess = { updatedApplication ->
-                    _uiState.update { state ->
-                        state.copy(
-                            isUpdating = false,
-                            hasError = false,
-                            error = null,
-                            applications = state.applications.map { application ->
-                                if (application.id == applicationId) updatedApplication else application
-                            },
-                            allApplications = state.allApplications.map { application ->
-                                if (application.id == applicationId) updatedApplication else application
-                            }
-                        )
-                    }
-
-                    loadEmployerApplications()
-                },
-                onFailure = { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isUpdating = false,
-                        hasError = true,
-                        error = error.message ?: "Failed to update application status"
-                    )
-                }
-            )
-            result
-        } catch (e: Exception) {
-            _uiState.value = _uiState.value.copy(
-                isUpdating = false,
-                hasError = true,
-                error = e.message ?: "Unknown error occurred"
-            )
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Mark application as viewed (for analytics)
-     */
-    fun markApplicationAsViewed(applicationId: String) {
-        val currentUser = auth.currentUser ?: return
-        
-        viewModelScope.launch {
-            try {
-                jobApplicationService.markApplicationAsViewed(applicationId, currentUser.uid)
-            } catch (e: Exception) {
-                // Silent fail for analytics
-                Timber.w("Failed to mark application as viewed: ${e.message}")
-            }
-        }
-    }
-    
-    /**
-     * Mark application as under review when employer opens it
-     */
-    fun markApplicationAsUnderReview(applicationId: String) {
-        val currentUser = auth.currentUser ?: return
-        
-        viewModelScope.launch {
-            try {
-                jobApplicationService.markApplicationAsUnderReview(applicationId, currentUser.uid)
-                Timber.d("Application $applicationId marked as under review")
-            } catch (e: Exception) {
-                Timber.w("Failed to mark application as under review: ${e.message}")
-            }
-        }
-    }
-    
-    /**
-     * Update application statistics
-     */
-    private fun updateApplicationStats(applications: List<JobApplication>) {
-        val stats = ApplicationStats(
-            totalApplications = applications.size,
-            appliedApplications = applications.count { it.status == ApplicationStatus.APPLIED },
-            rejectedApplications = applications.count { it.status == ApplicationStatus.REJECTED },
-            hiredApplications = applications.count { it.status == ApplicationStatus.HIRED },
-            recentApplications = applications.take(5)
-        )
-        
-        _stats.value = stats
-    }
-    
-    /**
-     * Filter applications by status
-     */
-    fun filterApplicationsByStatus(status: ApplicationStatus?) {
-        val currentApplications = _uiState.value.allApplications
-        val filteredApplications = if (status != null) {
-            currentApplications.filter { it.status == status }
-        } else {
-            currentApplications
-        }
-        
-        _uiState.value = _uiState.value.copy(
-            applications = filteredApplications,
-            selectedStatusFilter = status
-        )
-    }
-    
-    /**
-     * Search applications
-     */
-    fun searchApplications(query: String) {
-        val currentApplications = _uiState.value.allApplications
-        val filteredApplications = if (query.isBlank()) {
-            currentApplications
-        } else {
-            currentApplications.filter { application ->
-                application.workerName.contains(query, ignoreCase = true) ||
-                application.jobTitle.contains(query, ignoreCase = true) ||
-                application.companyName.contains(query, ignoreCase = true)
-            }
-        }
-        
-        _uiState.value = _uiState.value.copy(
-            applications = filteredApplications,
-            searchQuery = query
-        )
-    }
-    
-    /**
-     * Clear error state
-     */
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(hasError = false, error = null)
-    }
-    
-    /**
-     * Hire an applicant (accept application)
-     * Checks vacancy limit before accepting
-     */
-    fun hireApplicant(
-        applicationId: String,
-        jobId: String,
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit
-    ) {
-        val currentUser = auth.currentUser
-        if (currentUser == null) {
-            onError("Employer not authenticated")
-            return
-        }
-        
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isUpdating = true)
-            
-            try {
-                // Use the acceptApplication method which checks vacancy limits
-                val result = jobApplicationService.acceptApplication(applicationId, currentUser.uid)
-                
-                result.fold(
-                    onSuccess = { updatedApplication ->
-                        _uiState.value = _uiState.value.copy(
-                            isUpdating = false,
-                            hasError = false,
-                            error = null
-                        )
-                        
-                        // Refresh applications to show updated status
-                        loadJobApplications(jobId)
-                        onSuccess()
-                    },
-                    onFailure = { error ->
-                        _uiState.value = _uiState.value.copy(
-                            isUpdating = false,
-                            hasError = true,
-                            error = error.message ?: "Failed to hire applicant"
-                        )
-                        onError(error.message ?: "Failed to hire applicant")
-                    }
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isUpdating = false,
-                    hasError = true,
-                    error = e.message ?: "Unknown error occurred"
-                )
-                onError(e.message ?: "Unknown error occurred")
-            }
-        }
-    }
-    
-    /**
-     * Check if more applicants can be hired for a job
-     */
-    fun canHireMoreApplicants(jobId: String, onResult: (Boolean, Int) -> Unit) {
-        viewModelScope.launch {
-            try {
-                val canAcceptResult = jobApplicationService.canAcceptMoreApplications(jobId)
-                val remainingResult = jobApplicationService.getRemainingVacancies(jobId)
-                
-                val canAccept = canAcceptResult.getOrNull() ?: false
-                val remaining = remainingResult.getOrNull() ?: 0
-                
-                onResult(canAccept, remaining)
-            } catch (e: Exception) {
-                Timber.e(e, "Error checking vacancy availability")
-                onResult(false, 0)
-            }
-        }
-    }
-    
-    /**
-     * Refresh all data
-     */
-    fun refresh() {
-        loadEmployerApplications()
-    }
-    
-    // ==================== FINTECH: CONTACT UNLOCK ====================
-    // First 3 applicants free, 4th+ requires payment
-     /**
-     * Check if contact is unlocked for an application
-     * Employer MUST have an active subscription to view contacts.
-     */
-    fun isContactUnlocked(applicationId: String, applicationIndex: Int): Boolean {
-        val inUiState = _uiState.value.unlockedContacts.contains(applicationId)
-        val inMetadata = userMetadata.employerStats.value.unlockedContacts.contains(applicationId)
-        Timber.d("[EmployerVM] isContactUnlocked check for $applicationId -> inUiState: $inUiState, inMetadata: $inMetadata")
-        return inUiState || inMetadata
-    }
-    
-    /**
-     * Unlock contact for an application
-     * Consumes 1 instant credit (contact credit). If 0, redirects to Subscription screen.
-     */
-    fun unlockContact(applicationId: String, onSuccess: () -> Unit, onPaymentRequired: () -> Unit) {
-        Timber.d("[EmployerVM] unlockContact called for $applicationId (free unlock active)")
-        
-        viewModelScope.launch {
-            try {
-                val uid = auth.currentUser?.uid ?: return@launch
-                Timber.d("[EmployerVM] Proceeding to unlock contact for $applicationId with uid: $uid")
-                
-                val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-                val ref = db.collection("employer_profiles").document(uid)
-                ref.update("unlockedContacts", com.google.firebase.firestore.FieldValue.arrayUnion(applicationId)).await()
-                
-                Timber.d("[EmployerVM] Contact unlocked successfully in Firestore")
-                _uiState.update { state ->
-                    state.copy(unlockedContacts = state.unlockedContacts + applicationId)
-                }
-                onSuccess()
-            } catch (e: Exception) {
-                Timber.e(e, "[EmployerVM] unlockContact failed with exception")
-                onPaymentRequired()
-            }
-        }
-    }
-    
-    /**
-     * Process payment and unlock contact
-     * In production, this would be called after successful Razorpay payment
-     */
-    fun processContactUnlockPayment(applicationId: String, onSuccess: () -> Unit, onFailure: (String) -> Unit) {
-        viewModelScope.launch {
-            try {
-                Timber.d("💰 CONTACT UNLOCK: Processing payment for applicationId=$applicationId")
-                
-                // Simulate payment processing delay
-                kotlinx.coroutines.delay(500)
-                
-                // For MVP: Allow contact unlock without actual payment gateway integration
-                val success = true
-                
-                if (success) {
-                    // Add to unlocked contacts
-                    _uiState.update { state ->
-                        state.copy(
-                            unlockedContacts = state.unlockedContacts + applicationId
-                        )
-                    }
-                    Timber.d("💰 CONTACT UNLOCK: Payment successful, contact unlocked")
-                    onSuccess()
-                } else {
-                    onFailure("Payment failed. Please try again.")
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "💰 CONTACT UNLOCK: Payment failed")
-                onFailure(e.message ?: "Payment failed")
-            }
-        }
-    }
-    
-    /**
-     * Get the unlock price for contacts
-     */
-    fun getContactUnlockPrice(): Int = 29 // ₹29 per contact unlock
-    
-    /**
-     * P0 FIX: Clear cache on ViewModel destruction to prevent memory leaks
-     */
-    override fun onCleared() {
-        super.onCleared()
-        workerProfileCache.clear()
-        Timber.d("[EmployerVM] 🧹 onCleared: Worker profile cache cleared")
-    }
-}
-
-/**
- * UI State for Employer Application Management
- */
 data class EmployerApplicationUiState(
     val applications: List<JobApplication> = emptyList(),
-    val allApplications: List<JobApplication> = emptyList(), // Unfiltered list
+    /** Unfiltered list; [applications] is this after the status filter / search. */
+    val allApplications: List<JobApplication> = emptyList(),
     val isLoading: Boolean = true,
     val isUpdating: Boolean = false,
     val hasError: Boolean = false,
     val error: String? = null,
     val searchQuery: String = "",
     val selectedStatusFilter: ApplicationStatus? = null,
-    // FINTECH: Contact Unlock - first 3 free, 4th+ requires payment
-    val unlockedContacts: Set<String> = emptySet(), // Set of applicationIds with unlocked contacts
-    val freeContactsRemaining: Int = 3 // Employer gets 3 free contact unlocks per job
+    /** Worker ids whose phone this employer has revealed (employer_profiles/{uid}/unlocks). */
+    val unlockedWorkerIds: Set<String> = emptySet(),
+    /** Phones revealed in this session, by worker id. */
+    val phones: Map<String, String> = emptyMap()
 )
 
 data class MatchedWorkersUiState(
@@ -808,6 +47,202 @@ data class MatchedWorkersUiState(
     val hasError: Boolean = false,
     val error: String? = null,
     val loadedJobId: String? = null,
-    val requestingWorkerId: String? = null,
     val actionError: String? = null
 )
+
+/**
+ * The employer's applicants: live list (worker name/photo/skill come with each application;
+ * rating, experience and distance from the workers' public cards, 30 per query),
+ * status changes and phone reveals through Cloud Functions.
+ */
+@HiltViewModel
+class EmployerApplicationViewModel @Inject constructor(
+    private val repository: ApplicationRepository,
+    private val jobRepository: com.example.dutype.jobs.JobRepository,
+    private val workerMatchingService: WorkerMatchingService,
+    private val firestore: FirebaseFirestore,
+    private val functions: FirebaseFunctions,
+    private val auth: FirebaseAuth,
+    val profileStore: CurrentProfileStore
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(EmployerApplicationUiState())
+    val uiState: StateFlow<EmployerApplicationUiState> = _uiState.asStateFlow()
+
+    private val _stats = MutableStateFlow(ApplicationStats())
+    val stats: StateFlow<ApplicationStats> = _stats.asStateFlow()
+
+    private val _matchedWorkersState = MutableStateFlow(MatchedWorkersUiState())
+    val matchedWorkersState: StateFlow<MatchedWorkersUiState> = _matchedWorkersState.asStateFlow()
+
+    private var listenJob: Job? = null
+    private var listening: String? = null
+
+    init {
+        loadUnlocks()
+    }
+
+    /** Every applicant across the employer's jobs (live). */
+    fun loadEmployerApplications() {
+        val uid = auth.currentUser?.uid ?: return fail("Employer not authenticated")
+        listenTo("all", repository.employerApplications(uid))
+    }
+
+    /** Applicants for one job (live). */
+    fun loadJobApplications(jobId: String) {
+        val uid = auth.currentUser?.uid ?: return fail("Employer not authenticated")
+        listenTo("job:$jobId", repository.jobApplicants(uid, jobId))
+    }
+
+    fun refresh() {
+        listening = null
+        loadEmployerApplications()
+    }
+
+    fun loadMatchedWorkers(jobId: String, force: Boolean = false) {
+        val current = _matchedWorkersState.value
+        if (!force && current.loadedJobId == jobId && current.workers.isNotEmpty()) return
+        _matchedWorkersState.value = current.copy(isLoading = true, hasError = false, error = null, loadedJobId = jobId)
+        viewModelScope.launch {
+            workerMatchingService.getMatchedWorkersForJob(jobId).collect { result ->
+                _matchedWorkersState.value = result.fold(
+                    onSuccess = { MatchedWorkersUiState(workers = it, loadedJobId = jobId) },
+                    onFailure = { MatchedWorkersUiState(hasError = true, error = it.message, loadedJobId = jobId) }
+                )
+            }
+        }
+    }
+
+    fun updateApplicationStatus(applicationId: String, newStatus: ApplicationStatus, notes: String? = null) {
+        viewModelScope.launch { updateApplicationStatusForResult(applicationId, newStatus) }
+    }
+
+    suspend fun updateApplicationStatusForResult(applicationId: String, newStatus: ApplicationStatus): Result<Unit> {
+        _uiState.update { it.copy(isUpdating = true) }
+        val result = repository.setStatus(applicationId, newStatus)
+        _uiState.update {
+            it.copy(isUpdating = false, hasError = result.isFailure, error = result.exceptionOrNull()?.message)
+        }
+        return result
+    }
+
+    fun filterApplicationsByStatus(status: ApplicationStatus?) {
+        _uiState.update { it.copy(selectedStatusFilter = status) }
+        applyFilters()
+    }
+
+    fun searchApplications(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+        applyFilters()
+    }
+
+    suspend fun getApplication(applicationId: String): JobApplication? = repository.getApplication(applicationId).getOrNull()
+
+    fun clearError() = _uiState.update { it.copy(hasError = false, error = null) }
+
+    /** Vacancies left for a job = its vacancies minus hired/completed applicants. */
+    fun canHireMoreApplicants(vacancies: Int, onResult: (Boolean, Int) -> Unit) {
+        val hired = _uiState.value.allApplications.count {
+            it.status == ApplicationStatus.HIRED || it.status == ApplicationStatus.COMPLETED
+        }
+        val remaining = (vacancies - hired).coerceAtLeast(0)
+        onResult(remaining > 0, remaining)
+    }
+
+    fun isContactUnlocked(workerId: String): Boolean = workerId in _uiState.value.unlockedWorkerIds
+
+    /** Reveals the worker's phone (recorded server-side as an unlock). */
+    fun fetchPhoneNumberForWorker(jobId: String, workerId: String, onSuccess: (String) -> Unit, onFailure: () -> Unit) {
+        viewModelScope.launch {
+            runCatching {
+                @Suppress("UNCHECKED_CAST")
+                val data = functions.getHttpsCallable("getWorkerContact")
+                    .call(mapOf("jobId" to jobId, "workerId" to workerId)).await().data as? Map<String, Any?>
+                data?.get("phone") as? String ?: ""
+            }.onSuccess { phone ->
+                if (phone.isBlank()) return@onSuccess onFailure()
+                _uiState.update { it.copy(unlockedWorkerIds = it.unlockedWorkerIds + workerId, phones = it.phones + (workerId to phone)) }
+                applyFilters()
+                _matchedWorkersState.update { state ->
+                    state.copy(workers = state.workers.map { if (it.workerId == workerId) it.copy(phone = phone) else it })
+                }
+                onSuccess(phone)
+            }.onFailure {
+                Timber.w(it, "getWorkerContact failed")
+                onFailure()
+            }
+        }
+    }
+
+    fun unlockContact(application: JobApplication, onSuccess: (String) -> Unit, onFailure: () -> Unit) =
+        fetchPhoneNumberForWorker(application.jobId, application.workerId, onSuccess, onFailure)
+
+    // ─────────────────────────────── internals ───────────────────────────────
+
+    private fun listenTo(key: String, source: Flow<Result<List<JobApplication>>>) {
+        if (listening == key && listenJob?.isActive == true) return
+        listening = key
+        listenJob?.cancel()
+        _uiState.update { it.copy(isLoading = it.allApplications.isEmpty(), hasError = false) }
+        listenJob = viewModelScope.launch {
+            source.collect { result ->
+                result.onSuccess { list -> publish(withWorkerCards(list)) }
+                    .onFailure { error -> fail(error.message ?: "Failed to load applications") }
+            }
+        }
+    }
+
+    /** Adds each applicant's public card and distance from the job (both cached). */
+    private suspend fun withWorkerCards(list: List<JobApplication>): List<JobApplication> {
+        val cards = repository.workerCards(list.map { it.workerId }).getOrDefault(emptyMap())
+        val jobs = jobRepository.getCards(list.map { it.jobId }).getOrDefault(emptyList()).associateBy { it.id }
+        return list.map { app ->
+            val job = jobs[app.jobId]
+            val worker = cards[app.workerId]?.let { card ->
+                if (job != null && card.lat != 0.0 && card.lng != 0.0) {
+                    card.copy(distanceKm = com.example.dutype.jobs.Geohash.distanceKm(job.lat, job.lng, card.lat, card.lng))
+                } else card
+            }
+            app.copy(worker = worker ?: app.worker, job = job)
+        }
+    }
+
+    private fun publish(list: List<JobApplication>) {
+        _uiState.update { it.copy(allApplications = list, isLoading = false, hasError = false, error = null) }
+        applyFilters()
+        _stats.value = ApplicationStats(
+            totalApplications = list.size,
+            appliedApplications = list.count { it.status == ApplicationStatus.APPLIED },
+            rejectedApplications = list.count { it.status == ApplicationStatus.REJECTED },
+            hiredApplications = list.count { it.status == ApplicationStatus.HIRED },
+            recentApplications = list.take(5)
+        )
+    }
+
+    private fun applyFilters() = _uiState.update { state ->
+        val query = state.searchQuery.trim()
+        state.copy(applications = state.allApplications
+            .map { app -> state.phones[app.workerId]?.let { app.copy(workerPhone = it) } ?: app }
+            .filter { app ->
+                (state.selectedStatusFilter == null || app.status == state.selectedStatusFilter) &&
+                    (query.isEmpty() || app.workerName.contains(query, true) || app.workerSkill.contains(query, true))
+            })
+    }
+
+    private fun loadUnlocks() {
+        val uid = auth.currentUser?.uid ?: return
+        viewModelScope.launch {
+            runCatching {
+                firestore.collection(EmployerProfiles.COLLECTION).document(uid)
+                    .collection(EmployerProfiles.Unlocks.COLLECTION).limit(UNLOCKS_LIMIT).get().await()
+                    .documents.map { it.id }.toSet()
+            }.onSuccess { ids -> _uiState.update { it.copy(unlockedWorkerIds = it.unlockedWorkerIds + ids) } }
+        }
+    }
+
+    private fun fail(message: String) = _uiState.update { it.copy(isLoading = false, hasError = true, error = message) }
+
+    private companion object {
+        const val UNLOCKS_LIMIT = 500L
+    }
+}

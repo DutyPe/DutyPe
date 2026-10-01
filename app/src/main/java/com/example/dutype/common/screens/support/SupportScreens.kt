@@ -1,5 +1,8 @@
 package com.example.dutype.common.screens.support
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.content.Intent
 import android.net.Uri
@@ -59,21 +62,21 @@ fun ContactUsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color.White.bg())
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(start = 20.dp, end = 20.dp, bottom = 32.dp)
     ) {
         ContactBackRow(onBack = { navController.popBackStack() })
         Spacer(Modifier.height(8.dp))
-        Text(stringResource(R.string.contact_get_in_touch), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = CuInk)
+        Text(stringResource(R.string.contact_get_in_touch), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = CuInk.fg())
         Spacer(Modifier.height(16.dp))
         ContactReplyBadge()
         Spacer(Modifier.height(16.dp))
         ContactChannelCard(
             icon = Icons.Outlined.Chat,
-            circleColor = Color(0xFFF0FDF4),
-            tint = CuGreen,
+            circleColor = Color(0xFFF0FDF4).fg(),
+            tint = CuGreen.fg(),
             title = stringResource(R.string.contact_whatsapp_title),
             subtitle = stringResource(R.string.contact_whatsapp_subtitle),
             onClick = {
@@ -84,8 +87,8 @@ fun ContactUsScreen(
         Spacer(Modifier.height(12.dp))
         ContactChannelCard(
             icon = Icons.Outlined.Phone,
-            circleColor = Color(0xFFEFF6FF),
-            tint = Color(0xFF2563EB),
+            circleColor = Color(0xFFEFF6FF).fg(),
+            tint = Color(0xFF2563EB).fg(),
             title = stringResource(R.string.contact_helpline_title),
             subtitle = stringResource(R.string.contact_helpline_subtitle),
             onClick = {
@@ -95,8 +98,8 @@ fun ContactUsScreen(
         Spacer(Modifier.height(12.dp))
         ContactChannelCard(
             icon = Icons.Outlined.Email,
-            circleColor = Color(0xFFFEF3C7),
-            tint = Color(0xFFD97706),
+            circleColor = Color(0xFFFEF3C7).fg(),
+            tint = Color(0xFFD97706).fg(),
             title = stringResource(R.string.contact_email_title),
             subtitle = stringResource(R.string.contact_email_subtitle),
             onClick = {
@@ -145,7 +148,7 @@ private fun ContactBackRow(onBack: () -> Unit) {
         Icon(
             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
             contentDescription = stringResource(R.string.back),
-            tint = CuInk,
+            tint = CuInk.fg(),
             modifier = Modifier.size(24.dp).clickable { onBack() }
         )
     }
@@ -158,15 +161,15 @@ private fun ContactReplyBadge() {
             .fillMaxWidth()
             .height(36.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFFF0FDF4))
-            .border(1.dp, Color(0xFFA7F3D0), RoundedCornerShape(12.dp)),
+            .background(Color(0xFFF0FDF4).bg())
+            .border(1.dp, Color(0xFFA7F3D0).bd(), RoundedCornerShape(12.dp)),
         contentAlignment = Alignment.Center
     ) {
         Text(
             stringResource(R.string.contact_reply_time),
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
-            color = CuGreen
+            color = CuGreen.fg()
         )
     }
 }
@@ -185,8 +188,8 @@ private fun ContactChannelCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Color.White)
-            .border(1.dp, CuBorder, shape)
+            .background(Color.White.bg())
+            .border(1.dp, CuBorder.bd(), shape)
             .clickable { onClick() }
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -199,13 +202,13 @@ private fun ContactChannelCard(
             Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = CuBlack)
-            Text(subtitle, fontSize = 13.sp, color = CuMuted)
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = CuBlack.fg())
+            Text(subtitle, fontSize = 13.sp, color = CuMuted.fg())
         }
         Icon(
             Icons.AutoMirrored.Filled.ArrowForward,
             contentDescription = null,
-            tint = CuHint,
+            tint = CuHint.fg(),
             modifier = Modifier.size(20.dp)
         )
     }
@@ -218,18 +221,18 @@ private fun ContactMessageField(value: String, onValueChange: (String) -> Unit) 
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
-        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = CuBlack),
-        cursorBrush = androidx.compose.ui.graphics.SolidColor(CuInk),
+        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = CuBlack.fg()),
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(CuInk.fg()),
         modifier = Modifier
             .fillMaxWidth()
             .height(120.dp)
             .clip(shape)
-            .border(1.dp, if (focused) CuInk else CuBorder, shape)
+            .border(1.dp, if (focused) CuInk.bd() else CuBorder.bd(), shape)
             .onFocusChanged { focused = it.isFocused },
         decorationBox = { inner ->
             Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
                 if (value.isEmpty()) {
-                    Text(stringResource(R.string.help_hero_title), fontSize = 14.sp, color = CuHint)
+                    Text(stringResource(R.string.help_hero_title), fontSize = 14.sp, color = CuHint.fg())
                 }
                 inner()
             }
@@ -250,11 +253,11 @@ private fun ContactFormCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Color.White)
-            .border(1.dp, CuBorder, shape)
+            .background(Color.White.bg())
+            .border(1.dp, CuBorder.bd(), shape)
             .padding(16.dp)
     ) {
-        Text(stringResource(R.string.contact_or_send_message), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = CuBlack)
+        Text(stringResource(R.string.contact_or_send_message), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = CuBlack.fg())
         Spacer(Modifier.height(12.dp))
         ContactMessageField(value = message, onValueChange = onMessageChange)
         Spacer(Modifier.height(14.dp))
@@ -262,12 +265,12 @@ private fun ContactFormCard(
             modifier = Modifier.clickable { onAttach() },
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Outlined.AttachFile, contentDescription = null, tint = CuMuted, modifier = Modifier.size(16.dp))
+            Icon(Icons.Outlined.AttachFile, contentDescription = null, tint = CuMuted.fg(), modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(8.dp))
             Text(
                 if (attached) stringResource(R.string.contact_screenshot_attached) else stringResource(R.string.contact_attach_screenshot),
                 fontSize = 13.sp,
-                color = CuMuted
+                color = CuMuted.fg()
             )
         }
         Spacer(Modifier.height(16.dp))
@@ -278,9 +281,9 @@ private fun ContactFormCard(
             shape = RoundedCornerShape(24.dp),
             elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = CuBlack,
+                containerColor = CuBlack.bg(),
                 contentColor = Color.White,
-                disabledContainerColor = CuBlack.copy(alpha = 0.4f),
+                disabledContainerColor = CuBlack.bg().copy(alpha = 0.4f),
                 disabledContentColor = Color.White
             )
         ) {
@@ -332,7 +335,7 @@ fun HelpMainScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color.White.bg())
             .statusBarsPadding()
     ) {
         HelpHeader(title = stringResource(R.string.help_faqs), onBack = { navController.popBackStack() })
@@ -384,9 +387,9 @@ fun HelpMainScreen(
 
             if (filteredGuides.isEmpty() && filteredFaqs.isEmpty()) {
                 Spacer(Modifier.height(24.dp))
-                Text(stringResource(R.string.no_matching_topics), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = CuInk)
+                Text(stringResource(R.string.no_matching_topics), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = CuInk.fg())
                 Spacer(Modifier.height(4.dp))
-                Text(stringResource(R.string.no_matching_topics_hint), fontSize = 13.sp, color = CuMuted)
+                Text(stringResource(R.string.no_matching_topics_hint), fontSize = 13.sp, color = CuMuted.fg())
             }
         }
     }
@@ -402,9 +405,9 @@ private fun HelpHeader(title: String, onBack: () -> Unit) {
                 .clickable { onBack() },
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), tint = CuInk, modifier = Modifier.size(24.dp))
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), tint = CuInk.fg(), modifier = Modifier.size(24.dp))
         }
-        Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CuInk, modifier = Modifier.align(Alignment.Center))
+        Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CuInk.fg(), modifier = Modifier.align(Alignment.Center))
     }
 }
 
@@ -415,17 +418,17 @@ private fun HelpSummaryCard(onWhatsApp: () -> Unit, onEmail: () -> Unit, onRepor
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFF0FDF4), shape)
-            .border(1.dp, Color(0xFFA7F3D0), shape)
+            .background(Color(0xFFF0FDF4).bg(), shape)
+            .border(1.dp, Color(0xFFA7F3D0).bd(), shape)
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(stringResource(R.string.help_need_fast), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = CuGreen)
+        Text(stringResource(R.string.help_need_fast), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = CuGreen.fg())
         Text(
             stringResource(R.string.help_need_fast_desc),
             fontSize = 14.sp,
             lineHeight = 20.sp,
-            color = CuInk
+            color = CuInk.fg()
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             HelpContactPill(stringResource(R.string.whatsapp_label), Icons.Default.Phone, Modifier.weight(1f), onWhatsApp)
@@ -447,15 +450,15 @@ private fun HelpContactPill(
         modifier = modifier
             .height(36.dp)
             .clip(shape)
-            .background(Color.White, shape)
-            .border(1.dp, Color(0xFFA7F3D0), shape)
+            .background(Color.White.bg(), shape)
+            .border(1.dp, Color(0xFFA7F3D0).bd(), shape)
             .clickable { onClick() },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center
     ) {
-        Icon(icon, contentDescription = null, tint = CuGreen, modifier = Modifier.size(15.dp))
+        Icon(icon, contentDescription = null, tint = CuGreen.fg(), modifier = Modifier.size(15.dp))
         Spacer(Modifier.width(6.dp))
-        Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CuInk, maxLines = 1)
+        Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = CuInk.fg(), maxLines = 1)
     }
 }
 
@@ -466,29 +469,29 @@ private fun HelpSearchField(value: String, onValueChange: (String) -> Unit) {
         value = value,
         onValueChange = onValueChange,
         singleLine = true,
-        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = CuBlack),
-        cursorBrush = androidx.compose.ui.graphics.SolidColor(CuInk),
+        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = CuBlack.fg()),
+        cursorBrush = androidx.compose.ui.graphics.SolidColor(CuInk.fg()),
         modifier = Modifier
             .fillMaxWidth()
             .height(48.dp)
             .clip(shape)
-            .border(1.dp, CuBorder, shape),
+            .border(1.dp, CuBorder.bd(), shape),
         decorationBox = { inner ->
             Row(
                 modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Search, contentDescription = null, tint = CuMuted, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Search, contentDescription = null, tint = CuMuted.fg(), modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(10.dp))
                 Box(modifier = Modifier.weight(1f)) {
-                    if (value.isEmpty()) Text(stringResource(R.string.search_help_topics), fontSize = 14.sp, color = CuHint)
+                    if (value.isEmpty()) Text(stringResource(R.string.search_help_topics), fontSize = 14.sp, color = CuHint.fg())
                     inner()
                 }
                 if (value.isNotEmpty()) {
                     Icon(
                         Icons.Default.Close,
                         contentDescription = stringResource(R.string.clear),
-                        tint = CuMuted,
+                        tint = CuMuted.fg(),
                         modifier = Modifier.size(18.dp).clickable { onValueChange("") }
                     )
                 }
@@ -503,7 +506,7 @@ private fun HelpSectionLabel(title: String) {
         text = title,
         fontSize = 13.sp,
         fontWeight = FontWeight.SemiBold,
-        color = CuMuted,
+        color = CuMuted.fg(),
         modifier = Modifier.padding(top = 22.dp, bottom = 10.dp)
     )
 }
@@ -516,8 +519,8 @@ private fun HelpAccordionCard(item: HelpExpandableItem, expanded: Boolean, onTog
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Color.White, shape)
-            .border(1.dp, CuBorder, shape)
+            .background(Color.White.bg(), shape)
+            .border(1.dp, CuBorder.bd(), shape)
     ) {
         Row(
             modifier = Modifier
@@ -528,20 +531,20 @@ private fun HelpAccordionCard(item: HelpExpandableItem, expanded: Boolean, onTog
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (item.icon != null) {
-                Icon(item.icon, contentDescription = null, tint = CuInk, modifier = Modifier.size(18.dp))
+                Icon(item.icon, contentDescription = null, tint = CuInk.fg(), modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(12.dp))
             }
             Text(
                 text = item.title,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = CuBlack,
+                color = CuBlack.fg(),
                 modifier = Modifier.weight(1f)
             )
             Icon(
                 imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = CuMuted,
+                tint = CuMuted.fg(),
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -550,7 +553,7 @@ private fun HelpAccordionCard(item: HelpExpandableItem, expanded: Boolean, onTog
                 text = item.content,
                 fontSize = 14.sp,
                 lineHeight = 22.sp,
-                color = Color(0xFF475569),
+                color = Color(0xFF475569).fg(),
                 modifier = Modifier.padding(
                     start = if (item.icon != null) 46.dp else 16.dp,
                     end = 16.dp,

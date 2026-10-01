@@ -1,5 +1,8 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import androidx.compose.runtime.LaunchedEffect
 import com.example.dutype.models.formatPaise
 import com.dutype.app.R
@@ -24,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
@@ -94,6 +98,9 @@ private val RingTrack = Color(0xFF1E293B)
 private val PlanTitleInk = Color(0xFF0F0F0F)
 
 private fun getPlanColor(planId: String): Color = when {
+    planId.contains("max_ai") -> IndicatorOrange
+    planId.contains("pro_ai") -> IndicatorPurple
+    planId.contains("basic") -> IndicatorGreen
     planId.contains("starter") -> IndicatorGreen
     planId.contains("growth") -> IndicatorOrange
     planId.contains("premium") -> IndicatorPurple
@@ -104,6 +111,22 @@ private fun getPlanColor(planId: String): Color = when {
 
 @Composable
 private fun planBenefits(plan: com.example.dutype.models.Plan): List<AnnotatedString> = buildList {
+    if (plan.id.startsWith("basic") || plan.ai) {
+        add(buildAnnotatedString { append(stringResource(R.string.sub_dynamic_job_credits, plan.jobs.toString())) })
+        add(buildAnnotatedString { append(stringResource(R.string.sub_dynamic_instant_unlocks, plan.instantUnlocks.toString())) })
+        if (plan.ai) {
+            add(buildAnnotatedString {
+                withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) { append(stringResource(R.string.sub_ai_talk_to_post)) }
+            })
+            add(buildAnnotatedString { append(stringResource(R.string.sub_ai_top_picks)) })
+            add(buildAnnotatedString { append(stringResource(R.string.sub_ai_voice_assistant)) })
+            add(buildAnnotatedString { append(stringResource(R.string.sub_ai_per_day, plan.aiPerDay)) })
+        } else {
+            add(buildAnnotatedString { append(stringResource(R.string.sub_ai_not_included)) })
+        }
+        add(buildAnnotatedString { append(stringResource(R.string.sub_30_days_validity)) })
+        return@buildList
+    }
     when {
         plan.name.contains("Single", ignoreCase = true) -> {
             add(buildAnnotatedString { append(stringResource(R.string.sub_single_job_credit)) })
@@ -190,14 +213,14 @@ fun EmployerSubscriptionScreen(
     val currentPlanObj = plans.find { it.id == subState.planId }
 
     Scaffold(
-        containerColor = ScreenBg,
+        containerColor = ScreenBg.bg(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(ScreenBg)
+                .background(ScreenBg.bg())
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
@@ -207,8 +230,14 @@ fun EmployerSubscriptionScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            val employerProfile by viewModel.employer.collectAsState()
+            val aiStatus = when {
+                subState.hasAi -> stringResource(R.string.sub_ai_status_included, subState.aiPerDay.takeIf { it > 0 } ?: 100)
+                else -> stringResource(R.string.sub_ai_status_trial, (10 - (employerProfile?.aiTrialUsed ?: 0)).coerceAtLeast(0))
+            }
             if (hasActiveSub) {
                 CurrentPlanCard(
+                    aiStatus = aiStatus,
                     planName = currentPlanObj?.name ?: if (subState.isUnlimitedCampaign) stringResource(R.string.unlimited_campaign) else stringResource(R.string.sub_current_plan_default),
                     plan = currentPlanObj,
                     remainingJobs = subState.normalCredits,
@@ -216,7 +245,7 @@ fun EmployerSubscriptionScreen(
                     expiryDate = subState.expiresAt
                 )
             } else {
-                NoPlanCard()
+                NoPlanCard(aiStatus)
             }
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -261,7 +290,7 @@ fun EmployerSubscriptionScreen(
         ModalBottomSheet(
             onDismissRequest = { showPaymentSheet = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = Color.White
+            containerColor = Color.White.bg()
         ) {
             Column(
                 modifier = Modifier
@@ -281,7 +310,7 @@ fun EmployerSubscriptionScreen(
                         fontFamily = MeeshoFontFamily
                     )
                     IconButton(onClick = { showPaymentSheet = false }) {
-                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close), tint = Ink700)
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close), tint = Ink700.fg())
                     }
                 }
 
@@ -289,7 +318,7 @@ fun EmployerSubscriptionScreen(
                     text = stringResource(R.string.amount_payable, plan.priceRupees.toString()),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
-                    color = Brand
+                    color = Brand.fg()
                 )
 
                 // Step 1: Copy UPI ID
@@ -298,8 +327,8 @@ fun EmployerSubscriptionScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(SurfaceMuted, RoundedCornerShape(10.dp))
-                            .border(1.dp, Hairline, RoundedCornerShape(10.dp))
+                            .background(SurfaceMuted.bg(), RoundedCornerShape(10.dp))
+                            .border(1.dp, Hairline.bd(), RoundedCornerShape(10.dp))
                             .padding(horizontal = 12.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -309,7 +338,7 @@ fun EmployerSubscriptionScreen(
                             fontFamily = MeeshoFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
-                            color = Ink900
+                            color = Ink900.fg()
                         )
                         IconButton(
                             onClick = {
@@ -321,7 +350,7 @@ fun EmployerSubscriptionScreen(
                             Icon(
                                 imageVector = Icons.Default.ContentCopy,
                                 contentDescription = stringResource(R.string.copy_button),
-                                tint = Ink500
+                                tint = Ink500.fg()
                             )
                         }
                     }
@@ -336,7 +365,7 @@ fun EmployerSubscriptionScreen(
                                 .fillMaxWidth()
                                 .height(200.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(SurfaceMuted),
+                                .background(SurfaceMuted.bg()),
                             contentAlignment = Alignment.Center
                         ) {
                             AsyncImage(
@@ -349,7 +378,7 @@ fun EmployerSubscriptionScreen(
                         Text(
                             text = qrs.first().label,
                             fontSize = 11.sp,
-                            color = Ink500,
+                            color = Ink500.fg(),
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -360,21 +389,21 @@ fun EmployerSubscriptionScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(SurfaceMuted, RoundedCornerShape(10.dp))
-                        .border(1.dp, Hairline, RoundedCornerShape(10.dp))
+                        .background(SurfaceMuted.bg(), RoundedCornerShape(10.dp))
+                        .border(1.dp, Hairline.bd(), RoundedCornerShape(10.dp))
                         .padding(12.dp)
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(
                             imageVector = Icons.Default.Info,
                             contentDescription = stringResource(R.string.cd_info),
-                            tint = Ink500
+                            tint = Ink500.fg()
                         )
                         Text(
                             text = stringResource(R.string.auto_payments_are_non_refundable_verify_your_ut),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
-                            color = Ink700
+                            color = Ink700.fg()
                         )
                     }
                 }
@@ -391,9 +420,9 @@ fun EmployerSubscriptionScreen(
                         singleLine = true,
                         shape = RoundedCornerShape(10.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Brand,
-                            unfocusedBorderColor = Hairline,
-                            cursorColor = Brand
+                            focusedBorderColor = Brand.bd(),
+                            unfocusedBorderColor = Hairline.bd(),
+                            cursorColor = Brand.fg()
                         )
                     )
                 }
@@ -408,8 +437,8 @@ fun EmployerSubscriptionScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { if (selectedImageUri == null) screenshotPicker.launch("image/*") }
-                            .background(SurfaceMuted, RoundedCornerShape(10.dp))
-                            .border(1.dp, Hairline, RoundedCornerShape(10.dp))
+                            .background(SurfaceMuted.bg(), RoundedCornerShape(10.dp))
+                            .border(1.dp, Hairline.bd(), RoundedCornerShape(10.dp))
                             .padding(16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
@@ -429,20 +458,20 @@ fun EmployerSubscriptionScreen(
                                     text = stringResource(R.string.auto_screenshot_attached),
                                     fontWeight = FontWeight.Medium,
                                     fontSize = 13.sp,
-                                    color = Ink700
+                                    color = Ink700.fg()
                                 )
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.PhotoCamera,
                                     contentDescription = stringResource(R.string.camera),
-                                    tint = Ink500
+                                    tint = Ink500.fg()
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = stringResource(R.string.auto_upload_screenshot),
                                     fontWeight = FontWeight.Medium,
                                     fontSize = 13.sp,
-                                    color = Ink700
+                                    color = Ink700.fg()
                                 )
                             }
                         }
@@ -454,7 +483,7 @@ fun EmployerSubscriptionScreen(
                                 Icon(
                                     imageVector = Icons.Default.Close,
                                     contentDescription = stringResource(R.string.remove_screenshot),
-                                    tint = Danger
+                                    tint = Danger.fg()
                                 )
                             }
                         }
@@ -490,7 +519,7 @@ fun EmployerSubscriptionScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Brand),
+                    colors = ButtonDefaults.buttonColors(containerColor = Brand.bg()),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     if (submitState is SubmitState.Loading || isUploadingScreenshot) {
@@ -507,7 +536,7 @@ fun EmployerSubscriptionScreen(
                 if (submitState is SubmitState.Error) {
                     Text(
                         text = (submitState as SubmitState.Error).message,
-                        color = Danger,
+                        color = Danger.fg(),
                         fontSize = 12.sp,
                         modifier = Modifier.fillMaxWidth(),
                         textAlign = TextAlign.Center
@@ -524,7 +553,7 @@ fun EmployerSubscriptionScreen(
                     .fillMaxWidth()
                     .padding(16.dp),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White)
+                colors = CardDefaults.cardColors(containerColor = Color.White.bg())
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -534,18 +563,18 @@ fun EmployerSubscriptionScreen(
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = stringResource(R.string.cd_success),
-                        tint = Success,
+                        tint = Success.fg(),
                         modifier = Modifier.size(64.dp)
                     )
                     Text(
                         text = stringResource(R.string.auto_submission_successful),
-                        style = AppTypography.displayTitle.copy(fontWeight = FontWeight.Bold, color = Ink900),
+                        style = AppTypography.displayTitle.copy(fontWeight = FontWeight.Bold, color = Ink900.fg()),
                         textAlign = TextAlign.Center,
                         fontFamily = MeeshoFontFamily
                     )
                     Text(
                         text = stringResource(R.string.auto_your_upi_reference_has_been_submitted_admi),
-                        style = AppTypography.bodySmall.copy(color = Ink500),
+                        style = AppTypography.bodySmall.copy(color = Ink500.fg()),
                         textAlign = TextAlign.Center
                     )
                     Button(
@@ -554,7 +583,7 @@ fun EmployerSubscriptionScreen(
                             navController.popBackStack()
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Brand)
+                        colors = ButtonDefaults.buttonColors(containerColor = Brand.bg())
                     ) {
                         Text(stringResource(R.string.go_to_dashboard), fontWeight = FontWeight.Bold)
                     }
@@ -572,8 +601,8 @@ fun EmployerSubscriptionScreen(
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Success),
-                        border = BorderStroke(1.dp, Success)
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Success.fg()),
+                        border = BorderStroke(1.dp, Success.bd())
                     ) {
                         Text(stringResource(R.string.contact_admin_whatsapp), fontWeight = FontWeight.Bold)
                     }
@@ -592,14 +621,14 @@ private fun SectionHeader(title: String, subtitle: String? = null) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = title,
-            style = AppTypography.pageTitle.copy(fontWeight = FontWeight.Bold, color = Ink900),
+            style = AppTypography.pageTitle.copy(fontWeight = FontWeight.Bold, color = Ink900.fg()),
             fontFamily = MeeshoFontFamily
         )
         if (subtitle != null) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = subtitle,
-                style = AppTypography.bodySmall.copy(color = Ink500)
+                style = AppTypography.bodySmall.copy(color = Ink500.fg())
             )
         }
     }
@@ -631,13 +660,13 @@ private fun StepLabel(step: Int, text: String) {
             text = "$step.",
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
-            color = Brand
+            color = Brand.fg()
         )
         Text(
             text = text,
             fontWeight = FontWeight.Bold,
             fontSize = 14.sp,
-            color = Ink700
+            color = Ink700.fg()
         )
     }
 }
@@ -679,7 +708,7 @@ private fun PlansHeader(onBack: () -> Unit) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = stringResource(R.string.back),
-                tint = Ink900,
+                tint = Ink900.fg(),
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -688,7 +717,7 @@ private fun PlansHeader(onBack: () -> Unit) {
             text = stringResource(R.string.plans_and_credits),
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
-            color = Ink900
+            color = Ink900.fg()
         )
     }
 }
@@ -698,13 +727,14 @@ private fun ProgressRing(used: Int, limit: Int, color: Color, label: String) {
     val fraction = if (limit > 0) (used.toFloat() / limit.toFloat()).coerceIn(0f, 1f) else 0f
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+            val ringTrack = RingTrack.bd()
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val strokePx = 5.dp.toPx()
                 val inset = strokePx / 2f
                 val arcSize = Size(size.width - strokePx, size.height - strokePx)
                 val arcTopLeft = Offset(inset, inset)
                 drawArc(
-                    color = RingTrack,
+                    color = ringTrack,
                     startAngle = -90f,
                     sweepAngle = 360f,
                     useCenter = false,
@@ -742,7 +772,8 @@ private fun CurrentPlanCard(
     plan: Plan?,
     remainingJobs: Int,
     remainingContacts: Int,
-    expiryDate: Long
+    expiryDate: Long,
+    aiStatus: String
 ) {
     val days = daysRemaining(expiryDate)
     val displayName = if (planName.contains("plan", ignoreCase = true) || planName.contains("trial", ignoreCase = true)) planName else "$planName Plan"
@@ -757,7 +788,7 @@ private fun CurrentPlanCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .background(Ink900, RoundedCornerShape(24.dp))
+            .background(Ink900.bg(), RoundedCornerShape(24.dp))
             .padding(20.dp)
     ) {
         Row(
@@ -765,12 +796,12 @@ private fun CurrentPlanCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = stringResource(R.string.sub_current_plan, displayName), fontSize = 13.sp, color = Ink400)
+            Text(text = stringResource(R.string.sub_current_plan, displayName), fontSize = 13.sp, color = Ink400.fg())
             if (days >= 0) {
                 Text(
                     text = if (days == 1) stringResource(R.string.day_remaining_single) else stringResource(R.string.days_remaining_plural, days),
                     fontSize = 13.sp,
-                    color = IndicatorYellow
+                    color = IndicatorYellow.fg()
                 )
             }
         }
@@ -782,23 +813,41 @@ private fun CurrentPlanCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (jobLimit > 0) {
-                    ProgressRing(used = jobUsed, limit = jobLimit, color = BlueAccent, label = stringResource(R.string.job_posts_label))
+                    ProgressRing(used = jobUsed, limit = jobLimit, color = BlueAccent.fg(), label = stringResource(R.string.job_posts_label))
                 }
                 if (contactLimit > 0) {
-                    ProgressRing(used = contactUsed, limit = contactLimit, color = Success, label = stringResource(R.string.contacts_label))
+                    ProgressRing(used = contactUsed, limit = contactLimit, color = Success.fg(), label = stringResource(R.string.contacts_label))
                 }
             }
         }
+        Spacer(modifier = Modifier.height(16.dp))
+        AiStatusRow(aiStatus)
+    }
+}
+
+/** "DutyPe AI: included, 100 a day" / "7 free tries left" — on the current-plan and no-plan cards. */
+@Composable
+private fun AiStatusRow(text: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0x332E1065).bg(), RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFC4B5FD).fg(), modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = text, fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
-private fun NoPlanCard() {
+private fun NoPlanCard(aiStatus: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .background(Ink900, RoundedCornerShape(24.dp))
+            .background(Ink900.bg(), RoundedCornerShape(24.dp))
             .padding(20.dp)
     ) {
         Text(
@@ -811,8 +860,10 @@ private fun NoPlanCard() {
         Text(
             text = stringResource(R.string.sub_choose_plan_desc),
             fontSize = 13.sp,
-            color = Ink400
+            color = Ink400.fg()
         )
+        Spacer(modifier = Modifier.height(14.dp))
+        AiStatusRow(aiStatus)
     }
 }
 
@@ -821,8 +872,9 @@ private fun carouselStartPage(plans: List<Plan>, currentPlanId: String, hasActiv
         val current = plans.indexOfFirst { it.id == currentPlanId }
         if (current >= 0) return current
     }
-    val growth = plans.indexOfFirst { it.name.contains("Growth", ignoreCase = true) || it.id.contains("growth") }
-    return if (growth >= 0) growth else 0
+    val recommended = plans.indexOfFirst { it.id.startsWith("pro_ai") }
+        .takeIf { it >= 0 } ?: plans.indexOfFirst { it.name.contains("Growth", ignoreCase = true) || it.id.contains("growth") }
+    return if (recommended >= 0) recommended else 0
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -850,7 +902,7 @@ private fun PlansCarousel(
             PlanPageCard(
                 plan = plan,
                 isCurrent = hasActiveSub && currentPlanId == plan.id,
-                isRecommended = plan.name.contains("Growth", ignoreCase = true) || plan.id.contains("growth"),
+                isRecommended = plan.id.startsWith("pro_ai") || plan.name.contains("Growth", ignoreCase = true) || plan.id.contains("growth"),
                 onProceed = { onProceed(plan) }
             )
         } else {
@@ -874,13 +926,13 @@ private fun PagerDots(total: Int, current: Int) {
                     modifier = Modifier
                         .width(18.dp)
                         .height(6.dp)
-                        .background(Ink900, RoundedCornerShape(50))
+                        .background(Ink900.bg(), RoundedCornerShape(50))
                 )
             } else {
                 Box(
                     modifier = Modifier
                         .size(6.dp)
-                        .background(Hairline, RoundedCornerShape(50))
+                        .background(Hairline.bg(), RoundedCornerShape(50))
                 )
             }
         }
@@ -891,14 +943,14 @@ private fun PagerDots(total: Int, current: Int) {
 private fun PopularPill() {
     Box(
         modifier = Modifier
-            .background(BlueSoft, RoundedCornerShape(50))
+            .background(BlueSoft.bg(), RoundedCornerShape(50))
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
         Text(
             text = stringResource(R.string.most_popular),
             fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold,
-            color = BlueAccent
+            color = BlueAccent.fg()
         )
     }
 }
@@ -915,7 +967,7 @@ private fun PlanBullets(benefits: List<AnnotatedString>, checkColor: Color) {
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(10.dp))
-                Text(text = benefit, fontSize = 14.sp, color = Ink900)
+                Text(text = benefit, fontSize = 14.sp, color = Ink900.fg())
             }
         }
     }
@@ -934,8 +986,8 @@ private fun PlanPageCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White, cardShape)
-            .border(1.dp, Hairline, cardShape)
+            .background(Color.White.bg(), cardShape)
+            .border(1.dp, Hairline.bd(), cardShape)
             .padding(20.dp)
     ) {
         Row(
@@ -947,10 +999,26 @@ private fun PlanPageCard(
                 text = plan.name,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = PlanTitleInk
+                color = PlanTitleInk.fg()
             )
             if (isRecommended) {
                 PopularPill()
+            }
+        }
+        if (plan.ai) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier
+                    .background(
+                        androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color(0xFF6D28D9), Color(0xFFDB2777))),
+                        RoundedCornerShape(999.dp)
+                    )
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(stringResource(R.string.sub_ai_badge), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
@@ -959,19 +1027,19 @@ private fun PlanPageCard(
                 text = if (isFree) stringResource(R.string.free_cost) else "\u20B9${plan.priceRupees}",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
-                color = PlanTitleInk
+                color = PlanTitleInk.fg()
             )
             if (!isFree) {
                 Text(
                     text = " ${stringResource(R.string.sub_per_month)}",
                     fontSize = 14.sp,
-                    color = Ink500,
+                    color = Ink500.fg(),
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
             }
         }
         Spacer(modifier = Modifier.height(18.dp))
-        PlanBullets(benefits = benefits, checkColor = if (isFree) Ink400 else BlueAccent)
+        PlanBullets(benefits = benefits, checkColor = if (isFree) Ink400.fg() else BlueAccent.fg())
         if (!isFree) {
             Spacer(modifier = Modifier.height(22.dp))
             Button(
@@ -980,7 +1048,7 @@ private fun PlanPageCard(
                     .fillMaxWidth()
                     .height(56.dp),
                 shape = RoundedCornerShape(28.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Ink900, contentColor = Color.White),
+                colors = ButtonDefaults.buttonColors(containerColor = Ink900.bg(), contentColor = Color.White),
                 elevation = ButtonDefaults.buttonElevation(
                     defaultElevation = 0.dp,
                     pressedElevation = 0.dp,
@@ -1005,22 +1073,22 @@ private fun EnterprisePageCard(onTalkToSales: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White, cardShape)
-            .border(1.dp, Hairline, cardShape)
+            .background(Color.White.bg(), cardShape)
+            .border(1.dp, Hairline.bd(), cardShape)
             .padding(20.dp)
     ) {
         Text(
             text = stringResource(R.string.enterprise_plan_title),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = PlanTitleInk
+            color = PlanTitleInk.fg()
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = stringResource(R.string.custom_pricing),
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = PlanTitleInk
+            color = PlanTitleInk.fg()
         )
         Spacer(modifier = Modifier.height(22.dp))
         OutlinedButton(
@@ -1029,14 +1097,14 @@ private fun EnterprisePageCard(onTalkToSales: () -> Unit) {
                 .fillMaxWidth()
                 .height(56.dp),
             shape = RoundedCornerShape(28.dp),
-            border = BorderStroke(1.5.dp, Ink900),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink900)
+            border = BorderStroke(1.5.dp, Ink900.bd()),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink900.fg())
         ) {
             Text(
                 text = stringResource(R.string.talk_to_sales),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Ink900
+                color = Ink900.fg()
             )
         }
     }
@@ -1068,8 +1136,8 @@ private fun TransactionCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Hairline),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = BorderStroke(1.dp, Hairline.bd()),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1082,7 +1150,7 @@ private fun TransactionCard(
                     text = planName,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
-                    color = Ink900
+                    color = Ink900.fg()
                 )
                 PlanPill(
                     text = statusText,
@@ -1097,27 +1165,27 @@ private fun TransactionCard(
                 Text(
                     text = stringResource(R.string.utr_format, req.utrNumber),
                     fontSize = 12.sp,
-                    color = Ink700,
+                    color = Ink700.fg(),
                     fontFamily = MeeshoFontFamily
                 )
                 Text(
                     text = formatPaise(req.amountPaise),
                     fontWeight = FontWeight.Black,
                     fontSize = 14.sp,
-                    color = Brand
+                    color = Brand.fg()
                 )
             }
             Text(
                 text = stringResource(R.string.requested_date_format, dateTimeFormatter.format(Date(req.createdAt))),
                 fontSize = 11.sp,
-                color = Ink400
+                color = Ink400.fg()
             )
             if (req.status == "VERIFIED" && req.verifiedAt > 0L) {
                 Text(
                     text = stringResource(R.string.verified_date_format, dateFormatter.format(Date(req.verifiedAt))),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Success
+                    color = Success.fg()
                 )
             }
             if (req.status == "REJECTED" && req.rejectionReason.isNotBlank()) {
@@ -1125,7 +1193,7 @@ private fun TransactionCard(
                     text = stringResource(R.string.reason_format, req.rejectionReason),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Danger
+                    color = Danger.fg()
                 )
             }
         }

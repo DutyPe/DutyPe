@@ -1,5 +1,8 @@
 package com.example.dutype.common.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
@@ -98,7 +101,7 @@ fun PrivacyPolicyScreen(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color.White.bg())
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(start = 20.dp, end = 20.dp, bottom = 32.dp)
@@ -109,13 +112,13 @@ fun PrivacyPolicyScreen(navController: NavController) {
             text = stringResource(R.string.privacy_policy),
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = Ink900
+            color = Ink900.fg()
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.policy_last_updated_short),
             fontSize = 12.sp,
-            color = Ink400
+            color = Ink400.fg()
         )
         Spacer(modifier = Modifier.height(20.dp))
         PvPermissionCards()
@@ -137,24 +140,24 @@ private fun PolicyMainContainer(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color.White.bg())
     ) {
         CommonHeader(
             title = if (selectedTab == 0) stringResource(R.string.terms_of_service) else stringResource(R.string.privacy_policy),
             onBackClick = { navController.popBackStack() },
-            backgroundColor = Color.White
+            backgroundColor = Color.White.bg()
         )
 
         // Policy Toggle Tabs - Black styled titles
         TabRow(
             selectedTabIndex = selectedTab,
-            containerColor = Color.White,
-            contentColor = Ink900,
+            containerColor = Color.White.bg(),
+            contentColor = Ink900.fg(),
             indicator = { tabPositions ->
                 if (selectedTab < tabPositions.size) {
                     TabRowDefaults.SecondaryIndicator(
                         Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                        color = Ink900,
+                        color = Ink900.fg(),
                         height = 3.dp
                     )
                 }
@@ -168,7 +171,7 @@ private fun PolicyMainContainer(
                         text = stringResource(R.string.terms_of_service),
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium,
-                            color = Ink900
+                            color = Ink900.fg()
                         )
                     )
                 }
@@ -181,7 +184,7 @@ private fun PolicyMainContainer(
                         text = stringResource(R.string.privacy_policy),
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium,
-                            color = Ink900
+                            color = Ink900.fg()
                         )
                     )
                 }
@@ -202,7 +205,7 @@ private fun PolicyMainContainer(
                 PrivacyPolicyContent()
             }
 
-            HorizontalDivider(color = Color(0xFFE2E8F0), modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(color = Color(0xFFE2E8F0).bd(), modifier = Modifier.padding(vertical = 8.dp))
 
             // Grievance Contact & Legal Footer Section (No cards, plain clean text)
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -210,7 +213,7 @@ private fun PolicyMainContainer(
                     Icon(
                         imageVector = Icons.Default.Business,
                         contentDescription = null,
-                        tint = Ink900,
+                        tint = Ink900.fg(),
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -218,14 +221,14 @@ private fun PolicyMainContainer(
                         text = stringResource(R.string.auto_dutype_technologies),
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Ink900
+                            color = Ink900.fg()
                         )
                     )
                 }
 
                 Text(
                     text = stringResource(R.string.policy_grievance_contact),
-                    style = MaterialTheme.typography.bodyMedium.copy(color = Ink600, lineHeight = 20.sp)
+                    style = MaterialTheme.typography.bodyMedium.copy(color = Ink600.fg(), lineHeight = 20.sp)
                 )
 
                 // Official Available Emails
@@ -244,7 +247,7 @@ private fun PolicyMainContainer(
                     Icon(
                         imageVector = Icons.Default.Email,
                         contentDescription = null,
-                        tint = BrandBlue,
+                        tint = BrandBlue.fg(),
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -252,7 +255,7 @@ private fun PolicyMainContainer(
                         text = "dutypein@gmail.com",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold,
-                            color = BrandBlue
+                            color = BrandBlue.fg()
                         )
                     )
                 }
@@ -272,7 +275,7 @@ private fun PolicyMainContainer(
                     Icon(
                         imageVector = Icons.Default.Email,
                         contentDescription = null,
-                        tint = BrandBlue,
+                        tint = BrandBlue.fg(),
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -280,7 +283,7 @@ private fun PolicyMainContainer(
                         text = "dutypefeedback@gmail.com",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold,
-                            color = BrandBlue
+                            color = BrandBlue.fg()
                         )
                     )
                 }
@@ -291,13 +294,13 @@ private fun PolicyMainContainer(
                 Text(
                     text = stringResource(R.string.policy_last_updated),
                     style = MaterialTheme.typography.labelSmall.copy(
-                        color = Ink400,
+                        color = Ink400.fg(),
                         fontWeight = FontWeight.Medium
                     )
                 )
                 Text(
                     text = stringResource(R.string.policy_compliance),
-                    style = MaterialTheme.typography.labelSmall.copy(color = Ink400)
+                    style = MaterialTheme.typography.labelSmall.copy(color = Ink400.fg())
                 )
             }
 
@@ -418,14 +421,14 @@ private fun PolicySectionItem(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Surface(
                 shape = CircleShape,
-                color = Color(0xFFF1F5F9),
+                color = Color(0xFFF1F5F9).bg(),
                 modifier = Modifier.size(32.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
-                        tint = Ink900,
+                        tint = Ink900.fg(),
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -435,7 +438,7 @@ private fun PolicySectionItem(
                 text = "$number. $title",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Ink900
+                    color = Ink900.fg()
                 ),
                 modifier = Modifier.weight(1f)
             )
@@ -446,7 +449,7 @@ private fun PolicySectionItem(
         Text(
             text = content,
             style = MaterialTheme.typography.bodyMedium.copy(
-                color = Ink600,
+                color = Ink600.fg(),
                 lineHeight = 22.sp
             ),
             modifier = Modifier.padding(start = 44.dp)
@@ -471,7 +474,7 @@ private fun PvBackRow(onBack: () -> Unit) {
         Icon(
             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
             contentDescription = stringResource(R.string.back),
-            tint = Ink900,
+            tint = Ink900.fg(),
             modifier = Modifier.size(24.dp)
         )
     }
@@ -516,8 +519,8 @@ private fun PvPermissionCard(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.White)
-            .border(1.dp, PvBorder, RoundedCornerShape(12.dp))
+            .background(Color.White.bg())
+            .border(1.dp, PvBorder.bd(), RoundedCornerShape(12.dp))
             .padding(horizontal = 8.dp, vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -525,13 +528,13 @@ private fun PvPermissionCard(
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
-                .background(PvCircleBg),
+                .background(PvCircleBg.bg()),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Ink900,
+                tint = Ink900.fg(),
                 modifier = Modifier.size(28.dp)
             )
         }
@@ -540,7 +543,7 @@ private fun PvPermissionCard(
             text = label,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
-            color = PvLabel,
+            color = PvLabel.fg(),
             textAlign = TextAlign.Center
         )
         Spacer(modifier = Modifier.height(4.dp))
@@ -548,7 +551,7 @@ private fun PvPermissionCard(
             text = description,
             fontSize = 12.sp,
             lineHeight = 16.sp,
-            color = PvMuted,
+            color = PvMuted.fg(),
             textAlign = TextAlign.Center
         )
     }
@@ -561,8 +564,8 @@ private fun PvAccordionCard() {
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Color.White)
-            .border(1.dp, PvBorder, shape)
+            .background(Color.White.bg())
+            .border(1.dp, PvBorder.bd(), shape)
     ) {
         PvAccordionRow(
             title = stringResource(R.string.policy_what_we_collect),
@@ -624,13 +627,13 @@ private fun PvAccordionRow(
                 text = title,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = PvLabel,
+                color = PvLabel.fg(),
                 modifier = Modifier.weight(1f)
             )
             Icon(
                 imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = PvMuted,
+                tint = PvMuted.fg(),
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -645,7 +648,7 @@ private fun PvAccordionRow(
             }
         }
         if (showDivider) {
-            HorizontalDivider(thickness = 1.dp, color = PvDivider)
+            HorizontalDivider(thickness = 1.dp, color = PvDivider.bd())
         }
     }
 }
@@ -658,13 +661,13 @@ private fun PvSectionBody(heading: String, body: String) {
             fontSize = 13.sp,
             lineHeight = 20.sp,
             fontWeight = FontWeight.SemiBold,
-            color = Ink600
+            color = Ink600.fg()
         )
         Text(
             text = body,
             fontSize = 13.sp,
             lineHeight = 20.sp,
-            color = Ink600
+            color = Ink600.fg()
         )
     }
 }
@@ -677,20 +680,20 @@ private fun PvGrievanceFooter() {
             text = stringResource(R.string.auto_dutype_technologies),
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
-            color = Ink900
+            color = Ink900.fg()
         )
         Text(
             text = stringResource(R.string.policy_grievance_contact),
             fontSize = 13.sp,
             lineHeight = 20.sp,
-            color = Ink600
+            color = Ink600.fg()
         )
         PvEmailLink(context, "dutypein@gmail.com", "DutyPe Support & Policy Query")
         PvEmailLink(context, "dutypefeedback@gmail.com", "DutyPe Feedback")
         Text(
             text = stringResource(R.string.policy_compliance),
             fontSize = 12.sp,
-            color = Ink400
+            color = Ink400.fg()
         )
     }
 }
@@ -701,7 +704,7 @@ private fun PvEmailLink(context: android.content.Context, email: String, subject
         text = email,
         fontSize = 13.sp,
         fontWeight = FontWeight.SemiBold,
-        color = BrandBlue,
+        color = BrandBlue.fg(),
         modifier = Modifier
             .fillMaxWidth()
             .clickable {

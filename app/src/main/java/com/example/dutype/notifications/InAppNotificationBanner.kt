@@ -1,5 +1,7 @@
 package com.example.dutype.notifications
 
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -100,7 +102,7 @@ fun InAppNotificationBanner(
                         text = notification.title,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF111827),
+                        color = Color(0xFF111827).fg(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -110,7 +112,7 @@ fun InAppNotificationBanner(
                     Text(
                         text = notification.message,
                         fontSize = 12.sp,
-                        color = Color(0xFF6B7280),
+                        color = Color(0xFF6B7280).fg(),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -120,7 +122,7 @@ fun InAppNotificationBanner(
                     Text(
                         text = notification.getFormattedTime(),
                         fontSize = 10.sp,
-                        color = Color(0xFF9CA3AF)
+                        color = Color(0xFF9CA3AF).fg()
                     )
                 }
                 
@@ -153,7 +155,7 @@ fun InAppNotificationBanner(
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Dismiss",
-                        tint = Color(0xFF9CA3AF),
+                        tint = Color(0xFF9CA3AF).fg(),
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -200,7 +202,7 @@ fun NotificationToast(
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 8.dp),
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF1F2937)
+                containerColor = Color(0xFF1F2937).bg()
             ),
             elevation = CardDefaults.cardElevation(
                 defaultElevation = 6.dp

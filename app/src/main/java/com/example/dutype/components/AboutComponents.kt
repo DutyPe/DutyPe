@@ -1,5 +1,8 @@
 package com.example.dutype.components
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -79,13 +82,13 @@ fun AboutHero(
             style = AppTypography.pageTitle.copy(
                 fontWeight = FontWeight.Bold,
                 fontSize = 22.sp,
-                color = Ink900
+                color = Ink900.fg()
             )
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = subtitle,
-            style = AppTypography.bodyMedium.copy(color = Ink600)
+            style = AppTypography.bodyMedium.copy(color = Ink600.fg())
         )
     }
 }
@@ -103,13 +106,13 @@ fun AboutDutyPeOverview() {
             Box(
                 modifier = Modifier
                     .size(32.dp)
-                    .background(Color(0xFFF1F5F9), CircleShape),
+                    .background(Color(0xFFF1F5F9).bg(), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Info,
                     contentDescription = null,
-                    tint = Ink900,
+                    tint = Ink900.fg(),
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -118,14 +121,14 @@ fun AboutDutyPeOverview() {
                 text = stringResource(R.string.auto_what_is_dutype),
                 style = AppTypography.sectionHeader.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Ink900
+                    color = Ink900.fg()
                 )
             )
         }
         Text(
             text = stringResource(R.string.auto_dutype_is_india_s_premier_instant_workforc),
             style = AppTypography.bodyMedium.copy(
-                color = Ink600,
+                color = Ink600.fg(),
                 lineHeight = 22.sp
             ),
             modifier = Modifier.padding(start = 44.dp)
@@ -151,13 +154,13 @@ fun AboutSectionCard(
             Box(
                 modifier = Modifier
                     .size(32.dp)
-                    .background(Color(0xFFF1F5F9), CircleShape),
+                    .background(Color(0xFFF1F5F9).bg(), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = aboutIconFor(icon),
                     contentDescription = null,
-                    tint = Ink900,
+                    tint = Ink900.fg(),
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -166,7 +169,7 @@ fun AboutSectionCard(
                 text = title,
                 style = AppTypography.sectionHeader.copy(
                     fontWeight = FontWeight.Bold,
-                    color = Ink900
+                    color = Ink900.fg()
                 )
             )
         }
@@ -189,14 +192,14 @@ fun AboutBullet(text: String, accentColor: Color = Ink900) {
             text = "•",
             style = MaterialTheme.typography.bodyLarge.copy(
                 fontWeight = FontWeight.Bold,
-                color = Ink900
+                color = Ink900.fg()
             ),
             modifier = Modifier.padding(end = 10.dp)
         )
         Text(
             text = text,
             style = AppTypography.bodyMedium.copy(
-                color = Ink900,
+                color = Ink900.fg(),
                 lineHeight = 20.sp
             )
         )
@@ -211,7 +214,7 @@ fun AboutParagraph(text: String) {
     Text(
         text = text,
         style = AppTypography.bodyMedium.copy(
-            color = Ink600,
+            color = Ink600.fg(),
             lineHeight = 22.sp
         )
     )
@@ -228,11 +231,11 @@ fun AboutFooter(version: String) {
             .padding(top = 12.dp, bottom = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        HorizontalDivider(color = Color(0xFFE2E8F0), modifier = Modifier.padding(bottom = 16.dp))
+        HorizontalDivider(color = Color(0xFFE2E8F0).bd(), modifier = Modifier.padding(bottom = 16.dp))
         Text(
             text = stringResource(R.string.about_made_in_bharat),
             style = AppTypography.bodyMedium.copy(
-                color = Ink600,
+                color = Ink600.fg(),
                 fontWeight = FontWeight.Medium
             ),
             textAlign = TextAlign.Center
@@ -240,7 +243,7 @@ fun AboutFooter(version: String) {
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = stringResource(R.string.about_version_format, version),
-            style = AppTypography.bodySmall.copy(color = Color(0xFF94A3B8)),
+            style = AppTypography.bodySmall.copy(color = Color(0xFF94A3B8).fg()),
             textAlign = TextAlign.Center
         )
     }

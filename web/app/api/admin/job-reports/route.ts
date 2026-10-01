@@ -1,28 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
-import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
-import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
+import { cachedAdminGet } from "@/lib/firebase/admin-response-cache";
+import { listCollection } from "@/lib/firebase/admin-list";
+import { JobReports } from "@/lib/firebase/schema";
 
 export const runtime = "nodejs";
 
-export async function GET(request: NextRequest) {
-  const unauthorized = await requireAuthorizedAdminRequest(request);
-  if (unauthorized) {
-    return unauthorized;
-  }
-
-  try {
-    const db = getFirebaseAdminDb();
-    const snapshot = await db.collection("job_reports").limit(2000).get();
-
-    const items = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...(doc.data() as Record<string, unknown>)
-    }));
-
-    return NextResponse.json({ items });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load job reports.";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
+// One page at a time (newest first); cached briefly, cleared on any admin write.
+export const GET = cachedAdminGet((request: NextRequest) =>
+  listCollection(request, JobReports.COLLECTION, { orderBy: JobReports.CREATED_AT, dataKey: "items" })
+);

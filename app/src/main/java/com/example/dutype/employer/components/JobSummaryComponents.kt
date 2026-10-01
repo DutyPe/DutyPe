@@ -1,5 +1,6 @@
 ﻿package com.example.dutype.employer.components
 
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -35,10 +36,10 @@ fun JobSummaryCard(
     payType: PayType,
     location: String,
     vacancies: String,
-    shiftTiming: ShiftTiming,
+    shiftTiming: JobShift,
     description: String
 ) {
-    val primaryBlue = Color(0xFF2563EB)
+    val primaryBlue = Color(0xFF2563EB).fg()
     
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -55,7 +56,7 @@ fun JobSummaryCard(
                 Icon(
                     imageVector = Icons.Default.Preview,
                     contentDescription = null,
-                    tint = Color(0xFF2563EB),
+                    tint = Color(0xFF2563EB).fg(),
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))

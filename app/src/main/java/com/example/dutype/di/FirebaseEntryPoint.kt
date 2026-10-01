@@ -31,6 +31,7 @@ interface FirebaseEntryPoint {
     fun storage(): FirebaseStorage
     fun functions(): FirebaseFunctions
     fun referralService(): ReferralService
+    fun ratingService(): com.example.dutype.services.RatingService
     fun locationRepository(): LocationRepository
 }
 
@@ -57,3 +58,9 @@ fun locationRepositoryFromHilt(context: Context): LocationRepository =
     EntryPointAccessors
         .fromApplication(context.applicationContext, FirebaseEntryPoint::class.java)
         .locationRepository()
+
+/** Resolve the Hilt-provided [com.example.dutype.services.RatingService] singleton from a Compose context. */
+fun ratingServiceFromHilt(context: Context): com.example.dutype.services.RatingService =
+    EntryPointAccessors
+        .fromApplication(context.applicationContext, FirebaseEntryPoint::class.java)
+        .ratingService()

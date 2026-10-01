@@ -7,51 +7,63 @@ import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import {
   searchIndianLocations,
   type WebLocationSuggestion
-} from "@/lib/product/location-search";
+} from "@/lib/geo/location-search";
 
-// Mirrors the Android app's PostJobScreen exactly: same JobCategory /
-// PayType / ShiftTiming / JobUrgency / JobPerk enums, same gender /
-// experience / education option lists, same defaults.
+// Values are the Firestore schema keys (category / payType / shift / employmentType / gender).
 const JOB_CATEGORIES: { value: string; label: string; icon: string }[] = [
-  { value: "Cook", label: "Cook", icon: "👨\u200d🍳" },
-  { value: "Maid", label: "Maid", icon: "🧹" },
-  { value: "Driver", label: "Driver", icon: "🚗" },
-  { value: "Helper", label: "Helper", icon: "🤝" },
-  { value: "Security", label: "Security", icon: "🛡️" },
-  { value: "Gardener", label: "Gardener", icon: "🌱" },
-  { value: "Caretaker", label: "Caretaker", icon: "👥" },
-  { value: "Delivery", label: "Delivery", icon: "📦" },
-  { value: "Waiter", label: "Waiter", icon: "🍽️" },
-  { value: "Electrician", label: "Electrician", icon: "⚡" },
-  { value: "Plumber", label: "Plumber", icon: "🔧" },
-  { value: "Painter", label: "Painter", icon: "🎨" },
-  { value: "Carpenter", label: "Carpenter", icon: "🪚" },
-  { value: "Receptionist", label: "Receptionist", icon: "💼" },
-  { value: "Cashier", label: "Cashier", icon: "💵" },
-  { value: "Packer", label: "Packer", icon: "📦" },
-  { value: "Other", label: "Other", icon: "📋" }
+  { value: "COOK", label: "Cook", icon: "👨\u200d🍳" },
+  { value: "MAID", label: "Maid", icon: "🧹" },
+  { value: "DRIVER", label: "Driver", icon: "🚗" },
+  { value: "HELPER", label: "Helper", icon: "🤝" },
+  { value: "SECURITY", label: "Security", icon: "🛡️" },
+  { value: "GARDENER", label: "Gardener", icon: "🌱" },
+  { value: "CARETAKER", label: "Caretaker", icon: "👥" },
+  { value: "DELIVERY", label: "Delivery", icon: "📦" },
+  { value: "WAITER", label: "Waiter", icon: "🍽️" },
+  { value: "ELECTRICIAN", label: "Electrician", icon: "⚡" },
+  { value: "PLUMBER", label: "Plumber", icon: "🔧" },
+  { value: "PAINTER", label: "Painter", icon: "🎨" },
+  { value: "CARPENTER", label: "Carpenter", icon: "🪚" },
+  { value: "RECEPTIONIST", label: "Receptionist", icon: "💼" },
+  { value: "CASHIER", label: "Cashier", icon: "💵" },
+  { value: "PACKER", label: "Packer", icon: "📦" },
+  { value: "SALES", label: "Sales", icon: "🛍️" },
+  { value: "TELECALLER", label: "Telecaller", icon: "📞" },
+  { value: "TEACHER", label: "Teacher", icon: "📚" },
+  { value: "OFFICE_STAFF", label: "Office Staff", icon: "🗂️" },
+  { value: "CUSTOMER_SUPPORT", label: "Customer Support", icon: "🎧" },
+  { value: "FIELD_EXECUTIVE", label: "Field Work", icon: "🧭" },
+  { value: "MARKETING", label: "Marketing", icon: "📣" },
+  { value: "FINANCE", label: "Finance", icon: "🏦" },
+  { value: "HEALTHCARE", label: "Healthcare", icon: "⚕️" },
+  { value: "BEAUTICIAN", label: "Beautician", icon: "💇" },
+  { value: "TAILOR", label: "Tailor", icon: "🧵" },
+  { value: "MECHANIC", label: "Mechanic", icon: "🔩" },
+  { value: "DATA_ENTRY", label: "Data Entry", icon: "⌨️" },
+  { value: "LEGAL", label: "Legal", icon: "⚖️" },
+  { value: "OTHER", label: "Other", icon: "📋" }
 ];
 
 // Keyword → category. First match wins. Ordering matters (specific before generic).
 // Mirrors inferCategoryFromTitle() in PostJobScreen.kt.
 const CATEGORY_KEYWORDS: Array<{ category: string; words: string[] }> = [
-  { category: "Delivery", words: ["delivery", "courier", "rider", "swiggy", "zomato", "dunzo", "parcel"] },
-  { category: "Driver", words: ["driver", "chauffeur", "uber", "ola", "cab", "taxi", "truck"] },
-  { category: "Cook", words: ["cook", "chef", "kitchen", "tandoor", "biryani"] },
-  { category: "Waiter", words: ["waiter", "server", "steward"] },
-  { category: "Maid", words: ["maid", "house help", "housekeep", "babysit", "nanny", "ayah"] },
-  { category: "Security", words: ["security", "guard", "watchman", "bouncer"] },
-  { category: "Electrician", words: ["electrician", "wiring", "electrical"] },
-  { category: "Plumber", words: ["plumber", "plumbing", "pipe"] },
-  { category: "Painter", words: ["painter", "painting"] },
-  { category: "Carpenter", words: ["carpenter", "woodwork"] },
-  { category: "Gardener", words: ["gardener", "garden", "landscap", "horticult"] },
-  { category: "Caretaker", words: ["caretaker", "care taker", "caregiver"] },
-  { category: "Receptionist", words: ["receptionist", "front desk"] },
-  { category: "Cashier", words: ["cashier", "billing"] },
-  { category: "Packer", words: ["packer", "packing", "loader"] },
-  { category: "Maid", words: ["cleaner", "cleaning", "janitor", "sweeper"] },
-  { category: "Helper", words: ["helper", "assistant", "labour", "labor"] }
+  { category: "DELIVERY", words: ["delivery", "courier", "rider", "swiggy", "zomato", "dunzo", "parcel"] },
+  { category: "DRIVER", words: ["driver", "chauffeur", "uber", "ola", "cab", "taxi", "truck"] },
+  { category: "COOK", words: ["cook", "chef", "kitchen", "tandoor", "biryani"] },
+  { category: "WAITER", words: ["waiter", "server", "steward"] },
+  { category: "MAID", words: ["maid", "house help", "housekeep", "babysit", "nanny", "ayah"] },
+  { category: "SECURITY", words: ["security", "guard", "watchman", "bouncer"] },
+  { category: "ELECTRICIAN", words: ["electrician", "wiring", "electrical"] },
+  { category: "PLUMBER", words: ["plumber", "plumbing", "pipe"] },
+  { category: "PAINTER", words: ["painter", "painting"] },
+  { category: "CARPENTER", words: ["carpenter", "woodwork"] },
+  { category: "GARDENER", words: ["gardener", "garden", "landscap", "horticult"] },
+  { category: "CARETAKER", words: ["caretaker", "care taker", "caregiver"] },
+  { category: "RECEPTIONIST", words: ["receptionist", "front desk"] },
+  { category: "CASHIER", words: ["cashier", "billing"] },
+  { category: "PACKER", words: ["packer", "packing", "loader"] },
+  { category: "MAID", words: ["cleaner", "cleaning", "janitor", "sweeper"] },
+  { category: "HELPER", words: ["helper", "assistant", "labour", "labor"] }
 ];
 
 function detectCategoryFromTitle(title: string): string | null {
@@ -69,26 +81,28 @@ type LocationSuggestion = WebLocationSuggestion;
 
 // PayType enum from Android (JobEnums.kt).
 const SALARY_TYPES: { value: string; label: string }[] = [
-  { value: "DAILY", label: "Daily" },
-  { value: "WEEKLY", label: "Weekly" },
-  { value: "HOURLY", label: "Hourly" },
-  { value: "MONTHLY", label: "Monthly" },
-  { value: "TASK", label: "Per Task" }
+  { value: "MONTHLY", label: "Per month" },
+  { value: "DAILY", label: "Per day" },
+  { value: "WEEKLY", label: "Per week" },
+  { value: "HOURLY", label: "Per hour" },
+  { value: "NEGOTIABLE", label: "Negotiable" }
 ];
 
 // Shift chips shown in the Android WorkScheduleSection. The persisted value
 // is the displayName, e.g. "Day shift" / "Any shift". "Custom" reveals
 // start/end inputs and is persisted as "start - end".
 const SHIFT_OPTIONS: { value: string; label: string; icon: string }[] = [
-  { value: "Day shift", label: "Day shift", icon: "☀️" },
-  { value: "Night shift", label: "Night shift", icon: "🌙" },
-  { value: "Both shift", label: "Both shift", icon: "🔁" },
-  { value: "Any shift", label: "Any shift", icon: "⏳" },
-  { value: "Custom", label: "Custom", icon: "🕒" }
+  { value: "DAY", label: "Day shift", icon: "☀️" },
+  { value: "NIGHT", label: "Night shift", icon: "🌙" },
+  { value: "ANY", label: "Any shift", icon: "⏳" }
 ];
 
 // Gender option list matches PostJobScreen.kt ("Male" / "Female" / "Both").
-const GENDERS = ["Male", "Female", "Both"];
+const GENDERS: { value: string; label: string }[] = [
+  { value: "ANY", label: "Any" },
+  { value: "MALE", label: "Male" },
+  { value: "FEMALE", label: "Female" }
+];
 
 // Experience options used by the admin post-job form.
 const EXPERIENCE_LEVELS = [
@@ -113,13 +127,10 @@ const EDUCATION_REQUIREMENTS = [
 
 // Work type bucket from PostJobScreen.kt (workTypes list). Persisted on
 // the `jobType` Firestore field as Full-time / Part-time / etc.
-const WORK_TYPES = [
-  "Part-time",
-  "Full-time",
-  "Contract",
-  "Temporary",
-  "Weekend Only",
-  "Student-friendly"
+const WORK_TYPES: { value: string; label: string }[] = [
+  { value: "FULL_TIME", label: "Full-time" },
+  { value: "PART_TIME", label: "Part-time" },
+  { value: "DAILY", label: "Daily wage" }
 ];
 
 const initialForm = {
@@ -127,8 +138,7 @@ const initialForm = {
   companyName: "",
   // Stored as the JobCategory.displayName ("Cook" / "Driver" / …) — matches
   // what PostJobScreen.kt writes to the `jobType` field on jobmetadata.
-  jobType: "Cook",
-  customCategory: "",
+  jobType: "COOK",
   salary: "",
   salaryType: "MONTHLY",
   addressText: "",
@@ -136,13 +146,11 @@ const initialForm = {
   longitude: "",
   description: "",
   contactNumber: "",
-  gender: "Both",
+  gender: "ANY",
   experienceRequired: "No Experience Required",
   educationRequired: "No qualification required",
-  shiftTiming: "Day shift",
-  customShiftStart: "",
-  customShiftEnd: "",
-  workType: "Full-time",
+  shiftTiming: "DAY",
+  workType: "FULL_TIME",
   vacancies: "1",
   jobImageUrl: ""
 };
@@ -380,12 +388,13 @@ export function AdminPostJobClient() {
       setError("Address is required.");
       return;
     }
-    // Mirrors PostJobScreen.kt: salary is a free-form string ("Negotiable",
-    // "15000-20000", "5000+", numeric). We just enforce non-empty + a length
-    // cap so it stays card-friendly.
-    const salaryText = form.salary.trim();
-    if (!salaryText || salaryText.length > 60) {
-      setError("Salary is required and must be 60 characters or less.");
+    const payAmount = form.salaryType === "NEGOTIABLE" ? 0 : Number(form.salary.replace(/[^0-9]/g, ""));
+    if (form.salaryType !== "NEGOTIABLE" && (!Number.isFinite(payAmount) || payAmount < 1)) {
+      setError("Enter the pay amount in rupees (numbers only).");
+      return;
+    }
+    if (payAmount > 50000) {
+      setError("Pay can be at most ₹50,000.");
       return;
     }
     const lat = Number(form.latitude);
@@ -401,23 +410,6 @@ export function AdminPostJobClient() {
       return;
     }
 
-    if (form.jobType === "Other" && !form.customCategory.trim()) {
-      setError("Enter a custom category for 'Other'.");
-      return;
-    }
-
-    // Same shape as PostJobScreen.kt: when the admin picks "Custom" we send
-    // "start - end"; otherwise we send the displayName ("Day shift" etc.).
-    const computedShift =
-      form.shiftTiming === "Custom"
-        ? [form.customShiftStart.trim(), form.customShiftEnd.trim()]
-            .filter((s) => s.length > 0)
-            .join(" - ") || "Any shift"
-        : form.shiftTiming;
-
-    // jobType now persists the work-type bucket (Full-time / Part-time / …),
-    // so the JobCategory selector here is purely for description/UX context.
-
     try {
       setSubmitting(true);
       const jobImageUrl = await uploadJobImageIfNeeded();
@@ -427,20 +419,21 @@ export function AdminPostJobClient() {
         body: JSON.stringify({
           title: form.title.trim(),
           companyName: form.companyName.trim(),
-          jobType: form.workType,
-          salary: salaryText,
-          salaryType: form.salaryType,
+          category: form.jobType,
+          employmentType: form.workType,
+          payAmount,
+          payType: form.salaryType,
+          shift: form.shiftTiming,
           addressText: form.addressText.trim(),
-          latitude: lat,
-          longitude: lng,
+          lat,
+          lng,
           description: form.description.trim(),
           contactNumber: form.contactNumber.trim(),
           gender: form.gender,
           experienceRequired: form.experienceRequired,
           educationRequired: form.educationRequired,
-          shiftTiming: computedShift,
           vacancies: vacancyCount,
-          jobImageUrl
+          photoUrl: jobImageUrl
         })
       });
 
@@ -475,7 +468,7 @@ export function AdminPostJobClient() {
       <div className="admin-success-card">
         <div className="admin-success-icon">✓</div>
         <h2>Job Posted Successfully!</h2>
-        <p>The job is now live in <code>jobmetadata</code> + <code>job_details</code> and visible in the app.</p>
+        <p>The job is live and appears in nearby searches in the app within seconds.</p>
         <p style={{ opacity: 0.7, fontSize: 13 }}>Job ID: <code>{success}</code></p>
         <div className="admin-success-actions">
           <button className="button" onClick={() => setSuccess(null)}>Post another job</button>
@@ -516,17 +509,6 @@ export function AdminPostJobClient() {
               ))}
             </select>
           </label>
-          {form.jobType === "Other" && (
-            <label className="admin-field">
-              <span>Custom category *</span>
-              <input
-                value={form.customCategory}
-                onChange={(e) => update("customCategory", e.target.value)}
-                placeholder="e.g. Yoga Trainer"
-                required
-              />
-            </label>
-          )}
           <label className="admin-field">
             <span>Vacancies *</span>
             {/* BUG #8 FIX: avoid wheel-scroll mutating the number. */}
@@ -546,19 +528,20 @@ export function AdminPostJobClient() {
         <h3>2. Compensation & schedule</h3>
         <div className="admin-form-grid">
           <label className="admin-field">
-            <span>Salary *</span>
+            <span>Pay (₹) *</span>
             {/* Mirrors PostJobScreen.kt: free-form text so admins can enter
                 a number, range (10000-15000), or text ("Negotiable"). */}
             <input
               value={form.salary}
               onChange={(e) => update("salary", e.target.value)}
-              placeholder="e.g. 18000, 15000-20000, or Negotiable"
-              maxLength={60}
-              required
+              placeholder="e.g. 18000"
+              inputMode="numeric"
+              maxLength={9}
+              disabled={form.salaryType === "NEGOTIABLE"}
             />
           </label>
           <label className="admin-field">
-            <span>Salary type *</span>
+            <span>Pay per *</span>
             <select value={form.salaryType} onChange={(e) => update("salaryType", e.target.value)}>
               {SALARY_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -568,7 +551,7 @@ export function AdminPostJobClient() {
           <label className="admin-field">
             <span>Job type *</span>
             <select value={form.workType} onChange={(e) => update("workType", e.target.value)}>
-              {WORK_TYPES.map((w) => <option key={w} value={w}>{w}</option>)}
+              {WORK_TYPES.map((w) => <option key={w.value} value={w.value}>{w.label}</option>)}
             </select>
           </label>
         </div>
@@ -588,27 +571,6 @@ export function AdminPostJobClient() {
             ))}
           </div>
         </div>
-        {form.shiftTiming === "Custom" && (
-          <div className="admin-form-grid">
-            <label className="admin-field">
-              <span>Custom shift start</span>
-              <input
-                value={form.customShiftStart}
-                onChange={(e) => update("customShiftStart", e.target.value)}
-                placeholder="e.g. 7 AM"
-              />
-            </label>
-            <label className="admin-field">
-              <span>Custom shift end</span>
-              <input
-                value={form.customShiftEnd}
-                onChange={(e) => update("customShiftEnd", e.target.value)}
-                placeholder="e.g. 4 PM"
-              />
-            </label>
-          </div>
-        )}
-
       </div>
 
       <div className="admin-form-section">
@@ -617,7 +579,7 @@ export function AdminPostJobClient() {
           <label className="admin-field">
             <span>Gender</span>
             <select value={form.gender} onChange={(e) => update("gender", e.target.value)}>
-              {GENDERS.map((g) => <option key={g} value={g}>{g}</option>)}
+              {GENDERS.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
             </select>
           </label>
           <label className="admin-field">

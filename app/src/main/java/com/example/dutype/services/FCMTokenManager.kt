@@ -18,9 +18,9 @@ import javax.inject.Singleton
  * FCM Token Manager
  * Handles FCM token registration, storage, and updates for push notifications
  * Supports topic-based messaging for role-based broadcast notifications
- * 
+ *
  * REFACTORED: Now receives Firebase dependencies via constructor injection
- * 
+ *
  * @author DutyPe Engineering Team
  * @since 2.0.0
  */
@@ -30,7 +30,7 @@ class FCMTokenManager @Inject constructor(
     private val auth: FirebaseAuth,
     @ApplicationContext private val appContext: Context
 ) {
-    
+
     companion object {
         // Topic names for role-based notifications
         const val TOPIC_ALL_USERS = "all_users"
@@ -76,7 +76,7 @@ class FCMTokenManager @Inject constructor(
         }
         throw lastException ?: Exception("FCMTokenManager [$tag] exhausted $MAX_RETRIES retries")
     }
-    
+
     /**
      * Register FCM token for the current user
      * Call this after successful login/signup
@@ -104,7 +104,6 @@ class FCMTokenManager @Inject constructor(
             subscribeToTopic(TOPIC_ALL_USERS)
             subscribeToLanguageTopic(TOPIC_ALL_USERS)
             unsubscribeFromTopic(TOPIC_GUEST_USERS)
-            com.example.dutype.workers.GuestEngagementWorker.scheduleRecurring(appContext)
 
             Result.success(token)
         } catch (e: Exception) {
@@ -112,7 +111,7 @@ class FCMTokenManager @Inject constructor(
             Result.failure(e)
         }
     }
-    
+
     /**
      * Register FCM token with role-based topic subscription
      * Call this after profile setup when role is known
@@ -138,7 +137,6 @@ class FCMTokenManager @Inject constructor(
             // Subscribe to role-based topics
             subscribeToRoleTopics(role)
             unsubscribeFromTopic(TOPIC_GUEST_USERS)
-            com.example.dutype.workers.GuestEngagementWorker.scheduleRecurring(appContext)
 
             Result.success(token)
         } catch (e: Exception) {
@@ -146,7 +144,7 @@ class FCMTokenManager @Inject constructor(
             Result.failure(e)
         }
     }
-    
+
     /**
      * Subscribe to topics based on user role.
      *
@@ -160,7 +158,7 @@ class FCMTokenManager @Inject constructor(
         subscribeToTopic(TOPIC_APP_UPDATES)
         subscribeToLanguageTopic(TOPIC_ALL_USERS)
         subscribeToLanguageTopic(TOPIC_APP_UPDATES)
-        
+
         // Subscribe to role-specific topic
         when (role.uppercase()) {
             "WORKER" -> {
@@ -193,23 +191,28 @@ class FCMTokenManager @Inject constructor(
     /** Public wrappers used by call sites that subscribe outside this class. */
     fun subscribeToLanguageTopicPublic(baseTopic: String) = subscribeToLanguageTopic(baseTopic)
     fun unsubscribeFromLanguageTopicPublic(baseTopic: String) = unsubscribeFromLanguageTopic(baseTopic)
-    
+
     /**
-     * Save FCM token to Firestore for the user
+     * Saves user_tokens/{uid} {fcmToken, language, updatedAt}. Skips the write when the same token
+     * and language were already saved for this user (a write per app start adds up at 1M users).
      */
     suspend fun saveTokenToFirestore(userId: String, token: String) {
-        val tokenRef = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USER_TOKENS).document(userId)
+        val T = com.example.dutype.firestore.FirestoreSchema.UserTokens
+        val language = LocaleHelper.getLanguage(appContext)
+        val fingerprint = "$userId|$token|$language"
+        val prefs = appContext.getSharedPreferences("fcm_token_state", android.content.Context.MODE_PRIVATE)
+        if (prefs.getString("saved", null) == fingerprint) return
+        val tokenRef = firestore.collection(T.COLLECTION).document(userId)
 
         try {
             tokenRef.set(
                 mapOf(
-                    "fcmToken" to token,
-                    "language" to LocaleHelper.getLanguage(appContext),
-                    "platform" to "android",
-                    "updatedAt" to Timestamp.now()
-                ),
-                com.google.firebase.firestore.SetOptions.merge()
+                    T.FCM_TOKEN to token,
+                    T.LANGUAGE to language,
+                    T.UPDATED_AT to Timestamp.now()
+                )
             ).await()
+            prefs.edit().putString("saved", fingerprint).apply()
             Timber.i("FCMTokenManager: Token saved for user: $userId")
         } catch (e: FirebaseFirestoreException) {
             when (e.code) {
@@ -226,7 +229,7 @@ class FCMTokenManager @Inject constructor(
             }
         }
     }
-    
+
     /**
      * Save FCM token with role information
      */
@@ -240,25 +243,27 @@ class FCMTokenManager @Inject constructor(
         }
     }
 
-    
+
     /**
      * Remove FCM token when user logs out
      */
     suspend fun removeToken() {
         try {
             val userId = auth.currentUser?.uid ?: return
-            
-            firestore.collection(com.example.dutype.firestore.FirestoreCollections.USER_TOKENS)
+
+            firestore.collection(com.example.dutype.firestore.FirestoreSchema.UserTokens.COLLECTION)
                 .document(userId)
                 .delete()
                 .await()
-            
+            appContext.getSharedPreferences("fcm_token_state", android.content.Context.MODE_PRIVATE).edit().clear().apply()
+            com.example.dutype.jobs.PlaceRepository.clearUrgentTopic(appContext)
+
             Timber.i("FCMTokenManager: Token removed for user: $userId")
         } catch (e: Exception) {
             Timber.e(e, "FCMTokenManager: Error removing token")
         }
     }
-    
+
     /**
      * Update token when it changes (called from FirebaseMessagingService.onNewToken)
      */
@@ -275,28 +280,7 @@ class FCMTokenManager @Inject constructor(
             Timber.e(e, "FCMTokenManager: Error updating token")
         }
     }
-    
-    /**
-     * Get FCM token for a specific user (for sending notifications)
-     */
-    suspend fun getTokenForUser(userId: String): String? {
-        return try {
-            val doc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.USER_TOKENS)
-                .document(userId)
-                .get()
-                .await()
-            
-            if (doc.exists()) {
-                doc.getString("fcmToken")
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "FCMTokenManager: Error getting token for user: $userId")
-            null
-        }
-    }
-    
+
     /**
      * Subscribe to topic for broadcast notifications
      */
@@ -311,7 +295,7 @@ class FCMTokenManager @Inject constructor(
                 Timber.e(e, "FCMTokenManager: Failed to subscribe to topic: $sanitizedTopic")
             }
     }
-    
+
     /**
      * Unsubscribe from topic
      */

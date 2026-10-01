@@ -1,11 +1,10 @@
 import type { MetadataRoute } from "next";
 
 import { SITE_URL, getKnownLegacySlugs } from "@/lib/public-site";
-import { getDiscoverableJobs } from "@/lib/jobs/server";
 
-export const revalidate = 300;
+export const dynamic = "force-static";
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+export default function sitemap(): MetadataRoute.Sitemap {
   const canonicalRoutes = [
     "",
     "/jobs",
@@ -32,11 +31,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           : 0.6
   }));
 
-  const jobs = await getDiscoverableJobs();
-  return [...staticEntries, ...jobs.map((job) => ({
-    url: `${SITE_URL}/jobs/${encodeURIComponent(job.id)}`,
-    ...(job.updatedAt ? { lastModified: new Date(job.updatedAt) } : {}),
-    changeFrequency: "daily" as const,
-    priority: 0.8
-  }))];
+  // Job pages are not listed: jobs live in the app (the website reads no job data).
+  return staticEntries;
 }

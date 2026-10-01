@@ -1,5 +1,8 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.example.dutype.firestore.FirestoreSchema.Values
 import com.example.dutype.firestore.FirestoreSchema.EmployerProfiles
 import com.dutype.app.R
@@ -112,7 +115,7 @@ private fun StitchTextField(
         modifier = modifier
             .fillMaxWidth()
             .background(backgroundColor, RoundedCornerShape(14.dp))
-            .border(1.dp, StitchBorder, RoundedCornerShape(14.dp))
+            .border(1.dp, StitchBorder.bd(), RoundedCornerShape(14.dp))
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -121,7 +124,7 @@ private fun StitchTextField(
             Spacer(modifier = Modifier.width(10.dp))
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = label, fontSize = 12.sp, color = StitchLabel)
+            Text(text = label, fontSize = 12.sp, color = StitchLabel.fg())
             Spacer(modifier = Modifier.height(2.dp))
             BasicTextField(
                 value = value,
@@ -133,7 +136,7 @@ private fun StitchTextField(
                 cursorBrush = SolidColor(valueColor),
                 decorationBox = { inner ->
                     if (value.isEmpty() && placeholder != null) {
-                        Text(text = placeholder, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = StitchLabel.copy(alpha = 0.6f))
+                        Text(text = placeholder, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = StitchLabel.fg().copy(alpha = 0.6f))
                     }
                     inner()
                 }
@@ -162,23 +165,23 @@ private fun StitchDropdownField(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(14.dp))
-                .background(Color.White, RoundedCornerShape(14.dp))
-                .border(1.dp, StitchBorder, RoundedCornerShape(14.dp))
+                .background(Color.White.bg(), RoundedCornerShape(14.dp))
+                .border(1.dp, StitchBorder.bd(), RoundedCornerShape(14.dp))
                 .clickable { expanded = true }
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = label, fontSize = 12.sp, color = StitchLabel)
+                Text(text = label, fontSize = 12.sp, color = StitchLabel.fg())
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = displayValue,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (value.isBlank()) StitchLabel.copy(alpha = 0.6f) else StitchBlue
+                    color = if (value.isBlank()) StitchLabel.fg().copy(alpha = 0.6f) else StitchBlue.fg()
                 )
             }
-            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = StitchLabel)
+            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = StitchLabel.fg())
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { option ->
@@ -208,7 +211,7 @@ internal fun StitchSegmentedToggle(
         modifier = modifier
             .fillMaxWidth()
             .height(48.dp)
-            .background(StitchTrack, RoundedCornerShape(24.dp))
+            .background(StitchTrack.bg(), RoundedCornerShape(24.dp))
             .padding(4.dp)
     ) {
         Box(
@@ -216,13 +219,13 @@ internal fun StitchSegmentedToggle(
                 .weight(1f)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(20.dp))
-                .background(if (isIndividual) StitchNavy else Color.Transparent)
+                .background(if (isIndividual) StitchNavy.bg() else Color.Transparent)
                 .clickable(onClick = onIndividualSelected),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = individualLabel,
-                color = if (isIndividual) Color.White else StitchLabel,
+                color = if (isIndividual) Color.White else StitchLabel.fg(),
                 fontSize = 14.sp,
                 fontWeight = if (isIndividual) FontWeight.Bold else FontWeight.Medium
             )
@@ -232,13 +235,13 @@ internal fun StitchSegmentedToggle(
                 .weight(1f)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(20.dp))
-                .background(if (!isIndividual) StitchNavy else Color.Transparent)
+                .background(if (!isIndividual) StitchNavy.bg() else Color.Transparent)
                 .clickable(onClick = onCompanySelected),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = companyLabel,
-                color = if (!isIndividual) Color.White else StitchLabel,
+                color = if (!isIndividual) Color.White else StitchLabel.fg(),
                 fontSize = 14.sp,
                 fontWeight = if (!isIndividual) FontWeight.Bold else FontWeight.Medium
             )
@@ -584,7 +587,7 @@ fun MandatoryEmployerProfileSetupScreen(
                 verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp)
             ) {
                 androidx.compose.material3.CircularProgressIndicator(
-                    color = EmployerColors.Primary
+                    color = EmployerColors.Primary.fg()
                 )
                 androidx.compose.material3.Text(
                     stringResource(R.string.loading_your_profile),
@@ -870,7 +873,7 @@ fun MandatoryEmployerProfileSetupContent(
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
+                color = Color.White.bg(),
                 shadowElevation = 8.dp
             ) {
                 Row(
@@ -885,9 +888,9 @@ fun MandatoryEmployerProfileSetupContent(
                             modifier = Modifier.size(56.dp),
                             shape = RoundedCornerShape(28.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = StitchNavy
+                                contentColor = StitchNavy.fg()
                             ),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, StitchBorder),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, StitchBorder.bd()),
                             contentPadding = PaddingValues(0.dp)
                         ) {
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
@@ -908,8 +911,8 @@ fun MandatoryEmployerProfileSetupContent(
                             .weight(1f),
                         shape = RoundedCornerShape(28.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = StitchNavy,
-                            disabledContainerColor = StitchNavy.copy(alpha = 0.5f)
+                            containerColor = StitchNavy.bg(),
+                            disabledContainerColor = StitchNavy.bg().copy(alpha = 0.5f)
                         )
                     ) {
                         if (isLoading) {
@@ -1020,11 +1023,11 @@ private fun CompanyInformationStep(
                             modifier = Modifier.clickable(enabled = gstin.isNotBlank() && !isVerifyingGstin) { onVerifyGstin() }
                         ) {
                             if (isVerifyingGstin) {
-                                CircularProgressIndicator(modifier = Modifier.size(14.dp), color = StitchBlue, strokeWidth = 2.dp)
+                                CircularProgressIndicator(modifier = Modifier.size(14.dp), color = StitchBlue.fg(), strokeWidth = 2.dp)
                             } else {
-                                Text(text = stringResource(R.string.verify), color = StitchBlue, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text(text = stringResource(R.string.verify), color = StitchBlue.fg(), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                                 Spacer(modifier = Modifier.width(2.dp))
-                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.verify_gstin), tint = StitchBlue, modifier = Modifier.size(14.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.verify_gstin), tint = StitchBlue.fg(), modifier = Modifier.size(14.dp))
                             }
                         }
                     }
@@ -1032,7 +1035,7 @@ private fun CompanyInformationStep(
                 if (gstinVerifiedMessage != null) {
                     Text(
                         text = gstinVerifiedMessage,
-                        color = StitchLabel,
+                        color = StitchLabel.fg(),
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                     )
@@ -1114,7 +1117,7 @@ private fun LocationFetchStatus(areaText: String?, errorText: String?) {
     if (errorText != null) {
         Text(
             text = errorText,
-            color = Color(0xFFDC2626),
+            color = Color(0xFFDC2626).fg(),
             fontSize = 12.sp,
             modifier = Modifier.padding(start = 4.dp)
         )
@@ -1126,20 +1129,20 @@ private fun LocationFetchStatus(areaText: String?, errorText: String?) {
             Icon(
                 Icons.Default.LocationOn,
                 contentDescription = null,
-                tint = Color(0xFF16A34A),
+                tint = Color(0xFF16A34A).fg(),
                 modifier = Modifier.size(14.dp)
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = stringResource(R.string.worker_setup_location_detected),
-                color = Color(0xFF16A34A),
+                color = Color(0xFF16A34A).fg(),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold
             )
             if (areaText.isNotBlank()) {
                 Text(
                     text = " \u00B7 $areaText",
-                    color = Color(0xFF64748B),
+                    color = Color(0xFF64748B).fg(),
                     fontSize = 12.sp,
                     maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
@@ -1247,11 +1250,11 @@ private fun ContactDetailsStep(
             value = if (contactPhone.isBlank()) "" else "+91 $contactPhone",
             onValueChange = {},
             readOnly = true,
-            backgroundColor = StitchDisabledBg,
-            valueColor = StitchLabel,
+            backgroundColor = StitchDisabledBg.bg(),
+            valueColor = StitchLabel.fg(),
             placeholder = stringResource(R.string.enter_10_digit_phone),
             trailingContent = {
-                Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.verified_phone_number), tint = StitchLabel, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.verified_phone_number), tint = StitchLabel.fg(), modifier = Modifier.size(18.dp))
             }
         )
         if (phoneError != null) {
@@ -1292,13 +1295,13 @@ private fun ContactDetailsStep(
                         Icons.Default.MyLocation,
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
-                        tint = StitchBlue
+                        tint = StitchBlue.fg()
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = stringResource(R.string.use_current_location),
                         style = MaterialTheme.typography.labelSmall,
-                        color = StitchBlue
+                        color = StitchBlue.fg()
                     )
                 }
             }
@@ -1317,10 +1320,10 @@ private fun ContactDetailsStep(
                 shape = RoundedCornerShape(14.dp),
                 leadingIcon = Icons.Default.LocationOn,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White,
-                    focusedBorderColor = if (addressError != null) EmployerColors.Error else StitchBlue,
-                    unfocusedBorderColor = if (addressError != null) EmployerColors.Error else StitchBorder,
+                    focusedContainerColor = Color.White.bg(),
+                    unfocusedContainerColor = Color.White.bg(),
+                    focusedBorderColor = if (addressError != null) EmployerColors.Error else StitchBlue.bd(),
+                    unfocusedBorderColor = if (addressError != null) EmployerColors.Error else StitchBorder.bd(),
                     errorBorderColor = EmployerColors.Error
                 )
             )
@@ -1335,7 +1338,7 @@ private fun ContactDetailsStep(
             if (isFetchingLocation) {
                 Text(
                     text = stringResource(R.string.fetching_your_location),
-                    color = Color(0xFF64748B),
+                    color = Color(0xFF64748B).fg(),
                     fontSize = 12.sp,
                     modifier = Modifier.padding(start = 4.dp)
                 )
@@ -1350,8 +1353,8 @@ private fun ContactDetailsStep(
                 .fillMaxWidth()
                 .height(180.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(StitchTrack)
-                .border(1.dp, StitchBorder, RoundedCornerShape(16.dp))
+                .background(StitchTrack.bg())
+                .border(1.dp, StitchBorder.bd(), RoundedCornerShape(16.dp))
         ) {
             if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(businessLatitude, businessLongitude)) {
                 SelectableLocationMap(
@@ -1369,12 +1372,12 @@ private fun ContactDetailsStep(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = StitchLabel, modifier = Modifier.size(24.dp))
+                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = StitchLabel.fg(), modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = stringResource(R.string.pick_location_preview_map),
                         style = MaterialTheme.typography.bodySmall,
-                        color = StitchLabel,
+                        color = StitchLabel.fg(),
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }

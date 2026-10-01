@@ -45,6 +45,8 @@ enum class NotificationType {
     EMPLOYER_MESSAGE,
     BIRTHDAY,
     REFERRAL_MILESTONE,
+    /** Wallet money: withdrawals, referral rewards, bonuses (server types WITHDRAWAL_*, REFERRAL_REWARD, ...). */
+    PAYMENT,
     RE_ENGAGEMENT,
     WEEKLY_SUMMARY,
     SYSTEM_UPDATE,
@@ -71,6 +73,7 @@ fun NotificationType.getDisplayName(): String = when (this) {
     NotificationType.EMPLOYER_MESSAGE -> "Message"
     NotificationType.BIRTHDAY -> "Birthday Wish"
     NotificationType.REFERRAL_MILESTONE -> "Referral Reward"
+    NotificationType.PAYMENT -> "Payment"
     NotificationType.RE_ENGAGEMENT -> "We Miss You"
     NotificationType.WEEKLY_SUMMARY -> "Weekly Summary"
     NotificationType.SYSTEM_UPDATE -> "System Update"
@@ -156,6 +159,7 @@ fun NotificationType.getColor(): Long = when (this) {
     
     NotificationType.BIRTHDAY,
     NotificationType.REFERRAL_MILESTONE -> 0xFFFF9800 // Amber
+    NotificationType.PAYMENT -> 0xFF10B981 // Emerald
     
     else -> 0xFF757575 // Gray
 }
@@ -189,6 +193,7 @@ fun NotificationType.getIcon(): String = when (this) {
     NotificationType.WELCOME -> "👋"
     NotificationType.BIRTHDAY -> "🎂"
     NotificationType.REFERRAL_MILESTONE -> "🎁"
+    NotificationType.PAYMENT -> "💰"
     NotificationType.EMPLOYER_MESSAGE -> "💬"
     NotificationType.SYSTEM_UPDATE -> "🔧"
     

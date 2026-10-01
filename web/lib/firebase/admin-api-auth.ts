@@ -35,12 +35,17 @@ async function isAuthorizedByBearerToken(request: NextRequest) {
 
 export async function requireAuthorizedAdminRequest(request: NextRequest) {
   const session = await getAdminSession();
-  if (session) {
-    return null;
-  }
-
-  const tokenAuthorized = await isAuthorizedByBearerToken(request);
-  if (tokenAuthorized) {
+  const authorized = Boolean(session) || await isAuthorizedByBearerToken(request);
+  if (authorized) {
+    // Any admin write makes cached admin reads stale: drop them so the next screen is fresh.
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      const [{ invalidateAdminResponseCache }, { invalidateCollectionCache }] = await Promise.all([
+        import("@/lib/firebase/admin-response-cache"),
+        import("@/lib/firebase/admin-collection-cache")
+      ]);
+      invalidateAdminResponseCache();
+      invalidateCollectionCache();
+    }
     return null;
   }
 

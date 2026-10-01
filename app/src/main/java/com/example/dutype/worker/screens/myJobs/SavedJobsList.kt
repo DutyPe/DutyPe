@@ -145,10 +145,7 @@ fun SavedJobsList(
                     Timber.d("SavedJobsList: Empty search results for: $searchQuery")
                     EmptySearchState(
                         searchQuery = searchQuery,
-                        containerColor = Color.Transparent,
-                        onClearSearch = { 
-                            // Clear search - handled by parent
-                        }
+                        containerColor = Color.Transparent
                     )
                 }
                 else -> {

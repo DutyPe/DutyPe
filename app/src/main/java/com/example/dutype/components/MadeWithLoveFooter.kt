@@ -1,5 +1,6 @@
 ﻿package com.example.dutype.components
 
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
@@ -29,7 +30,7 @@ import com.example.dutype.ui.theme.WorkerColors
 @Composable
 fun MadeWithLoveFooter(modifier: Modifier = Modifier) {
     val labelColor = WorkerColors.TextPrimary
-    val heartColor = Color(0xFF2563EB)
+    val heartColor = Color(0xFF2563EB).fg()
 
     Row(
         modifier = modifier

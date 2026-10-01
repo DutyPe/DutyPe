@@ -1,5 +1,8 @@
 package com.example.dutype.components
 
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.fg
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -52,38 +55,38 @@ private data class AnnouncementStyle(
 @Composable
 private fun getAnnouncementStyle(type: AnnouncementType): AnnouncementStyle {
     val isDark = isSystemInDarkTheme()
-    val blue = Color(0xFF2563EB)
-    val green = Color(0xFF16A34A)
-    val amber = Color(0xFFD97706)
-    val red = Color(0xFFDC2626)
+    val blue = Color(0xFF2563EB).fg()
+    val green = Color(0xFF16A34A).fg()
+    val amber = Color(0xFFD97706).fg()
+    val red = Color(0xFFDC2626).fg()
     return when (type) {
         AnnouncementType.INFO -> AnnouncementStyle(
-            tileColor = if (isDark) blue.copy(alpha = 0.18f) else Color(0xFFEFF6FF),
+            tileColor = if (isDark) blue.copy(alpha = 0.18f) else Color(0xFFEFF6FF).fg(),
             accentColor = blue,
             icon = Icons.Outlined.Info,
         )
         AnnouncementType.SUCCESS -> AnnouncementStyle(
-            tileColor = if (isDark) green.copy(alpha = 0.18f) else Color(0xFFF0FDF4),
+            tileColor = if (isDark) green.copy(alpha = 0.18f) else Color(0xFFF0FDF4).fg(),
             accentColor = green,
             icon = Icons.Outlined.CheckCircle,
         )
         AnnouncementType.WARNING -> AnnouncementStyle(
-            tileColor = if (isDark) amber.copy(alpha = 0.18f) else Color(0xFFFEF3C7),
+            tileColor = if (isDark) amber.copy(alpha = 0.18f) else Color(0xFFFEF3C7).fg(),
             accentColor = amber,
             icon = Icons.Outlined.WarningAmber,
         )
         AnnouncementType.ERROR -> AnnouncementStyle(
-            tileColor = if (isDark) red.copy(alpha = 0.18f) else Color(0xFFFEF2F2),
+            tileColor = if (isDark) red.copy(alpha = 0.18f) else Color(0xFFFEF2F2).fg(),
             accentColor = red,
             icon = Icons.Outlined.ErrorOutline,
         )
         AnnouncementType.FEATURE -> AnnouncementStyle(
-            tileColor = if (isDark) blue.copy(alpha = 0.18f) else Color(0xFFEFF6FF),
+            tileColor = if (isDark) blue.copy(alpha = 0.18f) else Color(0xFFEFF6FF).fg(),
             accentColor = blue,
             icon = Icons.Outlined.Campaign,
         )
         AnnouncementType.PROMOTION -> AnnouncementStyle(
-            tileColor = if (isDark) green.copy(alpha = 0.18f) else Color(0xFFF0FDF4),
+            tileColor = if (isDark) green.copy(alpha = 0.18f) else Color(0xFFF0FDF4).fg(),
             accentColor = green,
             icon = Icons.Outlined.Campaign,
         )
@@ -124,8 +127,8 @@ private fun AnnouncementCardBody(
     val style = getAnnouncementStyle(announcement.type)
     val isDark = isSystemInDarkTheme()
     val cardShape = RoundedCornerShape(16.dp)
-    val surface = if (isDark) WorkerColors.CardBackground else Color.White
-    val borderColor = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)
+    val surface = if (isDark) WorkerColors.CardBackground else Color.White.bg()
+    val borderColor = if (isDark) Color(0xFF334155).bd() else Color(0xFFE2E8F0).bd()
     val actionModifier = if (onAction != null) {
         Modifier.clickable(onClick = onAction)
     } else {
@@ -162,8 +165,8 @@ private fun AnnouncementTextColumn(
     modifier: Modifier = Modifier
 ) {
     val isDark = isSystemInDarkTheme()
-    val titleColor = if (isDark) WorkerColors.TextPrimary else Color(0xFF0F0F0F)
-    val bodyColor = if (isDark) WorkerColors.TextSecondary else Color(0xFF475569)
+    val titleColor = if (isDark) WorkerColors.TextPrimary else Color(0xFF0F0F0F).fg()
+    val bodyColor = if (isDark) WorkerColors.TextSecondary else Color(0xFF475569).fg()
     Column(modifier = modifier) {
         Text(
             text = announcement.title,
@@ -224,7 +227,7 @@ private fun AnnouncementDismissButton(onDismiss: () -> Unit) {
         Icon(
             imageVector = Icons.Default.Close,
             contentDescription = "Dismiss",
-            tint = Color(0xFF94A3B8),
+            tint = Color(0xFF94A3B8).fg(),
             modifier = Modifier.size(16.dp)
         )
     }
@@ -252,7 +255,7 @@ private fun AnnouncementIconTile(icon: ImageVector, tint: Color, accent: Color) 
 private fun AnnouncementDots(count: Int, current: Int) {
     val isDark = isSystemInDarkTheme()
     val active = if (isDark) Color.White else Color(0xFF0F0F0F)
-    val inactive = Color(0xFFCBD5E1)
+    val inactive = Color(0xFFCBD5E1).fg()
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.Center,
@@ -361,7 +364,7 @@ private fun PromoBannerSlide(promoBannerUrl: String, modifier: Modifier = Modifi
             .fillMaxWidth()
             .height(115.dp)
             .clip(RoundedCornerShape(16.dp))
-            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp)),
+            .border(1.dp, Color(0xFFE2E8F0).bd(), RoundedCornerShape(16.dp)),
         contentScale = ContentScale.Crop,
         crossfadeMillis = 120
     )

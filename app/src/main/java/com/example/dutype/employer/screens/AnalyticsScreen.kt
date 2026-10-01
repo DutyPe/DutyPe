@@ -1,5 +1,8 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -125,7 +128,7 @@ fun AnalyticsScreen(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(HiBg)
+            .background(HiBg.bg())
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp)
@@ -159,7 +162,7 @@ private fun HiTitleRow(navController: NavController) {
         Icon(
             imageVector = Icons.Default.ArrowBack,
             contentDescription = stringResource(R.string.back),
-            tint = HiInk,
+            tint = HiInk.fg(),
             modifier = Modifier
                 .size(24.dp)
                 .clickable { navController.popBackStack() }
@@ -169,7 +172,7 @@ private fun HiTitleRow(navController: NavController) {
             text = stringResource(R.string.hiring_insights),
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
-            color = HiInk
+            color = HiInk.fg()
         )
     }
 }
@@ -189,8 +192,8 @@ private fun HiChip(label: String, active: Boolean, onClick: () -> Unit) {
     val base = Modifier
         .height(36.dp)
         .clip(shape)
-        .background(if (active) HiBlack else Color.White, shape)
-    val bordered = if (active) base else base.border(1.dp, HiBorder, shape)
+        .background(if (active) HiBlack.bg() else Color.White.bg(), shape)
+    val bordered = if (active) base else base.border(1.dp, HiBorder.bd(), shape)
     Box(
         modifier = bordered
             .clickable { onClick() }
@@ -201,7 +204,7 @@ private fun HiChip(label: String, active: Boolean, onClick: () -> Unit) {
             text = label,
             fontSize = 13.sp,
             fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (active) Color.White else HiInk
+            color = if (active) Color.White else HiInk.fg()
         )
     }
 }
@@ -229,15 +232,15 @@ private fun HiKpiCard(label: String, value: String, delta: String, modifier: Mod
     val shape = RoundedCornerShape(12.dp)
     Column(
         modifier = modifier
-            .background(Color.White, shape)
-            .border(1.dp, HiBorder, shape)
+            .background(Color.White.bg(), shape)
+            .border(1.dp, HiBorder.bd(), shape)
             .padding(16.dp)
     ) {
-        Text(text = label, fontSize = 11.sp, color = HiMuted)
+        Text(text = label, fontSize = 11.sp, color = HiMuted.fg())
         Spacer(modifier = Modifier.height(6.dp))
-        Text(text = value, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = HiBlack)
+        Text(text = value, fontSize = 28.sp, fontWeight = FontWeight.Bold, color = HiBlack.fg())
         Spacer(modifier = Modifier.height(4.dp))
-        Text(text = delta, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = HiGreen)
+        Text(text = delta, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = HiGreen.fg())
     }
 }
 
@@ -254,15 +257,15 @@ private fun HiBarChartCard(counts: List<Int>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White, shape)
-            .border(1.dp, HiBorder, shape)
+            .background(Color.White.bg(), shape)
+            .border(1.dp, HiBorder.bd(), shape)
             .padding(20.dp)
     ) {
         Text(
             text = stringResource(R.string.weekly_applications),
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            color = HiBlack
+            color = HiBlack.fg()
         )
         Spacer(modifier = Modifier.height(16.dp))
         HiBars(heights = heights, highlight = maxIndex)
@@ -270,7 +273,7 @@ private fun HiBarChartCard(counts: List<Int>) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(HiBorder)
+                .background(HiBorder.bg())
         )
         Spacer(modifier = Modifier.height(8.dp))
         HiBarLabels()
@@ -292,7 +295,7 @@ private fun HiBars(heights: List<Float>, highlight: Int) {
                     .width(24.dp)
                     .height(h.dp)
                     .background(
-                        if (index == highlight) HiInk else HiBorder,
+                        if (index == highlight) HiInk.fg() else HiBorder.bd(),
                         RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp)
                     )
             )
@@ -311,7 +314,7 @@ private fun HiBarLabels() {
                 text = stringResource(dayRes),
                 modifier = Modifier.width(24.dp),
                 fontSize = 11.sp,
-                color = HiMuted,
+                color = HiMuted.fg(),
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 softWrap = false
@@ -326,14 +329,14 @@ private fun HiInsightCard() {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFEFF6FF), shape)
-            .border(1.dp, Color(0xFFBFDBFE), shape)
+            .background(Color(0xFFEFF6FF).bg(), shape)
+            .border(1.dp, Color(0xFFBFDBFE).bd(), shape)
             .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 14.dp)
     ) {
         Text(
             text = stringResource(R.string.hiring_insight_tip),
             fontSize = 13.sp,
-            color = Color(0xFF1D4ED8)
+            color = Color(0xFF1D4ED8).fg()
         )
     }
 }
@@ -366,7 +369,7 @@ fun OverviewStatsSection(
                 title = stringResource(R.string.total_jobs),
                 value = jobStats.totalJobs.toString(),
                 icon = Icons.Default.Analytics,
-                color = Color(0xFF8B5CF6),
+                color = Color(0xFF8B5CF6).fg(),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -377,7 +380,7 @@ fun OverviewStatsSection(
                 title = stringResource(R.string.todays_posts),
                 value = jobStats.todayJobs.toString(),
                 icon = Icons.Default.CalendarToday,
-                color = EmployerColors.Primary,
+                color = EmployerColors.Primary.fg(),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -412,7 +415,7 @@ fun ApplicationStatsCard(appStats: ApplicationStats) {
                 ApplicationStatItem(
                     label = stringResource(R.string.total_label),
                     value = appStats.totalApplications.toString(),
-                    color = EmployerColors.Primary
+                    color = EmployerColors.Primary.fg()
                 )
                 ApplicationStatItem(
                     label = stringResource(R.string.applied),
@@ -422,7 +425,7 @@ fun ApplicationStatsCard(appStats: ApplicationStats) {
                 ApplicationStatItem(
                     label = stringResource(R.string.shortlisted),
                     value = appStats.totalApplications.toString(),
-                    color = Color(0xFF8B5CF6)
+                    color = Color(0xFF8B5CF6).fg()
                 )
                 ApplicationStatItem(
                     label = stringResource(R.string.hired),
@@ -493,7 +496,7 @@ fun RecentApplicationsSection(
                     Text(
                         text = stringResource(R.string.auto_view_all),
                         style = MaterialTheme.typography.bodyMedium.copy(
-                            color = EmployerColors.Primary,
+                            color = EmployerColors.Primary.fg(),
                             fontWeight = FontWeight.Medium
                         )
                     )

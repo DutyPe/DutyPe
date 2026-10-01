@@ -12,16 +12,16 @@ import javax.inject.Singleton
 
 /**
  * EmployerProfileCache - In-memory cache for employer profile data
- * 
+ *
  * P1 FIX: Prevents fetching employer profile on every job post.
  * Profile data is cached with 5-minute TTL and refreshed on demand.
- * 
+ *
  * Features:
  * - Cache-first approach for profile data
  * - 5-minute TTL for freshness
  * - Thread-safe operations with Mutex
  * - Automatic refresh on cache miss
- * 
+ *
  * @author DutyPe Engineering Team
  * @since 2.3.0
  */
@@ -29,17 +29,17 @@ import javax.inject.Singleton
 class EmployerProfileCache @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
-    
+
     companion object {
         // Cache TTL: 5 minutes (profile data doesn't change frequently)
         private const val CACHE_TTL_MS = 5 * 60 * 1000L
     }
-    
+
     private val mutex = Mutex()
-    
+
     // Cached profile data per employer
     private val profileCache = mutableMapOf<String, CachedProfile>()
-    
+
     /**
      * Cached employer profile data
      */
@@ -55,10 +55,10 @@ class EmployerProfileCache @Inject constructor(
     ) {
         fun isValid(): Boolean = System.currentTimeMillis() - timestamp < CACHE_TTL_MS
     }
-    
+
     /**
      * Get employer profile with cache-first approach
-     * 
+     *
      * @param employerId Employer's user ID
      * @param forceRefresh Force fetch from Firestore even if cached
      * @return CachedProfile or null if not found
@@ -73,29 +73,31 @@ class EmployerProfileCache @Inject constructor(
             Timber.d("📦 EMPLOYER_CACHE: HIT for $employerId (age: ${System.currentTimeMillis() - cached.timestamp}ms)")
             return@withLock cached
         }
-        
+
         Timber.d("📦 EMPLOYER_CACHE: MISS for $employerId, fetching from Firestore...")
-        
+
         // Fetch from Firestore
         return@withLock try {
             withContext(Dispatchers.IO) {
-                val employerProfileDoc = firestore.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES)
+                val employerProfileDoc = firestore.collection(com.example.dutype.firestore.FirestoreSchema.EmployerProfiles.COLLECTION)
                     .document(employerId)
                     .get()
                     .await()
-                
-                if (employerProfileDoc.exists()) {
+
+                val data = employerProfileDoc.data
+                if (data != null) {
+                    val p = com.example.dutype.profile.EmployerProfile.from(employerId, data)
                     val profile = CachedProfile(
                         employerId = employerId,
-                        companyName = employerProfileDoc.getString("companyName") ?: "",
-                        employerName = employerProfileDoc.getString("fullName") ?: "",
-                        contactPhone = employerProfileDoc.getString("phone") ?: "",
-                        trustTier = "VERIFIED",
-                        profileImageUrl = employerProfileDoc.getString("profileImageUrl") ?: "",
-                        employerType = employerProfileDoc.getString("employerType") ?: "COMPANY",
+                        companyName = p.displayName,
+                        employerName = p.ownerName,
+                        contactPhone = p.phone,
+                        trustTier = if (p.verified) "VERIFIED" else "BASIC",
+                        profileImageUrl = p.photoUrl,
+                        employerType = p.employerType,
                         timestamp = System.currentTimeMillis()
                     )
-                    
+
                     // Store in cache
                     profileCache[employerId] = profile
                     Timber.d("📦 EMPLOYER_CACHE: Cached profile for $employerId")
@@ -103,7 +105,7 @@ class EmployerProfileCache @Inject constructor(
                     Timber.d("📦   - Name: ${profile.employerName}")
                     Timber.d("📦   - Type: ${profile.employerType}")
                     Timber.d("📦   - Trust Tier: ${profile.trustTier}")
-                    
+
                     profile
                 } else {
                     Timber.w("📦 EMPLOYER_CACHE: Employer profile not found for $employerId")
@@ -118,21 +120,21 @@ class EmployerProfileCache @Inject constructor(
             }
         }
     }
-    
+
     /**
      * Get company name with cache-first approach
      */
     suspend fun getCompanyName(employerId: String): String {
         return getProfile(employerId)?.companyName ?: ""
     }
-    
+
     /**
      * Get employer name with cache-first approach
      */
     suspend fun getEmployerName(employerId: String): String {
         return getProfile(employerId)?.employerName ?: ""
     }
-    
+
     /**
      * Get contact phone with cache-first approach
      */
@@ -146,14 +148,14 @@ class EmployerProfileCache @Inject constructor(
     suspend fun getEmployerType(employerId: String): String {
         return getProfile(employerId)?.employerType ?: "COMPANY"
     }
-    
+
     /**
      * Get trust tier with cache-first approach
      */
     suspend fun getTrustTier(employerId: String): String {
         return getProfile(employerId)?.trustTier ?: "VERIFIED"
     }
-    
+
     /**
      * Update cache after profile edit
      */
@@ -178,7 +180,7 @@ class EmployerProfileCache @Inject constructor(
             Timber.d("📦 EMPLOYER_CACHE: Updated cache for $employerId")
         }
     }
-    
+
     /**
      * Invalidate cache for an employer
      */
@@ -186,7 +188,7 @@ class EmployerProfileCache @Inject constructor(
         profileCache.remove(employerId)
         Timber.d("📦 EMPLOYER_CACHE: Invalidated cache for $employerId")
     }
-    
+
     /**
      * Clear all cached profiles
      */
@@ -194,7 +196,7 @@ class EmployerProfileCache @Inject constructor(
         profileCache.clear()
         Timber.d("📦 EMPLOYER_CACHE: Cleared all cached profiles")
     }
-    
+
     /**
      * Get cache statistics
      */
@@ -205,7 +207,7 @@ class EmployerProfileCache @Inject constructor(
             staleCount = profileCache.values.count { !it.isValid() }
         )
     }
-    
+
     data class CacheStats(
         val totalCached: Int,
         val validCount: Int,

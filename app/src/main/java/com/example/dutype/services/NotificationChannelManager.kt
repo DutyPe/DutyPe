@@ -25,6 +25,8 @@ object NotificationChannelManager {
     const val CHANNEL_HIGH_PRIORITY = "high_priority"
     const val CHANNEL_MEDIUM_PRIORITY = "medium_priority"
     const val CHANNEL_LOW_PRIORITY = "low_priority"
+    /** Urgent job offers: rings (phone ringtone) and vibrates like a ride request. */
+    const val CHANNEL_URGENT_OFFERS = "urgent_offers"
     
     /**
      * Create all notification channels
@@ -38,7 +40,8 @@ object NotificationChannelManager {
             val channels = listOf(
                 createHighPriorityChannel(context),
                 createMediumPriorityChannel(context),
-                createLowPriorityChannel(context)
+                createLowPriorityChannel(context),
+                createUrgentOffersChannel(context)
             )
             
             notificationManager.createNotificationChannels(channels)
@@ -47,6 +50,27 @@ object NotificationChannelManager {
         }
     }
     
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun createUrgentOffersChannel(context: Context): NotificationChannel =
+        NotificationChannel(
+            CHANNEL_URGENT_OFFERS,
+            context.getString(R.string.notification_channel_urgent_name),
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = context.getString(R.string.notification_channel_urgent_desc)
+            enableVibration(true)
+            vibrationPattern = longArrayOf(0, 800, 400, 800, 400, 800)
+            setSound(
+                android.provider.Settings.System.DEFAULT_RINGTONE_URI,
+                android.media.AudioAttributes.Builder()
+                    .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+            )
+            setShowBadge(true)
+            lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+        }
+
     /**
      * HIGH PRIORITY CHANNEL
      * For: Job alerts, application updates, birthday wishes

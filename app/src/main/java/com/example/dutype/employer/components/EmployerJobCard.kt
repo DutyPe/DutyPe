@@ -1,5 +1,8 @@
 package com.example.dutype.employer.components
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -19,8 +22,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.example.dutype.employer.helpers.JobPostingHelpers
-import com.example.dutype.employer.models.JobPostingModel
+import com.example.dutype.models.JobListing
+import com.example.dutype.employer.models.JobCategory
+import com.example.dutype.firestore.FirestoreSchema
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.EmployerColors
 
@@ -35,9 +39,9 @@ import java.util.Locale
 @Composable
 fun EmployerJobCard(
     modifier: Modifier = Modifier,
-    jobPosting: JobPostingModel,
+    jobPosting: JobListing,
     applications: List<JobApplication> = emptyList(),
-    onCallWorker: (String) -> Unit = {},
+    onCallWorker: (com.example.dutype.models.JobApplication) -> Unit = {},
     onHireWorker: (JobApplication) -> Unit = {},
     onEditClick: (String) -> Unit = {},
     onViewApplicationsClick: (String) -> Unit = {},
@@ -48,20 +52,20 @@ fun EmployerJobCard(
 ) {
     val context = LocalContext.current
     var showJobManagementDialog by remember { mutableStateOf(false) }
-    
-    
+
+
     Card(
         modifier = modifier
             .fillMaxWidth()
             .clickable {
-                onViewTrack(jobPosting.jobId)
+                onViewTrack(jobPosting.id)
                 // Apr 2026: tap on card now opens the OLX-style preview
                 // when the host screen wires it; legacy callers that
                 // don't pass onCardClick fall back to applications.
                 if (onCardClick != null) {
-                    onCardClick(jobPosting.jobId)
+                    onCardClick(jobPosting.id)
                 } else {
-                    onViewApplicationsClick(jobPosting.jobId)
+                    onViewApplicationsClick(jobPosting.id)
                 }
             },
         colors = CardDefaults.cardColors(
@@ -81,7 +85,7 @@ fun EmployerJobCard(
             ) {
                 JobStatusBadge(
                     status = jobPosting.status,
-                    isFilled = jobPosting.isFilled,
+                    isFilled = (jobPosting.status == FirestoreSchema.Values.JobStatus.FILLED),
                     expiresAt = jobPosting.expiresAt
                 )
 
@@ -98,7 +102,7 @@ fun EmployerJobCard(
                     }
 
                     Text(
-                        text = JobPostingHelpers.getTimeAgo(jobPosting.postedTime),
+                        text = com.example.dutype.utils.DateTimeUtils.formatRelativeTime(jobPosting.createdAt),
                         style = AppTypography.caption,
                         color = EmployerColors.TextSecondary
                     )
@@ -119,7 +123,7 @@ fun EmployerJobCard(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val heroUrl = jobPosting.imageUrl
+                        val heroUrl = jobPosting.photoUrl
                         if (!heroUrl.isNullOrBlank()) {
                             // Bug #5: replace emoji with the uploaded job image.
                             coil.compose.AsyncImage(
@@ -132,7 +136,7 @@ fun EmployerJobCard(
                             )
                         } else {
                             Text(
-                                text = jobPosting.category.icon,
+                                text = JobCategory.fromKey(jobPosting.category).icon,
                                 style = MaterialTheme.typography.headlineSmall
                             )
                         }
@@ -150,7 +154,7 @@ fun EmployerJobCard(
                     // card so the title stands alone).
 
                     // Filled status indicator
-                    if (jobPosting.isFilled) {
+                    if ((jobPosting.status == FirestoreSchema.Values.JobStatus.FILLED)) {
                         Box(
                             modifier = Modifier
                                 .background(
@@ -162,7 +166,7 @@ fun EmployerJobCard(
                             Text(
                                 text = stringResource(R.string.auto_vacancies_filled),
                                 style = AppTypography.status.copy(
-                                    color = Color(0xFFF59E0B)
+                                    color = Color(0xFFF59E0B).fg()
                                 )
                             )
                         }
@@ -182,8 +186,8 @@ fun EmployerJobCard(
                 // High-visibility green banner for Tier 2/3 employers
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFDCFCE7),
-                    border = BorderStroke(1.dp, Color(0xFF86EFAC)),
+                    color = Color(0xFFDCFCE7).bg(),
+                    border = BorderStroke(1.dp, Color(0xFF86EFAC).bd()),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -194,14 +198,14 @@ fun EmployerJobCard(
                         Icon(
                             Icons.Default.CheckCircle,
                             contentDescription = null,
-                            tint = Color(0xFF16A34A),
+                            tint = Color(0xFF16A34A).fg(),
                             modifier = Modifier.size(16.dp)
                         )
                         Text(
                             text = "${applications.size} ${if (applications.size == 1) "Worker" else "Workers"} Applied! Call & Hire Directly",
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
-                            color = Color(0xFF15803D)
+                            color = Color(0xFF15803D).fg()
                         )
                     }
                 }
@@ -213,8 +217,8 @@ fun EmployerJobCard(
                     applications.take(2).forEach { applicant ->
                         Surface(
                             shape = RoundedCornerShape(10.dp),
-                            color = Color(0xFFF8FAFC),
-                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            color = Color(0xFFF8FAFC).bg(),
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
@@ -231,7 +235,7 @@ fun EmployerJobCard(
                                     Text(
                                         text = applicant.workerName.trim().take(1).uppercase().ifBlank { "W" },
                                         fontWeight = FontWeight.Bold,
-                                        color = EmployerColors.Primary,
+                                        color = EmployerColors.Primary.fg(),
                                         fontSize = 14.sp
                                     )
                                 }
@@ -246,11 +250,11 @@ fun EmployerJobCard(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     val detailParts = mutableListOf<String>()
-                                    if (applicant.distanceKm != null && applicant.distanceKm > 0) {
-                                        detailParts.add(String.format(Locale.getDefault(), "%.1f km away", applicant.distanceKm))
+                                    applicant.worker?.distanceKm?.takeIf { it > 0 }?.let {
+                                        detailParts.add(String.format(Locale.getDefault(), "%.1f km away", it))
                                     }
-                                    if (applicant.workerExperience.isNotBlank()) {
-                                        detailParts.add(applicant.workerExperience)
+                                    applicant.worker?.experienceYears?.takeIf { it > 0 }?.let {
+                                        detailParts.add("$it yrs exp")
                                     }
                                     Text(
                                         text = if (detailParts.isNotEmpty()) detailParts.joinToString(" • ") else "Available to work",
@@ -263,9 +267,9 @@ fun EmployerJobCard(
 
                                 // 1-Tap Direct Call Button
                                 Button(
-                                    onClick = { onCallWorker(applicant.workerPhone.orEmpty()) },
+                                    onClick = { onCallWorker(applicant) },
                                     shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A).bg()),
                                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                                     modifier = Modifier.height(34.dp)
                                 ) {
@@ -282,10 +286,10 @@ fun EmployerJobCard(
                                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
                                         modifier = Modifier.height(34.dp)
                                     ) {
-                                        Text("Hire", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2563EB))
+                                        Text("Hire", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF2563EB).fg())
                                     }
                                 } else {
-                                    Text("✅ Hired", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF16A34A))
+                                    Text("✅ Hired", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF16A34A).fg())
                                 }
                             }
                         }
@@ -295,10 +299,10 @@ fun EmployerJobCard(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Button(
-                    onClick = { onViewApplicationsClick(jobPosting.jobId) },
+                    onClick = { onViewApplicationsClick(jobPosting.id) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB).bg())
                 ) {
                     Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -313,7 +317,7 @@ fun EmployerJobCard(
             } else {
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFFF1F5F9),
+                    color = Color(0xFFF1F5F9).bg(),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -334,10 +338,10 @@ fun EmployerJobCard(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Button(
-                    onClick = { onViewApplicationsClick(jobPosting.jobId) },
+                    onClick = { onViewApplicationsClick(jobPosting.id) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB).bg())
                 ) {
                     Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -352,23 +356,23 @@ fun EmployerJobCard(
             // Perks display removed as per user request
         }
     }
-    
+
     // Job Management Dialog
     if (showJobManagementDialog) {
         JobManagementDialog(
             jobPosting = jobPosting,
             onDismiss = { showJobManagementDialog = false },
-            onEditClick = { 
+            onEditClick = {
                 showJobManagementDialog = false
-                onEditClick(jobPosting.jobId)
+                onEditClick(jobPosting.id)
             },
-            onViewApplicationsClick = { 
+            onViewApplicationsClick = {
                 showJobManagementDialog = false
-                onViewApplicationsClick(jobPosting.jobId)
+                onViewApplicationsClick(jobPosting.id)
             },
-            onShareClick = { 
+            onShareClick = {
                 showJobManagementDialog = false
-                onShareClick(jobPosting.jobId)
+                onShareClick(jobPosting.id)
             }
         )
     }
@@ -423,7 +427,7 @@ private fun JobStatusBadge(
 }
 
 @Composable
-private fun JobDetailsRow(jobPosting: JobPostingModel) {
+private fun JobDetailsRow(jobPosting: JobListing) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -439,7 +443,7 @@ private fun JobDetailsRow(jobPosting: JobPostingModel) {
                 modifier = Modifier.size(16.dp)
             )
             Text(
-                text = "${jobPosting.payAmount} ${jobPosting.payType.displayName}",
+                text = jobPosting.payText,
                 style = AppTypography.price,
                 color = EmployerColors.TextPrimary
             )
@@ -456,7 +460,7 @@ private fun JobDetailsRow(jobPosting: JobPostingModel) {
                 modifier = Modifier.size(16.dp)
             )
             Text(
-                text = jobPosting.location,
+                text = jobPosting.area,
                 style = AppTypography.bodyMedium,
                 color = EmployerColors.TextSecondary,
                 maxLines = 1,
@@ -467,83 +471,9 @@ private fun JobDetailsRow(jobPosting: JobPostingModel) {
     }
 }
 
-private fun JobPostingModel.shiftDisplayText(): String {
-    val text = shiftTimingText?.trim().orEmpty()
-    return when {
-        text.equals("Any", ignoreCase = true) -> shiftTiming.displayName
-        text.isNotBlank() -> text
-        else -> shiftTiming.displayName
-    }
-}
-
-@Composable
-private fun JobCardFooter(
-    jobPosting: JobPostingModel,
-    showActions: Boolean,
-    onEditClick: (String) -> Unit,
-    onViewApplicationsClick: (String) -> Unit,
-    onShareClick: (String) -> Unit,
-    onShowManagementDialog: () -> Unit = {}
-) {
-    Column {
-        HorizontalDivider(color = EmployerColors.Divider)
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Per-user request (Apr 2026): the "👥 N applications" stat
-            // chip is removed from this row. The full applications count
-            // is already shown when the employer taps the card.
-
-            // Right side - Actions
-            if (showActions) {
-                JobActionsRow(
-                    jobPosting = jobPosting,
-                    onEditClick = onEditClick,
-                    onShareClick = onShareClick
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun JobStatsRow(jobPosting: JobPostingModel) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Applications count
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.People,
-                contentDescription = null,
-                tint = Color(0xFF3B82F6),
-                modifier = Modifier.size(16.dp)
-            )
-            Text(
-                text = "${jobPosting.applicationsReceived}",
-                style = AppTypography.labelLarge
-            )
-            Text(
-                text = stringResource(R.string.auto_applications),
-                style = AppTypography.caption,
-                color = EmployerColors.TextSecondary
-            )
-        }
-    }
-}
-
 @Composable
 private fun JobActionsRow(
-    jobPosting: JobPostingModel,
+    jobPosting: JobListing,
     onEditClick: (String) -> Unit,
     onShareClick: (String) -> Unit
 ) {
@@ -551,10 +481,9 @@ private fun JobActionsRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
 
-
         // Edit button
         IconButton(
-            onClick = { onEditClick(jobPosting.jobId) },
+            onClick = { onEditClick(jobPosting.id) },
             modifier = Modifier.size(36.dp)
         ) {
             Icon(
@@ -567,13 +496,13 @@ private fun JobActionsRow(
 
         // Share button
         IconButton(
-            onClick = { onShareClick(jobPosting.jobId) },
+            onClick = { onShareClick(jobPosting.id) },
             modifier = Modifier.size(36.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.Share,
                 contentDescription = "Share job",
-                tint = Color(0xFF8B5CF6),
+                tint = Color(0xFF8B5CF6).fg(),
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -583,7 +512,7 @@ private fun JobActionsRow(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun JobManagementDialog(
-    jobPosting: JobPostingModel,
+    jobPosting: JobListing,
     onDismiss: () -> Unit,
     onEditClick: () -> Unit,
     onViewApplicationsClick: () -> Unit,
@@ -616,13 +545,13 @@ private fun JobManagementDialog(
                             color = EmployerColors.TextPrimary
                         )
                         Text(
-                            text = "${jobPosting.applicationsReceived} applications received",
+                            text = "${jobPosting.applicationCount} applications received",
                             style = AppTypography.bodyMedium,
                             color = EmployerColors.TextSecondary
                         )
                     }
                 }
-                
+
                 // Management options
                 Text(
                     text = stringResource(R.string.auto_what_would_you_like_to_do),
@@ -643,7 +572,7 @@ private fun JobManagementDialog(
                 // View Applications
                 Button(
                     onClick = onViewApplicationsClick,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6).bg())
                 ) {
                     Icon(
                         imageVector = Icons.Default.People,
@@ -653,7 +582,7 @@ private fun JobManagementDialog(
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(stringResource(R.string.applications))
                 }
-                
+
                 // Edit Job
                 OutlinedButton(onClick = onEditClick) {
                     Icon(

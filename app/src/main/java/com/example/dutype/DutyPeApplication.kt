@@ -7,8 +7,6 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import coil.ImageLoader
 import coil.ImageLoaderFactory
-import com.example.dutype.metadata.MetadataManager
-import com.example.dutype.worker.sync.JobSyncWorker
 import com.example.dutype.services.NotificationChannelManager
 import com.example.dutype.utils.googleMapsApiKey
 import com.example.dutype.utils.isDebuggableBuild
@@ -92,15 +90,12 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
             "PowerHalWrapper"
         )
     }
-    
+
     // PERF: All three are Lazy so Hilt does not build their dependency graphs
     // (Firestore/DataStore/Crashlytics...) synchronously inside Application.onCreate.
     @Inject
-    lateinit var metadataManager: dagger.Lazy<MetadataManager>
-    
-    @Inject
     lateinit var workerFactory: dagger.Lazy<HiltWorkerFactory>
-    
+
     @Inject
     lateinit var anrHandler: dagger.Lazy<com.example.dutype.performance.ANRHandler>
 
@@ -117,15 +112,15 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
 
     // Note: FeatureFlags is a data class in AppMetadata, not an injectable class
     // Access via: appMetadata.featureFlags.value
-    
+
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var appCheckDebugHintLogged = false
-    
+
     override fun attachBaseContext(base: Context) {
         // Apply saved language preference before super.attachBaseContext
         super.attachBaseContext(LocaleHelper.setLocale(base))
     }
-    
+
     override fun onCreate() {
         super.onCreate()
 
@@ -134,10 +129,10 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
         applicationScope.launch(Dispatchers.IO) {
             runCatching { com.example.dutype.navigation.StartDestinationCache.read(this@DutyPeApplication) }
         }
-        
+
         // Register lifecycle callbacks for app-wide background tracking
         registerActivityLifecycleCallbacks(com.example.dutype.utils.AppLifecycleTracker.activityLifecycleCallbacks)
-        
+
         // Initialize Timber first for logging
         initializeTimber()
 
@@ -162,7 +157,7 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
                     .build()
             )
         }
-        
+
         // CRITICAL P0 FIX: Firebase MUST be initialized synchronously BEFORE Hilt injects
         // Firebase-dependent singletons (FirebaseFirestore, FirebaseAuth, etc.)
         // Previously this was async causing race conditions with Hilt DI
@@ -174,13 +169,13 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
 
         // Diagnostic log: deferred off the startup critical path.
         applicationScope.launch { logFirebaseBinding() }
-        
+
         // PERFORMANCE & STORAGE: Defer notification channels and cache pruning to background
         applicationScope.launch(Dispatchers.IO) {
             NotificationChannelManager.createNotificationChannels(this@DutyPeApplication)
             com.example.dutype.utils.StorageCacheManager.pruneStaleCache(this@DutyPeApplication)
         }
-        
+
         // Initialize MainThreadChecker with ANRHandler for production-safe error handling.
         // PERF: off the main thread; ANRHandler is only needed when a violation is reported.
         applicationScope.launch {
@@ -188,12 +183,11 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
                 com.example.dutype.performance.MainThreadChecker.init(this@DutyPeApplication, anrHandler.get())
             }
         }
-        
+
         // Schedule background job sync immediately
         applicationScope.launch {
             try {
-                scheduleBackgroundSync()
-                schedulePendingApplicationNotifications()
+                cancelRetiredWork()
                 // REMOVED: SmartNotificationWorker (replaced with Cloud Functions)
                 // Smart notifications now run server-side via Firebase Cloud Functions
                 // This eliminates permission errors and battery drain
@@ -201,13 +195,13 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
                 Timber.w(e, "🔄 Background sync scheduling failed (non-fatal)")
             }
         }
-        
+
         // Other non-critical components
         applicationScope.launch {
             initializeNonCriticalComponents()
         }
     }
-    
+
     /**
      * WorkManager configuration with Hilt support
      */
@@ -216,38 +210,22 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
             .setWorkerFactory(workerFactory.get())
             .setMinimumLoggingLevel(if (isDebuggableBuild()) android.util.Log.DEBUG else android.util.Log.INFO)
             .build()
-    
+
     /**
-     * Schedule background job sync for offline-first architecture
+     * Reminders and engagement nudges now come from Cloud Functions (topic messages and windowed
+     * reminders); cancel the device workers that older app versions scheduled.
      */
-    private fun scheduleBackgroundSync() {
-        try {
-            JobSyncWorker.schedule(this)
-            Timber.d("🔄 Background sync scheduled")
-        } catch (e: Exception) {
-            Timber.w(e, "🔄 Failed to schedule background sync")
-        }
+    private fun cancelRetiredWork() {
+        runCatching {
+            val workManager = androidx.work.WorkManager.getInstance(this)
+            listOf(
+                "pending_application_notification_worker",
+                "guest_engagement_background",
+                "role_engagement_recurring"
+            ).forEach(workManager::cancelUniqueWork)
+        }.onFailure { Timber.w(it, "Failed to cancel retired work") }
     }
-    
-    /**
-     * Schedule pending application notifications worker
-     * Runs every 6 hours to check for applications pending > 24 hours
-     */
-    private fun schedulePendingApplicationNotifications() {
-        try {
-            androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-                com.example.dutype.workers.PendingApplicationNotificationWorker.WORK_NAME,
-                androidx.work.ExistingPeriodicWorkPolicy.KEEP,
-                androidx.work.PeriodicWorkRequestBuilder<com.example.dutype.workers.PendingApplicationNotificationWorker>(
-                    6, java.util.concurrent.TimeUnit.HOURS
-                ).build()
-            )
-            Timber.d("🔔 Pending application notifications scheduled (every 6 hours)")
-        } catch (e: Exception) {
-            Timber.w(e, "🔔 Failed to schedule pending application notifications")
-        }
-    }
-    
+
     /**
      * Initialize Timber logging with filtered tree to reduce noise
      */
@@ -260,17 +238,17 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
                     if (tag in NOISY_LOG_TAGS) {
                         return
                     }
-                    
+
                     // Skip Firestore warnings about missing fields (these are non-critical)
-                    if (tag?.contains("Firestore") == true && 
-                        (message.contains("CustomClassMapper") || 
+                    if (tag?.contains("Firestore") == true &&
+                        (message.contains("CustomClassMapper") ||
                          message.contains("No setter/field") ||
                          message.contains("isActive"))) {
                         return
                     }
-                    
+
                     // Skip DEVELOPER_ERROR spam (it's a GMS config issue, not your app)
-                    if (message.contains("DEVELOPER_ERROR") || 
+                    if (message.contains("DEVELOPER_ERROR") ||
                         message.contains("statusCode=DEVELOPER_ERROR") ||
                         message.contains("Unknown calling package name 'com.google.android.gms'") ||
                         message.contains("Phenotype.API is not available") ||
@@ -305,19 +283,19 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
                         message.contains("firebaselogging-pa.googleapis.com")) { // Firebase logging
                         return
                     }
-                    
+
                     // Skip throwables that are GMS internal errors
                     if (t != null && t.message?.contains("com.google.android.gms") == true) {
                         return
                     }
-                    
+
                     super.log(priority, tag, message, t)
                 }
             })
             Timber.d("🔧 Debug logging enabled (filtered)")
         }
     }
-    
+
     /**
      * Initialize Firebase App Check.
      * Release: Play Integrity is the ONLY attestation provider. Debug: App Check debug provider.
@@ -441,7 +419,7 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
             Timber.e(e, "❌ Unable to log Firebase runtime binding")
         }
     }
-    
+
     /**
      * Initialize non-critical components in background
      */
@@ -449,23 +427,8 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
         CrashReportingHelper.initialize(this)
         initializeCrashlytics()
         initializeGoogleMapsServices()
-        initializeMetadata()
     }
-    
-    /**
-     * Initialize metadata system for app-wide stats and feature flags
-     */
-    private fun initializeMetadata() {
-        applicationScope.launch {
-            try {
-                metadataManager.get().initialize(this@DutyPeApplication)
-                Timber.d("📊 Metadata system initialized")
-            } catch (e: Exception) {
-                Timber.e(e, "📊 Failed to initialize metadata system")
-            }
-        }
-    }
-    
+
     private fun initializeGoogleMapsServices() {
         val mapsKey = googleMapsApiKey()
 
@@ -473,7 +436,7 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
             Timber.d("Google Maps web APIs configured")
         }
     }
-    
+
     private fun initializeCrashlytics() {
         try {
             Firebase.crashlytics.setCrashlyticsCollectionEnabled(!isDebuggableBuild())

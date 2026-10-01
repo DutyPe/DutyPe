@@ -2,14 +2,14 @@ package com.example.dutype.models
 
 import androidx.annotation.Keep
 import androidx.compose.runtime.Immutable
-import com.google.firebase.Timestamp
-import java.util.Date
-import kotlin.random.Random
+import com.example.dutype.firestore.FirestoreSchema.Referrals
+import com.example.dutype.firestore.FirestoreSchema.Values
+import com.example.dutype.firestore.FirestoreSchema.WalletLedger
+import com.example.dutype.firestore.FirestoreSchema.Wallets
+import com.example.dutype.firestore.FirestoreSchema.Withdrawals
+import com.example.dutype.utils.epochMillis
 
-private const val CANONICAL_REFERRAL_PREFIX = "DUTY"
-private const val CANONICAL_REFERRAL_LENGTH = 8
-private val REFERRAL_CODE_REGEX = Regex("^[A-Z0-9]{7,10}$")
-private val REFERRAL_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+private val REFERRAL_CODE_REGEX = Regex("^[A-Z0-9]{6,10}$")
 
 fun normalizeReferralCode(rawCode: String): String =
     rawCode.filter { it.isLetterOrDigit() }.uppercase().take(10)
@@ -17,349 +17,156 @@ fun normalizeReferralCode(rawCode: String): String =
 fun isValidNormalizedReferralCode(rawCode: String): Boolean =
     REFERRAL_CODE_REGEX.matches(normalizeReferralCode(rawCode))
 
-fun generateReferralCode(): String {
-    val suffixLength = CANONICAL_REFERRAL_LENGTH - CANONICAL_REFERRAL_PREFIX.length
-    val suffix = buildString(suffixLength) {
-        repeat(suffixLength) {
-            append(REFERRAL_CODE_ALPHABET[Random.nextInt(REFERRAL_CODE_ALPHABET.length)])
-        }
+/** Whole paise → "₹123" / "₹123.50". */
+fun formatPaise(paise: Long): String =
+    if (paise % 100 == 0L) "₹${paise / 100}" else "₹${"%.2f".format(paise / 100.0)}"
+
+/** `referral_stats/{uid}` — the wallet (server-written; the owner can read it). */
+@Keep
+@Immutable
+data class Wallet(
+    val referralCode: String = "",
+    val balancePaise: Long = 0L,
+    val lifetimeEarnedPaise: Long = 0L,
+    val withdrawnPaise: Long = 0L,
+    val successfulReferrals: Int = 0,
+    val awardedMilestones: List<Int> = emptyList(),
+    val blocked: Boolean = false
+) {
+    val tier: ReferralTier get() = ReferralTier.forCount(successfulReferrals)
+
+    companion object {
+        fun from(d: Map<String, Any?>): Wallet = Wallet(
+            referralCode = d[Wallets.REFERRAL_CODE] as? String ?: "",
+            balancePaise = (d[Wallets.BALANCE_PAISE] as? Number)?.toLong() ?: 0L,
+            lifetimeEarnedPaise = (d[Wallets.LIFETIME_EARNED_PAISE] as? Number)?.toLong() ?: 0L,
+            withdrawnPaise = (d[Wallets.WITHDRAWN_PAISE] as? Number)?.toLong() ?: 0L,
+            successfulReferrals = (d[Wallets.SUCCESSFUL_REFERRALS] as? Number)?.toInt() ?: 0,
+            awardedMilestones = (d[Wallets.AWARDED_MILESTONES] as? List<*>)?.mapNotNull { (it as? Number)?.toInt() }.orEmpty(),
+            blocked = d[Wallets.BLOCKED] as? Boolean ?: false
+        )
     }
-    return CANONICAL_REFERRAL_PREFIX + suffix
 }
 
-fun Any?.toEpochMillis(): Long? = when (this) {
-    is Timestamp -> toDate().time
-    is Date -> time
-    is Number -> toLong()
-    else -> null
+/** `wallet_ledger/{eventId}` — one money movement. */
+@Keep
+@Immutable
+data class LedgerEntry(
+    val id: String = "",
+    val type: String = "",
+    val amountPaise: Long = 0L,
+    val refId: String = "",
+    val balanceAfterPaise: Long = 0L,
+    val createdAt: Long = 0L
+) {
+    val isCredit: Boolean get() = amountPaise > 0
+
+    val label: String get() = when (type) {
+        Values.LedgerType.REFERRAL_REWARD -> "Referral reward"
+        Values.LedgerType.SIGNUP_BONUS -> "Joining bonus"
+        Values.LedgerType.WELCOME_BONUS -> "Welcome bonus"
+        Values.LedgerType.MILESTONE -> "Milestone bonus"
+        Values.LedgerType.WITHDRAWAL -> "Withdrawal"
+        Values.LedgerType.REFUND -> "Withdrawal refund"
+        else -> "Adjustment"
+    }
+
+    companion object {
+        fun from(id: String, d: Map<String, Any?>): LedgerEntry = LedgerEntry(
+            id = id,
+            type = d[WalletLedger.TYPE] as? String ?: "",
+            amountPaise = (d[WalletLedger.AMOUNT_PAISE] as? Number)?.toLong() ?: 0L,
+            refId = d[WalletLedger.REF_ID] as? String ?: "",
+            balanceAfterPaise = (d[WalletLedger.BALANCE_AFTER_PAISE] as? Number)?.toLong() ?: 0L,
+            createdAt = d[WalletLedger.CREATED_AT].epochMillis()
+        )
+    }
 }
 
-/**
- * Referral - MINIMAL MODEL (10 fields)
- * Based on Dropbox/PayPal/Airbnb patterns
- */
+/** `referrals/{refereeUid}` — someone who joined with a code. [rewardPaise] is joined from the ledger. */
 @Keep
 @Immutable
 data class Referral(
-    val id: String = "",
-    val referrerUserId: String = "",
-    val referredUserId: String = "",
-    val referralCode: String = "",
+    val refereeUid: String = "",
+    val referrerUid: String = "",
+    val code: String = "",
     val status: ReferralStatus = ReferralStatus.PENDING,
-    val rewardAmount: Double = 25.0,
-    val bonusAmount: Double = 0.0,
-    val referredUserReward: Double = 0.0,
-    val createdAt: Long = System.currentTimeMillis(),
-    val completedAt: Long? = null,
-    val deviceFingerprint: String? = null,
-    // Denormalized for display
-    val referredUserName: String = "",
-    val referredUserRole: String = "",
-    val profileCompleted: Boolean = false
+    val createdAt: Long = 0L,
+    val completedAt: Long = 0L,
+    val rewardPaise: Long = 0L
 ) {
-    fun getExpiresAt(): Long = createdAt + (30 * 24 * 60 * 60 * 1000L)
-    fun isExpired(): Boolean = System.currentTimeMillis() > getExpiresAt()
-    fun getTotalReferrerReward(): Double = rewardAmount + bonusAmount
-    
     companion object {
-        fun fromMap(data: Map<String, Any>): Referral {
-            val normalizedStatus = (data["status"] as? String)
-                ?.trim()
-                ?.uppercase()
-                ?: "PENDING"
-
-            return Referral(
-                id = data["id"] as? String ?: "",
-                referrerUserId = data["referrerUserId"] as? String
-                    ?: data["referrerId"] as? String
-                    ?: "",
-                referredUserId = data["referredUserId"] as? String
-                    ?: data["referredId"] as? String
-                    ?: "",
-                referralCode = data["referralCode"] as? String ?: "",
-                status = try {
-                    ReferralStatus.valueOf(normalizedStatus)
-                } catch (e: Exception) {
-                    ReferralStatus.PENDING
-                },
-                rewardAmount = (data["rewardAmount"] as? Number)?.toDouble() ?: 25.0,
-                bonusAmount = (data["bonusAmount"] as? Number)?.toDouble() ?: 0.0,
-                referredUserReward = (data["referredUserReward"] as? Number)?.toDouble() ?: 0.0,
-                createdAt = data["createdAt"].toEpochMillis() ?: System.currentTimeMillis(),
-                completedAt = data["completedAt"].toEpochMillis(),
-                deviceFingerprint = data["deviceFingerprint"] as? String,
-                referredUserName = data["referredUserName"] as? String ?: "",
-                referredUserRole = data["referredUserRole"] as? String ?: "",
-                profileCompleted = (data["profileCompleted"] as? Boolean)
-                    ?: (data["isProfileCompleted"] as? Boolean)
-                    ?: false
-            )
-        }
+        fun from(id: String, d: Map<String, Any?>): Referral = Referral(
+            refereeUid = id,
+            referrerUid = d[Referrals.REFERRER_UID] as? String ?: "",
+            code = d[Referrals.CODE] as? String ?: "",
+            status = ReferralStatus.from(d[Referrals.STATUS] as? String),
+            createdAt = d[Referrals.CREATED_AT].epochMillis(),
+            completedAt = d[Referrals.COMPLETED_AT].epochMillis()
+        )
     }
 }
 
 enum class ReferralStatus {
-    PENDING,
-    COMPLETED,
-    EXPIRED,
-    CANCELLED,
-    REJECTED
-}
+    PENDING, COMPLETED, REJECTED, EXPIRED;
 
-/**
- * ReferralCodeLookup - O(1) code validation (code as document ID)
- */
-@Keep
-data class ReferralCodeLookup(
-    val code: String = "",
-    val userId: String = "",
-    val userRole: String = "",
-    val userName: String = "",
-    val isActive: Boolean = true,
-    val createdAt: Long = System.currentTimeMillis()
-) {
     companion object {
-        fun fromMap(data: Map<String, Any>): ReferralCodeLookup {
-            return ReferralCodeLookup(
-                code = data["code"] as? String ?: "",
-                userId = data["userId"] as? String ?: "",
-                userRole = data["userRole"] as? String ?: "",
-                userName = data["userName"] as? String ?: "",
-                isActive = data["isActive"] as? Boolean ?: true,
-                createdAt = data["createdAt"].toEpochMillis() ?: System.currentTimeMillis()
-            )
-        }
+        fun from(value: String?): ReferralStatus = entries.firstOrNull { it.name == value } ?: PENDING
     }
 }
 
-/**
- * WithdrawalRequest - Payout requests
- */
-@Keep
-data class WithdrawalRequest(
-    val id: String = "",
-    val userId: String = "",
-    val amount: Double = 0.0,
-    val status: WithdrawalStatus = WithdrawalStatus.PENDING,
-    val paymentMethod: PaymentMethod = PaymentMethod.UPI,
-    val upiId: String? = null,
-    val createdAt: Long = System.currentTimeMillis(),
-    val processedAt: Long? = null,
-    val transactionId: String? = null
-) {
-    companion object {
-        fun fromMap(data: Map<String, Any>): WithdrawalRequest {
-            return WithdrawalRequest(
-                id = data["id"] as? String ?: "",
-                userId = data["userId"] as? String ?: "",
-                amount = (data["amount"] as? Number)?.toDouble() ?: 0.0,
-                status = try {
-                    WithdrawalStatus.valueOf(data["status"] as? String ?: "PENDING")
-                } catch (e: Exception) {
-                    WithdrawalStatus.PENDING
-                },
-                paymentMethod = try {
-                    PaymentMethod.valueOf(data["paymentMethod"] as? String ?: "UPI")
-                } catch (e: Exception) {
-                    PaymentMethod.UPI
-                },
-                upiId = data["upiId"] as? String,
-                createdAt = data["createdAt"].toEpochMillis() ?: System.currentTimeMillis(),
-                processedAt = data["processedAt"].toEpochMillis(),
-                transactionId = data["transactionId"] as? String
-            )
-        }
-    }
-}
-
+/** `withdrawal_requests/{id}`. */
 @Keep
 @Immutable
-data class ReferrerInfo(
-    val referredByCode: String = "",
-    val referredByUserId: String = "",
-    val referrerName: String = "",
-    val referrerRole: String = ""
-)
+data class WithdrawalRequest(
+    val id: String = "",
+    val amountPaise: Long = 0L,
+    val upiId: String = "",
+    val status: WithdrawalStatus = WithdrawalStatus.PENDING,
+    val txnRef: String = "",
+    val failureReason: String = "",
+    val createdAt: Long = 0L,
+    val processedAt: Long = 0L
+) {
+    companion object {
+        fun from(id: String, d: Map<String, Any?>): WithdrawalRequest = WithdrawalRequest(
+            id = id,
+            amountPaise = (d[Withdrawals.AMOUNT_PAISE] as? Number)?.toLong() ?: 0L,
+            upiId = d[Withdrawals.UPI_ID] as? String ?: "",
+            status = WithdrawalStatus.from(d[Withdrawals.STATUS] as? String),
+            txnRef = d[Withdrawals.TXN_REF] as? String ?: "",
+            failureReason = d[Withdrawals.FAILURE_REASON] as? String ?: "",
+            createdAt = d[Withdrawals.CREATED_AT].epochMillis(),
+            processedAt = d[Withdrawals.PROCESSED_AT].epochMillis()
+        )
+    }
+}
 
 enum class WithdrawalStatus {
-    PENDING,
-    PROCESSING,
-    COMPLETED,
-    FAILED,
-    CANCELLED
-}
+    PENDING, PROCESSING, COMPLETED, FAILED;
 
-enum class PaymentMethod {
-    UPI,
-    BANK_TRANSFER,
-    PAYTM,
-    PHONEPE,
-    GPAY
-}
-
-object ReferralRewards {
-    const val REWARD_PER_REFERRAL = 25.0
-    const val SIGNUP_BONUS = 25.0
-    const val MIN_WITHDRAWAL_AMOUNT = 100.0
-    
-    val MILESTONES = mapOf(
-        5 to 50.0,
-        10 to 100.0,
-        15 to 150.0,
-        25 to 250.0,
-        50 to 500.0,
-        100 to 1000.0
-    )
-    
-    fun canWithdraw(availableBalance: Double, minWithdrawal: Double = MIN_WITHDRAWAL_AMOUNT): Boolean =
-        availableBalance >= minWithdrawal
-    
-    fun getTierDisplayName(tier: ReferralTier): String = when (tier) {
-        ReferralTier.BRONZE -> "Bronze"
-        ReferralTier.SILVER -> "Silver"
-        ReferralTier.GOLD -> "Gold"
-        ReferralTier.PLATINUM -> "Platinum"
-        ReferralTier.DIAMOND -> "Diamond"
-    }
-    
-    fun getMilestoneBonus(milestone: Int): Double = MILESTONES[milestone] ?: 0.0
-    
-    fun getEmployerFreePostings(milestone: Int): Int = 0
-}
-
-/**
- * ReferralStats - Canonical referral balance and reward state.
- */
-@Keep
-data class ReferralStats(
-    val userId: String = "",
-    val userRole: String = "",
-    val referralCode: String = "",
-    val totalReferrals: Int = 0,
-    val successfulReferrals: Int = 0,
-    val totalEarnings: Double = 0.0,
-    val availableBalance: Double = 0.0,
-    val canWithdraw: Boolean = false,
-    val currentTier: ReferralTier = ReferralTier.BRONZE,
-    val signupBonusReceived: Boolean = false,
-    val signupBonusAmount: Double = 0.0,
-    val welcomeBonusReceived: Boolean = false,
-    val welcomeBonusAmount: Double = 0.0,
-    val unlimitedJobPostingGranted: Boolean = false
-)
-
-/**
- * Referral tier for gamification
- */
-enum class ReferralTier {
-    BRONZE,
-    SILVER,
-    GOLD,
-    PLATINUM,
-    DIAMOND
-}
-
-// Success stories for motivation
-@Keep
-data class ReferralSuccessStory(
-    val userId: String = "",
-    val userName: String = "",
-    val city: String = "",
-    val totalEarnings: Double = 0.0,
-    val successfulReferrals: Int = 0,
-    val month: String = ""
-) {
     companion object {
-        fun fromMap(data: Map<String, Any?>): ReferralSuccessStory {
-            return ReferralSuccessStory(
-                userId = data["userId"] as? String ?: "",
-                userName = data["userName"] as? String ?: "",
-                city = data["city"] as? String ?: "",
-                totalEarnings = (data["totalEarnings"] as? Number)?.toDouble() ?: 0.0,
-                successfulReferrals = (data["successfulReferrals"] as? Number)?.toInt() ?: 0,
-                month = data["month"] as? String ?: ""
-            )
-        }
+        fun from(value: String?): WithdrawalStatus = entries.firstOrNull { it.name == value } ?: PENDING
     }
 }
 
-// Validation result
+@Keep
+data class LeaderboardEntry(val rank: Int, val name: String, val successfulReferrals: Int)
+
+enum class ReferralTier(val minReferrals: Int) {
+    BRONZE(0), SILVER(5), GOLD(10), PLATINUM(25), DIAMOND(50);
+
+    companion object {
+        fun forCount(count: Int): ReferralTier = entries.last { count >= it.minReferrals }
+    }
+}
+
+/** Result of checking a code someone typed (before registering). */
 data class ReferralValidationInfo(
     val isValid: Boolean,
-    val referrerUserId: String? = null,
     val referrerRole: String? = null,
-    val referrerName: String? = null,
     val errorMessage: String? = null
-)
-
-/**
- * Referral Analytics for tracking performance
- */
-@Keep
-data class ReferralAnalytics(
-    val conversionRate: Float = 0f,
-    val totalClicks: Int = 0,
-    val rankOverall: Int = 0,
-    val percentile: Float = 0f,
-    val projectedMonthlyEarnings: Int = 0
 ) {
-    companion object {
-        fun fromMap(data: Map<String, Any?>): ReferralAnalytics {
-            return ReferralAnalytics(
-                conversionRate = (data["conversionRate"] as? Number)?.toFloat() ?: 0f,
-                totalClicks = (data["totalClicks"] as? Number)?.toInt() ?: 0,
-                rankOverall = (data["rankOverall"] as? Number)?.toInt() ?: 0,
-                percentile = (data["percentile"] as? Number)?.toFloat() ?: 0f,
-                projectedMonthlyEarnings = (data["projectedMonthlyEarnings"] as? Number)?.toInt() ?: 0
-            )
-        }
-    }
-}
-
-/**
- * Share channel enum
- */
-enum class ShareChannel {
-    WHATSAPP,
-    SMS,
-    EMAIL,
-    FACEBOOK,
-    TWITTER,
-    INSTAGRAM,
-    LINKEDIN,
-    COPY_LINK,
-    OTHER
-}
-
-/**
- * Share messages for different channels
- */
-object ShareMessages {
-    fun getShareMessage(
-        userRole: String,
-        channel: ShareChannel,
-        referralCode: String,
-        deepLink: String,
-        userName: String
-    ): String {
-        val roleText = if (userRole == "WORKER") "worker" else "employer"
-        return when (channel) {
-            ShareChannel.WHATSAPP -> "🎉 Join DutyPe as a $roleText! Use my referral code: $referralCode\n\n$deepLink\n\n- $userName"
-            ShareChannel.SMS -> "Join DutyPe with code $referralCode: $deepLink"
-            ShareChannel.EMAIL -> "Hi! I'm using DutyPe and thought you might be interested. Use my referral code $referralCode to get started: $deepLink"
-            ShareChannel.FACEBOOK, ShareChannel.TWITTER, ShareChannel.INSTAGRAM, ShareChannel.LINKEDIN -> "Join DutyPe with my referral code: $referralCode\n$deepLink"
-            ShareChannel.COPY_LINK -> deepLink
-            ShareChannel.OTHER -> "Join DutyPe with my referral code: $referralCode\n$deepLink"
-            else -> "Join DutyPe with my referral code: $referralCode\n$deepLink"
-        }
-    }
-    
-    fun getSharePrompt(context: String): String {
-        return when (context) {
-            "profile" -> "Share your referral code with friends!"
-            "earnings" -> "Earn more by referring friends!"
-            "success" -> "Great! Now share with more friends!"
-            else -> "Share DutyPe with your network!"
-        }
-    }
+    /** Who shared the code, without exposing their identity before sign-up. */
+    val referrerName: String get() = if (referrerRole == Values.Role.EMPLOYER) "an employer" else "a DutyPe user"
 }

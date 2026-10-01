@@ -211,7 +211,7 @@ private fun getNotificationDialogColor(type: NotificationType): Color {
         NotificationType.JOB_RECOMMENDATION -> Color(0xFF8B5CF6) // Purple
         
         NotificationType.BIRTHDAY,
-        NotificationType.REFERRAL_MILESTONE -> Color(0xFFFF69B4) // Pink
+        NotificationType.REFERRAL_MILESTONE, NotificationType.PAYMENT -> Color(0xFFFF69B4) // Pink
         
         NotificationType.WELCOME,
         NotificationType.PROFILE_COMPLETE -> Color(0xFF06B6D4) // Cyan
@@ -235,7 +235,7 @@ private fun getNotificationDialogIcon(type: NotificationType): ImageVector = whe
     NotificationType.JOB_RECOMMENDATION -> Icons.Default.Work
     NotificationType.REJECTED -> Icons.Default.Error
     NotificationType.BIRTHDAY -> Icons.Default.Cake
-    NotificationType.REFERRAL_MILESTONE -> Icons.Default.Campaign
+    NotificationType.REFERRAL_MILESTONE, NotificationType.PAYMENT -> Icons.Default.Campaign
     NotificationType.WELCOME -> Icons.Default.Info
     else -> Icons.Default.Notifications
 }

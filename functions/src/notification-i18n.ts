@@ -122,6 +122,38 @@ export const NOTIFICATION_TEMPLATES: Translations = {
     },
   },
 
+  // ── instant help (urgent same-day work) ───────────────────────────
+  INSTANT_REQUEST_NEARBY: {
+    en: { title: "Urgent job within {km} km: {title}", body: "₹{pay} per person · {area} · {needed} needed. Tap Accept to take it." },
+    te: { title: "{km} కి.మీ లోపు అత్యవసర పని: {title}", body: "ఒక్కరికి ₹{pay} · {area} · {needed} మంది కావాలి. తీసుకోవడానికి అంగీకరించు నొక్కండి." },
+    hi: { title: "{km} किमी के अंदर तुरंत काम: {title}", body: "प्रति व्यक्ति ₹{pay} · {area} · {needed} लोग चाहिए। लेने के लिए स्वीकार दबाएँ।" },
+  },
+  URGENT_ACCEPTED: {
+    en: { title: "{workerName} accepted your urgent job", body: "{title}: {count} of {needed} workers coming. Call them from the app." },
+    te: { title: "{workerName} మీ అత్యవసర పనిని అంగీకరించారు", body: "{title}: {needed} మందిలో {count} మంది వస్తున్నారు. యాప్ నుండి కాల్ చేయండి." },
+    hi: { title: "{workerName} ने आपका तुरंत काम स्वीकार किया", body: "{title}: {needed} में से {count} वर्कर आ रहे हैं। ऐप से कॉल करें।" },
+  },
+  URGENT_CANCELLED: {
+    en: { title: "Urgent job cancelled", body: "The employer cancelled {title}. You can accept other jobs now." },
+    te: { title: "అత్యవసర పని రద్దయింది", body: "యజమాని {title}ను రద్దు చేశారు. మీరు ఇప్పుడు ఇతర పనులు తీసుకోవచ్చు." },
+    hi: { title: "तुरंत काम रद्द हुआ", body: "नियोक्ता ने {title} रद्द कर दिया। अब आप दूसरे काम ले सकते हैं।" },
+  },
+  URGENT_REMOVED: {
+    en: { title: "You were removed from an urgent job", body: "The employer removed you from {title}. You can accept other jobs now." },
+    te: { title: "అత్యవసర పని నుండి మిమ్మల్ని తొలగించారు", body: "యజమాని మిమ్మల్ని {title} నుండి తొలగించారు. మీరు ఇతర పనులు తీసుకోవచ్చు." },
+    hi: { title: "आपको तुरंत काम से हटाया गया", body: "नियोक्ता ने आपको {title} से हटा दिया। आप दूसरे काम ले सकते हैं।" },
+  },
+  INSTANT_RESPONSE_RECEIVED: {
+    en: { title: "{workerName} can help", body: "A worker responded to your urgent need {title}." },
+    te: { title: "{workerName} సహాయం చేయగలరు", body: "మీ అత్యవసర అవసరం {title}కి ఒక వర్కర్ స్పందించారు." },
+    hi: { title: "{workerName} मदद कर सकते हैं", body: "आपकी तुरंत ज़रूरत {title} पर एक वर्कर ने जवाब दिया।" },
+  },
+  INSTANT_SELECTED: {
+    en: { title: "Hi {recipient}, you're selected! 🎉", body: "The employer selected you for {title}. Please reach on time." },
+    te: { title: "హాయ్ {recipient}, మీరు ఎంపికయ్యారు! 🎉", body: "{title} కోసం యజమాని మిమ్మల్ని ఎంచుకున్నారు. సమయానికి చేరుకోండి." },
+    hi: { title: "नमस्ते {recipient}, आपको चुना गया! 🎉", body: "{title} के लिए नियोक्ता ने आपको चुना है। समय पर पहुँचें।" },
+  },
+
   // ── referral system ───────────────────────────────────────────────
   REFERRAL_REWARD_BASIC: {
     en: {
@@ -163,6 +195,62 @@ export const NOTIFICATION_TEMPLATES: Translations = {
     hi: {
       title: "स्वागत बोनस",
       body: "DutyPe से जुड़ने पर आपने ₹{amount} कमाए।",
+    },
+  },
+  WITHDRAWAL_COMPLETED: {
+    en: {
+      title: "Withdrawal sent",
+      body: "₹{amount} has been sent to your UPI account.",
+    },
+    te: {
+      title: "డబ్బు పంపబడింది",
+      body: "₹{amount} మీ UPI ఖాతాకు పంపబడింది.",
+    },
+    hi: {
+      title: "निकासी भेज दी गई",
+      body: "₹{amount} आपके UPI खाते में भेज दिए गए हैं।",
+    },
+  },
+  SUBSCRIPTION_ACTIVATED: {
+    en: {
+      title: "Plan activated",
+      body: "Your payment is verified. Job post credits have been added.",
+    },
+    te: {
+      title: "ప్లాన్ యాక్టివేట్ అయింది",
+      body: "మీ చెల్లింపు ధృవీకరించబడింది. జాబ్ పోస్ట్ క్రెడిట్‌లు జోడించబడ్డాయి.",
+    },
+    hi: {
+      title: "प्लान सक्रिय हुआ",
+      body: "आपका भुगतान सत्यापित हो गया। जॉब पोस्ट क्रेडिट जोड़ दिए गए हैं।",
+    },
+  },
+  SUBSCRIPTION_REJECTED: {
+    en: {
+      title: "Payment not verified",
+      body: "We could not verify your payment. {reason}",
+    },
+    te: {
+      title: "చెల్లింపు ధృవీకరించబడలేదు",
+      body: "మీ చెల్లింపును ధృవీకరించలేకపోయాము. {reason}",
+    },
+    hi: {
+      title: "भुगतान सत्यापित नहीं हुआ",
+      body: "हम आपका भुगतान सत्यापित नहीं कर सके। {reason}",
+    },
+  },
+  WITHDRAWAL_FAILED: {
+    en: {
+      title: "Withdrawal failed",
+      body: "We could not send ₹{amount}. The money is back in your wallet.",
+    },
+    te: {
+      title: "విత్‌డ్రా విఫలమైంది",
+      body: "₹{amount} పంపలేకపోయాము. డబ్బు మీ వాలెట్‌కు తిరిగి వచ్చింది.",
+    },
+    hi: {
+      title: "निकासी विफल",
+      body: "₹{amount} नहीं भेजे जा सके। पैसे आपके वॉलेट में वापस आ गए हैं।",
     },
   },
   EMPLOYER_WELCOME_BENEFIT: {
@@ -621,7 +709,7 @@ export async function getUserDisplayName(
       db.collection("employer_profiles").doc(userId).get(),
     ]);
     const fullName = String(
-      workerSnap.get("fullName") ?? employerSnap.get("fullName") ?? ""
+      workerSnap.get("name") ?? employerSnap.get("ownerName") ?? ""
     ).trim();
     if (!fullName) return fallback;
     // First token only — keeps notification bodies concise and avoids

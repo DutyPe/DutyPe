@@ -1,12 +1,10 @@
 package com.example.dutype.services
 
-import com.example.dutype.firestore.FirestoreCollections
-import com.example.dutype.utils.SecureLogger
+import com.example.dutype.firestore.FirestoreSchema.JobReports
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.Timestamp
-import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import javax.inject.Inject
@@ -45,20 +43,6 @@ enum class ReportType(val displayName: String, val description: String) {
     OTHER("Other", "Other issues not listed above")
 }
 
-data class JobReport(
-    val reportId: String = "",
-    val jobId: String = "",
-    val reporterId: String = "",
-    val reporterPhone: String = "",
-    val reportType: String = "",
-    val description: String = "",
-    val timestamp: Long = System.currentTimeMillis(),
-    val status: String = "PENDING", // PENDING, REVIEWED, RESOLVED, DISMISSED
-    val reviewedBy: String? = null,
-    val reviewedAt: Long? = null,
-    val actionTaken: String? = null
-)
-
 data class ReportResult(
     val success: Boolean,
     val message: String,
@@ -66,96 +50,23 @@ data class ReportResult(
     val jobHidden: Boolean = false
 )
 
+/**
+ * Job reports: job_reports/{jobId}_{reporterId} (one per person per job). The server counts them and
+ * closes a job at 3 reports; non-payment claims also notify the employer.
+ */
 @Singleton
 class ReportingService @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth
 ) {
     companion object {
-        const val REPORTS_COLLECTION = "job_reports"
-        const val JOBS_COLLECTION = FirestoreCollections.JOBS
-        const val AUTO_HIDE_THRESHOLD = 3 // 3 reports = auto-hide
-        const val REPORT_COOLDOWN_HOURS = 24 // Can't report same job twice in 24 hours
-        const val MAX_CLAIM_AMOUNT = 1_000_000.0 // Mirrors the Firestore rule ceiling
+        const val MAX_CLAIM_AMOUNT = 1_000_000.0
     }
-    
-    /**
-     * Report a job posting
-     * Returns result with total reports and whether job was auto-hidden
-     */
-    suspend fun reportJob(
-        jobId: String,
-        reportType: ReportType,
-        description: String = ""
-    ): Result<ReportResult> {
-        return try {
-            val currentUser = auth.currentUser
-                ?: return Result.failure(Exception("User not authenticated"))
-            
-            val userId = currentUser.uid
-            
-            // P0 FIX: Use SecureLogger to mask sensitive data
-            SecureLogger.d("ReportingService", "Reporting job", 
-                "jobId" to jobId,
-                "reporterId" to userId,
-                "reportType" to reportType.name
-            )
 
-            val reportRef = firestore.collection(REPORTS_COLLECTION)
-                .document(buildReportId(userId, jobId))
+    suspend fun reportJob(jobId: String, reportType: ReportType, description: String = ""): Result<ReportResult> =
+        submit(jobId, reportType, description.trim().ifBlank { reportType.description }, "Thank you for reporting. We'll review this job.")
 
-            if (reportRef.get().await().exists()) {
-                return Result.success(
-                    ReportResult(
-                        success = false,
-                        message = "You have already reported this job.",
-                        totalReports = 0,
-                        jobHidden = false
-                    )
-                )
-            }
-
-            val normalizedDescription = description.trim().ifBlank { reportType.description }
-            val reportData = mapOf(
-                "jobId" to jobId,
-                "reporterId" to userId,
-                "reportType" to reportType.name,
-                "description" to normalizedDescription,
-                "createdAt" to Timestamp.now(),
-                "status" to "PENDING"
-            )
-
-            reportRef.set(reportData).await()
-
-            Result.success(
-                ReportResult(
-                    success = true,
-                    message = "Thank you for reporting. We'll review this job.",
-                    totalReports = 0,
-                    jobHidden = false
-                )
-            )
-            
-        } catch (e: FirebaseFirestoreException) {
-            if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                Timber.e(e, "Failed to report job: permission denied")
-                return Result.failure(Exception("Unable to submit report right now. Please update app/rules and try again."))
-            }
-            Timber.e(e, "Failed to report job")
-            Result.failure(e)
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to report job")
-            Result.failure(e)
-        }
-    }
-    
-    /**
-     * Report an employer for not paying after completed work.
-     *
-     * Uses the same one-report-per-(user, job) document as [reportJob] so the existing
-     * moderation pipeline picks it up, but carries the amount and work date so support
-     * has something concrete to act on.
-     */
+    /** Non-payment after completed work; the amount and date go into the note for support. */
     suspend fun reportNonPayment(
         jobId: String,
         employerId: String,
@@ -163,125 +74,38 @@ class ReportingService @Inject constructor(
         workedOn: Timestamp,
         description: String = ""
     ): Result<ReportResult> {
-        return try {
-            val currentUser = auth.currentUser
-                ?: return Result.failure(Exception("User not authenticated"))
+        val uid = auth.currentUser?.uid ?: return Result.failure(Exception("User not authenticated"))
+        if (employerId.isBlank() || employerId == uid) return Result.failure(Exception("Invalid employer for this report"))
+        if (amountOwed <= 0.0 || amountOwed > MAX_CLAIM_AMOUNT) return Result.failure(Exception("Enter the amount you are owed"))
+        if (workedOn.toDate().time > System.currentTimeMillis()) return Result.failure(Exception("Work date cannot be in the future"))
+        val day = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.ENGLISH).format(workedOn.toDate())
+        val note = "Owed ₹${amountOwed.toLong()} for work on $day. ${description.trim()}".trim()
+        return submit(jobId, ReportType.NON_PAYMENT, note, "Thank you. Our team will look into this payment.")
+    }
 
-            val userId = currentUser.uid
-
-            if (employerId.isBlank() || employerId == userId) {
-                return Result.failure(Exception("Invalid employer for this report"))
-            }
-            if (amountOwed <= 0.0 || amountOwed > MAX_CLAIM_AMOUNT) {
-                return Result.failure(Exception("Enter the amount you are owed"))
-            }
-            if (workedOn.toDate().time > System.currentTimeMillis()) {
-                return Result.failure(Exception("Work date cannot be in the future"))
-            }
-
-            SecureLogger.d("ReportingService", "Reporting non-payment",
-                "jobId" to jobId,
-                "reporterId" to userId
-            )
-
-            val reportRef = firestore.collection(REPORTS_COLLECTION)
-                .document(buildReportId(userId, jobId))
-
-            if (reportRef.get().await().exists()) {
-                return Result.success(
-                    ReportResult(
-                        success = false,
-                        message = "You have already reported this job.",
-                        totalReports = 0,
-                        jobHidden = false
-                    )
+    private suspend fun submit(jobId: String, type: ReportType, note: String, thanks: String): Result<ReportResult> = try {
+        val uid = auth.currentUser?.uid ?: throw Exception("User not authenticated")
+        val ref = firestore.collection(JobReports.COLLECTION).document("${jobId}_$uid")
+        if (ref.get().await().exists()) {
+            Result.success(ReportResult(false, "You have already reported this job."))
+        } else {
+            ref.set(
+                mapOf(
+                    JobReports.JOB_ID to jobId,
+                    JobReports.REPORTER_ID to uid,
+                    JobReports.REASON to type.name,
+                    JobReports.NOTE to note.take(500),
+                    JobReports.STATUS to "open",
+                    JobReports.CREATED_AT to Timestamp.now()
                 )
-            }
-
-            val reportData = mapOf(
-                "jobId" to jobId,
-                "reporterId" to userId,
-                "reportType" to ReportType.NON_PAYMENT.name,
-                "description" to description.trim().ifBlank { ReportType.NON_PAYMENT.description },
-                "createdAt" to Timestamp.now(),
-                "status" to "PENDING",
-                "employerId" to employerId,
-                "amountOwed" to amountOwed,
-                "workedOn" to workedOn
-            )
-
-            reportRef.set(reportData).await()
-
-            Result.success(
-                ReportResult(
-                    success = true,
-                    message = "Thank you. Our team will look into this payment.",
-                    totalReports = 0,
-                    jobHidden = false
-                )
-            )
-        } catch (e: FirebaseFirestoreException) {
-            if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                Timber.e(e, "Failed to report non-payment: permission denied")
-                return Result.failure(Exception("You can only report non-payment for a job you applied to."))
-            }
-            Timber.e(e, "Failed to report non-payment")
-            Result.failure(e)
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to report non-payment")
-            Result.failure(e)
+            ).await()
+            Result.success(ReportResult(true, thanks))
         }
+    } catch (e: FirebaseFirestoreException) {
+        Timber.e(e, "report failed")
+        Result.failure(if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) Exception("Unable to submit the report right now.") else e)
+    } catch (e: Exception) {
+        Timber.e(e, "report failed")
+        Result.failure(e)
     }
-
-    /**
-     * Check if user already reported this job
-     */
-    private suspend fun checkExistingReport(jobId: String, userId: String): Boolean {
-        val reportId = buildReportId(userId, jobId)
-        return firestore.collection(REPORTS_COLLECTION)
-            .document(reportId)
-            .get()
-            .await()
-            .exists()
-    }
-    
-    /**
-     * Get user's reports
-     */
-    suspend fun getUserReports(userId: String): List<JobReport> {
-        return try {
-            firestore.collection(REPORTS_COLLECTION)
-                .whereEqualTo("reporterId", userId)
-                .orderBy("timestamp", Query.Direction.DESCENDING)
-                .limit(100)
-                .get()
-                .await()
-                .documents
-                .mapNotNull { doc ->
-                    val data = doc.data ?: return@mapNotNull null
-                    JobReport(
-                        reportId = data["reportId"] as? String ?: doc.id,
-                        jobId = data["jobId"] as? String ?: "",
-                        reporterId = data["reporterId"] as? String ?: "",
-                        reporterPhone = data["reporterPhone"] as? String ?: "",
-                        reportType = data["reportType"] as? String ?: "",
-                        description = data["description"] as? String ?: "",
-                        timestamp = when (val createdAt = data["createdAt"]) {
-                            is Timestamp -> createdAt.toDate().time
-                            is Number -> createdAt.toLong()
-                            else -> (data["timestamp"] as? Number)?.toLong() ?: 0L
-                        },
-                        status = data["status"] as? String ?: "PENDING",
-                        reviewedBy = data["reviewedBy"] as? String,
-                        reviewedAt = (data["reviewedAt"] as? Number)?.toLong(),
-                        actionTaken = data["actionTaken"] as? String
-                    )
-                }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to get user reports")
-            emptyList()
-        }
-    }
-
-    private fun buildReportId(userId: String, jobId: String): String = "${userId}_${jobId}"
 }

@@ -1,5 +1,6 @@
 ﻿package com.example.dutype.employer.components.postjob
 
+import com.example.dutype.ui.theme.bg
 import com.dutype.app.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.BorderStroke
@@ -105,8 +106,8 @@ fun PostJobNavigationButtons(
                 enabled = !isSubmitting,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF059669),
-                    disabledContainerColor = Color(0xFF059669).copy(alpha = 0.5f)
+                    containerColor = Color(0xFF059669).bg(),
+                    disabledContainerColor = Color(0xFF059669).bg().copy(alpha = 0.5f)
                 )
             ) {
                 if (isSubmitting) {

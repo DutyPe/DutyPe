@@ -1,5 +1,8 @@
 package com.example.dutype.components
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -127,102 +130,27 @@ fun EmptyListState(
     modifier: Modifier = Modifier,
     containerColor: Color = WorkerColors.ScreenBackground,
     actionButton: EmptyStateAction? = null,
-    secondaryAction: EmptyStateAction? = null
+    secondaryAction: EmptyStateAction? = null,
+    tone: EmptyTone = EmptyTone.BLUE,
+    badge: ImageVector? = null,
+    art: EmptyArt? = null
 ) {
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(containerColor)
-            .padding(32.dp),
+            .background(containerColor),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Icon with subtle background
-            Box(
-                modifier = Modifier
-                    .size(72.dp)
-                    .clip(CircleShape)
-                    .background(WorkerColors.ChipBackground),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(40.dp),
-                    tint = WorkerColors.IconSecondary
-                )
-            }
-
-            // Title and subtitle
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = title,
-                    style = AppTypography.emptyStateTitle.copy(
-                        color = WorkerColors.TextPrimary
-                    ),
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = subtitle,
-                    style = AppTypography.emptyStateSubtitle.copy(
-                        color = WorkerColors.TextSecondary
-                    ),
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            // Action buttons
-            if (actionButton != null || secondaryAction != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth(0.7f)
-                ) {
-                    actionButton?.let {
-                        Button(
-                            onClick = it.onClick,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = WorkerColors.Primary
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = it.icon ?: Icons.Default.Search,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = it.label,
-                                style = AppTypography.buttonMedium
-                            )
-                        }
-                    }
-                    
-                    secondaryAction?.let {
-                        TextButton(
-                            onClick = it.onClick,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                text = it.label,
-                                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                    }
-                }
-            }
-        }
+        DutyPeEmptyState(
+            icon = icon,
+            title = title,
+            message = subtitle,
+            tone = tone,
+            badge = badge,
+            art = art,
+            primary = actionButton,
+            secondary = secondaryAction
+        )
     }
 }
 
@@ -246,18 +174,19 @@ fun EmptySearchState(
     searchQuery: String,
     modifier: Modifier = Modifier,
     containerColor: Color = WorkerColors.ScreenBackground,
-    onClearSearch: () -> Unit = {}
+    onClearSearch: (() -> Unit)? = null
 ) {
     EmptyListState(
         modifier = modifier,
         containerColor = containerColor,
-        icon = Icons.Default.SearchOff,
+        icon = Icons.Default.Search,
+        badge = Icons.Default.SearchOff,
+        art = EmptyArt.SEARCH,
         title = stringResource(R.string.no_results_found),
         subtitle = stringResource(R.string.empty_search_subtitle, searchQuery),
-        actionButton = EmptyStateAction(
-            label = stringResource(R.string.clear_search),
-            onClick = onClearSearch
-        )
+        actionButton = onClearSearch?.let {
+            EmptyStateAction(label = stringResource(R.string.clear_search), onClick = it)
+        }
     )
 }
 
@@ -494,10 +423,10 @@ fun DutyPeExpandingLocationState(
                         modifier = Modifier
                             .fillMaxWidth(0.92f)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFFE8F5E9))
+                            .background(Color(0xFFE8F5E9).bg())
                             .border(
                                 width = 1.dp,
-                                color = Color(0xFF81C784),
+                                color = Color(0xFF81C784).fg(),
                                 shape = RoundedCornerShape(12.dp)
                             )
                             .padding(horizontal = 14.dp, vertical = 10.dp),
@@ -507,14 +436,14 @@ fun DutyPeExpandingLocationState(
                         Icon(
                             imageVector = Icons.Default.CheckCircle,
                             contentDescription = null,
-                            tint = Color(0xFF2E7D32),
+                            tint = Color(0xFF2E7D32).fg(),
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = stringResource(R.string.dutype_notified_success),
                             style = AppTypography.bodyMedium.copy(
-                                color = Color(0xFF1B5E20),
+                                color = Color(0xFF1B5E20).fg(),
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 13.sp
                             ),
@@ -537,7 +466,7 @@ fun DutyPeExpandingLocationState(
                         context.startActivity(shareIntent)
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF334155) else Color(0xFFF1F5F9),
+                        containerColor = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color(0xFF334155).bg() else Color(0xFFF1F5F9).bg(),
                         contentColor = WorkerColors.TextPrimary
                     ),
                     shape = RoundedCornerShape(12.dp),
@@ -549,7 +478,7 @@ fun DutyPeExpandingLocationState(
                     Icon(
                         imageVector = Icons.Default.Share,
                         contentDescription = null,
-                        tint = Color(0xFF25D366),
+                        tint = Color(0xFF25D366).fg(),
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -597,7 +526,7 @@ fun DutyPeExpandingLocationState(
                                         imageVector = Icons.Default.LocationOn,
                                         contentDescription = null,
                                         modifier = Modifier.size(13.dp),
-                                        tint = WorkerColors.Primary
+                                        tint = WorkerColors.Primary.fg()
                                     )
                                 },
                                 shape = RoundedCornerShape(8.dp),
@@ -626,14 +555,14 @@ fun DutyPeExpandingLocationState(
                         modifier = Modifier.fillMaxWidth(0.92f),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = Color(0xFF6366F1)
+                            contentColor = Color(0xFF6366F1).fg()
                         ),
-                        border = BorderStroke(1.2.dp, Color(0xFF6366F1).copy(alpha = 0.35f))
+                        border = BorderStroke(1.2.dp, Color(0xFF6366F1).bd().copy(alpha = 0.35f))
                     ) {
                         Icon(
                             imageVector = Icons.Default.HelpOutline,
                             contentDescription = null,
-                            tint = Color(0xFF6366F1),
+                            tint = Color(0xFF6366F1).fg(),
                             modifier = Modifier.size(17.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -641,7 +570,7 @@ fun DutyPeExpandingLocationState(
                             text = "Need help? Contact DutyPe Support",
                             style = AppTypography.bodySmall.copy(
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF6366F1),
+                                color = Color(0xFF6366F1).fg(),
                                 fontSize = 12.5.sp
                             )
                         )
@@ -799,6 +728,7 @@ fun EmptySavedItemsState(
         modifier = modifier,
         containerColor = containerColor,
         icon = Icons.Default.Bookmark,
+        tone = EmptyTone.PURPLE,
         title = stringResource(R.string.no_saved_item_type, itemType),
         subtitle = stringResource(R.string.save_item_type_later, itemType),
         actionButton = EmptyStateAction(
@@ -942,112 +872,18 @@ fun LocationPermissionRequiredState(
     modifier: Modifier = Modifier,
     onRequestPermissionClick: () -> Unit
 ) {
-    val context = LocalContext.current
-    val isTelugu = com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
-
-    val title = if (isTelugu) "మీ సమీపంలోని ఉద్యోగాలను చూడండి" else "Find Jobs Near You"
-    val subtitle = if (isTelugu)
-        "మీ పరిసరాల్లోని ఉద్యోగ ఖాళీలను చూడటానికి దయచేసి లొకేషన్ అనుమతిని ఆన్ చేయండి."
-    else
-        "Enable location to discover verified job vacancies and daily wage work in your area."
-    val buttonText = if (isTelugu) "లొకేషన్ ఆన్ చేయండి" else "Enable Location"
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-            .clickable { onRequestPermissionClick() },
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White
+    DutyPeEmptyState(
+        icon = Icons.Default.LocationOn,
+        badge = Icons.Default.MyLocation,
+        title = stringResource(R.string.location_needed_title),
+        message = stringResource(R.string.location_needed_body),
+        primary = EmptyStateAction(
+            label = stringResource(R.string.enable_location),
+            icon = Icons.Default.MyLocation,
+            onClick = onRequestPermissionClick
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            // Icon Badge with pulse glow effect
-            Box(
-                modifier = Modifier
-                    .size(76.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(
-                            colors = listOf(
-                                Color(0xFF2563EB).copy(alpha = 0.18f),
-                                Color(0xFF2563EB).copy(alpha = 0.06f)
-                            )
-                        )
-                    )
-                    .border(2.dp, Color(0xFF2563EB).copy(alpha = 0.2f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = null,
-                    tint = Color(0xFF2563EB),
-                    modifier = Modifier.size(38.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = Color(0xFF0F172A)
-                ),
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF64748B),
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp
-                ),
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Button(
-                onClick = onRequestPermissionClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF2563EB),
-                    contentColor = Color.White
-                )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MyLocation,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = buttonText,
-                    style = MaterialTheme.typography.labelLarge.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp
-                    )
-                )
-            }
-        }
-    }
+        modifier = modifier.fillMaxWidth().padding(top = 24.dp)
+    )
 }
 
 /**
@@ -1068,7 +904,7 @@ fun LocationPermissionBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
+        containerColor = Color.White.bg(),
         shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
         dragHandle = {
             Box(
@@ -1077,7 +913,7 @@ fun LocationPermissionBottomSheet(
                     .width(36.dp)
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(Color(0xFFCBD5E1))
+                    .background(Color(0xFFCBD5E1).bg())
             )
         }
     ) {
@@ -1097,13 +933,13 @@ fun LocationPermissionBottomSheet(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFEFF6FF)),
+                        .background(Color(0xFFEFF6FF).bg()),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = Color(0xFF2563EB),
+                        tint = Color(0xFF2563EB).fg(),
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -1116,13 +952,13 @@ fun LocationPermissionBottomSheet(
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 17.sp,
-                            color = Color(0xFF0F172A)
+                            color = Color(0xFF0F172A).fg()
                         )
                     )
                     Text(
                         text = if (isTelugu) "మీ ఏరియా ఉద్యోగాలను వేగంగా చూడటానికి" else "To show nearby jobs in your area",
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF64748B),
+                            color = Color(0xFF64748B).fg(),
                             fontSize = 12.sp
                         )
                     )
@@ -1136,7 +972,7 @@ fun LocationPermissionBottomSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFFF8FAFC))
+                    .background(Color(0xFFF8FAFC).bg())
                     .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -1164,7 +1000,7 @@ fun LocationPermissionBottomSheet(
                     .height(48.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF2563EB),
+                    containerColor = Color(0xFF2563EB).bg(),
                     contentColor = Color.White
                 )
             ) {
@@ -1192,9 +1028,9 @@ fun LocationPermissionBottomSheet(
                     .fillMaxWidth()
                     .height(44.dp),
                 shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFF475569)
+                    contentColor = Color(0xFF475569).fg()
                 )
             ) {
                 Text(
@@ -1227,7 +1063,7 @@ private fun CompactBenefitRow(
             style = MaterialTheme.typography.bodySmall.copy(
                 fontWeight = FontWeight.Medium,
                 fontSize = 12.sp,
-                color = Color(0xFF334155)
+                color = Color(0xFF334155).fg()
             )
         )
     }

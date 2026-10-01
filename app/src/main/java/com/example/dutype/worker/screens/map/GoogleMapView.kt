@@ -1,5 +1,8 @@
 package com.example.dutype.worker.screens.map
 
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -312,7 +315,7 @@ fun EnhancedGoogleMapView(
 
             Polyline(
                 points = routePoints,
-                color = Color(0xFF1A1A1A),
+                color = Color(0xFF1A1A1A).fg(),
                 width = 8f,
                 jointType = JointType.ROUND,
                 startCap = RoundCap(),
@@ -358,15 +361,15 @@ private fun JobPriceTagMarker(job: JobListing, isSelected: Boolean) {
         modifier = Modifier
             .scale(if (isSelected) 1.12f else 1f)
             .let { if (isSelected) it.shadow(elevation = 4.dp, shape = shape) else it }
-            .background(if (isSelected) MarkerInk else Color.White, shape)
-            .border(1.dp, MarkerInk, shape)
+            .background(if (isSelected) MarkerInk.bg() else Color.White.bg(), shape)
+            .border(1.dp, MarkerInk.bd(), shape)
             .padding(horizontal = if (isSelected) 12.dp else 10.dp, vertical = if (isSelected) 7.dp else 6.dp)
     ) {
         Text(
             text = jobMarkerWageLabel(job),
             fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold,
-            color = if (isSelected) Color.White else MarkerInk
+            color = if (isSelected) Color.White else MarkerInk.fg()
         )
     }
 }
@@ -620,7 +623,7 @@ fun GoogleMapWithPulsingMarkers(
             PulsingRadarOverlay(
                 modifier = Modifier.fillMaxSize(),
                 isActive = true,
-                color = AvailableGreen
+                color = AvailableGreen.fg()
             )
         }
     }

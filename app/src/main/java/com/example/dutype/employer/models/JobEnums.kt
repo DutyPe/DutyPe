@@ -3,11 +3,19 @@ package com.example.dutype.employer.models
 import com.example.dutype.firestore.FirestoreSchema.Values
 
 /** jobmetadata.payType — [key] is the stored value. */
-enum class PayType(val key: String, val displayName: String, val perUnit: String) {
-    DAILY(Values.PayType.DAILY, "Daily", "day"),
-    MONTHLY(Values.PayType.MONTHLY, "Monthly", "month"),
-    HOURLY(Values.PayType.HOURLY, "Hourly", "hour"),
-    NEGOTIABLE(Values.PayType.NEGOTIABLE, "Negotiable", "");
+enum class PayType(
+    val key: String,
+    val displayName: String,
+    val perUnit: String,
+    /** Localized name ("Weekly") and unit ("/week"; 0 for negotiable). */
+    val labelRes: Int,
+    val unitRes: Int
+) {
+    DAILY(Values.PayType.DAILY, "Daily", "day", com.dutype.app.R.string.daily, com.dutype.app.R.string.per_day),
+    WEEKLY(Values.PayType.WEEKLY, "Weekly", "week", com.dutype.app.R.string.weekly, com.dutype.app.R.string.per_week),
+    MONTHLY(Values.PayType.MONTHLY, "Monthly", "month", com.dutype.app.R.string.monthly, com.dutype.app.R.string.per_month),
+    HOURLY(Values.PayType.HOURLY, "Hourly", "hour", com.dutype.app.R.string.hourly, com.dutype.app.R.string.per_hour),
+    NEGOTIABLE(Values.PayType.NEGOTIABLE, "Negotiable", "", com.dutype.app.R.string.negotiable, 0);
 
     companion object {
         fun fromKey(key: String?): PayType =

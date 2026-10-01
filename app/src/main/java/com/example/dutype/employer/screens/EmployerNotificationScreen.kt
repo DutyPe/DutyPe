@@ -1,5 +1,7 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.fg
+import androidx.compose.material.icons.filled.NotificationsNone
 import com.dutype.app.R
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -175,48 +177,13 @@ fun EmployerNotificationScreen(
                 }
             }
             uiState.notifications.isEmpty() -> {
-                // Empty state with enhanced design (same look for guests and signed-in users)
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(120.dp)
-                                .background(EmployerColors.ChipBackground, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                Icons.Default.Notifications,
-                                contentDescription = "No notifications",
-                                tint = EmployerColors.Primary.copy(alpha = 0.6f),
-                                modifier = Modifier.size(48.dp)
-                            )
-                        }
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.notif_no_notifications),
-                                style = MaterialTheme.typography.headlineSmall,
-                                color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = stringResource(R.string.notif_employer_empty_desc),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = EmployerColors.TextSecondary,
-                                modifier = Modifier.padding(horizontal = 40.dp),
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                        }
-                    }
-                }
+                com.example.dutype.components.DutyPeEmptyScreen(
+                    icon = Icons.Filled.NotificationsNone,
+                    tone = com.example.dutype.components.EmptyTone.PURPLE,
+                    art = com.example.dutype.components.EmptyArt.LETTER,
+                    title = stringResource(R.string.notif_no_notifications),
+                    message = stringResource(R.string.notif_employer_empty_desc)
+                )
             }
             else -> {
                 LazyColumn(
@@ -259,7 +226,7 @@ fun EmployerNotificationScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 CircularProgressIndicator(
-                                    color = EmployerColors.Primary,
+                                    color = EmployerColors.Primary.fg(),
                                     strokeWidth = 2.dp,
                                     modifier = Modifier.size(20.dp)
                                 )

@@ -23,7 +23,9 @@ type Props = {
   };
 };
 
-export const revalidate = 60;
+// Built once at deploy: served from the CDN, the server never runs for these pages.
+export const dynamic = "force-static";
+export const dynamicParams = false;
 
 const supportPages = [
   { href: "/safety", label: "Safety", icon: "shield-check" },

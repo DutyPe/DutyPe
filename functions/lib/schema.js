@@ -6,7 +6,7 @@
  * Also imported by the web admin (web/lib/firebase/schema.ts re-exports this file's shape).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CATEGORY_KEYS = exports.Values = exports.Idempotency = exports.LocationDemand = exports.Feedback = exports.Announcements = exports.AppConfig = exports.PaymentQrCodes = exports.SubscriptionPayments = exports.WithdrawalDaily = exports.Withdrawals = exports.WalletLedger = exports.Wallets = exports.Referrals = exports.ReferralCodes = exports.InstantRequests = exports.JobReports = exports.Ratings = exports.Notifications = exports.SavedJobs = exports.Applications = exports.JobCells = exports.JobDetails = exports.Jobs = exports.EmployerProfiles = exports.WorkerCards = exports.WorkerProfiles = exports.UserTokens = exports.PhoneRoles = void 0;
+exports.CATEGORY_KEYS = exports.MAX_PAY_RUPEES = exports.Values = exports.Idempotency = exports.LocationDemand = exports.Feedback = exports.Announcements = exports.AppConfig = exports.PaymentQrCodes = exports.SubscriptionPayments = exports.WithdrawalDaily = exports.Withdrawals = exports.WalletLedger = exports.Wallets = exports.Referrals = exports.ReferralCodes = exports.InstantRequests = exports.JobReports = exports.Ratings = exports.Notifications = exports.SavedJobs = exports.Applications = exports.JobDetails = exports.Jobs = exports.JobContacts = exports.EmployerCards = exports.EmployerProfiles = exports.WorkerCards = exports.WorkerProfiles = exports.UserTokens = exports.PhoneRoles = void 0;
 exports.PhoneRoles = {
     COLLECTION: "phoneRoles",
     UID: "uid",
@@ -34,7 +34,10 @@ exports.WorkerProfiles = {
     LAT: "lat",
     LNG: "lng",
     GEOHASH: "geohash",
+    /** Online switch: only online workers get urgent job offers. */
     AVAILABLE: "available",
+    /** (server) the urgent need this worker accepted and has not finished — one at a time. */
+    ACTIVE_URGENT_ID: "activeUrgentId",
     BLOCKED: "blocked",
     CREATED_AT: "createdAt",
     UPDATED_AT: "updatedAt",
@@ -46,13 +49,24 @@ exports.WorkerCards = {
     SKILLS: "skills",
     EXPERIENCE_YEARS: "experienceYears",
     AREA: "area",
+    /** Home point rounded to ~1 km (privacy). */
     LAT: "lat",
     LNG: "lng",
-    GEOHASH: "geohash",
+    CELL: "cell",
+    DISTRICT_ID: "districtId",
+    STATE_ID: "stateId",
+    CURRENT_CELL: "currentCell",
+    CURRENT_DISTRICT_ID: "currentDistrictId",
+    /** "{SKILL}_{cell}" / "ANY_{cell}" for the home and current cells — employer matching. */
+    SKILL_CELLS: "skillCells",
+    /** "{SKILL}_{districtId}" / "ANY_{districtId}" for the home and current districts. */
+    SKILL_DISTRICTS: "skillDistricts",
     AVAILABLE: "available",
     RATING: "rating",
     RATING_COUNT: "ratingCount",
     JOBS_COMPLETED: "jobsCompleted",
+    /** (server) urgent jobs accepted but not turned up for — shown to employers. */
+    NO_SHOWS: "noShows",
     LAST_ACTIVE_AT: "lastActiveAt",
 };
 exports.EmployerProfiles = {
@@ -71,6 +85,8 @@ exports.EmployerProfiles = {
     GEOHASH: "geohash",
     SUBSCRIPTION: "subscription",
     FREE_URGENT_POSTS_USED: "freeUrgentPostsUsed",
+    /** (server) DutyPe AI actions used from the free trial (employers without an AI plan). */
+    AI_TRIAL_USED: "aiTrialUsed",
     VERIFIED: "verified",
     RATING: "rating",
     RATING_COUNT: "ratingCount",
@@ -86,6 +102,10 @@ exports.EmployerProfiles = {
         CREDITS: "credits",
         CREDITS_NORMAL: "normal",
         CREDITS_INSTANT: "instant",
+        /** The plan includes DutyPe AI. */
+        AI: "ai",
+        /** DutyPe AI actions allowed per day on this plan. */
+        AI_PER_DAY: "aiPerDay",
     },
     Unlocks: {
         COLLECTION: "unlocks",
@@ -99,6 +119,22 @@ exports.EmployerProfiles = {
         LAT: "lat",
         LNG: "lng",
     },
+};
+/** Public face of an employer (no phone / GSTIN / billing), synced from employer_profiles. */
+exports.EmployerCards = {
+    COLLECTION: "employer_cards",
+    NAME: "name",
+    PHOTO_URL: "photoUrl",
+    AREA: "area",
+    VERIFIED: "verified",
+    RATING: "rating",
+    RATING_COUNT: "ratingCount",
+};
+/** The employer's number for a job; employer-only. Workers get it from applyToJob(viaCall). */
+exports.JobContacts = {
+    COLLECTION: "job_contacts",
+    EMPLOYER_ID: "employerId",
+    CONTACT_NUMBER: "contactNumber",
 };
 exports.Jobs = {
     COLLECTION: "jobmetadata",
@@ -117,6 +153,15 @@ exports.Jobs = {
     LAT: "lat",
     LNG: "lng",
     GEOHASH: "geohash",
+    /** geohash precision 5 (~4.9 km): the feed's km bands query `cell in [...]`. */
+    CELL: "cell",
+    /** Set by the server from lat/lng (LGD codes + names). */
+    DISTRICT_ID: "districtId",
+    DISTRICT: "district",
+    STATE_ID: "stateId",
+    STATE: "state",
+    /** (server) search words of title, company, area, district, category — `array-contains` search. */
+    KEYWORDS: "keywords",
     STATUS: "status",
     APPLICATION_COUNT: "applicationCount",
     CREATED_AT: "createdAt",
@@ -127,20 +172,10 @@ exports.JobDetails = {
     EMPLOYER_ID: "employerId",
     DESCRIPTION: "description",
     ADDRESS_TEXT: "addressText",
-    CONTACT_NUMBER: "contactNumber",
     GENDER: "gender",
     EXPERIENCE_REQUIRED: "experienceRequired",
     EDUCATION_REQUIRED: "educationRequired",
     BENEFITS: "benefits",
-};
-exports.JobCells = {
-    COLLECTION: "job_cells",
-    CELLS: "cells",
-    TOTAL: "_",
-    URGENT: "URGENT",
-    UPDATED_AT: "updatedAt",
-    REGION_PRECISION: 4,
-    CELL_PRECISION: 6,
 };
 exports.Applications = {
     COLLECTION: "applications",
@@ -207,11 +242,17 @@ exports.InstantRequests = {
     LAT: "lat",
     LNG: "lng",
     GEOHASH: "geohash",
+    /** geohash precision 5 (~4.9 km): workers' nearby list queries `cell in [...]`. */
+    CELL: "cell",
     RADIUS_KM: "radiusKm",
     CONTACT_NUMBER: "contactNumber",
     STATUS: "status",
     SELECTED_WORKER_IDS: "selectedWorkerIds",
     RESPONSE_COUNT: "responseCount",
+    /** (server) offers have been pushed to workers up to this many km (5 → 10 → 15 → 20). */
+    DISPATCH_RADIUS_KM: "dispatchRadiusKm",
+    /** (server) when the next, wider wave of offers goes out; removed when filled or at 20 km. */
+    NEXT_WAVE_AT: "nextWaveAt",
     CREATED_AT: "createdAt",
     EXPIRES_AT: "expiresAt",
     Responses: {
@@ -342,7 +383,7 @@ exports.Values = {
     Role: { WORKER: "WORKER", EMPLOYER: "EMPLOYER" },
     EmployerType: { INDIVIDUAL: "INDIVIDUAL", COMPANY: "COMPANY" },
     EmploymentType: { FULL_TIME: "FULL_TIME", PART_TIME: "PART_TIME", DAILY: "DAILY" },
-    PayType: { DAILY: "DAILY", MONTHLY: "MONTHLY", HOURLY: "HOURLY", NEGOTIABLE: "NEGOTIABLE" },
+    PayType: { DAILY: "DAILY", WEEKLY: "WEEKLY", MONTHLY: "MONTHLY", HOURLY: "HOURLY", NEGOTIABLE: "NEGOTIABLE" },
     Urgency: { NORMAL: "NORMAL", HIGH: "HIGH" },
     Shift: { DAY: "DAY", NIGHT: "NIGHT", ANY: "ANY" },
     JobStatus: { OPEN: "open", FILLED: "filled", CLOSED: "closed", EXPIRED: "expired" },
@@ -366,6 +407,8 @@ exports.Values = {
         COMPLETED: "completed", NO_SHOW: "no_show", CANCELLED: "cancelled",
     },
 };
+/** Highest pay a job or urgent request may offer, in rupees, whatever the pay type. */
+exports.MAX_PAY_RUPEES = 50000;
 exports.CATEGORY_KEYS = [
     "COOK", "MAID", "DRIVER", "HELPER", "SECURITY", "GARDENER", "CARETAKER", "DELIVERY", "WAITER",
     "ELECTRICIAN", "PLUMBER", "PAINTER", "CARPENTER", "RECEPTIONIST", "CASHIER", "PACKER", "SALES",

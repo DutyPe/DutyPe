@@ -21,10 +21,6 @@ import {
   TrendingUp
 } from "lucide-react";
 
-import {
-  normalizeApplicationRecord,
-  normalizeUserRecord
-} from "@/lib/firebase/admin-normalizers";
 import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { getFirebaseServices } from "@/lib/firebase/client";
 import { readTimestamp } from "@/lib/firebase/firestore-helpers";
@@ -207,113 +203,11 @@ export function AdminDashboardClient() {
   useEffect(() => {
     async function load() {
       try {
-        const [usersRes, jobsRes, applicationsRes, referralsRes] = await Promise.all([
-          fetchAdminJson<{
-            users?: Array<{ id: string } & Record<string, unknown>>;
-            stateCounts?: Record<string, { workers: number; employers: number; admins: number; total: number }>;
-          }>(
-            "/api/admin/users",
-            { users: [] }
-          ),
-          fetchAdminJson<{ jobs?: Array<{ id: string } & Record<string, unknown>> }>(
-            "/api/admin/jobs",
-            { jobs: [] }
-          ),
-          fetchAdminJson<{ applications?: Array<{ id: string } & Record<string, unknown>> }>(
-            "/api/admin/applications",
-            { applications: [] }
-          ),
-          fetchAdminJson<{ referrals?: Array<Record<string, unknown>> }>(
-            "/api/admin/referrals",
-            { referrals: [] }
-          )
-        ]);
-
-        const users = usersRes.data.users ?? [];
-        const stateStats: Record<string, { workers: number; employers: number; total: number }> =
-          usersRes.data.stateCounts ?? {};
-        const jobs = jobsRes.data.jobs ?? [];
-        const applications = applicationsRes.data.applications ?? [];
-        const referrals = referralsRes.data.referrals ?? [];
-        const normalizedUsers = users.map((user) => normalizeUserRecord(String(user.id), user));
-        const userById = new Map(normalizedUsers.map((user) => [user.id, user]));
-
-        const nonFatalErrors = [usersRes.error, jobsRes.error, applicationsRes.error, referralsRes.error].filter(
-          Boolean
-        ) as string[];
-
-        // Sort jobs by createdAt desc, take 5
-        const sortedJobs = [...jobs]
-          .sort((a: any, b: any) => {
-            const ta = readTimestamp(a.createdAt);
-            const tb = readTimestamp(b.createdAt);
-            return (tb?.getTime() ?? 0) - (ta?.getTime() ?? 0);
-          })
-          .slice(0, 5);
-
-        // Sort applications by appliedAt desc, take 5
-        const sortedApps = [...applications]
-          .sort((a: any, b: any) => {
-            const ta = readTimestamp(a.appliedAt ?? a.createdAt);
-            const tb = readTimestamp(b.appliedAt ?? b.createdAt);
-            return (tb?.getTime() ?? 0) - (ta?.getTime() ?? 0);
-          })
-          .slice(0, 5);
-
+        const result = await fetchAdminJson<DashboardSnapshot | null>("/api/admin/dashboard", null);
         setState({
           loading: false,
-          error: nonFatalErrors.length > 0 ? `Some data is limited: ${nonFatalErrors[0]}` : null,
-          snapshot: {
-            totalUsers: normalizedUsers.length,
-            workers: normalizedUsers.filter((u) => u.roles.includes("WORKER") || u.activeRole === "WORKER").length,
-            employers: normalizedUsers.filter((u) => u.roles.includes("EMPLOYER") || u.activeRole === "EMPLOYER").length,
-            totalJobs: jobs.length,
-            activeJobs: jobs.filter((j: any) => {
-              const status = typeof j.status === "string" ? j.status.trim().toLowerCase() : "";
-              return status ? status === "open" : !!j.isActive;
-            }).length,
-            totalApplications: applications.length,
-            pendingApplications: applications.filter((a: any) => {
-              const status = typeof a.status === "string" ? a.status.trim().toLowerCase() : "";
-              return status === "applied" || status === "pending";
-            }).length,
-            totalReferrals: referrals.length,
-            completedReferrals: referrals.filter((r: any) => String(r.status ?? "").trim().toUpperCase() === "COMPLETED").length,
-            stateStats,
-            recentJobs: sortedJobs.map((j: any) => ({
-              id: j.id,
-              title: j.title ?? "Untitled",
-              companyName: j.companyName ?? "Unknown",
-              isActive: !!j.isActive,
-              createdAt: readTimestamp(j.createdAt)?.toLocaleDateString("en-IN") ?? "N/A"
-            })),
-            recentUsers: [...normalizedUsers]
-              .sort((a, b) => {
-                const ta = readTimestamp(a.joinedAt);
-                const tb = readTimestamp(b.joinedAt);
-                return (tb?.getTime() ?? 0) - (ta?.getTime() ?? 0);
-              })
-              .slice(0, 6)
-              .map((user) => {
-                return {
-                  id: user.id,
-                  name: user.fullName || user.phone || user.id,
-                  role: user.roles.length > 0 ? user.roles.join(", ") : user.activeRole,
-                  joinedAt: readTimestamp(user.joinedAt)?.toLocaleDateString("en-IN") ?? "Recently active"
-                };
-              }),
-            recentApplications: sortedApps.map((a: any) => {
-              const normalized = normalizeApplicationRecord(a.id, a as Record<string, unknown>, userById.get(String(a.workerId ?? "")));
-
-              return {
-                id: normalized.id,
-                workerName: normalized.workerName || normalized.workerId || "Unknown",
-                jobTitle: normalized.jobTitle || "Untitled job",
-                status: normalized.status,
-                appliedAt: readTimestamp(normalized.appliedAt)?.toLocaleDateString("en-IN") ?? "Recently"
-              };
-            })
-          }
+          error: result.error,
+          snapshot: result.data
         });
       } catch (loadError) {
         setState({

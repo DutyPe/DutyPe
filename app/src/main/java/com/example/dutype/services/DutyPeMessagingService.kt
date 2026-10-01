@@ -22,11 +22,11 @@ import javax.inject.Inject
 
 /**
  * Firebase Cloud Messaging Service - Enterprise Grade
- * 
+ *
  * Handles FCM push notifications from Cloud Functions
  * Supports foreground and background notification delivery
  * Routes notifications to appropriate channels based on priority
- * 
+ *
  * ARCHITECTURE:
  * Cloud Functions → FCM → This Service → Notification Channels → User
  *
@@ -39,35 +39,43 @@ class DutyPeMessagingService : FirebaseMessagingService() {
 
     @Inject lateinit var firestore: FirebaseFirestore
     @Inject lateinit var auth: FirebaseAuth
-    
+
     companion object {
         private const val NOTIFICATION_GROUP = "DUTYPE_NOTIFICATIONS"
     }
-    
+
     /**
      * Called when a new FCM message is received
      * Handles both foreground and background messages
      */
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
-        
+
         Timber.d("🔔 FCM Message received from: ${remoteMessage.from}")
-        
+
         // Extract notification data
         val notification = remoteMessage.notification
         val data = remoteMessage.data
-        
+
+        // Urgent job offer: ring with Accept / Skip, only while this worker is Online.
+        if (data["type"] == com.example.dutype.urgent.UrgentOffers.TYPE) {
+            if (com.example.dutype.jobs.PlaceRepository.isOnline(this) && auth.currentUser != null) {
+                com.example.dutype.urgent.UrgentOffers.showOffer(this, data)
+            }
+            return
+        }
+
         // Get title and body
         val title = notification?.title ?: data["title"] ?: return
         val body = notification?.body ?: data["body"] ?: return
-        
+
         // Get notification metadata
         val type = data["type"] ?: "GENERAL"
-        val deepLink = data["deepLink"]
+        val deepLink = data["deepLink"]?.takeIf { it.isNotBlank() } ?: deepLinkFor(type, data)
         val channelId = data["channel"] ?: NotificationChannelManager.getChannelForType(type)
-        
+
         Timber.d("🔔 Notification: type=$type, channel=$channelId")
-        
+
         // Show notification (handles both foreground and background)
         showNotification(
             title = title,
@@ -78,20 +86,20 @@ class DutyPeMessagingService : FirebaseMessagingService() {
             data = data
         )
     }
-    
+
     /**
      * Called when FCM token is refreshed
      * Save new token to Firestore for server-side targeting
      */
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        
+
         Timber.d("🔔 New FCM token: ${token.take(20)}...")
-        
+
         // Save token to Firestore
         saveFCMToken(token)
     }
-    
+
     /**
     * Save FCM token to Firestore for server-side targeting.
      * Allows Cloud Functions to send targeted notifications
@@ -105,14 +113,13 @@ class DutyPeMessagingService : FirebaseMessagingService() {
         }
 
         firestore
-            .collection(com.example.dutype.firestore.FirestoreCollections.USER_TOKENS)
+            .collection(com.example.dutype.firestore.FirestoreSchema.UserTokens.COLLECTION)
             .document(userId)
             .set(
                 mapOf(
-                    "fcmToken" to token,
-                    "language" to LocaleHelper.getLanguage(this),
-                    "platform" to "android",
-                    "updatedAt" to Timestamp.now()
+                    com.example.dutype.firestore.FirestoreSchema.UserTokens.FCM_TOKEN to token,
+                    com.example.dutype.firestore.FirestoreSchema.UserTokens.LANGUAGE to LocaleHelper.getLanguage(this),
+                    com.example.dutype.firestore.FirestoreSchema.UserTokens.UPDATED_AT to Timestamp.now()
                 ),
                 com.google.firebase.firestore.SetOptions.merge()
             )
@@ -130,7 +137,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                 }
             }
     }
-    
+
     /**
      * Show notification to user
      * Handles foreground and background delivery
@@ -147,7 +154,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
             ?.takeIf { it.isNotBlank() }
             ?.hashCode()
             ?: System.currentTimeMillis().toInt()
-        
+
         // Create pending intent for deep link
         val intent = createDeepLinkIntent(deepLink, notificationId)
         val pendingIntent = PendingIntent.getActivity(
@@ -156,7 +163,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        
+
         // Determine notification priority based on channel
         val priority = when (channelId) {
             NotificationChannelManager.CHANNEL_HIGH_PRIORITY -> NotificationCompat.PRIORITY_HIGH
@@ -170,7 +177,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
         val style = NotificationCompat.BigTextStyle()
             .bigText(expandedBody)
             .setBigContentTitle(displayTitle)
-        
+
         // Build notification
         val notification = NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.drawable.ic_notification)
@@ -190,7 +197,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                 addActionsForType(this, type, data, notificationId)
             }
             .build()
-        
+
         // Show notification
         try {
             NotificationManagerCompat.from(this).notify(notificationId, notification)
@@ -229,7 +236,35 @@ class DutyPeMessagingService : FirebaseMessagingService() {
 
         return lines.joinToString("\n").ifBlank { fallbackBody }
     }
-    
+
+    /**
+     * Where a tap goes when the server sent no deepLink: worked out from the type and its ids, so
+     * "hired", "new applicant", "urgent accepted" and reminders open the right screen, not home.
+     */
+    private fun deepLinkFor(type: String, data: Map<String, String>): String? {
+        val jobId = data["jobId"].orEmpty()
+        val applicationId = data["applicationId"].orEmpty()
+        val requestId = data["requestId"].orEmpty()
+        return when (type) {
+            "WORKER_HIRED", "REJECTED", "APPLICATION_STATUS" -> when {
+                requestId.isNotEmpty() -> com.example.dutype.urgent.UrgentOffers.deepLink(requestId)
+                applicationId.isNotEmpty() -> "dutype://worker/applications/$applicationId"
+                else -> "dutype://worker/applications"
+            }
+            "NEW_APPLICATION" -> when {
+                requestId.isNotEmpty() -> "dutype://employer/urgent/$requestId"
+                applicationId.isNotEmpty() -> "dutype://employer/applications/$applicationId"
+                jobId.isNotEmpty() -> "dutype://employer/jobs/$jobId"
+                else -> "dutype://employer/applications"
+            }
+            "APPLICATION_REMINDER" -> if (jobId.isNotEmpty()) "dutype://job/$jobId" else "dutype://worker/applications"
+            "JOB_EXPIRY_REMINDER", "GENERAL" -> if (jobId.isNotEmpty()) "dutype://employer/jobs/$jobId" else null
+            "NEW_JOB_ALERT" -> if (jobId.isNotEmpty()) "dutype://job/$jobId" else "dutype://worker/home"
+            "PAYMENT" -> if (requestId.isNotEmpty()) "dutype://employer/home" else "dutype://referrals"
+            else -> null
+        }
+    }
+
     /**
      * Create intent for deep link
      */
@@ -263,7 +298,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
             }
         }
     }
-    
+
     /**
      * Get notification category for Android system
      */
@@ -279,7 +314,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
             else -> NotificationCompat.CATEGORY_MESSAGE
         }
     }
-    
+
     /**
      * Add action buttons based on notification type
      */
@@ -387,9 +422,8 @@ class DutyPeMessagingService : FirebaseMessagingService() {
                 builder.addAction(R.drawable.ic_notification, "VIEW DETAILS", actionPendingIntent)
             }
             "WORKER_HIRED" -> {
-                val jobId = data["jobId"]
-                val dest = if (!jobId.isNullOrEmpty()) "dutype://employer/jobs/$jobId"
-                           else "dutype://employer/applications"
+                // Sent to the hired worker: their application, or the urgent job page.
+                val dest = deepLinkFor(type, data) ?: "dutype://worker/applications"
                 val actionIntent = createDeepLinkIntent(dest, notificationId)
                 val actionPendingIntent = PendingIntent.getActivity(
                     this, notificationId + 1, actionIntent,
@@ -421,7 +455,7 @@ class DutyPeMessagingService : FirebaseMessagingService() {
             }
         }
     }
-    
+
     /**
      * Get app version
      */

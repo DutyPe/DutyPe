@@ -1,7 +1,6 @@
 package com.example.dutype.services
 
 import android.content.Context
-import android.os.Build
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
@@ -16,7 +15,7 @@ import timber.log.Timber
  */
 object LocationDemandService {
 
-    private const val COLLECTION_LOCATION_DEMAND = "location_demand_leads"
+    private val D = com.example.dutype.firestore.FirestoreSchema.LocationDemand
     private const val PREFS_NAME = "dutype_location_demand_prefs"
     private const val KEY_NOTIFIED_LOCATIONS = "notified_locations_set"
 
@@ -42,7 +41,7 @@ object LocationDemandService {
         onComplete: (Boolean) -> Unit = {}
     ) {
         val cleanLocation = locationName?.trim() ?: "Unknown Location"
-        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: "anonymous"
+        val userId = FirebaseAuth.getInstance().currentUser?.uid.orEmpty()
 
         // Save locally first for instantaneous UI update
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -51,19 +50,16 @@ object LocationDemandService {
         prefs.edit().putStringSet(KEY_NOTIFIED_LOCATIONS, currentSet).apply()
 
         val demandData = hashMapOf(
-            "userId" to userId,
-            "locationName" to cleanLocation,
-            "latitude" to (latitude ?: 0.0),
-            "longitude" to (longitude ?: 0.0),
-            "category" to (category ?: "All"),
-            "deviceModel" to "${Build.MANUFACTURER} ${Build.MODEL}",
-            "androidVersion" to Build.VERSION.SDK_INT,
-            "status" to "PENDING_LAUNCH",
-            "requestedAt" to FieldValue.serverTimestamp()
+            D.UID to userId,
+            D.AREA to cleanLocation.take(80),
+            D.LAT to (latitude ?: 0.0),
+            D.LNG to (longitude ?: 0.0),
+            D.CATEGORY to (category ?: "All").take(40),
+            D.CREATED_AT to FieldValue.serverTimestamp()
         )
 
         FirebaseFirestore.getInstance()
-            .collection(COLLECTION_LOCATION_DEMAND)
+            .collection(D.COLLECTION)
             .add(demandData)
             .addOnSuccessListener { docRef ->
                 Timber.d("✅ Location demand recorded successfully: ${docRef.id} for location: $cleanLocation")

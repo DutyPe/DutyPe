@@ -1,7 +1,8 @@
 /**
  * Hardened wrapper around functions.https.onCall:
  *   • runtime options pinned (region asia-south1, memory, timeout)
- *   • consumeAppCheckToken rejects tokens already used (replay protection)
+ *   • App Check tokens are verified but not consumed (consuming adds a round trip per call and the
+ *     app does not use limited-use tokens); admin-only callables opt out of App Check (web panel)
  *   • reject unverified callers — App Check must be present
  *   • auth required unless explicitly opted out
  */
@@ -13,7 +14,7 @@ const DEFAULT_RUNTIME: functions.RuntimeOptions = {
   // Enforce App Check at the platform layer. Requests without a valid App
   // Check token are rejected before our handler runs.
   enforceAppCheck: true,
-  consumeAppCheckToken: true,
+  consumeAppCheckToken: false,
 };
 
 export interface SecuredCallableOptions {
@@ -34,7 +35,7 @@ export function onCallSecured<T = unknown, R = unknown>(
     memory: opts.memory ?? DEFAULT_RUNTIME.memory,
     timeoutSeconds: opts.timeoutSeconds ?? DEFAULT_RUNTIME.timeoutSeconds,
     enforceAppCheck: opts.enforceAppCheck ?? DEFAULT_RUNTIME.enforceAppCheck,
-    consumeAppCheckToken: opts.enforceAppCheck ?? DEFAULT_RUNTIME.consumeAppCheckToken,
+    consumeAppCheckToken: false,
     ...(opts.minInstances !== undefined ? { minInstances: opts.minInstances } : {}),
   };
 

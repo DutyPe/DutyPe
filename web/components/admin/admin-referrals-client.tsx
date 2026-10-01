@@ -1,932 +1,251 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
-import { formatCurrency, formatDate, formatDateTime } from "@/lib/firebase/firestore-helpers";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { httpsCallable } from "firebase/functions";
 
-type ReferralRow = {
-  id: string;
-  referralCode?: string;
-  referredUserName?: string;
-  referredUserPhone?: string;
-  referredUserRole?: string;
-  referredUserId?: string;
-  referrerUserName?: string;
-  referrerPhone?: string;
-  referrerRole?: string;
-  referrerId?: string;
-  referrerReferralCode?: string;
-  referredByCode?: string;
-  currentReferralCode?: string;
-  profileCompleted?: boolean;
-  pendingReason?: string;
-  isProfileComplete?: boolean;
-  canFix?: boolean;
-  missingFields?: string[];
-  status?: string;
-  rewardAmount?: number | string;
-  bonusAmount?: number | string;
-  referredUserReward?: number | string;
-  createdAt?: unknown;
-};
+import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
+import { getFirebaseServices } from "@/lib/firebase/client";
 
 type WithdrawalRow = {
   id: string;
-  userId?: string;
-  userName?: string;
-  userRole?: string;
-  phone?: string;
-  referralCode?: string;
-  amount?: number | string;
-  availableBalance?: number | string;
-  totalEarnings?: number | string;
-  withdrawnAmount?: number | string;
-  paymentMethod?: string;
-  upiId?: string;
-  bankAccountNumber?: string;
-  ifscCode?: string;
-  accountHolderName?: string;
-  status?: string;
-  transactionId?: string;
-  failureReason?: string;
-  adminNote?: string;
-  createdAt?: unknown;
-  processedAt?: unknown;
-  completedAt?: unknown;
-  approvedAt?: unknown;
+  uid: string;
+  user: string;
+  amountPaise: number;
+  upiId: string;
+  status: string;
+  txnRef: string;
+  failureReason: string;
+  createdAt: string | null;
+  processedAt: string | null;
 };
 
-type ReferralLookupResult = {
-  query?: string;
-  found?: boolean;
-  message?: string;
-  resolvedBy?: string;
-  userId?: string;
-  referralCode?: string;
-  identity?: {
-    userName?: string;
-    phone?: string;
-    role?: string;
-    referralCode?: string;
+type ReferralRow = {
+  id: string;
+  referee: string;
+  referrer: string;
+  code: string;
+  status: string;
+  fraudScore: number;
+  createdAt: string | null;
+  completedAt: string | null;
+};
+
+type Lookup = {
+  uid: string;
+  name: string;
+  wallet: null | {
+    referralCode: string; balancePaise: number; lifetimeEarnedPaise: number; withdrawnPaise: number;
+    successfulReferrals: number; blocked: boolean;
   };
-  referralStats?: Record<string, unknown> | null;
-  referralCodes?: Array<Record<string, unknown> & { id?: string; code?: string }>;
-  referralsAsReferrer?: ReferralRow[];
-  referralsAsReferred?: ReferralRow[];
-  withdrawals?: WithdrawalRow[];
-  auditLogs?: Array<Record<string, unknown> & { id?: string; eventType?: string; timestamp?: unknown }>;
+  ledger: Array<{ id: string; type: string; amountPaise: number; balanceAfterPaise: number; createdAt: string | null }>;
+  referredBy: null | { referrerUid: string; code: string; status: string };
+  referrals: Array<{ refereeUid: string; status: string; createdAt: string | null }>;
+  withdrawals: Array<{ id: string; amountPaise: number; status: string; createdAt: string | null }>;
 };
 
+const rupees = (paise: number) => `₹${(Number(paise || 0) / 100).toLocaleString("en-IN")}`;
+const when = (value: string | null) => (value ? new Date(value).toLocaleString("en-IN") : "—");
+
+/** Withdrawals (settle via the settleWithdrawal Cloud Function), referrals, and a per-user wallet lookup. */
 export function AdminReferralsClient() {
-  const [referrals, setReferrals] = useState<ReferralRow[]>([]);
+  const services = useMemo(() => getFirebaseServices(), []);
+  const [tab, setTab] = useState<"withdrawals" | "referrals" | "lookup">("withdrawals");
+  const [status, setStatus] = useState("PENDING");
   const [withdrawals, setWithdrawals] = useState<WithdrawalRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [pendingActionId, setPendingActionId] = useState<string | null>(null);
+  const [referrals, setReferrals] = useState<ReferralRow[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [lookupQuery, setLookupQuery] = useState("");
-  const [lookupLoading, setLookupLoading] = useState(false);
-  const [lookupResult, setLookupResult] = useState<ReferralLookupResult | null>(null);
-  const [lookupError, setLookupError] = useState<string | null>(null);
-  const [fixingReferralId, setFixingReferralId] = useState<string | null>(null);
-  const [syncingAll, setSyncingAll] = useState(false);
+  const [lookup, setLookup] = useState<Lookup | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
-  async function loadData() {
+  const load = useCallback(async (append: boolean, cursor: string | null) => {
+    if (tab === "lookup") return;
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      const response = await adminApiFetch("/api/admin/referrals", {
-        cache: "no-store"
-      });
-
-      const payload = (await response.json()) as {
-        referrals?: ReferralRow[];
-        withdrawals?: WithdrawalRow[];
-        error?: string;
-      };
-
-      if (!response.ok) {
-        throw new Error(payload.error || "Failed to load referrals.");
-      }
-
-      setReferrals(payload.referrals ?? []);
-      setWithdrawals(payload.withdrawals ?? []);
-      setError(null);
+      const params = new URLSearchParams({ view: tab, t: String(Date.now()) });
+      if (tab === "withdrawals" && status) params.set("status", status);
+      if (cursor) params.set("after", cursor);
+      const response = await adminApiFetch(`/api/admin/referrals?${params}`, { cache: "no-store" });
+      const payload = (await response.json()) as { withdrawals?: WithdrawalRow[]; referrals?: ReferralRow[]; nextCursor?: string | null; error?: string };
+      if (!response.ok) throw new Error(payload.error || "Failed to load.");
+      if (tab === "withdrawals") setWithdrawals((c) => (append ? [...c, ...(payload.withdrawals ?? [])] : payload.withdrawals ?? []));
+      else setReferrals((c) => (append ? [...c, ...(payload.referrals ?? [])] : payload.referrals ?? []));
+      setNextCursor(payload.nextCursor ?? null);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load referrals.");
+      setError(loadError instanceof Error ? loadError.message : "Failed to load.");
+    } finally {
+      setLoading(false);
+    }
+  }, [tab, status]);
+
+  useEffect(() => { void load(false, null); }, [load]);
+
+  async function settle(row: WithdrawalRow, next: "PROCESSING" | "COMPLETED" | "FAILED") {
+    if (!services) return;
+    let txnRef = "";
+    let failureReason = "";
+    if (next === "COMPLETED") {
+      txnRef = window.prompt(`UPI transaction reference for ${rupees(row.amountPaise)} to ${row.upiId}`)?.trim() ?? "";
+      if (!txnRef) return;
+    }
+    if (next === "FAILED") {
+      failureReason = window.prompt("Why did it fail? (the amount goes back to the wallet)")?.trim() ?? "";
+      if (!failureReason) return;
+    }
+    setBusyId(row.id);
+    setError(null);
+    try {
+      await httpsCallable(services.functions, "settleWithdrawal")({ withdrawalId: row.id, status: next, txnRef, failureReason });
+      setMessage(`Withdrawal ${row.id} marked ${next.toLowerCase()}.`);
+      await load(false, null);
+    } catch (settleError) {
+      setError(settleError instanceof Error ? settleError.message : "Failed to update the withdrawal.");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function runLookup() {
+    const query = lookupQuery.trim();
+    if (!query) return;
+    setLoading(true);
+    setError(null);
+    setLookup(null);
+    try {
+      const response = await adminApiFetch(`/api/admin/referrals?lookup=${encodeURIComponent(query)}&t=${Date.now()}`, { cache: "no-store" });
+      const payload = (await response.json()) as Lookup & { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Lookup failed.");
+      setLookup(payload);
+    } catch (lookupError) {
+      setError(lookupError instanceof Error ? lookupError.message : "Lookup failed.");
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    void loadData();
-  }, []);
-
-  async function handleLookup() {
-    const query = lookupQuery.trim();
-    if (!query) {
-      setLookupError("Enter a referral code, phone number, or uid.");
-      setLookupResult(null);
-      return;
-    }
-
-    try {
-      setLookupLoading(true);
-      setLookupError(null);
-      const response = await adminApiFetch(`/api/admin/referrals?lookup=${encodeURIComponent(query)}`, {
-        cache: "no-store"
-      });
-      const payload = (await response.json()) as { lookup?: ReferralLookupResult; error?: string };
-
-      if (!response.ok) {
-        throw new Error(payload.error || "Failed to load user referral data.");
-      }
-
-      setLookupResult(payload.lookup ?? null);
-      if (payload.lookup?.found === false) {
-        setLookupError(payload.lookup.message || "No matching referral user found.");
-      }
-    } catch (lookupFailure) {
-      setLookupError(lookupFailure instanceof Error ? lookupFailure.message : "Failed to load user referral data.");
-      setLookupResult(null);
-    } finally {
-      setLookupLoading(false);
-    }
-  }
-
-  async function handleFixReferral(referralId: string) {
-    try {
-      setFixingReferralId(referralId);
-      setError(null);
-      const response = await adminApiFetch("/api/admin/referrals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "fix-pending-referral", referralId })
-      });
-      const payload = (await response.json()) as { ok?: boolean; error?: string; message?: string };
-      if (!response.ok) {
-        throw new Error(payload.error || "Failed to fix referral.");
-      }
-      alert(payload.message || "Referral fixed and credited successfully!");
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fix referral.");
-    } finally {
-      setFixingReferralId(null);
-    }
-  }
-
-  async function handleSyncAllPending() {
-    try {
-      setSyncingAll(true);
-      setError(null);
-      const response = await adminApiFetch("/api/admin/referrals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "sync-all-pending" })
-      });
-      const payload = (await response.json()) as { ok?: boolean; error?: string; message?: string };
-      if (!response.ok) {
-        throw new Error(payload.error || "Failed to sync pending referrals.");
-      }
-      alert(payload.message || "Processed pending referrals.");
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to sync pending referrals.");
-    } finally {
-      setSyncingAll(false);
-    }
-  }
-
-  async function handleAuditMilestones() {
-    try {
-      setSyncingAll(true);
-      setError(null);
-      const response = await adminApiFetch("/api/admin/referrals", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "audit-and-credit-milestones" })
-      });
-      const payload = (await response.json()) as { ok?: boolean; error?: string; message?: string };
-      if (!response.ok) {
-        throw new Error(payload.error || "Failed to audit milestone bonuses.");
-      }
-      alert(payload.message || "Audited milestone bonuses successfully!");
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to audit milestone bonuses.");
-    } finally {
-      setSyncingAll(false);
-    }
-  }
-
-  async function handleWithdrawalUpdate(
-    id: string,
-    userId: string | undefined,
-    status: "PROCESSING" | "COMPLETED" | "FAILED"
-  ) {
-    if (!userId) {
-      setError("Missing userId for this withdrawal.");
-      return;
-    }
-
-    let transactionId = "";
-    let adminNote = "";
-    const confirmationMessage = status === "PROCESSING"
-      ? "Approve this withdrawal and move it to processing for bank transfer?"
-      : status === "COMPLETED"
-        ? "Confirm this withdrawal as paid from bank/UPI?"
-        : "Reject this withdrawal? The amount will be automatically refunded to the user's available balance.";
-
-    if (status === "COMPLETED") {
-      const promptVal = window.prompt("Enter Bank/UPI Transaction ID / UTR reference (optional):");
-      if (promptVal === null) return;
-      transactionId = promptVal.trim();
-    }
-
-    if (status === "FAILED") {
-      const promptVal = window.prompt("Enter reason for rejecting this withdrawal (amount will be refunded to user):");
-      if (promptVal === null) return;
-      adminNote = promptVal.trim() || "Rejected by admin";
-    }
-
-    if (!window.confirm(confirmationMessage)) {
-      return;
-    }
-
-    try {
-      setPendingActionId(id);
-      const response = await adminApiFetch("/api/admin/referrals", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          withdrawalId: id,
-          userId,
-          status,
-          transactionId,
-          adminNote
-        })
-      });
-
-      const payload = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        throw new Error(payload.error || "Failed to update withdrawal.");
-      }
-
-      await loadData();
-    } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : "Failed to update withdrawal.");
-    } finally {
-      setPendingActionId(null);
-    }
-  }
-
-  const completedReferralCount = referrals.filter((referral) => referral.status === "COMPLETED").length;
-  const pendingWithdrawalCount = withdrawals.filter((withdrawal) => withdrawal.status === "PENDING").length;
-  const processingWithdrawalCount = withdrawals.filter((withdrawal) => withdrawal.status === "PROCESSING").length;
-  const completedWithdrawalCount = withdrawals.filter(
-    (withdrawal) => withdrawal.status === "COMPLETED"
-  ).length;
-  const pendingWithdrawalAmount = withdrawals
-    .filter((withdrawal) => withdrawal.status === "PENDING" || withdrawal.status === "PROCESSING")
-    .reduce((total, withdrawal) => total + Number(withdrawal.amount ?? 0), 0);
-
   return (
     <div className="admin-section-stack">
-      <section className="section">
-        <div className="section-header">
-          <div>
-            <span className="tag">Referral operations</span>
-            <h2>Live referral and payout summary</h2>
-          </div>
-          <p>
-            This route replaces the old referrals page and keeps the referral queue plus
-            withdrawal processing in one React workspace.
-          </p>
-        </div>
+      {message ? <div className="callout" role="status">{message}</div> : null}
+      {error ? <div className="admin-error">{error}</div> : null}
 
-        {loading ? <div className="empty-state">Loading referrals and withdrawals from Firestore.</div> : null}
-        {!loading && error ? <div className="empty-state">Unable to load referral operations. {error}</div> : null}
-        {!loading && !error ? (
-          <div className="metric-cluster">
-            <div className="metric">
-              <strong>{referrals.length}</strong>
-              <span>Total referrals in the current sample.</span>
-            </div>
-            <div className="metric">
-              <strong>{completedReferralCount}</strong>
-              <span>Completed referrals credited by the current data.</span>
-            </div>
-            <div className="metric">
-              <strong>{withdrawals.length}</strong>
-              <span>Total withdrawal requests loaded.</span>
-            </div>
-            <div className="metric">
-              <strong>{pendingWithdrawalCount}</strong>
-              <span>Withdrawal requests waiting for approval.</span>
-            </div>
-            <div className="metric">
-              <strong>{processingWithdrawalCount}</strong>
-              <span>Approved withdrawals waiting for payment completion.</span>
-            </div>
-            <div className="metric">
-              <strong>{completedWithdrawalCount}</strong>
-              <span>Withdrawals already marked paid.</span>
-            </div>
-            <div className="metric">
-              <strong>{formatCurrency(pendingWithdrawalAmount)}</strong>
-              <span>Pending plus processing payout amount.</span>
-            </div>
-          </div>
-        ) : null}
-      </section>
-
-      <section className="section">
-        <div className="section-header">
-          <div>
-            <span className="tag">User lookup</span>
-            <h2>Check user referral data</h2>
-          </div>
-          <p>Enter a referral code, phone number, or uid to inspect that user&apos;s referral wallet, history, withdrawals, and audit records.</p>
-        </div>
-
-        <div className="admin-tool-form card">
-          <label className="field-label" htmlFor="referral-user-lookup">
-            Referral code, phone, or uid
-          </label>
-          <div className="admin-tool-row">
-            <input
-              id="referral-user-lookup"
-              className="text-input"
-              value={lookupQuery}
-              onChange={(event) => setLookupQuery(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") void handleLookup();
-              }}
-              placeholder="Code, +91 phone, or Firebase uid"
-            />
-            <button type="button" className="button" onClick={() => void handleLookup()} disabled={lookupLoading}>
-              {lookupLoading ? "Checking..." : "Check user referral data"}
-            </button>
-          </div>
-          {lookupError ? <p className="tool-status tone-error">{lookupError}</p> : null}
-        </div>
-
-        {lookupResult?.found ? <ReferralLookupPanel lookup={lookupResult} /> : null}
-      </section>
-
-      <section className="section">
-        <div className="section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
-          <div>
-            <span className="tag">Referrals</span>
-            <h2>Who referred whom</h2>
-            <p>
-              Shows each completed and pending referral with referrer, referred user, profile completion status, and rewards.
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className="table-action"
-              style={{
-                padding: "8px 16px",
-                fontSize: "13px",
-                fontWeight: 600,
-                background: "#2563eb",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer"
-              }}
-              onClick={() => void handleSyncAllPending()}
-              disabled={syncingAll}
-              title="Audit and complete all pending referrals whose profile is complete"
-            >
-              {syncingAll ? "Syncing..." : "⚡ Sync All Pending"}
-            </button>
-            <button
-              type="button"
-              className="table-action"
-              style={{
-                padding: "8px 16px",
-                fontSize: "13px",
-                fontWeight: 600,
-                background: "#059669",
-                color: "#ffffff",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer"
-              }}
-              onClick={() => void handleAuditMilestones()}
-              disabled={syncingAll}
-              title="Audit all referrers and credit any missed milestone bonuses (5, 10, 15, 25, 50, 100 referrals)"
-            >
-              {syncingAll ? "Auditing..." : "🏆 Audit & Credit Milestones"}
-            </button>
-          </div>
-        </div>
-
-        {!loading && !error && referrals.length === 0 ? (
-          <div className="empty-state">No referrals were returned from Firestore.</div>
-        ) : null}
-
-        {!loading && !error && referrals.length > 0 ? (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Referral Code</th>
-                  <th>Referrer</th>
-                  <th>Referred User</th>
-                  <th>Status & Profile Details</th>
-                  <th>Base Reward</th>
-                  <th>Milestone</th>
-                  <th>Friend Bonus</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {referrals.map((referral) => (
-                  <tr key={referral.id}>
-                    <td>{referral.referralCode ?? "N/A"}</td>
-                    <td>
-                      <strong>{referral.referrerUserName || shortId(referral.referrerId)}</strong>
-                      <div className="route-note">{referral.referrerRole || "Role missing"}</div>
-                      <div className="route-note">{referral.referrerPhone || "Phone missing"}</div>
-                      <div className="route-note">Own code: {referral.referrerReferralCode || "missing"}</div>
-                    </td>
-                    <td>
-                      <strong>{referral.referredUserName || shortId(referral.referredUserId)}</strong>
-                      <div className="route-note">{referral.referredUserRole || "Role missing"}</div>
-                      <div className="route-note">{referral.referredUserPhone || "Phone missing"}</div>
-                      <div className="route-note">Used: {referral.referredByCode || "missing"}</div>
-                      <div className="route-note">Current code: {referral.currentReferralCode || "missing"}</div>
-                    </td>
-                    <td>
-                      <span className={`status-pill ${statusTone(referral.status)}`}>
-                        {referral.status ?? "PENDING"}
-                      </span>
-                      {referral.status === "PENDING" ? (
-                        <div style={{ marginTop: "4px" }}>
-                          {referral.pendingReason ? (
-                            <div
-                              className="route-note"
-                              style={{
-                                color: referral.canFix ? "#059669" : "#d97706",
-                                fontWeight: referral.canFix ? 600 : 500,
-                                fontSize: "11px",
-                                lineHeight: "1.3"
-                              }}
-                            >
-                              {referral.pendingReason}
-                            </div>
-                          ) : null}
-                          {referral.canFix ? (
-                            <button
-                              type="button"
-                              className="table-action"
-                              style={{
-                                marginTop: "6px",
-                                padding: "3px 8px",
-                                fontSize: "11px",
-                                fontWeight: 600,
-                                background: "#059669",
-                                color: "#ffffff",
-                                border: "none",
-                                borderRadius: "4px",
-                                cursor: "pointer"
-                              }}
-                              onClick={() => void handleFixReferral(referral.id)}
-                              disabled={fixingReferralId === referral.id}
-                            >
-                              {fixingReferralId === referral.id ? "Fixing..." : "⚡ Fix & Credit (₹25)"}
-                            </button>
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td>{formatCurrency(referral.rewardAmount)}</td>
-                    <td>{formatCurrency(referral.bonusAmount)}</td>
-                    <td>{formatCurrency(referral.referredUserReward)}</td>
-                    <td>{formatDate(referral.createdAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-      </section>
-
-      <section className="section">
-        <div className="section-header">
-          <div>
-            <span className="tag">Withdrawals</span>
-            <h2>Payout processing queue</h2>
-          </div>
-          <p>
-            Admin actions here update the canonical{" "}
-            <code>referral_stats/&#123;uid&#125;/withdrawals</code> subcollection used by
-            the Android app. Approve moves to processing, Mark paid completes the payout.
-          </p>
-        </div>
-
-        {!loading && !error && withdrawals.length === 0 ? (
-          <div className="empty-state">No withdrawal requests were returned from Firestore.</div>
-        ) : null}
-
-        {!loading && !error && withdrawals.length > 0 ? (
-          <div className="table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>User ID</th>
-                  <th>User</th>
-                  <th>Amount</th>
-                  <th>Wallet After Request</th>
-                  <th>Method</th>
-                  <th>Payment Details</th>
-                  <th>Status</th>
-                  <th>Requested</th>
-                  <th>Processed</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {withdrawals.map((withdrawal) => (
-                  <tr key={withdrawal.id}>
-                    <td>{shortId(withdrawal.userId)}</td>
-                    <td>
-                      <strong>{withdrawal.userName || "N/A"}</strong>
-                      <div className="route-note">{withdrawal.userRole || "Role missing"}</div>
-                      <div className="route-note">{withdrawal.phone || "Phone missing"}</div>
-                      <div className="route-note">Code: {withdrawal.referralCode || "missing"}</div>
-                    </td>
-                    <td>{formatCurrency(withdrawal.amount)}</td>
-                    <td>
-                      <strong>{formatCurrency(withdrawal.availableBalance)}</strong>
-                      <div className="route-note">Earned: {formatCurrency(withdrawal.totalEarnings)}</div>
-                      <div className="route-note">Withdrawn: {formatCurrency(withdrawal.withdrawnAmount)}</div>
-                    </td>
-                    <td>{withdrawal.paymentMethod ?? "N/A"}</td>
-                    <td>{paymentDetails(withdrawal)}</td>
-                    <td>
-                      <span className={`status-pill ${statusTone(withdrawal.status)}`}>
-                        {withdrawal.status ?? "PENDING"}
-                      </span>
-                      {withdrawal.transactionId ? (
-                        <div className="route-note">Txn: {withdrawal.transactionId}</div>
-                      ) : null}
-                      {withdrawal.failureReason || withdrawal.adminNote ? (
-                        <div className="route-note" style={{ color: "#ef4444" }}>
-                          Reason: {withdrawal.failureReason || withdrawal.adminNote}
-                        </div>
-                      ) : null}
-                    </td>
-                    <td>{formatDate(withdrawal.createdAt)}</td>
-                    <td>{formatDate(withdrawal.processedAt || withdrawal.completedAt || withdrawal.approvedAt)}</td>
-                    <td>
-                      {withdrawal.status === "PENDING" ? (
-                        <div className="button-row compact" style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                          <button
-                            type="button"
-                            className="table-action"
-                            style={{ background: "#2563eb", color: "#ffffff" }}
-                            onClick={() => void handleWithdrawalUpdate(withdrawal.id, withdrawal.userId, "PROCESSING")}
-                            disabled={pendingActionId === withdrawal.id}
-                            title="Approve and mark as PROCESSING"
-                          >
-                            {pendingActionId === withdrawal.id ? "Working..." : "Approve"}
-                          </button>
-                          <button
-                            type="button"
-                            className="table-action"
-                            style={{ background: "#059669", color: "#ffffff" }}
-                            onClick={() => void handleWithdrawalUpdate(withdrawal.id, withdrawal.userId, "COMPLETED")}
-                            disabled={pendingActionId === withdrawal.id}
-                            title="Mark directly as Paid after bank transfer"
-                          >
-                            Mark Paid
-                          </button>
-                          <button
-                            type="button"
-                            className="table-action danger"
-                            onClick={() => void handleWithdrawalUpdate(withdrawal.id, withdrawal.userId, "FAILED")}
-                            disabled={pendingActionId === withdrawal.id}
-                            title="Reject request and refund amount to user's wallet"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      ) : withdrawal.status === "PROCESSING" ? (
-                        <div className="button-row compact" style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                          <button
-                            type="button"
-                            className="table-action"
-                            style={{ background: "#059669", color: "#ffffff" }}
-                            onClick={() => void handleWithdrawalUpdate(withdrawal.id, withdrawal.userId, "COMPLETED")}
-                            disabled={pendingActionId === withdrawal.id}
-                            title="Confirm payment done from bank/UPI"
-                          >
-                            {pendingActionId === withdrawal.id ? "Working..." : "Mark Paid"}
-                          </button>
-                          <button
-                            type="button"
-                            className="table-action danger"
-                            onClick={() => void handleWithdrawalUpdate(withdrawal.id, withdrawal.userId, "FAILED")}
-                            disabled={pendingActionId === withdrawal.id}
-                            title="Reject and refund amount to user's wallet"
-                          >
-                            Reject & Refund
-                          </button>
-                        </div>
-                      ) : withdrawal.status === "COMPLETED" ? (
-                        <span className="route-note" style={{ color: "#059669", fontWeight: 600 }}>✓ Paid</span>
-                      ) : (
-                        <span className="route-note" style={{ color: "#dc2626", fontWeight: 600 }}>✗ Refunded</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : null}
-      </section>
-    </div>
-  );
-}
-
-function ReferralLookupPanel({ lookup }: { lookup: ReferralLookupResult }) {
-  const stats: Record<string, unknown> = lookup.referralStats ?? {};
-  const referralCodes = lookup.referralCodes ?? [];
-  const referralsAsReferrer = lookup.referralsAsReferrer ?? [];
-  const referralsAsReferred = lookup.referralsAsReferred ?? [];
-  const withdrawals = lookup.withdrawals ?? [];
-  const auditLogs = lookup.auditLogs ?? [];
-
-  return (
-    <div className="admin-lookup-results">
-      <div className="admin-stats-grid small">
-        <div className="admin-stat-card compact">
-          <strong>{lookup.identity?.userName || "N/A"}</strong>
-          <span>{shortId(lookup.userId)}</span>
-        </div>
-        <div className="admin-stat-card compact">
-          <strong>{lookup.identity?.phone || "N/A"}</strong>
-          <span>{lookup.identity?.role || "No role"}</span>
-        </div>
-        <div className="admin-stat-card compact">
-          <strong>{lookup.referralCode || lookup.identity?.referralCode || "N/A"}</strong>
-          <span>Referral code</span>
-        </div>
-        <div className="admin-stat-card compact">
-          <strong>{formatCurrency(stats.availableBalance)}</strong>
-          <span>Available balance</span>
-        </div>
-        <div className="admin-stat-card compact">
-          <strong>{formatCurrency(stats.totalEarnings)}</strong>
-          <span>Total earnings</span>
-        </div>
-        <div className="admin-stat-card compact">
-          <strong>{referralsAsReferrer.length}</strong>
-          <span>Referred users</span>
-        </div>
-        <div className="admin-stat-card compact">
-          <strong>{withdrawals.length}</strong>
-          <span>Withdrawals</span>
-        </div>
-        <div className="admin-stat-card compact">
-          <strong>{lookup.resolvedBy || "N/A"}</strong>
-          <span>Resolved by</span>
-        </div>
-      </div>
-
-      <div className="collection-table-wrapper">
-        <table className="collection-table">
-          <thead>
-            <tr>
-              <th>Referral Codes</th>
-              <th>User</th>
-              <th>Created</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {referralCodes.length ? (
-              referralCodes.map((code) => (
-                <tr key={String(code.id || code.code)}>
-                  <td>{String(code.code || code.id || "N/A")}</td>
-                  <td>{String(code.userId || code.uid || lookup.userId || "N/A")}</td>
-                  <td>{formatDateTime(code.createdAt)}</td>
-                  <td>{String(code.status || "Active")}</td>
-                </tr>
-              ))
-            ) : (
-              <tr><td colSpan={4}>No referral code records found.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <ReferralHistoryTable title="Referrals by this user" rows={referralsAsReferrer} />
-      <ReferralHistoryTable title="Referral that brought this user" rows={referralsAsReferred} />
-
-      <div className="collection-table-wrapper">
-        <table className="collection-table">
-          <thead>
-            <tr>
-              <th>Withdrawal</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th>Method</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {withdrawals.length ? (
-              withdrawals.map((withdrawal) => (
-                <tr key={withdrawal.id}>
-                  <td>{shortId(withdrawal.id)}</td>
-                  <td>{formatCurrency(withdrawal.amount)}</td>
-                  <td><span className={`status-pill ${statusTone(withdrawal.status)}`}>{withdrawal.status || "N/A"}</span></td>
-                  <td>{withdrawal.paymentMethod || "N/A"}</td>
-                  <td>{formatDateTime(withdrawal.createdAt)}</td>
-                </tr>
-              ))
-            ) : (
-              <tr><td colSpan={5}>No withdrawals found.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="collection-table-wrapper">
-        <table className="collection-table">
-          <thead>
-            <tr>
-              <th>Audit Event</th>
-              <th>When</th>
-              <th>Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {auditLogs.length ? (
-              auditLogs.map((event) => (
-                <tr key={String(event.id || event.timestamp || event.eventType)}>
-                  <td>{String(event.eventType || event.type || "Event")}</td>
-                  <td>{formatDateTime(event.timestamp || event.createdAt)}</td>
-                  <td><pre className="collection-json-preview">{JSON.stringify(event, null, 2)}</pre></td>
-                </tr>
-              ))
-            ) : (
-              <tr><td colSpan={3}>No audit logs found.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <details className="collection-inspector">
-        <summary>Raw referral_stats document</summary>
-        <pre>{JSON.stringify(stats, null, 2)}</pre>
-      </details>
-    </div>
-  );
-}
-
-function ReferralHistoryTable({ title, rows }: { title: string; rows: ReferralRow[] }) {
-  return (
-    <div className="collection-table-wrapper">
-      <table className="collection-table">
-        <thead>
-          <tr>
-            <th>{title}</th>
-            <th>Referrer</th>
-            <th>Referred</th>
-            <th>Code</th>
-            <th>Bonus</th>
-            <th>Status</th>
-            <th>Created</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length ? (
-            rows.map((referral) => (
-              <tr key={referral.id}>
-                <td>{shortId(referral.id)}</td>
-                <td>{referral.referrerUserName || referral.referrerPhone || shortId(referral.referrerId)}</td>
-                <td>{referral.referredUserName || referral.referredUserPhone || shortId(referral.referredUserId)}</td>
-                <td>{referral.referralCode || referral.referredByCode || "N/A"}</td>
-                <td>{formatCurrency(referral.bonusAmount)}</td>
-                <td>
-                  <span className={`status-pill ${statusTone(referral.status)}`}>{referral.status || "N/A"}</span>
-                  {referral.status === "PENDING" && referral.profileCompleted === false ? (
-                    <div style={{ color: "#d97706", fontSize: "0.75rem", fontWeight: 500, marginTop: "2px" }}>
-                      Profile Incomplete
-                    </div>
-                  ) : null}
-                </td>
-                <td>{formatDateTime(referral.createdAt)}</td>
-              </tr>
-            ))
-          ) : (
-            <tr><td colSpan={7}>No matching referral rows found.</td></tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function shortId(value: string | undefined) {
-  if (!value) {
-    return "N/A";
-  }
-
-  return value.length > 12 ? `${value.slice(0, 8)}...` : value;
-}
-
-function paymentDetails(withdrawal: WithdrawalRow) {
-  if (withdrawal.paymentMethod === "BANK_TRANSFER") {
-    const acc = withdrawal.bankAccountNumber || "";
-    const ifsc = withdrawal.ifscCode || "";
-    const holder = withdrawal.accountHolderName || "";
-
-    return (
-      <div style={{ display: "flex", flexDirection: "column", gap: "2px", fontSize: "12px" }}>
-        <div><strong>A/C:</strong> {acc || "N/A"}</div>
-        <div><strong>IFSC:</strong> {ifsc || "N/A"}</div>
-        <div><strong>Name:</strong> {holder || "N/A"}</div>
-        {acc ? (
-          <button
-            type="button"
-            style={{
-              marginTop: "4px",
-              padding: "2px 8px",
-              fontSize: "11px",
-              fontWeight: 500,
-              cursor: "pointer",
-              borderRadius: "4px",
-              border: "1px solid #cbd5e1",
-              background: "#f1f5f9",
-              width: "fit-content"
-            }}
-            onClick={() => {
-              const text = `A/C: ${acc}\nIFSC: ${ifsc}\nHolder: ${holder}`;
-              void navigator.clipboard.writeText(text);
-              alert("Bank details copied to clipboard!");
-            }}
-          >
-            📋 Copy Bank Info
+      <div className="admin-toolbar">
+        {(["withdrawals", "referrals", "lookup"] as const).map((t) => (
+          <button key={t} type="button" className={`button ${tab === t ? "" : "ghost"}`} onClick={() => { setTab(t); setMessage(null); }}>
+            {t === "withdrawals" ? "Withdrawals" : t === "referrals" ? "Referrals" : "Wallet lookup"}
           </button>
+        ))}
+        {tab === "withdrawals" ? (
+          <select className="admin-filter" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="PENDING">Pending</option>
+            <option value="PROCESSING">Processing</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="FAILED">Failed</option>
+            <option value="">All</option>
+          </select>
         ) : null}
       </div>
-    );
-  }
 
-  const upi = withdrawal.upiId || "";
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "3px", fontSize: "12px" }}>
-      <div><strong>UPI:</strong> {upi || "N/A"}</div>
-      {upi ? (
-        <button
-          type="button"
-          style={{
-            marginTop: "2px",
-            padding: "2px 8px",
-            fontSize: "11px",
-            fontWeight: 500,
-            cursor: "pointer",
-            borderRadius: "4px",
-            border: "1px solid #cbd5e1",
-            background: "#f1f5f9",
-            width: "fit-content"
-          }}
-          onClick={() => {
-            void navigator.clipboard.writeText(upi);
-            alert(`Copied UPI ID: ${upi}`);
-          }}
-        >
-          📋 Copy UPI ID
-        </button>
+      {tab === "withdrawals" ? (
+        <div className="table-wrap">
+          <table className="data-table admin-table">
+            <thead><tr><th>Requested</th><th>User</th><th>Amount</th><th>UPI</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+              {withdrawals.map((w) => (
+                <tr key={w.id}>
+                  <td>{when(w.createdAt)}</td>
+                  <td>{w.user}<div className="admin-cell-sub"><code className="admin-code">{w.uid}</code></div></td>
+                  <td><strong>{rupees(w.amountPaise)}</strong></td>
+                  <td><code className="admin-code">{w.upiId}</code></td>
+                  <td>
+                    <span className={`status-pill ${w.status === "COMPLETED" ? "success" : w.status === "FAILED" ? "danger" : "warning"}`}>{w.status}</span>
+                    {w.txnRef ? <div className="admin-cell-sub">Ref {w.txnRef}</div> : null}
+                    {w.failureReason ? <div className="admin-cell-sub danger-text">{w.failureReason}</div> : null}
+                  </td>
+                  <td>
+                    {w.status === "PENDING" || w.status === "PROCESSING" ? (
+                      <>
+                        {w.status === "PENDING" ? (
+                          <button type="button" className="table-action" disabled={busyId === w.id} onClick={() => void settle(w, "PROCESSING")}>Processing</button>
+                        ) : null}
+                        <button type="button" className="table-action" disabled={busyId === w.id} onClick={() => void settle(w, "COMPLETED")}>Paid</button>
+                        <button type="button" className="table-action danger" disabled={busyId === w.id} onClick={() => void settle(w, "FAILED")}>Failed</button>
+                      </>
+                    ) : <span className="admin-cell-sub">{when(w.processedAt)}</span>}
+                  </td>
+                </tr>
+              ))}
+              {!withdrawals.length && !loading ? <tr><td colSpan={6} className="admin-empty">No withdrawals.</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {tab === "referrals" ? (
+        <div className="table-wrap">
+          <table className="data-table admin-table">
+            <thead><tr><th>Joined</th><th>New user</th><th>Referred by</th><th>Code</th><th>Status</th><th>Fraud score</th></tr></thead>
+            <tbody>
+              {referrals.map((r) => (
+                <tr key={r.id}>
+                  <td>{when(r.createdAt)}</td>
+                  <td>{r.referee}</td>
+                  <td>{r.referrer}</td>
+                  <td><code className="admin-code">{r.code}</code></td>
+                  <td><span className={`status-pill ${r.status === "COMPLETED" ? "success" : r.status === "PENDING" ? "warning" : "danger"}`}>{r.status}</span></td>
+                  <td>{r.fraudScore}</td>
+                </tr>
+              ))}
+              {!referrals.length && !loading ? <tr><td colSpan={6} className="admin-empty">No referrals.</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {tab !== "lookup" && nextCursor ? (
+        <div className="admin-toolbar">
+          <button type="button" className="button ghost" disabled={loading} onClick={() => void load(true, nextCursor)}>{loading ? "Loading…" : "Load more"}</button>
+        </div>
+      ) : null}
+
+      {tab === "lookup" ? (
+        <section className="section">
+          <div className="admin-toolbar">
+            <input className="admin-search" placeholder="Referral code, mobile number or uid" value={lookupQuery}
+              onChange={(e) => setLookupQuery(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") void runLookup(); }} />
+            <button type="button" className="button" disabled={loading} onClick={() => void runLookup()}>{loading ? "Searching…" : "Look up"}</button>
+          </div>
+          {lookup ? (
+            <div className="admin-section-stack">
+              <h3>{lookup.name || lookup.uid}</h3>
+              {lookup.wallet ? (
+                <div className="admin-stats-grid small">
+                  <div className="admin-stat-card compact"><strong>{rupees(lookup.wallet.balancePaise)}</strong><span>Balance</span></div>
+                  <div className="admin-stat-card compact"><strong>{rupees(lookup.wallet.lifetimeEarnedPaise)}</strong><span>Earned</span></div>
+                  <div className="admin-stat-card compact"><strong>{rupees(lookup.wallet.withdrawnPaise)}</strong><span>Withdrawn</span></div>
+                  <div className="admin-stat-card compact"><strong>{lookup.wallet.successfulReferrals}</strong><span>Successful referrals</span></div>
+                  <div className="admin-stat-card compact"><strong>{lookup.wallet.referralCode || "—"}</strong><span>{lookup.wallet.blocked ? "Code (blocked)" : "Code"}</span></div>
+                </div>
+              ) : <p>No wallet yet.</p>}
+              {lookup.referredBy ? <p>Joined with code <code>{lookup.referredBy.code}</code> ({lookup.referredBy.status}).</p> : null}
+              <h4>Money history</h4>
+              <table className="data-table admin-table">
+                <thead><tr><th>When</th><th>Type</th><th>Amount</th><th>Balance after</th></tr></thead>
+                <tbody>
+                  {lookup.ledger.map((l) => (
+                    <tr key={l.id}><td>{when(l.createdAt)}</td><td>{l.type}</td><td>{rupees(l.amountPaise)}</td><td>{rupees(l.balanceAfterPaise)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+              <h4>People they referred ({lookup.referrals.length})</h4>
+              <ul>{lookup.referrals.map((r) => <li key={r.refereeUid}><code>{r.refereeUid}</code> — {r.status} · {when(r.createdAt)}</li>)}</ul>
+            </div>
+          ) : null}
+        </section>
       ) : null}
     </div>
   );
-}
-
-function statusTone(status: string | undefined) {
-  switch (status) {
-    case "COMPLETED":
-    case "ACCEPTED":
-      return "success";
-    case "PROCESSING":
-      return "info";
-    case "FAILED":
-    case "REJECTED":
-      return "danger";
-    case "PENDING":
-      return "warning";
-    default:
-      return "neutral";
-  }
 }

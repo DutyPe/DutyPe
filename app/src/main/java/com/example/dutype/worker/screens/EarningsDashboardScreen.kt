@@ -1,5 +1,9 @@
 package com.example.dutype.worker.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
+import androidx.compose.material.icons.filled.CurrencyRupee
 import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -95,40 +99,41 @@ fun EarningsDashboardScreen(
     val uiState by viewModel.uiState.collectAsState()
     val referralState by referralViewModel.uiState.collectAsState()
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     LaunchedEffect(Unit) {
         viewModel.loadEarnings()
         referralViewModel.loadReferralData()
     }
 
-    val referralStats = referralState.stats
-    val walletBalance = referralStats?.availableBalance ?: 0.0
-    val referralBonus = referralStats?.totalEarnings ?: 0.0
-    val isBalanceLoading = referralState.isLoading && referralStats == null
+    val wallet = referralState.wallet
+    val walletBalance = (wallet?.balancePaise ?: 0L) / 100.0
+    val referralBonus = (wallet?.lifetimeEarnedPaise ?: 0L) / 100.0
+    val isBalanceLoading = referralState.isLoading && wallet == null
 
-    val referralHistory = referralState.referralHistory
+    val ledger = referralState.ledger
     val jobTransactions = uiState.transactions
-    val rows = remember(jobTransactions, referralHistory) {
+    val rows = remember(jobTransactions, ledger) {
         val jobRows = jobTransactions.map { tx ->
             val who = tx.companyName.ifBlank { tx.jobTitle }
             EarningsRow(
                 key = "job_${tx.id}",
                 isReferral = false,
-                title = "Job Payment — $who",
+                title = context.getString(R.string.earnings_job_payment_title, who),
                 date = tx.date,
                 amount = tx.amount,
                 status = tx.status
             )
         }
-        val referralRows = referralHistory
-            .filter { it.status == ReferralStatus.COMPLETED }
-            .map { r ->
+        val referralRows = ledger
+            .filter { it.isCredit && it.type != com.example.dutype.firestore.FirestoreSchema.Values.LedgerType.REFUND }
+            .map { entry ->
                 EarningsRow(
-                    key = "ref_${r.id}",
+                    key = "ref_${entry.id}",
                     isReferral = true,
-                    title = if (r.referredUserName.isBlank()) "Referral Bonus"
-                    else "Referral Bonus — ${r.referredUserName}",
-                    date = r.completedAt ?: r.createdAt,
-                    amount = r.getTotalReferrerReward(),
+                    title = entry.label,
+                    date = entry.createdAt,
+                    amount = entry.amountPaise / 100.0,
                     status = PaymentStatus.PAID
                 )
             }
@@ -140,11 +145,11 @@ fun EarningsDashboardScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(ScreenBg)
+            .background(ScreenBg.bg())
     ) {
         Text(
-            text = "My Earnings",
-            style = t(22, FontWeight.Bold, InkBlack),
+            text = stringResource(R.string.my_earnings),
+            style = t(22, FontWeight.Bold, InkBlack.fg()),
             modifier = Modifier
                 .statusBarsPadding()
                 .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 16.dp)
@@ -177,7 +182,7 @@ fun EarningsDashboardScreen(
             item {
                 Text(
                     text = stringResource(R.string.recent_transactions).uppercase(),
-                    style = t(13, FontWeight.SemiBold, SlateLabel, 0.8f)
+                    style = t(13, FontWeight.SemiBold, SlateLabel.fg(), 0.8f)
                 )
             }
 
@@ -212,12 +217,12 @@ private fun BalanceHeroCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(InkBlack)
+            .background(InkBlack.bg())
             .padding(20.dp)
     ) {
         Text(
-            text = "Available Balance",
-            style = t(12, FontWeight.Normal, SlateMuted, 0.8f)
+            text = stringResource(R.string.earnings_available_balance),
+            style = t(12, FontWeight.Normal, SlateMuted.fg(), 0.8f)
         )
         Spacer(modifier = Modifier.height(6.dp))
         if (isLoading) {
@@ -244,12 +249,12 @@ private fun BalanceHeroCard(
                     .weight(1f)
                     .height(44.dp)
                     .clip(RoundedCornerShape(22.dp))
-                    .background(Emerald)
+                    .background(Emerald.bg())
                     .clickable(onClick = onWithdraw),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Withdraw to UPI →",
+                    text = stringResource(R.string.earnings_withdraw_upi),
                     style = t(13, FontWeight.Bold, Color.White),
                     maxLines = 1
                 )
@@ -259,12 +264,12 @@ private fun BalanceHeroCard(
                     .width(96.dp)
                     .height(44.dp)
                     .clip(RoundedCornerShape(22.dp))
-                    .border(1.dp, Color.White, RoundedCornerShape(22.dp))
+                    .border(1.dp, Color.White.bd(), RoundedCornerShape(22.dp))
                     .clickable(onClick = onHistory),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "History",
+                    text = stringResource(R.string.earnings_history),
                     style = t(13, FontWeight.SemiBold, Color.White),
                     maxLines = 1
                 )
@@ -284,13 +289,13 @@ private fun BreakdownRow(
     ) {
         BreakdownCard(
             modifier = Modifier.weight(1f),
-            label = "Job Income",
+            label = stringResource(R.string.earnings_job_income),
             value = formatCurrency(jobIncome),
             icon = Icons.Outlined.WorkOutline
         )
         BreakdownCard(
             modifier = Modifier.weight(1f),
-            label = "Referral Bonus",
+            label = stringResource(R.string.earnings_referral_bonus),
             value = formatCurrency(referralBonus),
             icon = Icons.Outlined.CardGiftcard
         )
@@ -308,21 +313,21 @@ private fun BreakdownCard(
     Box(
         modifier = modifier
             .clip(shape)
-            .background(Color.White)
-            .border(1.dp, SlateBorder, shape)
+            .background(Color.White.bg())
+            .border(1.dp, SlateBorder.bd(), shape)
             .padding(14.dp)
     ) {
         Column(modifier = Modifier.padding(end = 24.dp)) {
             Text(
                 text = label,
-                style = t(12, FontWeight.Normal, SlateMuted),
+                style = t(12, FontWeight.Normal, SlateMuted.fg()),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
-                style = t(22, FontWeight.Bold, InkBlack),
+                style = t(22, FontWeight.Bold, InkBlack.fg()),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -330,7 +335,7 @@ private fun BreakdownCard(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = Emerald,
+            tint = Emerald.fg(),
             modifier = Modifier
                 .size(20.dp)
                 .align(Alignment.TopEnd)
@@ -363,8 +368,8 @@ private fun TransactionCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Color.White)
-            .border(1.dp, SlateBorder, shape)
+            .background(Color.White.bg())
+            .border(1.dp, SlateBorder.bd(), shape)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -372,13 +377,13 @@ private fun TransactionCard(
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
-                .background(EmeraldTint),
+                .background(EmeraldTint.bg()),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = if (row.isReferral) Icons.Outlined.CardGiftcard else Icons.Outlined.WorkOutline,
                 contentDescription = null,
-                tint = Emerald,
+                tint = Emerald.fg(),
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -388,14 +393,14 @@ private fun TransactionCard(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = row.title,
-                style = t(14, FontWeight.SemiBold, InkBlack),
+                style = t(14, FontWeight.SemiBold, InkBlack.fg()),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = formatDate(row.date),
-                style = t(12, FontWeight.Normal, SlateMuted)
+                style = t(12, FontWeight.Normal, SlateMuted.fg())
             )
         }
 
@@ -424,14 +429,10 @@ private fun TransactionCard(
 @Composable
 private fun EmptyTransactionsCard() {
     EmptyListState(
-        icon = Icons.Default.Receipt,
+        icon = Icons.Filled.CurrencyRupee,
+        tone = com.example.dutype.components.EmptyTone.GREEN,
         title = stringResource(R.string.no_transactions_yet),
-        subtitle = stringResource(R.string.complete_jobs_see_earnings),
-        actionButton = EmptyStateAction(
-            label = stringResource(R.string.browse_jobs),
-            icon = Icons.Default.Search,
-            onClick = { /* Navigation handled by parent */ }
-        )
+        subtitle = stringResource(R.string.complete_jobs_see_earnings)
     )
 }
 

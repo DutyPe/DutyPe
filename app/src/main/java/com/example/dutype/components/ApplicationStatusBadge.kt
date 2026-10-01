@@ -29,10 +29,10 @@ import com.example.dutype.models.ApplicationStatus
 
 /**
  * Centralized Application Status Badge Component
- * 
+ *
  * Use this component across all screens instead of creating duplicate StatusBadge composables.
  * This ensures consistent styling and reduces code duplication.
- * 
+ *
  * Usage:
  * ```kotlin
  * ApplicationStatusBadge(status = application.status)
@@ -45,7 +45,7 @@ fun ApplicationStatusBadge(
     showIcon: Boolean = true
 ) {
     val (backgroundColor, textColor, icon) = getStatusStyle(status)
-    
+
     Row(
         modifier = modifier
             .background(
@@ -64,7 +64,7 @@ fun ApplicationStatusBadge(
                 modifier = Modifier.size(12.dp)
             )
         }
-        
+
         Text(
             text = status.getDisplayName(),
             style = MaterialTheme.typography.bodySmall.copy(
@@ -87,7 +87,7 @@ private fun getStatusStyle(status: ApplicationStatus): Triple<Color, Color, Imag
             Color(0xFFD97706),
             Icons.Default.Schedule
         )
-            
+
         ApplicationStatus.HIRED -> Triple(
             Color(0xFFD1FAE5),
             Color(0xFF059669),
@@ -108,16 +108,6 @@ private fun getStatusStyle(status: ApplicationStatus): Triple<Color, Color, Imag
             Color(0xFF4B5563),
             Icons.Default.Close
         )
-        ApplicationStatus.DELETED -> Triple(
-            Color(0xFFF3F4F6),
-            Color(0xFF9E9E9E),
-            Icons.Default.Close
-        )
-        ApplicationStatus.FILLED -> Triple(
-            Color(0xFFE0F2FE),
-            Color(0xFF2196F3),
-            Icons.Default.Check
-        )
     }
 }
 
@@ -132,7 +122,5 @@ private fun ApplicationStatus.getDisplayName(): String {
         ApplicationStatus.COMPLETED -> "Completed"
         ApplicationStatus.REJECTED -> "Rejected"
         ApplicationStatus.WITHDRAWN -> "Withdrawn"
-        ApplicationStatus.DELETED -> "Deleted"
-        ApplicationStatus.FILLED -> "Filled"
     }
 }

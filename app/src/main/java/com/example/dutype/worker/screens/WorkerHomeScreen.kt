@@ -1,5 +1,7 @@
 package com.example.dutype.worker.screens
 
+import com.example.dutype.ui.theme.fg
+import com.example.dutype.ui.theme.bg
 import com.dutype.app.R
 import android.Manifest
 import android.content.Intent
@@ -107,7 +109,6 @@ import com.example.dutype.components.ScrollAwareLazyColumn
 import com.example.dutype.components.WorkerHomeShimmer
 import com.example.dutype.components.openNotificationSettings
 import com.example.dutype.models.JobListing
-import com.example.dutype.models.JobVacancyStatus
 import com.example.dutype.models.LocationData
 import com.example.dutype.navigation.Routes
 import com.example.dutype.location.TopCityChips
@@ -124,12 +125,10 @@ import com.example.dutype.ui.theme.PrimaryBlue
 import com.example.dutype.viewmodels.AppConfigViewModel
 import com.example.dutype.viewmodels.ConnectivityViewModel
 import com.example.dutype.viewmodels.EarningsViewModel
-import com.example.dutype.viewmodels.FirestoreJobViewModel
 import com.example.dutype.viewmodels.WorkerHomeViewModel
 import com.example.dutype.viewmodels.InstantHelpViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.example.dutype.viewmodels.SavedJobsViewModel
-import com.example.dutype.viewmodels.WorkerJobRequestViewModel
 import com.example.dutype.worker.components.JobCard
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Dispatchers
@@ -175,14 +174,14 @@ fun WorkerHomeScreen(
     val currentLocation by locationPreferences.currentLocation.collectAsStateWithLifecycle()
     val currentUser = FirebaseAuth.getInstance().currentUser
     val isGuestUser = currentUser == null || currentUser.isAnonymous
+    val workerOnline by jobViewModel.isOnline.collectAsStateWithLifecycle()
+    val savingOnline by jobViewModel.isSavingOnline.collectAsStateWithLifecycle()
     val jobApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
     val savedJobsViewModel: SavedJobsViewModel = hiltViewModel()
     val announcementViewModel: com.example.dutype.viewmodels.AnnouncementViewModel = hiltViewModel()
-    val workerJobRequestViewModel: WorkerJobRequestViewModel = hiltViewModel()
     val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
     val appConfigViewModel: AppConfigViewModel = hiltViewModel()
     val announcements by announcementViewModel.announcements.collectAsStateWithLifecycle()
-    val workerRequestState by workerJobRequestViewModel.uiState.collectAsStateWithLifecycle()
     val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
     val referralConfig by appConfigViewModel.referralConfig.collectAsStateWithLifecycle()
     val appUpdateConfig by appConfigViewModel.appUpdateConfig.collectAsStateWithLifecycle()
@@ -190,17 +189,18 @@ fun WorkerHomeScreen(
     val applicationStats by jobApplicationViewModel.stats.collectAsStateWithLifecycle()
     val appVersionInfo = remember(context) { context.appVersionInfo() }
     val scope = rememberCoroutineScope()
-    val jobApplicationService = jobApplicationViewModel.jobApplicationService
+    val notificationRepository = jobViewModel.notificationRepository
     val earningsViewModel: EarningsViewModel = hiltViewModel()
+    val profileCompletionService = hiltViewModel<com.example.dutype.viewmodels.ProfileCompletionViewModel>().profileCompletionService
     val earningsUiState by earningsViewModel.uiState.collectAsStateWithLifecycle()
     val locationService = jobViewModel.locationService
     val locationRepository = remember { com.example.dutype.di.locationRepositoryFromHilt(context) }
     val jobUiState by jobViewModel.uiState.collectAsStateWithLifecycle()
-    
+
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
     var workerRating by remember { mutableStateOf(0f) }
     var workerReviewCount by remember { mutableIntStateOf(0) }
-    
+
     // P1-2: BirthdayService kept (passed to HomeSectionsContent); the local birthdayInfo/showBirthdayBanner
     // mutableState pair previously declared here was dead (never assigned, never read) and was deleted.
     val birthdayService: BirthdayService = com.example.dutype.di.rememberBirthdayService()
@@ -210,8 +210,6 @@ fun WorkerHomeScreen(
     val filteredJobs by jobViewModel.filteredJobs.collectAsStateWithLifecycle()
     val urgentJobs by jobViewModel.filteredUrgentJobs.collectAsStateWithLifecycle()
 
-    // PERFORMANCE FIX P2: Use ViewModel's vacancy statuses (cleared on refresh)
-    val jobVacancyStatuses by jobViewModel.jobVacancyStatuses.collectAsStateWithLifecycle()
 
     // Permission handling - Check permissions only once.
     // P1-2: Removed unused `hasNotificationPermission` (never read after assignment).
@@ -291,22 +289,9 @@ fun WorkerHomeScreen(
 
         currentUser?.uid?.let { userId ->
             runCatching {
-                val firestore = com.example.dutype.di.firestoreFromHilt(context)
-                val updateData = mutableMapOf<String, Any>(
-                    "address" to locationData.getFullAddress(),
-                    "location" to mapOf(
-                        "lat" to locationData.latitude,
-                        "lng" to locationData.longitude
-                    ),
-                    "updatedAt" to com.google.firebase.Timestamp.now()
-                )
-                if (GeoUtils.hasValidCoordinates(locationData.latitude, locationData.longitude)) {
-                    updateData["geohash"] = GeoUtils.encodeGeohash(locationData.latitude, locationData.longitude)
-                }
-                firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES)
-                    .document(userId)
-                    .set(updateData, com.google.firebase.firestore.SetOptions.merge())
-                    .await()
+                profileCompletionService.saveWorkerLocation(
+                    locationData.latitude, locationData.longitude, locationData.getFullAddress()
+                ).getOrThrow()
             }.onFailure { error ->
                 Timber.e(error, "Failed to sync selected worker location")
             }
@@ -327,6 +312,7 @@ fun WorkerHomeScreen(
             }
             val locationData = locationService.toLocationData(locationInfo)
             saveWorkerHomeLocation(locationData, manual = false)
+            jobViewModel.onGpsFix(locationData.latitude, locationData.longitude)
             locationPickerText = locationData.getFullAddress()
             showLocationPickerSheet = false
             android.widget.Toast.makeText(context, context.getString(R.string.location_updated), android.widget.Toast.LENGTH_SHORT).show()
@@ -370,8 +356,7 @@ fun WorkerHomeScreen(
             !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.ACCESS_COARSE_LOCATION)
 
         if (isPermanentlyDenied) {
-            val isTelugu = com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
-            val message = if (isTelugu) "దయచేసి సెట్టింగ్స్‌లో లొకేషన్ అనుమతిని ఆన్ చేయండి" else "Please enable Location permission in App Settings"
+            val message = context.getString(R.string.worker_enable_location_in_settings)
             android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
             openNotificationSettings(context)
         } else {
@@ -434,30 +419,16 @@ fun WorkerHomeScreen(
                             Timber.d("  ⚡ Location update received: ${locationData.getShortAddress()} (${locationData.accuracy}m)")
                             locationPreferences.setPermissionGranted(true)
                             val data = locationService.toLocationData(locationData)
-                            currentUser?.uid?.let { userId ->
-                                launch(kotlinx.coroutines.NonCancellable + Dispatchers.IO) {
-                                    try {
-                                        val firestore = com.example.dutype.di.firestoreFromHilt(context)
-                                        firestore.collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(userId).set(
-                                            mapOf(
-                                                "address" to data.getFullAddress(),
-                                                "location" to mapOf(
-                                                    "lat" to data.latitude,
-                                                    "lng" to data.longitude
-                                                ),
-                                                "geohash" to GeoUtils.encodeGeohash(data.latitude, data.longitude),
-                                                "updatedAt" to com.google.firebase.Timestamp.now()
-                                            ),
-                                            com.google.firebase.firestore.SetOptions.merge()
-                                        ).await()
-                                        Timber.d("  Location synced to Firestore")
-                                    } catch (_: Exception) {}
-                                }
-                            }
+                            // Current area only (the profile's home location is set in the profile).
+                            jobViewModel.onGpsFix(data.latitude, data.longitude)
 
-                            if (data.latitude != 0.0 || data.longitude != 0.0) {
+                            // A place the worker picked (e.g. Delhi) wins over GPS: the feed stays there
+                            // until they switch back to "use my current location".
+                            if ((data.latitude != 0.0 || data.longitude != 0.0) &&
+                                !locationPreferences.isManualLocationLocked()
+                            ) {
                                 jobViewModel.setUserLocation(
-                                    data.latitude, 
+                                    data.latitude,
                                     data.longitude,
                                     immediate = true
                                 )
@@ -493,25 +464,25 @@ fun WorkerHomeScreen(
     // Instagram/TikTok approach: Show UI instantly, populate data in background
     LaunchedEffect(Unit) {
         Timber.d("WorkerHomeScreen - INIT: Starting ULTRA-FAST initialization")
-        
+
         // CRITICAL: Refresh StateFlow from SharedPreferences in case location was saved
         // while this screen wasn't composed (e.g., saved from SelectRoleScreen async GPS)
         locationPreferences.refreshLocation()
-        
+
         // CRITICAL FIX: Check if location already exists FIRST
         // Last known location (any age) so the nearest-jobs query never waits for a fresh GPS fix;
         // a background refresh below refines it.
         val savedLocation = locationPreferences.getSavedLocation()
-        val hasValidLocation = savedLocation != null && 
-                              savedLocation.latitude != 0.0 && 
+        val hasValidLocation = savedLocation != null &&
+                              savedLocation.latitude != 0.0 &&
                               savedLocation.longitude != 0.0
-        
+
         if (hasValidLocation) {
             Timber.d("Using cached location: ${savedLocation?.getShortAddress()}")
             // Set location immediately for instant distance calculations
             jobViewModel.setUserLocation(
-                savedLocation!!.latitude, 
-                savedLocation.longitude, 
+                savedLocation!!.latitude,
+                savedLocation.longitude,
                 immediate = true
             )
 
@@ -526,15 +497,15 @@ fun WorkerHomeScreen(
             jobViewModel.locationFetchedInSession = true
             isLocationLoading = true
         }
-        
+
         // PERFORMANCE FIX: Load ONLY 3 jobs for instant home screen load
         // This is the Instagram/TikTok pattern - show something immediately
         Timber.d("Loading 3 jobs for instant display...")
         jobViewModel.loadJobsSummaryForHome()
-        
+
         Timber.d("WorkerHomeScreen - INIT: Complete (instant - <100ms)")
     }
-    
+
     // CRITICAL: React to location changes from async GPS callbacks
     // This ensures the UI updates immediately when location is fetched
     // (e.g., from SelectRoleScreen's async GPS or WorkerHomeScreen's own fetch)
@@ -545,7 +516,7 @@ fun WorkerHomeScreen(
             jobViewModel.setUserLocation(loc.latitude, loc.longitude, immediate = true)
         }
     }
-    
+
     // Load announcements immediately so guests and logged-in users both see them.
     LaunchedEffect(Unit) {
         announcementViewModel.loadAnnouncements("worker")
@@ -565,7 +536,6 @@ fun WorkerHomeScreen(
 
     LaunchedEffect(currentUser?.uid) {
         if (currentUser?.uid != null) {
-            workerJobRequestViewModel.loadPendingRequests()
             // With a known location the effect below loads instant help once; avoid a duplicate fetch.
             if (currentLocation == null) {
                 instantHelpViewModel.loadWorkerInstantHelp(null)
@@ -573,16 +543,9 @@ fun WorkerHomeScreen(
             earningsViewModel.loadEarnings()
 
             runCatching {
-                val workerDoc = com.example.dutype.di.firestoreFromHilt(context)
-                    .collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES)
-                    .document(currentUser.uid)
-                    .get()
-                    .await()
-                if (workerDoc.exists()) {
-                    workerRating = (workerDoc.getDouble("rating") ?: 0.0).toFloat()
-                    workerReviewCount = workerDoc.getLong("totalRatings")?.toInt()
-                        ?: workerDoc.getLong("reviewCount")?.toInt()
-                        ?: 0
+                profileCompletionService.workerCard(currentUser.uid)?.let { card ->
+                    workerRating = card.rating.toFloat()
+                    workerReviewCount = card.ratingCount
                 }
             }.onFailure {
                 Timber.w(it, "Failed to load worker rating summary for home header")
@@ -670,10 +633,7 @@ fun WorkerHomeScreen(
         currentUser?.uid?.let { userId ->
             delay(3000)
             try {
-                unreadNotificationCount = jobApplicationService.getUnreadNotificationCount(
-                    userId = userId,
-                    activeRole = "WORKER"
-                )
+                unreadNotificationCount = notificationRepository.unreadCount()
             } catch (e: Exception) {
                 Timber.w(e, "Failed to fetch unread notification count")
             }
@@ -690,7 +650,7 @@ fun WorkerHomeScreen(
     val pullToRefreshState = rememberPullToRefreshState()
     var isPullRefreshing by remember { mutableStateOf(false) }
     val isRefreshingActive = isPullRefreshing || jobUiState.isRefreshing
-    
+
     // Debug: Log when announcements change
     LaunchedEffect(announcements) {
         Timber.d(" WorkerHomeScreen: Announcements updated - count: ${announcements.size}")
@@ -761,7 +721,7 @@ fun WorkerHomeScreen(
     // white surface so the role identity stays consistent across the app.
     Box(modifier = Modifier
         .fillMaxSize()
-        .background(Color(0xFFF8FAFC))
+        .background(Color(0xFFF8FAFC).bg())
     ) {
         WorkerHomeBackdropDecor(modifier = Modifier.fillMaxSize())
 
@@ -769,7 +729,7 @@ fun WorkerHomeScreen(
         var locationBarAlpha by remember { mutableStateOf(1f) }
         var headerHeightDp by remember { mutableStateOf(180.dp) }
         val density = LocalDensity.current
-        
+
         Box(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
@@ -798,7 +758,6 @@ fun WorkerHomeScreen(
                                     isLocationLoading = true
                                 }
                                 announcementViewModel.loadAnnouncements("WORKER") // Refresh announcements for workers
-                                workerJobRequestViewModel.loadPendingRequests()
                                 instantHelpViewModel.refreshWorkerInstantRequests(currentLocation)
                                 kotlinx.coroutines.delay(1000)
                                 isPullRefreshing = false
@@ -811,31 +770,16 @@ fun WorkerHomeScreen(
                                 state = pullToRefreshState,
                                 isRefreshing = isRefreshingActive,
                                 modifier = Modifier.align(Alignment.TopCenter),
-                                containerColor = Color.White,
-                                color = com.example.dutype.ui.theme.WorkerColors.Primary
+                                containerColor = Color.White.bg(),
+                                color = com.example.dutype.ui.theme.WorkerColors.Primary.fg()
                             )
                         }
                     ) {
                         when {
-                            // Show shimmer only when loading AND no jobs yet
-                            jobUiState.isLoading && jobUiState.jobs.isEmpty() && urgentJobs.isEmpty() -> {
-                                LoadingContent()
-                            }
-
-                            jobUiState.hasError -> {
-                                ErrorContent(
-                                    error = jobUiState.error ?: "Unknown error occurred",
-                                    onRetry = {
-                                        jobViewModel.loadJobsSummaryForHome()
-                                        if (hasLocationPermission) {
-                                            isLocationLoading = true
-                                        }
-                                    }
-                                )
-                            }
-
                             else -> {
-                                val showEmptyJobsState = !jobUiState.isLoading && (jobUiState.jobs.isEmpty() || filteredJobs.isEmpty())
+                                val jobsFailed = jobUiState.hasError && jobUiState.jobs.isEmpty()
+                                val showEmptyJobsState = !jobUiState.isLoading && !jobsFailed &&
+                                    (jobUiState.jobs.isEmpty() || filteredJobs.isEmpty())
                                 val isAppliedAllVariant = !jobUiState.jobs.isEmpty() && filteredJobs.isEmpty()
                                 val showCategoryRail = hasLocationPermission && !showEmptyJobsState
 
@@ -848,7 +792,6 @@ fun WorkerHomeScreen(
                                     savedJobsViewModel = savedJobsViewModel,
                                     hasLocationPermission = hasLocationPermission,
                                     context = context,
-                                    jobVacancyStatuses = jobVacancyStatuses,
                                     scrollStateManager = scrollStateManager,
                                     onJobClick = { /* P1-2: was assigning to dead `clickedJobId` state; no-op now */ },
                                     onNavigateToJob = { jobId ->
@@ -867,6 +810,11 @@ fun WorkerHomeScreen(
                                     },
                                     headerHeightDp = headerHeightDp,
                                     showEmptyJobsState = showEmptyJobsState,
+                                    jobsFailed = jobsFailed,
+                                    onRetryJobs = {
+                                        jobViewModel.loadJobsSummaryForHome(forceRefresh = true)
+                                        if (hasLocationPermission) isLocationLoading = true
+                                    },
                                     emptyJobsIsAppliedAllVariant = isAppliedAllVariant,
                                     emptyJobsCurrentLocationName = currentLocation?.getShortAddress(),
                                     emptyJobsSuggestedCities = topLocationChips,
@@ -884,19 +832,26 @@ fun WorkerHomeScreen(
                                     announcements = announcements,
                                     onDismissAnnouncement = { id -> announcementViewModel.dismissAnnouncement(id) },
                                     birthdayService = birthdayService,
-                                    workerJobRequests = workerRequestState.requests,
-                                    updatingWorkerJobRequestId = workerRequestState.updatingRequestId,
                                     instantRequests = instantHelpState.instantRequests,
                                     updatingInstantRequestId = instantHelpState.updatingRequestId,
                                     isLoadingInstantRequests = instantHelpState.isLoadingRequests,
                                     instantHelpError = instantHelpState.error,
+                                    showOnlineToggle = !isGuestUser,
+                                    isOnline = workerOnline,
+                                    isSavingOnline = savingOnline,
+                                    onOnlineChange = { online ->
+                                        jobViewModel.setOnline(online) { message ->
+                                            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
                                     onApplyInstantRequest = { request ->
                                         if (isGuestUser) {
                                             loginSheetTitle = context.getString(R.string.guest_apply_login_title)
                                             loginSheetSubtitle = context.getString(R.string.guest_apply_login_desc)
                                             showLoginBottomSheet = true
                                         } else {
-                                            instantHelpViewModel.respondToInstantRequest(request, "applied")
+                                            // Same full-screen offer as the notification: Accept / Skip.
+                                            navController.navigate(com.example.dutype.navigation.Routes.urgentOfferRoute(request.requestId))
                                         }
                                     },
                                     onCallInstantRequest = { request ->
@@ -914,27 +869,6 @@ fun WorkerHomeScreen(
                                             }
                                         }
                                     },
-                                    onAcceptWorkerJobRequest = { request ->
-                                        if (isGuestUser) {
-                                            loginSheetTitle = context.getString(R.string.guest_apply_login_title)
-                                            loginSheetSubtitle = context.getString(R.string.guest_apply_login_desc)
-                                            showLoginBottomSheet = true
-                                        } else {
-                                            workerJobRequestViewModel.acceptRequest(request.requestId) { acceptedJobId ->
-                                                if (acceptedJobId.isNotBlank()) {
-                                                    navController.navigate(Routes.jobDetailRoute(acceptedJobId))
-                                                }
-                                            }
-                                        }
-                                    },
-                                    onRejectWorkerJobRequest = { request ->
-                                        workerJobRequestViewModel.rejectRequest(request.requestId)
-                                    },
-                                    onOpenWorkerJobRequest = { request ->
-                                        if (request.jobId.isNotBlank()) {
-                                            navController.navigate(Routes.jobDetailRoute(request.jobId))
-                                        }
-                                    },
                                     todayEarningsAmount = todayEarningsAmount,
                                     todayJobsDone = todayJobsDone,
                                     thisWeekEarningsAmount = thisWeekEarningsAmount,
@@ -945,7 +879,8 @@ fun WorkerHomeScreen(
                                     onRequestLocationPermission = {
                                         showLocationPermissionBottomSheet = true
                                     },
-                                    onMapClick = { com.example.dutype.components.navigateToWorkerTab(navController, com.example.dutype.navigation.WorkerBottomRoutes.MAP) },
+                                    // Map hidden for now (hero card and map tab are commented out).
+                                    // onMapClick = { com.example.dutype.components.navigateToWorkerTab(navController, com.example.dutype.navigation.WorkerBottomRoutes.MAP) },
                                     onCategoryTap = { category ->
                                         val normalizedCategory = if (category.equals("All", ignoreCase = true)) {
                                             "All Jobs"
@@ -967,10 +902,7 @@ fun WorkerHomeScreen(
                                                 currentUser?.uid?.let { userId ->
                                                     scope.launch {
                                                         try {
-                                                            unreadNotificationCount = jobApplicationService.getUnreadNotificationCount(
-                                                                userId = userId,
-                                                                activeRole = "WORKER"
-                                                            )
+                                                            unreadNotificationCount = notificationRepository.unreadCount()
                                                         } catch (e: Exception) {
                                                             Timber.w(e, "Failed to fetch unread notification count")
                                                         }
@@ -989,7 +921,7 @@ fun WorkerHomeScreen(
                             }
                         }
                     }
-                    
+
                     // P1-2: Removed commented-out Voice Search FAB block (DISABLED for >6 months).
                     // Voice search lives behind WORKER_ALL_JOBS?voiceQuery= now; reintroduce here only
                     // alongside the matching `voiceSearchLauncher` if voice-from-home is brought back.

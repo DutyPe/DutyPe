@@ -92,7 +92,7 @@ object WorkerColors {
 
     val Primary: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF2E2E33) else Color(0xFF0F0F0F)
+            if (isAppInDarkTheme()) Color(0xFF2E3A4F) else Color(0xFF0F0F0F)
     val PrimaryLight: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFF26262B) else Color(0xFFEDEDEF)
@@ -236,7 +236,7 @@ object EmployerColors {
 
     val Primary: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFFE2E8F0) else Color(0xFF0F172A)
+            if (isAppInDarkTheme()) Color(0xFF2E3A4F) else Color(0xFF0F172A)
     val PrimaryLight: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFF1E293B) else Color(0xFFEFF6FF)

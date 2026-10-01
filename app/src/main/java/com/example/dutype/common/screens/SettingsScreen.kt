@@ -1,5 +1,8 @@
 package com.example.dutype.common.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -165,7 +168,7 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SettingsBg)
+            .background(SettingsBg.bg())
             .statusBarsPadding()
     ) {
         Column(
@@ -243,7 +246,7 @@ private fun SettingsHeader(title: String, onBack: () -> Unit) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = stringResource(R.string.back),
-                tint = SettingsInk,
+                tint = SettingsInk.fg(),
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -253,7 +256,7 @@ private fun SettingsHeader(title: String, onBack: () -> Unit) {
             style = TextStyle(
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
-                color = SettingsInk
+                color = SettingsInk.fg()
             )
         )
     }
@@ -266,7 +269,7 @@ private fun SettingsSectionLabel(text: String) {
         style = TextStyle(
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
-            color = SettingsFaint,
+            color = SettingsFaint.fg(),
             letterSpacing = 0.6.sp
         ),
         modifier = Modifier.padding(start = 4.dp, top = 18.dp, end = 0.dp, bottom = 8.dp)
@@ -279,8 +282,8 @@ private fun SettingsCard(content: @Composable () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
-            .border(BorderStroke(1.dp, SettingsBorder), RoundedCornerShape(16.dp))
+            .background(Color.White.bg())
+            .border(BorderStroke(1.dp, SettingsBorder.bd()), RoundedCornerShape(16.dp))
     ) {
         content()
     }
@@ -288,7 +291,7 @@ private fun SettingsCard(content: @Composable () -> Unit) {
 
 @Composable
 private fun SettingsDividerLine() {
-    HorizontalDivider(color = SettingsDivider, thickness = 1.dp)
+    HorizontalDivider(color = SettingsDivider.bd(), thickness = 1.dp)
 }
 
 @Composable
@@ -309,7 +312,7 @@ private fun SettingsRow(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = SettingsInk,
+            tint = SettingsInk.fg(),
             modifier = Modifier.size(20.dp)
         )
         Spacer(modifier = Modifier.width(12.dp))
@@ -318,7 +321,7 @@ private fun SettingsRow(
             style = TextStyle(
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = SettingsRowText
+                color = SettingsRowText.fg()
             ),
             modifier = Modifier.weight(1f)
         )
@@ -331,7 +334,7 @@ private fun SettingsChevron() {
     Icon(
         imageVector = Icons.Default.ChevronRight,
         contentDescription = null,
-        tint = SettingsFaint,
+        tint = SettingsFaint.fg(),
         modifier = Modifier.size(18.dp)
     )
 }
@@ -366,7 +369,7 @@ private fun FlatToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
             .width(44.dp)
             .height(26.dp)
             .clip(RoundedCornerShape(13.dp))
-            .background(if (checked) SettingsOn else SettingsBorder)
+            .background(if (checked) SettingsOn.bg() else SettingsBorder.bg())
             .toggleable(
                 value = checked,
                 role = Role.Switch,
@@ -379,7 +382,7 @@ private fun FlatToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
             modifier = Modifier
                 .size(20.dp)
                 .clip(CircleShape)
-                .background(if (checked) SettingsRowText else Color.White)
+                .background(if (checked) SettingsRowText.bg() else Color.White.bg())
         )
     }
 }
@@ -394,7 +397,7 @@ private fun AccountCard(phoneNumber: String, onEditProfile: () -> Unit) {
         ) {
             Text(
                 text = if (phoneNumber.isBlank()) "—" else phoneNumber,
-                style = TextStyle(fontSize = 14.sp, color = SettingsMuted)
+                style = TextStyle(fontSize = 14.sp, color = SettingsMuted.fg())
             )
             Spacer(modifier = Modifier.width(6.dp))
             SettingsChevron()
@@ -459,7 +462,7 @@ private fun LanguageChip(label: String, active: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .height(28.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(if (active) SettingsRowText else Color.Transparent)
+            .background(if (active) SettingsRowText.bg() else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(start = if (active) 12.dp else 10.dp, end = if (active) 12.dp else 10.dp),
         contentAlignment = Alignment.Center
@@ -469,7 +472,7 @@ private fun LanguageChip(label: String, active: Boolean, onClick: () -> Unit) {
             style = TextStyle(
                 fontSize = 12.sp,
                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (active) Color.White else SettingsMuted
+                color = if (active) Color.White else SettingsMuted.fg()
             )
         )
     }
@@ -532,7 +535,7 @@ private fun DangerRow(text: String, onClick: () -> Unit) {
     ) {
         Text(
             text = text,
-            style = TextStyle(fontSize = 15.sp, color = SettingsDanger)
+            style = TextStyle(fontSize = 15.sp, color = SettingsDanger.fg())
         )
     }
 }
@@ -565,7 +568,7 @@ private fun SettingsFooter(appVersion: String) {
             style = TextStyle(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
-                color = SettingsFaint
+                color = SettingsFaint.fg()
             )
         )
         Text(
@@ -573,7 +576,7 @@ private fun SettingsFooter(appVersion: String) {
             style = TextStyle(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = SettingsFaint
+                color = SettingsFaint.fg()
             )
         )
     }

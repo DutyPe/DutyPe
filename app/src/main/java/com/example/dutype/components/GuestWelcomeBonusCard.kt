@@ -1,5 +1,8 @@
 ﻿package com.example.dutype.components
 
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
+import com.example.dutype.ui.theme.bd
 import com.dutype.app.R
 import androidx.compose.animation.core.EaseInOutSine
 import androidx.compose.animation.core.LinearEasing
@@ -210,7 +213,7 @@ private fun RibbonBadge(text: String) {
         Icon(
             imageVector = Icons.Default.Star,
             contentDescription = null,
-            tint = Color(0xFFFFE500),
+            tint = Color(0xFFFFE500).fg(),
             modifier = Modifier.size(16.dp)
         )
         Text(
@@ -230,7 +233,7 @@ private fun OneTimeBadge(text: String) {
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(9.dp))
-            .background(Color(0xFFF4FFFA).copy(alpha = 0.95f))
+            .background(Color(0xFFF4FFFA).bg().copy(alpha = 0.95f))
             .padding(horizontal = 9.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp)
@@ -238,12 +241,12 @@ private fun OneTimeBadge(text: String) {
         Icon(
             imageVector = Icons.Default.Lock,
             contentDescription = null,
-            tint = Color(0xFF008253),
+            tint = Color(0xFF008253).fg(),
             modifier = Modifier.size(18.dp)
         )
         Text(
             text = text,
-            color = Color(0xFF0F172A),
+            color = Color(0xFF0F172A).fg(),
             fontSize = 10.sp,
             lineHeight = 11.sp,
             fontWeight = FontWeight.ExtraBold,
@@ -261,7 +264,7 @@ private fun SurpriseCopy(
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             text = title,
-            color = Color(0xFF071229),
+            color = Color(0xFF071229).fg(),
             fontSize = 28.sp,
             lineHeight = 31.sp,
             fontWeight = FontWeight.ExtraBold,
@@ -271,7 +274,7 @@ private fun SurpriseCopy(
 
         Text(
             text = message,
-            color = Color(0xFF14213D),
+            color = Color(0xFF14213D).fg(),
             fontSize = 13.5.sp,
             lineHeight = 18.sp,
             fontWeight = FontWeight.Medium,
@@ -287,8 +290,8 @@ private fun MysteryPanel() {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(13.dp))
-            .background(Color.White.copy(alpha = 0.76f))
-            .border(1.dp, Color.White.copy(alpha = 0.82f), RoundedCornerShape(13.dp))
+            .background(Color.White.bg().copy(alpha = 0.76f))
+            .border(1.dp, Color.White.bd().copy(alpha = 0.82f), RoundedCornerShape(13.dp))
             .padding(horizontal = 9.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(9.dp)
@@ -297,13 +300,13 @@ private fun MysteryPanel() {
             modifier = Modifier
                 .size(48.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF83E7A7)),
+                .background(Color(0xFF83E7A7).bg()),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.CardGiftcard,
                 contentDescription = null,
-                tint = Color(0xFF7C2DEB),
+                tint = Color(0xFF7C2DEB).fg(),
                 modifier = Modifier.size(28.dp)
             )
         }
@@ -311,7 +314,7 @@ private fun MysteryPanel() {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = stringResource(R.string.guest_welcome_mystery_label),
-                color = Color(0xFF071229),
+                color = Color(0xFF071229).fg(),
                 fontSize = 13.sp,
                 lineHeight = 14.sp,
                 fontWeight = FontWeight.ExtraBold,
@@ -319,7 +322,7 @@ private fun MysteryPanel() {
             )
             Text(
                 text = stringResource(R.string.guest_welcome_secret_value),
-                color = Color(0xFF07913B),
+                color = Color(0xFF07913B).fg(),
                 fontSize = 21.sp,
                 lineHeight = 23.sp,
                 fontWeight = FontWeight.ExtraBold,
@@ -402,7 +405,7 @@ private fun GiftRevealVisual(
 
         Text(
             text = "?",
-            color = Color(0xFFFFF176),
+            color = Color(0xFFFFF176).fg(),
             fontSize = 68.sp,
             lineHeight = 68.sp,
             fontWeight = FontWeight.ExtraBold,
@@ -425,8 +428,8 @@ private fun WowBadge(modifier: Modifier = Modifier) {
         modifier = modifier
             .size(58.dp)
             .clip(CircleShape)
-            .background(Color(0xFF7C2DEB))
-            .border(2.dp, Color.White, CircleShape)
+            .background(Color(0xFF7C2DEB).bg())
+            .border(2.dp, Color.White.bd(), CircleShape)
             .padding(5.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -449,8 +452,8 @@ private fun TrustFeatureBar() {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(13.dp))
-            .background(Color.White.copy(alpha = 0.82f))
-            .border(1.dp, Color.White.copy(alpha = 0.92f), RoundedCornerShape(13.dp))
+            .background(Color.White.bg().copy(alpha = 0.82f))
+            .border(1.dp, Color.White.bd().copy(alpha = 0.92f), RoundedCornerShape(13.dp))
             .padding(horizontal = 6.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -458,8 +461,8 @@ private fun TrustFeatureBar() {
             icon = Icons.Default.FlashOn,
             title = stringResource(R.string.guest_welcome_instant_credit),
             subtitle = stringResource(R.string.guest_welcome_after_signup),
-            iconBackground = Color(0xFFD9FBE7),
-            iconTint = Color(0xFF029E57),
+            iconBackground = Color(0xFFD9FBE7).bg(),
+            iconTint = Color(0xFF029E57).fg(),
             modifier = Modifier.weight(1f)
         )
         FeatureDivider()
@@ -467,8 +470,8 @@ private fun TrustFeatureBar() {
             icon = Icons.Default.Security,
             title = stringResource(R.string.guest_welcome_safe_title),
             subtitle = stringResource(R.string.guest_welcome_safe_subtitle),
-            iconBackground = Color(0xFFE3FBEA),
-            iconTint = Color(0xFF179447),
+            iconBackground = Color(0xFFE3FBEA).bg(),
+            iconTint = Color(0xFF179447).fg(),
             modifier = Modifier.weight(1f)
         )
         FeatureDivider()
@@ -476,8 +479,8 @@ private fun TrustFeatureBar() {
             icon = Icons.Default.Person,
             title = stringResource(R.string.guest_welcome_only_for),
             subtitle = stringResource(R.string.guest_welcome_new_users),
-            iconBackground = Color(0xFFCFF7E5),
-            iconTint = Color(0xFF17A873),
+            iconBackground = Color(0xFFCFF7E5).bg(),
+            iconTint = Color(0xFF17A873).fg(),
             modifier = Modifier.weight(1f)
         )
     }
@@ -515,7 +518,7 @@ private fun SlidingSurpriseButton(
         shape = shape,
         colors = ButtonDefaults.buttonColors(
             containerColor = Color.Transparent,
-            contentColor = Color(0xFF071229)
+            contentColor = Color(0xFF071229).fg()
         ),
         contentPadding = PaddingValues(0.dp),
         modifier = modifier
@@ -563,14 +566,14 @@ private fun SlidingSurpriseButton(
             ) {
                 CircularIconBadge(
                     icon = Icons.Default.CardGiftcard,
-                    backgroundColor = Color.White,
-                    iconTint = Color(0xFF7C2DEB)
+                    backgroundColor = Color.White.bg(),
+                    iconTint = Color(0xFF7C2DEB).fg()
                 )
                 Text(
                     text = text,
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
-                    color = Color(0xFF071229),
+                    color = Color(0xFF071229).fg(),
                     fontSize = 18.sp,
                     lineHeight = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -580,7 +583,7 @@ private fun SlidingSurpriseButton(
                 Box(modifier = Modifier.graphicsLayer { translationX = arrowShift }) {
                     CircularIconBadge(
                         icon = Icons.AutoMirrored.Filled.ArrowForward,
-                        backgroundColor = Color(0xFF007B58),
+                        backgroundColor = Color(0xFF007B58).bg(),
                         iconTint = Color.White
                     )
                 }
@@ -619,7 +622,7 @@ private fun TrustFeature(
         }
         Text(
             text = title,
-            color = Color(0xFF071229),
+            color = Color(0xFF071229).fg(),
             fontSize = 10.sp,
             lineHeight = 11.sp,
             fontWeight = FontWeight.ExtraBold,
@@ -629,7 +632,7 @@ private fun TrustFeature(
         )
         Text(
             text = subtitle,
-            color = Color(0xFF4B5563),
+            color = Color(0xFF4B5563).fg(),
             fontSize = 9.sp,
             lineHeight = 10.sp,
             fontWeight = FontWeight.Bold,
@@ -646,7 +649,7 @@ private fun FeatureDivider() {
         modifier = Modifier
             .height(44.dp)
             .width(1.dp)
-            .background(Color(0xFFB7E4D5))
+            .background(Color(0xFFB7E4D5).bg())
     )
 }
 
@@ -685,17 +688,17 @@ private fun LimitedOfferFooter(text: String) {
             modifier = Modifier
                 .weight(1f)
                 .height(1.dp)
-                .background(Color(0xFF149759).copy(alpha = 0.65f))
+                .background(Color(0xFF149759).bg().copy(alpha = 0.65f))
         )
         Icon(
             imageVector = Icons.Default.Star,
             contentDescription = null,
-            tint = Color(0xFF087A3B),
+            tint = Color(0xFF087A3B).fg(),
             modifier = Modifier.size(13.dp)
         )
         Text(
             text = text,
-            color = Color(0xFF087A3B),
+            color = Color(0xFF087A3B).fg(),
             fontSize = 12.sp,
             lineHeight = 13.sp,
             fontWeight = FontWeight.ExtraBold,
@@ -705,14 +708,14 @@ private fun LimitedOfferFooter(text: String) {
         Icon(
             imageVector = Icons.Default.Star,
             contentDescription = null,
-            tint = Color(0xFF087A3B),
+            tint = Color(0xFF087A3B).fg(),
             modifier = Modifier.size(13.dp)
         )
         Spacer(
             modifier = Modifier
                 .weight(1f)
                 .height(1.dp)
-                .background(Color(0xFF149759).copy(alpha = 0.65f))
+                .background(Color(0xFF149759).bg().copy(alpha = 0.65f))
         )
     }
 }

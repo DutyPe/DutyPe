@@ -77,7 +77,7 @@ export default function HomePage() {
           <span className="section-label"><SiteIcon name="briefcase-business" /> FOR LOCAL BUSINESSES</span>
           <h2>Good people.<br />Right in your neighbourhood.</h2>
           <p>Find the next person for your shop, home, or growing team.</p>
-          <Link href="/app/employer/post-job" className="button">Post a job <SiteIcon name="arrow-up-right" /></Link>
+          <Link href={PLAY_STORE_URL} className="button">Post a job <SiteIcon name="arrow-up-right" /></Link>
         </div>
       </section>
 

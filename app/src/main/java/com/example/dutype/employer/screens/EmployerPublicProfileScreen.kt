@@ -1,5 +1,6 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.fg
 import com.example.dutype.utils.epochMillis
 import com.example.dutype.firestore.FirestoreSchema.Jobs
 import com.dutype.app.R
@@ -132,7 +133,7 @@ fun EmployerPublicProfileScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = EmployerColors.Primary)
+                    CircularProgressIndicator(color = EmployerColors.Primary.fg())
                 }
             }
 
@@ -182,7 +183,7 @@ fun EmployerPublicProfileScreen(
                                     Icon(
                                         imageVector = Icons.Default.Business,
                                         contentDescription = null,
-                                        tint = EmployerColors.Primary,
+                                        tint = EmployerColors.Primary.fg(),
                                         modifier = Modifier.size(36.dp)
                                     )
                                 }
@@ -258,7 +259,7 @@ fun EmployerPublicProfileScreen(
                                     Icon(
                                         imageVector = Icons.Default.Work,
                                         contentDescription = null,
-                                        tint = EmployerColors.Primary
+                                        tint = EmployerColors.Primary.fg()
                                     )
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
@@ -290,7 +291,7 @@ private fun EmployerProfileMetric(label: String, value: String) {
         Text(
             text = value,
             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-            color = EmployerColors.Primary
+            color = EmployerColors.Primary.fg()
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(

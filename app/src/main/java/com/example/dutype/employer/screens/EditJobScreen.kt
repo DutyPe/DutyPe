@@ -1,5 +1,8 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.Manifest
 import android.net.Uri
@@ -241,9 +244,10 @@ fun EditJobScreen(
     fun validateForm(): Boolean {
         val vacancyCount = vacancies.toIntOrNull()
         return title.isNotBlank() &&
-                (payType == PayType.NEGOTIABLE || (payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L) > 0L) &&
+                (payType == PayType.NEGOTIABLE ||
+                    (payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L) in 1L..com.example.dutype.utils.SalaryFormatter.MAX_PAY_RUPEES) &&
                 location.isNotBlank() &&
-                description.isNotBlank() &&
+                description.trim().length >= 10 &&
                 contactNumber.isNotBlank() &&
                 vacancyCount != null &&
                 vacancyCount in 1..50 &&
@@ -341,7 +345,7 @@ fun EditJobScreen(
             ) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(48.dp),
-                    color = EmployerColors.Primary
+                    color = EmployerColors.Primary.fg()
                 )
                 Text(
                     text = stringResource(R.string.auto_loading_job_details),
@@ -364,7 +368,7 @@ fun EditJobScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .windowInsetsPadding(WindowInsets.statusBars), // Add status bar padding
-                color = Color.White,
+                color = Color.White.bg(),
                 shadowElevation = 2.dp
             ) {
                 Row(
@@ -429,7 +433,7 @@ fun EditJobScreen(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shadowElevation = 8.dp,
-                color = Color.White
+                color = Color.White.bg()
             ) {
                 Column {
                     // Show timing restriction message if applicable
@@ -536,7 +540,7 @@ fun EditJobScreen(
             item {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = Color.White,
+                    color = Color.White.bg(),
                     shadowElevation = 1.dp,
                     shape = RoundedCornerShape(16.dp)
                 ) {
@@ -556,7 +560,7 @@ fun EditJobScreen(
                                 Icon(
                                     imageVector = Icons.Default.Work,
                                     contentDescription = null,
-                                    tint = EmployerColors.Primary,
+                                    tint = EmployerColors.Primary.fg(),
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -578,7 +582,7 @@ fun EditJobScreen(
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = EmployerColors.Primary,
+                                focusedBorderColor = EmployerColors.Primary.bd(),
                                 unfocusedBorderColor = EmployerColors.Border
                             )
                         )
@@ -590,7 +594,7 @@ fun EditJobScreen(
             item {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = Color.White,
+                    color = Color.White.bg(),
                     shadowElevation = 1.dp,
                     shape = RoundedCornerShape(16.dp)
                 ) {
@@ -625,25 +629,25 @@ fun EditJobScreen(
                             )
                         }
 
-                        val isPayAmountInvalid = payAmount.isNotBlank() && payAmount.trim().length < 4
+                        val isPayAmountInvalid = (payAmount.toLongOrNull() ?: 0L) > com.example.dutype.utils.SalaryFormatter.MAX_PAY_RUPEES
                         OutlinedTextField(
                             value = payAmount,
-                            onValueChange = { payAmount = it },
+                            onValueChange = { typed -> payAmount = typed.filter { it.isDigit() }.take(6) },
                             label = { Text(stringResource(R.string.amount)) },
                             placeholder = { Text(stringResource(R.string.edit_job_salary_hint), color = EmployerColors.TextTertiary) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = EmployerColors.Primary,
+                                focusedBorderColor = EmployerColors.Primary.bd(),
                                 unfocusedBorderColor = EmployerColors.Border
                             ),
                             isError = isPayAmountInvalid,
                             supportingText = {
                                 if (isPayAmountInvalid) {
                                     Text(
-                                        stringResource(R.string.salary_min_4_chars),
+                                        stringResource(R.string.pay_max_limit),
                                         color = MaterialTheme.colorScheme.error
                                     )
                                 }
@@ -666,7 +670,7 @@ fun EditJobScreen(
                                     modifier = Modifier.height(34.dp),
                                     label = {
                                         Text(
-                                            text = type.displayName,
+                                            text = stringResource(type.labelRes),
                                             fontSize = 12.sp,
                                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
                                         )
@@ -682,7 +686,7 @@ fun EditJobScreen(
                                         enabled = true,
                                         selected = selected,
                                         borderColor = EmployerColors.Border,
-                                        selectedBorderColor = EmployerColors.Primary
+                                        selectedBorderColor = EmployerColors.Primary.bd()
                                     )
                                 )
                             }
@@ -695,7 +699,7 @@ fun EditJobScreen(
             item {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = Color.White,
+                    color = Color.White.bg(),
                     shadowElevation = 1.dp,
                     shape = RoundedCornerShape(16.dp)
                 ) {
@@ -772,7 +776,7 @@ fun EditJobScreen(
                                 }
                             },
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = EmployerColors.Primary,
+                                focusedBorderColor = EmployerColors.Primary.bd(),
                                 unfocusedBorderColor = EmployerColors.Border
                             )
                         )
@@ -811,7 +815,7 @@ fun EditJobScreen(
             item {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = Color.White,
+                    color = Color.White.bg(),
                     shadowElevation = 1.dp,
                     shape = RoundedCornerShape(16.dp)
                 ) {
@@ -855,7 +859,7 @@ fun EditJobScreen(
                             maxLines = 5,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = EmployerColors.Primary,
+                                focusedBorderColor = EmployerColors.Primary.bd(),
                                 unfocusedBorderColor = EmployerColors.Border
                             )
                         )
@@ -928,7 +932,7 @@ fun EditJobScreen(
             item {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = Color.White,
+                    color = Color.White.bg(),
                     shadowElevation = 1.dp,
                     shape = RoundedCornerShape(16.dp)
                 ) {
@@ -948,7 +952,7 @@ fun EditJobScreen(
                                 Icon(
                                     imageVector = Icons.Default.Phone,
                                     contentDescription = null,
-                                    tint = EmployerColors.Primary,
+                                    tint = EmployerColors.Primary.fg(),
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -972,7 +976,7 @@ fun EditJobScreen(
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = EmployerColors.Primary,
+                                focusedBorderColor = EmployerColors.Primary.bd(),
                                 unfocusedBorderColor = EmployerColors.Border
                             )
                         )
@@ -985,7 +989,7 @@ fun EditJobScreen(
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = EmployerColors.Primary,
+                                focusedBorderColor = EmployerColors.Primary.bd(),
                                 unfocusedBorderColor = EmployerColors.Border
                             )
                         )
@@ -997,7 +1001,7 @@ fun EditJobScreen(
             item {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
-                    color = Color.White,
+                    color = Color.White.bg(),
                     shadowElevation = 1.dp,
                     shape = RoundedCornerShape(16.dp)
                 ) {
@@ -1011,13 +1015,13 @@ fun EditJobScreen(
                             Box(
                                 modifier = Modifier
                                     .size(32.dp)
-                                    .background(Color(0xFFDB2777).copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
+                                    .background(Color(0xFFDB2777).bg().copy(alpha = 0.12f), RoundedCornerShape(8.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Settings,
                                     contentDescription = null,
-                                    tint = Color(0xFFDB2777),
+                                    tint = Color(0xFFDB2777).fg(),
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -1066,7 +1070,7 @@ fun EditJobScreen(
                                             enabled = true,
                                             selected = selected,
                                             borderColor = EmployerColors.Border,
-                                            selectedBorderColor = EmployerColors.Primary
+                                            selectedBorderColor = EmployerColors.Primary.bd()
                                         )
                                     )
                                 }
@@ -1110,7 +1114,7 @@ fun EditJobScreen(
                                             enabled = true,
                                             selected = selected,
                                             borderColor = EmployerColors.Border,
-                                            selectedBorderColor = EmployerColors.Primary
+                                            selectedBorderColor = EmployerColors.Primary.bd()
                                         )
                                     )
                                 }
@@ -1129,7 +1133,7 @@ fun EditJobScreen(
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = EmployerColors.Primary,
+                                focusedBorderColor = EmployerColors.Primary.bd(),
                                 unfocusedBorderColor = EmployerColors.Border
                             )
                         )

@@ -1,5 +1,6 @@
 package com.example.dutype.services
 
+import com.example.dutype.firestore.FirestoreSchema.WorkerProfiles
 import com.example.dutype.models.NotificationData
 import com.example.dutype.models.NotificationType
 import com.google.firebase.auth.FirebaseAuth
@@ -21,12 +22,12 @@ class BirthdayService @Inject constructor(
     private val auth: FirebaseAuth,
     private val notificationService: NotificationService
 ) {
-    
+
     companion object {
         private const val BIRTHDAY_PREFS = "birthday_prefs"
         private const val LAST_WISH_DATE_KEY = "last_wish_date"
     }
-    
+
     /**
      * Check if today is the user's birthday.
     * Reads `dateOfBirth` from `worker_profiles/{userId}` and matches
@@ -61,14 +62,10 @@ class BirthdayService @Inject constructor(
     private suspend fun readDobAndName(userId: String): Pair<String, String>? {
         // Try worker profile first.
         runCatching {
-            val workerSnap = firestore.collection("worker_profiles").document(userId).get().await()
-            if (workerSnap.exists()) {
-                val dob = (workerSnap.getString("dateOfBirth") ?: "").trim()
-                val name = (workerSnap.getString("fullName")
-                    ?: workerSnap.getString("name")
-                    ?: "").trim()
-                if (dob.isNotBlank()) return Pair(dob, name)
-            }
+            val workerSnap = firestore.collection(WorkerProfiles.COLLECTION).document(userId).get().await()
+            val dob = workerSnap.getString(WorkerProfiles.DATE_OF_BIRTH).orEmpty().trim()
+            val name = workerSnap.getString(WorkerProfiles.NAME).orEmpty().trim()
+            if (dob.isNotBlank()) return Pair(dob, name)
         }
         return null
     }
@@ -85,7 +82,7 @@ class BirthdayService @Inject constructor(
         }
         return null
     }
-    
+
     /**
      * Send birthday notification to user
      */
@@ -104,7 +101,7 @@ class BirthdayService @Inject constructor(
                 createdAt = System.currentTimeMillis(),
                 isRead = false
             )
-            
+
             notificationService.sendNotification(notification, userId)
             Timber.i("🎂 Birthday notification sent to $userName")
             Result.success(Unit)
@@ -113,7 +110,7 @@ class BirthdayService @Inject constructor(
             Result.failure(e)
         }
     }
-    
+
     /**
      * Check if we already sent birthday wish today (to avoid duplicates)
      */
@@ -123,7 +120,7 @@ class BirthdayService @Inject constructor(
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         return lastWishDate == today
     }
-    
+
     /**
      * Mark that we've sent birthday wish today
      */

@@ -1,5 +1,9 @@
 package com.example.dutype.worker.screens.myJobs
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
+import androidx.compose.material.icons.filled.Search
 import com.dutype.app.R
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -146,7 +150,7 @@ fun MyJobsScreen(
     }
 
     // Status bar matches the exact-spec screen background.
-    val statusBarColor = MyJobsScreenBg
+    val statusBarColor = MyJobsScreenBg.fg()
     LaunchedEffect(selectedTabIndex, statusBarColor) {
         onStatusBarColorChange(statusBarColor)
 
@@ -161,7 +165,7 @@ fun MyJobsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MyJobsScreenBg)
+            .background(MyJobsScreenBg.bg())
     ) {
         Column(
             modifier = Modifier
@@ -183,7 +187,7 @@ fun MyJobsScreen(
                     text = stringResource(R.string.my_jobs),
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MyJobsInk
+                    color = MyJobsInk.fg()
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -227,6 +231,9 @@ fun MyJobsScreen(
                         scrollStateManager = scrollStateManager,
                         emptyIcon = Icons.Outlined.Inbox,
                         emptyMessage = stringResource(R.string.my_jobs_no_applied_jobs),
+                        emptyBody = stringResource(R.string.my_jobs_empty_applied_body),
+                        emptyTone = com.example.dutype.components.EmptyTone.BLUE,
+                        emptyArt = com.example.dutype.components.EmptyArt.WAITING,
                         navController = navController
                     ) { application ->
                         AppliedJobCard(
@@ -252,6 +259,8 @@ fun MyJobsScreen(
                         scrollStateManager = scrollStateManager,
                         emptyIcon = Icons.Outlined.WorkOutline,
                         emptyMessage = stringResource(R.string.my_jobs_no_active_jobs),
+                        emptyBody = stringResource(R.string.my_jobs_empty_active_body),
+                        emptyTone = com.example.dutype.components.EmptyTone.GREEN,
                         navController = navController
                     ) { application ->
                         ActiveJobCard(
@@ -273,6 +282,9 @@ fun MyJobsScreen(
                         scrollStateManager = scrollStateManager,
                         emptyIcon = Icons.Outlined.History,
                         emptyMessage = stringResource(R.string.my_jobs_no_history_jobs),
+                        emptyBody = stringResource(R.string.my_jobs_empty_history_body),
+                        emptyTone = com.example.dutype.components.EmptyTone.PURPLE,
+                        emptyArt = com.example.dutype.components.EmptyArt.QUIET,
                         navController = navController
                     ) { application ->
                         HistoryJobCard(
@@ -321,13 +333,13 @@ fun MyJobsScreen(
                 Text(
                     text = stringResource(R.string.withdraw_application_title),
                     fontWeight = FontWeight.Bold,
-                    color = MyJobsInk
+                    color = MyJobsInk.fg()
                 )
             },
             text = {
                 Text(
                     text = stringResource(R.string.withdraw_application_message),
-                    color = MyJobsMuted
+                    color = MyJobsMuted.fg()
                 )
             },
             confirmButton = {
@@ -354,7 +366,7 @@ fun MyJobsScreen(
                 ) {
                     Text(
                         text = stringResource(R.string.withdraw),
-                        color = Color(0xFFDC2626),
+                        color = Color(0xFFDC2626).fg(),
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -368,7 +380,7 @@ fun MyJobsScreen(
                 ) {
                     Text(
                         text = stringResource(R.string.cancel),
-                        color = MyJobsMuted
+                        color = MyJobsMuted.fg()
                     )
                 }
             }
@@ -446,6 +458,9 @@ private fun MyJobsStatusListContent(
     emptyIcon: androidx.compose.ui.graphics.vector.ImageVector,
     emptyMessage: String,
     navController: NavHostController,
+    emptyBody: String = "",
+    emptyTone: com.example.dutype.components.EmptyTone = com.example.dutype.components.EmptyTone.BLUE,
+    emptyArt: com.example.dutype.components.EmptyArt? = null,
     itemContent: @Composable (JobApplication) -> Unit
 ) {
     when {
@@ -467,6 +482,9 @@ private fun MyJobsStatusListContent(
             MyJobsEmptyState(
                 icon = emptyIcon,
                 message = emptyMessage,
+                body = emptyBody,
+                tone = emptyTone,
+                art = emptyArt,
                 navController = navController
             )
         }
@@ -497,9 +515,9 @@ private fun MyJobsPillTab(label: String, selected: Boolean, onClick: () -> Unit)
         modifier = Modifier
             .height(36.dp)
             .clip(RoundedCornerShape(28.dp))
-            .background(if (selected) MyJobsInk else Color.White)
+            .background(if (selected) MyJobsInk.bg() else Color.White.bg())
             .then(
-                if (!selected) Modifier.border(1.dp, MyJobsBorder, RoundedCornerShape(28.dp)) else Modifier
+                if (!selected) Modifier.border(1.dp, MyJobsBorder.bd(), RoundedCornerShape(28.dp)) else Modifier
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp),
@@ -509,7 +527,7 @@ private fun MyJobsPillTab(label: String, selected: Boolean, onClick: () -> Unit)
             text = label,
             fontSize = 13.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-            color = if (selected) Color.White else MyJobsInk
+            color = if (selected) Color.White else MyJobsInk.fg()
         )
     }
 }
@@ -522,8 +540,8 @@ private fun AppliedJobCard(application: JobApplication, onClick: () -> Unit, onW
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
-            .border(1.dp, MyJobsBorder, RoundedCornerShape(16.dp))
+            .background(Color.White.bg())
+            .border(1.dp, MyJobsBorder.bd(), RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .padding(16.dp)
     ) {
@@ -531,19 +549,19 @@ private fun AppliedJobCard(application: JobApplication, onClick: () -> Unit, onW
             text = application.jobTitle,
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
-            color = MyJobsInk
+            color = MyJobsInk.fg()
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = application.companyName,
             fontSize = 13.sp,
-            color = MyJobsMuted
+            color = MyJobsMuted.fg()
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = appliedAgoLabel(application.createdAt),
             fontSize = 11.sp,
-            color = MyJobsFaint
+            color = MyJobsFaint.fg()
         )
         Spacer(modifier = Modifier.height(18.dp))
         JobProgressTracker(
@@ -570,7 +588,7 @@ private fun AppliedJobCard(application: JobApplication, onClick: () -> Unit, onW
                     .weight(1f)
                     .height(44.dp)
                     .clip(RoundedCornerShape(22.dp))
-                    .border(1.dp, Color(0xFFFECACA), RoundedCornerShape(22.dp))
+                    .border(1.dp, Color(0xFFFECACA).bd(), RoundedCornerShape(22.dp))
                     .clickable(onClick = onWithdrawClick),
                 contentAlignment = Alignment.Center
             ) {
@@ -578,7 +596,7 @@ private fun AppliedJobCard(application: JobApplication, onClick: () -> Unit, onW
                     text = stringResource(R.string.withdraw),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFFDC2626)
+                    color = Color(0xFFDC2626).fg()
                 )
             }
         }
@@ -595,22 +613,22 @@ private fun ActiveJobCard(application: JobApplication, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
-            .border(1.dp, MyJobsBorder, RoundedCornerShape(16.dp))
+            .background(Color.White.bg())
+            .border(1.dp, MyJobsBorder.bd(), RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .padding(16.dp)
     ) {
         Box(
             modifier = Modifier
                 .clip(RoundedCornerShape(50))
-                .background(MyJobsEmeraldTint)
+                .background(MyJobsEmeraldTint.bg())
                 .padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Text(
                 text = stringResource(R.string.my_jobs_active_now),
                 fontSize = 10.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = MyJobsEmerald
+                color = MyJobsEmerald.fg()
             )
         }
 
@@ -620,7 +638,7 @@ private fun ActiveJobCard(application: JobApplication, onClick: () -> Unit) {
             text = application.jobTitle,
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold,
-            color = MyJobsInk
+            color = MyJobsInk.fg()
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -685,9 +703,9 @@ private fun MyJobsActionButton(
         modifier = modifier
             .height(44.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(if (filled) MyJobsEmerald else Color.White)
+            .background(if (filled) MyJobsEmerald.bg() else Color.White.bg())
             .then(
-                if (!filled) Modifier.border(1.dp, MyJobsBorder, RoundedCornerShape(12.dp)) else Modifier
+                if (!filled) Modifier.border(1.dp, MyJobsBorder.bd(), RoundedCornerShape(12.dp)) else Modifier
             )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
@@ -696,7 +714,7 @@ private fun MyJobsActionButton(
             text = label,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            color = if (filled) Color.White else MyJobsInk,
+            color = if (filled) Color.White else MyJobsInk.fg(),
             textAlign = TextAlign.Center
         )
     }
@@ -715,8 +733,8 @@ private fun HistoryJobCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
-            .border(1.dp, MyJobsBorder, RoundedCornerShape(16.dp))
+            .background(Color.White.bg())
+            .border(1.dp, MyJobsBorder.bd(), RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .padding(16.dp)
     ) {
@@ -730,13 +748,13 @@ private fun HistoryJobCard(
                     text = application.jobTitle,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = MyJobsInk
+                    color = MyJobsInk.fg()
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = application.companyName,
                     fontSize = 13.sp,
-                    color = MyJobsMuted
+                    color = MyJobsMuted.fg()
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
@@ -747,7 +765,7 @@ private fun HistoryJobCard(
         Text(
             text = appliedAgoLabel(application.createdAt),
             fontSize = 11.sp,
-            color = MyJobsFaint
+            color = MyJobsFaint.fg()
         )
 
         if (application.status == ApplicationStatus.COMPLETED && !hasAlreadyRated) {
@@ -803,7 +821,7 @@ private fun JobProgressTracker(steps: List<String>, currentIndex: Int) {
             }
 
             if (index != steps.lastIndex) {
-                val connectorColor = if (index < currentIndex) MyJobsInk else MyJobsBorder
+                val connectorColor = if (index < currentIndex) MyJobsInk.fg() else MyJobsBorder.fg()
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -826,7 +844,7 @@ private fun TrackerStepCircle(state: TrackerStepState) {
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(MyJobsInk),
+                    .background(MyJobsInk.bg()),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -852,8 +870,8 @@ private fun TrackerStepCircle(state: TrackerStepState) {
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(Color.White)
-                    .border(2.dp, MyJobsEmerald, CircleShape),
+                    .background(Color.White.bg())
+                    .border(2.dp, MyJobsEmerald.bd(), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Box(
@@ -861,7 +879,7 @@ private fun TrackerStepCircle(state: TrackerStepState) {
                         .size(10.dp)
                         .scale(pulseScale)
                         .clip(CircleShape)
-                        .background(MyJobsEmerald)
+                        .background(MyJobsEmerald.bg())
                 )
             }
         }
@@ -870,8 +888,8 @@ private fun TrackerStepCircle(state: TrackerStepState) {
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(Color.White)
-                    .border(2.dp, MyJobsBorder, CircleShape)
+                    .background(Color.White.bg())
+                    .border(2.dp, MyJobsBorder.bd(), CircleShape)
             )
         }
     }
@@ -882,64 +900,32 @@ private fun TrackerStepCircle(state: TrackerStepState) {
 private fun MyJobsEmptyState(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     message: String,
+    body: String,
+    tone: com.example.dutype.components.EmptyTone,
+    art: com.example.dutype.components.EmptyArt?,
     navController: NavHostController
 ) {
-    Column(
+    com.example.dutype.components.DutyPeEmptyState(
+        icon = icon,
+        title = message,
+        message = body,
+        tone = tone,
+        art = art,
+        primary = com.example.dutype.components.EmptyStateAction(
+            label = stringResource(R.string.my_jobs_browse_jobs),
+            icon = Icons.Filled.Search,
+            onClick = {
+                runCatching {
+                    com.example.dutype.components.navigateToWorkerTab(navController, com.example.dutype.navigation.WorkerBottomRoutes.JOBS)
+                }.onFailure { error ->
+                    Timber.e(error, "Failed to navigate to all jobs from my jobs empty state")
+                }
+            }
+        ),
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 32.dp, vertical = 48.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.height(24.dp))
-        Box(
-            modifier = Modifier
-                .size(60.dp)
-                .clip(CircleShape)
-                .background(MyJobsBorder.copy(alpha = 0.35f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MyJobsFaint,
-                modifier = Modifier.size(28.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = message,
-            fontSize = 16.sp,
-            color = MyJobsMuted,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Box(
-            modifier = Modifier
-                .height(44.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(MyJobsInk)
-                .clickable {
-                    runCatching {
-                        com.example.dutype.components.navigateToWorkerTab(navController, com.example.dutype.navigation.WorkerBottomRoutes.JOBS)
-                    }.onFailure { error ->
-                        Timber.e(error, "Failed to navigate to all jobs from my jobs empty state")
-                    }
-                }
-                .padding(horizontal = 24.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = stringResource(R.string.my_jobs_browse_jobs),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White
-            )
-        }
-    }
+            .padding(bottom = 80.dp)
+    )
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 ﻿package com.example.dutype.components
 
+import com.example.dutype.ui.theme.bg
 import com.dutype.app.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedVisibility
@@ -118,7 +119,7 @@ fun BirthdayBanner(
                         modifier = Modifier
                             .size(52.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(Color.White.copy(alpha = 0.18f))
+                            .background(Color.White.bg().copy(alpha = 0.18f))
                             .graphicsLayer {
                                 translationY = bounce
                                 alpha = sparkle

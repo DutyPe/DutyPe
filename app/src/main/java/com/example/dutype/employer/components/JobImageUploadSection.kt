@@ -1,5 +1,7 @@
 package com.example.dutype.employer.components
 
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.Manifest
 import android.net.Uri
@@ -141,10 +143,10 @@ fun JobImageUploadSection(
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .background(Color(0xFFEDE9FE), RoundedCornerShape(10.dp)),
+                        .background(Color(0xFFEDE9FE).bg(), RoundedCornerShape(10.dp)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.Image, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(18.dp))
+                    Icon(Icons.Default.Image, contentDescription = null, tint = Color(0xFF7C3AED).fg(), modifier = Modifier.size(18.dp))
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
@@ -152,12 +154,12 @@ fun JobImageUploadSection(
                         text = stringResource(R.string.auto_job_image_optional),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1E293B)
+                        color = Color(0xFF1E293B).fg()
                     )
                     Text(
                         text = stringResource(R.string.auto_add_one_clear_photo_of_the_workplace_or_jo),
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF6B7280)
+                        color = Color(0xFF6B7280).fg()
                     )
                 }
             }
@@ -172,7 +174,7 @@ fun JobImageUploadSection(
                         .fillMaxWidth()
                         .height(180.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFF3F4F6))
+                        .background(Color(0xFFF3F4F6).bg())
                 ) {
                     OptimizedJobImage(
                         imageUrl = selectedImageUri.toString(),
@@ -187,7 +189,7 @@ fun JobImageUploadSection(
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(Color.Black.copy(alpha = 0.5f)),
+                                .background(Color.Black.bg().copy(alpha = 0.5f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Column(
@@ -215,12 +217,12 @@ fun JobImageUploadSection(
                                 .align(Alignment.TopEnd)
                                 .padding(8.dp)
                                 .size(32.dp)
-                                .background(Color.White.copy(alpha = 0.9f), RoundedCornerShape(16.dp))
+                                .background(Color.White.bg().copy(alpha = 0.9f), RoundedCornerShape(16.dp))
                         ) {
                             Icon(
                                 Icons.Default.Close,
                                 contentDescription = "Remove image",
-                                tint = Color(0xFFEF4444),
+                                tint = Color(0xFFEF4444).fg(),
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -232,7 +234,7 @@ fun JobImageUploadSection(
                 Text(
                     text = "1 image selected",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF64748B)
+                    color = Color(0xFF64748B).fg()
                 )
 
                 // Change image button
@@ -284,10 +286,10 @@ fun JobImageUploadSection(
                         .fillMaxWidth()
                         .height(140.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFF9FAFB))
+                        .background(Color(0xFFF9FAFB).bg())
                         .border(
                             width = 2.dp,
-                            color = Color(0xFFE5E7EB),
+                            color = Color(0xFFE5E7EB).fg(),
                             shape = RoundedCornerShape(12.dp)
                         )
                         .clickable { showImageOptions = !showImageOptions },
@@ -300,19 +302,19 @@ fun JobImageUploadSection(
                         Icon(
                             Icons.Default.AddAPhoto,
                             contentDescription = null,
-                            tint = Color(0xFF9CA3AF),
+                            tint = Color(0xFF9CA3AF).fg(),
                             modifier = Modifier.size(40.dp)
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = stringResource(R.string.auto_tap_to_add_job_photo),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFF6B7280)
+                            color = Color(0xFF6B7280).fg()
                         )
                         Text(
                             text = stringResource(R.string.auto_this_photo_appears_on_worker_and_employer),
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF9CA3AF)
+                            color = Color(0xFF9CA3AF).fg()
                         )
                     }
                 }
@@ -333,7 +335,7 @@ fun JobImageUploadSection(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF2563EB)
+                                containerColor = Color(0xFF2563EB).bg()
                             )
                         ) {
                             Icon(
@@ -358,7 +360,7 @@ fun JobImageUploadSection(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF10B981)
+                                containerColor = Color(0xFF10B981).bg()
                             )
                         ) {
                             Icon(
@@ -379,7 +381,7 @@ fun JobImageUploadSection(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(8.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFE8F8EF)
+                    containerColor = Color(0xFFE8F8EF).bg()
                 )
             ) {
                 Row(
@@ -389,7 +391,7 @@ fun JobImageUploadSection(
                     Text(
                         text = stringResource(R.string.auto_a_clear_job_photo_helps_workers_understand),
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF166534)
+                        color = Color(0xFF166534).fg()
                     )
                 }
             }

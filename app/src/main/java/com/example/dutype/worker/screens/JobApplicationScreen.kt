@@ -1,5 +1,8 @@
 package com.example.dutype.worker.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.Manifest
 import android.content.Intent
@@ -9,10 +12,9 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import com.example.dutype.utils.AudioRecordingHelper
-import com.example.dutype.utils.AudioPlaybackHelper
 import java.io.File
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -59,7 +61,7 @@ import com.example.dutype.models.JobListing
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
 import com.example.dutype.utils.findActivity
-import com.example.dutype.viewmodels.FirestoreJobViewModel
+import com.example.dutype.viewmodels.JobDetailViewModel
 import com.example.dutype.viewmodels.ProfileViewModel
 import com.example.dutype.viewmodels.SmartJobApplicationViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -68,7 +70,7 @@ import androidx.compose.ui.res.stringResource
 
 /**
  * Job Application Screen - Review and Submit Application
- * 
+ *
  * Shows:
  * 1. Job summary at top
  * 2. Worker behavior tips before going to work
@@ -82,20 +84,16 @@ fun JobApplicationScreen(
     onStatusBarColorChange: (Color) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val jobViewModel: FirestoreJobViewModel = hiltViewModel()
+    val jobViewModel: JobDetailViewModel = hiltViewModel()
     val profileViewModel: ProfileViewModel = hiltViewModel()
     val applicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
-    
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
     val currentUser = FirebaseAuth.getInstance().currentUser
-    val jobUiState by jobViewModel.uiState.collectAsStateWithLifecycle()
-    val profileUiState by profileViewModel.uiState.collectAsStateWithLifecycle()
+    val workerProfile by profileViewModel.worker.collectAsStateWithLifecycle()
     val applicationUiState by applicationViewModel.uiState.collectAsStateWithLifecycle()
-    
-    // Find the job from loaded jobs or load it
-    val job = remember(jobUiState.jobs, jobId) {
-        jobUiState.jobs.find { it.id == jobId }
-    }
-    
+
+
     // Load job if not found
     LaunchedEffect(jobId) {
         onStatusBarColorChange(Color.White)
@@ -103,26 +101,17 @@ fun JobApplicationScreen(
         profileViewModel.loadProfile()
         Timber.d("JobApplicationScreen: Loading profile for user ${currentUser?.uid}")
     }
-    
-    // Debug: Log profile state
-    LaunchedEffect(profileUiState.user) {
-        Timber.d("JobApplicationScreen: Profile loaded - fullName=${profileUiState.user?.fullName}, phone=${profileUiState.user?.phone}")
-    }
-    
+
+
     // Load job details
     var loadedJob by remember { mutableStateOf<JobListing?>(null) }
-    LaunchedEffect(jobId, job) {
-        if (job == null && loadedJob == null) {
-            val result = jobViewModel.getJobById(jobId)
-            result.onSuccess { fetchedJob ->
-                loadedJob = fetchedJob
-            }
-        }
+    LaunchedEffect(jobId) {
+        jobViewModel.getJob(jobId).onSuccess { loadedJob = it }
     }
-    
+
     // Use either found job or loaded job
-    val displayJob = job ?: loadedJob
-    
+    val displayJob = loadedJob
+
     // Batch-l: drive an in-screen success view (animated check + CTA)
     // instead of toast-then-pop. We hold the success flag locally so that
     // clearing the VM state for the next apply doesn't immediately tear
@@ -136,7 +125,7 @@ fun JobApplicationScreen(
             context.findActivity()?.let { reviewTriggerService.onWorkerJobApplication(it) }
         }
     }
-    
+
     // Handle application error
     LaunchedEffect(applicationUiState.error) {
         applicationUiState.error?.let { error ->
@@ -145,100 +134,6 @@ fun JobApplicationScreen(
         }
     }
 
-    // Quick Apply sheet: selected quick-select note chips, folded into the
-    // existing `coverLetter` field on submit (no new backend field).
-    var selectedQuickNotes by remember { mutableStateOf(setOf<String>()) }
-
-    val recordingHelper = remember { AudioRecordingHelper(context) }
-    val playbackHelper = remember { AudioPlaybackHelper() }
-
-    var recordedAudioFile by remember { mutableStateOf<File?>(null) }
-    var recordedDurationSec by remember { mutableIntStateOf(0) }
-    var isRecording by remember { mutableStateOf(false) }
-    var recordingProgressSeconds by remember { mutableIntStateOf(0) }
-
-    val isPlayingPreview by playbackHelper.isPlaying.collectAsStateWithLifecycle()
-    val playbackProgress by playbackHelper.progress.collectAsStateWithLifecycle()
-
-    DisposableEffect(Unit) {
-        onDispose {
-            recordingHelper.cleanup()
-            playbackHelper.release()
-        }
-    }
-
-    LaunchedEffect(isRecording) {
-        if (isRecording) {
-            recordingProgressSeconds = 0
-            for (i in 1..15) {
-                delay(1000L)
-                if (!isRecording) break
-                recordingProgressSeconds = i
-                if (i >= 15) {
-                    val stopResult = recordingHelper.stopRecording()
-                    stopResult.onSuccess { (file, duration) ->
-                        recordedAudioFile = file
-                        recordedDurationSec = duration
-                    }
-                    isRecording = false
-                    break
-                }
-            }
-        } else {
-            recordingProgressSeconds = 0
-        }
-    }
-
-    val audioPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            playbackHelper.stop()
-            val result = recordingHelper.startRecording()
-            result.onSuccess {
-                isRecording = true
-                recordedAudioFile = null
-                recordedDurationSec = 0
-            }.onFailure {
-                Toast.makeText(context, "Failed to start recording: ${it.message}", Toast.LENGTH_SHORT).show()
-            }
-        } else {
-            Toast.makeText(context, "Microphone permission is required to record voice intro", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    val handleStartRecording: () -> Unit = {
-        val hasPermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.RECORD_AUDIO
-        ) == PackageManager.PERMISSION_GRANTED
-
-        if (hasPermission) {
-            playbackHelper.stop()
-            val result = recordingHelper.startRecording()
-            result.onSuccess {
-                isRecording = true
-                recordedAudioFile = null
-                recordedDurationSec = 0
-            }.onFailure {
-                Toast.makeText(context, "Failed to start recording: ${it.message}", Toast.LENGTH_SHORT).show()
-            }
-        } else {
-            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
-    }
-
-    val handleStopRecording: () -> Unit = {
-        val stopResult = recordingHelper.stopRecording()
-        stopResult.onSuccess { (file, duration) ->
-            recordedAudioFile = file
-            recordedDurationSec = duration
-        }.onFailure {
-            Toast.makeText(context, "Recording was too short, please try again", Toast.LENGTH_SHORT).show()
-        }
-        isRecording = false
-    }
-    
     when {
         showSuccess && displayJob != null -> {
             Column(
@@ -261,16 +156,18 @@ fun JobApplicationScreen(
                 // whole apply / details stack back to the worker home.
                 ApplicationSentSuccess(
                     jobTitle = displayJob.title,
-                    canCallEmployer = displayJob.contactNumber.trim().isNotBlank(),
+                    canCallEmployer = true,
                     onCallEmployer = {
-                        val phone = displayJob.contactNumber.trim()
-                        if (phone.isBlank()) {
-                            Toast.makeText(context, context.getString(R.string.contact_number_not_available), Toast.LENGTH_SHORT).show()
-                        } else {
-                            runCatching {
-                                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
-                            }.onFailure {
-                                Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), Toast.LENGTH_SHORT).show()
+                        scope.launch {
+                            val phone = applicationViewModel.callEmployer(displayJob.id)
+                            if (phone == null) {
+                                Toast.makeText(context, context.getString(R.string.contact_number_not_available), Toast.LENGTH_SHORT).show()
+                            } else {
+                                runCatching {
+                                    context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+                                }.onFailure {
+                                    Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
                     },
@@ -279,7 +176,7 @@ fun JobApplicationScreen(
                 )
             }
         }
-        displayJob == null || profileUiState.isLoading -> {
+        displayJob == null -> {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -304,30 +201,11 @@ fun JobApplicationScreen(
             // white, rounded-top sheet up from the bottom.
             QuickApplyConfirmationSheet(
                 job = displayJob,
-                workerName = profileUiState.user?.fullName,
-                workerPhotoUrl = profileUiState.user?.profileImageUrl,
+                workerName = workerProfile?.name,
+                workerPhotoUrl = workerProfile?.photoUrl?.takeIf { it.isNotBlank() },
                 isSubmitting = applicationUiState.isApplying,
-                selectedQuickNotes = selectedQuickNotes,
-                onToggleQuickNote = { note ->
-                    selectedQuickNotes = if (selectedQuickNotes.contains(note)) {
-                        selectedQuickNotes - note
-                    } else {
-                        selectedQuickNotes + note
-                    }
-                },
                 onDismiss = { navController.popBackStack() },
-                onSubmit = {
-                    // Selected quick-select chips are folded into the existing
-                    // `coverLetter` field the submit call already accepts —
-                    // no new backend field is introduced.
-                    val note = selectedQuickNotes.takeIf { it.isNotEmpty() }?.joinToString(", ")
-                    applicationViewModel.applyForJob(
-                        jobId = jobId,
-                        coverLetter = note,
-                        audioFile = recordedAudioFile,
-                        audioDurationSec = if (recordedAudioFile != null) recordedDurationSec else null
-                    )
-                }
+                onSubmit = { applicationViewModel.applyForJob(jobId) }
             )
         }
     }
@@ -352,17 +230,14 @@ private fun QuickApplyConfirmationSheet(
     workerName: String?,
     workerPhotoUrl: String?,
     isSubmitting: Boolean,
-    selectedQuickNotes: Set<String>,
-    onToggleQuickNote: (String) -> Unit,
     onDismiss: () -> Unit,
     onSubmit: () -> Unit
 ) {
-    val quickNoteOptions = listOf("Can join today", "Have own tools", "Available overtime")
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.45f))
+            .background(Color.Black.bg().copy(alpha = 0.45f))
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
@@ -380,7 +255,7 @@ private fun QuickApplyConfirmationSheet(
                     interactionSource = remember { MutableInteractionSource() },
                     onClick = {}
                 ),
-            color = Color.White,
+            color = Color.White.bg(),
             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
         ) {
             Column(
@@ -399,17 +274,17 @@ private fun QuickApplyConfirmationSheet(
                         modifier = Modifier
                             .size(width = 32.dp, height = 4.dp)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(Color(0xFFE2E8F0))
+                            .background(Color(0xFFE2E8F0).bg())
                     )
                 }
 
                 Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                     Text(
-                        text = "APPLYING FOR:",
+                        text = stringResource(R.string.apply_applying_for_header),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         letterSpacing = 0.8.sp,
-                        color = Color(0xFF94A3B8)
+                        color = Color(0xFF94A3B8).fg()
                     )
 
                     Spacer(modifier = Modifier.height(6.dp))
@@ -420,11 +295,11 @@ private fun QuickApplyConfirmationSheet(
                         fontSize = 18.sp,
                         lineHeight = 24.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F0F0F)
+                        color = Color(0xFF0F0F0F).fg()
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider(thickness = 1.dp, color = Color(0xFFE2E8F0))
+                    HorizontalDivider(thickness = 1.dp, color = Color(0xFFE2E8F0).bd())
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Worker profile preview
@@ -433,8 +308,8 @@ private fun QuickApplyConfirmationSheet(
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFF0FDF4))
-                                .border(1.dp, Color(0xFFA7F3D0), CircleShape),
+                                .background(Color(0xFFF0FDF4).bg())
+                                .border(1.dp, Color(0xFFA7F3D0).bd(), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             if (!workerPhotoUrl.isNullOrBlank()) {
@@ -451,7 +326,7 @@ private fun QuickApplyConfirmationSheet(
                                     text = workerName?.trim()?.firstOrNull()?.uppercaseChar()?.toString() ?: "W",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF10B981)
+                                    color = Color(0xFF10B981).fg()
                                 )
                             }
                         }
@@ -460,10 +335,10 @@ private fun QuickApplyConfirmationSheet(
 
                         Column {
                             Text(
-                                text = workerName?.trim()?.takeIf { it.isNotEmpty() } ?: "You",
+                                text = workerName?.trim()?.takeIf { it.isNotEmpty() } ?: stringResource(R.string.you),
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF0F0F0F)
+                                color = Color(0xFF0F0F0F).fg()
                             )
                             // Worker-level trade/experience isn't loaded by this
                             // screen's view models (ProfileViewModel's `User`
@@ -471,54 +346,14 @@ private fun QuickApplyConfirmationSheet(
                             // detected category here instead of fabricating an
                             // "X yrs exp" figure that has no backing data.
                             Text(
-                                text = job.getCategory(),
+                                text = com.example.dutype.employer.models.JobCategory.fromKey(job.category).displayName,
                                 fontSize = 13.sp,
-                                color = Color(0xFF64748B)
+                                color = Color(0xFF64748B).fg()
                             )
                         }
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
-
-                    Text(
-                        text = "Add a quick note (optional)",
-                        fontSize = 13.sp,
-                        color = Color(0xFF64748B)
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        quickNoteOptions.forEach { option ->
-                            val isSelected = selectedQuickNotes.contains(option)
-                            Box(
-                                modifier = Modifier
-                                    .height(34.dp)
-                                    .clip(RoundedCornerShape(17.dp))
-                                    .background(if (isSelected) Color(0xFF0F0F0F) else Color.White)
-                                    .border(
-                                        1.dp,
-                                        if (isSelected) Color(0xFF0F0F0F) else Color(0xFFE2E8F0),
-                                        RoundedCornerShape(17.dp)
-                                    )
-                                    .clickable { onToggleQuickNote(option) }
-                                    .padding(horizontal = 14.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = option,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = if (isSelected) Color.White else Color(0xFF0F0F0F)
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
 
                     Button(
                         onClick = onSubmit,
@@ -527,13 +362,13 @@ private fun QuickApplyConfirmationSheet(
                             .fillMaxWidth()
                             .height(56.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF10B981),
-                            disabledContainerColor = Color(0xFF10B981).copy(alpha = 0.6f)
+                            containerColor = Color(0xFF10B981).bg(),
+                            disabledContainerColor = Color(0xFF10B981).bg().copy(alpha = 0.6f)
                         ),
                         shape = RoundedCornerShape(28.dp)
                     ) {
                         Text(
-                            text = if (isSubmitting) "Sending…" else "Confirm & Send Application →",
+                            text = if (isSubmitting) stringResource(R.string.apply_sending) else stringResource(R.string.apply_confirm_and_send),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -543,9 +378,9 @@ private fun QuickApplyConfirmationSheet(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "Employer will be notified instantly",
+                        text = stringResource(R.string.apply_employer_notified_instant),
                         fontSize = 12.sp,
-                        color = Color(0xFF64748B),
+                        color = Color(0xFF64748B).fg(),
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -571,8 +406,8 @@ private fun WorkerWorkTipsSection() {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
-            border = BorderStroke(1.dp, Color(0xFFFCA5A5))
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2).bg()),
+            border = BorderStroke(1.dp, Color(0xFFFCA5A5).bd())
         ) {
             Row(
                 modifier = Modifier.padding(14.dp),
@@ -582,7 +417,7 @@ private fun WorkerWorkTipsSection() {
                 Icon(
                     imageVector = Icons.Default.Warning,
                     contentDescription = "Warning",
-                    tint = Color(0xFFEF4444),
+                    tint = Color(0xFFEF4444).fg(),
                     modifier = Modifier.size(24.dp)
                 )
                 Column {
@@ -590,13 +425,13 @@ private fun WorkerWorkTipsSection() {
                         text = stringResource(R.string.auto_safety_warning),
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
-                        color = Color(0xFF991B1B)
+                        color = Color(0xFF991B1B).fg()
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = stringResource(R.string.apply_tip_no_fee),
                         style = AppTypography.bodySmall.copy(
-                            color = Color(0xFF7F1D1D),
+                            color = Color(0xFF7F1D1D).fg(),
                             fontWeight = FontWeight.Medium,
                             lineHeight = 16.sp
                         )
@@ -609,8 +444,8 @@ private fun WorkerWorkTipsSection() {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+            border = BorderStroke(1.dp, Color(0xFFE5E7EB).bd()),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column(
@@ -624,14 +459,14 @@ private fun WorkerWorkTipsSection() {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = Color(0xFF10B981),
+                        tint = Color(0xFF10B981).fg(),
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
                         text = stringResource(R.string.apply_work_tips_title),
                         style = AppTypography.sectionHeader.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF111827),
+                            color = Color(0xFF111827).fg(),
                             fontSize = 14.sp
                         ),
                         fontFamily = MeeshoFontFamily
@@ -643,13 +478,13 @@ private fun WorkerWorkTipsSection() {
                     Box(
                         modifier = Modifier
                             .size(28.dp)
-                            .background(Color(0xFFEFF6FF), CircleShape),
+                            .background(Color(0xFFEFF6FF).bg(), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Phone,
                             contentDescription = null,
-                            tint = Color(0xFF3B82F6),
+                            tint = Color(0xFF3B82F6).fg(),
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -658,12 +493,12 @@ private fun WorkerWorkTipsSection() {
                             text = stringResource(R.string.auto_verify_phone_details),
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
-                            color = Color(0xFF111827)
+                            color = Color(0xFF111827).fg()
                         )
                         Text(
                             text = stringResource(R.string.apply_tip_confirm_details),
                             fontSize = 12.sp,
-                            color = Color(0xFF4B5563),
+                            color = Color(0xFF4B5563).fg(),
                             lineHeight = 16.sp
                         )
                     }
@@ -674,13 +509,13 @@ private fun WorkerWorkTipsSection() {
                     Box(
                         modifier = Modifier
                             .size(28.dp)
-                            .background(Color(0xFFECFDF5), CircleShape),
+                            .background(Color(0xFFECFDF5).bg(), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Schedule,
                             contentDescription = null,
-                            tint = Color(0xFF10B981),
+                            tint = Color(0xFF10B981).fg(),
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -689,12 +524,12 @@ private fun WorkerWorkTipsSection() {
                             text = stringResource(R.string.auto_reach_on_time),
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
-                            color = Color(0xFF111827)
+                            color = Color(0xFF111827).fg()
                         )
                         Text(
                             text = stringResource(R.string.apply_tip_reach_on_time),
                             fontSize = 12.sp,
-                            color = Color(0xFF4B5563),
+                            color = Color(0xFF4B5563).fg(),
                             lineHeight = 16.sp
                         )
                     }
@@ -705,13 +540,13 @@ private fun WorkerWorkTipsSection() {
                     Box(
                         modifier = Modifier
                             .size(28.dp)
-                            .background(Color(0xFFFDF2F8), CircleShape),
+                            .background(Color(0xFFFDF2F8).bg(), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.ThumbUp,
                             contentDescription = null,
-                            tint = Color(0xFFEC4899),
+                            tint = Color(0xFFEC4899).fg(),
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -720,12 +555,12 @@ private fun WorkerWorkTipsSection() {
                             text = stringResource(R.string.auto_polite_behaviour),
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
-                            color = Color(0xFF111827)
+                            color = Color(0xFF111827).fg()
                         )
                         Text(
                             text = stringResource(R.string.apply_tip_polite_work),
                             fontSize = 12.sp,
-                            color = Color(0xFF4B5563),
+                            color = Color(0xFF4B5563).fg(),
                             lineHeight = 16.sp
                         )
                     }
@@ -782,7 +617,6 @@ private fun ApplicationSentSuccess(
     )
 
     val context = LocalContext.current
-    val isTelugu = com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
 
     val hasNotificationPermission = remember {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -801,7 +635,7 @@ private fun ApplicationSentSuccess(
     ) { isGranted ->
         showNotificationCard = false
         if (isGranted) {
-            Toast.makeText(context, if (isTelugu) "నోటిఫికేషన్లు ఆన్ చేయబడ్డాయి" else "Application alerts enabled", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.apply_notif_enabled_toast), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -852,7 +686,7 @@ private fun ApplicationSentSuccess(
         Spacer(modifier = Modifier.height(10.dp))
 
         Text(
-            text = "Your application for \"$jobTitle\" has been sent. Calling now gives you the fastest chance to confirm the work.",
+            text = stringResource(R.string.apply_success_job_body, jobTitle),
             style = AppTypography.bodyMedium.copy(
                 color = WorkerColors.TextSecondary,
                 fontSize = 14.sp
@@ -865,8 +699,8 @@ private fun ApplicationSentSuccess(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
-                border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF).bg()),
+                border = BorderStroke(1.dp, Color(0xFFBFDBFE).bd()),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
                 Row(
@@ -878,27 +712,27 @@ private fun ApplicationSentSuccess(
                         modifier = Modifier
                             .size(38.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF2563EB).copy(alpha = 0.12f)),
+                            .background(Color(0xFF2563EB).bg().copy(alpha = 0.12f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Notifications,
                             contentDescription = null,
-                            tint = Color(0xFF2563EB),
+                            tint = Color(0xFF2563EB).fg(),
                             modifier = Modifier.size(20.dp)
                         )
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (isTelugu) "ఎంప్లాయర్ కాల్‌ను మిస్ కాకండి!" else "Don't miss the employer's call!",
+                            text = stringResource(R.string.apply_notif_card_title),
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
-                            color = Color(0xFF1E3A8A)
+                            color = Color(0xFF1E3A8A).fg()
                         )
                         Text(
-                            text = if (isTelugu) "మిమ్మల్ని షార్ట్‌లిస్ట్ చేసినా లేదా సంప్రదించినా వెంటనే తెలుసుకోవడానికి నోటిఫికేషన్‌లను ఆన్ చేయండి." else "Turn on notifications to know instantly when this employer shortlists or contacts you.",
+                            text = stringResource(R.string.apply_notif_card_desc),
                             fontSize = 12.sp,
-                            color = Color(0xFF3B82F6),
+                            color = Color(0xFF3B82F6).fg(),
                             lineHeight = 16.sp
                         )
                     }
@@ -910,10 +744,10 @@ private fun ApplicationSentSuccess(
                         }
                     ) {
                         Text(
-                            text = if (isTelugu) "ఆన్ చేయండి" else "Turn On",
+                            text = stringResource(R.string.turn_on),
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp,
-                            color = Color(0xFF2563EB)
+                            color = Color(0xFF2563EB).fg()
                         )
                     }
                 }
@@ -928,7 +762,7 @@ private fun ApplicationSentSuccess(
                 .fillMaxWidth()
                 .height(56.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (canCallEmployer) WorkerColors.Success else WorkerColors.Primary
+                containerColor = if (canCallEmployer) WorkerColors.Success else WorkerColors.Primary.fg()
             ),
             shape = RoundedCornerShape(28.dp)
         ) {
@@ -939,7 +773,7 @@ private fun ApplicationSentSuccess(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = if (canCallEmployer) "Call employer now" else "View My Jobs",
+                text = if (canCallEmployer) stringResource(R.string.apply_call_employer_now) else stringResource(R.string.view_my_jobs),
                 style = AppTypography.buttonMedium.copy(
                     color = Color.White,
                     fontWeight = FontWeight.SemiBold
@@ -957,7 +791,7 @@ private fun ApplicationSentSuccess(
             shape = RoundedCornerShape(28.dp)
         ) {
             Text(
-                text = if (canCallEmployer) "View My Jobs" else "Return to Home",
+                text = if (canCallEmployer) stringResource(R.string.view_my_jobs) else stringResource(R.string.return_to_home),
                 style = AppTypography.buttonMedium.copy(
                     color = WorkerColors.TextPrimary,
                     fontWeight = FontWeight.SemiBold
@@ -989,9 +823,9 @@ private fun JobSummaryCard(job: JobListing) {
                     fontSize = 12.sp
                 )
             )
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -1011,7 +845,7 @@ private fun JobSummaryCard(job: JobListing) {
                         modifier = Modifier.size(28.dp)
                     )
                 }
-                
+
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = job.title,
@@ -1024,9 +858,9 @@ private fun JobSummaryCard(job: JobListing) {
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             // Job details row
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1053,27 +887,14 @@ private fun JobSummaryCard(job: JobListing) {
                         )
                     }
                 }
-                
-                // Pay — Bug #6: salary is a String now.
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val salaryStr = job.salary.ifBlank { "Negotiable" }
-                    val period = when (job.salaryType.uppercase()) {
-                        "HOURLY" -> "hour"
-                        "MONTHLY" -> "month"
-                        else -> "day"
-                    }
-                    Text(
-                        text = "₹$salaryStr",
-                        style = AppTypography.labelMedium.copy(
-                            color = WorkerColors.Success,
-                            fontWeight = FontWeight.Bold
-                        )
+
+                Text(
+                    text = job.payText,
+                    style = AppTypography.labelMedium.copy(
+                        color = WorkerColors.Success,
+                        fontWeight = FontWeight.Bold
                     )
-                    Text(
-                        text = "/$period",
-                        style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
-                    )
-                }
+                )
             }
         }
     }
@@ -1146,9 +967,9 @@ private fun SubmitApplicationButton(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         // Disclaimer
         Text(
             text = stringResource(R.string.auto_by_submitting_you_agree_to_share_your_prof),
@@ -1161,206 +982,3 @@ private fun SubmitApplicationButton(
     }
 }
 
-@Composable
-private fun VoiceIntroRecordingCard(
-    recordedAudioFile: File?,
-    recordedDurationSec: Int,
-    isRecording: Boolean,
-    recordingProgressSeconds: Int,
-    isPlayingPreview: Boolean,
-    playbackProgress: Float,
-    onStartRecording: () -> Unit,
-    onStopRecording: () -> Unit,
-    onTogglePlayPreview: () -> Unit,
-    onReRecord: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(
-            1.dp,
-            if (isRecording) Color(0xFFEF4444) else if (recordedAudioFile != null) Color(0xFF10B981) else Color(0xFFE2E8F0)
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .background(
-                            if (isRecording) Color(0xFFFEE2E2) else if (recordedAudioFile != null) Color(0xFFD1FAE5) else Color(0xFFEDE9FE),
-                            CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (isRecording) Icons.Default.Mic else if (recordedAudioFile != null) Icons.Default.CheckCircle else Icons.Default.Mic,
-                        contentDescription = null,
-                        tint = if (isRecording) Color(0xFFDC2626) else if (recordedAudioFile != null) Color(0xFF059669) else Color(0xFF7C3AED),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = "15-Sec Voice Intro",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = Color(0xFF1E293B)
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = Color(0xFFFEF3C7)
-                        ) {
-                            Text(
-                                text = "HIRE 3X FASTER",
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFFB45309),
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                    Text(
-                        text = "Bolkar batayein: Naam, kaam ka anubhav, bike/licence",
-                        fontSize = 11.sp,
-                        color = Color(0xFF64748B)
-                    )
-                }
-            }
-
-            if (isRecording) {
-                // Recording active state
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFFEF2F2), RoundedCornerShape(12.dp))
-                        .padding(12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(10.dp)
-                                .background(Color(0xFFDC2626), CircleShape)
-                        )
-                        Text(
-                            text = "Recording Voice Intro: 0:${recordingProgressSeconds.toString().padStart(2, '0')} / 0:15",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF991B1B)
-                        )
-                    }
-
-                    LinearProgressIndicator(
-                        progress = { (recordingProgressSeconds.toFloat() / 15f).coerceIn(0f, 1f) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(6.dp)
-                            .clip(RoundedCornerShape(3.dp)),
-                        color = Color(0xFFDC2626),
-                        trackColor = Color(0xFFFECACA)
-                    )
-
-                    Button(
-                        onClick = onStopRecording,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Default.Stop, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Done Recording (15s Max)", fontWeight = FontWeight.Bold)
-                    }
-                }
-            } else if (recordedAudioFile != null) {
-                // Recorded state with preview player
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFFF0FDF4), RoundedCornerShape(12.dp))
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF059669), modifier = Modifier.size(16.dp))
-                            Text(
-                                text = "Voice Intro Recorded (${recordedDurationSec}s)",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF065F46)
-                            )
-                        }
-                        TextButton(
-                            onClick = onReRecord,
-                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                        ) {
-                            Icon(Icons.Default.Refresh, contentDescription = null, tint = Color(0xFF059669), modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("Re-record", fontSize = 11.sp, color = Color(0xFF059669))
-                        }
-                    }
-
-                    LinearProgressIndicator(
-                        progress = { playbackProgress },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp)),
-                        color = Color(0xFF059669),
-                        trackColor = Color(0xFFA7F3D0)
-                    )
-
-                    Button(
-                        onClick = onTogglePlayPreview,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            imageVector = if (isPlayingPreview) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (isPlayingPreview) "Pause Preview" else "Listen Preview", fontWeight = FontWeight.Bold)
-                    }
-                }
-            } else {
-                // Idle state - tap to record
-                Button(
-                    onClick = onStartRecording,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Record 15-Sec Voice Intro", fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}

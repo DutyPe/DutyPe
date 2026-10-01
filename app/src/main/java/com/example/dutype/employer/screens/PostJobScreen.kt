@@ -1,5 +1,8 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.Manifest
 import android.content.Context
@@ -134,9 +137,9 @@ import com.example.dutype.employer.components.JobImageUploadSection
 import com.example.dutype.employer.components.VacanciesSection
 import com.example.dutype.employer.components.WorkScheduleSection
 import com.example.dutype.employer.models.JobCategory
-import com.example.dutype.employer.models.JobPostingModel
+import com.example.dutype.employer.models.EmploymentType
 import com.example.dutype.employer.models.PayType
-import com.example.dutype.employer.models.ShiftTiming
+import com.example.dutype.employer.models.JobShift
 import com.example.dutype.location.LocationSuggestion
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.EmployerColors
@@ -144,7 +147,7 @@ import com.example.dutype.utils.JobValidationUtils
 import com.example.dutype.utils.PayRateValidationResult
 import com.example.dutype.utils.ValidationResult
 import com.example.dutype.utils.findActivity
-import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
+import com.example.dutype.viewmodels.EmployerJobsViewModel
 import com.example.dutype.viewmodels.InstantHelpViewModel
 import com.example.dutype.viewmodels.SubscriptionViewModel
 import com.google.android.gms.maps.model.LatLng
@@ -170,7 +173,6 @@ import timber.log.Timber
 
 private const val PostJobTotalSteps = 3
 
-private val PostJobWorkTypes = listOf("Part-time", "Full-time", "Contract", "Temporary", "Weekend Only", "Student-friendly")
 private val PostJobBaseExperienceLevels = listOf(
     "No Experience Required",
     "Fresher (Educated)",
@@ -199,14 +201,9 @@ private val PostJobBaseCategoryChips = listOf(
     JobCategory.OTHER
 )
 private val PostJobStartDateOptions = listOf("Immediately", "Tomorrow", "Next Week")
-private val PostJobShiftChoices = listOf(
-    ShiftTiming.MORNING to "Day Shift",
-    ShiftTiming.NIGHT to "Night Shift",
-    ShiftTiming.BOTH to "Both Shifts",
-    ShiftTiming.FLEXIBLE to "Flexible"
-)
 private val PostJobPerkOptions = listOf("Food Provided", "Transport", "Overtime Bonus", "Accommodation")
-private val PostJobExtraPayTypes = listOf(PayType.WEEKLY, PayType.HOURLY, PayType.TASK)
+private val PostJobExtraPayTypes = listOf(PayType.HOURLY, PayType.NEGOTIABLE)
+private const val MIN_DESCRIPTION_CHARS = 10
 
 private fun postJobWithCustomOption(base: List<String>, current: String): List<String> {
     return if (current.isNotBlank() && current !in base) base + current else base
@@ -234,8 +231,7 @@ private fun postJobVacanciesValid(vacancies: String): Boolean {
 private class PostJobController(
     var context: Context,
     var navController: NavController,
-    val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel,
-    val employerJobViewModel: FirestoreEmployerJobViewModel,
+    val employerJobViewModel: EmployerJobsViewModel,
     val scope: CoroutineScope,
     private val stepState: MutableState<Int>
 ) {
@@ -246,8 +242,8 @@ private class PostJobController(
     var requestLocationPermission: () -> Unit = {}
     var requestNotificationPermission: () -> Unit = {}
 
-    val locationService get() = jobViewModel.locationService
-    private val profileCompletionService get() = jobViewModel.profileCompletionService
+    val locationService get() = employerJobViewModel.locationService
+    private val profileCompletionService get() = employerJobViewModel.profileCompletionService
     private val locationRepository by lazy { com.example.dutype.di.locationRepositoryFromHilt(context) }
 
     var currentStep: Int
@@ -281,21 +277,18 @@ private class PostJobController(
     var contactNumber by mutableStateOf("")
     var category by mutableStateOf(JobCategory.OTHER)
     var customCategory by mutableStateOf("")
-    var shiftTiming by mutableStateOf(ShiftTiming.FLEXIBLE)
-    var customShiftStart by mutableStateOf("")
-    var customShiftEnd by mutableStateOf("")
+    var shift by mutableStateOf(JobShift.ANY)
     var vacancies by mutableStateOf("")
     var employerName by mutableStateOf("")
     var companyName by mutableStateOf("")
     var employerType by mutableStateOf("COMPANY")
-    var workType by mutableStateOf("Full-time")
+    var employmentType by mutableStateOf(EmploymentType.FULL_TIME)
     var experienceLevel by mutableStateOf("No Experience Required")
     var educationRequired by mutableStateOf("No qualification required")
     var gender by mutableStateOf("Both")
     var startDate by mutableStateOf("Immediately")
     var selectedPerks by mutableStateOf(setOf<String>())
     var repostOfJobId by mutableStateOf("")
-    var employerTrustTier by mutableStateOf("VERIFIED")
     var jobImageUri by mutableStateOf<Uri?>(null)
     var jobImageUrl by mutableStateOf("")
     var isUploadingJobImage by mutableStateOf(false)
@@ -324,6 +317,24 @@ private class PostJobController(
         }
     }
 
+    /** Talk-to-post: the AI draft fills the form; the employer checks it and posts as usual. */
+    fun applyAiDraft(d: com.example.dutype.employer.ai.AiJobDraft) {
+        if (d.title.isNotBlank()) title = d.title
+        JobCategory.entries.firstOrNull { it.name == d.category }?.let { category = it }
+        payType = PayType.fromKey(d.payType)
+        payAmount = if (d.payAmount > 0) d.payAmount.toString() else ""
+        vacancies = d.vacancies.coerceIn(1, 50).toString()
+        shift = JobShift.fromKey(d.shift)
+        employmentType = EmploymentType.fromKey(d.employmentType)
+        experienceLevel = d.experience
+        educationRequired = d.education
+        gender = d.gender
+        selectedPerks = d.perks.toSet()
+        if (d.description.isNotBlank()) description = d.description
+        currentStep = 1
+        draftTrigger.value = System.currentTimeMillis()
+    }
+
     fun syncInferredCategory() {
         val inferred = com.example.dutype.utils.JobCategoryResolver.inferCategory(title, description) ?: JobCategory.OTHER
         if (inferred != category) category = inferred
@@ -341,8 +352,9 @@ private class PostJobController(
             experienceLevel != "No Experience Required" ||
             educationRequired != "No qualification required" ||
             gender != "Both" ||
-            shiftTiming != ShiftTiming.FLEXIBLE ||
-            workType != "Full-time" ||
+            shift != JobShift.ANY ||
+            employmentType != EmploymentType.FULL_TIME ||
+            selectedPerks.isNotEmpty() ||
             repostOfJobId.isNotBlank()
     }
 
@@ -360,12 +372,12 @@ private class PostJobController(
             customCategory = customCategory,
             vacancies = vacancies,
             contactNumber = contactNumber,
-            shiftTiming = shiftTiming,
-            workType = workType,
+            shift = shift,
+            employmentType = employmentType,
             experienceLevel = experienceLevel,
             educationRequired = educationRequired,
             gender = gender,
-            requirements = "",
+            benefits = selectedPerks.toList(),
             repostOfJobId = repostOfJobId
         )
         employerJobViewModel.saveDraft(draft)
@@ -392,8 +404,9 @@ private class PostJobController(
                 if (contactNumber.isBlank()) {
                     contactNumber = savedDraft.contactNumber
                 }
-                shiftTiming = savedDraft.shiftTiming
-                workType = savedDraft.workType
+                shift = savedDraft.shift
+                employmentType = savedDraft.employmentType
+                selectedPerks = savedDraft.benefits.toSet()
                 experienceLevel = savedDraft.experienceLevel
                 educationRequired = savedDraft.educationRequired
                 gender = if (savedDraft.gender.equals("Any", ignoreCase = true)) {
@@ -424,9 +437,6 @@ private class PostJobController(
                 if (cachedProfile.contactPhone.isNotBlank()) {
                     contactNumber = cachedProfile.contactPhone
                 }
-                if (cachedProfile.trustTier.isNotBlank()) {
-                    employerTrustTier = cachedProfile.trustTier
-                }
                 if (cachedProfile.employerType.isNotBlank()) {
                     employerType = cachedProfile.employerType
                 }
@@ -446,34 +456,14 @@ private class PostJobController(
     }
 
     private suspend fun loadProfileFromFirestore(currentUser: com.google.firebase.auth.FirebaseUser) {
-        val db = com.example.dutype.di.firestoreFromHilt(context)
-        val employerDoc = db.collection(com.example.dutype.firestore.FirestoreCollections.EMPLOYER_PROFILES).document(currentUser.uid).get().await()
-        val phoneRoleDoc = currentUser.phoneNumber
-            ?.let(com.example.dutype.utils.PhoneNumberUtils::normalize)
-            ?.takeIf { it.isNotBlank() }
-            ?.let { db.collection(com.example.dutype.firestore.FirestoreCollections.PHONE_ROLES).document(it).get().await() }
-
-        if (employerDoc.exists() || phoneRoleDoc?.exists() == true) {
-            val savedFullName = employerDoc.getString("fullName") ?: phoneRoleDoc?.getString("name")
-            if (!savedFullName.isNullOrBlank()) {
-                employerName = savedFullName
-            }
-            val savedContactPhone = employerDoc.getString("phone") ?: phoneRoleDoc?.getString("phoneNumber")
-            if (!savedContactPhone.isNullOrBlank()) {
-                contactNumber = savedContactPhone
-            }
-            val savedEmployerType = employerDoc.getString("employerType")
-                ?: phoneRoleDoc?.getString("employerType")
-                ?: "COMPANY"
-            employerType = savedEmployerType
-        }
-        if (employerDoc.exists()) {
-            val savedCompanyName = employerDoc.getString("companyName")
-                ?: employerDoc.getString("fullName")
-            if (!savedCompanyName.isNullOrBlank()) {
-                companyName = savedCompanyName
-            }
-        }
+        val P = com.example.dutype.firestore.FirestoreSchema.EmployerProfiles
+        val doc = com.example.dutype.di.firestoreFromHilt(context)
+            .collection(P.COLLECTION).document(currentUser.uid).get().await()
+        if (!doc.exists()) return
+        doc.getString(P.OWNER_NAME)?.takeIf { it.isNotBlank() }?.let { employerName = it }
+        doc.getString(P.PHONE)?.takeIf { it.isNotBlank() }?.let { contactNumber = it }
+        employerType = doc.getString(P.EMPLOYER_TYPE) ?: employerType
+        companyName = doc.getString(P.BUSINESS_NAME)?.takeIf { it.isNotBlank() } ?: employerName
     }
 
     fun clearLegacyStepRedirectFlag() {
@@ -488,22 +478,32 @@ private class PostJobController(
     // -------------------------------------------------------------- location
     suspend fun fetchWorkLocationFast() {
         val cachedLocation = locationRepository.lastKnownLocationIfFresh(10 * 60 * 1000L)
+            ?: locationRepository.lastKnownLocation()
         if (cachedLocation != null) {
-            location = cachedLocation.getFullAddress()
+            val addr = cachedLocation.getFullAddress().ifBlank { cachedLocation.address }
+            if (addr.isNotBlank()) location = addr
             locationLatitude = cachedLocation.latitude
             locationLongitude = cachedLocation.longitude
             Timber.d("LOCATION DEBUG: Using recent cached location immediately")
         }
 
         val refinedLocation = locationRepository.getHighAccuracy(
-            timeoutMs = if (cachedLocation != null) 4000L else 6000L,
-            minAccuracyMeters = 35f
-        )
+            timeoutMs = if (cachedLocation != null) 5000L else 10000L,
+            minAccuracyMeters = 50f
+        ) ?: locationService.getCurrentLocation()
+          ?: locationService.getCachedLocation()
 
-        if (refinedLocation != null) {
-            location = refinedLocation.getFullAddress()
+        if (refinedLocation != null && com.example.dutype.utils.GeoUtils.hasValidCoordinates(refinedLocation.latitude, refinedLocation.longitude)) {
+            val addr = refinedLocation.getFullAddress()
+            if (addr.isNotBlank()) {
+                location = addr
+            } else if (location.isBlank()) {
+                location = "${String.format("%.4f", refinedLocation.latitude)}, ${String.format("%.4f", refinedLocation.longitude)}"
+            }
             locationLatitude = refinedLocation.latitude
             locationLongitude = refinedLocation.longitude
+            locationError = null
+            Toast.makeText(context, context.getString(R.string.location_updated), Toast.LENGTH_SHORT).show()
             Timber.d("LOCATION DEBUG: Refined location fetched (${refinedLocation.accuracy}m)")
         } else if (cachedLocation == null) {
             Timber.w("LOCATION DEBUG: No cached or refined location available")
@@ -610,13 +610,16 @@ private class PostJobController(
     fun validateStep(step: Int): Boolean {
         return when (step) {
             1 -> {
-                if (title.isBlank()) return false
+                if (title.isBlank() || description.trim().length < MIN_DESCRIPTION_CHARS) return false
                 val scamCheck = JobValidationUtils.validateAgainstScamKeywords(title, description)
                 scamValidationResult = scamCheck
                 scamCheck.isValid
             }
             2 -> {
-                if (payAmount.isBlank() || location.isBlank()) return false
+                if ((payType != PayType.NEGOTIABLE && payAmount.isBlank()) || location.isBlank()) return false
+                if (payType != PayType.NEGOTIABLE &&
+                    (payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L) > com.example.dutype.utils.SalaryFormatter.MAX_PAY_RUPEES
+                ) return false
                 val payCheck = JobValidationUtils.validatePayRate(category, payType, payAmount)
                 payRateValidationResult = payCheck
                 true
@@ -628,115 +631,45 @@ private class PostJobController(
     }
 
     // --------------------------------------------------------------- publish
-    private fun createJobPosting(): JobPostingModel {
-        return JobPostingModel(
-            title = title,
-            payAmount = payAmount,
-            payType = payType,
-            location = location,
-            description = description,
+    private fun buildDescriptionText(): String {
+        val base = description.trim().ifBlank { "Hiring for ${title.trim()}. ${shift.displayName}." }
+        return if (startDate == "Immediately") base else "$base\n\nStart: $startDate"
+    }
+
+    private fun buildJobForm(lat: Double, lng: Double, vacancyCount: Int): com.example.dutype.jobs.JobForm {
+        val fullDescription = buildDescriptionText()
+        return com.example.dutype.jobs.JobForm(
+            title = title.trim(),
+            category = com.example.dutype.utils.JobCategoryResolver.inferCategoryName(title, fullDescription, category.name),
+            employmentType = employmentType.key,
+            payAmount = if (payType == PayType.NEGOTIABLE) 0L else payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L,
+            payType = payType.key,
+            vacancies = vacancyCount,
+            urgency = com.example.dutype.firestore.FirestoreSchema.Values.Urgency.NORMAL,
+            shift = shift.key,
+            area = com.example.dutype.utils.AreaText.from(location),
+            lat = lat,
+            lng = lng,
+            photoUrl = jobImageUrl.ifBlank { null },
+            description = fullDescription,
+            addressText = location.trim(),
             contactNumber = contactNumber,
-            category = category,
-            shiftTiming = shiftTiming,
-            vacancies = vacancies.toIntOrNull() ?: 0,
-            employerId = employerId ?: "",
-            postedTime = System.currentTimeMillis()
+            gender = when (gender) { "Male" -> "MALE"; "Female" -> "FEMALE"; else -> "ANY" },
+            experienceRequired = experienceLevel,
+            educationRequired = educationRequired,
+            benefits = selectedPerks.toList()
         )
-    }
-
-    private fun shiftTimingText(): String {
-        return if (shiftTiming == ShiftTiming.CUSTOM &&
-            (customShiftStart.isNotBlank() || customShiftEnd.isNotBlank())
-        ) {
-            listOf(customShiftStart.trim(), customShiftEnd.trim())
-                .filter { it.isNotBlank() }
-                .joinToString(separator = " - ")
-        } else {
-            shiftTiming.displayName
-        }
-    }
-
-    private fun buildDescriptionText(jobPosting: JobPostingModel): String {
-        val baseDescriptionText = jobPosting.description.ifBlank {
-            buildString {
-                append("Hiring for ")
-                append(jobPosting.title.trim())
-                append(".")
-                if (shiftTiming.displayName.isNotBlank()) {
-                    append(" Shift: ")
-                    append(shiftTiming.displayName)
-                    append(".")
-                }
-            }
-        }
-        return buildString {
-            append(baseDescriptionText)
-            if (startDate != "Immediately") {
-                append("\n\nStart: ")
-                append(startDate)
-            }
-            if (selectedPerks.isNotEmpty()) {
-                append("\n\nPerks: ")
-                append(selectedPerks.joinToString(", "))
-            }
-        }
-    }
-
-    private fun buildJobData(
-        jobPosting: JobPostingModel,
-        finalLatitude: Double,
-        finalLongitude: Double,
-        vacancyCount: Int
-    ): MutableMap<String, Any> {
-        // salary is a String: the employer's exact text is sent verbatim.
-        val payParsed = com.example.dutype.utils.PayAmountParser.parse(jobPosting.payAmount)
-        val descriptionWithPayText = buildDescriptionText(jobPosting)
-        val inferredCategoryName = com.example.dutype.utils.JobCategoryResolver.inferCategoryName(
-            title = jobPosting.title,
-            description = descriptionWithPayText
-        )
-        val locationMap: Map<String, Double> = mapOf("lat" to finalLatitude, "lng" to finalLongitude)
-        val jobData = mutableMapOf<String, Any>()
-        jobData["title"] = jobPosting.title
-        jobData["jobType"] = workType
-        jobData["category"] = inferredCategoryName
-        jobData["location"] = locationMap
-        jobData["addressText"] = jobPosting.location
-        jobData["salary"] = payParsed.text
-        jobData["salaryType"] = jobPosting.payType.name
-        jobData["description"] = descriptionWithPayText
-        jobData["gender"] = gender
-        jobData["experienceRequired"] = experienceLevel
-        jobData["educationRequired"] = educationRequired
-        jobData["shiftTiming"] = shiftTimingText()
-        jobData["vacancies"] = vacancyCount
-        jobData["contactNumber"] = jobPosting.contactNumber
-        jobData["employerId"] = employerId ?: ""
-        jobData["jobImageUrl"] = jobImageUrl
-        if (repostOfJobId.isNotBlank()) {
-            jobData["repostOfJobId"] = repostOfJobId
-            jobData["repostedAt"] = System.currentTimeMillis()
-        }
-        return jobData
     }
 
     private fun submitJobWithCoordinates(finalLatitude: Double, finalLongitude: Double) {
-        if (isCreatingJob) {
-            Timber.w("JOB POSTING DEBUG: Already creating job in submitJobWithCoordinates, ignoring")
-            return
-        }
-
-        Timber.d("JOB POSTING DEBUG: Creating job posting...")
-        val jobPosting = createJobPosting()
+        if (isCreatingJob) return
         val vacancyCount = vacancies.toIntOrNull()
         if (vacancyCount == null || vacancyCount !in 1..50) {
             Toast.makeText(context, context.getString(R.string.enter_number_positions), Toast.LENGTH_SHORT).show()
             isSubmittingJob = false
             return
         }
-
-        val jobData = buildJobData(jobPosting, finalLatitude, finalLongitude, vacancyCount)
-        employerJobViewModel.createJob(jobData) { success, newJobId, message ->
+        employerJobViewModel.postJob(buildJobForm(finalLatitude, finalLongitude, vacancyCount)) { success, newJobId, message ->
             onJobCreated(success, newJobId, message)
         }
     }
@@ -859,14 +792,9 @@ private class PostJobController(
 
     private suspend fun ensureCompanyName(uid: String, displayName: String?) {
         if (!companyName.isBlank()) return
-        val profileResult = profileCompletionService.getEmployerProfileData(uid)
-        profileResult.onSuccess { profileData ->
-            val savedName = (profileData["companyName"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-                ?: (profileData["fullName"] as? String)?.trim()?.takeIf { it.isNotBlank() }
-            if (!savedName.isNullOrBlank()) {
-                companyName = savedName
-            }
-        }
+        profileCompletionService.getEmployer(uid).getOrNull()?.displayName
+            ?.takeIf { it.isNotBlank() }
+            ?.let { companyName = it }
         if (companyName.isBlank()) {
             companyName = employerName.ifBlank {
                 displayName?.trim().orEmpty().ifBlank { "DutyPe Employer" }
@@ -931,10 +859,19 @@ private class PostJobController(
             Toast.makeText(context, "Enter a job title", Toast.LENGTH_SHORT).show()
             return
         }
+        if (description.trim().length < MIN_DESCRIPTION_CHARS) {
+            Toast.makeText(context, R.string.post_job_description_required, Toast.LENGTH_LONG).show()
+            return
+        }
         val scamCheck = JobValidationUtils.validateAgainstScamKeywords(title, description)
         scamValidationResult = scamCheck
         if (!scamCheck.isValid) {
             showScamWarningDialog = true
+            return
+        }
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        if (currentUser == null) {
+            showLoginBottomSheet = true
             return
         }
         if (!postJobVacanciesValid(vacancies)) {
@@ -953,8 +890,14 @@ private class PostJobController(
     }
 
     private fun goNextFromStep3() {
-        if (payAmount.isBlank()) {
+        if (payType != PayType.NEGOTIABLE && (payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L) <= 0L) {
             Toast.makeText(context, "Enter the wage", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (payType != PayType.NEGOTIABLE &&
+            (payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L) > com.example.dutype.utils.SalaryFormatter.MAX_PAY_RUPEES
+        ) {
+            Toast.makeText(context, R.string.pay_max_limit, Toast.LENGTH_SHORT).show()
             return
         }
         if (contactNumber.isBlank()) {
@@ -999,15 +942,15 @@ fun PostJobScreen(
         onStatusBarColorChange?.invoke(statusBarColorToken)
     }
     val scope = rememberCoroutineScope()
-    val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
-    val employerJobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
+    val employerJobViewModel: EmployerJobsViewModel = hiltViewModel()
     val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
     val subscriptionViewModel: SubscriptionViewModel = hiltViewModel()
     val employerSubscription by subscriptionViewModel.activeSubscription.collectAsState()
     val stepState = rememberSaveable { mutableStateOf(1) }
+    var selectedPostJobTab by rememberSaveable { mutableIntStateOf(0) } // 0: Instant Job, 1: Regular Job
 
     val c = remember {
-        PostJobController(context, navController, jobViewModel, employerJobViewModel, scope, stepState)
+        PostJobController(context, navController, employerJobViewModel, scope, stepState)
     }
     c.context = context
     c.navController = navController
@@ -1020,12 +963,19 @@ fun PostJobScreen(
     }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        c.onLocationPermissionResult(isGranted)
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        c.onLocationPermissionResult(granted)
     }
     c.requestLocationPermission = {
-        locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        locationPermissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        )
     }
 
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -1037,10 +987,163 @@ fun PostJobScreen(
         notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
     }
 
-    PostJobSideEffects(c)
-    PostJobDialogs(c)
-    PostJobWizard(c)
-    PostJobSheets(c)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .background(Color.White.bg())
+    ) {
+        // Top Bar: Back button to Home/previous step + 2-Tab Segmented Switch
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = Color.White.bg()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = {
+                        if (selectedPostJobTab == 1 && c.currentStep > 1) {
+                            c.currentStep = c.currentStep - 1
+                        } else {
+                            val popped = navController.popBackStack()
+                            if (!popped) {
+                                (rootNavController ?: navController).navigate(Routes.EMPLOYER_HOME) {
+                                    popUpTo(Routes.EMPLOYER_HOME) { inclusive = false }
+                                    launchSingleTop = true
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.back),
+                        tint = PjInk.fg(),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(Color(0xFFF1F5F9).bg())
+                        .padding(3.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // Tab 0: Instant Need
+                    val isInstant = selectedPostJobTab == 0
+                    Surface(
+                        onClick = { selectedPostJobTab = 0 },
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (isInstant) Color.White.bg() else Color.Transparent,
+                        shadowElevation = if (isInstant) 2.dp else 0.dp,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.tab_instant_need),
+                                fontSize = 13.sp,
+                                fontWeight = if (isInstant) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isInstant) Color(0xFFDC2626).fg() else Color(0xFF64748B).fg()
+                            )
+                        }
+                    }
+
+                    // Tab 1: Regular Job
+                    val isRegular = selectedPostJobTab == 1
+                    Surface(
+                        onClick = { selectedPostJobTab = 1 },
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (isRegular) Color.White.bg() else Color.Transparent,
+                        shadowElevation = if (isRegular) 2.dp else 0.dp,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.tab_regular_job),
+                                fontSize = 13.sp,
+                                fontWeight = if (isRegular) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isRegular) Color(0xFF0F172A).fg() else Color(0xFF64748B).fg()
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+            if (selectedPostJobTab == 0) {
+                PostUrgentNeedContent(
+                    viewModel = instantHelpViewModel,
+                    onPosted = { requestId ->
+                        navController.navigate(Routes.employerUrgentNeedDetailRoute(requestId)) {
+                            popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                            launchSingleTop = true
+                        }
+                    },
+                    showTopBar = false,
+                    bottomPadding = 12.dp,
+                    navController = rootNavController ?: navController,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                var showAiAssistant by rememberSaveable { mutableStateOf(false) }
+                Box(modifier = Modifier.fillMaxSize()) {
+                    PostJobSideEffects(c)
+                    PostJobDialogs(c)
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // Talk-to-post + "workers available nearby" (first step only).
+                        if (c.currentStep == 1) {
+                            com.example.dutype.employer.ai.AiPostBanner(
+                                lat = c.locationLatitude,
+                                lng = c.locationLongitude,
+                                category = c.category.name,
+                                onTalk = { showAiAssistant = true },
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
+                        Box(modifier = Modifier.weight(1f)) { PostJobWizard(c) }
+                    }
+                    PostJobSheets(c)
+                    if (showAiAssistant) {
+                        com.example.dutype.employer.ai.AiPostAssistantSheet(
+                            onDismiss = { showAiAssistant = false },
+                            onApply = { draft ->
+                                c.applyAiDraft(draft)
+                                showAiAssistant = false
+                                Toast.makeText(context, context.getString(R.string.ai_post_filled_toast), Toast.LENGTH_LONG).show()
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 @OptIn(FlowPreview::class)
@@ -1082,8 +1185,9 @@ private fun PostJobDraftTriggerEffect(c: PostJobController) {
         c.customCategory,
         c.vacancies,
         c.contactNumber,
-        c.shiftTiming,
-        c.workType,
+        c.shift,
+        c.employmentType,
+        c.selectedPerks,
         c.experienceLevel,
         c.educationRequired,
         c.gender,
@@ -1326,7 +1430,7 @@ private fun PostJobNoCreditsSheet(c: PostJobController) {
             c.navController.popBackStack()
         },
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Color.White
+        containerColor = Color.White.bg()
     ) {
         Column(
             modifier = Modifier
@@ -1346,7 +1450,7 @@ private fun PostJobNoCreditsSheet(c: PostJobController) {
                 Icon(
                     imageVector = Icons.Default.Info,
                     contentDescription = null,
-                    tint = EmployerColors.Primary,
+                    tint = EmployerColors.Primary.fg(),
                     modifier = Modifier.size(32.dp)
                 )
             }
@@ -1400,7 +1504,11 @@ private fun PostJobSheets(c: PostJobController) {
         onDismiss = { c.showLoginBottomSheet = false },
         onLoginSuccess = {
             c.showLoginBottomSheet = false
-            c.submitJob()
+            if (c.currentStep == 3) {
+                c.submitJob()
+            } else if (c.currentStep == 1) {
+                c.currentStep = 2
+            }
         },
         onProfileSetupRequired = {
             c.showLoginBottomSheet = false
@@ -1409,7 +1517,8 @@ private fun PostJobSheets(c: PostJobController) {
         requiresProfileCheck = true,
         role = com.example.dutype.models.UserRole.EMPLOYER,
         title = stringResource(R.string.login_to_post_job),
-        subtitle = stringResource(R.string.login_publish_job_subtitle)
+        subtitle = stringResource(R.string.login_publish_job_subtitle),
+        navController = c.rootNavController ?: c.navController
     )
 
     com.example.dutype.components.NotificationPermissionBottomSheet(
@@ -1448,12 +1557,10 @@ private fun PostJobWizard(c: PostJobController) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color.White.bg())
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars)
+            modifier = Modifier.fillMaxSize()
         ) {
             PostJobOfflineBanner()
             PostJobWizardBody(c, currentStep, wizardScrollState)
@@ -1480,14 +1587,17 @@ private fun PostJobWizardBody(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 140.dp)
+            // Room for the fixed Next / Post button bar (80dp + the phone's navigation bar) and a
+            // little breathing space, so the last field is never hidden behind it.
+            .navigationBarsPadding()
+            .padding(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 112.dp)
     ) {
         PjProgressRow(currentStep = currentStep, totalSteps = PostJobTotalSteps)
         Text(
             text = postJobStepTitle(currentStep),
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = PjInk
+            color = PjInk.fg()
         )
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -1509,9 +1619,9 @@ private fun BoxScope.PostJobBottomCta(c: PostJobController, currentStep: Int, ct
         modifier = Modifier
             .align(Alignment.BottomCenter)
             .fillMaxWidth()
-            .background(Color.White)
+            .background(Color.White.bg())
             .navigationBarsPadding()
-            .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 28.dp)
+            .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 12.dp)
     ) {
         Button(
             onClick = { c.goNext() },
@@ -1521,9 +1631,9 @@ private fun BoxScope.PostJobBottomCta(c: PostJobController, currentStep: Int, ct
                 .height(56.dp),
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = PjInk,
+                containerColor = PjInk.bg(),
                 contentColor = Color.White,
-                disabledContainerColor = PjInk.copy(alpha = 0.5f),
+                disabledContainerColor = PjInk.bg().copy(alpha = 0.5f),
                 disabledContentColor = Color.White
             ),
             elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
@@ -1568,7 +1678,7 @@ private fun PostJobStep1(c: PostJobController) {
     PjSectionLabel("Category")
     PostJobCategoryChips(c)
 
-    PjSectionLabel("Description (optional)")
+    PjSectionLabel("Description")
     PjField(
         value = c.description,
         onValueChange = { c.description = it },
@@ -1577,6 +1687,14 @@ private fun PostJobStep1(c: PostJobController) {
         singleLine = false,
         minHeight = 96.dp
     )
+    if (c.description.isNotEmpty() && c.description.trim().length < MIN_DESCRIPTION_CHARS) {
+        Text(
+            text = stringResource(R.string.post_job_description_required),
+            fontSize = 11.sp,
+            color = EmployerColors.Error,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
 
     PjSectionLabel("Photo (optional)")
     JobImageUploadSection(
@@ -1635,7 +1753,7 @@ private fun PostJobCategoryChips(c: PostJobController) {
 // ---------------------------------------------------------------- step 2
 @Composable
 private fun PostJobStep2(c: PostJobController) {
-    val savedWorkLocations by c.jobViewModel.savedWorkLocationsStore.locations.collectAsState()
+    val savedWorkLocations by c.employerJobViewModel.savedWorkLocationsStore.locations.collectAsState()
     EnhancedLocationSection(
         location = c.location,
         onLocationChange = { c.location = it },
@@ -1663,22 +1781,22 @@ private fun PostJobStep2(c: PostJobController) {
 
     PjSectionLabel("Shift")
     PjFlow {
-        PostJobShiftChoices.forEach { choice ->
+        JobShift.entries.forEach { option ->
             PjChip(
-                label = choice.second,
-                selected = c.shiftTiming == choice.first,
-                onClick = { c.shiftTiming = choice.first }
+                label = option.displayName,
+                selected = c.shift == option,
+                onClick = { c.shift = option }
             )
         }
     }
 
     PjSectionLabel("Job type")
     PjFlow {
-        PostJobWorkTypes.forEach { type ->
+        EmploymentType.entries.forEach { type ->
             PjChip(
-                label = type,
-                selected = c.workType == type,
-                onClick = { c.workType = type }
+                label = type.displayName,
+                selected = c.employmentType == type,
+                onClick = { c.employmentType = type }
             )
         }
     }
@@ -1694,9 +1812,9 @@ private fun PostJobStep3(c: PostJobController) {
         payType = c.payType,
         onPayTypeChange = { c.payType = it }
     )
-    if (c.payAmount.isNotEmpty() && c.payAmount.length < 4) {
+    if ((c.payAmount.toLongOrNull() ?: 0L) > com.example.dutype.utils.SalaryFormatter.MAX_PAY_RUPEES) {
         Text(
-            text = "Minimum 4 characters required",
+            text = stringResource(R.string.pay_max_limit),
             fontSize = 11.sp,
             color = EmployerColors.Error,
             modifier = Modifier.padding(top = 4.dp)
@@ -1753,7 +1871,7 @@ private fun PostJobExtraPayTypeChips(c: PostJobController) {
     PjFlow {
         PostJobExtraPayTypes.forEach { type ->
             PjChip(
-                label = type.displayName,
+                label = stringResource(type.labelRes),
                 selected = c.payType == type,
                 onClick = { c.payType = type },
                 height = 32.dp,
@@ -1775,635 +1893,8 @@ private fun PostJobPerkChips(c: PostJobController) {
                 onClick = {
                     c.selectedPerks = if (on) c.selectedPerks - perk else c.selectedPerks + perk
                 },
-                selectedFill = Color(0xFF0F0F0F),
+                selectedFill = Color(0xFF0F0F0F).bg(),
                 showCheck = true
-            )
-        }
-    }
-}
-
-@Composable
-private fun PostJobBackdropDecor(modifier: Modifier = Modifier) {
-    Box(modifier = modifier) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 24.dp, end = 12.dp)
-                .size(220.dp)
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .size(180.dp)
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 120.dp, end = 24.dp)
-                .size(200.dp)
-        )
-    }
-}
-
-@Composable
-private fun PostJobCommandHeader(navController: NavController) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Surface(
-            onClick = { navController.popBackStack() },
-            shape = CircleShape,
-            color = Color.White.copy(alpha = 0.92f),
-            shadowElevation = 6.dp
-        ) {
-            Box(
-                modifier = Modifier.size(44.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = null,
-                    tint = EmployerColors.TextPrimary
-                )
-            }
-        }
-
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.auto_post_a_job),
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.ExtraBold,
-                color = EmployerColors.TextPrimary
-            )
-        }
-    }
-}
-
-@Composable
-private fun PostJobHeroCard(
-    title: String,
-    payAmount: String,
-    payType: PayType,
-    location: String,
-    companyName: String,
-    employerTrustTier: String,
-    readinessCount: Int,
-    workType: String,
-    hasHeroImage: Boolean,
-    locationPinned: Boolean
-) {
-    val readinessPercent = readinessCount * 25
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        shape = RoundedCornerShape(30.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                // Solid premium navy hero surface (no gradient).
-                .background(
-                    color = Color(0xFF0F172A),
-                    shape = RoundedCornerShape(30.dp)
-                )
-                .padding(22.dp)
-        ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(18.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = Color.White.copy(alpha = 0.14f)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.post_job_worker_preview),
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = Color.White.copy(alpha = 0.12f)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.post_job_ready_percent, readinessPercent),
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-
-                Text(
-                    text = title.ifBlank { "Your role headline will appear here" },
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color.White,
-                    lineHeight = 36.sp
-                )
-
-                Text(
-                    text = if (companyName.isBlank()) {
-                        "Add company and role details to make the listing feel legitimate immediately."
-                    } else {
-                        "$companyName • ${employerTrustTier.replace('_', ' ')} employer"
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.82f),
-                    lineHeight = 22.sp
-                )
-
-                Row(
-                    modifier = Modifier.horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    HeroSignalPill(
-                        title = stringResource(R.string.pay_label),
-                        value = if (payAmount.isBlank()) "Set salary" else "Rs. $payAmount ${payType.displayName}"
-                    )
-                    HeroSignalPill(
-                        title = stringResource(R.string.type_label),
-                        value = workType.ifBlank { "Choose work type" }
-                    )
-                    HeroSignalPill(
-                        title = stringResource(R.string.area_label),
-                        value = location.ifBlank { stringResource(R.string.add_work_location) }
-                    )
-                }
-
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
-                    color = Color.White.copy(alpha = 0.12f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(52.dp)
-                                .background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(18.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = if (hasHeroImage) Icons.Default.Preview else Icons.Default.Description,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = if (locationPinned) "Listing confidence is strong" else "Listing still needs a verified pin",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
-                            )
-                            Text(
-                                text = if (hasHeroImage) {
-                                    "Image added. Your post will feel more real when workers browse the feed."
-                                } else {
-                                    "Add a photo or poster if you want the listing to stand out faster in the feed."
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.72f),
-                                lineHeight = 19.sp
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PostJobSignalStrip(
-    readinessCount: Int,
-    employerTrustTier: String,
-    hasValidJobCoordinates: Boolean,
-    hasImage: Boolean
-) {
-    Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        StudioSignalCard(
-            title = stringResource(R.string.essentials),
-            value = "$readinessCount / 4",
-            caption = "Critical publish checks complete",
-            tint = EmployerColors.Primary
-        )
-        StudioSignalCard(
-            title = stringResource(R.string.trust_tier),
-            value = employerTrustTier.replace('_', ' '),
-            caption = "Employer reputation visible to workers",
-            tint = Color(0xFFFF8A3D)
-        )
-        StudioSignalCard(
-            title = stringResource(R.string.map_pin),
-            value = if (hasValidJobCoordinates) "Verified" else "Missing",
-            caption = if (hasValidJobCoordinates) "Exact work area captured" else "Set a precise local pin",
-            tint = EmployerColors.Success
-        )
-        StudioSignalCard(
-            title = stringResource(R.string.visual),
-            value = if (hasImage) "Live" else "Optional",
-            caption = "Job poster / image state",
-            tint = Color(0xFF7C3AED)
-        )
-    }
-}
-
-@Composable
-private fun PostJobChecklistPanel(
-    missingStudioItems: List<String>,
-    locationPinned: Boolean,
-    hasHeroImage: Boolean,
-    primaryColor: Color,
-    accentColor: Color,
-    successColor: Color
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = Color.White.copy(alpha = 0.92f),
-        shadowElevation = 6.dp
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = stringResource(R.string.post_job_launch_checklist),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = EmployerColors.TextPrimary
-                    )
-                    Text(
-                        text = if (missingStudioItems.isEmpty()) {
-                            "All critical details are in place. You can publish when you are ready."
-                        } else {
-                            "Finish the remaining essentials before launch."
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = EmployerColors.TextSecondary,
-                        lineHeight = 19.sp
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .background(primaryColor.copy(alpha = 0.12f), RoundedCornerShape(14.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (missingStudioItems.isEmpty()) Icons.Default.Check else Icons.Default.Warning,
-                        contentDescription = null,
-                        tint = primaryColor,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-
-            if (missingStudioItems.isEmpty()) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    ReadinessTag(
-                        label = if (locationPinned) "Location verified" else "Location pending",
-                        backgroundColor = successColor.copy(alpha = 0.12f),
-                        contentColor = successColor
-                    )
-                    ReadinessTag(
-                        label = if (hasHeroImage) "Image added" else "Image optional",
-                        backgroundColor = accentColor.copy(alpha = 0.12f),
-                        contentColor = accentColor
-                    )
-                }
-            } else {
-                missingStudioItems.forEach { item ->
-                    Row(
-                        verticalAlignment = Alignment.Top,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Text(
-                            text = "-",
-                            color = accentColor,
-                            fontWeight = FontWeight.Black,
-                            modifier = Modifier.padding(top = 1.dp)
-                        )
-                        Text(
-                            text = item,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = EmployerColors.TextPrimary
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StudioSectionBanner(
-    eyebrow: String,
-    title: String,
-    description: String,
-    accentColor: Color
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = Color.Transparent
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Color.White.copy(alpha = 0.55f),
-                    RoundedCornerShape(24.dp)
-                )
-                .border(
-                    width = 1.dp,
-                    color = Color.White.copy(alpha = 0.8f),
-                    shape = RoundedCornerShape(24.dp)
-                )
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = eyebrow,
-                style = MaterialTheme.typography.labelLarge,
-                color = accentColor,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.ExtraBold,
-                color = EmployerColors.TextPrimary,
-                lineHeight = 30.sp
-            )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = EmployerColors.TextSecondary,
-                lineHeight = 21.sp
-            )
-        }
-    }
-}
-
-@Composable
-private fun PostJobPublishBar(
-    publishEnabled: Boolean,
-    isPublishing: Boolean,
-    onPublish: () -> Unit
-) {
-    Surface(
-        color = EmployerColors.CardBackground,
-        shadowElevation = 12.dp,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(
-                    horizontal = 16.dp,
-                    vertical = 12.dp
-                )
-                .padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())
-        ) {
-            Button(
-                onClick = onPublish,
-                enabled = publishEnabled && !isPublishing,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(54.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = EmployerColors.Primary,
-                    disabledContainerColor = EmployerColors.Border
-                )
-            ) {
-                if (isPublishing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Text(stringResource(R.string.publishing), color = Color.White, fontWeight = FontWeight.SemiBold)
-                } else {
-                    Text(
-                        text = stringResource(R.string.publish_job),
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 16.sp
-                    )
-                }
-            }
-        }
-    }
-}
-
-
-
-@Composable
-private fun PostJobLaunchBar(
-    publishEnabled: Boolean,
-    isPublishing: Boolean,
-    onPublish: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(com.example.dutype.ui.theme.EmployerColors.CardBackground)
-    ) {
-        Divider(color = EmployerColors.Border, thickness = 1.dp)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            Button(
-                onClick = onPublish,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                enabled = publishEnabled,
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = EmployerColors.Primary,
-                    contentColor = Color.White,
-                    disabledContainerColor = EmployerColors.Border,
-                    disabledContentColor = EmployerColors.TextTertiary
-                )
-            ) {
-                if (isPublishing) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text(
-                        text = stringResource(R.string.post_job),
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ReadinessTag(
-    label: String,
-    backgroundColor: Color,
-    contentColor: Color
-) {
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = backgroundColor
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            style = MaterialTheme.typography.labelMedium,
-            color = contentColor,
-            fontWeight = FontWeight.SemiBold
-        )
-    }
-}
-
-@Composable
-private fun StudioMetaChip(
-    label: String,
-    value: String,
-    backgroundColor: Color,
-    accentColor: Color
-) {
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = backgroundColor,
-        shadowElevation = 2.dp
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall,
-                color = accentColor,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodySmall,
-                color = EmployerColors.TextPrimary,
-                fontWeight = FontWeight.Medium
-            )
-        }
-    }
-}
-
-@Composable
-private fun HeroSignalPill(title: String, value: String) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = Color.White.copy(alpha = 0.12f)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.66f),
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2
-            )
-        }
-    }
-}
-
-@Composable
-private fun StudioSignalCard(
-    title: String,
-    value: String,
-    caption: String,
-    tint: Color
-) {
-    Surface(
-        modifier = Modifier.width(168.dp),
-        shape = RoundedCornerShape(22.dp),
-        color = Color.White.copy(alpha = 0.92f),
-        shadowElevation = 4.dp
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelMedium,
-                color = tint,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleMedium,
-                color = EmployerColors.TextPrimary,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = caption,
-                style = MaterialTheme.typography.bodySmall,
-                color = EmployerColors.TextSecondary,
-                lineHeight = 18.sp
             )
         }
     }
@@ -2461,440 +1952,6 @@ fun PolishedCard(
 // Enhanced UI Components for Hyper-Local Jobs
 
 @Composable
-private fun PostingTypeTabs(
-    selectedType: String,
-    isIndividual: Boolean,
-    onVacancyClick: () -> Unit,
-    onUrgentNeedClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    // Both Company and Personal employers have a consistent tab layout:
-    // Tab 0: Job Vacancy (vacancy)
-    // Tab 1: Instant Task (urgent)
-    val selectedIndex = if (selectedType == "urgent") 1 else 0
-
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            color = EmployerColors.CardBackground,
-            tonalElevation = 0.dp,
-            shadowElevation = 0.dp
-        ) {
-            TabRow(
-                selectedTabIndex = selectedIndex,
-                containerColor = EmployerColors.CardBackground,
-                contentColor = EmployerColors.Primary
-            ) {
-                Tab(
-                    selected = selectedIndex == 0,
-                    onClick = onVacancyClick,
-                    icon = { Icon(Icons.Default.Work, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    text = { Text(if (isIndividual) "📋 Regular Vacancy" else stringResource(R.string.normal_job), fontWeight = if (selectedIndex == 0) FontWeight.Bold else FontWeight.Medium) }
-                )
-                Tab(
-                    selected = selectedIndex == 1,
-                    onClick = onUrgentNeedClick,
-                    icon = { Icon(Icons.Default.FlashOn, contentDescription = null, modifier = Modifier.size(18.dp)) },
-                    text = { Text(if (isIndividual) "⚡ Instant Task" else stringResource(R.string.urgent_need), fontWeight = if (selectedIndex == 1) FontWeight.Bold else FontWeight.Medium) }
-                )
-            }
-        }
-
-        Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = EmployerColors.Primary.copy(alpha = 0.08f)
-        ) {
-            Text(
-                text = if (selectedType == "urgent") {
-                    if (isIndividual) {
-                        "⚡ Instant Task: Find immediate helpers nearby for household chores, cooking, cleaning, or urgent tasks today."
-                    } else {
-                        "⚡ Instant Urgent Need: Request quick workers nearby for immediate business shifts or peak hours today."
-                    }
-                } else {
-                    if (isIndividual) {
-                        "📋 Regular Vacancy: Post a standard vacancy for ongoing or part-time personal/household assistance."
-                    } else {
-                        "📋 Regular Vacancy: Post commercial vacancies for full-time, part-time, or shift roles at your company."
-                    }
-                },
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = EmployerColors.TextPrimary,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp
-                ),
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-            )
-        }
-    }
-}
-
-/**
- * Studio-style group card used by the redesigned Post Job flow.
- * Renders a numbered step badge, gradient-tinted header (icon + title +
- * subtitle), then the section's stacked sub-sections inside one cohesive
- * card so the screen reads as a guided studio rather than a long form.
- */
-@Composable
-fun StudioGroupCard(
-    stepNumber: Int,
-    title: String,
-    subtitle: String,
-    icon: String,
-    accentColor: Color,
-    content: @Composable () -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        // ── Section header (flat, no card wrapper) ────────────────────────
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(
-                text = "$stepNumber. $title",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = com.example.dutype.ui.theme.EmployerColors.TextSecondary
-            )
-        }
-        Divider(
-            color = com.example.dutype.ui.theme.EmployerColors.Border,
-            thickness = 1.dp
-        )
-        // ── Content ────────────────────────────────────────────────────────
-        androidx.compose.runtime.CompositionLocalProvider(
-            com.example.dutype.employer.components.LocalSectionInGroup provides true
-        ) {
-            content()
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-    }
-}
-
-
-/**
- * ANTI-FRAUD FEATURE: Structured Job Titles
- * 
- * Employers CANNOT type a job title freely. They must select from a pre-set list.
- * This eliminates "Earn ₹50,000/day working from home" scams instantly.
- * 
- * Implemented: December 27, 2025
- */
-@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-@Composable
-fun EnhancedJobTitleSection(
-    title: String,
-    onTitleChange: (String) -> Unit
-) {
-    val primaryBlue = EmployerColors.Primary
-    var titleError by remember { mutableStateOf<String?>(null) }
-
-    PolishedCard {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
-            // Section header with icon
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(EmployerColors.InfoLight, RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("\uD83D\uDCDD", fontSize = 18.sp)
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = stringResource(R.string.post_job_title_label),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = EmployerColors.TextPrimary
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "*",
-                            color = EmployerColors.Error,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                    }
-                    Text(
-                        text = stringResource(R.string.post_job_select_position),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = EmployerColors.TextSecondary
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Free-text title field. Whatever is typed shows on the card.
-            OutlinedTextField(
-                value = title,
-                onValueChange = { newValue ->
-                    onTitleChange(newValue)
-                    titleError = null
-                },
-                label = { Text(stringResource(R.string.enter_job_title)) },
-                placeholder = { Text(stringResource(R.string.job_title_placeholder)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                isError = titleError != null,
-                supportingText = if (titleError != null) {
-                    { Text(titleError!!, color = EmployerColors.Error) }
-                } else {
-                    { Text(stringResource(R.string.job_title_hint), color = EmployerColors.TextSecondary) }
-                },
-                shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (titleError != null) EmployerColors.Error else primaryBlue,
-                    focusedLabelColor = if (titleError != null) EmployerColors.Error else primaryBlue,
-                    unfocusedBorderColor = if (titleError != null) EmployerColors.Error else EmployerColors.Border,
-                    cursorColor = primaryBlue,
-                    unfocusedContainerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
-                    focusedContainerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground
-                )
-            )
-
-            // Apr 2026: title-suggestion chips removed � employer types the
-            // title directly. Keeps the section compact and frees vertical
-            // space for the description below.
-        }
-    }
-}
-
-@Composable
-fun WorkTypeSelection(
-    workType: String,
-    onWorkTypeChange: (String) -> Unit,
-    workTypes: List<String>,
-    payAmount: String,
-    onPayAmountChange: (String) -> Unit,
-    payType: PayType,
-    onPayTypeChange: (PayType) -> Unit
-) {
-    val primaryBlue = EmployerColors.Primary
-    var payAmountError by remember { mutableStateOf<String?>(null) }
-
-    // Apr 2026: market-rate hint and pay-rate guardrail dialog removed.
-
-    PolishedCard {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(EmployerColors.SuccessLight, RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("\u23F0", fontSize = 18.sp)
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = stringResource(R.string.post_job_work_type),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = EmployerColors.TextPrimary
-                    )
-                    Text(
-                        text = stringResource(R.string.post_job_work_type_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = EmployerColors.TextSecondary
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(workTypes) { type ->
-                    FilterChip(
-                        onClick = { onWorkTypeChange(type) },
-                        label = { 
-                            Text(
-                                type,
-                                fontWeight = if (workType == type) FontWeight.SemiBold else FontWeight.Normal
-                            ) 
-                        },
-                        selected = workType == type,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = primaryBlue,
-                            selectedLabelColor = Color.White,
-                            containerColor = EmployerColors.ChipBackground,
-                            labelColor = EmployerColors.TextSecondary
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            borderColor = Color.Transparent,
-                            selectedBorderColor = Color.Transparent,
-                            enabled = true,
-                            selected = workType == type
-                        )
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = stringResource(R.string.payment_details),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = EmployerColors.TextPrimary
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "*",
-                            color = EmployerColors.Error,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
-                        )
-                    }
-                    Text(
-                        text = stringResource(R.string.post_job_how_much_pay),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = EmployerColors.TextSecondary
-                    )
-                }
-            
-            Spacer(modifier = Modifier.height(18.dp))
-            
-            OutlinedTextField(
-                value = payAmount,
-                onValueChange = { newValue ->
-                    onPayAmountChange(newValue)
-                    payAmountError = if (newValue.length < 4) {
-                        "Minimum 4 characters required"
-                    } else {
-                        null
-                    }
-                },
-                label = { Text(stringResource(R.string.amount_rupees)) },
-                placeholder = { Text(stringResource(R.string.amount_example_hint)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                isError = payAmountError != null,
-                shape = RoundedCornerShape(12.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (payAmountError != null) EmployerColors.Error else primaryBlue,
-                    focusedLabelColor = if (payAmountError != null) EmployerColors.Error else primaryBlue,
-                    unfocusedBorderColor = if (payAmountError != null) EmployerColors.Error else EmployerColors.Border,
-                    cursorColor = primaryBlue
-                )
-            )
-            if (payAmountError != null) {
-                Text(
-                    text = payAmountError!!,
-                    color = EmployerColors.Error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = stringResource(R.string.auto_pay_type),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = EmployerColors.TextSecondary
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(PayType.values().toList()) { type ->
-                    val selected = payType == type
-                    FilterChip(
-                        selected = selected,
-                        onClick = { onPayTypeChange(type) },
-                        modifier = Modifier.height(44.dp),
-                        label = {
-                            Text(
-                                text = type.displayName,
-                                fontSize = 12.sp,
-                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
-                            )
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = primaryBlue,
-                            selectedLabelColor = Color.White,
-                            containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
-                            labelColor = EmployerColors.TextSecondary
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = true,
-                            selected = selected,
-                            borderColor = EmployerColors.Border,
-                            selectedBorderColor = primaryBlue
-                        )
-                    )
-                }
-            }
-            
-        }
-    }
-}
-
-@Composable
-private fun AutoPickedJobCategory(
-    category: JobCategory,
-    hasTitle: Boolean
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = EmployerColors.InfoLight),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.auto_auto_picked_category),
-                style = MaterialTheme.typography.labelMedium.copy(
-                    color = EmployerColors.Primary,
-                    fontWeight = FontWeight.SemiBold
-                )
-            )
-            Text(
-                text = if (hasTitle) category.displayName else "Type the title to detect category",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = EmployerColors.Primary,
-                    fontWeight = FontWeight.Bold
-                )
-            )
-        }
-    }
-}
-
-@Composable
 fun EnhancedLocationSection(
     location: String,
     onLocationChange: (String) -> Unit,
@@ -2909,7 +1966,7 @@ fun EnhancedLocationSection(
 ) {
     val primaryBlue = EmployerColors.Primary
     val successGreen = EmployerColors.Success
-    
+
     // Location search state
     var isSearching by remember { mutableStateOf(false) }
     var isResolvingPinnedAddress by remember { mutableStateOf(false) }
@@ -2917,7 +1974,7 @@ fun EnhancedLocationSection(
     var showSuggestions by remember { mutableStateOf(false) }
     var selectedLocationText by remember { mutableStateOf("") }
     var pendingPinnedLocation by remember { mutableStateOf<LatLng?>(null) }
-    
+
     // Search for locations when user types
     LaunchedEffect(location, showSuggestions, selectedLocationText) {
         if (location.length >= 3 && !isLoadingLocation && showSuggestions && location != selectedLocationText) {
@@ -3012,13 +2069,13 @@ fun EnhancedLocationSection(
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,
-                        color = PjInk
+                        color = PjInk.fg()
                     )
                 } else {
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = PjSlate500,
+                        tint = PjSlate500.fg(),
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -3028,14 +2085,14 @@ fun EnhancedLocationSection(
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,
-                        color = PjBlue
+                        color = PjBlue.fg()
                     )
                 } else {
                     Text(
                         text = "Detect",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = PjBlue,
+                        color = PjBlue.fg(),
                         modifier = Modifier.clickable {
                             showSuggestions = false
                             searchSuggestions = emptyList()
@@ -3052,8 +2109,8 @@ fun EnhancedLocationSection(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White, RoundedCornerShape(12.dp))
-                    .border(1.dp, PjLine, RoundedCornerShape(12.dp))
+                    .background(Color.White.bg(), RoundedCornerShape(12.dp))
+                    .border(1.dp, PjLine.bd(), RoundedCornerShape(12.dp))
                     .padding(8.dp)
             ) {
                 searchSuggestions.take(5).forEach { suggestion ->
@@ -3073,7 +2130,7 @@ fun EnhancedLocationSection(
                         Icon(
                             Icons.Default.LocationOn,
                             contentDescription = null,
-                            tint = PjSlate500,
+                            tint = PjSlate500.fg(),
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
@@ -3082,19 +2139,19 @@ fun EnhancedLocationSection(
                                 text = suggestion.area.ifBlank { suggestion.city },
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = PjInk,
+                                color = PjInk.fg(),
                                 maxLines = 1
                             )
                             Text(
                                 text = suggestion.displayName,
                                 fontSize = 12.sp,
-                                color = PjSlate500,
+                                color = PjSlate500.fg(),
                                 maxLines = 2
                             )
                         }
                     }
                     if (suggestion != searchSuggestions.take(5).last()) {
-                        Divider(color = PjLine, thickness = 1.dp)
+                        Divider(color = PjLine.bd(), thickness = 1.dp)
                     }
                 }
             }
@@ -3140,7 +2197,7 @@ fun RequirementsSection(
                     Icon(
                         imageVector = Icons.Default.Description,
                         contentDescription = null,
-                        tint = Color(0xFF7C3AED),
+                        tint = Color(0xFF7C3AED).fg(),
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -3159,9 +2216,9 @@ fun RequirementsSection(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(20.dp))
-            
+
             // Experience Level
             RequirementChipSection(
                 title = stringResource(R.string.experience_required),
@@ -3173,7 +2230,7 @@ fun RequirementsSection(
                 allowCustomOption = true,
                 customOptionHint = stringResource(R.string.add_own_experience)
             )
-            
+
             Spacer(modifier = Modifier.height(18.dp))
 
             RequirementChipSection(
@@ -3182,13 +2239,13 @@ fun RequirementsSection(
                 options = educationRequirements,
                 selectedOption = educationRequired,
                 onOptionSelected = onEducationRequiredChange,
-                selectedColor = Color(0xFF7C3AED),
+                selectedColor = Color(0xFF7C3AED).fg(),
                 allowCustomOption = true,
                 customOptionHint = "Add education requirement"
             )
 
             Spacer(modifier = Modifier.height(18.dp))
-            
+
             // Gender Preference
             Text(
                 text = stringResource(R.string.post_job_gender_preference),
@@ -3216,7 +2273,7 @@ fun RequirementsSection(
                         selected = gender == genderOption,
                         shape = RoundedCornerShape(8.dp),
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = Color(0xFF6D28D9),
+                            selectedContainerColor = Color(0xFF6D28D9).bg(),
                             selectedLabelColor = Color.White,
                             containerColor = EmployerColors.ChipBackground,
                             labelColor = EmployerColors.TextSecondary
@@ -3277,12 +2334,12 @@ private fun RequirementChipSection(
                     .padding(end = 4.dp)
                     .height(44.dp),
                 onClick = { onOptionSelected(option) },
-                label = { 
+                label = {
                     Text(
                         option,
                         fontWeight = if (selectedOption == option) FontWeight.Medium else FontWeight.Normal,
                         fontSize = 12.sp
-                    ) 
+                    )
                 },
                 selected = selectedOption == option,
                 shape = RoundedCornerShape(8.dp),
@@ -3377,14 +2434,11 @@ private fun RequirementChipSection(
     }
 }
 
-
-
 // ===========================================================================
 // Apr 2026: Apna-style 3-step wizard helpers for the Post Job screen.
 // Top stepper indicator + dual-action bottom bar (Back / Next / Post job).
 // Kept minimalist on purpose: no shadows, single accent color, tight type.
 // ===========================================================================
-
 
 // ===========================================================================
 // Flat 3-step wizard primitives for the Post Job screen (no shadows / gradients).
@@ -3411,14 +2465,14 @@ private fun PjProgressRow(currentStep: Int, totalSteps: Int) {
             val circleModifier = when {
                 done -> Modifier
                     .size(28.dp)
-                    .background(Color.White, CircleShape)
-                    .border(2.dp, PjInk, CircleShape)
+                    .background(Color.White.bg(), CircleShape)
+                    .border(2.dp, PjInk.fg(), CircleShape)
                 active -> Modifier
                     .size(28.dp)
-                    .background(PjInk, CircleShape)
+                    .background(PjInk.bg(), CircleShape)
                 else -> Modifier
                     .size(28.dp)
-                    .background(PjLine, CircleShape)
+                    .background(PjLine.bg(), CircleShape)
             }
             Box(modifier = circleModifier, contentAlignment = Alignment.Center) {
                 Text(
@@ -3426,9 +2480,9 @@ private fun PjProgressRow(currentStep: Int, totalSteps: Int) {
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = when {
-                        done -> PjInk
+                        done -> PjInk.fg()
                         active -> Color.White
-                        else -> PjSlate400
+                        else -> PjSlate400.fg()
                     }
                 )
             }
@@ -3438,7 +2492,7 @@ private fun PjProgressRow(currentStep: Int, totalSteps: Int) {
                         .weight(1f)
                         .padding(start = 6.dp, end = 6.dp)
                         .height(2.dp)
-                        .background(if (currentStep > i) PjInk else PjLine)
+                        .background(if (currentStep > i) PjInk.fg() else PjLine.bd())
                 )
             }
         }
@@ -3450,7 +2504,7 @@ private fun PjSectionLabel(text: String, firstOnPage: Boolean = false) {
     Text(
         text = text,
         fontSize = 13.sp,
-        color = PjSlate500,
+        color = PjSlate500.fg(),
         modifier = Modifier.padding(top = if (firstOnPage) 0.dp else 26.dp, bottom = 10.dp)
     )
 }
@@ -3479,13 +2533,13 @@ private fun PjChip(
     leadingIcon: ImageVector? = null
 ) {
     val shape = RoundedCornerShape(cornerRadius)
-    val textColor = if (selected) Color.White else PjInk
+    val textColor = if (selected) Color.White else PjInk.fg()
     Row(
         modifier = Modifier
             .height(height)
             .clip(shape)
-            .background(if (selected) selectedFill else Color.White)
-            .border(1.dp, if (selected) selectedFill else PjLine, shape)
+            .background(if (selected) selectedFill.bg() else Color.White.bg())
+            .border(1.dp, if (selected) selectedFill.bg() else PjLine.bd(), shape)
             .clickable(onClick = onClick)
             .padding(start = 16.dp, end = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -3496,7 +2550,7 @@ private fun PjChip(
                 text = "✓",
                 fontSize = fontSize,
                 fontWeight = FontWeight.Bold,
-                color = PjGreen
+                color = PjGreen.fg()
             )
             Spacer(modifier = Modifier.width(6.dp))
         }
@@ -3536,15 +2590,15 @@ private fun PjField(
     var focused by remember { mutableStateOf(false) }
     val borderColor = when {
         isError -> EmployerColors.Error
-        focused -> PjInk
-        else -> PjLine
+        focused -> PjInk.fg()
+        else -> PjLine.bd()
     }
     val shape = RoundedCornerShape(12.dp)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = minHeight)
-            .background(Color.White, shape)
+            .background(Color.White.bg(), shape)
             .border(1.dp, borderColor, shape)
             .padding(start = 14.dp, top = 8.dp, end = 14.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -3557,14 +2611,14 @@ private fun PjField(
             Text(
                 text = label,
                 fontSize = 11.sp,
-                color = PjSlate400
+                color = PjSlate400.fg()
             )
             Box {
                 if (value.isEmpty() && placeholder.isNotEmpty()) {
                     Text(
                         text = placeholder,
                         fontSize = 15.sp,
-                        color = PjSlate400,
+                        color = PjSlate400.fg(),
                         maxLines = if (singleLine) 1 else 2
                     )
                 }
@@ -3575,9 +2629,9 @@ private fun PjField(
                     textStyle = TextStyle(
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = PjInk
+                        color = PjInk.fg()
                     ),
-                    cursorBrush = SolidColor(PjInk),
+                    cursorBrush = SolidColor(PjInk.fg()),
                     keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -3605,11 +2659,11 @@ private fun PjCountStepper(
             modifier = Modifier
                 .size(36.dp)
                 .clip(shape)
-                .border(1.dp, PjLine, shape)
+                .border(1.dp, PjLine.bd(), shape)
                 .clickable { if (count > min) onCountChange(count - 1) },
             contentAlignment = Alignment.Center
         ) {
-            Text("−", fontSize = 18.sp, color = PjInk)
+            Text("−", fontSize = 18.sp, color = PjInk.fg())
         }
         Spacer(modifier = Modifier.width(16.dp))
         Box(modifier = Modifier.widthIn(min = 24.dp), contentAlignment = Alignment.Center) {
@@ -3617,7 +2671,7 @@ private fun PjCountStepper(
                 text = count.toString(),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = PjInk,
+                color = PjInk.fg(),
                 textAlign = TextAlign.Center
             )
         }
@@ -3626,11 +2680,11 @@ private fun PjCountStepper(
             modifier = Modifier
                 .size(36.dp)
                 .clip(shape)
-                .border(1.dp, PjLine, shape)
+                .border(1.dp, PjLine.bd(), shape)
                 .clickable { if (count < max) onCountChange(count + 1) },
             contentAlignment = Alignment.Center
         ) {
-            Text("+", fontSize = 18.sp, color = PjInk)
+            Text("+", fontSize = 18.sp, color = PjInk.fg())
         }
     }
 }
@@ -3641,7 +2695,7 @@ private fun PjSegment(label: String, selected: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxHeight()
             .clip(RoundedCornerShape(8.dp))
-            .background(if (selected) PjInk else Color.Transparent)
+            .background(if (selected) PjInk.bg() else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(start = 10.dp, end = 10.dp),
         contentAlignment = Alignment.Center
@@ -3650,7 +2704,7 @@ private fun PjSegment(label: String, selected: Boolean, onClick: () -> Unit) {
             text = label,
             fontSize = 12.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (selected) Color.White else PjSlate500,
+            color = if (selected) Color.White else PjSlate500.fg(),
             maxLines = 1
         )
     }
@@ -3668,28 +2722,29 @@ private fun PjWageField(
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp)
-            .background(Color.White, shape)
-            .border(1.dp, PjLine, shape)
+            .background(Color.White.bg(), shape)
+            .border(1.dp, PjLine.bd(), shape)
             .padding(start = 14.dp, end = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("₹", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = PjInk)
+        Text("₹", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = PjInk.fg())
         Spacer(modifier = Modifier.width(8.dp))
         Box(modifier = Modifier.weight(1f)) {
             if (amount.isEmpty()) {
-                Text("Enter amount", fontSize = 14.sp, color = PjSlate400, maxLines = 1)
+                Text("Enter amount", fontSize = 14.sp, color = PjSlate400.fg(), maxLines = 1)
             }
             BasicTextField(
                 value = amount,
-                onValueChange = onAmountChange,
+                // Whole rupees only; one digit past the limit is let through so the warning shows.
+                onValueChange = { typed -> onAmountChange(typed.filter { it.isDigit() }.take(6)) },
                 singleLine = true,
                 textStyle = TextStyle(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = PjInk
+                    color = PjInk.fg()
                 ),
-                cursorBrush = SolidColor(PjInk),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                cursorBrush = SolidColor(PjInk.fg()),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -3698,11 +2753,12 @@ private fun PjWageField(
             modifier = Modifier
                 .height(32.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(PjSegmentBg)
+                .background(PjSegmentBg.bg())
                 .padding(3.dp)
         ) {
-            PjSegment(label = "/Day", selected = payType == PayType.DAILY, onClick = { onPayTypeChange(PayType.DAILY) })
-            PjSegment(label = "/Month", selected = payType == PayType.MONTHLY, onClick = { onPayTypeChange(PayType.MONTHLY) })
+            PjSegment(label = stringResource(R.string.per_day), selected = payType == PayType.DAILY, onClick = { onPayTypeChange(PayType.DAILY) })
+            PjSegment(label = stringResource(R.string.per_week), selected = payType == PayType.WEEKLY, onClick = { onPayTypeChange(PayType.WEEKLY) })
+            PjSegment(label = stringResource(R.string.per_month), selected = payType == PayType.MONTHLY, onClick = { onPayTypeChange(PayType.MONTHLY) })
         }
     }
 }
@@ -3746,7 +2802,7 @@ private fun PjOptionGroup(
                     text = "Add",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = PjBlue,
+                    color = PjBlue.fg(),
                     modifier = Modifier.clickable {
                         val trimmed = customText.trim()
                         if (trimmed.isNotBlank()) {

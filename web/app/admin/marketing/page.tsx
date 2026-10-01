@@ -1,7 +1,5 @@
 import { MarketingFullView } from "@/components/marketing-shell";
-import { CallStatsDisplay } from "@/components/admin/marketing/call-stats-display";
 import { MarketingDocSearch } from "@/components/admin/marketing/marketing-doc-search";
-import { RecentCallFeedback } from "@/components/admin/marketing/recent-call-feedback";
 import {
   getMarketingTreeWithContent,
   type MarketingLoadedNode,
@@ -78,7 +76,6 @@ export default function MarketingLandingPage() {
               <strong>{totalDocs}</strong>
               <span>Documents</span>
             </div>
-            <CallStatsDisplay />
             <div className="marketing-hero-stat">
               <strong>{sections.length}</strong>
               <span>Categories</span>
@@ -90,8 +87,6 @@ export default function MarketingLandingPage() {
           </div>
         </div>
       </header>
-
-      <RecentCallFeedback />
 
       <MarketingDocSearch totalDocs={totalDocs} />
 

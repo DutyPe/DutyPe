@@ -23,7 +23,48 @@ object JobCategoryResolver {
         "BANKING" to JobCategory.FINANCE
     )
 
-    private val keywordRules: List<Pair<JobCategory, List<String>>> = listOf(
+    /**
+     * Trade words in Telugu and Hindi (script and common Roman spellings), so a search or a job
+     * title in the worker's own language lands on the same category as the English word.
+     */
+    private val localWords: Map<JobCategory, List<String>> = mapOf(
+        JobCategory.DELIVERY to listOf("డెలివరీ", "కొరియర్", "डिलीवरी", "कूरियर"),
+        JobCategory.DRIVER to listOf("డ్రైవర్", "డ్రైవింగ్", "ड्राइवर", "ड्राईवर", "चालक"),
+        JobCategory.COOK to listOf("వంట", "కుక్", "రసోయి", "खाना बनाने", "रसोइया", "कुक", "vanta", "rasoiya"),
+        JobCategory.MAID to listOf("పనిమనిషి", "ఇంటి పని", "క్లీనింగ్", "నౌకరాణి", "नौकरानी", "घरेलू काम", "सफाई", "panimanishi", "safai"),
+        JobCategory.SECURITY to listOf("సెక్యూరిటీ", "వాచ్‌మెన్", "వాచ్మెన్", "వాచ్‌మాన్", "గార్డ్", "सिक्योरिटी", "चौकीदार", "गार्ड", "chowkidar", "watchmen"),
+        JobCategory.GARDENER to listOf("తోటమాలి", "తోట పని", "గార్డెనర్", "माली", "बागवानी"),
+        JobCategory.CARETAKER to listOf("ఆయా", "సంరక్షణ", "కేర్‌టేకర్", "केयरटेकर", "देखभाल"),
+        JobCategory.WAITER to listOf("వెయిటర్", "సర్వర్", "वेटर"),
+        JobCategory.ELECTRICIAN to listOf("ఎలక్ట్రీషియన్", "ఎలక్ట్రిషియన్", "కరెంట్ పని", "इलेक्ट्रीशियन", "बिजली मिस्त्री"),
+        JobCategory.PLUMBER to listOf("ప్లంబర్", "प्लंबर", "नलसाज"),
+        JobCategory.PAINTER to listOf("పెయింటర్", "పెయింటింగ్", "రంగులు", "पेंटर", "रंगाई", "पुताई"),
+        JobCategory.CARPENTER to listOf("వడ్రంగి", "కార్పెంటర్", "बढ़ई", "कारपेंटर"),
+        JobCategory.RECEPTIONIST to listOf("రిసెప్షనిస్ట్", "రిసెప్షన్", "रिसेप्शनिस्ट", "रिसेप्शन"),
+        JobCategory.CASHIER to listOf("క్యాషియర్", "బిల్లింగ్", "कैशियर", "बिलिंग"),
+        JobCategory.PACKER to listOf("ప్యాకింగ్", "ప్యాకర్", "లోడింగ్", "హమాలీ", "पैकिंग", "लोडिंग", "हमाल"),
+        JobCategory.SALES to listOf("సేల్స్", "అమ్మకాలు", "సేల్స్‌మెన్", "सेल्स", "बिक्री", "सेल्समैन"),
+        JobCategory.TELECALLER to listOf("టెలికాలర్", "టెలీకాలర్", "కాలింగ్", "टेलीकॉलर", "टेलीकॉलिंग"),
+        JobCategory.TEACHER to listOf("టీచర్", "ఉపాధ్యాయ", "ట్యూషన్", "शिक्षक", "टीचर", "ट्यूशन"),
+        JobCategory.OFFICE_STAFF to listOf("ఆఫీస్ బాయ్", "ఆఫీస్", "ఆఫీసు", "ऑफिस", "ऑफ़िस", "चपरासी"),
+        JobCategory.CUSTOMER_SUPPORT to listOf("కస్టమర్ సపోర్ట్", "కస్టమర్ సర్వీస్", "कस्टमर सपोर्ट", "कस्टमर सर्विस"),
+        JobCategory.FIELD_EXECUTIVE to listOf("ఫీల్డ్", "फील्ड"),
+        JobCategory.MARKETING to listOf("మార్కెటింగ్", "मार्केटिंग"),
+        JobCategory.FINANCE to listOf("లోన్", "ఫైనాన్స్", "लोन", "फाइनेंस"),
+        JobCategory.HEALTHCARE to listOf("నర్స్", "ఆసుపత్రి", "హాస్పిటల్", "ఫార్మసీ", "नर्स", "अस्पताल", "फार्मेसी"),
+        JobCategory.BEAUTICIAN to listOf("బ్యూటీషియన్", "బ్యూటీ పార్లర్", "సెలూన్", "ब्यूटीशियन", "ब्यूटी पार्लर", "सैलून"),
+        JobCategory.TAILOR to listOf("దర్జీ", "టైలర్", "కుట్టు", "दर्जी", "टेलर", "सिलाई"),
+        JobCategory.MECHANIC to listOf("మెకానిక్", "मैकेनिक", "मेकैनिक"),
+        JobCategory.DATA_ENTRY to listOf("డేటా ఎంట్రీ", "కంప్యూటర్ ఆపరేటర్", "डेटा एंट्री", "कंप्यूटर ऑपरेटर"),
+        JobCategory.LEGAL to listOf("లాయర్", "న్యాయవాది", "वकील"),
+        JobCategory.HELPER to listOf("హెల్పర్", "కూలీ", "కూలి", "మేస్త్రీ", "मजदूर", "मज़दूर", "हेल्पर", "coolie", "kooli", "mazdoor", "majdoor")
+    )
+
+    private val keywordRules: List<Pair<JobCategory, List<String>>> by lazy {
+        englishRules.map { (category, words) -> category to (words + localWords[category].orEmpty()) }
+    }
+
+    private val englishRules: List<Pair<JobCategory, List<String>>> = listOf(
         JobCategory.DELIVERY to listOf("delivery", "courier", "swiggy", "zomato", "dunzo", "parcel", "last mile", "rider", "bike rider"),
         JobCategory.DRIVER to listOf("driver", "chauffeur", "cab", "taxi", "ola", "uber", "rapido", "truck"),
         JobCategory.COOK to listOf("cook", "chef", "kitchen", "tandoor", "chapati", "biryani", "catering"),

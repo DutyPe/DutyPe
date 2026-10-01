@@ -1,5 +1,8 @@
 package com.example.dutype.employer.components
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -20,6 +23,8 @@ import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -106,7 +111,7 @@ fun VoiceJobPostingBottomSheet(
             onDismiss()
         },
         sheetState = sheetState,
-        containerColor = Color.White,
+        containerColor = Color.White.bg(),
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         dragHandle = {
             Box(
@@ -115,7 +120,7 @@ fun VoiceJobPostingBottomSheet(
                     .width(40.dp)
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(Color(0xFFCBD5E1))
+                    .background(Color(0xFFCBD5E1).bg())
             )
         }
     ) {
@@ -134,15 +139,15 @@ fun VoiceJobPostingBottomSheet(
             ) {
                 Column {
                     Text(
-                        text = "Speak to Post Instant Job",
+                        text = stringResource(R.string.voice_speak_to_post_title),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = VoicePrimaryNavy
+                        color = VoicePrimaryNavy.fg()
                     )
                     Text(
-                        text = "बोलकर या మాట్లాడి పోస్ట్ చేయండి",
+                        text = stringResource(R.string.voice_speak_to_post_subtitle),
                         fontSize = 12.sp,
-                        color = Color(0xFF64748B)
+                        color = Color(0xFF64748B).fg()
                     )
                 }
                 IconButton(
@@ -154,7 +159,7 @@ fun VoiceJobPostingBottomSheet(
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Close",
-                        tint = Color(0xFF64748B)
+                        tint = Color(0xFF64748B).fg()
                     )
                 }
             }
@@ -180,10 +185,10 @@ fun VoiceJobPostingBottomSheet(
                             }
                         },
                         shape = RoundedCornerShape(20.dp),
-                        color = if (isSelected) VoiceEmerald.copy(alpha = 0.12f) else Color(0xFFF1F5F9),
+                        color = if (isSelected) VoiceEmerald.bg().copy(alpha = 0.12f) else Color(0xFFF1F5F9).bg(),
                         border = BorderStroke(
                             width = if (isSelected) 1.5.dp else 1.dp,
-                            color = if (isSelected) VoiceEmerald else Color(0xFFE2E8F0)
+                            color = if (isSelected) VoiceEmerald.fg() else Color(0xFFE2E8F0).fg()
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
@@ -195,7 +200,7 @@ fun VoiceJobPostingBottomSheet(
                                 text = "${lang.nativeName} (${lang.englishName})",
                                 fontSize = 12.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) VoiceEmerald else Color(0xFF475569)
+                                color = if (isSelected) VoiceEmerald.fg() else Color(0xFF475569).fg()
                             )
                         }
                     }
@@ -209,8 +214,8 @@ fun VoiceJobPostingBottomSheet(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = VoiceSurfaceBg),
-                    border = BorderStroke(1.dp, VoiceBorder)
+                    colors = CardDefaults.cardColors(containerColor = VoiceSurfaceBg.bg()),
+                    border = BorderStroke(1.dp, VoiceBorder.bd())
                 ) {
                     Column(
                         modifier = Modifier.padding(20.dp),
@@ -219,31 +224,31 @@ fun VoiceJobPostingBottomSheet(
                         Icon(
                             imageVector = Icons.Default.MicOff,
                             contentDescription = null,
-                            tint = Color(0xFFEF4444),
+                            tint = Color(0xFFEF4444).fg(),
                             modifier = Modifier.size(36.dp)
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "Microphone Permission Required",
+                            text = stringResource(R.string.voice_mic_permission_required),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
-                            color = VoicePrimaryNavy
+                            color = VoicePrimaryNavy.fg()
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "To speak and post urgent jobs, DutyPe needs microphone access.",
+                            text = stringResource(R.string.voice_mic_permission_desc),
                             fontSize = 13.sp,
-                            color = Color(0xFF64748B),
+                            color = Color(0xFF64748B).fg(),
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
                             onClick = { permissionLauncher.launch(Manifest.permission.RECORD_AUDIO) },
                             shape = RoundedCornerShape(28.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = VoicePrimaryNavy),
+                            colors = ButtonDefaults.buttonColors(containerColor = VoicePrimaryNavy.bg()),
                             modifier = Modifier.height(48.dp)
                         ) {
-                            Text("Grant Permission")
+                            Text(stringResource(R.string.voice_grant_permission))
                         }
                     }
                 }
@@ -262,7 +267,7 @@ fun VoiceJobPostingBottomSheet(
                             modifier = Modifier
                                 .size(animatedSize.dp)
                                 .clip(CircleShape)
-                                .background(if (isListening) VoiceEmerald.copy(alpha = 0.15f) else VoiceSurfaceBg)
+                                .background(if (isListening) VoiceEmerald.bg().copy(alpha = 0.15f) else VoiceSurfaceBg.bg())
                                 .clickable {
                                     if (isListening) manager.stopListening() else manager.startListening()
                                 },
@@ -272,7 +277,7 @@ fun VoiceJobPostingBottomSheet(
                                 modifier = Modifier
                                     .size(54.dp)
                                     .clip(CircleShape)
-                                    .background(if (isListening) VoiceEmerald else VoicePrimaryNavy),
+                                    .background(if (isListening) VoiceEmerald.bg() else VoicePrimaryNavy.bg()),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -293,10 +298,10 @@ fun VoiceJobPostingBottomSheet(
                         }
 
                         Text(
-                            text = if (isListening) listeningPrompt else "Tap mic to speak",
+                            text = if (isListening) listeningPrompt else stringResource(R.string.voice_tap_mic_to_speak),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = if (isListening) VoiceEmerald else VoicePrimaryNavy
+                            color = if (isListening) VoiceEmerald.fg() else VoicePrimaryNavy.fg()
                         )
 
                         Spacer(modifier = Modifier.height(6.dp))
@@ -304,7 +309,7 @@ fun VoiceJobPostingBottomSheet(
                         Text(
                             text = currentLanguage.sampleHint,
                             fontSize = 12.sp,
-                            color = Color(0xFF64748B),
+                            color = Color(0xFF64748B).fg(),
                             textAlign = TextAlign.Center
                         )
 
@@ -313,13 +318,13 @@ fun VoiceJobPostingBottomSheet(
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = VoiceSurfaceBg),
-                                border = BorderStroke(1.dp, VoiceBorder)
+                                colors = CardDefaults.cardColors(containerColor = VoiceSurfaceBg.bg()),
+                                border = BorderStroke(1.dp, VoiceBorder.bd())
                             ) {
                                 Text(
                                     text = "\"$transcript\"",
                                     fontSize = 14.sp,
-                                    color = VoicePrimaryNavy,
+                                    color = VoicePrimaryNavy.fg(),
                                     modifier = Modifier.padding(14.dp),
                                     textAlign = TextAlign.Center
                                 )
@@ -332,12 +337,12 @@ fun VoiceJobPostingBottomSheet(
                             modifier = Modifier
                                 .size(64.dp)
                                 .clip(CircleShape)
-                                .background(VoiceSurfaceBg),
+                                .background(VoiceSurfaceBg.bg()),
                             contentAlignment = Alignment.Center
                         ) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(32.dp),
-                                color = VoicePrimaryNavy,
+                                color = VoicePrimaryNavy.fg(),
                                 strokeWidth = 3.dp
                             )
                         }
@@ -345,95 +350,115 @@ fun VoiceJobPostingBottomSheet(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
-                            text = "Understanding job details...",
+                            text = stringResource(R.string.voice_understanding_details),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = VoicePrimaryNavy
+                            color = VoicePrimaryNavy.fg()
                         )
                         Text(
-                            text = "Finding role, workers and wage",
+                            text = stringResource(R.string.voice_finding_role_workers_wage),
                             fontSize = 12.sp,
-                            color = Color(0xFF64748B)
+                            color = Color(0xFF64748B).fg()
                         )
                     }
 
                     is VoicePostingState.Clarifying -> {
-                        // Clarification Question (e.g. missing wage)
+                        val isListening = current.isListening
+                        val isSpeaking = current.isSpeakingQuestion
+                        val animatedMicSize by animateFloatAsState(
+                            targetValue = if (isListening) (58f + soundLevel * 16f) else 52f,
+                            animationSpec = tween(150),
+                            label = "clarifyingMicPulse"
+                        )
+
+                        // Clarification Question Card
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = VoiceSurfaceBg),
-                            border = BorderStroke(1.dp, VoiceBorder)
+                            colors = CardDefaults.cardColors(containerColor = VoiceSurfaceBg.bg()),
+                            border = BorderStroke(1.dp, VoiceBorder.bd())
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
+                                // Badges showing what was already recognized
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Surface(
                                         shape = RoundedCornerShape(8.dp),
-                                        color = VoiceEmerald.copy(alpha = 0.12f),
-                                        modifier = Modifier.padding(bottom = 8.dp)
+                                        color = VoiceEmerald.bg().copy(alpha = 0.12f)
                                     ) {
                                         Text(
                                             text = "✓ ${current.parsedData.category}",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = VoiceEmerald,
+                                            color = VoiceEmerald.fg(),
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                         )
                                     }
 
                                     Surface(
                                         shape = RoundedCornerShape(8.dp),
-                                        color = VoiceEmerald.copy(alpha = 0.12f),
-                                        modifier = Modifier.padding(bottom = 8.dp)
+                                        color = VoiceEmerald.bg().copy(alpha = 0.12f)
                                     ) {
                                         Text(
                                             text = "✓ ${current.parsedData.workersNeeded} Workers",
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = VoiceEmerald,
+                                            color = VoiceEmerald.fg(),
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                         )
                                     }
                                 }
 
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Clarification question
                                 Text(
                                     text = current.question.ifBlank { "Aap per day kitna payment denge?" },
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = VoicePrimaryNavy
+                                    color = VoicePrimaryNavy.fg()
                                 )
+
+                                if (current.hintMessage.isNotBlank()) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = current.hintMessage,
+                                        fontSize = 12.sp,
+                                        color = Color(0xFFD97706).fg(),
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
 
                                 Spacer(modifier = Modifier.height(12.dp))
 
                                 // Quick-select wage chips
                                 Text(
-                                    text = "Select wage or tap mic to speak:",
+                                    text = stringResource(R.string.voice_tap_wage_or_speak),
                                     fontSize = 12.sp,
-                                    color = Color(0xFF64748B)
+                                    color = Color(0xFF64748B).fg()
                                 )
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    listOf(500.0, 700.0, 800.0, 1000.0).forEach { amount ->
+                                    listOf(500.0, 600.0, 700.0, 800.0, 1000.0).forEach { amount ->
                                         OutlinedButton(
                                             onClick = { manager.updateWageDirectly(amount) },
-                                            shape = RoundedCornerShape(20.dp),
-                                            border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                                            shape = RoundedCornerShape(18.dp),
+                                            border = BorderStroke(1.dp, Color(0xFFCBD5E1).bd()),
                                             modifier = Modifier.weight(1f),
-                                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+                                            contentPadding = PaddingValues(horizontal = 2.dp, vertical = 6.dp)
                                         ) {
                                             Text(
                                                 text = "₹${amount.toInt()}",
-                                                fontSize = 13.sp,
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold,
-                                                color = VoicePrimaryNavy
+                                                color = VoicePrimaryNavy.fg()
                                             )
                                         }
                                     }
@@ -443,29 +468,61 @@ fun VoiceJobPostingBottomSheet(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Mic button to answer
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        // Active listening / mic section for speaking the answer
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            IconButton(
-                                onClick = { manager.startListening() },
+                            Box(
                                 modifier = Modifier
-                                    .size(48.dp)
+                                    .size(animatedMicSize.dp)
                                     .clip(CircleShape)
-                                    .background(VoicePrimaryNavy)
+                                    .background(if (isListening) VoiceEmerald.bg().copy(alpha = 0.18f) else VoiceSurfaceBg.bg())
+                                    .clickable {
+                                        if (isListening) manager.stopListening() else manager.startListening()
+                                    },
+                                contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Mic,
-                                    contentDescription = "Speak Wage",
-                                    tint = Color.White
+                                Box(
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isListening) VoiceEmerald.bg() else VoicePrimaryNavy.bg()),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Mic,
+                                        contentDescription = "Microphone",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            val answerPrompt = when {
+                                isSpeaking -> "Asking... వినండి / सुनिए"
+                                isListening -> "Listening... Speak wage (e.g. 800)"
+                                else -> stringResource(R.string.voice_tap_mic_to_speak_wage)
+                            }
+
+                            Text(
+                                text = answerPrompt,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (isListening) VoiceEmerald.fg() else VoicePrimaryNavy.fg()
+                            )
+
+                            if (transcript.isNotBlank()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "\"$transcript\"",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = VoicePrimaryNavy.fg()
                                 )
                             }
-                            Text(
-                                text = "Tap mic to speak answer",
-                                fontSize = 13.sp,
-                                color = Color(0xFF64748B)
-                            )
                         }
                     }
 
@@ -476,8 +533,8 @@ fun VoiceJobPostingBottomSheet(
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(containerColor = VoiceSurfaceBg),
-                            border = BorderStroke(1.dp, VoiceBorder)
+                            colors = CardDefaults.cardColors(containerColor = VoiceSurfaceBg.bg()),
+                            border = BorderStroke(1.dp, VoiceBorder.bd())
                         ) {
                             Column(modifier = Modifier.padding(18.dp)) {
                                 Row(
@@ -489,17 +546,17 @@ fun VoiceJobPostingBottomSheet(
                                         text = parsed.title,
                                         fontSize = 17.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = VoicePrimaryNavy
+                                        color = VoicePrimaryNavy.fg()
                                     )
                                     Surface(
                                         shape = RoundedCornerShape(12.dp),
-                                        color = Color(0xFFDC2626).copy(alpha = 0.1f)
+                                        color = Color(0xFFDC2626).bg().copy(alpha = 0.1f)
                                     ) {
                                         Text(
-                                            text = "⚡ Urgent Job",
+                                            text = stringResource(R.string.voice_urgent_job_badge),
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = Color(0xFFDC2626),
+                                            color = Color(0xFFDC2626).fg(),
                                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                         )
                                     }
@@ -512,30 +569,30 @@ fun VoiceJobPostingBottomSheet(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(text = "Workers", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                        Text(text = stringResource(R.string.voice_workers_count_label), fontSize = 11.sp, color = Color(0xFF94A3B8).fg())
                                         Text(
                                             text = "${parsed.workersNeeded} Workers",
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = VoicePrimaryNavy
+                                            color = VoicePrimaryNavy.fg()
                                         )
                                     }
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(text = "Daily Wage", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                        Text(text = stringResource(R.string.voice_daily_wage_label), fontSize = 11.sp, color = Color(0xFF94A3B8).fg())
                                         Text(
                                             text = parsed.budgetText.ifBlank { "₹${parsed.perPersonPayment.toInt()} / Day" },
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = VoiceEmerald
+                                            color = VoiceEmerald.fg()
                                         )
                                     }
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(text = "Duration", fontSize = 11.sp, color = Color(0xFF94A3B8))
+                                        Text(text = stringResource(R.string.voice_duration_label), fontSize = 11.sp, color = Color(0xFF94A3B8).fg())
                                         Text(
                                             text = parsed.durationText,
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Medium,
-                                            color = VoicePrimaryNavy
+                                            color = VoicePrimaryNavy.fg()
                                         )
                                     }
                                 }
@@ -553,13 +610,13 @@ fun VoiceJobPostingBottomSheet(
                                 onDismiss()
                             },
                             shape = RoundedCornerShape(28.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = VoicePrimaryNavy),
+                            colors = ButtonDefaults.buttonColors(containerColor = VoicePrimaryNavy.bg()),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(56.dp)
                         ) {
                             Text(
-                                text = "Post Urgent Job Now",
+                                text = stringResource(R.string.voice_post_urgent_job_now),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -578,10 +635,10 @@ fun VoiceJobPostingBottomSheet(
                             }
                         ) {
                             Text(
-                                text = "Edit Details Manually",
+                                text = stringResource(R.string.voice_edit_details_manually),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF64748B)
+                                color = Color(0xFF64748B).fg()
                             )
                         }
                     }
@@ -590,8 +647,8 @@ fun VoiceJobPostingBottomSheet(
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
-                            border = BorderStroke(1.dp, Color(0xFFFECACA))
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2).bg()),
+                            border = BorderStroke(1.dp, Color(0xFFFECACA).bd())
                         ) {
                             Column(
                                 modifier = Modifier.padding(16.dp),
@@ -600,18 +657,18 @@ fun VoiceJobPostingBottomSheet(
                                 Text(
                                     text = current.message,
                                     fontSize = 13.sp,
-                                    color = Color(0xFF991B1B),
+                                    color = Color(0xFF991B1B).fg(),
                                     textAlign = TextAlign.Center
                                 )
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Button(
                                     onClick = { manager.startListening() },
                                     shape = RoundedCornerShape(20.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = VoicePrimaryNavy)
+                                    colors = ButtonDefaults.buttonColors(containerColor = VoicePrimaryNavy.bg())
                                 ) {
                                     Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Try Speaking Again")
+                                    Text(stringResource(R.string.voice_try_speaking_again))
                                 }
                             }
                         }
@@ -636,8 +693,8 @@ fun VoiceJobTriggerCard(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, VoiceBorder),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = BorderStroke(1.dp, VoiceBorder.bd()),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Row(
@@ -650,13 +707,13 @@ fun VoiceJobTriggerCard(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(VoiceEmerald.copy(alpha = 0.12f)),
+                    .background(VoiceEmerald.bg().copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Mic,
                     contentDescription = "Speak to post",
-                    tint = VoiceEmerald,
+                    tint = VoiceEmerald.fg(),
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -669,40 +726,40 @@ fun VoiceJobTriggerCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "Bol Kar Post Karein",
+                        text = stringResource(R.string.voice_card_trigger_title),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = VoicePrimaryNavy
+                        color = VoicePrimaryNavy.fg()
                     )
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = VoiceEmerald.copy(alpha = 0.15f)
+                        color = VoiceEmerald.bg().copy(alpha = 0.15f)
                     ) {
                         Text(
-                            text = "AI Voice",
+                            text = stringResource(R.string.voice_card_trigger_badge),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = VoiceEmerald,
+                            color = VoiceEmerald.fg(),
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }
                 }
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Speak in Hindi, Telugu or English · e.g. \"2 helper kal subah, ₹700\"",
+                    text = stringResource(R.string.voice_card_trigger_subtitle),
                     fontSize = 12.sp,
-                    color = Color(0xFF64748B),
+                    color = Color(0xFF64748B).fg(),
                     maxLines = 1
                 )
             }
 
             Surface(
                 shape = RoundedCornerShape(20.dp),
-                color = VoicePrimaryNavy,
+                color = VoicePrimaryNavy.bg(),
                 modifier = Modifier.padding(start = 6.dp)
             ) {
                 Text(
-                    text = "Speak",
+                    text = stringResource(R.string.voice_card_trigger_speak_btn),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White,
@@ -721,7 +778,7 @@ fun VoiceLanguagePickerBottomSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = Color.White,
+        containerColor = Color.White.bg(),
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         dragHandle = {
             Box(
@@ -730,7 +787,7 @@ fun VoiceLanguagePickerBottomSheet(
                     .width(40.dp)
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(Color(0xFFCBD5E1))
+                    .background(Color(0xFFCBD5E1).bg())
             )
         }
     ) {
@@ -738,7 +795,7 @@ fun VoiceLanguagePickerBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .padding(bottom = 36.dp)
+                .padding(bottom = 28.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -747,80 +804,96 @@ fun VoiceLanguagePickerBottomSheet(
             ) {
                 Column {
                     Text(
-                        text = "Speak to Post Instant Job",
-                        fontSize = 18.sp,
+                        text = stringResource(R.string.voice_select_language_title),
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
-                        color = VoicePrimaryNavy
+                        color = VoicePrimaryNavy.fg()
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Select language / భాషను ఎంచుకోండి / भाषा चुनें",
+                        text = stringResource(R.string.voice_select_language_subtitle),
                         fontSize = 12.sp,
-                        color = Color(0xFF64748B)
+                        color = Color(0xFF64748B).fg()
                     )
                 }
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF64748B))
+                IconButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = Color(0xFF64748B).fg(),
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             VoiceLanguage.values().forEach { lang ->
+                val badgeCode = when (lang) {
+                    VoiceLanguage.TELUGU -> "TE"
+                    VoiceLanguage.ENGLISH -> "EN"
+                    VoiceLanguage.HINDI -> "HI"
+                }
+
                 Surface(
                     onClick = {
                         onLanguageSelected(lang)
                         onDismiss()
                     },
-                    shape = RoundedCornerShape(16.dp),
-                    color = VoiceSurfaceBg,
-                    border = BorderStroke(1.dp, VoiceBorder),
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFFF8FAFC).bg(),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 6.dp)
+                        .padding(vertical = 5.dp)
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
+                            .padding(horizontal = 16.dp, vertical = 13.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(34.dp)
                                 .clip(CircleShape)
-                                .background(VoiceEmerald.copy(alpha = 0.12f)),
+                                .background(VoiceEmerald.bg().copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Mic,
-                                contentDescription = null,
-                                tint = VoiceEmerald,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(14.dp))
-                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "${lang.nativeName} (${lang.englishName})",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = VoicePrimaryNavy
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = lang.sampleHint,
+                                text = badgeCode,
                                 fontSize = 12.sp,
-                                color = Color(0xFF64748B),
-                                maxLines = 1,
-                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                fontWeight = FontWeight.Bold,
+                                color = VoiceEmerald.fg()
                             )
                         }
+
+                        Spacer(modifier = Modifier.width(14.dp))
+
                         Text(
-                            text = "›",
-                            fontSize = 20.sp,
-                            color = Color(0xFF94A3B8),
-                            fontWeight = FontWeight.Light
+                            text = lang.nativeName,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = VoicePrimaryNavy.fg()
+                        )
+
+                        Spacer(modifier = Modifier.width(6.dp))
+
+                        Text(
+                            text = "(${lang.englishName})",
+                            fontSize = 13.sp,
+                            color = Color(0xFF64748B).fg()
+                        )
+
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = null,
+                            tint = Color(0xFF94A3B8).fg(),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }

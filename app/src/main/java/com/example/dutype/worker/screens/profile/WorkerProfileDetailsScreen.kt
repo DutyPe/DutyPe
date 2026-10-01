@@ -1,5 +1,7 @@
 package com.example.dutype.worker.screens.profile
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.fg
 import com.example.dutype.employer.models.JobCategory
 import com.example.dutype.firestore.FirestoreSchema.WorkerProfiles
 import com.dutype.app.R
@@ -496,7 +498,7 @@ private fun ProfileImageSection(
                     ) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(32.dp),
-                            color = WorkerColors.Primary,
+                            color = WorkerColors.Primary.fg(),
                             strokeWidth = 3.dp
                         )
                     }
@@ -750,7 +752,7 @@ private fun EditablePersonalInfoCard(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = WorkerColors.Primary,
+                        focusedBorderColor = WorkerColors.Primary.bd(),
                         unfocusedBorderColor = WorkerColors.Divider
                     ),
                     shape = RoundedCornerShape(8.dp)
@@ -907,7 +909,7 @@ private fun ProfileTextField(
             minLines = minLines,
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = WorkerColors.Primary,
+                focusedBorderColor = WorkerColors.Primary.bd(),
                 unfocusedBorderColor = WorkerColors.Divider,
                 disabledBorderColor = WorkerColors.Divider.copy(alpha = 0.5f),
                 disabledTextColor = WorkerColors.TextSecondary
@@ -941,7 +943,7 @@ private fun ProfileTextField(
                         Icon(
                             imageVector = Icons.Default.MyLocation,
                             contentDescription = stringResource(R.string.worker_setup_detect),
-                            tint = WorkerColors.Primary
+                            tint = WorkerColors.Primary.fg()
                         )
                     }
                 }
@@ -950,7 +952,7 @@ private fun ProfileTextField(
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         strokeWidth = 2.dp,
-                        color = WorkerColors.Primary
+                        color = WorkerColors.Primary.fg()
                     )
                 }
             } else null

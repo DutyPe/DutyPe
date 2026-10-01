@@ -128,7 +128,7 @@ fun MainNavGraph(
             }
         }
     }
-    
+
     val startupViewModel: com.example.dutype.viewmodels.AppStartupViewModel = androidx.hilt.navigation.compose.hiltViewModel()
     val startupState by startupViewModel.startupState.collectAsState()
     val isLoading = startupState is com.example.dutype.viewmodels.StartupState.Loading
@@ -183,7 +183,7 @@ fun MainNavGraph(
             }
         }.onFailure { Timber.w(it, "Failed to log notification destination telemetry") }
     }
-    
+
     // Safety timeout to ensure navigationDetermined is always set.
     // Bug #4 fix: reduced from 800ms → 600ms. The splash is already
     // dismissed on the first frame (see onReady() call above), so this
@@ -220,7 +220,7 @@ fun MainNavGraph(
             }
         }
     }
-    
+
     // Handle startup deep links + notification clicks after NavHost is ready.
     LaunchedEffect(notificationData, notificationIntent, navigationDetermined, isLoading) {
         // Only proceed if NavHost is ready (navigationDetermined), not loading, and we have notification data
@@ -235,20 +235,20 @@ fun MainNavGraph(
             val notificationId = notificationIntent.getStringExtra("notificationId")
             val directToLogin = notificationIntent.getBooleanExtra("direct_to_login", false)
             val loginRoleExtra = notificationIntent.getStringExtra("login_role")
-            
+
             // Only process if there's actual notification data (not just a regular app launch)
             val hasNotificationData = startupDeepLinkUri != null ||
-                                      navigateTo != null || notificationAction != null || 
+                                      navigateTo != null || notificationAction != null ||
                                       jobId != null || applicationId != null || notificationId != null ||
                                       directToLogin
-            
+
             if (!hasNotificationData) {
                 // No notification data - this is a regular app launch, skip notification handling
                 return@LaunchedEffect
             }
-            
+
             Timber.i("MainNavGraph - Notification clicked with intent")
-            
+
             // Small delay to ensure NavHost is fully initialized
             delay(100)
 
@@ -271,7 +271,7 @@ fun MainNavGraph(
                 )
                 return@LaunchedEffect
             }
-            
+
             Timber.i("MainNavGraph - Navigation data: navigateTo=$navigateTo, action=$notificationAction, jobId=$jobId, applicationId=$applicationId")
 
             if (directToLogin) {
@@ -293,12 +293,12 @@ fun MainNavGraph(
                 }
                 return@LaunchedEffect
             }
-            
+
             // Check if user is authenticated
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
                 val userRole = profileSetupStateManager.value.getUserRole()
-                
+
                 // Navigate to specific screen if provided
                 if (navigateTo != null) {
                     try {
@@ -338,15 +338,15 @@ fun MainNavGraph(
             }
         } else if (notificationData != null && navigationDetermined && !isLoading) {
             Timber.i("MainNavGraph - Legacy notification clicked: $notificationData")
-            
+
             // Add a small delay to ensure NavHost is fully initialized
             delay(200)
-            
+
             // Check if user is authenticated
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
                 val userRole = profileSetupStateManager.value.getUserRole()
-                
+
                 if (userRole != null) {
                     // For logged-in users with legacy notifications, go directly to home (NOT profile setup)
                     try {
@@ -370,12 +370,12 @@ fun MainNavGraph(
             }
         }
     }
-    
+
     // IMPORTANT: Only render NavHost AFTER navigation destination is determined
     // This prevents rendering with the wrong start destination
     if (navigationDetermined) {
         Timber.d("MainNavGraph - Rendering NavHost with startDestination: $startDestination (navigationDetermined: $navigationDetermined)")
-        
+
         NavHost(
             navController = navController,
             startDestination = startDestination,
@@ -389,7 +389,7 @@ fun MainNavGraph(
             arguments = listOf(navArgument("role") { type = NavType.StringType; defaultValue = "WORKER" })
         ) { backStackEntry ->
             val role = backStackEntry.arguments?.getString("role") ?: "WORKER"
-            Timber.d("Enhanced login route accessed with role: $role")
+            androidx.compose.runtime.LaunchedEffect(role) { Timber.d("Enhanced login route accessed with role: $role") }
             EnhancedLoginScreen(
                 navController = navController,
                 skipRoleSelection = true,
@@ -431,6 +431,30 @@ fun MainNavGraph(
             )
         }
 
+        // DutyPe AI from the home-screen shortcut (deep links are handled on this navController).
+        composable(
+            route = Routes.DUTYPE_AI,
+            arguments = listOf(navArgument("listen") { type = NavType.BoolType; defaultValue = false }),
+            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://ai?listen={listen}" })
+        ) { backStackEntry ->
+            com.example.dutype.employer.ai.DutyPeAiScreen(
+                navController = navController,
+                startListening = backStackEntry.arguments?.getBoolean("listen") == true
+            )
+        }
+
+        // Urgent job offer from a notification (deep links are handled on this navController).
+        composable(
+            route = Routes.URGENT_OFFER,
+            arguments = listOf(navArgument("requestId") { type = NavType.StringType }),
+            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://urgent/{requestId}" })
+        ) { backStackEntry ->
+            com.example.dutype.urgent.UrgentOfferScreen(
+                requestId = backStackEntry.arguments?.getString("requestId").orEmpty(),
+                navController = navController
+            )
+        }
+
         // Root-level job detail destination for app-link/deep-link handling.
         // Deep links are processed on MainNavGraph's navController, so this route
         // must exist here in addition to WorkerNavGraph.
@@ -448,7 +472,6 @@ fun MainNavGraph(
         ) { backStackEntry ->
             val jobId = backStackEntry.arguments?.getString("jobId") ?: ""
             Timber.i("🔗 MainNavGraph: JobDescriptionScreen opened with jobId: $jobId")
-            val firestoreJobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = androidx.hilt.navigation.compose.hiltViewModel()
             com.example.dutype.worker.screens.JobDescriptionScreen(
                 jobId = jobId,
                 navController = navController,
@@ -465,7 +488,7 @@ fun MainNavGraph(
         composable(Routes.EMPLOYER_PROFILE_SETUP) {
             MandatoryEmployerProfileSetupScreen(navController = navController)
         }
-        
+
         // Employer profile setup with return route (for job posting flow)
         composable(
             route = "${Routes.EMPLOYER_PROFILE_SETUP}?returnRoute={returnRoute}",
@@ -483,11 +506,11 @@ fun MainNavGraph(
                 returnRoute = returnRoute
             )
         }
-        
+
         composable(Routes.PROFILE_SETUP) {
             MandatoryWorkerProfileSetupScreen(navController = navController)
         }
-        
+
         // Profile setup with return route (for job application flow)
         composable(
             route = "profile_setup?returnRoute={returnRoute}",
@@ -507,7 +530,7 @@ fun MainNavGraph(
                 returnRoute = returnRoute
             )
         }
-        
+
         // Missing employer routes - add placeholder screens
         composable(Routes.EMPLOYER_PROFILE) {
             // Placeholder for employer profile
@@ -581,8 +604,8 @@ fun MainNavGraph(
                 }
             )
         }
-        
-        
+
+
         composable(
             route = Routes.EMPLOYER_APPLICATIONS_JOB,
             arguments = listOf(navArgument("jobId") { type = NavType.StringType })
@@ -601,13 +624,13 @@ fun MainNavGraph(
                 }
             )
         }
-        
-       
+
+
         composable(Routes.ANALYTICS) {
             // Analytics screen
             AnalyticsScreen(navController)
         }
-        
+
         // Contact Us Screen
         composable(Routes.CONTACT_US) {
             com.example.dutype.common.screens.support.ContactUsScreen(
@@ -646,12 +669,12 @@ fun RoleSelectionWithNavigation(
     profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel
 ) {
     var selectedRole by remember { mutableStateOf<String?>(null) }
-    
+
     // Handle navigation when role is selected
     LaunchedEffect(selectedRole) {
         selectedRole?.let { role ->
             Timber.d("Role selected: $role")
-            
+
             // Check if user is already signed in
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
@@ -661,19 +684,19 @@ fun RoleSelectionWithNavigation(
                     "EMPLOYER" -> com.example.dutype.models.UserRole.EMPLOYER
                     else -> com.example.dutype.models.UserRole.WORKER
                 }
-                
+
                     try {
                         // Check if user has existing profile in Firebase using high-level approach
-                        val userEmail = currentUser.email ?: ""
-                        val hasExistingProfile = profileCompletionViewModel.checkExistingProfileHighLevel(userEmail, userRole)
+                        val hasExistingProfile = profileCompletionViewModel
+                            .isProfileComplete(currentUser.uid, userRole)
+                            .getOrDefault(false)
                         Timber.d("RoleSelectionWithNavigation - Has existing profile (high-level): $hasExistingProfile")
-                        
+
                         if (hasExistingProfile) {
                             Timber.i("Found existing profile, loading data and navigating to home...")
-                            
-                            // Load existing profile data into local state
-                            profileCompletionViewModel.loadExistingProfileData()
-                            
+
+                            profileCompletionViewModel.markProfileComplete(userRole)
+
                             // Navigate directly to home screen
                             when (userRole) {
                                 com.example.dutype.models.UserRole.WORKER -> {
@@ -702,7 +725,7 @@ fun RoleSelectionWithNavigation(
                             // Check local state for profile completion
                             val isProfileComplete = profileCompletionViewModel.isProfileComplete(userRole)
                             Timber.d("Local profile complete: $isProfileComplete")
-                            
+
                             if (isProfileComplete) {
                                 // Profile is complete locally, navigate directly to home screen
                                 when (userRole) {
@@ -791,12 +814,12 @@ fun RoleSelectionWithNavigation(
                     launchSingleTop = true
                 }
             }
-            
+
             // Reset selected role
             selectedRole = null
         }
     }
-    
+
     // Show the role selection screen
     SelectRoleScreen(
         navController = navController,

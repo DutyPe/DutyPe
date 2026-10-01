@@ -93,9 +93,24 @@ exports.NOTIFICATION_TEMPLATES = {
     },
     // ── instant help (urgent same-day work) ───────────────────────────
     INSTANT_REQUEST_NEARBY: {
-        en: { title: "Urgent work near you: {title}", body: "{area} · ₹{pay} per person. Tap to call now." },
-        te: { title: "మీ దగ్గర అత్యవసర పని: {title}", body: "{area} · ఒక్కరికి ₹{pay}. ఇప్పుడే కాల్ చేయండి." },
-        hi: { title: "आपके पास तुरंत काम: {title}", body: "{area} · प्रति व्यक्ति ₹{pay}. अभी कॉल करें।" },
+        en: { title: "Urgent job within {km} km: {title}", body: "₹{pay} per person · {area} · {needed} needed. Tap Accept to take it." },
+        te: { title: "{km} కి.మీ లోపు అత్యవసర పని: {title}", body: "ఒక్కరికి ₹{pay} · {area} · {needed} మంది కావాలి. తీసుకోవడానికి అంగీకరించు నొక్కండి." },
+        hi: { title: "{km} किमी के अंदर तुरंत काम: {title}", body: "प्रति व्यक्ति ₹{pay} · {area} · {needed} लोग चाहिए। लेने के लिए स्वीकार दबाएँ।" },
+    },
+    URGENT_ACCEPTED: {
+        en: { title: "{workerName} accepted your urgent job", body: "{title}: {count} of {needed} workers coming. Call them from the app." },
+        te: { title: "{workerName} మీ అత్యవసర పనిని అంగీకరించారు", body: "{title}: {needed} మందిలో {count} మంది వస్తున్నారు. యాప్ నుండి కాల్ చేయండి." },
+        hi: { title: "{workerName} ने आपका तुरंत काम स्वीकार किया", body: "{title}: {needed} में से {count} वर्कर आ रहे हैं। ऐप से कॉल करें।" },
+    },
+    URGENT_CANCELLED: {
+        en: { title: "Urgent job cancelled", body: "The employer cancelled {title}. You can accept other jobs now." },
+        te: { title: "అత్యవసర పని రద్దయింది", body: "యజమాని {title}ను రద్దు చేశారు. మీరు ఇప్పుడు ఇతర పనులు తీసుకోవచ్చు." },
+        hi: { title: "तुरंत काम रद्द हुआ", body: "नियोक्ता ने {title} रद्द कर दिया। अब आप दूसरे काम ले सकते हैं।" },
+    },
+    URGENT_REMOVED: {
+        en: { title: "You were removed from an urgent job", body: "The employer removed you from {title}. You can accept other jobs now." },
+        te: { title: "అత్యవసర పని నుండి మిమ్మల్ని తొలగించారు", body: "యజమాని మిమ్మల్ని {title} నుండి తొలగించారు. మీరు ఇతర పనులు తీసుకోవచ్చు." },
+        hi: { title: "आपको तुरंत काम से हटाया गया", body: "नियोक्ता ने आपको {title} से हटा दिया। आप दूसरे काम ले सकते हैं।" },
     },
     INSTANT_RESPONSE_RECEIVED: {
         en: { title: "{workerName} can help", body: "A worker responded to your urgent need {title}." },

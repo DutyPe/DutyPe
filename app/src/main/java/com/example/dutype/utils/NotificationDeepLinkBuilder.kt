@@ -133,7 +133,7 @@ object NotificationDeepLinkBuilder {
             }
             
             // Referrals
-            NotificationType.REFERRAL_MILESTONE -> {
+            NotificationType.REFERRAL_MILESTONE, NotificationType.PAYMENT -> {
                 "dutype://refer"
             }
             

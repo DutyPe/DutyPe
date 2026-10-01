@@ -61,13 +61,12 @@ object LocaleHelper {
         runCatching {
             FirebaseAuth.getInstance().currentUser?.uid?.let { uid ->
                 FirebaseFirestore.getInstance()
-                    .collection(com.example.dutype.firestore.FirestoreCollections.USER_TOKENS)
+                    .collection(com.example.dutype.firestore.FirestoreSchema.UserTokens.COLLECTION)
                     .document(uid)
                     .set(
                         mapOf(
-                            "language" to language,
-                            "platform" to "android",
-                            "updatedAt" to Timestamp.now()
+                            com.example.dutype.firestore.FirestoreSchema.UserTokens.LANGUAGE to language,
+                            com.example.dutype.firestore.FirestoreSchema.UserTokens.UPDATED_AT to Timestamp.now()
                         ),
                         com.google.firebase.firestore.SetOptions.merge()
                     )

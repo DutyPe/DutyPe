@@ -5,29 +5,14 @@ import androidx.room.Room
 import coil.ImageLoader
 import coil.disk.DiskCache
 import coil.memory.MemoryCache
-import com.example.dutype.cache.JobCacheManager
 import com.example.dutype.data.ApplicationFormDataStore
-import com.example.dutype.database.DutyPeDatabase
-import com.example.dutype.database.dao.JobDao
-import com.example.dutype.database.dao.ApplicationDao
-import com.example.dutype.database.dao.SavedJobDao
-import com.example.dutype.metadata.AppMetadata
-import com.example.dutype.metadata.JobMetadata
-import com.example.dutype.metadata.UserMetadata
-import com.example.dutype.metadata.MetadataManager
 import com.example.dutype.auth.AuthManager
 import com.example.dutype.services.FCMTokenManager
-import com.example.dutype.services.FirestoreService
-import com.example.dutype.services.firestore.UserFirestoreService
-import com.example.dutype.services.firestore.JobFirestoreService
-import com.example.dutype.services.firestore.ApplicationFirestoreService
-import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.services.NotificationService
 import com.example.dutype.services.JobShareImageGenerator
 import com.example.dutype.services.ReferralService
 import com.example.dutype.repositories.AppConfigRepository
-import com.example.dutype.repositories.FirestoreJobRepository
 import com.example.dutype.repositories.FirestoreSavedJobRepository
 import com.example.dutype.performance.PerformanceTracker
 import com.example.dutype.state.ApplicationStateManager
@@ -48,19 +33,19 @@ import javax.inject.Singleton
 
 /**
  * AppModule - Hilt Dependency Injection Module
- * 
+ *
  * REFACTORED (January 2026):
  * - All services now receive FirebaseFirestore via constructor injection
  * - Single source of truth for Firebase instances
  * - Improved testability and mockability
  * - Removed ServiceProviders anti-pattern (services injected directly into ViewModels)
- * 
+ *
  * Architecture:
  * - Firebase instances provided at top level
  * - Services receive dependencies via constructor
  * - Repositories compose services with caching
  * - State managers handle in-memory state
- * 
+ *
  * @author DutyPe Engineering Team
  * @since 2.0.0
  */
@@ -82,7 +67,7 @@ object AppModule {
     @Singleton
     fun provideFirebaseFirestore(): FirebaseFirestore {
         val firestore = FirebaseFirestore.getInstance()
-        
+
         // PERFORMANCE: Enable offline persistence for instant data loading
         // This caches Firestore data locally for 40MB (configurable)
         // Used by: WhatsApp, Instagram, Uber, Airbnb
@@ -96,10 +81,10 @@ object AppModule {
             // Already initialized - this is fine
             Timber.d("ℹ️ Firestore settings already configured")
         }
-        
+
         return firestore
     }
-    
+
     @Provides
     @Singleton
     fun provideFirebaseStorage(): FirebaseStorage {
@@ -109,7 +94,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideFirebaseFunctions(): com.google.firebase.functions.FirebaseFunctions {
-        return com.google.firebase.functions.FirebaseFunctions.getInstance()
+        return com.google.firebase.functions.FirebaseFunctions.getInstance("asia-south1")
     }
 
     // ==========================================
@@ -141,219 +126,8 @@ object AppModule {
     }
 
     // ==========================================
-    // ROOM DATABASE (Offline Mode Foundation)
-    // ==========================================
-
-    @Provides
-    @Singleton
-    fun provideDutyPeDatabase(
-        @ApplicationContext context: Context
-    ): DutyPeDatabase {
-        // SECURITY: Room DB is encrypted with SQLCipher using a device-bound
-        // passphrase stored in EncryptedSharedPreferences (Keystore-wrapped).
-        //
-        // We use the modern `net.zetetic:sqlcipher-android` artifact (16 KB
-        // page-size compatible). Its native library must be loaded once before
-        // any database operation. If a broken install/runtime cannot load it,
-        // keep the app alive with a non-persistent cache instead of crashing at startup.
-        if (!loadSqlCipherNativeLibrary()) {
-            Timber.e("SQLCipher native library unavailable; using in-memory Room database")
-            return buildInMemoryDutyPeDatabase(context)
-        }
-
-        return try {
-            buildEncryptedDutyPeDatabase(context)
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to initialize encrypted database; falling back to in-memory database to prevent startup crash")
-            buildInMemoryDutyPeDatabase(context)
-        }
-    }
-
-    private fun loadSqlCipherNativeLibrary(): Boolean {
-        return try {
-            System.loadLibrary("sqlcipher")
-            true
-        } catch (error: UnsatisfiedLinkError) {
-            Timber.e(error, "Failed to load libsqlcipher.so")
-            false
-        }
-    }
-
-    private fun buildEncryptedDutyPeDatabase(context: Context): DutyPeDatabase {
-        val passphrase = com.example.dutype.database.security.DatabasePassphraseProvider.getPassphrase(context)
-        val factory = net.zetetic.database.sqlcipher.SupportOpenHelperFactory(passphrase)
-
-        val database = Room.databaseBuilder(
-            context,
-            DutyPeDatabase::class.java,
-            DutyPeDatabase.DATABASE_NAME
-        )
-            .openHelperFactory(factory)
-            .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6, 7)
-            .fallbackToDestructiveMigrationOnDowngrade()
-            .build()
-
-        try {
-            verifyDutyPeDatabaseOpens(database)
-        } catch (error: Throwable) {
-            if (isRecoverableSqlCipherOpenFailure(error)) {
-                Timber.e(error, "[AppModule] Database open verification failed with recoverable error; rebuilding fresh database")
-                try {
-                    database.close()
-                } catch (_: Exception) {}
-                deleteDutyPeDatabaseFiles(context)
-
-                val freshDatabase = Room.databaseBuilder(
-                    context,
-                    DutyPeDatabase::class.java,
-                    DutyPeDatabase.DATABASE_NAME
-                )
-                    .openHelperFactory(factory)
-                    .fallbackToDestructiveMigrationFrom(1, 2, 3, 4, 5, 6, 7)
-                    .fallbackToDestructiveMigrationOnDowngrade()
-                    .build()
-
-                verifyDutyPeDatabaseOpens(freshDatabase)
-                return freshDatabase
-            } else {
-                throw error
-            }
-        }
-
-        return database
-    }
-
-    private fun buildInMemoryDutyPeDatabase(context: Context): DutyPeDatabase {
-        return Room.inMemoryDatabaseBuilder(
-            context,
-            DutyPeDatabase::class.java
-        )
-            .fallbackToDestructiveMigrationOnDowngrade()
-            .build()
-    }
-
-    private fun verifyDutyPeDatabaseOpens(database: DutyPeDatabase) {
-        database.openHelper.writableDatabase
-            .query("SELECT COUNT(*) FROM sqlite_schema")
-            .use { cursor ->
-                if (cursor.moveToFirst()) {
-                    cursor.getLong(0)
-                }
-            }
-    }
-
-    private fun isRecoverableSqlCipherOpenFailure(error: Throwable): Boolean {
-        var current: Throwable? = error
-        while (current != null) {
-            val className = current::class.java.name
-            if (
-                className.startsWith("net.zetetic.database.sqlcipher.SQLite") ||
-                className.startsWith("android.database.sqlite.SQLite")
-            ) {
-                return true
-            }
-            current = current.cause
-        }
-        return false
-    }
-
-    private fun deleteDutyPeDatabaseFiles(context: Context) {
-        val databaseName = DutyPeDatabase.DATABASE_NAME
-        val databaseFile = context.getDatabasePath(databaseName)
-
-        context.deleteDatabase(databaseName)
-        listOf(
-            databaseFile,
-            File("${databaseFile.path}-journal"),
-            File("${databaseFile.path}-shm"),
-            File("${databaseFile.path}-wal")
-        ).forEach { file ->
-            if (file.exists() && !file.delete()) {
-                Timber.w("Failed to delete local Room database file: ${file.absolutePath}")
-            }
-        }
-    }
-
-    @Provides
-    @Singleton
-    fun provideJobDao(database: DutyPeDatabase): JobDao {
-        return database.jobDao()
-    }
-
-    @Provides
-    @Singleton
-    fun provideApplicationDao(database: DutyPeDatabase): ApplicationDao {
-        return database.applicationDao()
-    }
-
-    @Provides
-    @Singleton
-    fun provideSavedJobDao(database: DutyPeDatabase): SavedJobDao {
-        return database.savedJobDao()
-    }
-
-    // ==========================================
-    // CACHE MANAGER
-    // ==========================================
-
-    @Provides
-    @Singleton
-    fun provideJobCacheManager(jobDao: JobDao): JobCacheManager {
-        return JobCacheManager(jobDao)
-    }
-
-    // EmployerProfileCache uses @Inject constructor, so Hilt resolves it automatically.
-
-    // ==========================================
-    // DATA STORES
-    // ==========================================
-
-    @Provides
-    @Singleton
-    fun provideApplicationFormDataStore(
-        @ApplicationContext context: Context
-    ): ApplicationFormDataStore {
-        return ApplicationFormDataStore(context)
-    }
-
-    // ==========================================
     // CORE SERVICES (with Firestore injection)
     // ==========================================
-
-    @Provides
-    @Singleton
-    fun provideUserFirestoreService(
-        firestore: FirebaseFirestore
-    ): UserFirestoreService {
-        return UserFirestoreService(firestore)
-    }
-
-    @Provides
-    @Singleton
-    fun provideJobFirestoreService(
-        firestore: FirebaseFirestore
-    ): JobFirestoreService {
-        return JobFirestoreService(firestore)
-    }
-
-    @Provides
-    @Singleton
-    fun provideApplicationFirestoreService(
-        firestore: FirebaseFirestore
-    ): ApplicationFirestoreService {
-        return ApplicationFirestoreService(firestore)
-    }
-
-    @Provides
-    @Singleton
-    fun provideFirestoreService(
-        firestore: FirebaseFirestore,
-        userService: UserFirestoreService,
-        jobService: JobFirestoreService,
-        applicationService: ApplicationFirestoreService
-    ): FirestoreService {
-        return FirestoreService(firestore, userService, jobService, applicationService)
-    }
 
     @Provides
     @Singleton
@@ -365,27 +139,6 @@ object AppModule {
         return FCMTokenManager(firestore, auth, appContext)
     }
 
-    @Provides
-    @Singleton
-    fun provideProfileCompletionService(
-        firestore: FirebaseFirestore,
-        storage: FirebaseStorage,
-        auth: FirebaseAuth,
-        functions: com.google.firebase.functions.FirebaseFunctions,
-        @ApplicationContext context: Context,
-        errorHandler: com.example.dutype.core.error.ErrorHandler,
-        referralService: com.example.dutype.services.ReferralService
-    ): ProfileCompletionService {
-        return ProfileCompletionService(
-            firestore,
-            storage,
-            auth,
-            functions,
-            context,
-            errorHandler,
-            referralService
-        )
-    }
 
     @Provides
     @Singleton
@@ -395,7 +148,7 @@ object AppModule {
     ): NotificationService {
         return NotificationService(context, firestore)
     }
-    
+
     @Provides
     @Singleton
     fun provideBirthdayService(
@@ -406,18 +159,6 @@ object AppModule {
         return com.example.dutype.services.BirthdayService(firestore, auth, notificationService)
     }
 
-    @Provides
-    @Singleton
-    fun provideReferralService(
-        firestore: FirebaseFirestore,
-        auth: FirebaseAuth,
-        functions: com.google.firebase.functions.FirebaseFunctions,
-        smartNotificationManager: com.example.dutype.services.SmartNotificationManager,
-        appConfigRepository: AppConfigRepository,
-        @ApplicationContext context: Context
-    ): ReferralService {
-        return ReferralService(firestore, auth, functions, smartNotificationManager, appConfigRepository, context)
-    }
 
     // ==========================================
     // AUTHENTICATION
@@ -430,9 +171,7 @@ object AppModule {
         fcmTokenManager: FCMTokenManager,
         profileSetupStateManager: ProfileSetupStateManager,
         appStateManager: AppStateManager,
-        jobCacheManager: JobCacheManager,
         firebaseAuth: FirebaseAuth,
-        firestore: FirebaseFirestore,
         sessionManager: com.example.dutype.auth.SessionManager
     ): AuthManager {
         return AuthManager(
@@ -440,9 +179,7 @@ object AppModule {
             fcmTokenManager,
             profileSetupStateManager,
             appStateManager,
-            jobCacheManager,
             firebaseAuth,
-            firestore,
             sessionManager
         )
     }
@@ -453,30 +190,6 @@ object AppModule {
     // ==========================================
     // BUSINESS SERVICES (with Firestore injection)
     // ==========================================
-
-    @Provides
-    @Singleton
-    fun provideJobApplicationService(
-        firestore: FirebaseFirestore,
-        jobDao: JobDao,
-        applicationDao: ApplicationDao,
-        notificationService: NotificationService,
-        profileCompletionService: ProfileCompletionService,
-        applicationStateManager: ApplicationStateManager,
-        metadataManager: MetadataManager,
-        errorHandler: com.example.dutype.core.error.ErrorHandler
-    ): JobApplicationService {
-        return JobApplicationService(
-            firestore,
-            jobDao,
-            applicationDao,
-            notificationService,
-            profileCompletionService,
-            applicationStateManager,
-            metadataManager,
-            errorHandler
-        )
-    }
 
     @Provides
     @Singleton
@@ -492,34 +205,12 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideFirestoreJobRepository(
-        firestoreService: FirestoreService,
-        auth: FirebaseAuth,
-        errorHandler: com.example.dutype.core.error.ErrorHandler,
-        notificationService: com.example.dutype.services.NotificationService,
-        requestDeduplicator: com.example.dutype.utils.RequestDeduplicator,
-        jobCacheManager: com.example.dutype.cache.JobCacheManager
-    ): FirestoreJobRepository {
-        return FirestoreJobRepository(firestoreService, auth, errorHandler, notificationService, requestDeduplicator, jobCacheManager)
-    }
-
-    @Provides
-    @Singleton
     fun provideFirestoreSavedJobRepository(
-        firestoreService: FirestoreService,
+        firestore: FirebaseFirestore,
+        jobRepository: com.example.dutype.jobs.JobRepository,
         auth: FirebaseAuth
     ): FirestoreSavedJobRepository {
-        return FirestoreSavedJobRepository(firestoreService, auth)
-    }
-
-    @Provides
-    @Singleton
-    fun provideOfflineFirstJobRepository(
-        jobDao: JobDao,
-        firestoreService: FirestoreService,
-        performanceTracker: PerformanceTracker
-    ): com.example.dutype.repositories.OfflineFirstJobRepository {
-        return com.example.dutype.repositories.OfflineFirstJobRepository(jobDao, firestoreService, performanceTracker)
+        return FirestoreSavedJobRepository(firestore, jobRepository, auth)
     }
 
     // ==========================================
@@ -539,7 +230,7 @@ object AppModule {
     ): com.example.dutype.notifications.InAppNotificationManager {
         return com.example.dutype.notifications.InAppNotificationManager(localNotificationService)
     }
-    
+
     @Provides
     @Singleton
     fun provideSmartNotificationManager(
@@ -565,7 +256,7 @@ object AppModule {
     ): com.example.dutype.utils.LocationService {
         return com.example.dutype.utils.LocationService(context)
     }
-    
+
     @Provides
     @Singleton
     fun provideSavedWorkLocationsStore(
@@ -592,7 +283,7 @@ object AppModule {
     fun providePerformanceTracker(): PerformanceTracker {
         return PerformanceTracker()
     }
-    
+
     // ==========================================
     // P1 PERFORMANCE FIX: ENTERPRISE IMAGE OPTIMIZATION
     // - WebP format support (30% smaller than JPEG)
@@ -663,49 +354,13 @@ object AppModule {
     // METADATA SERVICES (with Firestore injection)
     // ==========================================
 
-    @Provides
-    @Singleton
-    fun provideAppMetadata(
-        firestore: FirebaseFirestore,
-        @ApplicationContext context: Context
-    ): AppMetadata {
-        return AppMetadata(firestore, context)
-    }
-
-    @Provides
-    @Singleton
-    fun provideJobMetadata(
-        firestore: FirebaseFirestore
-    ): JobMetadata {
-        return JobMetadata(firestore)
-    }
-
-    @Provides
-    @Singleton
-    fun provideUserMetadata(
-        firestore: FirebaseFirestore,
-        auth: FirebaseAuth
-    ): UserMetadata {
-        return UserMetadata(firestore, auth)
-    }
-
-    @Provides
-    @Singleton
-    fun provideMetadataManager(
-        appMetadata: AppMetadata,
-        jobMetadata: JobMetadata,
-        userMetadata: UserMetadata,
-        cacheManager: JobCacheManager
-    ): MetadataManager {
-        return MetadataManager(appMetadata, jobMetadata, userMetadata, cacheManager)
-    }
 
     // ==========================================
     // AD SERVICES
     // ==========================================
 
 
-    
+
     @Provides
     @Singleton
     fun provideInAppReviewManager(
@@ -713,7 +368,7 @@ object AppModule {
     ): com.example.dutype.utils.InAppReviewManager {
         return com.example.dutype.utils.InAppReviewManager(context)
     }
-    
+
     @Provides
     @Singleton
     fun provideInAppUpdateManager(
@@ -721,7 +376,7 @@ object AppModule {
     ): com.example.dutype.utils.InAppUpdateManager {
         return com.example.dutype.utils.InAppUpdateManager(context)
     }
-    
+
     @Provides
     @Singleton
     fun provideInAppReviewTriggerService(
@@ -731,7 +386,7 @@ object AppModule {
     ): com.example.dutype.services.InAppReviewTriggerService {
         return com.example.dutype.services.InAppReviewTriggerService(reviewManager, firestore, auth)
     }
-    
+
     @Provides
     @Singleton
     fun provideNetworkMonitor(
@@ -739,7 +394,7 @@ object AppModule {
     ): com.example.dutype.utils.NetworkMonitor {
         return com.example.dutype.utils.NetworkMonitor(context)
     }
-    
+
     @Provides
     @Singleton
     fun provideAnnouncementService(

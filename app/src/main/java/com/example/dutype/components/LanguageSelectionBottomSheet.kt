@@ -1,5 +1,7 @@
 package com.example.dutype.components
 
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.compose.ui.res.stringResource
 import android.app.Activity
@@ -72,7 +74,7 @@ fun LanguageSelectionBottomSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color.White,
+        containerColor = Color.White.bg(),
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
@@ -94,7 +96,7 @@ fun LanguageSelectionBottomSheet(
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Ink900
+                        color = Ink900.fg()
                     )
                 )
             }
@@ -148,11 +150,11 @@ private fun LanguageCardItem(
             .clickable(role = androidx.compose.ui.semantics.Role.RadioButton, onClick = onClick),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) SelectedBg else Color.White
+            containerColor = if (isSelected) SelectedBg.bg() else Color.White.bg()
         ),
         border = BorderStroke(
             width = if (isSelected) 1.5.dp else 1.dp,
-            color = if (isSelected) BrandBluePrimary else BorderColor
+            color = if (isSelected) BrandBluePrimary.fg() else BorderColor.fg()
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -168,13 +170,13 @@ private fun LanguageCardItem(
                     text = item.name,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Ink900
+                        color = Ink900.fg()
                     )
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = item.nativeName,
-                    style = MaterialTheme.typography.bodySmall.copy(color = Ink600)
+                    style = MaterialTheme.typography.bodySmall.copy(color = Ink600.fg())
                 )
             }
 
@@ -182,14 +184,14 @@ private fun LanguageCardItem(
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = null,
-                    tint = BrandBluePrimary,
+                    tint = BrandBluePrimary.fg(),
                     modifier = Modifier.size(24.dp)
                 )
             } else {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
-                    tint = Ink600,
+                    tint = Ink600.fg(),
                     modifier = Modifier.size(20.dp)
                 )
             }

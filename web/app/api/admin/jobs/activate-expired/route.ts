@@ -1,55 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Timestamp } from "firebase-admin/firestore";
+
 import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
 import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
+import { Jobs, Values } from "@/lib/firebase/schema";
 
 export const runtime = "nodejs";
 
+const BATCH = 400;
+
+/** Re-opens up to 400 expired jobs for another 30 days (run again for more). */
 export async function POST(request: NextRequest) {
   const unauthorized = await requireAuthorizedAdminRequest(request);
   if (unauthorized) return unauthorized;
-
   try {
     const db = getFirebaseAdminDb();
-    
-    // Find expired jobs in jobmetadata
-    const snapshot = await db
-      .collection("jobmetadata")
-      .where("status", "==", "expired")
-      .get();
-
-    if (snapshot.empty) {
-      return NextResponse.json({ activatedCount: 0, message: "No expired jobs found." });
-    }
-
+    const snap = await db.collection(Jobs.COLLECTION).where(Jobs.STATUS, "==", Values.JobStatus.EXPIRED).limit(BATCH).get();
+    if (snap.empty) return NextResponse.json({ activatedCount: 0, message: "No expired jobs found." });
+    const expiresAt = Timestamp.fromMillis(Date.now() + 30 * 24 * 60 * 60 * 1000);
     const batch = db.batch();
-    let batched = 0;
-    
-    // Set new expiry to 30 days from now
-    const newExpiry = Timestamp.fromMillis(Date.now() + 30 * 24 * 60 * 60 * 1000);
-
-    snapshot.docs.forEach((doc) => {
-      // 1. Update status to 'open' in jobmetadata
-      batch.update(doc.ref, { status: "open" });
-      
-      // 2. Update expiresAt in job_details
-      const detailsRef = db.collection("job_details").doc(doc.id);
-      // Use set with merge in case details doc is missing for some reason
-      batch.set(detailsRef, { expiresAt: newExpiry }, { merge: true });
-      
-      batched++;
-    });
-
-    if (batched > 0) {
-      await batch.commit();
-    }
-
-    return NextResponse.json({ 
-      activatedCount: batched, 
-      message: `Successfully reactivated ${batched} expired jobs for 30 days.` 
-    });
+    snap.docs.forEach((doc) => batch.update(doc.ref, { [Jobs.STATUS]: Values.JobStatus.OPEN, [Jobs.EXPIRES_AT]: expiresAt }));
+    await batch.commit();
+    const more = snap.size === BATCH ? " Run again to re-open more." : "";
+    return NextResponse.json({ activatedCount: snap.size, message: `Re-opened ${snap.size} expired jobs for 30 days.${more}` });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to activate expired jobs.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to activate expired jobs." }, { status: 500 });
   }
 }

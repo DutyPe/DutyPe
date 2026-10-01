@@ -1,5 +1,6 @@
 import * as functions from "firebase-functions";
 import { onCallSecured } from "./secure-callable";
+import { useAi } from "./ai-hiring";
 
 const VALID_CATEGORIES = [
   "Cook",
@@ -45,8 +46,9 @@ export interface VoiceJobParseResponse {
 }
 
 export const parseVoiceJobDetails = onCallSecured<VoiceJobParseRequest, VoiceJobParseResponse>(
-  { requireAuth: false, enforceAppCheck: false, timeoutSeconds: 25 },
-  async (data) => {
+  // Logged-in users of the real app only: every call spends Gemini tokens.
+  { timeoutSeconds: 25 },
+  async (data, context) => {
     const rawTranscript = String(data?.transcript || "").trim();
     if (!rawTranscript) {
       return {
@@ -68,7 +70,9 @@ export const parseVoiceJobDetails = onCallSecured<VoiceJobParseRequest, VoiceJob
     const current = data.currentInput || {};
     const apiKey = process.env.GEMINI_API_KEY || "";
 
-    if (apiKey) {
+    // Gemini only with DutyPe AI (plan or free trial); otherwise the built-in rules below.
+    const access = apiKey ? await useAi(context.auth!.uid) : "upgrade";
+    if (apiKey && (access === "plan" || access === "trial")) {
       try {
         const aiResult = await callGeminiForJobExtraction(rawTranscript, current, apiKey);
         if (aiResult) {
@@ -238,9 +242,25 @@ function parseRuleBasedJobDetails(
   const payMatch = lower.match(/(?:₹|rs\.?|rupees|rupaye|isthanu|denge)?\s*(\d{3,5})\s*(?:₹|rs\.?|rupees|rupaye|per\s*day|roju|daily)?/);
   if (payMatch && payMatch[1]) {
     const parsedAmount = parseInt(payMatch[1], 10);
-    if (parsedAmount >= 200 && parsedAmount <= 10000) {
+    if (parsedAmount >= 200 && parsedAmount <= 25000) {
       payment = parsedAmount;
     }
+  } else if (lower.includes("five hundred") || lower.includes("paanch sau") || lower.includes("aidu vandalu")) {
+    payment = 500;
+  } else if (lower.includes("six hundred") || lower.includes("che sau") || lower.includes("aaru vandalu")) {
+    payment = 600;
+  } else if (lower.includes("seven hundred") || lower.includes("saat sau") || lower.includes("yeedu vandalu") || lower.includes("yedu vandalu")) {
+    payment = 700;
+  } else if (lower.includes("eight hundred") || lower.includes("aath sau") || lower.includes("enimidi vandalu") || lower.includes("enimidhi vandalu")) {
+    payment = 800;
+  } else if (lower.includes("nine hundred") || lower.includes("nau sau") || lower.includes("tommidi vandalu")) {
+    payment = 900;
+  } else if (lower.includes("thousand") || lower.includes("hazaar") || lower.includes("hazar") || lower.includes("veyi") || lower.includes("veyyi")) {
+    payment = 1000;
+  } else if (lower.includes("fifteen hundred") || lower.includes("pandrah sau") || lower.includes("padihenu vandalu")) {
+    payment = 1500;
+  } else if (lower.includes("two thousand") || lower.includes("do hazar") || lower.includes("rendu velu")) {
+    payment = 2000;
   }
 
   const isComplete = payment > 0;

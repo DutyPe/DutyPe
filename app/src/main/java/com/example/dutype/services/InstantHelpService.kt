@@ -1,848 +1,347 @@
 package com.example.dutype.services
 
-import com.example.dutype.firestore.FirestoreCollections
+import com.example.dutype.employer.models.JobCategory
+import com.example.dutype.firestore.FirestoreSchema.EmployerCards
+import com.example.dutype.firestore.FirestoreSchema.InstantRequests
+import com.example.dutype.jobs.Geohash
 import com.example.dutype.models.InstantRequest
 import com.example.dutype.models.InstantResponse
 import com.example.dutype.models.LocationData
 import com.example.dutype.models.QuickUrgentNeedInput
-import com.example.dutype.models.WorkerAvailability
+import com.example.dutype.profile.EmployerProfile
+import com.example.dutype.utils.AreaText
 import com.example.dutype.utils.GeoUtils
-import com.example.dutype.utils.JobDeletePolicy
-import com.google.firebase.Timestamp
+import com.example.dutype.utils.epochMillis
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
-import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.Query
+import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.util.Date
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Instant help (urgent same-day work). Every write goes through Cloud Functions (instant.ts);
+ * reads are bounded: nearby open needs by geohash cells, the worker's own responses by id,
+ * the employer's own needs and each need's responses subcollection.
+ */
 @Singleton
 class InstantHelpService @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    private val functions: FirebaseFunctions
 ) {
-    private companion object {
-        const val MAX_INSTANT_WORK_DISTANCE_KM = 30.0
-    }
+    private val requests get() = firestore.collection(InstantRequests.COLLECTION)
+    private val R = InstantRequests.Responses
 
-    suspend fun getWorkerAvailability(): Result<WorkerAvailability?> = withContext(Dispatchers.IO) {
-        val workerId = auth.currentUser?.uid
-        if (workerId.isNullOrBlank()) return@withContext Result.success(null)
+    private suspend fun call(name: String, payload: Map<String, Any?>): Map<*, *>? =
+        functions.getHttpsCallable(name).call(payload).await().data as? Map<*, *>
 
-        return@withContext try {
-            val snapshot = firestore.collection(FirestoreCollections.WORKER_AVAILABILITY)
-                .document(workerId)
-                .get()
-                .await()
-            Result.success(snapshot.toWorkerAvailabilityOrNull())
-        } catch (error: Exception) {
-            Result.failure(error)
-        }
-    }
+    // ─────────────────────────────── worker ───────────────────────────────
 
-    suspend fun saveWorkerAvailability(
-        isAvailable: Boolean,
-        currentLocation: LocationData?
-    ): Result<WorkerAvailability> = withContext(Dispatchers.IO) {
-        val workerId = auth.currentUser?.uid
-        if (workerId.isNullOrBlank()) {
-            return@withContext Result.failure(IllegalStateException("Please login again"))
-        }
-        if (isAvailable && (currentLocation == null || !GeoUtils.hasValidCoordinates(currentLocation.latitude, currentLocation.longitude))) {
-            return@withContext Result.failure(IllegalStateException("Set your location before going available"))
-        }
-
-        return@withContext try {
-            val now = Timestamp.now()
-            val expiresAt = Timestamp(Date(System.currentTimeMillis() + 8 * 60 * 60 * 1000L))
-            val latitude = currentLocation?.latitude ?: 0.0
-            val longitude = currentLocation?.longitude ?: 0.0
-            val geohash = if (GeoUtils.hasValidCoordinates(latitude, longitude)) {
-                GeoUtils.encodeGeohash(latitude, longitude)
-            } else {
-                ""
-            }
-
-            val data = mapOf(
-                "workerId" to workerId,
-                "isAvailable" to isAvailable,
-                "status" to if (isAvailable) "available" else "offline",
-                "categories" to FieldValue.delete(),
-                "radiusKm" to FieldValue.delete(),
-                "lat" to latitude,
-                "lng" to longitude,
-                "geohash" to geohash,
-                "availableUntil" to expiresAt,
-                "lastSeenAt" to now,
-                "updatedAt" to now
-            )
-
-            firestore.collection(FirestoreCollections.WORKER_AVAILABILITY)
-                .document(workerId)
-                .set(data, SetOptions.merge())
-                .await()
-
+    /**
+     * Open, unexpired urgent needs within [MAX_RADIUS_KM] of the worker, whatever the skill, nearest
+     * first. Searches 5 km, then 10, then 20 km by ~5 km cells (`cell in [...]`, 30 cells and
+     * [MAX_SHOWN] needs per query) and stops once [MAX_SHOWN] are found: usually 1–2 queries and a
+     * handful of reads, at most ~40 reads.
+     */
+    suspend fun getOpenInstantRequestsForWorker(currentLocation: LocationData?): Result<List<InstantRequest>> =
+        withContext(Dispatchers.IO) {
             runCatching {
-                firestore.collection(FirestoreCollections.WORKER_PROFILES)
-                    .document(workerId)
-                    .set(mapOf("isAvailable" to FieldValue.delete()), SetOptions.merge())
-                    .await()
-            }.onFailure { cleanupError ->
-                Timber.w(cleanupError, "Failed to remove legacy worker profile availability field")
-            }
-
-            Result.success(
-                WorkerAvailability(
-                    workerId = workerId,
-                    isAvailable = isAvailable,
-                    status = if (isAvailable) "available" else "offline",
-                    lat = latitude,
-                    lng = longitude,
-                    geohash = geohash,
-                    availableUntil = expiresAt.toDate().time,
-                    lastSeenAt = now.toDate().time,
-                    updatedAt = now.toDate().time
-                )
-            )
-        } catch (error: Exception) {
-            Result.failure(error)
-        }
-    }
-
-    suspend fun getOpenInstantRequestsForWorker(
-        availability: WorkerAvailability,
-        currentLocation: LocationData?
-    ): Result<List<InstantRequest>> = withContext(Dispatchers.IO) {
-        if (!availability.isAvailable || currentLocation == null) {
-            return@withContext Result.success(emptyList())
-        }
-        if (!GeoUtils.hasValidCoordinates(currentLocation.latitude, currentLocation.longitude)) {
-            return@withContext Result.success(emptyList())
-        }
-
-        return@withContext try {
-            val now = System.currentTimeMillis()
-            val snapshot = firestore.collection(FirestoreCollections.INSTANT_REQUESTS)
-                .whereEqualTo("status", "open")
-                .limit(75)
-                .get()
-                .await()
-
-            val requests = snapshot.documents
-                .mapNotNull { it.toInstantRequestOrNull() }
-                .filter { it.expiresAt == 0L || it.expiresAt > now }
-                .mapNotNull { request ->
-                    if (!GeoUtils.hasValidCoordinates(request.lat, request.lng)) return@mapNotNull null
-                    val distance = GeoUtils.calculateDistance(
-                        currentLocation.latitude,
-                        currentLocation.longitude,
-                        request.lat,
-                        request.lng
+                // Urgent requests are readable only when signed in (rules); guests see none.
+                if (auth.currentUser == null) return@runCatching emptyList()
+                val here = currentLocation?.takeIf { GeoUtils.hasValidCoordinates(it.latitude, it.longitude) }
+                    ?: return@runCatching emptyList()
+                val now = System.currentTimeMillis()
+                val me = auth.currentUser?.uid
+                val found = HashMap<String, InstantRequest>()
+                val queried = HashSet<String>()
+                for (radius in BANDS_KM) {
+                    val cells = Geohash.covering(here.latitude, here.longitude, radius, CELL_PRECISION)
+                        .filter { queried.add(it) }
+                    val docs = coroutineScope {
+                        cells.chunked(30).map { chunk ->
+                            async {
+                                requests.whereEqualTo(InstantRequests.STATUS, STATUS_OPEN)
+                                    .whereIn(InstantRequests.CELL, chunk)
+                                    .orderBy(InstantRequests.CREATED_AT, Query.Direction.DESCENDING)
+                                    .limit(MAX_SHOWN.toLong())
+                                    .get().await().documents
+                            }
+                        }.awaitAll().flatten()
+                    }
+                    docs.mapNotNull { it.toInstantRequest() }
+                        .filter { it.expiresAt > now && it.employerId != me }
+                        .forEach { request ->
+                            val d = GeoUtils.calculateDistance(here.latitude, here.longitude, request.lat, request.lng)
+                            if (d <= MAX_RADIUS_KM) found[request.requestId] = request.copy(distanceKm = d)
+                        }
+                    // Enough needs inside this band: nothing farther can come before them.
+                    if (found.values.count { (it.distanceKm ?: Double.MAX_VALUE) <= radius } >= MAX_SHOWN) break
+                }
+                val nearby = found.values.sortedBy { it.distanceKm ?: Double.MAX_VALUE }.take(MAX_SHOWN)
+                val names = employerNames(nearby.map { it.employerId })
+                val mine = myResponses(nearby.map { it.requestId })
+                nearby.map { request ->
+                    val response = mine[request.requestId]
+                    request.copy(
+                        employerName = names[request.employerId] ?: request.employerName,
+                        workerResponseId = response?.responseId.orEmpty(),
+                        workerResponseStatus = response?.status.orEmpty(),
+                        workerRespondedAt = response?.createdAt ?: 0L
                     )
-                    val requestRadiusKm = request.radiusKm
-                        .takeIf { radius -> radius > 0.0 }
-                        ?.coerceAtMost(MAX_INSTANT_WORK_DISTANCE_KM)
-                        ?: MAX_INSTANT_WORK_DISTANCE_KM
-                    if (distance <= MAX_INSTANT_WORK_DISTANCE_KM && distance <= requestRadiusKm) {
-                        request.copy(distanceKm = distance)
-                    } else {
-                        null
-                    }
                 }
-                .sortedWith(
-                    compareBy<InstantRequest> { if (it.urgency == "urgent") 0 else 1 }
-                        .thenBy { it.distanceKm ?: Double.MAX_VALUE }
-                        .thenByDescending { it.createdAt }
-                )
-                .take(10)
+            }
+        }
 
-            Result.success(requests)
-        } catch (error: Exception) {
-            Result.failure(error)
+    // ─────────────────────────────── urgent offers ───────────────────────────────
+
+    /** One urgent need with its employer's name (the offer page). Null when it no longer exists. */
+    suspend fun getRequestForOffer(requestId: String): Result<InstantRequest?> = withContext(Dispatchers.IO) {
+        runCatching {
+            val request = requests.document(requestId).get().await().toInstantRequest() ?: return@runCatching null
+            val name = employerNames(listOf(request.employerId))[request.employerId]
+            if (name != null) request.copy(employerName = name) else request
         }
     }
 
-    suspend fun createUrgentNeed(input: QuickUrgentNeedInput): Result<String> = withContext(Dispatchers.IO) {
-        val employerId = auth.currentUser?.uid
-        if (employerId.isNullOrBlank()) {
-            return@withContext Result.failure(IllegalStateException("Please login again"))
-        }
-        if (input.title.trim().length < 3) {
-            return@withContext Result.failure(IllegalArgumentException("Enter what help you need"))
-        }
-        val nowMillis = System.currentTimeMillis()
-        val maxScheduleMillis = nowMillis + 48 * 60 * 60 * 1000L
-        if (input.needType == "scheduled" && input.scheduledAtMillis !in (nowMillis + 1)..maxScheduleMillis) {
-            return@withContext Result.failure(IllegalArgumentException("Tomorrow urgent work must be within 48 hours"))
-        }
+    /** The signed-in worker's response to one need ("accepted", "rejected", …), or "" when none. */
+    suspend fun myResponseStatus(requestId: String): String = withContext(Dispatchers.IO) {
+        val uid = auth.currentUser?.uid ?: return@withContext ""
+        runCatching {
+            requests.document(requestId).collection(R.COLLECTION).document(uid).get().await().getString(R.STATUS).orEmpty()
+        }.getOrDefault("")
+    }
 
-        return@withContext try {
-            val employerProfileRef = firestore.collection(FirestoreCollections.EMPLOYER_PROFILES).document(employerId)
-            val requestRef = firestore.collection(FirestoreCollections.INSTANT_REQUESTS).document()
-            
-            firestore.runTransaction { transaction ->
-                val employerDoc = transaction.get(employerProfileRef)
-                if (!employerDoc.exists()) {
-                    throw IllegalStateException("Employer profile not found")
-                }
-                
-                val location = employerDoc.get("businessLocation") as? Map<*, *>
-                val latitude = (location?.get("lat") as? Number)?.toDouble() ?: 0.0
-                val longitude = (location?.get("lng") as? Number)?.toDouble() ?: 0.0
-                if (!GeoUtils.hasValidCoordinates(latitude, longitude)) {
-                    throw IllegalStateException("Add your business location before posting an urgent need")
-                }
-                
-                val profilePhone = employerDoc.getString("phone").orEmpty().trim()
-                    .ifBlank { employerDoc.getString("phoneNumber").orEmpty().trim() }
-                    .ifBlank { auth.currentUser?.phoneNumber.orEmpty() }
-                val contactNumber = input.contactNumber.trim().ifBlank { profilePhone }.take(20)
-                if (contactNumber.isBlank()) {
-                    throw IllegalArgumentException("Enter contact number")
-                }
-                
-                val freeUrgentJobsPosted = (employerDoc.getLong("freeUrgentJobsPosted") ?: 0L).toInt()
-                val subMap = employerDoc.get("subscription") as? Map<String, Any?>
-                val sub = com.example.dutype.models.EmployerSubscription.fromMap(subMap)
-                val isExpired = sub.expiryDate > 0 && sub.expiryDate < nowMillis
-                
-                val useFreePost = freeUrgentJobsPosted < 3
-                
-                if (!useFreePost) {
-                    if (sub.status == "NONE" || isExpired || sub.normalCredits <= 0) {
-                        throw IllegalArgumentException("You have used your 3 free Urgent Work posts. Please purchase a subscription to post more jobs.")
-                    }
-                }
-                
-                val workersNeeded = input.workersNeeded.coerceIn(1, 20)
-                val now = Timestamp.now()
-                val scheduledAt = if (input.needType == "scheduled" && input.scheduledAtMillis > nowMillis) {
-                    Timestamp(java.util.Date(input.scheduledAtMillis))
-                } else {
-                    null
-                }
-                
-                val expiresAtMillis = when (input.urgencyType) {
-                    "right_now" -> nowMillis + 4L * 60 * 60 * 1000L // 4 Hours
-                    "within_1_hour" -> nowMillis + 6L * 60 * 60 * 1000L // 6 Hours
-                    "today", "1_day", "within_1_day" -> nowMillis + 24L * 60 * 60 * 1000L // 1 Day (24 Hours)
-                    "tomorrow", "2_days", "within_2_days" -> nowMillis + 48L * 60 * 60 * 1000L // 2 Days (48 Hours)
-                    "custom" -> {
-                        if (input.scheduledAtMillis > nowMillis) input.scheduledAtMillis
-                        else nowMillis + 48L * 60 * 60 * 1000L
-                    }
-                    else -> nowMillis + 48L * 60 * 60 * 1000L // Default: 2 Days
-                }
-                val expiresAt = Timestamp(java.util.Date(expiresAtMillis))
-                val safeRadius = input.radiusKm.coerceIn(2.0, MAX_INSTANT_WORK_DISTANCE_KM)
-                
-                val employerName = employerDoc.getString("companyName").orEmpty().trim()
-                    .ifBlank { employerDoc.getString("fullName").orEmpty().trim() }
-                    .ifBlank { "DutyPe employer" }
-                val businessAddress = employerDoc.getString("businessAddress").orEmpty().trim()
+    /** Accept an urgent offer: the first workers to accept get the places (server decides). */
+    suspend fun acceptOffer(requestId: String): Result<com.example.dutype.urgent.UrgentOffers.Result> = runCatching {
+        com.example.dutype.urgent.UrgentOffers.accept(functions, requestId)
+    }
 
-                val data = mutableMapOf<String, Any>(
-                    "requestId" to requestRef.id,
-                    "employerId" to employerId,
-                    "employerName" to employerName,
-                    "employerPhone" to contactNumber,
-                    "contactNumber" to contactNumber,
-                    "title" to input.title.trim(),
-                    "description" to input.description.trim(),
-                    "category" to input.category.trim().ifBlank { "Other" },
-                    "workersNeeded" to workersNeeded,
-                    "needType" to input.needType,
-                    "status" to "open",
-                    "urgency" to "urgent",
-                    "urgencyType" to input.urgencyType,
-                    "budgetText" to input.budgetText.trim(),
-                    "perPersonPayment" to input.perPersonPayment,
-                    "totalPayment" to input.totalPayment,
-                    "durationText" to input.durationText,
-                    "lat" to latitude,
-                    "lng" to longitude,
-                    "geohash" to GeoUtils.encodeGeohash(latitude, longitude),
-                    "addressText" to input.contactNumber.trim().ifBlank { businessAddress }, // temporary hack to save exact address since contactNumber was replaced, actually let's just use input.addressText but it's not passed, I'll pass it in ContactNumber for now, wait we need to add addressText to input!
-                    "radiusKm" to safeRadius,
-                    "createdAt" to now,
-                    "expiresAt" to expiresAt,
-                    "responseCount" to 0,
-                    "callCount" to 0,
-                    "selectedWorkerId" to "",
-                    "selectedWorkerIds" to emptyList<String>(),
-                    "completedWorkerIds" to emptyList<String>(),
-                    "failureReason" to ""
-                )
-                if (scheduledAt != null) {
-                    data["scheduledAt"] = scheduledAt
-                    data["scheduleLabel"] = input.scheduledAtLabel.trim().take(80)
+    /** The worker's own responses for [requestIds]: one document read each (at most 10). */
+    private suspend fun myResponses(requestIds: List<String>): Map<String, InstantResponse> {
+        val uid = auth.currentUser?.uid ?: return emptyMap()
+        return coroutineScope {
+            requestIds.map { id ->
+                async {
+                    runCatching { requests.document(id).collection(R.COLLECTION).document(uid).get().await() }
+                        .getOrNull()?.takeIf { it.exists() }?.let { id to it.toInstantResponse(id) }
                 }
-                
-                if (useFreePost) {
-                    transaction.update(employerProfileRef, "freeUrgentJobsPosted", freeUrgentJobsPosted + 1)
-                } else {
-                    val currentCredits = subMap?.get("credits") as? Map<String, Any?>
-                    val newCredits = currentCredits.orEmpty().toMutableMap().apply {
-                        put("normal", maxOf(0, sub.normalCredits - 1))
-                    }
-                    val newSubMap = subMap.orEmpty().toMutableMap().apply {
-                        put("credits", newCredits)
-                    }
-                    transaction.update(employerProfileRef, "subscription", newSubMap)
-                }
-                
-                transaction.set(requestRef, data)
-            }.await()
-            
-            Result.success(requestRef.id)
-        } catch (error: Exception) {
-            Result.failure(error)
+            }.awaitAll().filterNotNull().toMap()
         }
+    }
+
+    /** Urgent work history: my responses (collection group) joined with their needs. */
+    suspend fun getWorkerInstantResponses(): Result<List<InstantResponse>> = withContext(Dispatchers.IO) {
+        runCatching {
+            val uid = auth.currentUser?.uid ?: return@runCatching emptyList()
+            val responses = firestore.collectionGroup(R.COLLECTION)
+                .whereEqualTo(R.WORKER_ID, uid)
+                .orderBy(R.CREATED_AT, Query.Direction.DESCENDING)
+                .limit(50)
+                .get().await().documents
+                .mapNotNull { doc -> doc.reference.parent.parent?.id?.let { doc.toInstantResponse(it) } }
+            val byId = requestsById(responses.map { it.requestId })
+            val names = employerNames(byId.values.map { it.employerId })
+            responses.mapNotNull { response ->
+                val request = byId[response.requestId] ?: return@mapNotNull null
+                response.withRequest(request, names[request.employerId])
+            }
+        }
+    }
+
+    /** "I can come" (`applied`) or a call to the employer (`called`). */
+    suspend fun respondToInstantRequest(request: InstantRequest, action: String): Result<Unit> = runCatching {
+        call("respondInstantRequest", mapOf("requestId" to request.requestId, "action" to if (action == "called") "called" else "applied"))
+        Unit
+    }
+
+    // ─────────────────────────────── employer ───────────────────────────────
+
+    /** Posts a need at the employer's saved place. Returns the request id. */
+    suspend fun createUrgentNeed(input: QuickUrgentNeedInput, employer: EmployerProfile?): Result<String> = runCatching {
+        val placeLat = employer?.lat ?: 0.0
+        val placeLng = employer?.lng ?: 0.0
+        val placeAddress = employer?.address.orEmpty()
+
+        val categoryKey = JobCategory.entries.firstOrNull {
+            it.displayName.equals(input.category.trim(), ignoreCase = true) || it.name.equals(input.category.trim(), ignoreCase = true)
+        }?.name ?: JobCategory.OTHER.name
+        val address = input.addressText.trim().ifBlank { placeAddress }
+        val area = employer?.area?.ifBlank { AreaText.from(address) }?.ifBlank { "Nearby" } ?: "Nearby"
+        val reqId = UUID.randomUUID().toString()
+        val phone = input.contactNumber.ifBlank { employer?.phone.orEmpty() }.filter(Char::isDigit).takeLast(10)
+
+        val payload = mapOf(
+            "requestId" to reqId,
+            "title" to input.title.trim().take(80),
+            "category" to categoryKey,
+            "workersNeeded" to input.workersNeeded.coerceIn(1, 20),
+            "payPerPerson" to input.perPersonPayment.toInt().coerceAtLeast(0),
+            "durationText" to input.durationText.take(40),
+            "addressText" to address.ifBlank { area }.take(200),
+            "area" to area.take(60),
+            "contactNumber" to phone,
+            "radiusKm" to input.radiusKm,
+            "lat" to placeLat,
+            "lng" to placeLng,
+            "window" to input.urgencyType,
+            "scheduledAt" to input.scheduledAtMillis.takeIf { input.urgencyType == "custom" }
+        )
+
+        // The server checks and charges the post; its error message (e.g. no credits left) is shown as is.
+        val data = call("postInstantRequest", payload)
+        (data?.get("id") as? String)?.takeIf { it.isNotBlank() } ?: error("Could not post the urgent need. Please try again.")
     }
 
     suspend fun getEmployerInstantRequests(): Result<List<InstantRequest>> = withContext(Dispatchers.IO) {
-        val employerId = auth.currentUser?.uid
-        if (employerId.isNullOrBlank()) {
-            return@withContext Result.failure(IllegalStateException("Please login again"))
-        }
-
-        return@withContext try {
-            val snapshot = firestore.collection(FirestoreCollections.INSTANT_REQUESTS)
-                .whereEqualTo("employerId", employerId)
-                .limit(50)
-                .get()
-                .await()
-
-            val requests = snapshot.documents
-                .mapNotNull { it.toInstantRequestOrNull() }
-                .filter { it.status != "deleted" }
-                .sortedByDescending { it.createdAt }
-
-            Result.success(requests)
-        } catch (error: Exception) {
-            Result.failure(error)
+        runCatching {
+            val uid = auth.currentUser?.uid ?: return@runCatching emptyList()
+            requests.whereEqualTo(InstantRequests.EMPLOYER_ID, uid)
+                .orderBy(InstantRequests.CREATED_AT, Query.Direction.DESCENDING)
+                .limit(30)
+                .get().await().documents
+                .mapNotNull { it.toInstantRequest() }
         }
     }
 
-    suspend fun getEmployerInstantResponses(): Result<List<InstantResponse>> = withContext(Dispatchers.IO) {
-        val employerId = auth.currentUser?.uid
-        if (employerId.isNullOrBlank()) {
-            return@withContext Result.failure(IllegalStateException("Please login again"))
-        }
-
-        return@withContext try {
-            val snapshot = firestore.collection(FirestoreCollections.INSTANT_RESPONSES)
-                .whereEqualTo("employerId", employerId)
-                .limit(100)
-                .get()
-                .await()
-
-            val responses = snapshot.documents
-                .mapNotNull { it.toInstantResponseOrNull() }
-                .sortedByDescending { it.updatedAt.ifBlankTimestamp(it.createdAt) }
-
-            Result.success(responses)
-        } catch (error: Exception) {
-            Result.failure(error)
-        }
-    }
-
-    suspend fun getWorkerInstantResponses(): Result<List<InstantResponse>> = withContext(Dispatchers.IO) {
-        val workerId = auth.currentUser?.uid
-        if (workerId.isNullOrBlank()) {
-            return@withContext Result.failure(IllegalStateException("Please login again"))
-        }
-
-        return@withContext try {
-            val snapshot = firestore.collection(FirestoreCollections.INSTANT_RESPONSES)
-                .whereEqualTo("workerId", workerId)
-                .limit(50)
-                .get()
-                .await()
-
-            val responses = snapshot.documents
-                .mapNotNull { it.toInstantResponseOrNull() }
-                .sortedByDescending { it.updatedAt.ifBlankTimestamp(it.createdAt) }
-
-            Result.success(responses)
-        } catch (error: Exception) {
-            Result.failure(error)
-        }
-    }
-
-    suspend fun getWorkerInstantResponsesForRequests(
-        requestIds: List<String>
-    ): Result<Map<String, InstantResponse>> = withContext(Dispatchers.IO) {
-        val workerId = auth.currentUser?.uid
-        if (workerId.isNullOrBlank()) {
-            return@withContext Result.failure(IllegalStateException("Please login again"))
-        }
-
-        return@withContext try {
-            val responses = requestIds
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-                .distinct()
-                .take(10)
-                .mapNotNull { requestId ->
-                    firestore.collection(FirestoreCollections.INSTANT_RESPONSES)
-                        .document("${requestId}_$workerId")
-                        .get()
-                        .await()
-                        .toInstantResponseOrNull()
-                }
-                .associateBy { it.requestId }
-
-            Result.success(responses)
-        } catch (error: Exception) {
-            Result.failure(error)
-        }
-    }
-
-    suspend fun updateEmployerInstantResponseStatus(
-        response: InstantResponse,
-        status: String,
-        note: String = ""
-    ): Result<Unit> = withContext(Dispatchers.IO) {
-        val employerId = auth.currentUser?.uid
-        if (employerId.isNullOrBlank()) {
-            return@withContext Result.failure(IllegalStateException("Please login again"))
-        }
-        if (response.employerId != employerId) {
-            return@withContext Result.failure(IllegalStateException("This urgent response is not yours"))
-        }
-
-        return@withContext try {
-            val normalizedStatus = when (status.lowercase()) {
-                "completed" -> "completed"
-                "no_show" -> "no_show"
-                "rejected" -> "rejected"
-                "cancelled" -> "cancelled"
-                else -> "accepted"
-            }
-            val trimmedNote = note.trim().take(300)
-            val now = Timestamp.now()
-            val requestRef = firestore.collection(FirestoreCollections.INSTANT_REQUESTS)
-                .document(response.requestId)
-            val requestData = requestRef.get().await().data.orEmpty()
-            val requestStatus = requestData.getString("status").lowercase()
-            val workersNeeded = (requestData.getNumber("workersNeeded")?.toInt() ?: 1).coerceAtLeast(1)
-            val selectedWorkerIds = requestData.getStringList("selectedWorkerIds")
-                .ifEmpty { listOf(requestData.getString("selectedWorkerId")).filter { it.isNotBlank() } }
-            val completedWorkerIds = requestData.getStringList("completedWorkerIds")
-
-            if (
-                normalizedStatus == "accepted" &&
-                response.workerId !in selectedWorkerIds &&
-                selectedWorkerIds.size >= workersNeeded
-            ) {
-                return@withContext Result.failure(
-                    IllegalStateException("Required workers are already selected. Mark the urgent need filled or post another need.")
-                )
-            }
-
-            val responseUpdates = mutableMapOf<String, Any>(
-                "status" to normalizedStatus,
-                "updatedAt" to now
-            )
-            if (normalizedStatus == "accepted") {
-                responseUpdates["acceptedAt"] = now
-            }
-            if (normalizedStatus == "completed") {
-                responseUpdates["completedAt"] = now
-                if (trimmedNote.isNotBlank()) responseUpdates["completionProof"] = trimmedNote
-            }
-            if (normalizedStatus in setOf("no_show", "rejected", "cancelled") && trimmedNote.isNotBlank()) {
-                responseUpdates["failureReason"] = trimmedNote
-            }
-
-            firestore.collection(FirestoreCollections.INSTANT_RESPONSES)
-                .document(response.responseId)
-                .set(responseUpdates, SetOptions.merge())
-                .await()
-
-            val requestUpdates = mutableMapOf<String, Any>()
-            when (normalizedStatus) {
-                "accepted" -> {
-                    val selectedAfter = (selectedWorkerIds + response.workerId).distinct()
-                    requestUpdates["selectedWorkerId"] = response.workerId
-                    requestUpdates["selectedWorkerIds"] = selectedAfter
-                    if (selectedAfter.size >= workersNeeded || requestStatus == "filled") {
-                        requestUpdates["status"] = "filled"
-                        if (selectedAfter.size >= workersNeeded) requestUpdates["filledAt"] = now
-                    } else {
-                        requestUpdates["status"] = "open"
-                    }
-                }
-                "completed" -> {
-                    val selectedAfter = (selectedWorkerIds + response.workerId).distinct()
-                    val completedAfter = (completedWorkerIds + response.workerId).distinct()
-                    requestUpdates["selectedWorkerId"] = response.workerId
-                    requestUpdates["selectedWorkerIds"] = selectedAfter
-                    requestUpdates["completedWorkerIds"] = completedAfter
-                    if (completedAfter.size >= workersNeeded) {
-                        requestUpdates["status"] = "completed"
-                        requestUpdates["completedAt"] = now
-                    } else {
-                        requestUpdates["status"] = if (selectedAfter.size >= workersNeeded || requestStatus == "filled") "filled" else "open"
-                    }
-                    if (trimmedNote.isNotBlank()) requestUpdates["completionProof"] = trimmedNote
-                }
-                "no_show" -> {
-                    val selectedAfter = selectedWorkerIds.filterNot { it == response.workerId }
-                    val completedAfter = completedWorkerIds.filterNot { it == response.workerId }
-                    requestUpdates["selectedWorkerId"] = selectedAfter.lastOrNull().orEmpty()
-                    requestUpdates["selectedWorkerIds"] = selectedAfter
-                    requestUpdates["completedWorkerIds"] = completedAfter
-                    requestUpdates["status"] = if (selectedAfter.size >= workersNeeded) "filled" else "open"
-                    requestUpdates["failureReason"] = FieldValue.delete()
-                }
-                "rejected" -> {
-                    val selectedAfter = selectedWorkerIds.filterNot { it == response.workerId }
-                    requestUpdates["selectedWorkerId"] = selectedAfter.lastOrNull().orEmpty()
-                    requestUpdates["selectedWorkerIds"] = selectedAfter
-                    requestUpdates["status"] = if (selectedAfter.size >= workersNeeded) "filled" else "open"
-                }
-                "cancelled" -> {
-                    requestUpdates["status"] = "cancelled"
-                    requestUpdates["cancelledAt"] = now
-                    requestUpdates["cancellationReason"] = trimmedNote.ifBlank { "Cancelled by employer" }
-                }
-            }
-
-            requestRef.set(requestUpdates, SetOptions.merge())
-                .await()
-
-            Result.success(Unit)
-        } catch (error: Exception) {
-            Result.failure(error)
-        }
-    }
-
-    suspend fun markEmployerInstantRequestFilled(
-        request: InstantRequest
-    ): Result<Unit> = withContext(Dispatchers.IO) {
-        val employerId = auth.currentUser?.uid
-        if (employerId.isNullOrBlank()) {
-            return@withContext Result.failure(IllegalStateException("Please login again"))
-        }
-        if (request.employerId != employerId) {
-            return@withContext Result.failure(IllegalStateException("This urgent request is not yours"))
-        }
-
-        return@withContext try {
-            val now = Timestamp.now()
-            firestore.collection(FirestoreCollections.INSTANT_REQUESTS)
-                .document(request.requestId)
-                .set(
-                    mapOf(
-                        "status" to "filled",
-                        "filledAt" to now,
-                        "failureReason" to FieldValue.delete()
-                    ),
-                    SetOptions.merge()
-                )
-                .await()
-            Result.success(Unit)
-        } catch (error: Exception) {
-            Result.failure(error)
-        }
-    }
-
-    suspend fun cancelEmployerInstantRequest(
-        request: InstantRequest,
-        reason: String
-    ): Result<Unit> = withContext(Dispatchers.IO) {
-        val employerId = auth.currentUser?.uid
-        if (employerId.isNullOrBlank()) {
-            return@withContext Result.failure(IllegalStateException("Please login again"))
-        }
-        if (request.employerId != employerId) {
-            return@withContext Result.failure(IllegalStateException("This urgent request is not yours"))
-        }
-
-        return@withContext try {
-            val now = Timestamp.now()
-            val currentTime = System.currentTimeMillis()
-            val safeReason = reason.trim().take(300).ifBlank { "Cancelled by employer" }
-            val requestRef = firestore.collection(FirestoreCollections.INSTANT_REQUESTS).document(request.requestId)
-            val isEarlyDelete = (currentTime - request.createdAt) <= JobDeletePolicy.INSTANT_DELETE_WINDOW_MILLIS
-
-            firestore.runTransaction { transaction ->
-                if (isEarlyDelete) {
-                    // 1. Read first!
-                    val employerProfileRef = firestore.collection(FirestoreCollections.EMPLOYER_PROFILES).document(employerId)
-                    val profileSnap = transaction.get(employerProfileRef)
-                    
-                    // 2. Delete request document completely
-                    transaction.delete(requestRef)
-                    
-                    // 3. Refund credits to the employer profile
-                    if (profileSnap.exists()) {
-                        val subMap = profileSnap.get("subscription") as? Map<String, Any?>
-                        if (subMap != null) {
-                            val currentCredits = subMap["credits"] as? Map<String, Any?>
-                            val newCredits = currentCredits.orEmpty().toMutableMap().apply {
-                                val instantCredits = (get("instant") as? Number)?.toInt() ?: 0
-                                put("instant", instantCredits + 1)
-                            }
-                            val newSubMap = subMap.toMutableMap().apply {
-                                put("credits", newCredits)
-                            }
-                            transaction.update(employerProfileRef, "subscription", newSubMap)
+    /** Responses to the employer's recent needs (one subcollection query per need with responses). */
+    suspend fun getEmployerInstantResponses(forRequests: List<InstantRequest>): Result<List<InstantResponse>> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                coroutineScope {
+                    forRequests.filter { it.responseCount > 0 }.map { request ->
+                        async {
+                            requests.document(request.requestId).collection(R.COLLECTION)
+                                .orderBy(R.CREATED_AT, Query.Direction.DESCENDING)
+                                .limit(50)
+                                .get().await().documents
+                                .map { it.toInstantResponse(request.requestId).withRequest(request, request.employerName) }
                         }
-                    }
-                } else {
-                    // Normal cancel
-                    transaction.set(
-                        requestRef,
-                        mapOf(
-                            "status" to "cancelled",
-                            "cancelledAt" to now,
-                            "cancellationReason" to safeReason,
-                            "failureReason" to safeReason
-                        ),
-                        SetOptions.merge()
-                    )
-                }
-            }.await()
-
-            // Responses cleanup
-            val responses = firestore.collection(FirestoreCollections.INSTANT_RESPONSES)
-                .whereEqualTo("requestId", request.requestId)
-                .limit(50)
-                .get()
-                .await()
-
-            val batch = firestore.batch()
-            responses.documents.forEach { document ->
-                if (isEarlyDelete) {
-                    batch.delete(document.reference)
-                } else {
-                    batch.set(
-                        document.reference,
-                        mapOf(
-                            "status" to "cancelled",
-                            "failureReason" to safeReason,
-                            "updatedAt" to now
-                        ),
-                        SetOptions.merge()
-                    )
+                    }.awaitAll().flatten()
                 }
             }
-            batch.commit().await()
-
-            Result.success(Unit)
-        } catch (error: Exception) {
-            Result.failure(error)
         }
+
+    /** accepted | rejected | completed | no_show */
+    suspend fun updateEmployerInstantResponseStatus(response: InstantResponse, status: String): Result<Unit> = runCatching {
+        call("setInstantResponseStatus", mapOf("requestId" to response.requestId, "workerId" to response.workerId, "status" to status))
+        Unit
     }
 
-    suspend fun deleteEmployerInstantRequest(requestId: String): Result<Unit> = withContext(Dispatchers.IO) {
-        val employerId = auth.currentUser?.uid
-        if (employerId.isNullOrBlank()) {
-            return@withContext Result.failure(IllegalStateException("Please login again"))
-        }
-
-        return@withContext try {
-            val requestRef = firestore.collection(FirestoreCollections.INSTANT_REQUESTS).document(requestId)
-            requestRef.update("status", "deleted").await()
-            Result.success(Unit)
-        } catch (error: Exception) {
-            Result.failure(error)
-        }
+    suspend fun markEmployerInstantRequestFilled(request: InstantRequest): Result<Unit> = runCatching {
+        call("setInstantRequestStatus", mapOf("requestId" to request.requestId, "status" to "filled"))
+        Unit
     }
 
-    suspend fun respondToInstantRequest(request: InstantRequest, action: String): Result<Unit> = withContext(Dispatchers.IO) {
-        val workerId = auth.currentUser?.uid
-        if (workerId.isNullOrBlank()) {
-            return@withContext Result.failure(IllegalStateException("Please login again"))
-        }
+    suspend fun cancelEmployerInstantRequest(request: InstantRequest): Result<Unit> = runCatching {
+        call("setInstantRequestStatus", mapOf("requestId" to request.requestId, "status" to "cancelled"))
+        Unit
+    }
 
-        return@withContext try {
-            val normalizedStatus = when (action.lowercase()) {
-                "called" -> "called"
-                "applied" -> "applied"
-                else -> "applied"
-            }
-            val now = Timestamp.now()
-            val requestRef = firestore.collection(FirestoreCollections.INSTANT_REQUESTS)
-                .document(request.requestId)
-            val requestSnapshot = requestRef.get().await()
-            val liveStatus = requestSnapshot.getString("status") ?: request.status
-            if (!liveStatus.equals("open", ignoreCase = true)) {
-                return@withContext Result.failure(IllegalStateException("This urgent need is already filled or closed"))
-            }
-            val workerDoc = firestore.collection(FirestoreCollections.WORKER_PROFILES)
-                .document(workerId)
-                .get()
-                .await()
-            val workerData = workerDoc.data.orEmpty()
-            val responseId = "${request.requestId}_$workerId"
-            val responseRef = firestore.collection(FirestoreCollections.INSTANT_RESPONSES).document(responseId)
-            val existing = responseRef.get().await()
+    suspend fun deleteEmployerInstantRequest(requestId: String): Result<Unit> = runCatching {
+        call("deleteInstantRequest", mapOf("requestId" to requestId))
+        Unit
+    }
 
-            val data = mutableMapOf<String, Any>(
-                "responseId" to responseId,
-                "requestId" to request.requestId,
-                "workerId" to workerId,
-                "employerId" to request.employerId,
-                "requestTitle" to request.title,
-                "requestCategory" to request.category,
-                "employerName" to request.employerName,
-                "employerPhone" to request.employerPhone,
-                "budgetText" to request.budgetText,
-                "addressText" to request.addressText,
-                "workerName" to workerData.getString("fullName").ifBlank { "Worker" },
-                "workerPhone" to workerData.getString("phone"),
-                "workerSkills" to workerData.getStringList("skills"),
-                "status" to normalizedStatus,
-                "viewedAt" to now,
-                "updatedAt" to now
-            )
-            request.distanceKm?.let { data["distanceKm"] = it }
-            if (!existing.exists()) {
-                data["createdAt"] = now
-            }
-            if (normalizedStatus == "called") {
-                data["calledAt"] = now
-                data["respondedAt"] = now
-            } else {
-                data["respondedAt"] = now
-            }
+    /** Phone of a worker who responded to the employer's need. */
+    suspend fun workerPhone(response: InstantResponse): Result<String> = runCatching {
+        call("getInstantWorkerContact", mapOf("requestId" to response.requestId, "workerId" to response.workerId))
+            ?.get("phone") as? String ?: error("Phone number unavailable")
+    }
 
-            responseRef.set(data, SetOptions.merge()).await()
-            val requestUpdates = mutableMapOf<String, Any>(
-                "lastResponseAt" to now
-            )
-            if (!existing.exists()) {
-                requestUpdates["responseCount"] = FieldValue.increment(1)
-                if (requestSnapshot.get("firstResponseAt") == null) {
-                    requestUpdates["firstResponseAt"] = now
+    // ─────────────────────────────── mapping ───────────────────────────────
+
+    private suspend fun requestsById(ids: List<String>): Map<String, InstantRequest> = coroutineScope {
+        ids.distinct().chunked(30).map { chunk ->
+            async {
+                requests.whereIn(FieldPath.documentId(), chunk).get().await().documents.mapNotNull { it.toInstantRequest() }
+            }
+        }.awaitAll().flatten().associateBy { it.requestId }
+    }
+
+    /** Display names of employers, one `in` query per 30 employers. */
+    private suspend fun employerNames(ids: List<String>): Map<String, String> = runCatching {
+        coroutineScope {
+            ids.distinct().filter(String::isNotBlank).chunked(30).map { chunk ->
+                async {
+                    firestore.collection(EmployerCards.COLLECTION).whereIn(FieldPath.documentId(), chunk).limit(30)
+                        .get().await().documents
+                        .mapNotNull { doc -> doc.getString(EmployerCards.NAME)?.let { doc.id to it } }
                 }
-            }
-            if (normalizedStatus == "called") {
-                requestUpdates["callCount"] = FieldValue.increment(1)
-            }
-            requestRef.set(requestUpdates, SetOptions.merge()).await()
-            Result.success(Unit)
-        } catch (error: Exception) {
-            Result.failure(error)
+            }.awaitAll().flatten().toMap()
         }
-    }
+    }.getOrDefault(emptyMap())
 
-    private fun DocumentSnapshot.toWorkerAvailabilityOrNull(): WorkerAvailability? {
-        val data = data ?: return null
-        return WorkerAvailability(
-            workerId = data.getString("workerId").ifBlank { id },
-            isAvailable = data["isAvailable"] as? Boolean ?: false,
-            status = data.getString("status").ifBlank { "offline" },
-            lat = data.getNumber("lat")?.toDouble() ?: 0.0,
-            lng = data.getNumber("lng")?.toDouble() ?: 0.0,
-            geohash = data.getString("geohash"),
-            availableUntil = data.getMillis("availableUntil"),
-            lastSeenAt = data.getMillis("lastSeenAt"),
-            updatedAt = data.getMillis("updatedAt")
-        )
-    }
-
-    private fun DocumentSnapshot.toInstantRequestOrNull(): InstantRequest? {
-        val data = data ?: return null
+    private fun DocumentSnapshot.toInstantRequest(): InstantRequest? {
+        val d = data ?: return null
+        val pay = (d[InstantRequests.PAY_PER_PERSON] as? Number)?.toDouble() ?: 0.0
+        val needed = (d[InstantRequests.WORKERS_NEEDED] as? Number)?.toInt() ?: 1
+        val scheduledAt = d[InstantRequests.SCHEDULED_AT].epochMillis()
+        val contact = d[InstantRequests.CONTACT_NUMBER] as? String ?: ""
+        val category = d[InstantRequests.CATEGORY] as? String ?: JobCategory.OTHER.name
         return InstantRequest(
-            requestId = data.getString("requestId").ifBlank { id },
-            employerId = data.getString("employerId"),
-            employerName = data.getString("employerName").ifBlank { "DutyPe employer" },
-            employerPhone = data.getString("employerPhone"),
-            contactNumber = data.getString("contactNumber").ifBlank { data.getString("employerPhone") },
-            title = data.getString("title").ifBlank { "Urgent need" },
-            description = data.getString("description"),
-            category = data.getString("category").ifBlank { "Helper" },
-            workersNeeded = (data.getNumber("workersNeeded")?.toInt() ?: 1).coerceAtLeast(1),
-            needType = data.getString("needType").ifBlank { "urgent_now" },
-            status = data.getString("status").ifBlank { "open" },
-            urgency = data.getString("urgency").ifBlank { "urgent" },
-            budgetText = data.getString("budgetText"),
-            lat = data.getNumber("lat")?.toDouble() ?: 0.0,
-            lng = data.getNumber("lng")?.toDouble() ?: 0.0,
-            geohash = data.getString("geohash"),
-            addressText = data.getString("addressText"),
-            radiusKm = data.getNumber("radiusKm")?.toDouble() ?: 5.0,
-            scheduledAt = data.getMillis("scheduledAt"),
-            scheduleLabel = data.getString("scheduleLabel"),
-            createdAt = data.getMillis("createdAt"),
-            expiresAt = data.getMillis("expiresAt"),
-            expiredAt = data.getMillis("expiredAt"),
-            firstResponseAt = data.getMillis("firstResponseAt"),
-            lastResponseAt = data.getMillis("lastResponseAt"),
-            responseCount = data.getNumber("responseCount")?.toInt() ?: 0,
-            callCount = data.getNumber("callCount")?.toInt() ?: 0,
-            notifiedWorkerCount = data.getNumber("notifiedWorkerCount")?.toInt() ?: 0,
-            notificationFanoutAt = data.getMillis("notificationFanoutAt"),
-            selectedWorkerId = data.getString("selectedWorkerId"),
-            selectedWorkerIds = data.getStringList("selectedWorkerIds")
-                .ifEmpty { listOf(data.getString("selectedWorkerId")).filter { it.isNotBlank() } },
-            completedWorkerIds = data.getStringList("completedWorkerIds"),
-            completedAt = data.getMillis("completedAt"),
-            cancelledAt = data.getMillis("cancelledAt"),
-            cancellationReason = data.getString("cancellationReason"),
-            completionProof = data.getString("completionProof"),
-            failureReason = data.getString("failureReason")
+            requestId = id,
+            employerId = d[InstantRequests.EMPLOYER_ID] as? String ?: "",
+            employerPhone = contact,
+            contactNumber = contact,
+            title = d[InstantRequests.TITLE] as? String ?: "Urgent need",
+            category = JobCategory.fromKey(category).displayName,
+            workersNeeded = needed,
+            needType = if (scheduledAt > 0) "scheduled" else "urgent_now",
+            status = d[InstantRequests.STATUS] as? String ?: STATUS_OPEN,
+            budgetText = if (pay > 0) "₹${pay.toInt()} per worker" else "",
+            perPersonPayment = pay,
+            totalPayment = pay * needed,
+            durationText = d[InstantRequests.DURATION_TEXT] as? String ?: "",
+            lat = (d[InstantRequests.LAT] as? Number)?.toDouble() ?: 0.0,
+            lng = (d[InstantRequests.LNG] as? Number)?.toDouble() ?: 0.0,
+            geohash = d[InstantRequests.GEOHASH] as? String ?: "",
+            addressText = (d[InstantRequests.ADDRESS_TEXT] as? String).orEmpty().ifBlank { d[InstantRequests.AREA] as? String ?: "" },
+            radiusKm = (d[InstantRequests.RADIUS_KM] as? Number)?.toDouble() ?: 5.0,
+            scheduledAt = scheduledAt,
+            createdAt = d[InstantRequests.CREATED_AT].epochMillis(),
+            expiresAt = d[InstantRequests.EXPIRES_AT].epochMillis(),
+            responseCount = (d[InstantRequests.RESPONSE_COUNT] as? Number)?.toInt() ?: 0,
+            dispatchRadiusKm = (d[InstantRequests.DISPATCH_RADIUS_KM] as? Number)?.toInt() ?: 0,
+            selectedWorkerIds = (d[InstantRequests.SELECTED_WORKER_IDS] as? List<*>)?.filterIsInstance<String>().orEmpty()
         )
     }
 
-    private fun DocumentSnapshot.toInstantResponseOrNull(): InstantResponse? {
-        val data = data ?: return null
-        return InstantResponse(
-            responseId = data.getString("responseId").ifBlank { id },
-            requestId = data.getString("requestId"),
-            workerId = data.getString("workerId"),
-            employerId = data.getString("employerId"),
-            requestTitle = data.getString("requestTitle").ifBlank { "Urgent work" },
-            requestCategory = data.getString("requestCategory").ifBlank { "Helper" },
-            employerName = data.getString("employerName").ifBlank { "DutyPe employer" },
-            employerPhone = data.getString("employerPhone"),
-            budgetText = data.getString("budgetText"),
-            addressText = data.getString("addressText"),
-            workerName = data.getString("workerName").ifBlank { "Worker" },
-            workerPhone = data.getString("workerPhone"),
-            workerSkills = data.getStringList("workerSkills"),
-            distanceKm = data.getNumber("distanceKm")?.toDouble(),
-            status = data.getString("status").ifBlank { "viewed" },
-            createdAt = data.getMillis("createdAt"),
-            viewedAt = data.getMillis("viewedAt"),
-            respondedAt = data.getMillis("respondedAt"),
-            calledAt = data.getMillis("calledAt"),
-            acceptedAt = data.getMillis("acceptedAt"),
-            completedAt = data.getMillis("completedAt"),
-            updatedAt = data.getMillis("updatedAt"),
-            completionProof = data.getString("completionProof"),
-            failureReason = data.getString("failureReason")
-        )
+    private fun DocumentSnapshot.toInstantResponse(requestId: String): InstantResponse = InstantResponse(
+        responseId = "${requestId}_$id",
+        requestId = requestId,
+        workerId = getString(R.WORKER_ID) ?: id,
+        workerName = getString(R.WORKER_NAME) ?: "Worker",
+        status = getString(R.STATUS) ?: "applied",
+        createdAt = get(R.CREATED_AT).epochMillis(),
+        respondedAt = get(R.CREATED_AT).epochMillis()
+    )
+
+    private fun InstantResponse.withRequest(request: InstantRequest, employerName: String?): InstantResponse = copy(
+        employerId = request.employerId,
+        requestTitle = request.title,
+        requestCategory = request.category,
+        employerName = employerName ?: request.employerName,
+        employerPhone = request.contactNumber,
+        budgetText = request.budgetText,
+        addressText = request.addressText
+    )
+
+    private companion object {
+        const val STATUS_OPEN = "open"
+        const val MAX_RADIUS_KM = 20.0
+        val BANDS_KM = listOf(5.0, 10.0, MAX_RADIUS_KM)
+        const val CELL_PRECISION = 5
+        const val MAX_SHOWN = 10
     }
-
-    private fun Map<*, *>.getString(key: String): String = this[key]?.toString()?.trim().orEmpty()
-
-    private fun Map<*, *>.getNumber(key: String): Number? = this[key] as? Number
-
-    private fun Map<*, *>.getStringList(key: String): List<String> {
-        return (this[key] as? List<*>).orEmpty()
-            .mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
-            .distinct()
-    }
-
-    private fun Map<*, *>.getMillis(key: String): Long {
-        return when (val value = this[key]) {
-            is Timestamp -> value.toDate().time
-            is Number -> value.toLong()
-            else -> 0L
-        }
-    }
-
-    private fun Long.ifBlankTimestamp(fallback: Long): Long = if (this > 0L) this else fallback
 }

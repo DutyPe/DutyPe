@@ -1,94 +1,36 @@
 package com.example.dutype.utils
 
+import com.example.dutype.employer.models.PayType
+import java.text.NumberFormat
+import java.util.Locale
+
 /**
- * Single source of truth for parsing the free-form `salary` string
- * stored on `jobmetadata` (and propagated via [com.example.dutype.models.JobListing]).
- *
- * Bug #6: the salary field is intentionally a String so the employer's
- * input is preserved verbatim — "Negotiable", "1000-2000", "2000+", or
- * a plain number. Numeric features (filtering, earnings, sorting) call
- * [lowerBound] / [upperBound] to extract a comparable Double.
+ * Display text for a job's pay (`payAmount` whole rupees + `payType`).
+ * `payAmount` 0 or payType NEGOTIABLE means the employer did not fix a wage.
  */
 object SalaryFormatter {
 
-    /**
-     * Display the salary on a card. Returns "Negotiable" when blank,
-     * otherwise returns the raw text with the appropriate period suffix
-     * if the text doesn't already include one.
-     */
-    fun display(salary: String, salaryType: String): String {
-        val trimmed = salary.trim()
-        if (trimmed.isEmpty()) return "Negotiable"
-        val period = when (salaryType.uppercase()) {
-            "HOURLY" -> "hour"
-            "MONTHLY" -> "month"
-            "TASK" -> "task"
-            else -> "day"
-        }
-        val lower = trimmed.lowercase()
-        val alreadyHasPeriod = lower.contains("/") ||
-            lower.contains("per ") ||
-            lower.contains("hour") ||
-            lower.contains("day") ||
-            lower.contains("month") ||
-            lower.contains("week") ||
-            lower.contains("year")
-        // Pure text like "Negotiable" / "Based on experience" — no period.
-        val isPureText = !trimmed.any { it.isDigit() }
-        return if (alreadyHasPeriod || isPureText) trimmed else "$trimmed/$period"
+    /** Highest pay a job may offer, whatever the pay type (the server enforces the same). */
+    const val MAX_PAY_RUPEES = 50_000L
+
+    private val indianGrouping: NumberFormat = NumberFormat.getIntegerInstance(Locale("en", "IN"))
+
+    /** "15,000" — no currency symbol. */
+    fun amount(payAmount: Long): String = indianGrouping.format(payAmount)
+
+    /** "₹15,000/month" or "Negotiable". */
+    fun display(payAmount: Long, payType: String): String {
+        val type = PayType.fromKey(payType)
+        if (payAmount <= 0L || type == PayType.NEGOTIABLE) return "Negotiable"
+        return "₹${amount(payAmount)}/${type.perUnit}"
     }
 
-    /**
-     * Lower numeric bound used for filter / sort comparisons. Returns 0.0
-     * when the salary is non-numeric (e.g. "Negotiable").
-     */
-    fun lowerBound(salary: String): Double {
-        val cleaned = salary.replace("₹", "").replace(",", "").trim()
-        if (cleaned.isEmpty()) return 0.0
-        // "2000+" → 2000
-        if (cleaned.endsWith("+")) {
-            return cleaned.dropLast(1).trim().toDoubleOrNull() ?: 0.0
-        }
-        // "1000-2000" → 1000
-        if (cleaned.contains('-')) {
-            val first = cleaned.split('-').firstOrNull()?.trim()?.toDoubleOrNull()
-            if (first != null) return first
-        }
-        // Plain number.
-        cleaned.toDoubleOrNull()?.let { return it }
-        // Pull first number from mixed text ("From 5000").
-        return Regex("\\d+(?:\\.\\d+)?")
-            .find(cleaned)
-            ?.value
-            ?.toDoubleOrNull()
-            ?: 0.0
+    /** Approximate monthly rupees, used to compare jobs with different pay types. */
+    fun monthlyEquivalent(payAmount: Long, payType: String): Long = when (PayType.fromKey(payType)) {
+        PayType.HOURLY -> payAmount * 8 * 26
+        PayType.DAILY -> payAmount * 26
+        PayType.WEEKLY -> payAmount * 13 / 3
+        PayType.MONTHLY -> payAmount
+        PayType.NEGOTIABLE -> 0L
     }
-
-    /**
-     * Upper numeric bound. Returns [Double.MAX_VALUE] for "2000+" so the
-     * salary always passes a "max <= filterMax" predicate when the
-     * employer left it open-ended.
-     */
-    fun upperBound(salary: String): Double {
-        val cleaned = salary.replace("₹", "").replace(",", "").trim()
-        if (cleaned.isEmpty()) return 0.0
-        if (cleaned.endsWith("+")) return Double.MAX_VALUE
-        if (cleaned.contains('-')) {
-            val parts = cleaned.split('-')
-            val last = parts.lastOrNull()?.trim()?.toDoubleOrNull()
-            if (last != null) return last
-        }
-        return cleaned.toDoubleOrNull()
-            ?: Regex("\\d+(?:\\.\\d+)?")
-                .findAll(cleaned)
-                .mapNotNull { it.value.toDoubleOrNull() }
-                .lastOrNull()
-            ?: 0.0
-    }
-
-    /**
-     * Earnings amount per completed application. Uses the lower bound
-     * (conservative estimate) and falls back to 0 for non-numeric posts.
-     */
-    fun numericForEarnings(salary: String): Double = lowerBound(salary)
 }

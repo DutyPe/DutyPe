@@ -1,5 +1,6 @@
 package com.example.dutype.worker.screens
 
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
@@ -243,7 +244,7 @@ private fun CategoryItemView(
         Icon(
             imageVector = category.icon,
             contentDescription = displayName,
-            tint = if (isSelected) WorkerColors.Primary else WorkerColors.IconSecondary,
+            tint = if (isSelected) WorkerColors.Primary.fg() else WorkerColors.IconSecondary,
             modifier = Modifier.size(24.dp)
         )
         

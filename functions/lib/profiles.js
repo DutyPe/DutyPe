@@ -7,10 +7,11 @@ exports.deleteAccount = exports.onEmployerProfileWritten = exports.lookupPhoneRo
  *   completeRegistration     after OTP: phoneRoles/{+91..} {uid, role} + the role profile + wallet
  *                            (+ the referral the user typed). One phone = one role, forever.
  *   lookupPhoneRole          pre-OTP check (one document read); never returns names or uids
- *   onEmployerProfileWritten pays a pending referral when the employer profile becomes complete
+ *   onEmployerProfileWritten keeps employer_cards/{uid} (the public name/photo/rating) in sync
  *   deleteAccount            removes the user's personal data and sign-in; money records are kept
  *
- * Worker profiles are handled in workers.ts (card sync + the same referral hook).
+ * Worker profiles are handled in workers.ts (card sync). Referrals complete on the first
+ * application / job post, not on profile completion.
  * There is no users/{uid} collection: role = phoneRoles, identity = the role profile,
  * push = user_tokens, money = referral_stats.
  */
@@ -41,6 +42,9 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (r
     const role = (0, input_1.oneOf)(data, "role", ROLES);
     const name = (0, input_1.str)(data, "name", { min: 2, max: 80 });
     const referralCode = (0, input_1.str)(data, "referralCode", { max: 20, optional: true });
+    // Employers choose at registration whether the name is a person or a business.
+    const employerType = data.employerType === schema_1.Values.EmployerType.COMPANY ?
+        schema_1.Values.EmployerType.COMPANY : schema_1.Values.EmployerType.INDIVIDUAL;
     const phoneRef = db.collection(schema_1.PhoneRoles.COLLECTION).doc(phone);
     const profileRef = db.collection(role === schema_1.Values.Role.WORKER ? schema_1.WorkerProfiles.COLLECTION : schema_1.EmployerProfiles.COLLECTION).doc(uid);
     const config = role === schema_1.Values.Role.EMPLOYER ? await (0, app_config_1.getReferralConfig)() : null;
@@ -73,29 +77,15 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (r
         else {
             const S = schema_1.EmployerProfiles.Subscription;
             const campaign = (config === null || config === void 0 ? void 0 : config.employerUnlimitedJobPostingEnabled) === true;
-            tx.create(profileRef, {
-                [schema_1.EmployerProfiles.EMPLOYER_TYPE]: schema_1.Values.EmployerType.INDIVIDUAL,
-                [schema_1.EmployerProfiles.OWNER_NAME]: name,
-                [schema_1.EmployerProfiles.PHONE]: phone,
-                [schema_1.EmployerProfiles.SUBSCRIPTION]: Object.assign(Object.assign({ [S.PLAN_ID]: campaign ? "UNLIMITED_CAMPAIGN" : "", [S.STATUS]: campaign ? "ACTIVE" : "NONE" }, (campaign ? { [S.START_AT]: now } : {})), { [S.CREDITS]: { [S.CREDITS_NORMAL]: 0, [S.CREDITS_INSTANT]: 0 } }),
-                [schema_1.EmployerProfiles.FREE_URGENT_POSTS_USED]: 0,
-                [schema_1.EmployerProfiles.VERIFIED]: false,
-                [schema_1.EmployerProfiles.TOTAL_HIRES]: 0,
-                [schema_1.EmployerProfiles.BLOCKED]: false,
-                [schema_1.EmployerProfiles.CREATED_AT]: now,
-                [schema_1.EmployerProfiles.UPDATED_AT]: now,
-            });
+            tx.create(profileRef, Object.assign(Object.assign({ [schema_1.EmployerProfiles.EMPLOYER_TYPE]: employerType }, (employerType === schema_1.Values.EmployerType.COMPANY ?
+                { [schema_1.EmployerProfiles.BUSINESS_NAME]: name, [schema_1.EmployerProfiles.OWNER_NAME]: "" } :
+                { [schema_1.EmployerProfiles.OWNER_NAME]: name })), { [schema_1.EmployerProfiles.PHONE]: phone, [schema_1.EmployerProfiles.SUBSCRIPTION]: Object.assign(Object.assign({ [S.PLAN_ID]: campaign ? "UNLIMITED_CAMPAIGN" : "", [S.STATUS]: campaign ? "ACTIVE" : "NONE" }, (campaign ? { [S.START_AT]: now } : {})), { [S.CREDITS]: { [S.CREDITS_NORMAL]: 0, [S.CREDITS_INSTANT]: 0 } }), [schema_1.EmployerProfiles.FREE_URGENT_POSTS_USED]: 0, [schema_1.EmployerProfiles.VERIFIED]: false, [schema_1.EmployerProfiles.TOTAL_HIRES]: 0, [schema_1.EmployerProfiles.BLOCKED]: false, [schema_1.EmployerProfiles.CREATED_AT]: now, [schema_1.EmployerProfiles.UPDATED_AT]: now }));
         }
         return true;
     });
     await admin.auth().setCustomUserClaims(uid, Object.assign(Object.assign({}, (context.auth.token.admin ? { admin: true } : {})), { role }));
     const code = await (0, referrals_1.ensureWallet)(uid, role);
     const referralError = created && referralCode ? await (0, referrals_1.registerReferral)(uid, referralCode) : null;
-    // An employer profile is complete at creation, so the referral pays out now (the profile
-    // trigger may have run before the referral existed). Workers complete later (skills).
-    if (created && referralCode && !referralError && role === schema_1.Values.Role.EMPLOYER) {
-        await (0, referrals_1.completeReferral)(uid, role);
-    }
     return { role, created, referralCode: code, referralError };
 });
 /** Pre-OTP: does this number exist, and with which role? One read; rules keep phoneRoles private. */
@@ -119,11 +109,34 @@ exports.onEmployerProfileWritten = functions
     .region("asia-south1")
     .firestore.document(`${schema_1.EmployerProfiles.COLLECTION}/{uid}`)
     .onWrite(async (change, context) => {
+    const cardRef = db.collection(schema_1.EmployerCards.COLLECTION).doc(context.params.uid);
     const after = change.after.data();
-    if (!after || (0, referrals_1.isEmployerProfileComplete)(change.before.data()) || !(0, referrals_1.isEmployerProfileComplete)(after))
+    if (!after || after[schema_1.EmployerProfiles.BLOCKED] === true) {
+        await cardRef.delete();
         return;
-    await (0, referrals_1.completeReferral)(context.params.uid, schema_1.Values.Role.EMPLOYER);
+    }
+    const card = employerCard(after);
+    const before = change.before.data();
+    if (before && before[schema_1.EmployerProfiles.BLOCKED] !== true &&
+        JSON.stringify(employerCard(before)) === JSON.stringify(card))
+        return;
+    await cardRef.set(card);
 });
+/** What anyone may see of an employer: never the phone, GSTIN, address or subscription. */
+function employerCard(p) {
+    const business = String(p[schema_1.EmployerProfiles.BUSINESS_NAME] || "").trim();
+    const owner = String(p[schema_1.EmployerProfiles.OWNER_NAME] || "").trim();
+    const name = p[schema_1.EmployerProfiles.EMPLOYER_TYPE] === schema_1.Values.EmployerType.COMPANY && business ?
+        business : (owner || business || "Employer");
+    return {
+        [schema_1.EmployerCards.NAME]: name,
+        [schema_1.EmployerCards.PHOTO_URL]: String(p[schema_1.EmployerProfiles.PHOTO_URL] || ""),
+        [schema_1.EmployerCards.AREA]: String(p[schema_1.EmployerProfiles.AREA] || ""),
+        [schema_1.EmployerCards.VERIFIED]: p[schema_1.EmployerProfiles.VERIFIED] === true,
+        [schema_1.EmployerCards.RATING]: Number(p[schema_1.EmployerProfiles.RATING] || 0),
+        [schema_1.EmployerCards.RATING_COUNT]: Number(p[schema_1.EmployerProfiles.RATING_COUNT] || 0),
+    };
+}
 /**
  * Deletes the caller's account: role profile (the worker card follows via its trigger), phone
  * registration, push token and saved jobs; closes open jobs / withdraws open applications; then the

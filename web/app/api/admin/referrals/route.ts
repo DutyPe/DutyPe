@@ -1,1124 +1,150 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FieldValue } from "firebase-admin/firestore";
+import { Timestamp } from "firebase-admin/firestore";
 
-import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
+import { cachedAdminGet } from "@/lib/firebase/admin-response-cache";
 import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
+import { e164 } from "@/lib/firebase/admin-account-deletion";
+import {
+  EmployerProfiles, PhoneRoles, ReferralCodes, Referrals, WalletLedger, Wallets, Withdrawals, WorkerProfiles
+} from "@/lib/firebase/schema";
 
 export const runtime = "nodejs";
 
-function asRecord(value: unknown) {
-  return (value ?? {}) as Record<string, unknown>;
+/**
+ * Read-only referral / wallet views for the admin panel. Money moves only through Cloud Functions
+ * (settleWithdrawal is called from the page with the admin's own sign-in).
+ *
+ *   ?view=withdrawals[&status=PENDING]   newest withdrawal requests (one page, ?after=)
+ *   ?view=referrals                      newest referrals (one page, ?after=)
+ *   ?lookup=CODE|PHONE|UID               one user's wallet, ledger, referrals and withdrawals
+ */
+const PAGE = 100;
+
+function iso(value: unknown) {
+  return value instanceof Timestamp ? value.toDate().toISOString() : null;
 }
 
-function firstNonEmptyString(...values: unknown[]) {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-
-  return "";
-}
-
-function readNumber(value: unknown) {
-  return typeof value === "number" ? value : Number(value ?? 0) || 0;
-}
-
-function timestampMillis(value: unknown) {
-  if (!value) return 0;
-  if (value instanceof Date) return value.getTime();
-  if (typeof value === "number") return value;
-  if (typeof value === "string") {
-    const parsed = new Date(value).getTime();
-    return Number.isNaN(parsed) ? 0 : parsed;
-  }
-  if (typeof value === "object") {
-    const candidate = value as { seconds?: number; _seconds?: number; toDate?: () => Date };
-    if (typeof candidate.toDate === "function") return candidate.toDate().getTime();
-    const seconds = typeof candidate.seconds === "number" ? candidate.seconds : candidate._seconds;
-    if (typeof seconds === "number") return seconds * 1000;
-  }
-  return 0;
-}
-
-function buildRecordMap(snapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>) {
-  const map = new Map<string, Record<string, unknown>>();
-  snapshot.forEach((item) => map.set(item.id, asRecord(item.data())));
-  return map;
-}
-
-function buildPhoneRoleMap(snapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>) {
-  const map = new Map<string, Record<string, unknown> & { docId: string }>();
-  snapshot.forEach((item) => {
-    const data = asRecord(item.data());
-    const uid = firstNonEmptyString(data.uid);
-    if (uid) {
-      map.set(uid, { ...data, docId: item.id });
-    }
-  });
-  return map;
-}
-
-function buildReferralCodeMaps(snapshot: FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>) {
-  const byCode = new Map<string, Record<string, unknown> & { id: string; code: string }>();
-  const byUserId = new Map<string, Array<Record<string, unknown> & { id: string; code: string }>>();
-
-  snapshot.forEach((item) => {
-    const data = asRecord(item.data());
-    const code = firstNonEmptyString(data.code, item.id);
-    if (!code) return;
-    const record = { id: item.id, ...data, code };
-    byCode.set(code.toUpperCase(), record);
-
-    const userId = firstNonEmptyString(data.userId, data.uid);
-    if (userId) {
-      const records = byUserId.get(userId) ?? [];
-      records.push(record);
-      byUserId.set(userId, records);
-    }
-  });
-
-  return { byCode, byUserId };
-}
-
-type IdentityMaps = {
-  phoneRoles: Map<string, Record<string, unknown> & { docId: string }>;
-  workerProfiles: Map<string, Record<string, unknown>>;
-  employerProfiles: Map<string, Record<string, unknown>>;
-  referralStats: Map<string, Record<string, unknown>>;
-};
-
-type AdminReferralRow = Record<string, unknown> & {
-  id: string;
-  referrerId: string;
-  referredUserId: string;
-  referrerUserName: string;
-  referrerPhone: string;
-  referrerRole: string;
-  referrerReferralCode: string;
-  referredUserName: string;
-  referredUserPhone: string;
-  referredUserRole: string;
-  referredByCode: string;
-  currentReferralCode: string;
-  pendingReason?: string;
-  isProfileComplete?: boolean;
-  canFix?: boolean;
-  missingFields?: string[];
-};
-
-type AdminGenericRow = Record<string, unknown> & { id: string };
-
-async function readReferralMinWithdrawal(db: FirebaseFirestore.Firestore) {
-  try {
-    const snapshot = await db.collection("app_config").doc("referral").get();
-    const data = snapshot.data() ?? {};
-    return Math.max(readNumber(data.minWithdrawal) || 100, 100);
-  } catch {
-    return 100;
-  }
-}
-
-function identityForUser(
-  userId: string,
-  maps: IdentityMaps
-) {
-  const phoneRole = (maps.phoneRoles.get(userId) ?? {}) as Record<string, unknown> & { docId?: string };
-  const workerProfile = maps.workerProfiles.get(userId) ?? {};
-  const employerProfile = maps.employerProfiles.get(userId) ?? {};
-  const referralStats = maps.referralStats.get(userId) ?? {};
-
-  return {
-    userName: firstNonEmptyString(
-      phoneRole.name,
-      workerProfile.fullName,
-      workerProfile.name,
-      employerProfile.companyName,
-      employerProfile.fullName,
-      referralStats.userName
-    ),
-    phone: firstNonEmptyString(
-      phoneRole.phoneNumber,
-      workerProfile.phone,
-      workerProfile.phoneNumber,
-      employerProfile.phone,
-      employerProfile.phoneNumber
-    ),
-    role: firstNonEmptyString(
-      phoneRole.role,
-      referralStats.userRole,
-      workerProfile.role,
-      employerProfile.role
-    ).toUpperCase(),
-    referralCode: firstNonEmptyString(
-      referralStats.referralCode,
-      workerProfile.referralCode,
-      employerProfile.referralCode
-    ),
-    phoneRoleDocId: firstNonEmptyString(phoneRole.docId)
-  };
-}
-
-function evaluatePendingReason(referredUserId: string, maps: IdentityMaps) {
-  const workerProfile = maps.workerProfiles.get(referredUserId);
-  const employerProfile = maps.employerProfiles.get(referredUserId);
-  const phoneRole = maps.phoneRoles.get(referredUserId);
-
-  if (workerProfile) {
-    const fullName = firstNonEmptyString(workerProfile.fullName, workerProfile.name, phoneRole?.name);
-    const phone = firstNonEmptyString(workerProfile.phone, workerProfile.phoneNumber, phoneRole?.phoneNumber);
-    const rawSkills = workerProfile.skills;
-    const skills = Array.isArray(rawSkills) ? rawSkills.filter(Boolean) : (typeof rawSkills === "string" && rawSkills.trim() ? [rawSkills.trim()] : []);
-
-    const missing: string[] = [];
-    if (!fullName) missing.push("Full Name");
-    if (!phone) missing.push("Phone");
-    if (skills.length === 0) missing.push("Skills");
-
-    const isComplete = Boolean(
-      workerProfile.profileCompleted === true ||
-      workerProfile.isProfileComplete === true ||
-      (fullName && phone && skills.length > 0)
-    );
-
-    return {
-      isProfileComplete: isComplete,
-      canFix: isComplete,
-      missingFields: missing,
-      pendingReason: isComplete
-        ? "Worker Profile 100% complete (Ready to credit)"
-        : `Worker Profile incomplete: missing ${missing.join(", ")}`
-    };
-  }
-
-  if (employerProfile) {
-    const name = firstNonEmptyString(employerProfile.companyName, employerProfile.fullName, employerProfile.name, phoneRole?.name);
-    const phone = firstNonEmptyString(employerProfile.phone, employerProfile.phoneNumber, employerProfile.contactPhone, phoneRole?.phoneNumber);
-
-    const missing: string[] = [];
-    if (!name) missing.push("Company/Employer Name");
-    if (!phone) missing.push("Contact Phone");
-
-    const isComplete = Boolean(
-      employerProfile.profileCompleted === true ||
-      employerProfile.isProfileComplete === true ||
-      (name && phone)
-    );
-
-    return {
-      isProfileComplete: isComplete,
-      canFix: isComplete,
-      missingFields: missing,
-      pendingReason: isComplete
-        ? "Employer Profile complete (Ready to credit)"
-        : `Employer Profile incomplete: missing ${missing.join(", ")}`
-    };
-  }
-
-  return {
-    isProfileComplete: false,
-    canFix: false,
-    missingFields: ["Profile not started"],
-    pendingReason: "Referred user has not started profile setup"
-  };
-}
-
-function enrichReferralDoc(
-  item: FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>,
-  maps: IdentityMaps
-): AdminReferralRow {
-  const raw = asRecord(item.data());
-  const referrerId = firstNonEmptyString(raw.referrerId, raw.referrerUserId);
-  const referredUserId = firstNonEmptyString(raw.referredUserId, raw.referredId);
-  const referrer = identityForUser(referrerId, maps);
-  const referred = identityForUser(referredUserId, maps);
-  const referredStats = maps.referralStats.get(referredUserId) ?? {};
-  const status = firstNonEmptyString(raw.status, "PENDING").toUpperCase();
-
-  const pendingEval = status === "PENDING"
-    ? evaluatePendingReason(referredUserId, maps)
-    : { pendingReason: "", isProfileComplete: true, canFix: false, missingFields: [] };
-
-  return {
-    id: item.id,
-    ...raw,
-    status,
-    referrerId,
-    referredUserId,
-    referrerUserName: firstNonEmptyString(raw.referrerUserName, referrer.userName),
-    referrerPhone: referrer.phone,
-    referrerRole: referrer.role,
-    referrerReferralCode: referrer.referralCode,
-    referredUserName: firstNonEmptyString(raw.referredUserName, referred.userName),
-    referredUserPhone: referred.phone,
-    referredUserRole: firstNonEmptyString(raw.referredUserRole, referred.role),
-    referredByCode: firstNonEmptyString(referredStats.referredByCode, raw.referralCode),
-    currentReferralCode: referred.referralCode,
-    pendingReason: pendingEval.pendingReason,
-    isProfileComplete: pendingEval.isProfileComplete,
-    canFix: pendingEval.canFix,
-    missingFields: pendingEval.missingFields
-  };
-}
-
-async function loadIdentityMaps(db: FirebaseFirestore.Firestore) {
-  const [
-    phoneRolesSnapshot,
-    workerProfilesSnapshot,
-    employerProfilesSnapshot,
-    referralStatsSnapshot,
-    referralCodesSnapshot
-  ] = await Promise.all([
-    db.collection("phoneRoles").limit(5000).get(),
-    db.collection("worker_profiles").limit(5000).get(),
-    db.collection("employer_profiles").limit(5000).get(),
-    db.collection("referral_stats").limit(5000).get(),
-    db.collection("referral_codes").limit(5000).get()
+async function names(uids: string[]): Promise<Map<string, string>> {
+  const db = getFirebaseAdminDb();
+  const unique = Array.from(new Set(uids.filter(Boolean)));
+  const out = new Map<string, string>();
+  if (!unique.length) return out;
+  const [workers, employers] = await Promise.all([
+    db.getAll(...unique.map((u) => db.collection(WorkerProfiles.COLLECTION).doc(u)), { fieldMask: [WorkerProfiles.NAME, WorkerProfiles.PHONE] }),
+    db.getAll(...unique.map((u) => db.collection(EmployerProfiles.COLLECTION).doc(u)), { fieldMask: [EmployerProfiles.OWNER_NAME, EmployerProfiles.BUSINESS_NAME, EmployerProfiles.PHONE] })
   ]);
-
-  return {
-    maps: {
-      phoneRoles: buildPhoneRoleMap(phoneRolesSnapshot),
-      workerProfiles: buildRecordMap(workerProfilesSnapshot),
-      employerProfiles: buildRecordMap(employerProfilesSnapshot),
-      referralStats: buildRecordMap(referralStatsSnapshot)
-    },
-    referralCodes: buildReferralCodeMaps(referralCodesSnapshot)
-  };
-}
-
-function resolveLookupUserId(
-  lookup: string,
-  maps: IdentityMaps,
-  referralCodes: ReturnType<typeof buildReferralCodeMaps>
-) {
-  const normalized = lookup.trim();
-  const upper = normalized.toUpperCase();
-  const codeRecord = referralCodes.byCode.get(upper);
-  if (codeRecord) {
-    return {
-      userId: firstNonEmptyString(codeRecord.userId, codeRecord.uid),
-      resolvedBy: "referralCode",
-      referralCode: codeRecord.code
-    };
-  }
-
-  if (maps.referralStats.has(normalized) || maps.workerProfiles.has(normalized) || maps.employerProfiles.has(normalized) || maps.phoneRoles.has(normalized)) {
-    return { userId: normalized, resolvedBy: "uid", referralCode: "" };
-  }
-
-  for (const [userId, phoneRole] of maps.phoneRoles.entries()) {
-    if (
-      firstNonEmptyString(phoneRole.docId) === normalized ||
-      firstNonEmptyString(phoneRole.phoneNumber, phoneRole.phone) === normalized
-    ) {
-      return { userId, resolvedBy: "phone", referralCode: "" };
-    }
-  }
-
-  for (const [userId, profile] of [...maps.workerProfiles.entries(), ...maps.employerProfiles.entries()]) {
-    if (firstNonEmptyString(profile.phone, profile.phoneNumber, profile.contactPhone) === normalized) {
-      return { userId, resolvedBy: "phone", referralCode: "" };
-    }
-  }
-
-  return { userId: "", resolvedBy: "unknown", referralCode: "" };
-}
-
-async function buildReferralLookup(db: FirebaseFirestore.Firestore, lookup: string) {
-  const { maps, referralCodes } = await loadIdentityMaps(db);
-  const resolved = resolveLookupUserId(lookup, maps, referralCodes);
-  const userId = resolved.userId;
-
-  if (!userId) {
-    return {
-      query: lookup,
-      found: false,
-      message: "No user matched that referral code, phone number, or uid."
-    };
-  }
-
-  const identity = identityForUser(userId, maps);
-  const codeRecords = referralCodes.byUserId.get(userId) ?? [];
-  const referralCode = firstNonEmptyString(
-    resolved.referralCode,
-    ...codeRecords.map((record) => record.code),
-    identity.referralCode
-  );
-
-  const referrerQueries: Array<Promise<FirebaseFirestore.QuerySnapshot<FirebaseFirestore.DocumentData>>> = [
-    db.collection("referrals").where("referrerUserId", "==", userId).limit(500).get(),
-    db.collection("referrals").where("referrerId", "==", userId).limit(500).get()
-  ];
-  codeRecords.forEach((record) => {
-    referrerQueries.push(db.collection("referrals").where("referralCode", "==", record.code).limit(500).get());
+  workers.forEach((d) => { if (d.exists) out.set(d.id, `${d.get(WorkerProfiles.NAME) ?? ""} · ${d.get(WorkerProfiles.PHONE) ?? ""} (worker)`); });
+  employers.forEach((d) => {
+    if (d.exists) out.set(d.id, `${d.get(EmployerProfiles.BUSINESS_NAME) || d.get(EmployerProfiles.OWNER_NAME) || ""} · ${d.get(EmployerProfiles.PHONE) ?? ""} (employer)`);
   });
-  if (referralCode && !codeRecords.some((record) => record.code === referralCode)) {
-    referrerQueries.push(db.collection("referrals").where("referralCode", "==", referralCode).limit(500).get());
-  }
-
-  const [referrerSnapshots, referredSnapshot, withdrawalsSnapshot, auditLogsSnapshot] = await Promise.all([
-    Promise.all(referrerQueries),
-    db.collection("referrals").where("referredUserId", "==", userId).limit(500).get(),
-    db.collection("referral_stats").doc(userId).collection("withdrawals").limit(200).get(),
-    db.collection("referral_stats").doc(userId).collection("audit_logs").limit(200).get()
-  ]);
-
-  const referralsById = new Map<string, FirebaseFirestore.QueryDocumentSnapshot<FirebaseFirestore.DocumentData>>();
-  referrerSnapshots.forEach((snapshot) => snapshot.docs.forEach((doc) => referralsById.set(doc.id, doc)));
-
-  const referralsAsReferrer = Array.from(referralsById.values())
-    .map((doc) => enrichReferralDoc(doc, maps))
-    .sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt));
-  const referralsAsReferred = referredSnapshot.docs
-    .map((doc) => enrichReferralDoc(doc, maps))
-    .sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt));
-  const withdrawals = withdrawalsSnapshot.docs
-    .map((doc): AdminGenericRow => ({ id: doc.id, ...asRecord(doc.data()) }))
-    .sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt));
-  const auditLogs = auditLogsSnapshot.docs
-    .map((doc): AdminGenericRow => ({ id: doc.id, ...asRecord(doc.data()) }))
-    .sort((a, b) => timestampMillis(b.timestamp) - timestampMillis(a.timestamp));
-
-  return {
-    query: lookup,
-    found: true,
-    resolvedBy: resolved.resolvedBy,
-    userId,
-    referralCode,
-    identity,
-    referralStats: maps.referralStats.get(userId) ?? null,
-    referralCodes: codeRecords,
-    referralsAsReferrer,
-    referralsAsReferred,
-    withdrawals,
-    auditLogs
-  };
+  return out;
 }
 
-export async function GET(request: NextRequest) {
-  const unauthorized = await requireAuthorizedAdminRequest(request);
-  if (unauthorized) {
-    return unauthorized;
-  }
+async function lookupUid(query: string): Promise<string | null> {
+  const db = getFirebaseAdminDb();
+  const phone = e164(query);
+  if (phone) return String((await db.collection(PhoneRoles.COLLECTION).doc(phone).get()).get(PhoneRoles.UID) ?? "") || null;
+  const code = await db.collection(ReferralCodes.COLLECTION).doc(query.toUpperCase()).get();
+  if (code.exists) return String(code.get(ReferralCodes.UID) ?? "") || null;
+  return query;
+}
 
+async function getUncached(request: NextRequest) {
   try {
     const db = getFirebaseAdminDb();
-    const lookup = new URL(request.url).searchParams.get("lookup")?.trim();
+    const params = new URL(request.url).searchParams;
 
+    const lookup = params.get("lookup")?.trim();
     if (lookup) {
-      const result = await buildReferralLookup(db, lookup);
-      return NextResponse.json({ lookup: result });
-    }
-
-    const [
-      referralsSnapshot,
-      withdrawalsSnapshot,
-      rootWithdrawalsSnapshot,
-      identityData
-    ] = await Promise.all([
-      db.collection("referrals").limit(1000).get(),
-      db.collectionGroup("withdrawals").limit(500).get(),
-      db.collection("withdrawal_requests").limit(500).get(),
-      loadIdentityMaps(db)
-    ]);
-
-    const maps = identityData.maps;
-
-    const referrals = referralsSnapshot.docs
-      .map((item) => enrichReferralDoc(item, maps))
-      .sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt));
-
-    const withdrawalMap = new Map<string, AdminGenericRow>();
-
-    // 1. Process root withdrawal_requests
-    rootWithdrawalsSnapshot.docs.forEach((item) => {
-      const raw = asRecord(item.data());
-      const userId = firstNonEmptyString(raw.userId);
-      const identity = identityForUser(userId, maps);
-      const stats = maps.referralStats.get(userId) ?? {};
-      withdrawalMap.set(item.id, {
-        id: item.id,
-        userId,
-        ...raw,
-        userName: identity.userName,
-        phone: identity.phone,
-        userRole: firstNonEmptyString(raw.userRole, identity.role),
-        referralCode: identity.referralCode,
-        availableBalance: readNumber(stats.availableBalance),
-        totalEarnings: readNumber(stats.totalEarnings),
-        withdrawnAmount: readNumber(stats.withdrawnAmount),
-        totalWithdrawals: readNumber(stats.totalWithdrawals)
-      });
-    });
-
-    // 2. Process subcollection withdrawals
-    withdrawalsSnapshot.docs.forEach((item) => {
-      const raw = asRecord(item.data());
-      const userId = firstNonEmptyString(raw.userId, item.ref.parent.parent?.id);
-      const identity = identityForUser(userId, maps);
-      const stats = maps.referralStats.get(userId) ?? {};
-      const existing = withdrawalMap.get(item.id) ?? {};
-      withdrawalMap.set(item.id, {
-        ...existing,
-        id: item.id,
-        userId,
-        ...raw,
-        userName: identity.userName,
-        phone: identity.phone,
-        userRole: firstNonEmptyString(raw.userRole, identity.role),
-        referralCode: identity.referralCode,
-        availableBalance: readNumber(stats.availableBalance),
-        totalEarnings: readNumber(stats.totalEarnings),
-        withdrawnAmount: readNumber(stats.withdrawnAmount),
-        totalWithdrawals: readNumber(stats.totalWithdrawals)
-      });
-    });
-
-    const withdrawals = Array.from(withdrawalMap.values())
-      .sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt));
-
-    return NextResponse.json({ referrals, withdrawals });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to load referrals.";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
-
-
-interface MilestoneAuditResult {
-  toCredit: number;
-  newAwardedMilestones: number[];
-  awardedNow: number[];
-}
-
-type AdminReferralConfig = {
-  rewardPerReferral: number;
-  signupBonus: number;
-  minWithdrawal: number;
-  milestones: Array<{ count: number; bonus: number }>;
-};
-
-/** Same source of truth as the Cloud Functions: /app_config/referral (with the same defaults). */
-async function readReferralConfig(db: FirebaseFirestore.Firestore): Promise<AdminReferralConfig> {
-  const defaults: Record<string, number> = { "5": 50, "10": 100, "15": 150, "25": 250, "50": 500, "100": 1000 };
-  let data: Record<string, any> = {};
-  try {
-    data = (await db.collection("app_config").doc("referral").get()).data() ?? {};
-  } catch {
-    data = {};
-  }
-  const rawMilestones = data.milestones && typeof data.milestones === "object" ? data.milestones : defaults;
-  return {
-    rewardPerReferral: readNumber(data.rewardPerReferral) || 25,
-    signupBonus: readNumber(data.signupBonus) || 25,
-    minWithdrawal: Math.max(readNumber(data.minWithdrawal) || 100, 100),
-    milestones: Object.entries(rawMilestones as Record<string, unknown>)
-      .map(([count, bonus]) => ({ count: Number(count), bonus: Number(bonus) }))
-      .filter((m) => Number.isFinite(m.count) && m.count > 0 && Number.isFinite(m.bonus) && m.bonus >= 0)
-      .sort((a, b) => a.count - b.count)
-  };
-}
-
-/**
- * Mirrors functions/src/referral-system.ts: a present `awardedMilestones` array is the
- * truth; only legacy docs without it infer already-paid bonuses from totalEarnings.
- */
-function auditUserMilestones(
-  successfulReferrals: number,
-  totalEarnings: number,
-  signupBonusAmount: number,
-  existingAwarded: unknown,
-  config: AdminReferralConfig
-): MilestoneAuditResult {
-  const trustAwarded = Array.isArray(existingAwarded);
-  const awarded = new Set<number>(
-    trustAwarded ? (existingAwarded as unknown[]).map(Number).filter((v) => Number.isFinite(v)) : []
-  );
-  let toCredit = 0;
-  const awardedNow: number[] = [];
-  const baseEarnings = (successfulReferrals * config.rewardPerReferral) + signupBonusAmount;
-  let extraEarnings = trustAwarded ? 0 : Math.max(0, totalEarnings - baseEarnings);
-
-  for (const m of config.milestones) {
-    if (successfulReferrals < m.count || awarded.has(m.count)) continue;
-    if (!trustAwarded && extraEarnings >= m.bonus) {
-      extraEarnings -= m.bonus;
-      awarded.add(m.count);
-    } else {
-      toCredit += m.bonus;
-      awarded.add(m.count);
-      awardedNow.push(m.count);
-    }
-  }
-
-  return { toCredit, newAwardedMilestones: Array.from(awarded).sort((a, b) => a - b), awardedNow };
-}
-
-/** Credits owed milestone bonuses for one user atomically. Returns the bonus credited. */
-async function reconcileUserMilestones(
-  db: FirebaseFirestore.Firestore,
-  userId: string,
-  config: AdminReferralConfig
-): Promise<{ bonus: number; milestones: number[]; changed: boolean }> {
-  const statsRef = db.collection("referral_stats").doc(userId);
-  return db.runTransaction(async (transaction) => {
-    const statsDoc = await transaction.get(statsRef);
-    const sData = statsDoc.data() ?? {};
-    const successful = readNumber(sData.successfulReferrals);
-    const audit = auditUserMilestones(
-      successful,
-      readNumber(sData.totalEarnings),
-      sData.signupBonusReceived === true ? readNumber(sData.signupBonusAmount) : 0,
-      sData.awardedMilestones,
-      config
-    );
-    const changed = !Array.isArray(sData.awardedMilestones) ||
-      audit.newAwardedMilestones.length !== (sData.awardedMilestones as unknown[]).length;
-    if (!statsDoc.exists || (audit.toCredit <= 0 && !changed)) {
-      return { bonus: 0, milestones: [], changed: false };
-    }
-
-    const now = FieldValue.serverTimestamp();
-    const patch: Record<string, any> = { awardedMilestones: audit.newAwardedMilestones, lastUpdated: now };
-    if (audit.toCredit > 0) {
-      const nextBalance = readNumber(sData.availableBalance) + audit.toCredit;
-      patch.totalEarnings = FieldValue.increment(audit.toCredit);
-      patch.availableBalance = FieldValue.increment(audit.toCredit);
-      patch.canWithdraw = nextBalance >= config.minWithdrawal;
-      transaction.set(db.collection("notifications").doc(), {
-        recipientId: userId,
-        title: "🎉 Milestone Bonus Credited!",
-        message: `Your ₹${audit.toCredit} milestone bonus for reaching ${successful} referrals has been credited to your balance!`,
-        type: "MILESTONE_REWARD",
-        data: { milestones: audit.awardedNow, amount: audit.toCredit },
-        createdAt: now,
-        isRead: false
-      });
-      transaction.set(db.collection("referral_events").doc(), {
-        eventType: "MILESTONE_REACHED",
-        userId,
-        milestones: audit.awardedNow,
-        bonusAmount: audit.toCredit,
-        newSuccessfulCount: successful,
-        timestamp: now
-      });
-    }
-    transaction.set(statsRef, patch, { merge: true });
-    // Nested object: "referralStats.x" keys in set() are written as literal field names.
-    transaction.set(db.collection("users").doc(userId), { referralStats: patch }, { merge: true });
-    return { bonus: audit.toCredit, milestones: audit.awardedNow, changed: true };
-  });
-}
-
-/**
- * Admin "fix pending referral". Transactional and idempotent: it re-reads the referral
- * and refuses anything that is no longer PENDING, so a double click (or a race with the
- * Cloud Function trigger) can never pay twice.
- */
-async function completePendingReferral(
-  db: FirebaseFirestore.Firestore,
-  referralDoc: FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>
-) {
-  const config = await readReferralConfig(db);
-  return db.runTransaction(async (transaction) => {
-    const fresh = await transaction.get(referralDoc.ref);
-    const referralData = asRecord(fresh.data());
-    const referralId = fresh.id;
-    const status = firstNonEmptyString(referralData.status).toUpperCase();
-    if (!fresh.exists || status !== "PENDING") {
-      throw new Error(`Referral ${referralId} is ${status || "missing"}, not PENDING. Nothing was credited.`);
-    }
-    const referrerUserId = firstNonEmptyString(referralData.referrerUserId, referralData.referrerId);
-    const referredUserId = firstNonEmptyString(referralData.referredUserId, referralData.referredId);
-    const referralCode = firstNonEmptyString(referralData.referralCode);
-    if (!referrerUserId || !referredUserId || referrerUserId === referredUserId) {
-      throw new Error(`Referral ${referralId} has an invalid referrer or referred user.`);
-    }
-
-    const referrerStatsRef = db.collection("referral_stats").doc(referrerUserId);
-    const referredStatsRef = db.collection("referral_stats").doc(referredUserId);
-    const [referrerStatsDoc, referredStatsDoc] = await transaction.getAll(referrerStatsRef, referredStatsRef);
-    const referrerStats = referrerStatsDoc.data() ?? {};
-    const referredStats = referredStatsDoc.data() ?? {};
-
-    const newSuccessfulCount = readNumber(referrerStats.successfulReferrals) + 1;
-    const audit = auditUserMilestones(
-      newSuccessfulCount,
-      readNumber(referrerStats.totalEarnings),
-      referrerStats.signupBonusReceived === true ? readNumber(referrerStats.signupBonusAmount) : 0,
-      referrerStats.awardedMilestones,
-      config
-    );
-    const referrerReward = config.rewardPerReferral;
-    const referredUserReward = config.signupBonus;
-    const milestoneBonus = audit.toCredit;
-    const totalReferrerReward = referrerReward + milestoneBonus;
-    const canWithdraw = readNumber(referrerStats.availableBalance) + totalReferrerReward >= config.minWithdrawal;
-    const now = FieldValue.serverTimestamp();
-
-    transaction.update(fresh.ref, {
-      status: "COMPLETED",
-      profileCompleted: true,
-      rewardAmount: referrerReward,
-      bonusAmount: milestoneBonus,
-      referredUserReward,
-      completedAt: now,
-      updatedAt: now,
-      fixedByAdmin: true
-    });
-
-    const referrerFields = {
-      successfulReferrals: newSuccessfulCount,
-      pendingReferrals: FieldValue.increment(-1),
-      totalEarnings: FieldValue.increment(totalReferrerReward),
-      availableBalance: FieldValue.increment(totalReferrerReward),
-      canWithdraw,
-      awardedMilestones: audit.newAwardedMilestones,
-      lastUpdated: now
-    };
-    transaction.set(referrerStatsRef, { userId: referrerUserId, ...referrerFields }, { merge: true });
-    transaction.set(db.collection("users").doc(referrerUserId), { referralStats: referrerFields }, { merge: true });
-
-    const creditReferred = referredStats.signupBonusReceived !== true;
-    if (creditReferred) {
-      const referredFields = {
-        totalEarnings: FieldValue.increment(referredUserReward),
-        availableBalance: FieldValue.increment(referredUserReward),
-        signupBonusReceived: true,
-        signupBonusAmount: referredUserReward,
-        lastUpdated: now
-      };
-      transaction.set(referredStatsRef, { userId: referredUserId, ...referredFields }, { merge: true });
-      transaction.set(db.collection("users").doc(referredUserId), {
-        profileCompleted: true,
-        isProfileComplete: true,
-        referralStats: referredFields
-      }, { merge: true });
-    }
-
-    if (referralCode) {
-      transaction.set(db.collection("referral_codes").doc(referralCode), {
-        successfulReferrals: FieldValue.increment(1)
-      }, { merge: true });
-    }
-
-    transaction.set(db.collection("referral_events").doc(), {
-      eventType: "ADMIN_FIXED_PENDING_REFERRAL",
-      referralId,
-      referrerUserId,
-      referredUserId,
-      referrerReward: totalReferrerReward,
-      referredReward: creditReferred ? referredUserReward : 0,
-      timestamp: now
-    });
-
-    return {
-      referralId,
-      referrerUserId,
-      referredUserId,
-      totalReferrerReward,
-      referredUserReward: creditReferred ? referredUserReward : 0
-    };
-  });
-}
-
-export async function POST(request: NextRequest) {
-  const unauthorized = await requireAuthorizedAdminRequest(request);
-  if (unauthorized) {
-    return unauthorized;
-  }
-
-  try {
-    const body = (await request.json()) as { action?: string; referralCode?: string; referralId?: string };
-
-    if (body.action === "fix-pending-referral") {
-      const referralId = body.referralId?.trim();
-      if (!referralId) {
-        return NextResponse.json({ error: "referralId is required." }, { status: 400 });
-      }
-
-      const db = getFirebaseAdminDb();
-      const referralDoc = await db.collection("referrals").doc(referralId).get();
-      if (!referralDoc.exists) {
-        return NextResponse.json({ error: "Referral not found." }, { status: 404 });
-      }
-
-      const result = await completePendingReferral(db, referralDoc);
-      return NextResponse.json({ ok: true, message: "Referral fixed and credited successfully.", result });
-    }
-
-    if (body.action === "sync-all-pending") {
-      const db = getFirebaseAdminDb();
-      const pendingSnapshot = await db.collection("referrals")
-        .where("status", "==", "PENDING")
-        .limit(200)
-        .get();
-
-      const identityData = await loadIdentityMaps(db);
-      const maps = identityData.maps;
-
-      const fixed: Array<any> = [];
-      const skipped: Array<any> = [];
-
-      for (const doc of pendingSnapshot.docs) {
-        const refData = doc.data();
-        const referredUserId = firstNonEmptyString(refData.referredUserId, refData.referredId);
-        const evalResult = evaluatePendingReason(referredUserId, maps);
-
-        if (evalResult.isProfileComplete) {
-          try {
-            const outcome = await completePendingReferral(db, doc);
-            fixed.push(outcome);
-          } catch (e) {
-            skipped.push({ referralId: doc.id, error: e instanceof Error ? e.message : "Failed" });
-          }
-        } else {
-          skipped.push({ referralId: doc.id, reason: evalResult.pendingReason });
-        }
-      }
-
-      let milestonesFixed = 0;
-      try {
-        const config = await readReferralConfig(db);
-        const statsSnapshot = await db.collection("referral_stats")
-          .where("successfulReferrals", ">=", 1)
-          .limit(200)
-          .get();
-        for (const statDoc of statsSnapshot.docs) {
-          const outcome = await reconcileUserMilestones(db, statDoc.id, config);
-          if (outcome.bonus > 0) milestonesFixed++;
-        }
-      } catch (err) {
-        console.error("Error in milestone audit during sync-all-pending:", err);
-      }
-
-      return NextResponse.json({
-        ok: true,
-        message: `Processed ${pendingSnapshot.size} pending referrals: ${fixed.length} fixed, ${skipped.length} incomplete. Also audited milestones (${milestonesFixed} users credited).`,
-        fixedCount: fixed.length,
-        skippedCount: skipped.length,
-        milestonesFixed,
-        fixed,
-        skipped
-      });
-    }
-
-    if (body.action === "audit-and-credit-milestones") {
-      const db = getFirebaseAdminDb();
-      const config = await readReferralConfig(db);
-      const statsSnapshot = await db.collection("referral_stats")
-        .where("successfulReferrals", ">=", 1)
-        .limit(200)
-        .get();
-
-      let creditedCount = 0;
-      let totalBonusCredited = 0;
-      const creditedUsers: Array<{ userId: string; bonusCredited: number; milestones: number[] }> = [];
-
-      for (const statDoc of statsSnapshot.docs) {
-        const outcome = await reconcileUserMilestones(db, statDoc.id, config);
-        if (outcome.bonus > 0) {
-          creditedCount++;
-          totalBonusCredited += outcome.bonus;
-          creditedUsers.push({ userId: statDoc.id, bonusCredited: outcome.bonus, milestones: outcome.milestones });
-        }
-      }
-
-      return NextResponse.json({
-        ok: true,
-        message: `Audited ${statsSnapshot.size} referrers: credited missing milestone bonuses to ${creditedCount} users (Total: ₹${totalBonusCredited}).`,
-        totalAudited: statsSnapshot.size,
-        creditedCount,
-        totalBonusCredited,
-        creditedUsers
-      });
-    }
-
-    if (body.action && body.action !== "create-test-referral") {
-      return NextResponse.json({ error: "Unsupported referral action." }, { status: 400 });
-    }
-
-    const referralCode = body.referralCode?.trim().toUpperCase();
-    if (!referralCode) {
-      return NextResponse.json({ error: "Referral code is required." }, { status: 400 });
-    }
-
-    const db = getFirebaseAdminDb();
-    const lookup = await buildReferralLookup(db, referralCode);
-    const referrerUserId = "userId" in lookup ? lookup.userId : "";
-    const resolvedReferralCode = "referralCode" in lookup ? lookup.referralCode || referralCode : referralCode;
-
-    if (!lookup.found || !referrerUserId) {
-      return NextResponse.json({ error: lookup.message || "Referral code not found." }, { status: 404 });
-    }
-
-    const now = FieldValue.serverTimestamp();
-    const bonusAmount = 0; // test referrals never carry money
-    const testUserId = `TEST_USER_${Date.now()}`;
-    const referralId = `${referrerUserId}_${testUserId}`;
-    const statsRef = db.collection("referral_stats").doc(referrerUserId);
-    const referralRef = db.collection("referrals").doc(referralId);
-    const auditRef = statsRef.collection("audit_logs").doc();
-    const batch = db.batch();
-
-    batch.set(referralRef, {
-      referralCode: resolvedReferralCode,
-      referrerUserId: referrerUserId,
-      referrerId: referrerUserId,
-      referredUserId: testUserId,
-      referredUserName: "Test User",
-      referredUserPhone: "+919999999999",
-      referredUserRole: "WORKER",
-      status: "TEST",
-      isTest: true,
-      rewardAmount: 0,
-      bonusAmount: 0,
-      createdAt: now,
-      completedAt: now,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      createdBy: "admin-test-referral-tool"
-    });
-
-    // Test data only: never touch totalEarnings / availableBalance (it used to add ₹50 of
-    // real, withdrawable balance to a real user every time the tool was used) or the
-    // successful count that drives milestone bonuses.
-    batch.set(statsRef, {
-      userId: referrerUserId,
-      referralCode: resolvedReferralCode,
-      testReferrals: FieldValue.increment(1),
-      lastReferralAt: now,
-      updatedAt: now
-    }, { merge: true });
-
-    batch.set(auditRef, {
-      eventType: "ADMIN_TEST_REFERRAL_CREATED",
-      referralCode: resolvedReferralCode,
-      referralId,
-      testUserId,
-      amount: bonusAmount,
-      timestamp: now,
-      createdAt: now
-    });
-
-    await batch.commit();
-
-    const updatedLookup = await buildReferralLookup(db, referralCode);
-
-    return NextResponse.json({
-      ok: true,
-      referralId,
-      testUserId,
-      bonusAmount,
-      lookup: updatedLookup
-    });
-  } catch (error) {
-    console.error("Failed to create test referral", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to create test referral." },
-      { status: 500 }
-    );
-  }
-}
-
-type UpdateWithdrawalBody = {
-  withdrawalId?: string;
-  userId?: string;
-  status?: string;
-  transactionId?: string;
-  adminNote?: string;
-};
-
-export async function PATCH(request: NextRequest) {
-  const unauthorized = await requireAuthorizedAdminRequest(request);
-  if (unauthorized) {
-    return unauthorized;
-  }
-
-  let body: UpdateWithdrawalBody;
-
-  try {
-    body = (await request.json()) as UpdateWithdrawalBody;
-  } catch {
-    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
-  }
-
-  const withdrawalId = body.withdrawalId?.trim();
-  const userId = body.userId?.trim();
-  const status = body.status?.trim().toUpperCase();
-  const transactionId = body.transactionId?.trim();
-  const adminNote = body.adminNote?.trim();
-
-  if (!withdrawalId || !userId || (status !== "PROCESSING" && status !== "COMPLETED" && status !== "FAILED")) {
-    return NextResponse.json(
-      { error: "Invalid withdrawalId, userId, or status." },
-      { status: 400 }
-    );
-  }
-
-  try {
-    const db = getFirebaseAdminDb();
-    const minWithdrawal = await readReferralMinWithdrawal(db);
-
-    const statsRef = db.collection("referral_stats").doc(userId);
-    const withdrawalRef = statsRef.collection("withdrawals").doc(withdrawalId);
-    const rootWithdrawalRef = db.collection("withdrawal_requests").doc(withdrawalId);
-    const auditRef = statsRef.collection("audit_logs").doc();
-    const userRef = db.collection("users").doc(userId);
-
-    await db.runTransaction(async (transaction) => {
-      const [withdrawalDoc, rootWithdrawalDoc, statsDoc, userDoc] = await Promise.all([
-        transaction.get(withdrawalRef),
-        transaction.get(rootWithdrawalRef),
-        transaction.get(statsRef),
-        transaction.get(userRef)
+      const uid = await lookupUid(lookup);
+      if (!uid) return NextResponse.json({ error: "No account found." }, { status: 404 });
+      const [wallet, ledger, made, own, withdrawals, who] = await Promise.all([
+        db.collection(Wallets.COLLECTION).doc(uid).get(),
+        db.collection(WalletLedger.COLLECTION).where(WalletLedger.UID, "==", uid).orderBy(WalletLedger.CREATED_AT, "desc").limit(50).get(),
+        db.collection(Referrals.COLLECTION).where(Referrals.REFERRER_UID, "==", uid).orderBy(Referrals.CREATED_AT, "desc").limit(50).get(),
+        db.collection(Referrals.COLLECTION).doc(uid).get(),
+        db.collection(Withdrawals.COLLECTION).where(Withdrawals.UID, "==", uid).orderBy(Withdrawals.CREATED_AT, "desc").limit(20).get(),
+        names([uid])
       ]);
-
-      if (!withdrawalDoc.exists && !rootWithdrawalDoc.exists) {
-        throw new Error(`Withdrawal ${withdrawalId} not found for user ${userId}.`);
-      }
-
-      const now = new Date();
-      const current = withdrawalDoc.exists ? (withdrawalDoc.data() ?? {}) : (rootWithdrawalDoc.data() ?? {});
-      const stats = statsDoc.data() ?? {};
-      const currentStatus = firstNonEmptyString(current.status).toUpperCase();
-      const amount = readNumber(current.amount);
-      const currentAvailableBalance = readNumber(stats.availableBalance);
-
-      // COMPLETED (paid) and FAILED (refunded) are final. Moving a paid withdrawal to
-      // FAILED refunded money that was already paid out; FAILED -> COMPLETED paid a
-      // refunded one.
-      if ((currentStatus === "COMPLETED" || currentStatus === "FAILED") && currentStatus !== status) {
-        throw new Error(`Withdrawal is already ${currentStatus} and cannot be changed to ${status}.`);
-      }
-      if (currentStatus === status && status !== "PROCESSING") {
-        return;
-      }
-
-      const update: Record<string, unknown> = {
-        status,
-        updatedAt: now
-      };
-
-      if (status === "PROCESSING") {
-        update.approvedAt = now;
-        transaction.set(statsRef, {
-          lastWithdrawalStatus: "PROCESSING",
-          lastUpdated: now
-        }, { merge: true });
-        if (userDoc.exists) {
-          transaction.set(userRef, {
-            referralStats: {
-              lastWithdrawalStatus: "PROCESSING",
-              lastUpdated: now
-            }
-          }, { merge: true });
-        }
-      }
-
-      if (status === "COMPLETED") {
-        update.processedAt = now;
-        update.paidAt = now;
-        if (transactionId) update.transactionId = transactionId;
-
-        const statsUpdate: Record<string, unknown> = {
-          lastPaidWithdrawalAt: now,
-          lastUpdated: now
-        };
-        if (current.balanceDeductedAtRequest === false && amount > 0) {
-          const nextBalance = Math.max(0, currentAvailableBalance - amount);
-          statsUpdate.availableBalance = nextBalance;
-          statsUpdate.withdrawnAmount = FieldValue.increment(amount);
-          statsUpdate.canWithdraw = nextBalance >= minWithdrawal;
-          update.balanceDeductedAtCompletion = true;
-          update.balanceBeforePayment = currentAvailableBalance;
-          update.balanceAfterPayment = nextBalance;
-        } else {
-          statsUpdate.canWithdraw = currentAvailableBalance >= minWithdrawal;
-        }
-        transaction.set(statsRef, statsUpdate, { merge: true });
-
-        if (userDoc.exists) {
-          transaction.set(userRef, {
-            referralStats: {
-              ...statsUpdate,
-              lastWithdrawalStatus: "COMPLETED"
-            }
-          }, { merge: true });
-        }
-      }
-
-      if (status === "FAILED") {
-        update.processedAt = now;
-        update.rejectedAt = now;
-        if (adminNote) update.adminNote = adminNote;
-        if (current.refundApplied !== true && currentStatus !== "FAILED" && amount > 0) {
-          update.refundApplied = true;
-          update.refundedAt = now;
-          update.balanceBeforeRefund = currentAvailableBalance;
-          update.balanceAfterRefund = currentAvailableBalance + amount;
-          const statsRefundUpdate = {
-            availableBalance: FieldValue.increment(amount),
-            withdrawnAmount: FieldValue.increment(-amount),
-            canWithdraw: currentAvailableBalance + amount >= minWithdrawal,
-            lastFailedWithdrawalAt: now,
-            lastUpdated: now
-          };
-          transaction.set(statsRef, statsRefundUpdate, { merge: true });
-
-          if (userDoc.exists) {
-            transaction.set(userRef, {
-              referralStats: {
-                ...statsRefundUpdate,
-                lastWithdrawalStatus: "FAILED"
-              }
-            }, { merge: true });
-          }
-        }
-      }
-
-      if (adminNote && status !== "FAILED") {
-        update.adminNote = adminNote;
-      }
-
-      transaction.set(withdrawalRef, update, { merge: true });
-      transaction.set(rootWithdrawalRef, update, { merge: true });
-      transaction.set(auditRef, {
-        eventType: `WITHDRAWAL_${status}`,
-        userId,
-        withdrawalId,
-        amount,
-        transactionId: transactionId || null,
-        adminNote: adminNote || null,
-        timestamp: now
+      return NextResponse.json({
+        uid,
+        name: who.get(uid) ?? "",
+        wallet: wallet.exists ? {
+          referralCode: wallet.get(Wallets.REFERRAL_CODE) ?? "",
+          balancePaise: wallet.get(Wallets.BALANCE_PAISE) ?? 0,
+          lifetimeEarnedPaise: wallet.get(Wallets.LIFETIME_EARNED_PAISE) ?? 0,
+          withdrawnPaise: wallet.get(Wallets.WITHDRAWN_PAISE) ?? 0,
+          successfulReferrals: wallet.get(Wallets.SUCCESSFUL_REFERRALS) ?? 0,
+          blocked: wallet.get(Wallets.BLOCKED) === true
+        } : null,
+        ledger: ledger.docs.map((d) => ({
+          id: d.id,
+          type: d.get(WalletLedger.TYPE),
+          amountPaise: d.get(WalletLedger.AMOUNT_PAISE),
+          balanceAfterPaise: d.get(WalletLedger.BALANCE_AFTER_PAISE),
+          createdAt: iso(d.get(WalletLedger.CREATED_AT))
+        })),
+        referredBy: own.exists ? { referrerUid: own.get(Referrals.REFERRER_UID), code: own.get(Referrals.CODE), status: own.get(Referrals.STATUS) } : null,
+        referrals: made.docs.map((d) => ({ refereeUid: d.id, status: d.get(Referrals.STATUS), createdAt: iso(d.get(Referrals.CREATED_AT)) })),
+        withdrawals: withdrawals.docs.map((d) => ({
+          id: d.id, amountPaise: d.get(Withdrawals.AMOUNT_PAISE), status: d.get(Withdrawals.STATUS), createdAt: iso(d.get(Withdrawals.CREATED_AT))
+        }))
       });
+    }
 
-      // Send in-app notification to user
-      const notifRef = db.collection("notifications").doc();
-      const notifTitle = status === "COMPLETED"
-        ? `₹${amount} Withdrawal Paid!`
-        : status === "PROCESSING"
-          ? "Withdrawal Approved"
-          : "Withdrawal Refunded";
-      const notifMessage = status === "COMPLETED"
-        ? `Your withdrawal of ₹${amount} has been paid successfully.${transactionId ? ` Ref: ${transactionId}` : ""}`
-        : status === "PROCESSING"
-          ? `Your withdrawal request of ₹${amount} has been approved and is being transferred.`
-          : `Your withdrawal of ₹${amount} failed.${adminNote ? ` Reason: ${adminNote}.` : ""} Amount has been refunded to your wallet.`;
-
-      transaction.set(notifRef, {
-        recipientId: userId,
-        title: notifTitle,
-        message: notifMessage,
-        type: `WITHDRAWAL_${status}`,
-        isRead: false,
-        createdAt: now
+    const after = params.get("after");
+    if (params.get("view") === "referrals") {
+      let query = db.collection(Referrals.COLLECTION).orderBy(Referrals.CREATED_AT, "desc");
+      if (after) {
+        const cursor = await db.collection(Referrals.COLLECTION).doc(after).get();
+        if (cursor.exists) query = query.startAfter(cursor);
+      }
+      const snap = await query.limit(PAGE).get();
+      const who = await names(snap.docs.flatMap((d) => [d.id, String(d.get(Referrals.REFERRER_UID) ?? "")]));
+      return NextResponse.json({
+        referrals: snap.docs.map((d) => ({
+          id: d.id,
+          referee: who.get(d.id) ?? d.id,
+          referrerUid: d.get(Referrals.REFERRER_UID),
+          referrer: who.get(String(d.get(Referrals.REFERRER_UID))) ?? d.get(Referrals.REFERRER_UID),
+          code: d.get(Referrals.CODE),
+          status: d.get(Referrals.STATUS),
+          fraudScore: d.get(Referrals.FRAUD_SCORE) ?? 0,
+          createdAt: iso(d.get(Referrals.CREATED_AT)),
+          completedAt: iso(d.get(Referrals.COMPLETED_AT))
+        })),
+        nextCursor: snap.size === PAGE ? snap.docs.at(-1)!.id : null
       });
+    }
+
+    const status = params.get("status");
+    let query = status
+      ? db.collection(Withdrawals.COLLECTION).where(Withdrawals.STATUS, "==", status).orderBy(Withdrawals.CREATED_AT, "desc")
+      : db.collection(Withdrawals.COLLECTION).orderBy(Withdrawals.CREATED_AT, "desc");
+    if (after) {
+      const cursor = await db.collection(Withdrawals.COLLECTION).doc(after).get();
+      if (cursor.exists) query = query.startAfter(cursor);
+    }
+    const snap = await query.limit(PAGE).get();
+    const who = await names(snap.docs.map((d) => String(d.get(Withdrawals.UID) ?? "")));
+    return NextResponse.json({
+      withdrawals: snap.docs.map((d) => ({
+        id: d.id,
+        uid: d.get(Withdrawals.UID),
+        user: who.get(String(d.get(Withdrawals.UID))) ?? d.get(Withdrawals.UID),
+        amountPaise: d.get(Withdrawals.AMOUNT_PAISE),
+        upiId: d.get(Withdrawals.UPI_ID),
+        status: d.get(Withdrawals.STATUS),
+        txnRef: d.get(Withdrawals.TXN_REF) ?? "",
+        failureReason: d.get(Withdrawals.FAILURE_REASON) ?? "",
+        createdAt: iso(d.get(Withdrawals.CREATED_AT)),
+        processedAt: iso(d.get(Withdrawals.PROCESSED_AT))
+      })),
+      nextCursor: snap.size === PAGE ? snap.docs.at(-1)!.id : null
     });
-
-    return NextResponse.json({ ok: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to update withdrawal.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to load referrals." }, { status: 500 });
   }
 }
+
+export const GET = cachedAdminGet(getUncached);

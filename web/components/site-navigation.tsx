@@ -5,14 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { primaryNav } from "@/lib/public-site";
+import { PLAY_STORE_URL, primaryNav } from "@/lib/public-site";
 
-import { useProductSession } from "./product/use-product-session";
 import { SiteIcon } from "./site-icon";
 
 export function SiteNavigation() {
   const pathname = usePathname();
-  const { user, loading, error } = useProductSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
 
@@ -48,21 +46,13 @@ export function SiteNavigation() {
               {link.label}
             </Link>
           ))}
-          <Link href="/app/employer/post-job" className="mobile-hiring-link" onClick={() => setMenuOpen(false)}>
+          <Link href={PLAY_STORE_URL} className="mobile-hiring-link" onClick={() => setMenuOpen(false)}>
             Post a job <SiteIcon name="arrow-up-right" />
           </Link>
         </nav>
         <div className="site-header-actions">
-          {user ? (
-            <Link href="/app" className="header-signin">My account</Link>
-          ) : loading ? (
-            <span className="header-signin" role="status">Loading account...</span>
-          ) : error ? (
-            <Link href="/app/auth?role=EMPLOYER" className="header-signin">Account unavailable</Link>
-          ) : (
-            <Link href="/app/auth?role=EMPLOYER" className="header-signin">Sign in</Link>
-          )}
-          <Link href="/app/employer/post-job" className="button header-hiring">
+          <Link href={PLAY_STORE_URL} className="header-signin">Get the app</Link>
+          <Link href={PLAY_STORE_URL} className="button header-hiring">
             Post a job <SiteIcon name="plus" />
           </Link>
           <button

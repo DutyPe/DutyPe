@@ -118,7 +118,7 @@ class AppConfigRepository @Inject constructor(
     }
 
     val referralConfig: StateFlow<ReferralConfig> = callbackFlow {
-        val ref = firestore.collection(com.example.dutype.firestore.FirestoreCollections.APP_CONFIG).document("referral")
+        val ref = firestore.collection(com.example.dutype.firestore.FirestoreSchema.AppConfig.COLLECTION).document("referral")
         trySend(ReferralConfig()) // seed defaults immediately
         val registration = ref.addSnapshotListener { snap, error ->
             if (error != null) {
@@ -159,7 +159,7 @@ class AppConfigRepository @Inject constructor(
     }.stateIn(scope, SharingStarted.WhileSubscribed(60_000), ReferralConfig())
 
     val appUpdateConfig: StateFlow<AppUpdateConfig> = callbackFlow {
-        val ref = firestore.collection(com.example.dutype.firestore.FirestoreCollections.APP_CONFIG).document("app_update")
+        val ref = firestore.collection(com.example.dutype.firestore.FirestoreSchema.AppConfig.COLLECTION).document("app_update")
         trySend(AppUpdateConfig())
         val registration = ref.addSnapshotListener { snap, error ->
             if (error != null) {
@@ -191,7 +191,7 @@ class AppConfigRepository @Inject constructor(
     }.stateIn(scope, SharingStarted.WhileSubscribed(60_000), AppUpdateConfig())
 
     val dynamicFeaturesConfig: StateFlow<DynamicFeaturesConfig> = callbackFlow {
-        val ref = firestore.collection(com.example.dutype.firestore.FirestoreCollections.APP_CONFIG).document("dynamic_features")
+        val ref = firestore.collection(com.example.dutype.firestore.FirestoreSchema.AppConfig.COLLECTION).document("dynamic_features")
         trySend(initialDynamicFeaturesConfig)
         val registration = ref.addSnapshotListener { snap, error ->
             if (error != null) {

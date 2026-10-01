@@ -1,17 +1,10 @@
 {
   "name": "dutype-scripts",
   "version": "1.0.0",
-  "description": "DutyPe utility scripts for seeding data",
-  "main": "seed-jobs.js",
+  "description": "DutyPe utility scripts (admin claims, public job scrapers)",
   "scripts": {
-    "seed": "node seed-jobs.js",
     "scrape:jobhai-public": "node scrape-jobhai-public-jobs.js",
-    "scrape:workindia-public": "node scrape-workindia-public-jobs.js",
-    "import:online-jobs": "node import-online-jobs.js",
-    "import:online-jobs:apply": "node import-online-jobs.js --apply",
-    "migrate:final-schema:dry": "node final-schema-cleanup.js --dry-run",
-    "migrate:final-schema": "node final-schema-cleanup.js",
-    "migrate:final-schema:purge": "node final-schema-cleanup.js --purge"
+    "scrape:workindia-public": "node scrape-workindia-public-jobs.js"
   },
   "dependencies": {
     "@google-cloud/firestore": "^8.3.0",

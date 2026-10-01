@@ -1,5 +1,8 @@
 ﻿package com.example.dutype.components
 
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
+import com.example.dutype.ui.theme.bd
 import com.dutype.app.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.EaseOutBounce
@@ -143,7 +146,7 @@ fun WelcomeCelebrationOverlay(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.45f)),
+                .background(Color.Black.bg().copy(alpha = 0.45f)),
             contentAlignment = Alignment.Center
         ) {
             // Confetti canvas
@@ -181,13 +184,13 @@ fun WelcomeCelebrationOverlay(
                     modifier = Modifier
                         .size(58.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFE8FFF1)),
+                        .background(Color(0xFFE8FFF1).bg()),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.CardGiftcard,
                         contentDescription = null,
-                        tint = Color(0xFF16A34A),
+                        tint = Color(0xFF16A34A).fg(),
                         modifier = Modifier.size(34.dp)
                     )
                 }
@@ -247,7 +250,7 @@ private fun ScratchRevealPanel(
             .fillMaxWidth()
             .height(126.dp)
             .clip(RoundedCornerShape(20.dp))
-            .border(1.dp, Color(0xFFBBF7D0), RoundedCornerShape(20.dp))
+            .border(1.dp, Color(0xFFBBF7D0).bd(), RoundedCornerShape(20.dp))
             .background(
                 Brush.linearGradient(
                     listOf(Color(0xFFEFFFF5), Color(0xFFD9FBE7), Color(0xFFFFFFFF))
@@ -267,7 +270,7 @@ private fun ScratchRevealPanel(
             Text(
                 text = rewardTitle,
                 style = MaterialTheme.typography.titleLarge.copy(
-                    color = Color(0xFF047857),
+                    color = Color(0xFF047857).fg(),
                     fontWeight = FontWeight.ExtraBold,
                     lineHeight = 25.sp
                 ),
@@ -277,7 +280,7 @@ private fun ScratchRevealPanel(
             Text(
                 text = stringResource(R.string.welcome_scratch_wallet_hint),
                 style = MaterialTheme.typography.labelLarge.copy(
-                    color = Color(0xFF0F172A),
+                    color = Color(0xFF0F172A).fg(),
                     fontWeight = FontWeight.Bold
                 ),
                 textAlign = TextAlign.Center
@@ -323,7 +326,7 @@ private fun ScratchRevealPanel(
                 Text(
                     text = stringResource(R.string.welcome_scratch_prompt),
                     style = MaterialTheme.typography.titleMedium.copy(
-                        color = Color(0xFF334155),
+                        color = Color(0xFF334155).fg(),
                         fontWeight = FontWeight.ExtraBold
                     ),
                     textAlign = TextAlign.Center

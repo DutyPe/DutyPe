@@ -16,8 +16,8 @@
     <!-- Platform splash is visually hidden so only the Compose app-icon splash is seen. -->
     <style name="Theme.DutyPe.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_blue</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/dutype_text_logo</item>
-        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="s">@drawable/dutype_text_logo</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_blank</item>
+        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="s">@drawable/splash_blank</item>
         <item name="windowSplashScreenIconBackgroundColor">@color/splash_blue</item>
         <item name="postSplashScreenTheme">@style/Theme.DutyPe</item>
         <item name="android:statusBarColor">@color/splash_blue</item>

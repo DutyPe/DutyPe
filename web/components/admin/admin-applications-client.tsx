@@ -4,12 +4,39 @@ import { useCallback, useEffect, useState } from "react";
 import { RefreshCw, Search, CheckCircle2, Clock, XCircle, Briefcase, FileText } from "lucide-react";
 
 import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
-import { type NormalizedApplication } from "@/lib/firebase/admin-normalizers";
+type NormalizedApplication = {
+  id: string;
+  workerId: string;
+  workerName: string;
+  workerPhone: string;
+  workerEmail: string;
+  jobTitle: string;
+  status: string;
+  appliedAt: unknown;
+};
 import { formatDate } from "@/lib/firebase/firestore-helpers";
 import { AdminTablePagination, paginateRows } from "./admin-table-pagination";
 
 export function AdminApplicationsClient() {
   const [applications, setApplications] = useState<NormalizedApplication[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const response = await adminApiFetch(`/api/admin/applications?after=${encodeURIComponent(nextCursor)}`, { cache: "no-store" });
+      const payload = (await response.json()) as { applications?: NormalizedApplication[]; nextCursor?: string | null; error?: string };
+      if (!response.ok) throw new Error(payload.error || "Failed to load more.");
+      setApplications((current) => [...current, ...(payload.applications ?? [])]);
+      setNextCursor(payload.nextCursor ?? null);
+    } catch (moreError) {
+      setError(moreError instanceof Error ? moreError.message : "Failed to load more.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,14 +55,14 @@ export function AdminApplicationsClient() {
     setError(null);
 
     try {
-      // Fetch up to 10,000 past and present applications
-      const response = await adminApiFetch("/api/admin/applications?limit=10000", {
+      // Newest 100; "Load more" pages further back.
+      const response = await adminApiFetch("/api/admin/applications", {
         cache: "no-store"
       });
 
       const payload = (await response.json()) as {
         applications?: NormalizedApplication[];
-        total?: number;
+        nextCursor?: string | null;
         error?: string;
       };
 
@@ -44,6 +71,7 @@ export function AdminApplicationsClient() {
       }
 
       setApplications(payload.applications ?? []);
+      setNextCursor(payload.nextCursor ?? null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load applications.");
     } finally {
@@ -131,11 +159,11 @@ export function AdminApplicationsClient() {
 
   const visibleStatuses = [
     "ALL",
-    ...new Set([...APPLICATION_STATUSES, ...applications.map((application) => application.status || "PENDING")])
+    ...new Set([...APPLICATION_STATUSES, ...applications.map((application) => application.status || "APPLIED")])
   ];
 
   const statusCounts = applications.reduce<Record<string, number>>((acc, application) => {
-    const status = application.status || "PENDING";
+    const status = application.status || "APPLIED";
     acc[status] = (acc[status] ?? 0) + 1;
     return acc;
   }, {});
@@ -275,11 +303,11 @@ export function AdminApplicationsClient() {
                 <td>
                   <div className="admin-status-cell">
                     <span className={`status-pill ${statusTone(application.status)}`}>
-                      {application.status || "PENDING"}
+                      {application.status || "APPLIED"}
                     </span>
                     <select
                       className="admin-inline-select"
-                      value={application.status || "PENDING"}
+                      value={application.status || "APPLIED"}
                       onChange={(event) => {
                         void handleStatusChange(application.id, event.target.value);
                       }}
@@ -318,34 +346,28 @@ export function AdminApplicationsClient() {
         onPageChange={setCurrentPage}
         onPageSizeChange={setPageSize}
       />
+      {nextCursor ? (
+        <div className="admin-toolbar">
+          <button type="button" className="button ghost" onClick={() => void loadMore()} disabled={loadingMore}>
+            {loadingMore ? "Loading…" : "Load older applications"}
+          </button>
+        </div>
+      ) : null}
     </>
   );
 }
 
-const APPLICATION_STATUSES = [
-  "PENDING",
-  "UNDER_REVIEW",
-  "SHORTLISTED",
-  "ACCEPTED",
-  "IN_PROGRESS",
-  "REJECTED",
-  "COMPLETED",
-  "WITHDRAWN"
-];
+const APPLICATION_STATUSES = ["APPLIED", "HIRED", "COMPLETED", "REJECTED", "WITHDRAWN"];
 
 function statusTone(status: string | undefined) {
   switch (status) {
-    case "ACCEPTED":
-    case "SHORTLISTED":
+    case "HIRED":
     case "COMPLETED":
       return "success";
     case "REJECTED":
     case "WITHDRAWN":
       return "danger";
-    case "UNDER_REVIEW":
-    case "IN_PROGRESS":
-      return "accent";
-    case "PENDING":
+    case "APPLIED":
       return "warning";
     default:
       return "neutral";

@@ -1,5 +1,8 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.content.Context
 import android.content.Intent
@@ -124,7 +127,7 @@ fun EmployerSupportScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(SupportBg)
+            .background(SupportBg.bg())
     ) {
         Column(
             modifier = Modifier
@@ -162,7 +165,7 @@ fun EmployerSupportScreen(
                     text = stringResource(R.string.no_matching_topics),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = SupportInk,
+                    color = SupportInk.fg(),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -215,7 +218,7 @@ private fun SupportBackRow(onBack: () -> Unit) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = stringResource(R.string.back),
-                tint = SupportInk,
+                tint = SupportInk.fg(),
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -232,15 +235,15 @@ private fun SupportSearchBar(
         modifier = Modifier
             .fillMaxWidth()
             .height(48.dp)
-            .background(Color.White, shape)
-            .border(1.dp, SupportBorder, shape)
+            .background(Color.White.bg(), shape)
+            .border(1.dp, SupportBorder.bd(), shape)
             .padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = Icons.Default.Search,
             contentDescription = null,
-            tint = SupportHint,
+            tint = SupportHint.fg(),
             modifier = Modifier.size(18.dp)
         )
         Spacer(modifier = Modifier.width(10.dp))
@@ -248,8 +251,8 @@ private fun SupportSearchBar(
             value = query,
             onValueChange = onQueryChange,
             singleLine = true,
-            textStyle = TextStyle(fontSize = 14.sp, color = SupportInk),
-            cursorBrush = SolidColor(SupportBlue),
+            textStyle = TextStyle(fontSize = 14.sp, color = SupportInk.fg()),
+            cursorBrush = SolidColor(SupportBlue.fg()),
             modifier = Modifier.weight(1f),
             decorationBox = { innerTextField ->
                 Box(contentAlignment = Alignment.CenterStart) {
@@ -257,7 +260,7 @@ private fun SupportSearchBar(
                         Text(
                             text = stringResource(R.string.search_help_articles),
                             fontSize = 14.sp,
-                            color = SupportHint
+                            color = SupportHint.fg()
                         )
                     }
                     innerTextField()
@@ -276,14 +279,14 @@ private fun SupportHeroCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SupportHeroBg, shape)
-            .border(1.dp, SupportHeroBorder, shape)
+            .background(SupportHeroBg.bg(), shape)
+            .border(1.dp, SupportHeroBorder.bd(), shape)
             .padding(24.dp)
     ) {
         Box(
             modifier = Modifier
                 .size(52.dp)
-                .background(SupportBlue, CircleShape),
+                .background(SupportBlue.bg(), CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -298,13 +301,13 @@ private fun SupportHeroCard(
             text = stringResource(R.string.employer_support_hero_title),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            color = SupportInk
+            color = SupportInk.fg()
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
             text = stringResource(R.string.employer_support_hero_subtitle),
             fontSize = 13.sp,
-            color = SupportMuted
+            color = SupportMuted.fg()
         )
         Spacer(modifier = Modifier.height(20.dp))
         SupportHeroButtons(onWhatsApp = onWhatsApp, onCall = onCall)
@@ -331,7 +334,7 @@ private fun SupportHeroButtons(
                 .height(56.dp),
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = SupportWhatsApp,
+                containerColor = SupportWhatsApp.bg(),
                 contentColor = Color.White
             ),
             elevation = noElevation,
@@ -350,10 +353,10 @@ private fun SupportHeroButtons(
                 .weight(1f)
                 .height(56.dp),
             shape = RoundedCornerShape(28.dp),
-            border = BorderStroke(1.5.dp, SupportInk),
+            border = BorderStroke(1.5.dp, SupportInk.bd()),
             colors = ButtonDefaults.outlinedButtonColors(
                 containerColor = Color.Transparent,
-                contentColor = SupportInk
+                contentColor = SupportInk.fg()
             ),
             elevation = noElevation,
             contentPadding = PaddingValues(horizontal = 8.dp)
@@ -361,7 +364,7 @@ private fun SupportHeroButtons(
             SupportButtonContent(
                 icon = Icons.Default.Phone,
                 label = stringResource(R.string.contact_helpline_title),
-                color = SupportInk,
+                color = SupportInk.fg(),
                 weight = FontWeight.SemiBold
             )
         }
@@ -401,8 +404,8 @@ private fun SupportAccordionCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White, shape)
-            .border(1.dp, SupportBorder, shape)
+            .background(Color.White.bg(), shape)
+            .border(1.dp, SupportBorder.bd(), shape)
             .clip(shape)
     ) {
         items.forEachIndexed { index, item ->
@@ -411,7 +414,7 @@ private fun SupportAccordionCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(1.dp)
-                        .background(SupportDivider)
+                        .background(SupportDivider.bg())
                 )
             }
             SupportAccordionRow(
@@ -441,13 +444,13 @@ private fun SupportAccordionRow(
                 text = item.title,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                color = SupportTitleInk,
+                color = SupportTitleInk.fg(),
                 modifier = Modifier.weight(1f)
             )
             Icon(
                 imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = SupportMuted,
+                tint = SupportMuted.fg(),
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -464,14 +467,14 @@ private fun SupportAnswerBox(text: String) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
-            .background(SupportBg, shape)
+            .background(SupportBg.bg(), shape)
             .padding(14.dp)
     ) {
         Text(
             text = text,
             fontSize = 13.sp,
             lineHeight = 20.sp,
-            color = SupportMuted
+            color = SupportMuted.fg()
         )
     }
 }
@@ -489,14 +492,14 @@ private fun SupportFooter(onEmail: () -> Unit) {
         Icon(
             imageVector = Icons.Default.Email,
             contentDescription = null,
-            tint = SupportMuted,
+            tint = SupportMuted.fg(),
             modifier = Modifier.size(15.dp)
         )
         Spacer(modifier = Modifier.width(6.dp))
         Text(
             text = SUPPORT_EMAIL,
             fontSize = 13.sp,
-            color = SupportMuted
+            color = SupportMuted.fg()
         )
     }
 }

@@ -1,5 +1,10 @@
 package com.example.dutype.worker.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
+import com.example.dutype.models.formatPaise
+import com.example.dutype.firestore.FirestoreSchema.Values
 import com.dutype.app.R
 import android.widget.Toast
 import android.annotation.SuppressLint
@@ -78,20 +83,24 @@ fun WorkerReferEarnScreen(
     val reviewTriggerService = rememberInAppReviewTriggerService()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val referralConfig by viewModel.referralConfig.collectAsStateWithLifecycle()
-    val referrerInfo by viewModel.referrerInfo.collectAsStateWithLifecycle()
-    
+    val joinBonusPaise = uiState.ledger
+        .filter { it.type == Values.LedgerType.SIGNUP_BONUS || it.type == Values.LedgerType.WELCOME_BONUS }
+        .sumOf { it.amountPaise }
+    val successful = uiState.wallet?.successfulReferrals ?: 0
+    val nextMilestone = referralConfig.milestones.keys.sorted().firstOrNull { it > successful } ?: 0
+
     var isVisible by remember { mutableStateOf(false) }
     var showCopySuccess by remember { mutableStateOf(false) }
     var showWithdrawDialog by remember { mutableStateOf(false) }
     var isCheckingProfileStatus by remember { mutableStateOf(true) }
     var isProfileCompleted by remember { mutableStateOf(false) }
-    
+
     val context = LocalContext.current
     val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
     val coroutineScope = rememberCoroutineScope()
 
     // Load data on screen launch
-    val screenBg = Color.White
+    val screenBg = Color.White.bg()
     LaunchedEffect(Unit) {
         onStatusBarColorChange(screenBg)
 
@@ -127,7 +136,7 @@ fun WorkerReferEarnScreen(
         showWithdrawDialog = false
         Toast.makeText(
             context,
-            "Withdrawal request of \u20B9${uiState.lastWithdrawalAmount.toInt()} sent. We'll transfer it to your UPI soon.",
+            context.getString(R.string.refer_withdrawal_sent_toast, uiState.lastWithdrawalPaise / 100),
             Toast.LENGTH_LONG
         ).show()
         val activity = context as? Activity
@@ -140,19 +149,19 @@ fun WorkerReferEarnScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color.White.bg())
             .statusBarsPadding()
     ) {
         ReferText(
             text = stringResource(R.string.refer_earn),
-            color = Color(0xFF0F0F0F),
+            color = Color(0xFF0F0F0F).fg(),
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 16.dp)
         )
-        
+
         when {
             uiState.isLoading -> {
                 Box(
@@ -210,7 +219,7 @@ fun WorkerReferEarnScreen(
                                     Icon(
                                         Icons.Default.Info,
                                         contentDescription = null,
-                                        tint = WorkerColors.Primary,
+                                        tint = WorkerColors.Primary.fg(),
                                         modifier = Modifier.size(24.dp)
                                     )
                                     Spacer(modifier = Modifier.width(12.dp))
@@ -235,7 +244,7 @@ fun WorkerReferEarnScreen(
                                     ) {
                                         Text(
                                             stringResource(R.string.refer_complete_profile_button),
-                                            color = WorkerColors.Primary,
+                                            color = WorkerColors.Primary.fg(),
                                             fontWeight = FontWeight.SemiBold
                                         )
                                     }
@@ -250,27 +259,26 @@ fun WorkerReferEarnScreen(
                             visible = isVisible,
                             enter = fadeIn(tween(300)) + slideInVertically(tween(300))
                         ) {
-                            val topStats = uiState.stats
-                            ReferEarnTopSections(
-                                referralCode = topStats?.referralCode ?: "",
+                                                        ReferEarnTopSections(
+                                referralCode = uiState.wallet?.referralCode.orEmpty(),
                                 rewardAmount = referralConfig.rewardPerReferral.toInt(),
                                 onCopyClick = {
-                                    if (uiState.stats?.referralCode.isNullOrBlank()) {
-                                        Toast.makeText(context, "Your referral code is being created. Please try again in a moment.", Toast.LENGTH_SHORT).show()
+                                    if (uiState.wallet?.referralCode.isNullOrBlank()) {
+                                        Toast.makeText(context, context.getString(R.string.refer_code_creating_toast), Toast.LENGTH_SHORT).show()
                                         viewModel.loadReferralData()
                                         return@ReferEarnTopSections
                                     }
                                     copyTextToClipboard(
                                         context = context,
                                         label = context.getString(R.string.refer_code_clipboard_label),
-                                        text = uiState.stats?.referralCode.orEmpty()
+                                        text = uiState.wallet?.referralCode.orEmpty()
                                     )
                                     showCopySuccess = true
                                 },
                                 onShareClick = {
-                                    val code = uiState.stats?.referralCode ?: ""
+                                    val code = uiState.wallet?.referralCode.orEmpty()
                                     if (code.isBlank()) {
-                                        Toast.makeText(context, "Your referral code is being created. Please try again in a moment.", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.refer_code_creating_toast), Toast.LENGTH_SHORT).show()
                                         viewModel.loadReferralData()
                                         return@ReferEarnTopSections
                                     }
@@ -291,14 +299,14 @@ fun WorkerReferEarnScreen(
                         }
                     }
 
-                    
+
                     // Who referred you
                     item {
                         AnimatedVisibility(
                             visible = isVisible,
                             enter = fadeIn(tween(450, 100)) + slideInVertically(tween(450, 100))
                         ) {
-                            ReferrerInfoCard(referrerInfo = referrerInfo)
+                            ReferrerInfoCard(referrer = uiState.myReferrer)
                         }
                     }
 
@@ -309,21 +317,19 @@ fun WorkerReferEarnScreen(
                             enter = fadeIn(tween(500, 100)) + slideInVertically(tween(500, 100))
                         ) {
                             StatsGrid(
-                                totalReferrals = uiState.stats?.totalReferrals ?: 0,
-                                successfulReferrals = uiState.stats?.successfulReferrals ?: 0,
-                                totalEarnings = uiState.stats?.totalEarnings ?: 0.0,
-                                availableBalance = uiState.stats?.availableBalance ?: 0.0,
-                                signupBonusReceived = uiState.stats?.signupBonusReceived == true || uiState.stats?.welcomeBonusReceived == true,
-                                signupBonusAmount = uiState.stats?.signupBonusAmount
-                                    ?.takeIf { it > 0.0 }
-                                    ?: (uiState.stats?.welcomeBonusAmount ?: 0.0)
+                                totalReferrals = uiState.referralHistory.size,
+                                successfulReferrals = uiState.wallet?.successfulReferrals ?: 0,
+                                totalEarnings = (uiState.wallet?.lifetimeEarnedPaise ?: 0L) / 100.0,
+                                availableBalance = (uiState.wallet?.balancePaise ?: 0L) / 100.0,
+                                signupBonusReceived = joinBonusPaise > 0L,
+                                signupBonusAmount = joinBonusPaise / 100.0
                             )
                         }
                     }
-                    
+
                     // Withdraw Button � always visible once data is loaded
                     item {
-                        val balance = uiState.stats?.availableBalance ?: 0.0
+                        val balance = (uiState.wallet?.balancePaise ?: 0L) / 100.0
                         val minWithdrawal = referralConfig.minWithdrawal
                         AnimatedVisibility(
                             visible = isVisible,
@@ -368,16 +374,9 @@ fun WorkerReferEarnScreen(
                             enter = fadeIn(tween(600, 200)) + slideInVertically(tween(600, 200))
                         ) {
                             MilestoneProgressCard(
-                                successfulReferrals = uiState.stats?.successfulReferrals ?: 0,
-                                nextMilestone = uiState.stats?.let { stats ->
-                                    referralConfig.milestones.keys.sorted()
-                                        .firstOrNull { it > stats.successfulReferrals } ?: 0
-                                } ?: 0,
-                                milestoneBonus = uiState.stats?.let { stats ->
-                                    val next = referralConfig.milestones.keys.sorted()
-                                        .firstOrNull { it > stats.successfulReferrals } ?: 0
-                                    referralConfig.milestones[next] ?: 0.0
-                                } ?: 0.0
+                                successfulReferrals = successful,
+                                nextMilestone = nextMilestone,
+                                milestoneBonus = referralConfig.milestones[nextMilestone] ?: 0.0
                             )
                         }
                     }
@@ -412,7 +411,7 @@ fun WorkerReferEarnScreen(
                         }
                     }
 
-                    
+
                     item { Spacer(modifier = Modifier.height(24.dp)) }
                 }
             }
@@ -425,7 +424,7 @@ fun WorkerReferEarnScreen(
             delay(2000)
             showCopySuccess = false
         }
-        
+
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.BottomCenter
@@ -458,12 +457,12 @@ fun WorkerReferEarnScreen(
             }
         }
     }
-    
+
     // Withdraw Dialog
     if (showWithdrawDialog) {
         WithdrawDialog(
             // Show what will actually be requested (capped at the daily maximum).
-            availableBalance = minOf(uiState.stats?.availableBalance ?: 0.0, referralConfig.maxWithdrawalPerDay),
+            availableBalance = minOf((uiState.wallet?.balancePaise ?: 0L) / 100.0, referralConfig.maxWithdrawalPerDay),
             minWithdrawal = referralConfig.minWithdrawal,
             isProcessing = uiState.isProcessingWithdrawal,
             serverError = uiState.withdrawalError,
@@ -524,10 +523,10 @@ private fun ReferEarnTopSections(
     onCopyClick: () -> Unit,
     onShareClick: () -> Unit
 ) {
-    val ink = Color(0xFF0F0F0F)
-    val green = Color(0xFF10B981)
-    val slate = Color(0xFF64748B)
-    val mute = Color(0xFF94A3B8)
+    val ink = Color(0xFF0F0F0F).fg()
+    val green = Color(0xFF10B981).fg()
+    val slate = Color(0xFF64748B).fg()
+    val mute = Color(0xFF94A3B8).fg()
 
     Column(modifier = Modifier.fillMaxWidth()) {
         // Hero card
@@ -535,8 +534,8 @@ private fun ReferEarnTopSections(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
-                .background(Color(0xFFF0FDF4))
-                .border(1.dp, Color(0xFFA7F3D0), RoundedCornerShape(24.dp))
+                .background(Color(0xFFF0FDF4).bg())
+                .border(1.dp, Color(0xFFA7F3D0).bd(), RoundedCornerShape(24.dp))
                 .padding(20.dp)
         ) {
             Icon(
@@ -597,7 +596,7 @@ private fun ReferEarnTopSections(
             Spacer(Modifier.height(6.dp))
             SelectionContainer {
                 ReferText(
-                    text = referralCode.ifBlank { "Getting your code…" },
+                    text = referralCode.ifBlank { stringResource(R.string.refer_getting_code) },
                     color = if (referralCode.isBlank()) mute else ink,
                     fontSize = if (referralCode.isBlank()) 16.sp else 28.sp,
                     fontWeight = FontWeight.Bold,
@@ -640,7 +639,7 @@ private fun ReferEarnTopSections(
                         .weight(1f)
                         .height(44.dp)
                         .clip(RoundedCornerShape(22.dp))
-                        .background(Color(0xFF25D366))
+                        .background(Color(0xFF25D366).bg())
                         .clickable(onClick = onShareClick),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
@@ -733,7 +732,7 @@ private fun StatsGrid(
                 )
             )
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -747,11 +746,11 @@ private fun StatsGrid(
                     Text(successfulReferrals.toString(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary))
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(16.dp))
             HorizontalDivider(color = WorkerColors.Border)
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -804,7 +803,7 @@ private fun WithdrawCard(availableBalance: Double, minWithdrawal: Double, onWith
                         style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary)
                     )
                     Text(
-                        text = "Rs.${String.format("%.0f", availableBalance)}",
+                        text = stringResource(R.string.rupees_amount, String.format(Locale.getDefault(), "%.0f", availableBalance)),
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.Bold,
                             color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
@@ -843,7 +842,7 @@ private fun WithdrawCard(availableBalance: Double, minWithdrawal: Double, onWith
 @Composable
 private fun MilestoneProgressCard(successfulReferrals: Int, nextMilestone: Int, milestoneBonus: Double) {
     val progress = if (nextMilestone > 0) successfulReferrals.toFloat() / nextMilestone.toFloat() else 0f
-    
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -949,8 +948,8 @@ private fun ReferAccordionCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Color.White, shape)
-            .border(1.dp, Color(0xFFE2E8F0), shape)
+            .background(Color.White.bg(), shape)
+            .border(1.dp, Color(0xFFE2E8F0).bd(), shape)
     ) {
         Row(
             modifier = Modifier
@@ -964,13 +963,13 @@ private fun ReferAccordionCard(
                 text = title,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF0F0F0F),
+                color = Color(0xFF0F0F0F).fg(),
                 modifier = Modifier.weight(1f)
             )
             Icon(
                 imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = Color(0xFF64748B),
+                tint = Color(0xFF64748B).fg(),
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -1027,7 +1026,7 @@ private fun ReferralHistorySection(referralHistory: List<Referral>) {
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
             )
             Spacer(Modifier.height(16.dp))
-            
+
             if (referralHistory.isEmpty()) {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
@@ -1059,30 +1058,10 @@ private fun ReferralHistoryItem(referral: Referral) {
         java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
             .format(java.util.Date(referral.createdAt))
     }
-    val rewardBreakdown = remember(
-        referral.status,
-        referral.profileCompleted,
-        referral.rewardAmount,
-        referral.bonusAmount,
-        referral.referredUserReward
-    ) {
-        if (referral.status != ReferralStatus.COMPLETED) {
-            if (referral.status == ReferralStatus.PENDING && !referral.profileCompleted) {
-                context.getString(R.string.refer_status_profile_pending)
-            } else {
-                ""
-            }
-        } else {
-            buildList {
-                add(context.getString(R.string.refer_you_earned, String.format("%.0f", referral.rewardAmount)))
-                if (referral.bonusAmount > 0) {
-                    add(context.getString(R.string.refer_milestone_earned, String.format("%.0f", referral.bonusAmount)))
-                }
-                if (referral.referredUserReward > 0) {
-                    add(context.getString(R.string.refer_friend_bonus_earned, String.format("%.0f", referral.referredUserReward)))
-                }
-            }.joinToString(" | ")
-        }
+    val rewardBreakdown = when (referral.status) {
+        ReferralStatus.PENDING -> context.getString(R.string.refer_status_profile_pending)
+        ReferralStatus.COMPLETED -> context.getString(R.string.refer_you_earned, (referral.rewardPaise / 100).toString())
+        else -> ""
     }
 
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -1103,7 +1082,7 @@ private fun ReferralHistoryItem(referral: Referral) {
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                referral.referredUserName.ifBlank { context.getString(R.string.refer_default_user_name) },
+                context.getString(R.string.refer_default_user_name),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.Medium,
                     color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
@@ -1115,7 +1094,7 @@ private fun ReferralHistoryItem(referral: Referral) {
                 Text(
                     text = rewardBreakdown,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = if (referral.status == ReferralStatus.PENDING && !referral.profileCompleted)
+                        color = if (referral.status == ReferralStatus.PENDING)
                             WorkerColors.Warning
                         else
                             WorkerColors.TextSecondary
@@ -1126,7 +1105,7 @@ private fun ReferralHistoryItem(referral: Referral) {
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 when (referral.status) {
-                    ReferralStatus.COMPLETED -> "Rs.${String.format("%.0f", referral.getTotalReferrerReward())}"
+                    ReferralStatus.COMPLETED -> formatPaise(referral.rewardPaise)
                     ReferralStatus.PENDING -> context.getString(R.string.refer_status_pending)
                     ReferralStatus.EXPIRED -> context.getString(R.string.refer_status_expired)
                     else -> context.getString(R.string.refer_status_cancelled)
@@ -1196,7 +1175,7 @@ private fun WithdrawalHistoryItem(withdrawal: WithdrawalRequest) {
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Rs.${String.format("%.0f", withdrawal.amount)}",
+                text = formatPaise(withdrawal.amountPaise),
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
             )
             Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary))
@@ -1204,17 +1183,23 @@ private fun WithdrawalHistoryItem(withdrawal: WithdrawalRequest) {
         val statusColor = when (withdrawal.status) {
             WithdrawalStatus.COMPLETED -> Color(0xFF10B981)
             WithdrawalStatus.PROCESSING -> Color(0xFF3B82F6)
-            WithdrawalStatus.FAILED, WithdrawalStatus.CANCELLED -> Color(0xFFEF4444)
+            WithdrawalStatus.FAILED -> Color(0xFFEF4444)
             WithdrawalStatus.PENDING -> Color(0xFFF59E0B)
+        }
+        val statusText = when (withdrawal.status) {
+            WithdrawalStatus.COMPLETED -> stringResource(R.string.status_completed)
+            WithdrawalStatus.PROCESSING -> stringResource(R.string.status_processing)
+            WithdrawalStatus.FAILED -> stringResource(R.string.status_failed)
+            WithdrawalStatus.PENDING -> stringResource(R.string.status_pending)
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = withdrawal.status.name.lowercase().replaceFirstChar { char -> char.titlecase(java.util.Locale.getDefault()) },
+                text = statusText,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = statusColor)
             )
-            if (!withdrawal.transactionId.isNullOrBlank()) {
+            if (withdrawal.txnRef.isNotBlank()) {
                 Text(
-                    text = "Ref: ${withdrawal.transactionId}",
+                    text = stringResource(R.string.refer_txn_ref_format, withdrawal.txnRef),
                     style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary)
                 )
             }
@@ -1223,10 +1208,8 @@ private fun WithdrawalHistoryItem(withdrawal: WithdrawalRequest) {
 }
 
 @Composable
-private fun ReferrerInfoCard(referrerInfo: ReferrerInfo) {
-    if (referrerInfo.referredByCode.isBlank() && referrerInfo.referredByUserId.isBlank()) {
-        return
-    }
+private fun ReferrerInfoCard(referrer: Referral?) {
+    if (referrer == null || referrer.code.isBlank()) return
 
     Card(
         modifier = Modifier
@@ -1243,13 +1226,13 @@ private fun ReferrerInfoCard(referrerInfo: ReferrerInfo) {
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = referrerInfo.referrerName.ifBlank { stringResource(R.string.referred_by_unknown) },
+                text = stringResource(R.string.referred_by_unknown),
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
             )
-            if (referrerInfo.referredByCode.isNotBlank()) {
+            run {
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Code: ${referrerInfo.referredByCode}",
+                    text = stringResource(R.string.refer_code_colon_format, referrer.code),
                     style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary)
                 )
             }
@@ -1269,7 +1252,7 @@ private fun WithdrawDialog(
     val context = LocalContext.current
     var upiId by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-    
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.withdraw_earnings), fontWeight = FontWeight.Bold) },
@@ -1342,270 +1325,3 @@ data class WorkerReferralItem(
 // V2.0 PROFESSIONAL FEATURES
 // ============================================
 
-@SuppressLint("DefaultLocale")
-@Composable
-private fun AnalyticsDashboardCard(analytics: ReferralAnalytics) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.AutoMirrored.Filled.TrendingUp,
-                    contentDescription = null,
-                    tint = WorkerColors.Success,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.performance_analytics),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                    )
-                )
-            }
-            
-            Spacer(Modifier.height(16.dp))
-            
-            // Conversion Rate
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(stringResource(R.string.conversion_rate), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
-                    Text(
-                        "${String.format("%.1f", analytics.conversionRate)}%",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = WorkerColors.Success
-                        )
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(stringResource(R.string.total_clicks), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
-                    Text(
-                        analytics.totalClicks.toString(),
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                        )
-                    )
-                }
-            }
-            
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider(color = WorkerColors.Border)
-            Spacer(Modifier.height(16.dp))
-            
-            // Rankings
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column {
-                    Text(stringResource(R.string.your_rank), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
-                    Text(
-                        "#${analytics.rankOverall}",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                        )
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(stringResource(R.string.top_percentile), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
-                    Text(
-                        "Top ${analytics.percentile}%",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = WorkerColors.Warning
-                        )
-                    )
-                }
-            }
-
-            if (analytics.projectedMonthlyEarnings > 0) {
-                Spacer(Modifier.height(16.dp))
-                HorizontalDivider(color = WorkerColors.Border)
-                Spacer(Modifier.height(16.dp))
-                
-                // Projected Earnings
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(stringResource(R.string.projected_monthly), style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary))
-                        Text(
-                        "Rs.${analytics.projectedMonthlyEarnings}",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = WorkerColors.Success
-                            )
-                        )
-                    }
-                    Icon(
-                        Icons.AutoMirrored.Filled.TrendingUp,
-                        contentDescription = null,
-                        tint = WorkerColors.Success,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    }
-                }
-            }
-        }
-    }
-
-@Composable
-private fun SuccessStoriesCard(stories: List<ReferralSuccessStory>) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.WarningLight),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.EmojiEvents,
-                    contentDescription = null,
-                    tint = WorkerColors.Warning,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.top_performers),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = WorkerColors.Warning
-                    )
-                )
-            }
-            
-            Spacer(Modifier.height(12.dp))
-            
-            stories.take(3).forEach { story ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.Star,
-                        contentDescription = null,
-                        tint = WorkerColors.Warning,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        stringResource(R.string.refer_performer_from_city, story.userName, story.city),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Medium,
-                            color = WorkerColors.Warning
-                        ),
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        "Rs.${story.totalEarnings.toInt()}",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = WorkerColors.Warning
-                        )
-                    )
-                }
-            }
-            
-            if (stories.size > 3) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    stringResource(R.string.refer_more_top_performers, stories.size - 3),
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFFA16207),
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                    )
-                )
-            }
-        }
-    }
-}
-
-
-@Composable
-private fun LegalDisclaimerCard() {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.WarningLight),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.Info,
-                    contentDescription = null,
-                    tint = WorkerColors.Warning,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.auto_important_information),
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = WorkerColors.Warning
-                    )
-                )
-            }
-            
-            Spacer(Modifier.height(12.dp))
-            
-            Text(
-                text = stringResource(R.string.refer_legal_not_pyramid),
-                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.Warning),
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
-            Text(
-                text = stringResource(R.string.refer_legal_taxable),
-                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.Warning),
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
-            Text(
-                text = stringResource(R.string.refer_legal_kyc),
-                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.Warning),
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
-            Text(
-                text = stringResource(R.string.refer_legal_pan),
-                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.Warning),
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
-            Text(
-                text = stringResource(R.string.refer_legal_fraud),
-                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.Warning),
-                modifier = Modifier.padding(vertical = 4.dp)
-            )
-            
-            Spacer(Modifier.height(8.dp))
-            
-            Text(
-                text = stringResource(R.string.terms_rbi_consent),
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = Color(0xFFA16207),
-                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                )
-            )
-        }
-    }
-}

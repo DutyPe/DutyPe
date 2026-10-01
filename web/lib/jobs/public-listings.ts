@@ -1,6 +1,6 @@
 import { readTimestamp } from "@/lib/firebase/firestore-helpers";
 import { jobDirectoryCities } from "@/lib/public-site";
-import { distanceBetweenKm, hasValidCoordinates } from "@/lib/product/location";
+import { distanceBetweenKm, hasValidCoordinates } from "@/lib/geo/distance";
 
 export type JobRecord = { id: string; data: Record<string, unknown>; cursor?: string };
 

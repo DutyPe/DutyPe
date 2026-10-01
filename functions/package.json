@@ -5,14 +5,15 @@
     "lint": "eslint --ext .js,.ts .",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test:security": "node --test --test-concurrency=1 ../scripts/android-firestore-rules.test.cjs ../scripts/android-backend-security.test.cjs ../scripts/android-push-contract.test.cjs",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "gcp-build": "npm install && npm run build"
+    "gcp-build": "npm install && npm run build",
+    "test": "npx tsx --test test/*.test.ts",
+    "test:integration": "cd .. && npx firebase emulators:exec --only firestore --project demo-dutype \"cd functions && npx tsx --test --test-concurrency=1 test/integration/*.test.ts\""
   },
   "engines": {
     "node": "20"

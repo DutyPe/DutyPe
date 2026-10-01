@@ -15,23 +15,23 @@ import javax.inject.Singleton
  */
 @Singleton
 class ApplicationStateManager @Inject constructor() {
-    
+
     // Applied jobs tracking
     private val _appliedJobIds = MutableStateFlow<Set<String>>(emptySet())
     val appliedJobIds: StateFlow<Set<String>> = _appliedJobIds.asStateFlow()
-    
+
     // Application details tracking
     private val _applications = MutableStateFlow<List<JobApplication>>(emptyList())
     val applications: StateFlow<List<JobApplication>> = _applications.asStateFlow()
-    
+
     // Application status tracking
     private val _applicationStatuses = MutableStateFlow<Map<String, ApplicationStatus>>(emptyMap())
     val applicationStatuses: StateFlow<Map<String, ApplicationStatus>> = _applicationStatuses.asStateFlow()
-    
+
     // Refresh triggers
     private val _refreshTrigger = MutableStateFlow(0)
     val refreshTrigger: StateFlow<Int> = _refreshTrigger.asStateFlow()
-    
+
     /**
      * Add applied job
      */
@@ -39,7 +39,7 @@ class ApplicationStateManager @Inject constructor() {
         _appliedJobIds.update { it + jobId }
         triggerRefresh()
     }
-    
+
     /**
      * Remove applied job
      */
@@ -47,7 +47,7 @@ class ApplicationStateManager @Inject constructor() {
         _appliedJobIds.update { it - jobId }
         triggerRefresh()
     }
-    
+
     /**
      * Set applied jobs
      */
@@ -55,54 +55,54 @@ class ApplicationStateManager @Inject constructor() {
         _appliedJobIds.value = jobIds
         triggerRefresh()
     }
-    
+
     /**
      * Check if job is applied
      */
     fun isJobApplied(jobId: String): Boolean {
         return _appliedJobIds.value.contains(jobId)
     }
-    
+
     /**
      * Update applications list
      */
     fun updateApplications(applications: List<JobApplication>) {
         _applications.value = applications
-        
-        // Update applied job IDs using jobId (exclude rejected)
+
+        // Jobs the worker is still in (rejected / withdrawn ones can be applied to again)
         val appliedIds = applications
-            .filter { it.status != ApplicationStatus.REJECTED }
+            .filter { it.status != ApplicationStatus.REJECTED && it.status != ApplicationStatus.WITHDRAWN }
             .map { it.jobId }
             .toSet()
         _appliedJobIds.value = appliedIds
-        
+
         // Update application statuses keyed by jobId
         val statusMap = applications.associate { it.jobId to it.status }
         _applicationStatuses.value = statusMap
-        
+
         triggerRefresh()
     }
-    
+
     /**
      * Get application by job ID
      */
     fun getApplicationByJobId(jobId: String): JobApplication? {
         return _applications.value.find { it.jobId == jobId }
     }
-    
+
     /**
      * Get application status by job ID
      */
     fun getApplicationStatus(jobId: String): ApplicationStatus? {
         return _applicationStatuses.value[jobId]
     }
-    
+
     /**
      * Update application status
      */
     fun updateApplicationStatus(jobId: String, status: ApplicationStatus) {
         _applicationStatuses.update { it + (jobId to status) }
-        
+
         // Update the application in the list
         _applications.update { applications ->
             applications.map { app ->
@@ -113,10 +113,10 @@ class ApplicationStateManager @Inject constructor() {
                 }
             }
         }
-        
+
         triggerRefresh()
     }
-    
+
     /**
      * Clear all data
      */
@@ -126,7 +126,7 @@ class ApplicationStateManager @Inject constructor() {
         _applicationStatuses.value = emptyMap()
         triggerRefresh()
     }
-    
+
     /**
      * Trigger refresh
      */

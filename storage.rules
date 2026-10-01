@@ -1,9 +1,6 @@
 rules_version = '2';
 // ──────────────────────────────────────────────────────────────────────────
 // DutyPe Storage Security Rules — owner-scoped with size + content-type caps.
-// PII resumes/cover letters are NOT readable by arbitrary signed-in users.
-// Employers obtain short-lived signed URLs through a CF that validates an
-// existing application between employer and worker.
 // ──────────────────────────────────────────────────────────────────────────
 service firebase.storage {
   match /b/{bucket}/o {
@@ -12,8 +9,8 @@ service firebase.storage {
       return request.auth != null && (
         (request.auth.token.get('admin', false) == true) ||
         (request.auth.token.get('role', '') == 'ADMIN') ||
-        (request.auth.token.get('activeRole', '') == 'ADMIN') ||
-        (request.auth.token.get('email', '') is string &&
+        (request.auth.token.get('email_verified', false) == true &&
+          request.auth.token.get('email', '') is string &&
           (
             request.auth.token.email.lower().matches('.*@dutype\\.com$') ||
             request.auth.token.email.lower() in [
@@ -49,32 +46,10 @@ service firebase.storage {
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Cover letters — owner-only direct access. Employers must use the
-    // `getCoverLetterSignedUrl` callable which validates an active application.
-    // 10 MB cap, PDF only.
-    match /cover_letters/{userId}/{allPaths=**} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow write: if request.auth != null &&
-        request.auth.uid == userId &&
-        request.resource.size < 10 * 1024 * 1024 &&
-        request.resource.contentType == 'application/pdf';
-      allow delete: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Audio intros — public read (15-sec voice intro played by prospective employers), owner-only write.
-    // 2 MB cap for audio files (M4A/AAC).
-    match /audio_intros/{userId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null &&
-        request.auth.uid == userId &&
-        request.resource.size < 2 * 1024 * 1024;
-      allow delete: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Active payment QR codes — public read (workers/employers scan to pay), auth write/delete.
+    // Payment QR codes shown on the plans screen — public read, admin-only write.
     match /active_qrs/{allPaths=**} {
       allow read: if true;
-      allow write, delete: if request.auth != null;
+      allow write, delete: if isAdmin();
     }
 
     // Dynamic configuration assets (banners, lottie) — public read, admin-only write.

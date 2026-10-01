@@ -2,104 +2,112 @@ package com.example.dutype.models
 
 import androidx.annotation.Keep
 import androidx.compose.runtime.Immutable
+import com.example.dutype.firestore.FirestoreSchema.EmployerProfiles.Subscription
+import com.example.dutype.firestore.FirestoreSchema.PaymentQrCodes
+import com.example.dutype.utils.epochMillis
 
+/** `employer_profiles/{uid}.subscription` (server-written). */
 @Keep
 @Immutable
 data class EmployerSubscription(
-    val status: String = "NONE", // NONE, TRIAL, ACTIVE
     val planId: String = "",
-    val startDate: Long = 0L,
-    val expiryDate: Long = 0L,
+    val status: String = STATUS_NONE,
+    val startAt: Long = 0L,
+    val expiresAt: Long = 0L,
     val normalCredits: Int = 0,
     val instantCredits: Int = 0,
-    val trialJobsUsed: Int = 0,
-    val trialInstantJobsUsed: Int = 0
+    /** The plan includes DutyPe AI. */
+    val ai: Boolean = false,
+    val aiPerDay: Int = 0
 ) {
-    val isActive: Boolean get() = status == "ACTIVE" || status == "TRIAL"
+    val isActive: Boolean get() = status == STATUS_ACTIVE && (expiresAt == 0L || expiresAt > System.currentTimeMillis())
+
+    /** DutyPe AI included right now (an active AI plan, or the launch campaign). */
+    val hasAi: Boolean get() = isActive && (ai || planId == PLAN_UNLIMITED_CAMPAIGN)
+
+    /** Referral / launch campaign: unlimited job posts while active. */
+    val isUnlimitedCampaign: Boolean get() = isActive && planId == PLAN_UNLIMITED_CAMPAIGN
 
     companion object {
+        const val STATUS_NONE = "NONE"
+        const val STATUS_ACTIVE = "ACTIVE"
+        const val STATUS_EXPIRED = "EXPIRED"
+        const val PLAN_UNLIMITED_CAMPAIGN = "UNLIMITED_CAMPAIGN"
+
         @Suppress("UNCHECKED_CAST")
         fun fromMap(map: Map<String, Any?>?): EmployerSubscription {
             if (map == null) return EmployerSubscription()
-            val creditsMap = map["credits"] as? Map<String, Any?>
+            val credits = map[Subscription.CREDITS] as? Map<String, Any?>
             return EmployerSubscription(
-                status = (map["status"] as? String) ?: "NONE",
-                planId = (map["planId"] as? String) ?: "",
-                startDate = (map["startDate"] as? Number)?.toLong() ?: 0L,
-                expiryDate = (map["expiryDate"] as? Number)?.toLong() ?: 0L,
-                normalCredits = (creditsMap?.get("normal") as? Number)?.toInt() ?: 0,
-                instantCredits = (creditsMap?.get("instant") as? Number)?.toInt() ?: 0,
-                trialJobsUsed = (map["trialJobsUsed"] as? Number)?.toInt() ?: 0,
-                trialInstantJobsUsed = (map["trialInstantJobsUsed"] as? Number)?.toInt() ?: 0
+                planId = map[Subscription.PLAN_ID] as? String ?: "",
+                status = map[Subscription.STATUS] as? String ?: STATUS_NONE,
+                startAt = map[Subscription.START_AT].epochMillis(),
+                expiresAt = map[Subscription.EXPIRES_AT].epochMillis(),
+                normalCredits = (credits?.get(Subscription.CREDITS_NORMAL) as? Number)?.toInt() ?: 0,
+                instantCredits = (credits?.get(Subscription.CREDITS_INSTANT) as? Number)?.toInt() ?: 0,
+                ai = map[Subscription.AI] == true,
+                aiPerDay = (map[Subscription.AI_PER_DAY] as? Number)?.toInt() ?: 0
             )
         }
     }
 }
 
+/** `active_qr_codes/{id}` — UPI QR shown on the subscription screen. */
 @Keep
 @Immutable
 data class QrCode(
     val id: String = "",
     val imageUrl: String = "",
     val label: String = "",
-    val isActive: Boolean = false,
+    val active: Boolean = false,
     val createdAt: Long = 0L
 ) {
     companion object {
-        fun fromMap(id: String, map: Map<String, Any?>): QrCode {
-            return QrCode(
-                id = id,
-                imageUrl = (map["imageUrl"] as? String) ?: "",
-                label = (map["label"] as? String) ?: "",
-                isActive = (map["isActive"] as? Boolean) ?: false,
-                createdAt = (map["createdAt"] as? Number)?.toLong() ?: 0L
-            )
-        }
+        fun fromMap(id: String, map: Map<String, Any?>): QrCode = QrCode(
+            id = id,
+            imageUrl = map[PaymentQrCodes.IMAGE_URL] as? String ?: "",
+            label = map[PaymentQrCodes.LABEL] as? String ?: "",
+            active = map[PaymentQrCodes.ACTIVE] as? Boolean ?: false,
+            createdAt = map[PaymentQrCodes.CREATED_AT].epochMillis()
+        )
     }
 }
 
-@Keep
-@Immutable
-data class PaymentRequest(
-    val id: String = "",
-    val employerId: String = "",
-    val employerPhone: String = "",
-    val planId: String = "",
-    val amount: Double = 0.0,
-    val upiIdUsed: String = "dutypein@ybl",
-    val utrNumber: String = "",
-    val screenshotUrl: String = "",
-    val status: String = "PENDING", // PENDING, VERIFIED, REJECTED
-    val requestTimestamp: Long = System.currentTimeMillis(),
-    val verifiedTimestamp: Long? = null,
-    val expiryTimestamp: Long? = null,
-    val rejectionReason: String? = null
-)
-
+/** A subscription plan from `app_config/subscription_plans` (admin-editable). */
 @Keep
 @Immutable
 data class Plan(
     val id: String = "",
     val name: String = "",
-    val price: Double = 0.0,
+    /** Price in whole paise. */
+    val pricePaise: Long = 0L,
     val jobs: Int = 0,
     val instantUnlocks: Int = 0,
+    val validityDays: Int = 30,
     val description: String = "",
     val tag: String = "",
-    val freeBonus: String = ""
+    /** Includes DutyPe AI. */
+    val ai: Boolean = false,
+    /** DutyPe AI actions per day. */
+    val aiPerDay: Int = 0,
+    /** Older plan, not offered any more. */
+    val legacy: Boolean = false
 ) {
+    val priceRupees: Long get() = pricePaise / 100
+
     companion object {
-        fun fromMap(id: String, map: Map<String, Any?>): Plan {
-            return Plan(
-                id = id,
-                name = (map["name"] as? String) ?: "",
-                price = (map["price"] as? Number)?.toDouble() ?: 0.0,
-                jobs = (map["jobs"] as? Number)?.toInt() ?: 0,
-                instantUnlocks = (map["instantUnlocks"] as? Number)?.toInt() ?: 0,
-                description = (map["description"] as? String) ?: "",
-                tag = (map["tag"] as? String) ?: "",
-                freeBonus = (map["freeBonus"] as? String) ?: ""
-            )
-        }
+        fun fromMap(id: String, map: Map<String, Any?>): Plan = Plan(
+            id = id,
+            name = map["name"] as? String ?: "",
+            pricePaise = (map["pricePaise"] as? Number)?.toLong() ?: 0L,
+            jobs = (map["jobs"] as? Number)?.toInt() ?: 0,
+            instantUnlocks = (map["instantUnlocks"] as? Number)?.toInt() ?: 0,
+            validityDays = (map["validityDays"] as? Number)?.toInt() ?: 30,
+            description = map["description"] as? String ?: "",
+            tag = map["tag"] as? String ?: "",
+            ai = map["ai"] == true,
+            aiPerDay = (map["aiPerDay"] as? Number)?.toInt() ?: 0,
+            legacy = map["legacy"] == true
+        )
     }
 }

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.expirePendingReferrals = exports.getReferralLeaderboard = exports.settleWithdrawal = exports.requestWithdrawal = exports.completeReferral = exports.isEmployerProfileComplete = exports.isWorkerProfileComplete = exports.applyReferralCode = exports.registerReferral = exports.ensureWalletCallable = exports.ensureWallet = void 0;
+exports.expirePendingReferrals = exports.getReferralLeaderboard = exports.settleWithdrawal = exports.requestWithdrawal = exports.completeReferral = exports.applyReferralCode = exports.registerReferral = exports.ensureWalletCallable = exports.ensureWallet = void 0;
 /**
  * Referrals and the wallet — money works like a ledger.
  *
@@ -190,30 +190,11 @@ exports.applyReferralCode = (0, secure_callable_1.onCallSecured)({}, async (raw,
     const error = await registerReferral(uid, code);
     if (error)
         (0, input_1.fail)("invalid-argument", error);
-    const profile = await db.collection(role === schema_1.Values.Role.EMPLOYER ? schema_1.EmployerProfiles.COLLECTION : schema_1.WorkerProfiles.COLLECTION).doc(uid).get();
-    const complete = role === schema_1.Values.Role.EMPLOYER ? isEmployerProfileComplete(profile.data()) : isWorkerProfileComplete(profile.data());
-    if (complete)
-        await completeReferral(uid, role);
     return { ok: true };
 });
-function isWorkerProfileComplete(p) {
-    if (!p)
-        return false;
-    const skills = p[schema_1.WorkerProfiles.SKILLS];
-    return !!String(p[schema_1.WorkerProfiles.NAME] || "").trim() && !!String(p[schema_1.WorkerProfiles.PHONE] || "").trim() &&
-        Array.isArray(skills) && skills.length > 0;
-}
-exports.isWorkerProfileComplete = isWorkerProfileComplete;
-function isEmployerProfileComplete(p) {
-    if (!p)
-        return false;
-    const name = p[schema_1.EmployerProfiles.EMPLOYER_TYPE] === schema_1.Values.EmployerType.COMPANY ?
-        p[schema_1.EmployerProfiles.BUSINESS_NAME] : p[schema_1.EmployerProfiles.OWNER_NAME];
-    return !!String(name || "").trim() && !!String(p[schema_1.EmployerProfiles.PHONE] || "").trim();
-}
-exports.isEmployerProfileComplete = isEmployerProfileComplete;
 /**
- * The referred user completed their profile: pay the referrer (plus any milestone bonus), give the
+ * The referred user did the real thing (a worker's first application, an employer's first job
+ * post; called from applyToJob / postJob, one read when nothing is pending): pay the referrer (plus any milestone bonus), give the
  * new worker their signup bonus, and give employer referrers job-post credits at milestones.
  * Idempotent: the referral flips PENDING → COMPLETED inside the transaction and every credit's
  * ledger id is the event.

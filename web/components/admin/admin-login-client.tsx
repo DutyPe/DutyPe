@@ -3,20 +3,34 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { onAuthStateChanged, signInWithEmailAndPassword, type User } from "firebase/auth";
 
-import { useProductSession } from "@/components/product/use-product-session";
 import { getFirebaseServices } from "@/lib/firebase/client";
 
 export function AdminLoginClient() {
   const router = useRouter();
-  const session = useProductSession();
+  const [session, setSession] = useState<{ user: User | null; loading: boolean; error: string | null }>({
+    user: null, loading: true, error: null
+  });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const servicesRef = useRef(getFirebaseServices());
+
+  useEffect(() => {
+    const services = servicesRef.current;
+    if (!services) {
+      setSession({ user: null, loading: false, error: "Firebase is not configured." });
+      return;
+    }
+    return onAuthStateChanged(
+      services.auth,
+      (user) => setSession({ user, loading: false, error: null }),
+      (authError) => setSession({ user: null, loading: false, error: authError.message })
+    );
+  }, []);
   const submitInFlight = useRef(false);
 
   async function createServerSession(idToken: string) {

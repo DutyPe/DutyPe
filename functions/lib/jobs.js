@@ -2,15 +2,17 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.expireJobs = exports.onJobWritten = exports.deleteJob = exports.renewJob = exports.setJobStatus = exports.updateJob = exports.postJob = void 0;
 /**
- * Jobs — the only writers of jobmetadata (card) and job_details (details).
+ * Jobs — the only writers of jobmetadata (card), job_details (details) and job_contacts (phone).
  *
- *   postJob        create card + details atomically, charge the employer (credit / free quota / campaign)
- *   updateJob      edit within 48 h of posting
- *   setJobStatus   open ⇄ filled / closed (no re-open after expiry — use renewJob)
- *   renewJob       expired/closed job → open for another 30 days (charged like a new post)
- *   deleteJob      within 30 min of posting; refunds the credit it used
- *   onJobWritten   keeps job_cells counts and cleans up after deletes
- *   expireJobs     flips open jobs past expiresAt to expired
+ *   postJob          create card + details + contact atomically, charge the employer
+ *                    (campaign / credit / daily free quota); the first post completes a pending referral
+ *   updateJob        edit within 48 h of posting
+ *   setJobStatus     open ⇄ filled / closed (no re-open after expiry — use renewJob)
+ *   renewJob         expired/closed job → open for another 30 days (charged like a new post)
+ *   deleteJob        within 30 min of posting; gives back the credit or free post it used
+ *   onJobWritten     labels the job with its district / state (from lat/lng) and search keywords;
+ *                    cleans up after deletes
+ *   expireJobs       flips open jobs past expiresAt to expired
  */
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
@@ -18,6 +20,9 @@ const crypto_1 = require("crypto");
 const secure_callable_1 = require("./secure-callable");
 const input_1 = require("./lib/input");
 const geo_1 = require("./lib/geo");
+const places_1 = require("./lib/places");
+const keywords_1 = require("./lib/keywords");
+const referrals_1 = require("./referrals");
 const schema_1 = require("./schema");
 const db = admin.firestore();
 const { FieldValue, Timestamp } = admin.firestore;
@@ -27,6 +32,8 @@ const EDIT_WINDOW_MS = 48 * 60 * 60 * 1000;
 const DELETE_WINDOW_MS = 30 * 60 * 1000;
 const FREE_POSTS_PER_DAY = 3;
 const IST_OFFSET_MS = 330 * 60 * 1000;
+/** A retried trigger event older than this is dropped. */
+const EVENT_MAX_AGE_MS = 60 * 60 * 1000;
 const EMPLOYMENT_TYPES = Object.values(schema_1.Values.EmploymentType);
 const PAY_TYPES = Object.values(schema_1.Values.PayType);
 const SHIFTS = Object.values(schema_1.Values.Shift);
@@ -38,6 +45,8 @@ function readJobInput(data) {
     const payAmount = (0, input_1.int)(data, "payAmount", { min: 0, max: 10000000 });
     if (payType !== schema_1.Values.PayType.NEGOTIABLE && payAmount < 1)
         (0, input_1.fail)("invalid-argument", "Enter the pay amount");
+    if (payAmount > schema_1.MAX_PAY_RUPEES)
+        (0, input_1.fail)("invalid-argument", "Pay can be at most ₹50,000");
     const { lat, lng } = (0, input_1.latLng)(data);
     return {
         card: {
@@ -52,17 +61,18 @@ function readJobInput(data) {
             [schema_1.Jobs.LAT]: lat,
             [schema_1.Jobs.LNG]: lng,
             [schema_1.Jobs.GEOHASH]: (0, geo_1.encodeGeohash)(lat, lng),
+            [schema_1.Jobs.CELL]: (0, geo_1.encodeGeohash)(lat, lng, 5),
             [schema_1.Jobs.PHOTO_URL]: (0, input_1.storageUrl)(data, "photoUrl") || FieldValue.delete(),
         },
         details: {
             [schema_1.JobDetails.DESCRIPTION]: (0, input_1.text)(data, "description", { min: 10, max: 2000 }),
             [schema_1.JobDetails.ADDRESS_TEXT]: (0, input_1.str)(data, "addressText", { min: 3, max: 200 }),
-            [schema_1.JobDetails.CONTACT_NUMBER]: (0, input_1.mobile)(data, "contactNumber"),
             [schema_1.JobDetails.GENDER]: (0, input_1.oneOf)(data, "gender", GENDERS, "ANY"),
             [schema_1.JobDetails.EXPERIENCE_REQUIRED]: (0, input_1.str)(data, "experienceRequired", { max: 60, optional: true }),
             [schema_1.JobDetails.EDUCATION_REQUIRED]: (0, input_1.str)(data, "educationRequired", { max: 60, optional: true }),
             [schema_1.JobDetails.BENEFITS]: (0, input_1.stringList)(data, "benefits", { maxItems: 8, maxLength: 30 }),
         },
+        contactNumber: (0, input_1.mobile)(data, "contactNumber"),
     };
 }
 /** Removes FieldValue.delete() sentinels, which set() on a new document does not accept. */
@@ -75,9 +85,19 @@ function jobIdFor(uid, reqId) {
 function chargeRef(jobId) {
     return db.collection(schema_1.Idempotency.COLLECTION).doc(`postJob_${jobId}`);
 }
+function contactRef(jobId) {
+    return db.collection(schema_1.JobContacts.COLLECTION).doc(jobId);
+}
+function istDay(ms) {
+    return new Date(ms + IST_OFFSET_MS).toISOString().slice(0, 10);
+}
 function startOfTodayIst(nowMs) {
     const istMidnight = Math.floor((nowMs + IST_OFFSET_MS) / DAY_MS) * DAY_MS - IST_OFFSET_MS;
     return Timestamp.fromMillis(istMidnight);
+}
+/** Free posts + renewals used by an employer on one IST day (read and bumped inside the transaction). */
+function quotaRef(uid, dayMs) {
+    return db.collection(schema_1.Idempotency.COLLECTION).doc(`postQuota_${uid}_${istDay(dayMs)}`);
 }
 async function loadEmployer(tx, uid) {
     const ref = db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid);
@@ -96,10 +116,11 @@ function companyNameOf(employer) {
         business : (owner || business || "Employer");
 }
 /**
- * Decides how a post is paid for and applies the credit change inside `tx`.
- * Active campaign grant → free; active plan with credits → 1 credit; otherwise the daily free quota.
+ * Decides how a post (or renewal) is paid for and applies the change inside `tx`.
+ * Active campaign grant → free; active plan with credits → 1 credit; otherwise one of today's
+ * free posts, counted in [quota] (posts and renewals share it). All reads happen before this call.
  */
-function chargeForPost(tx, employer, postsToday, nowMs) {
+function chargeForPost(tx, employer, quota, nowMs) {
     const S = schema_1.EmployerProfiles.Subscription;
     const sub = (0, input_1.obj)(employer.data[schema_1.EmployerProfiles.SUBSCRIPTION]);
     const expiresAt = sub[S.EXPIRES_AT] instanceof Timestamp ? sub[S.EXPIRES_AT].toMillis() : 0;
@@ -111,12 +132,17 @@ function chargeForPost(tx, employer, postsToday, nowMs) {
         tx.update(employer.ref, `${schema_1.EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_NORMAL}`, FieldValue.increment(-1));
         return "credit";
     }
-    if (postsToday >= FREE_POSTS_PER_DAY) {
+    const used = Number(quota.get(schema_1.Idempotency.RESULT) || 0);
+    if (used >= FREE_POSTS_PER_DAY) {
         (0, input_1.fail)("resource-exhausted", `You have used today's ${FREE_POSTS_PER_DAY} free job posts. Buy a plan to post more today.`);
     }
+    tx.set(quota.ref, {
+        [schema_1.Idempotency.RESULT]: used + 1,
+        [schema_1.Idempotency.EXPIRE_AT]: Timestamp.fromMillis(nowMs + 2 * DAY_MS),
+    });
     return "free";
 }
-/** The employer's posts since midnight IST — the free-quota count and the duplicate check. */
+/** The employer's posts since midnight IST — for the duplicate check. */
 async function postsToday(uid, nowMs) {
     const snap = await db.collection(schema_1.Jobs.COLLECTION)
         .where(schema_1.Jobs.EMPLOYER_ID, "==", uid)
@@ -164,22 +190,31 @@ exports.postJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context) 
     const jobRef = db.collection(schema_1.Jobs.COLLECTION).doc(jobId);
     const nowMs = Date.now();
     const today = await postsToday(uid, nowMs);
-    return db.runTransaction(async (tx) => {
+    const result = await db.runTransaction(async (tx) => {
         const existing = await tx.get(jobRef);
         if (existing.exists)
             return { jobId, replay: true };
         assertNotDuplicate(today, input.card);
         const employer = await loadEmployer(tx, uid);
-        const charge = chargeForPost(tx, employer, today.length, nowMs);
+        const quota = await tx.get(quotaRef(uid, nowMs));
+        const charge = chargeForPost(tx, employer, quota, nowMs);
         const createdAt = Timestamp.fromMillis(nowMs);
         tx.create(jobRef, withoutDeletes(Object.assign(Object.assign({}, input.card), { [schema_1.Jobs.EMPLOYER_ID]: uid, [schema_1.Jobs.COMPANY_NAME]: companyNameOf(employer.data), [schema_1.Jobs.URGENCY]: urgency, [schema_1.Jobs.STATUS]: schema_1.Values.JobStatus.OPEN, [schema_1.Jobs.APPLICATION_COUNT]: 0, [schema_1.Jobs.CREATED_AT]: createdAt, [schema_1.Jobs.EXPIRES_AT]: Timestamp.fromMillis(nowMs + JOB_LIFETIME_MS) })));
         tx.create(db.collection(schema_1.JobDetails.COLLECTION).doc(jobId), Object.assign(Object.assign({}, input.details), { [schema_1.JobDetails.EMPLOYER_ID]: uid }));
+        tx.create(contactRef(jobId), {
+            [schema_1.JobContacts.EMPLOYER_ID]: uid,
+            [schema_1.JobContacts.CONTACT_NUMBER]: input.contactNumber,
+        });
         tx.set(chargeRef(jobId), {
-            [schema_1.Idempotency.RESULT]: { charge },
+            [schema_1.Idempotency.RESULT]: { charge, day: istDay(nowMs) },
             [schema_1.Idempotency.EXPIRE_AT]: Timestamp.fromMillis(nowMs + DELETE_WINDOW_MS + DAY_MS),
         });
         return { jobId, replay: false, charge };
     });
+    // A referred employer's reward is earned by their first real job post (one read when none is pending).
+    if (!result.replay)
+        await (0, referrals_1.completeReferral)(uid, schema_1.Values.Role.EMPLOYER).catch((e) => functions.logger.warn("referral", e));
+    return result;
 });
 exports.updateJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context) => {
     const uid = context.auth.uid;
@@ -195,6 +230,10 @@ exports.updateJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context
         }
         tx.update(ref, input.card);
         tx.set(db.collection(schema_1.JobDetails.COLLECTION).doc(jobId), input.details, { merge: true });
+        tx.set(contactRef(jobId), {
+            [schema_1.JobContacts.EMPLOYER_ID]: uid,
+            [schema_1.JobContacts.CONTACT_NUMBER]: input.contactNumber,
+        });
     });
     return { jobId };
 });
@@ -219,7 +258,6 @@ exports.renewJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context)
     const uid = context.auth.uid;
     const jobId = (0, input_1.str)((0, input_1.obj)(raw), "jobId", { max: 64 });
     const nowMs = Date.now();
-    const today = await postsToday(uid, nowMs);
     return db.runTransaction(async (tx) => {
         var _a, _b;
         const { ref, snap } = await ownedJob(tx, uid, jobId);
@@ -228,7 +266,8 @@ exports.renewJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context)
             (0, input_1.fail)("failed-precondition", "This job is still live");
         }
         const employer = await loadEmployer(tx, uid);
-        const charge = chargeForPost(tx, employer, today.length, nowMs);
+        const quota = await tx.get(quotaRef(uid, nowMs));
+        const charge = chargeForPost(tx, employer, quota, nowMs);
         tx.update(ref, {
             [schema_1.Jobs.STATUS]: schema_1.Values.JobStatus.OPEN,
             [schema_1.Jobs.EXPIRES_AT]: Timestamp.fromMillis(nowMs + JOB_LIFETIME_MS),
@@ -242,74 +281,76 @@ exports.deleteJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context
     await db.runTransaction(async (tx) => {
         var _a, _b;
         const { ref, snap } = await ownedJob(tx, uid, jobId);
-        const createdAt = (_b = (_a = snap.get(schema_1.Jobs.CREATED_AT)) === null || _a === void 0 ? void 0 : _a.toMillis()) !== null && _b !== void 0 ? _b : 0;
-        if (Date.now() - createdAt > DELETE_WINDOW_MS) {
+        const createdAtMs = (_b = (_a = snap.get(schema_1.Jobs.CREATED_AT)) === null || _a === void 0 ? void 0 : _a.toMillis()) !== null && _b !== void 0 ? _b : 0;
+        if (Date.now() - createdAtMs > DELETE_WINDOW_MS) {
             (0, input_1.fail)("failed-precondition", "Jobs can only be deleted within 30 minutes of posting. Close it instead.");
         }
         const chargeSnap = await tx.get(chargeRef(jobId));
-        const charge = (0, input_1.obj)(chargeSnap.get(schema_1.Idempotency.RESULT)).charge;
-        if (charge === "credit") {
+        const paid = (0, input_1.obj)(chargeSnap.get(schema_1.Idempotency.RESULT));
+        if (paid.charge === "credit") {
             const S = schema_1.EmployerProfiles.Subscription;
             tx.update(db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid), `${schema_1.EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_NORMAL}`, FieldValue.increment(1));
         }
+        if (paid.charge === "free") {
+            tx.set(quotaRef(uid, createdAtMs), { [schema_1.Idempotency.RESULT]: FieldValue.increment(-1) }, { merge: true });
+        }
         tx.delete(ref);
         tx.delete(db.collection(schema_1.JobDetails.COLLECTION).doc(jobId));
+        tx.delete(contactRef(jobId));
         tx.delete(chargeRef(jobId));
     });
     return { jobId };
 });
-function openCell(doc) {
-    if (!doc || doc[schema_1.Jobs.STATUS] !== schema_1.Values.JobStatus.OPEN)
-        return null;
-    const geohash = String(doc[schema_1.Jobs.GEOHASH] || "");
-    if (geohash.length < schema_1.JobCells.CELL_PRECISION)
-        return null;
-    return {
-        region: geohash.slice(0, schema_1.JobCells.REGION_PRECISION),
-        cell: geohash.slice(0, schema_1.JobCells.CELL_PRECISION),
-        category: String(doc[schema_1.Jobs.CATEGORY] || "OTHER"),
-        urgent: doc[schema_1.Jobs.URGENCY] === schema_1.Values.Urgency.HIGH,
-    };
-}
-function sameCell(a, b) {
-    return !!a && !!b && a.cell === b.cell && a.category === b.category && a.urgent === b.urgent;
-}
-function cellDelta(key, delta) {
-    const counts = {
-        [schema_1.JobCells.TOTAL]: FieldValue.increment(delta),
-        [key.category]: FieldValue.increment(delta),
-    };
-    if (key.urgent)
-        counts[schema_1.JobCells.URGENT] = FieldValue.increment(delta);
-    return db.collection(schema_1.JobCells.COLLECTION).doc(key.region).set({
-        [schema_1.JobCells.CELLS]: { [key.cell]: counts },
-        [schema_1.JobCells.UPDATED_AT]: FieldValue.serverTimestamp(),
-    }, { merge: true });
-}
+// ───────────────────────────── place + cleanup ─────────────────────────────
+/**
+ * Keeps every job's district / state in step with its point (posts, edits, admin-web jobs), so
+ * the feed's district and state fallbacks can query by them. Writes only when a label is missing
+ * or the point moved to another district; a status change writes nothing. Retried on failure.
+ */
 exports.onJobWritten = functions
     .region("asia-south1")
+    .runWith({ failurePolicy: true, memory: "512MB" })
     .firestore.document(`${schema_1.Jobs.COLLECTION}/{jobId}`)
     .onWrite(async (change, context) => {
-    const before = openCell(change.before.data());
-    const after = openCell(change.after.data());
-    const work = [];
-    if (!sameCell(before, after)) {
-        if (before)
-            work.push(cellDelta(before, -1));
-        if (after)
-            work.push(cellDelta(after, 1));
+    var _a, _b, _c;
+    if (Date.now() - Date.parse(context.timestamp) > EVENT_MAX_AGE_MS)
+        return;
+    const after = change.after.data();
+    if (!after) {
+        // Job deleted: its applications and contact have nothing left to point at.
+        const jobId = context.params.jobId;
+        const apps = await db.collection(schema_1.Applications.COLLECTION).where(schema_1.Applications.JOB_ID, "==", jobId).limit(500).get();
+        const batch = db.batch();
+        apps.docs.forEach((d) => batch.delete(d.ref));
+        batch.delete(db.collection(schema_1.JobContacts.COLLECTION).doc(jobId));
+        await batch.commit();
+        return;
     }
-    if (!change.after.exists) {
-        // Job deleted: its applications have nothing left to point at.
-        const apps = await db.collection(schema_1.Applications.COLLECTION)
-            .where(schema_1.Applications.JOB_ID, "==", context.params.jobId).limit(500).get();
-        if (!apps.empty) {
-            const batch = db.batch();
-            apps.docs.forEach((d) => batch.delete(d.ref));
-            work.push(batch.commit());
+    const lat = Number(after[schema_1.Jobs.LAT]);
+    const lng = Number(after[schema_1.Jobs.LNG]);
+    const update = {};
+    const cell = Number.isFinite(lat) && Number.isFinite(lng) ? (0, geo_1.encodeGeohash)(lat, lng, 5) : "";
+    if (cell && after[schema_1.Jobs.CELL] !== cell)
+        update[schema_1.Jobs.CELL] = cell;
+    const before = change.before.data();
+    const moved = !before || before[schema_1.Jobs.LAT] !== after[schema_1.Jobs.LAT] || before[schema_1.Jobs.LNG] !== after[schema_1.Jobs.LNG];
+    if (moved || after[schema_1.Jobs.DISTRICT_ID] === undefined) {
+        const place = (0, places_1.placeOf)(lat, lng);
+        if (place && (after[schema_1.Jobs.DISTRICT_ID] !== place.districtId || after[schema_1.Jobs.STATE_ID] !== place.stateId)) {
+            Object.assign(update, {
+                [schema_1.Jobs.DISTRICT_ID]: place.districtId,
+                [schema_1.Jobs.DISTRICT]: place.district,
+                [schema_1.Jobs.STATE_ID]: place.stateId,
+                [schema_1.Jobs.STATE]: place.state,
+            });
         }
     }
-    await Promise.all(work);
+    const district = (_a = update[schema_1.Jobs.DISTRICT]) !== null && _a !== void 0 ? _a : after[schema_1.Jobs.DISTRICT];
+    const keywords = (0, keywords_1.keywordsOf)(after[schema_1.Jobs.TITLE], after[schema_1.Jobs.COMPANY_NAME], after[schema_1.Jobs.AREA], district, String((_b = after[schema_1.Jobs.CATEGORY]) !== null && _b !== void 0 ? _b : "").replace(/_/g, " "));
+    if (JSON.stringify(keywords) !== JSON.stringify((_c = after[schema_1.Jobs.KEYWORDS]) !== null && _c !== void 0 ? _c : []))
+        update[schema_1.Jobs.KEYWORDS] = keywords;
+    if (Object.keys(update).length)
+        await change.after.ref.update(update);
 });
 exports.expireJobs = functions
     .region("asia-south1")

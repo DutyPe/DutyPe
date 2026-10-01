@@ -1,16 +1,14 @@
 package com.example.dutype.components
 
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
+import com.example.dutype.ui.theme.bd
 import com.dutype.app.R
-import androidx.annotation.DrawableRes
-import androidx.annotation.StringRes
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -19,9 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,24 +26,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PersonSearch
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import com.example.dutype.navigation.Routes
-import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.EmployerColors
-import com.example.dutype.ui.theme.IconSizes
-import com.example.dutype.ui.theme.WorkerColors
 
 /**
- * Custom Employer Bottom Bar - Classic edge-to-edge docked bottom navigation
- * Matches Worker bottom bar 1:1 with Home, Post Job, and Profile tabs
+ * Custom Employer Bottom Bar - Fully flat, edge-to-edge docked bottom navigation.
+ * No pill/tablet gap on sides. Features Home, Post Job, and Account tabs.
  */
 @Composable
 fun EmployerBottomBar(
@@ -72,10 +65,6 @@ fun EmployerBottomBar(
         }
     }
 
-    fun openPostJob() {
-        navigateTo(Routes.EMPLOYER_POST_JOB)
-    }
-
     data class EmployerNavTab(
         val route: String,
         val title: String,
@@ -84,6 +73,7 @@ fun EmployerBottomBar(
         val vectorIcon: androidx.compose.ui.graphics.vector.ImageVector? = null
     )
 
+    // 3 clean tabs: Home, Post Job (Instant + Regular), and Account (Profile)
     val navTabs = listOf(
         EmployerNavTab(
             route = Routes.EMPLOYER_DASHBOARD,
@@ -92,15 +82,10 @@ fun EmployerBottomBar(
             iconResFilled = R.drawable.ic_home_filled
         ),
         EmployerNavTab(
-            route = Routes.EMPLOYER_MY_JOBS,
-            title = stringResource(R.string.bottom_nav_my_jobs),
-            iconResUnfilled = R.drawable.myjobs,
-            iconResFilled = R.drawable.myjobs
-        ),
-        EmployerNavTab(
             route = Routes.EMPLOYER_POST_JOB,
-            title = "Find Workers",
-            vectorIcon = Icons.Default.PersonSearch
+            title = stringResource(R.string.post_job),
+            iconResUnfilled = R.drawable.ic_emp_briefcase,
+            iconResFilled = R.drawable.ic_emp_briefcase
         ),
         EmployerNavTab(
             route = Routes.EMPLOYER_PROFILE,
@@ -110,71 +95,65 @@ fun EmployerBottomBar(
         )
     )
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .windowInsetsPadding(WindowInsets.navigationBars)
-            .padding(horizontal = 16.dp, vertical = 16.dp)
+    // Fully flat docked bar spanning edge-to-edge with no floating pill tablet gaps
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = Color.White.bg(),
+        shape = RectangleShape,
+        shadowElevation = 6.dp,
+        tonalElevation = 0.dp
     ) {
-        Surface(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp)
-                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(32.dp)),
-            color = Color.White,
-            shape = RoundedCornerShape(32.dp),
-            shadowElevation = 0.dp,
-            tonalElevation = 0.dp
+                .windowInsetsPadding(WindowInsets.navigationBars)
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth()
+            HorizontalDivider(thickness = 1.dp, color = Color(0xFFE2E8F0).bd())
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(64.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    navTabs.forEach { tab ->
-                        val isSelected = currentRoute == tab.route
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = { navigateTo(tab.route) }
-                                )
-                        ) {
-                            if (tab.vectorIcon != null) {
-                                Icon(
-                                    imageVector = tab.vectorIcon,
-                                    contentDescription = tab.title,
-                                    modifier = Modifier.size(24.dp),
-                                    tint = if (isSelected) Color(0xFF0F172A) else Color(0xFF64748B)
-                                )
-                            } else {
-                                val iconRes = if (isSelected) tab.iconResFilled ?: tab.iconResUnfilled!! else tab.iconResUnfilled!!
-                                Icon(
-                                    painter = painterResource(id = iconRes),
-                                    contentDescription = tab.title,
-                                    modifier = Modifier.size(24.dp),
-                                    tint = if (isSelected) Color(0xFF0F172A) else Color(0xFF64748B)
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(3.dp))
-                            Text(
-                                text = tab.title,
-                                fontSize = 11.sp,
-                                fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Bold else androidx.compose.ui.text.font.FontWeight.Medium,
-                                color = if (isSelected) Color(0xFF0F172A) else Color(0xFF64748B),
-                                maxLines = 1
+                navTabs.forEach { tab ->
+                    val isSelected = currentRoute == tab.route
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { navigateTo(tab.route) }
+                            )
+                    ) {
+                        if (tab.vectorIcon != null) {
+                            Icon(
+                                imageVector = tab.vectorIcon,
+                                contentDescription = tab.title,
+                                modifier = Modifier.size(24.dp),
+                                tint = if (isSelected) Color(0xFF0F172A).fg() else Color(0xFF64748B).fg()
+                            )
+                        } else {
+                            val iconRes = if (isSelected) tab.iconResFilled ?: tab.iconResUnfilled!! else tab.iconResUnfilled!!
+                            Icon(
+                                painter = painterResource(id = iconRes),
+                                contentDescription = tab.title,
+                                modifier = Modifier.size(24.dp),
+                                tint = if (isSelected) Color(0xFF0F172A).fg() else Color(0xFF64748B).fg()
                             )
                         }
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = tab.title,
+                            fontSize = 11.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isSelected) Color(0xFF0F172A).fg() else Color(0xFF64748B).fg(),
+                            maxLines = 1
+                        )
                     }
                 }
             }

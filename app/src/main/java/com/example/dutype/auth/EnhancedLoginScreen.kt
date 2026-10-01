@@ -1,5 +1,8 @@
 package com.example.dutype.auth
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.app.Activity
 import android.content.Context
@@ -230,7 +233,7 @@ private fun OtpLoginScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(SurfaceBg)
+                .background(SurfaceBg.bg())
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .padding(24.dp)
@@ -264,7 +267,7 @@ private fun OtpLoginScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
+                .background(Color.White.bg())
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .padding(horizontal = 24.dp)
@@ -275,8 +278,53 @@ private fun OtpLoginScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(bottom = 24.dp)
             ) {
+                // Top Action Header Bar: WhatsApp Help (End aligned, matching RegisterScreen)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        onClick = {
+                            val whatsappUrl = "https://wa.me/918500717800?text=Hello%20DutyPe%20Team!%20I%20need%20help%20logging%20in."
+                            try {
+                                val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                    data = android.net.Uri.parse(whatsappUrl)
+                                    setPackage("com.whatsapp")
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                val browserIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(whatsappUrl))
+                                context.startActivity(browserIntent)
+                            }
+                        },
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color.White.bg(),
+                        border = BorderStroke(1.dp, CardBorder.bd())
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_whatsapp),
+                                contentDescription = null,
+                                tint = Color(0xFF25D366).fg(),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = stringResource(R.string.auth_help),
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, color = Ink900.fg())
+                            )
+                        }
+                    }
+                }
+
                 // Pushes the form comfortably lower down toward the middle of the screen.
-                Spacer(modifier = Modifier.height(authTopGap(0.25f) + 36.dp))
+                Spacer(modifier = Modifier.height(authTopGap(0.18f) + 20.dp))
 
                 // Title & Subtitle Hero Block
                 Text(
@@ -284,7 +332,7 @@ private fun OtpLoginScreen(
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Ink900
+                        color = Ink900.fg()
                     )
                 )
 
@@ -293,7 +341,7 @@ private fun OtpLoginScreen(
                 Text(
                     text = stringResource(R.string.auth_enter_mobile_number),
                     style = MaterialTheme.typography.bodyLarge.copy(
-                        color = Ink600,
+                        color = Ink600.fg(),
                         fontSize = 15.sp
                     )
                 )
@@ -306,8 +354,8 @@ private fun OtpLoginScreen(
                         .fillMaxWidth()
                         .height(56.dp),
                     shape = RoundedCornerShape(16.dp),
-                    color = Color.White,
-                    border = BorderStroke(if (phoneNumber.isNotEmpty()) 2.dp else 1.dp, if (phoneNumber.isNotEmpty()) BrandBluePrimary else BrandBlueBorder)
+                    color = Color.White.bg(),
+                    border = BorderStroke(if (phoneNumber.isNotEmpty()) 2.dp else 1.dp, if (phoneNumber.isNotEmpty()) BrandBluePrimary.bd() else BrandBlueBorder.bd())
                 ) {
                     Row(
                         modifier = Modifier
@@ -325,7 +373,7 @@ private fun OtpLoginScreen(
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 17.sp,
-                                color = Ink900
+                                color = Ink900.fg()
                             )
                         )
                         Spacer(modifier = Modifier.width(10.dp))
@@ -334,7 +382,7 @@ private fun OtpLoginScreen(
                             modifier = Modifier
                                 .width(1.dp)
                                 .height(22.dp)
-                                .background(CardBorder)
+                                .background(CardBorder.bg())
                         )
 
                         Spacer(modifier = Modifier.width(12.dp))
@@ -371,10 +419,10 @@ private fun OtpLoginScreen(
                             singleLine = true,
                             textStyle = MaterialTheme.typography.bodyLarge.copy(
                                 fontSize = 16.sp,
-                                color = Ink900,
+                                color = Ink900.fg(),
                                 fontWeight = FontWeight.Medium
                             ),
-                            cursorBrush = SolidColor(BrandBluePrimary),
+                            cursorBrush = SolidColor(BrandBluePrimary.fg()),
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             decorationBox = { innerTextField ->
                                 if (phoneNumber.isBlank()) {
@@ -382,7 +430,7 @@ private fun OtpLoginScreen(
                                         text = stringResource(R.string.auto_phone_number),
                                         style = MaterialTheme.typography.bodyLarge.copy(
                                             fontSize = 15.sp,
-                                            color = Ink600
+                                            color = Ink600.fg()
                                         )
                                     )
                                 }
@@ -459,10 +507,10 @@ private fun OtpLoginScreen(
                     enabled = buttonEnabled,
                     shape = RoundedCornerShape(28.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = BrandBluePrimary,
+                        containerColor = BrandBluePrimary.bg(),
                         contentColor = Color.White,
-                        disabledContainerColor = Color(0xFFE2E8F0),
-                        disabledContentColor = Color(0xFF475569)
+                        disabledContainerColor = Color(0xFFE2E8F0).bg(),
+                        disabledContentColor = Color(0xFF475569).fg()
                     )
                 ) {
                     if (isCheckingPhone || otpState.isLoading) {
@@ -510,7 +558,7 @@ private fun OtpLoginScreen(
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = WorkerColors.TextSecondary
                         ),
-                        border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                        border = BorderStroke(1.dp, Color(0xFFCBD5E1).bd())
                     ) {
                         Text(
                             text = "Skip (Dev) → ${role.name} home",
@@ -531,13 +579,13 @@ private fun OtpLoginScreen(
                 val termsAnnotated = buildAnnotatedString {
                     append(termsPrefix)
                     pushStringAnnotation(tag = "TERMS", annotation = "terms")
-                    withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold)) {
+                    withStyle(SpanStyle(color = Ink900.fg(), fontWeight = FontWeight.SemiBold)) {
                         append(termsTitle)
                     }
                     pop()
                     append(" & ")
                     pushStringAnnotation(tag = "PRIVACY", annotation = "privacy")
-                    withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold)) {
+                    withStyle(SpanStyle(color = Ink900.fg(), fontWeight = FontWeight.SemiBold)) {
                         append(privacyTitle)
                     }
                     pop()
@@ -545,7 +593,7 @@ private fun OtpLoginScreen(
                 androidx.compose.foundation.text.ClickableText(
                     text = termsAnnotated,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Ink600,
+                        color = Ink600.fg(),
                         fontSize = 12.sp,
                         textAlign = TextAlign.Center
                     ),
@@ -572,7 +620,7 @@ private fun OtpLoginScreen(
                 ) {
                     Text(
                         text = stringResource(R.string.auth_dont_have_account),
-                        style = MaterialTheme.typography.bodyMedium.copy(color = Ink600)
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Ink600.fg())
                     )
                     TextButton(
                         onClick = {
@@ -586,7 +634,7 @@ private fun OtpLoginScreen(
                             text = stringResource(R.string.auth_create_account),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = BrandBluePrimary
+                                color = BrandBluePrimary.fg()
                             )
                         )
                     }
@@ -642,7 +690,7 @@ private fun OtpInputSection(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",
-                tint = Ink900
+                tint = Ink900.fg()
             )
         }
 
@@ -653,7 +701,7 @@ private fun OtpInputSection(
             style = MaterialTheme.typography.titleLarge.copy(
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = Ink900
+                color = Ink900.fg()
             )
         )
 
@@ -666,7 +714,7 @@ private fun OtpInputSection(
             append("+91 $phoneNumber")
             append("  ·  ")
             pushStringAnnotation(tag = "CHANGE", annotation = "change")
-            withStyle(SpanStyle(color = BrandBluePrimary, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
+            withStyle(SpanStyle(color = BrandBluePrimary.fg(), fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
                 append(changeNumberText)
             }
             pop()
@@ -674,7 +722,7 @@ private fun OtpInputSection(
 
         androidx.compose.foundation.text.ClickableText(
             text = annotatedText,
-            style = MaterialTheme.typography.bodyMedium.copy(color = Ink600, fontSize = 14.sp),
+            style = MaterialTheme.typography.bodyMedium.copy(color = Ink600.fg(), fontSize = 14.sp),
             modifier = Modifier.fillMaxWidth(),
             onClick = { offset ->
                 annotatedText.getStringAnnotations(tag = "CHANGE", start = offset, end = offset)
@@ -708,7 +756,7 @@ private fun OtpInputSection(
                 Text(
                     text = stringResource(R.string.auth_resend_otp_in, minutes, seconds),
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Ink600,
+                        color = Ink600.fg(),
                         fontSize = 14.sp
                     )
                 )
@@ -722,7 +770,7 @@ private fun OtpInputSection(
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
-                            color = BrandEmeraldAccent
+                            color = BrandEmeraldAccent.fg()
                         )
                     )
                 }
@@ -740,10 +788,10 @@ private fun OtpInputSection(
                 .height(56.dp),
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = BrandBluePrimary,
+                containerColor = BrandBluePrimary.bg(),
                 contentColor = Color.White,
-                disabledContainerColor = Color(0xFFE2E8F0),
-                disabledContentColor = Color(0xFF94A3B8)
+                disabledContainerColor = Color(0xFFE2E8F0).bg(),
+                disabledContentColor = Color(0xFF94A3B8).fg()
             )
         ) {
             if (otpState.isLoading) {
@@ -758,14 +806,14 @@ private fun OtpInputSection(
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (otpValue.length == 6 && !otpState.isLoading) Color.White else Color(0xFF94A3B8)
+                            color = if (otpValue.length == 6 && !otpState.isLoading) Color.White else Color(0xFF94A3B8).fg()
                         )
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
-                        tint = if (otpValue.length == 6 && !otpState.isLoading) Color.White else Color(0xFF94A3B8),
+                        tint = if (otpValue.length == 6 && !otpState.isLoading) Color.White else Color(0xFF94A3B8).fg(),
                         modifier = Modifier.size(18.dp)
                     )
                 }

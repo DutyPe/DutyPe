@@ -177,12 +177,6 @@ object DeepLinkHandler {
                         navigateToReferralHome(navController)
                         true
                     }
-                    // dutype://worker/456 (profile by ID)
-                    pathSegments.size == 1 -> {
-                        val workerId = pathSegments[0]
-                        navigateToWorkerProfileById(navController, workerId)
-                        true
-                    }
                     // dutype://worker/home
                     pathSegments.firstOrNull() == "home" -> {
                         navigateToWorkerHome(navController)
@@ -191,6 +185,12 @@ object DeepLinkHandler {
                     // dutype://worker/notifications
                     pathSegments.firstOrNull() == "notifications" -> {
                         navigateToWorkerNotifications(navController)
+                        true
+                    }
+                    // dutype://worker/456 (profile by ID)
+                    pathSegments.size == 1 -> {
+                        val workerId = pathSegments[0]
+                        navigateToWorkerProfileById(navController, workerId)
                         true
                     }
                     else -> false
@@ -416,6 +416,11 @@ object DeepLinkHandler {
                 true
             }
             
+            // Links declared on a destination (dutype://urgent/{id}, dutype://ai) when the app is
+            // already open; a cold start resolves them through the NavHost itself.
+            runCatching { navController.graph.hasDeepLink(data) }.getOrDefault(false) ->
+                runCatching { navController.navigate(data) }.isSuccess
+
             else -> {
                 Timber.w("🔗 DEEP LINK: ⚠️ Unhandled deep link: $data")
                 Timber.w("🔗 DEEP LINK: Scheme: ${data.scheme}, Host: ${data.host}")

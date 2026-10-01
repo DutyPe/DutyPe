@@ -1,5 +1,8 @@
 package com.example.dutype.onboarding
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
@@ -144,7 +147,7 @@ fun OnboardingScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = Color.White,
+        containerColor = Color.White.bg(),
         contentWindowInsets = WindowInsets.systemBars
     ) { paddingValues ->
         Column(
@@ -234,7 +237,7 @@ private fun OnboardingHeader(
             onClick = { showLanguageBottomSheet = true },
             shape = RoundedCornerShape(20.dp),
             color = Color.White,
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd())
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
@@ -243,7 +246,7 @@ private fun OnboardingHeader(
                 Icon(
                     imageVector = androidx.compose.material.icons.Icons.Default.Translate,
                     contentDescription = null,
-                    tint = Color(0xFF2563EB),
+                    tint = Color(0xFF2563EB).fg(),
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -251,14 +254,14 @@ private fun OnboardingHeader(
                     text = activeLangName,
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF0F172A)
+                        color = Color(0xFF0F172A).fg()
                     )
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(
                     imageVector = androidx.compose.material.icons.Icons.Default.KeyboardArrowDown,
                     contentDescription = null,
-                    tint = Color(0xFF475569),
+                    tint = Color(0xFF475569).fg(),
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -279,7 +282,7 @@ private fun OnboardingHeader(
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontWeight = FontWeight.SemiBold
                     ),
-                    color = Color(0xFF475569)
+                    color = Color(0xFF475569).fg()
                 )
             }
         }
@@ -347,7 +350,7 @@ private fun OnboardingPageContent(
                     fontSize = 28.sp,
                     lineHeight = 36.sp
                 ),
-                color = Color(0xFF0F172A),
+                color = Color(0xFF0F172A).fg(),
                 textAlign = TextAlign.Center
             )
 
@@ -359,7 +362,7 @@ private fun OnboardingPageContent(
                     lineHeight = 24.sp,
                     fontSize = 16.sp
                 ),
-                color = Color(0xFF475569),
+                color = Color(0xFF475569).fg(),
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 8.dp)
             )

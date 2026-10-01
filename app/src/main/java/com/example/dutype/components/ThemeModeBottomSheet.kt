@@ -1,5 +1,6 @@
 ﻿package com.example.dutype.components
 
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -152,7 +153,7 @@ private fun ThemeOptionRow(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = WorkerColors.Primary,
+                tint = WorkerColors.Primary.fg(),
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -165,7 +166,7 @@ private fun ThemeOptionRow(
             Icon(
                 imageVector = Icons.Default.Check,
                 contentDescription = null,
-                tint = WorkerColors.Primary,
+                tint = WorkerColors.Primary.fg(),
                 modifier = Modifier.size(22.dp),
             )
         }

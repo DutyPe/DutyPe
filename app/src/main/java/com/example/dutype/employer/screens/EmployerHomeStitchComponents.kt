@@ -1,5 +1,8 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.fg
+import com.example.dutype.ui.theme.bg
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -22,6 +25,8 @@ import androidx.compose.material.icons.outlined.FlashOn
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.dutype.app.R
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,7 +52,8 @@ data class CandidateDisplayItem(
     val distanceText: String,
     val rating: String,
     val jobsDone: Int,
-    val phone: String
+    val jobId: String,
+    val workerId: String
 )
 
 /**
@@ -63,8 +69,8 @@ fun EmployerTopHeader(
     onProfileClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val displayCompanyName = companyName.ifBlank { "My Business" }
-    val displayLocation = locationText.ifBlank { "Select Location" }
+    val displayCompanyName = companyName.ifBlank { stringResource(R.string.employer_my_business) }
+    val displayLocation = locationText.ifBlank { stringResource(R.string.employer_select_location) }
     val initials = displayCompanyName
         .trim()
         .split("\\s+".toRegex())
@@ -76,7 +82,7 @@ fun EmployerTopHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(Color.White.bg())
             .statusBarsPadding()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -92,7 +98,7 @@ fun EmployerTopHeader(
                     text = displayCompanyName,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A),
+                    color = Color(0xFF0F172A).fg(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -104,14 +110,14 @@ fun EmployerTopHeader(
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = null,
-                        tint = Color(0xFFEF4444),
+                        tint = Color(0xFFEF4444).fg(),
                         modifier = Modifier.size(13.dp)
                     )
                     Spacer(modifier = Modifier.width(2.dp))
                     Text(
                         text = displayLocation,
                         fontSize = 12.sp,
-                        color = Color(0xFF64748B),
+                        color = Color(0xFF64748B).fg(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -119,7 +125,7 @@ fun EmployerTopHeader(
                     Icon(
                         imageVector = Icons.Default.KeyboardArrowDown,
                         contentDescription = null,
-                        tint = Color(0xFF94A3B8),
+                        tint = Color(0xFF94A3B8).fg(),
                         modifier = Modifier.size(14.dp)
                     )
                 }
@@ -132,8 +138,8 @@ fun EmployerTopHeader(
         Surface(
             onClick = onSupportClick,
             shape = RoundedCornerShape(16.dp),
-            color = Color.White,
-            border = BorderStroke(1.dp, Color(0xFF10B981)),
+            color = Color.White.bg(),
+            border = BorderStroke(1.dp, Color(0xFF10B981).bd()),
             modifier = Modifier.height(34.dp)
         ) {
             Row(
@@ -144,15 +150,15 @@ fun EmployerTopHeader(
                 Icon(
                     imageVector = Icons.Default.Call,
                     contentDescription = null,
-                    tint = Color(0xFF10B981),
+                    tint = Color(0xFF10B981).fg(),
                     modifier = Modifier.size(13.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Support",
+                    text = stringResource(R.string.employer_support),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF047857)
+                    color = Color(0xFF047857).fg()
                 )
             }
         }
@@ -171,16 +177,16 @@ fun NeedWorkersSplitCard(
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
-            text = "Need workers for your shop or home?",
+            text = stringResource(R.string.employer_home_need_workers_title),
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF0F172A)
+            color = Color(0xFF0F172A).fg()
         )
         Spacer(modifier = Modifier.height(2.dp))
         Text(
-            text = "Hire verified local staff in minutes",
+            text = stringResource(R.string.employer_home_need_workers_subtitle),
             fontSize = 13.sp,
-            color = Color(0xFF64748B)
+            color = Color(0xFF64748B).fg()
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -198,8 +204,8 @@ fun NeedWorkersSplitCard(
                     .fillMaxHeight()
                     .clickable { onUrgentClick(null) },
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
-                border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2).bg()),
+                border = BorderStroke(1.dp, Color(0xFFFCA5A5).bd()),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 Column(
@@ -212,31 +218,31 @@ fun NeedWorkersSplitCard(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(Color.White),
+                            .background(Color.White.bg()),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.FlashOn,
                             contentDescription = null,
-                            tint = Color(0xFFDC2626),
+                            tint = Color(0xFFDC2626).fg(),
                             modifier = Modifier.size(18.dp)
                         )
                     }
 
                     Column {
                         Text(
-                            text = "Urgent",
+                            text = stringResource(R.string.employer_home_urgent_title),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFDC2626)
+                            color = Color(0xFFDC2626).fg()
                         )
 
                         Spacer(modifier = Modifier.height(4.dp))
 
                         Text(
-                            text = "Worker reaches in 2 hours",
+                            text = stringResource(R.string.employer_home_urgent_subtitle),
                             fontSize = 12.sp,
-                            color = Color(0xFF64748B),
+                            color = Color(0xFF64748B).fg(),
                             lineHeight = 15.sp
                         )
                     }
@@ -250,8 +256,8 @@ fun NeedWorkersSplitCard(
                     .fillMaxHeight()
                     .clickable { onRegularJobClick() },
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)),
-                border = BorderStroke(1.dp, Color(0xFF6EE7B7)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5).bg()),
+                border = BorderStroke(1.dp, Color(0xFF6EE7B7).bd()),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 Column(
@@ -264,31 +270,31 @@ fun NeedWorkersSplitCard(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(Color.White),
+                            .background(Color.White.bg()),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Assignment,
                             contentDescription = null,
-                            tint = Color(0xFF059669),
+                            tint = Color(0xFF059669).fg(),
                             modifier = Modifier.size(18.dp)
                         )
                     }
 
                     Column {
                         Text(
-                            text = "Regular Job",
+                            text = stringResource(R.string.employer_home_regular_title),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF047857)
+                            color = Color(0xFF047857).fg()
                         )
 
                         Spacer(modifier = Modifier.height(4.dp))
 
                         Text(
-                            text = "Daily, weekly or monthly staff",
+                            text = stringResource(R.string.employer_home_regular_subtitle),
                             fontSize = 12.sp,
-                            color = Color(0xFF64748B),
+                            color = Color(0xFF64748B).fg(),
                             lineHeight = 15.sp
                         )
                     }
@@ -311,7 +317,11 @@ fun ActivePostingsCard(
     onViewApplicantsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val viewAllLabel = if (totalActiveJobsCount > 1) "View All ($totalActiveJobsCount) →" else "View All →"
+    val viewAllLabel = if (totalActiveJobsCount > 1) {
+        stringResource(R.string.employer_home_view_all_count, totalActiveJobsCount)
+    } else {
+        stringResource(R.string.employer_home_view_all)
+    }
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -320,10 +330,10 @@ fun ActivePostingsCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Active Postings",
+                text = stringResource(R.string.employer_home_active_postings),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A)
+                color = Color(0xFF0F172A).fg()
             )
 
             if (activeJob != null) {
@@ -331,7 +341,7 @@ fun ActivePostingsCard(
                     text = viewAllLabel,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF10B981),
+                    color = Color(0xFF10B981).fg(),
                     modifier = Modifier.clickable { onViewAllClick() }
                 )
             }
@@ -342,15 +352,14 @@ fun ActivePostingsCard(
         if (activeJob != null) {
             val jobTitle = activeJob.title.ifBlank { "Job Vacancy" }
             val openings = if (activeJob.vacancies > 0) activeJob.vacancies else 1
-            val salaryText = activeJob.salary.ifBlank { "Negotiable" }
-            val payPeriod = if (activeJob.salaryType.equals("MONTHLY", ignoreCase = true)) "month" else "day"
-            val openingsText = "$jobTitle · $openings ${if (openings == 1) "Opening" else "Openings"}"
+            val openingsSuffix = if (openings == 1) stringResource(R.string.employer_home_opening_single) else stringResource(R.string.employer_home_opening_plural)
+            val openingsText = "$jobTitle · $openings $openingsSuffix"
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -364,16 +373,16 @@ fun ActivePostingsCard(
                                 text = openingsText,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF0F172A),
+                                color = Color(0xFF0F172A).fg(),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = if (salaryText.startsWith("₹")) "$salaryText / $payPeriod" else "₹$salaryText / $payPeriod",
+                                text = activeJob.payText,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF10B981)
+                                color = Color(0xFF10B981).fg()
                             )
                         }
 
@@ -382,8 +391,8 @@ fun ActivePostingsCard(
                         if (applicantCount > 0) {
                             Surface(
                                 shape = RoundedCornerShape(14.dp),
-                                color = Color(0xFFECFDF5),
-                                border = BorderStroke(1.dp, Color(0xFFA7F3D0))
+                                color = Color(0xFFECFDF5).bg(),
+                                border = BorderStroke(1.dp, Color(0xFFA7F3D0).bd())
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -393,28 +402,28 @@ fun ActivePostingsCard(
                                         modifier = Modifier
                                             .size(6.dp)
                                             .clip(CircleShape)
-                                            .background(Color(0xFF10B981))
+                                            .background(Color(0xFF10B981).bg())
                                     )
                                     Spacer(modifier = Modifier.width(5.dp))
                                     Text(
-                                        text = "$applicantCount Applied",
+                                        text = stringResource(R.string.employer_home_applied_count, applicantCount),
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF047857)
+                                        color = Color(0xFF047857).fg()
                                     )
                                 }
                             }
                         } else {
                             Surface(
                                 shape = RoundedCornerShape(14.dp),
-                                color = Color(0xFFF1F5F9),
-                                border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                                color = Color(0xFFF1F5F9).bg(),
+                                border = BorderStroke(1.dp, Color(0xFFCBD5E1).bd())
                             ) {
                                 Text(
-                                    text = "Live Now",
+                                    text = stringResource(R.string.employer_home_live_now),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFF475569),
+                                    color = Color(0xFF475569).fg(),
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                                 )
                             }
@@ -428,14 +437,14 @@ fun ActivePostingsCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(46.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A).bg()),
                         shape = RoundedCornerShape(23.dp),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                     ) {
                         val ctaLabel = if (applicantCount > 0) {
-                            "View $applicantCount ${if (applicantCount == 1) "Applicant" else "Applicants"} & Call Directly →"
+                            stringResource(R.string.employer_home_view_applicants_cta, applicantCount)
                         } else {
-                            "View Vacancy & Call Workers →"
+                            stringResource(R.string.employer_home_view_vacancy_cta)
                         }
                         Text(
                             text = ctaLabel,
@@ -451,8 +460,8 @@ fun ActivePostingsCard(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 Column(
@@ -460,16 +469,16 @@ fun ActivePostingsCard(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "No active job vacancies",
+                        text = stringResource(R.string.employer_home_no_vacancies_title),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
+                        color = Color(0xFF0F172A).fg()
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Post a vacancy in 2 minutes to start receiving candidate applications and calls.",
+                        text = stringResource(R.string.employer_home_no_vacancies_desc),
                         fontSize = 12.sp,
-                        color = Color(0xFF64748B),
+                        color = Color(0xFF64748B).fg(),
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(14.dp))
@@ -478,11 +487,11 @@ fun ActivePostingsCard(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(44.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A).bg()),
                         shape = RoundedCornerShape(22.dp)
                     ) {
                         Text(
-                            text = "Post Your First Vacancy →",
+                            text = stringResource(R.string.employer_home_post_first_vacancy),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -518,10 +527,10 @@ fun QuickRoleTemplatesSection(
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
-            text = "HIRE IN 1 MINUTE (POPULAR ROLES)",
+            text = stringResource(R.string.employer_home_hire_popular_roles),
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF94A3B8),
+            color = Color(0xFF94A3B8).fg(),
             letterSpacing = 0.8.sp
         )
 
@@ -538,8 +547,8 @@ fun QuickRoleTemplatesSection(
                         .height(96.dp)
                         .clickable { onRoleSelected(title) },
                     shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                     elevation = CardDefaults.cardElevation(0.dp)
                 ) {
                     Column(
@@ -558,14 +567,14 @@ fun QuickRoleTemplatesSection(
                             text = title,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A),
+                            color = Color(0xFF0F172A).fg(),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             text = vernacular,
                             fontSize = 10.sp,
-                            color = Color(0xFF64748B),
+                            color = Color(0xFF64748B).fg(),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -584,8 +593,8 @@ fun QuickRoleTemplatesSection(
 @Composable
 fun RecentCallRequestsSection(
     candidates: List<CandidateDisplayItem>,
-    onCallClick: (String) -> Unit,
-    onWhatsAppClick: (String) -> Unit,
+    onCallClick: (CandidateDisplayItem) -> Unit,
+    onWhatsAppClick: (CandidateDisplayItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -595,23 +604,23 @@ fun RecentCallRequestsSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Recent Call Requests",
+                text = stringResource(R.string.employer_home_recent_call_requests),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A)
+                color = Color(0xFF0F172A).fg()
             )
 
             if (candidates.isNotEmpty()) {
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = Color(0xFFECFDF5),
-                    border = BorderStroke(1.dp, Color(0xFFA7F3D0))
+                    color = Color(0xFFECFDF5).bg(),
+                    border = BorderStroke(1.dp, Color(0xFFA7F3D0).bd())
                 ) {
                     Text(
-                        text = "Live",
+                        text = stringResource(R.string.employer_home_live_tag),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF059669),
+                        color = Color(0xFF059669).fg(),
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
@@ -628,8 +637,8 @@ fun RecentCallRequestsSection(
                     Card(
                         modifier = Modifier.width(285.dp),
                         shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                         elevation = CardDefaults.cardElevation(0.dp)
                     ) {
                         Row(
@@ -642,7 +651,7 @@ fun RecentCallRequestsSection(
                                     modifier = Modifier
                                         .size(44.dp)
                                         .clip(RoundedCornerShape(10.dp))
-                                        .background(Color(0xFF0F172A)),
+                                        .background(Color(0xFF0F172A).bg()),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
@@ -658,7 +667,7 @@ fun RecentCallRequestsSection(
                                     modifier = Modifier
                                         .size(15.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFF10B981))
+                                        .background(Color(0xFF10B981).bg())
                                         .align(Alignment.BottomEnd),
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -679,7 +688,7 @@ fun RecentCallRequestsSection(
                                     text = candidate.name,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF0F172A),
+                                    color = Color(0xFF0F172A).fg(),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -687,7 +696,7 @@ fun RecentCallRequestsSection(
                                 Text(
                                     text = "${candidate.trade} · ${candidate.distanceText}",
                                     fontSize = 12.sp,
-                                    color = Color(0xFF64748B),
+                                    color = Color(0xFF64748B).fg(),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -696,7 +705,7 @@ fun RecentCallRequestsSection(
                                     text = "★ ${candidate.rating} (${candidate.jobsDone} jobs)",
                                     fontSize = 11.5.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFD97706)
+                                    color = Color(0xFFD97706).fg()
                                 )
                             }
 
@@ -705,9 +714,9 @@ fun RecentCallRequestsSection(
                             // Action Buttons: Call & WhatsApp
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Surface(
-                                    onClick = { onCallClick(candidate.phone) },
+                                    onClick = { onCallClick(candidate) },
                                     shape = RoundedCornerShape(10.dp),
-                                    color = Color(0xFF10B981),
+                                    color = Color(0xFF10B981).bg(),
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
@@ -721,9 +730,9 @@ fun RecentCallRequestsSection(
                                 }
 
                                 Surface(
-                                    onClick = { onWhatsAppClick(candidate.phone) },
+                                    onClick = { onWhatsAppClick(candidate) },
                                     shape = RoundedCornerShape(10.dp),
-                                    color = Color(0xFF22C55E),
+                                    color = Color(0xFF22C55E).bg(),
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
@@ -745,8 +754,8 @@ fun RecentCallRequestsSection(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
                 Row(
@@ -757,7 +766,7 @@ fun RecentCallRequestsSection(
                         modifier = Modifier
                             .size(38.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFEFF6FF)),
+                            .background(Color(0xFFEFF6FF).bg()),
                         contentAlignment = Alignment.Center
                     ) {
                         Text("📞", fontSize = 18.sp)
@@ -765,16 +774,16 @@ fun RecentCallRequestsSection(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "No candidate requests yet",
+                            text = stringResource(R.string.employer_home_no_requests_title),
                             fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
+                            color = Color(0xFF0F172A).fg()
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "When workers apply or call, they will show here for instant 1-tap callback.",
+                            text = stringResource(R.string.employer_home_no_requests_desc),
                             fontSize = 11.5.sp,
-                            color = Color(0xFF64748B)
+                            color = Color(0xFF64748B).fg()
                         )
                     }
                 }
@@ -794,8 +803,8 @@ fun HelplineTrustStrip(
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Row(
@@ -806,13 +815,13 @@ fun HelplineTrustStrip(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFF1F5F9)),
+                    .background(Color(0xFFF1F5F9).bg()),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Headset,
                     contentDescription = null,
-                    tint = Color(0xFF475569),
+                    tint = Color(0xFF475569).fg(),
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -820,9 +829,9 @@ fun HelplineTrustStrip(
             Spacer(modifier = Modifier.width(10.dp))
 
             Text(
-                text = "Trouble creating a job? Call our support desk",
+                text = stringResource(R.string.employer_home_helpline_text),
                 fontSize = 12.sp,
-                color = Color(0xFF475569),
+                color = Color(0xFF475569).fg(),
                 modifier = Modifier.weight(1f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -831,10 +840,10 @@ fun HelplineTrustStrip(
             Spacer(modifier = Modifier.width(6.dp))
 
             Text(
-                text = "Call Now",
+                text = stringResource(R.string.employer_home_call_now),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A),
+                color = Color(0xFF0F172A).fg(),
                 textDecoration = TextDecoration.Underline,
                 modifier = Modifier.clickable { onCallNow() }
             )
@@ -881,7 +890,7 @@ fun EmployerHomeHeader(
     companyName: String,
     unreadCount: Int,
     onNotificationClick: () -> Unit,
-    onPostJobClick: () -> Unit,
+    onPostJobClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val displayName = companyName.ifBlank { "My Business" }
@@ -889,7 +898,7 @@ fun EmployerHomeHeader(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(Color.White.bg())
             .statusBarsPadding()
     ) {
         Row(
@@ -908,14 +917,14 @@ fun EmployerHomeHeader(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFEFF6FF)),
+                        .background(Color(0xFFEFF6FF).bg()),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = initial,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = EhCobalt
+                        color = EhCobalt.fg()
                     )
                 }
                 Spacer(modifier = Modifier.width(10.dp))
@@ -923,7 +932,7 @@ fun EmployerHomeHeader(
                     text = displayName,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = EhInk,
+                    color = EhInk.fg(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -939,7 +948,7 @@ fun EmployerHomeHeader(
                     Icon(
                         imageVector = Icons.Outlined.NotificationsNone,
                         contentDescription = "Notifications",
-                        tint = EhInk,
+                        tint = EhInk.fg(),
                         modifier = Modifier.size(24.dp)
                     )
                     if (unreadCount > 0) {
@@ -948,27 +957,10 @@ fun EmployerHomeHeader(
                                 .align(Alignment.TopEnd)
                                 .size(8.dp)
                                 .clip(CircleShape)
-                                .background(EhRed)
-                                .border(1.5.dp, Color.White, CircleShape)
+                                .background(EhRed.bg())
+                                .border(1.5.dp, Color.White.bd(), CircleShape)
                         )
                     }
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Box(
-                    modifier = Modifier
-                        .height(36.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(EhNavy)
-                        .clickable { onPostJobClick() }
-                        .padding(horizontal = 16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Post Job",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White
-                    )
                 }
             }
         }
@@ -976,7 +968,7 @@ fun EmployerHomeHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(EhBorder)
+                .background(EhBorder.bg())
         )
     }
 }
@@ -995,8 +987,8 @@ fun EmployerHeroActionCards(
             modifier = Modifier
                 .weight(1f)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color.White)
-                .border(1.dp, EhBorder, RoundedCornerShape(12.dp))
+                .background(Color.White.bg())
+                .border(1.dp, EhBorder.bd(), RoundedCornerShape(12.dp))
                 .clickable { onPostRegularClick() }
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1004,18 +996,18 @@ fun EmployerHeroActionCards(
             Icon(
                 imageVector = Icons.AutoMirrored.Outlined.AssignmentOutlinedIcon,
                 contentDescription = null,
-                tint = EhNavy,
+                tint = EhNavy.fg(),
                 modifier = Modifier.size(24.dp)
             )
-            Text("Post Regular Job", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = EhInk)
-            Text("Fill a vacancy", fontSize = 12.sp, color = EhSlate)
+            Text(stringResource(R.string.employer_home_post_regular_job), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = EhInk.fg())
+            Text(stringResource(R.string.employer_home_fill_vacancy), fontSize = 12.sp, color = EhSlate.fg())
         }
         Column(
             modifier = Modifier
                 .weight(1f)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFFFEF2F2))
-                .border(1.dp, Color(0xFFFECACA), RoundedCornerShape(12.dp))
+                .background(Color(0xFFFEF2F2).bg())
+                .border(1.dp, Color(0xFFFECACA).bd(), RoundedCornerShape(12.dp))
                 .clickable { onPostUrgentClick() }
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1023,11 +1015,11 @@ fun EmployerHeroActionCards(
             Icon(
                 imageVector = Icons.Outlined.FlashOn,
                 contentDescription = null,
-                tint = EhRed,
+                tint = EhRed.fg(),
                 modifier = Modifier.size(24.dp)
             )
-            Text("Post Urgent Need", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = EhRed)
-            Text("Find worker now", fontSize = 12.sp, color = EhMuted)
+            Text(stringResource(R.string.employer_home_post_urgent_need), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = EhRed.fg())
+            Text(stringResource(R.string.employer_home_find_worker_now), fontSize = 12.sp, color = EhMuted.fg())
         }
     }
 }
@@ -1043,9 +1035,9 @@ fun EmployerStatsRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        EmployerStatCell("Active Jobs", activeJobs, Modifier.weight(1f))
-        EmployerStatCell("Applicants", applicants, Modifier.weight(1f))
-        EmployerStatCell("Credits Left", creditsLeft, Modifier.weight(1f))
+        EmployerStatCell(stringResource(R.string.employer_home_active_jobs), activeJobs, Modifier.weight(1f))
+        EmployerStatCell(stringResource(R.string.employer_home_applicants), applicants, Modifier.weight(1f))
+        EmployerStatCell(stringResource(R.string.employer_home_credits_left), creditsLeft, Modifier.weight(1f))
     }
 }
 
@@ -1054,15 +1046,15 @@ private fun EmployerStatCell(label: String, value: Int, modifier: Modifier = Mod
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.White)
-            .border(1.dp, EhBorder, RoundedCornerShape(12.dp))
+            .background(Color.White.bg())
+            .border(1.dp, EhBorder.bd(), RoundedCornerShape(12.dp))
             .padding(12.dp)
     ) {
         Text(
             text = label.uppercase(),
             fontSize = 11.sp,
             letterSpacing = 0.6.sp,
-            color = EhMuted,
+            color = EhMuted.fg(),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -1071,7 +1063,7 @@ private fun EmployerStatCell(label: String, value: Int, modifier: Modifier = Mod
             text = value.toString(),
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
-            color = EhInk
+            color = EhInk.fg()
         )
     }
 }
@@ -1082,7 +1074,7 @@ fun EmployerSectionLabel(text: String, modifier: Modifier = Modifier) {
         text = text,
         fontSize = 13.sp,
         fontWeight = FontWeight.SemiBold,
-        color = EhSlate,
+        color = EhSlate.fg(),
         modifier = modifier
     )
 }
@@ -1101,8 +1093,8 @@ fun EmployerJobManagementCard(
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Color.White)
-            .border(1.dp, EhBorder, shape)
+            .background(Color.White.bg())
+            .border(1.dp, EhBorder.bd(), shape)
             .padding(16.dp)
     ) {
         Row(
@@ -1115,29 +1107,29 @@ fun EmployerJobManagementCard(
                     text = title,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = EhInk,
+                    color = EhInk.fg(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "$applicantCount applicants",
+                    text = "$applicantCount ${stringResource(R.string.applicants_lower)}",
                     fontSize = 13.sp,
-                    color = EhSlate
+                    color = EhSlate.fg()
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
-                    .background(if (isUrgent) Color(0xFFFEF2F2) else Color(0xFFF0FDF4))
+                    .background(if (isUrgent) Color(0xFFFEF2F2).bg() else Color(0xFFF0FDF4).bg())
                     .padding(horizontal = 10.dp, vertical = 3.dp)
             ) {
                 Text(
-                    text = if (isUrgent) "URGENT" else "OPEN",
+                    text = if (isUrgent) stringResource(R.string.urgent_caps) else stringResource(R.string.open_caps),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (isUrgent) EhRed else Color(0xFF16A34A)
+                    color = if (isUrgent) EhRed.fg() else Color(0xFF16A34A).fg()
                 )
             }
         }
@@ -1152,13 +1144,13 @@ fun EmployerJobManagementCard(
                 modifier = Modifier
                     .height(32.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(EhNavy)
+                    .background(EhNavy.bg())
                     .clickable { onReviewClick() }
                     .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Review \u2192",
+                    text = stringResource(R.string.employer_home_review),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White
@@ -1184,7 +1176,7 @@ private fun EmployerFacepile(items: List<EmployerFacepileItem>) {
                     .size(24.dp)
                     .clip(CircleShape)
                     .background(pastel[index % pastel.size])
-                    .border(2.dp, Color.White, CircleShape),
+                    .border(2.dp, Color.White.bd(), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 if (!item.photoUrl.isNullOrBlank()) {
@@ -1199,7 +1191,7 @@ private fun EmployerFacepile(items: List<EmployerFacepileItem>) {
                         text = item.name.trim().firstOrNull()?.uppercase() ?: "W",
                         fontSize = 9.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = EhNavy
+                        color = EhNavy.fg()
                     )
                 }
             }
@@ -1208,29 +1200,162 @@ private fun EmployerFacepile(items: List<EmployerFacepileItem>) {
 }
 
 @Composable
-fun EmployerNoActiveJobsCard(onPostJobClick: () -> Unit, modifier: Modifier = Modifier) {
+fun EmployerNoActiveJobsCard(onPostJobClick: (() -> Unit)? = null, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(16.dp)
     Column(
         modifier = modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Color.White)
-            .border(1.dp, EhBorder, shape)
+            .background(Color.White.bg())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Text("No active jobs yet", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = EhInk)
-        Text("Post your first job to start receiving applicants.", fontSize = 13.sp, color = EhSlate)
-        Box(
+        Text(stringResource(R.string.employer_home_no_active_jobs), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = EhInk.fg())
+        Text(stringResource(R.string.employer_home_no_active_jobs_sub), fontSize = 13.sp, color = EhSlate.fg())
+    }
+}
+
+/**
+ * First-time employer home: a short headline, one strong "Post a job" action, two quick ways to
+ * hire (urgent / by voice) and a three-step "how it works". Calm, neutral and dark-mode ready.
+ */
+@Composable
+fun EmployerWelcomeSection(
+    ownerName: String,
+    onPostJob: () -> Unit,
+    onPostUrgent: () -> Unit,
+    onVoice: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val ink = Color(0xFF0F172A)
+    val muted = Color(0xFF64748B)
+    val line = Color(0xFFE5E7EB)
+    Column(modifier = modifier.fillMaxWidth().padding(top = 4.dp)) {
+        Text(
+            text = stringResource(R.string.employer_welcome_overline).uppercase(),
+            color = muted.fg(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = if (ownerName.isNotBlank()) stringResource(R.string.employer_welcome_title_name, ownerName.trim().substringBefore(' '))
+            else stringResource(R.string.employer_welcome_title),
+            color = ink.fg(), fontSize = 24.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = stringResource(R.string.employer_welcome_body),
+            color = muted.fg(), fontSize = 14.sp, lineHeight = 20.sp
+        )
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Primary: post a job.
+        Row(
             modifier = Modifier
-                .height(32.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(EhNavy)
-                .clickable { onPostJobClick() }
-                .padding(horizontal = 16.dp),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(ink.bg())
+                .clickable(onClick = onPostJob)
+                .padding(horizontal = 18.dp, vertical = 18.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Post Job", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.employer_welcome_post), color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(stringResource(R.string.employer_welcome_post_sub), color = Color(0xFFCBD5E1).fg(), fontSize = 13.sp)
+            }
+            Box(
+                modifier = Modifier.size(40.dp).background(Color.White.bg(), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Color(0xFF0F172A).fg(), modifier = Modifier.size(20.dp))
+            }
         }
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Two quick ways to hire.
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            WelcomeTile(
+                icon = Icons.Filled.Bolt, tint = Color(0xFFEA580C).fg(), tile = Color(0xFFFFF7ED),
+                title = stringResource(R.string.employer_welcome_urgent), subtitle = stringResource(R.string.employer_welcome_urgent_sub),
+                onClick = onPostUrgent, modifier = Modifier.weight(1f)
+            )
+            WelcomeTile(
+                icon = Icons.Filled.Mic, tint = Color(0xFF7C3AED).fg(), tile = Color(0xFFF5F3FF),
+                title = stringResource(R.string.employer_welcome_voice), subtitle = stringResource(R.string.employer_welcome_voice_sub),
+                onClick = onVoice, modifier = Modifier.weight(1f)
+            )
+        }
+        Spacer(modifier = Modifier.height(26.dp))
+
+        // How it works.
+        Text(stringResource(R.string.employer_welcome_how), color = ink.fg(), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(14.dp))
+        val steps = listOf(
+            stringResource(R.string.employer_step1_title) to stringResource(R.string.employer_step1_body),
+            stringResource(R.string.employer_step2_title) to stringResource(R.string.employer_step2_body),
+            stringResource(R.string.employer_step3_title) to stringResource(R.string.employer_step3_body)
+        )
+        steps.forEachIndexed { index, (title, body) ->
+            Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(28.dp)) {
+                    Box(
+                        modifier = Modifier.size(28.dp).background(Color.White.bg(), CircleShape).border(1.dp, line.bd(), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text((index + 1).toString(), color = ink.fg(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    if (index < steps.lastIndex) {
+                        Box(modifier = Modifier.width(1.dp).weight(1f).background(line.bd()))
+                    }
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.padding(top = 3.dp, bottom = if (index < steps.lastIndex) 18.dp else 0.dp)) {
+                    Text(title, color = ink.fg(), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(body, color = muted.fg(), fontSize = 13.sp, lineHeight = 18.sp)
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(22.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFFF8FAFC).bg(), RoundedCornerShape(12.dp))
+                .border(1.dp, line.bd(), RoundedCornerShape(12.dp))
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Filled.VerifiedUser, contentDescription = null, tint = Color(0xFF16A34A).fg(), modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(stringResource(R.string.employer_welcome_trust), color = muted.fg(), fontSize = 12.sp, lineHeight = 17.sp)
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun WelcomeTile(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    tint: Color,
+    tile: Color,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White.bg())
+            .border(1.dp, Color(0xFFE5E7EB).bd(), RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(14.dp)
+    ) {
+        Box(modifier = Modifier.size(36.dp).background(tile.bg(), RoundedCornerShape(10.dp)), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(title, color = Color(0xFF0F172A).fg(), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(subtitle, color = Color(0xFF64748B).fg(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

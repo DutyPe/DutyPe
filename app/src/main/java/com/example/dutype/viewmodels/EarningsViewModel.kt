@@ -5,10 +5,6 @@ import androidx.lifecycle.viewModelScope
 import com.example.dutype.worker.screens.EarningsPeriod
 import com.example.dutype.worker.screens.EarningsTransaction
 import com.example.dutype.worker.screens.PaymentStatus
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FieldPath
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +18,7 @@ import javax.inject.Inject
 
 /**
  * Earnings Dashboard ViewModel
- * 
+ *
  * Manages worker earnings data, transactions, and statistics
  */
 
@@ -43,162 +39,75 @@ data class EarningsUiState(
 
 @HiltViewModel
 class EarningsViewModel @Inject constructor(
-    private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val applicationsStore: com.example.dutype.applications.WorkerApplicationsStore
 ) : ViewModel() {
-    
+
     private val _uiState = MutableStateFlow(EarningsUiState())
     val uiState: StateFlow<EarningsUiState> = _uiState.asStateFlow()
-    
+    private var collecting = false
+
+    /**
+     * Earnings from the worker's applications already kept live by [WorkerApplicationsStore]
+     * (each with its job card), so the home screen costs no extra reads: hired = pending pay,
+     * completed = paid, at the job's pay amount.
+     */
     fun loadEarnings() {
+        applicationsStore.start()
+        if (collecting) return
+        collecting = true
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
-            
-            try {
-                val userId = auth.currentUser?.uid ?: return@launch
-                
-                // Strict schema: applications contain only relationship/status fields.
-                // Earnings fields are derived from jobs collection using jobId.
-                val applications = firestore.collection(com.example.dutype.firestore.FirestoreCollections.APPLICATIONS)
-                    .whereEqualTo("workerId", userId)
-                    .orderBy("createdAt", Query.Direction.DESCENDING)
-                    .limit(100) // P0 FIX: Cap at 100 for performance at scale
-                    .get()
-                    .await()
-
-                // Bug #15 fix: earnings unlock when an application is HIRED
-                // (in-progress) or COMPLETED (employer marked done = paid).
-                // Legacy strings kept for backward compatibility with any
-                // historical docs.
-                val earningStatuses = setOf("hired", "completed", "accepted", "in_progress")
-                val earningApplications = applications.documents.filter { doc ->
-                    val status = doc.getString("status")?.lowercase()
-                    status in earningStatuses
-                }
-
-                val jobIds = earningApplications.mapNotNull { it.getString("jobId") }.distinct()
-                val jobInfoById = fetchJobEarningInfo(jobIds)
-                
-                val transactions = mutableListOf<EarningsTransaction>()
-                var totalEarnings = 0.0
-                var pendingAmount = 0.0
-                var onTimePayments = 0
-                var totalHours = 0
-                
-                for (doc in earningApplications) {
-                    val jobId = doc.getString("jobId") ?: continue
-                    val statusValue = doc.getString("status")?.lowercase().orEmpty()
-                    val amount = jobInfoById[jobId]?.salary ?: 0.0
-                    val isPaid = statusValue == "completed"
-                    val completedAt = doc.getTimestamp("createdAt")?.toDate()?.time ?: System.currentTimeMillis()
-                    val hoursWorked = 8
-                    
-                    val jobTitle = jobInfoById[jobId]?.title ?: "Job"
-                    val companyName = ""
-                    
-                    val status = when {
-                        isPaid -> PaymentStatus.PAID
-                        else -> PaymentStatus.PENDING
-                    }
-                    
-                    if (isPaid) {
-                        totalEarnings += amount
-                        onTimePayments++
-                    } else {
-                        pendingAmount += amount
-                    }
-                    
-                    totalHours += hoursWorked
-                    
-                    transactions.add(
-                        EarningsTransaction(
-                            id = doc.id,
-                            jobId = jobId,
-                            jobTitle = jobTitle,
-                            companyName = companyName,
-                            amount = amount,
-                            status = status,
-                            date = completedAt
-                        )
-                    )
-                }
-                
-                // Calculate weekly earnings
-                val weeklyEarnings = calculateWeeklyEarnings(transactions)
-                
-                // Calculate stats
-                val completedJobs = transactions.size
-                val avgEarning = if (completedJobs > 0) totalEarnings / completedJobs else 0.0
-                val onTimePercentage = if (completedJobs > 0) (onTimePayments * 100) / completedJobs else 0
-                
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        totalEarnings = totalEarnings,
-                        pendingAmount = pendingAmount,
-                        completedJobs = completedJobs,
-                        periodCompletedJobs = completedJobs,
-                        avgEarningPerJob = avgEarning,
-                        onTimePaymentPercentage = onTimePercentage,
-                        totalHoursWorked = totalHours,
-                        weeklyEarnings = weeklyEarnings,
-                        transactions = transactions
-                    )
-                }
-                
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to load earnings")
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        error = e.message
-                    )
-                }
-            }
+            applicationsStore.applications.collect { list -> publish(list) }
         }
     }
 
-    private data class JobEarningInfo(
-        val title: String,
-        val salary: Double
-    )
-
-    private suspend fun fetchJobEarningInfo(jobIds: List<String>): Map<String, JobEarningInfo> {
-        if (jobIds.isEmpty()) return emptyMap()
-
-        val result = mutableMapOf<String, JobEarningInfo>()
-        jobIds.chunked(10).forEach { chunk ->
-            val snapshot = firestore.collection(com.example.dutype.firestore.FirestoreCollections.JOBS)
-                .whereIn(FieldPath.documentId(), chunk)
-                .get()
-                .await()
-
-            snapshot.documents.forEach { doc ->
-                // Bug #6: salary is a free-form String. Earnings need a
-                // numeric value, so use SalaryFormatter.numericForEarnings
-                // (which falls back to the lower bound for ranges/"+" /
-                // returns 0 for "Negotiable").
-                val salaryRaw = (doc.get("salary") as? String)
-                    ?: (doc.get("salary") as? Number)?.toString()
-                    ?: ""
-                val salary = com.example.dutype.utils.SalaryFormatter.numericForEarnings(salaryRaw)
-                result[doc.id] = JobEarningInfo(
-                    title = doc.getString("title") ?: "Job",
-                    salary = salary
-                )
-            }
+    private fun publish(list: List<com.example.dutype.models.JobApplication>) {
+        val earning = list.filter {
+            it.status == com.example.dutype.models.ApplicationStatus.HIRED ||
+                it.status == com.example.dutype.models.ApplicationStatus.COMPLETED
         }
-        return result
+        var totalEarnings = 0.0
+        var pendingAmount = 0.0
+        var paid = 0
+        val transactions = earning.map { app ->
+            val amount = (app.job?.payAmount ?: 0L).toDouble()
+            val isPaid = app.status == com.example.dutype.models.ApplicationStatus.COMPLETED
+            if (isPaid) { totalEarnings += amount; paid++ } else pendingAmount += amount
+            EarningsTransaction(
+                id = app.id,
+                jobId = app.jobId,
+                jobTitle = app.jobTitle.ifBlank { "Job" },
+                companyName = app.companyName,
+                amount = amount,
+                status = if (isPaid) PaymentStatus.PAID else PaymentStatus.PENDING,
+                date = app.completedAt.takeIf { it > 0 } ?: app.hiredAt.takeIf { it > 0 } ?: app.createdAt
+            )
+        }
+        val count = transactions.size
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                totalEarnings = totalEarnings,
+                pendingAmount = pendingAmount,
+                completedJobs = count,
+                periodCompletedJobs = count,
+                avgEarningPerJob = if (paid > 0) totalEarnings / paid else 0.0,
+                onTimePaymentPercentage = if (count > 0) (paid * 100) / count else 0,
+                totalHoursWorked = count * 8,
+                weeklyEarnings = calculateWeeklyEarnings(transactions),
+                transactions = transactions,
+                error = null
+            )
+        }
     }
-    
+
     fun filterByPeriod(period: EarningsPeriod) {
         viewModelScope.launch {
             _uiState.update { it.copy(selectedPeriod = period) }
-            
+
             val allTransactions = _uiState.value.transactions
             val now = System.currentTimeMillis()
             val calendar = Calendar.getInstance()
-            
+
             val startTime = when (period) {
                 EarningsPeriod.THIS_WEEK -> {
                     calendar.set(Calendar.DAY_OF_WEEK, calendar.firstDayOfWeek)
@@ -223,14 +132,14 @@ class EarningsViewModel @Inject constructor(
                 }
                 EarningsPeriod.ALL_TIME -> 0L
             }
-            
+
             val filteredTransactions = allTransactions.filter { it.date >= startTime }
             val periodEarnings = filteredTransactions
                 .filter { it.status == PaymentStatus.PAID }
                 .sumOf { it.amount }
             val periodJobs = filteredTransactions.size
             val avgEarning = if (periodJobs > 0) periodEarnings / periodJobs else 0.0
-            
+
             _uiState.update {
                 it.copy(
                     periodCompletedJobs = periodJobs,
@@ -240,7 +149,7 @@ class EarningsViewModel @Inject constructor(
             }
         }
     }
-    
+
     private fun calculateWeeklyEarnings(transactions: List<EarningsTransaction>): List<Double> {
         val calendar = Calendar.getInstance()
         val weekStart = calendar.apply {
@@ -249,9 +158,9 @@ class EarningsViewModel @Inject constructor(
             set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0)
         }.timeInMillis
-        
+
         val dailyEarnings = MutableList(7) { 0.0 }
-        
+
         transactions
             .filter { it.date >= weekStart && it.status == PaymentStatus.PAID }
             .forEach { transaction ->
@@ -261,7 +170,7 @@ class EarningsViewModel @Inject constructor(
                     dailyEarnings[dayOfWeek] += transaction.amount
                 }
             }
-        
+
         return dailyEarnings
     }
 }

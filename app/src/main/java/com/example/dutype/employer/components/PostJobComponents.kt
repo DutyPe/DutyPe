@@ -65,79 +65,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.dutype.employer.helpers.JobPostingHelpers
 import com.example.dutype.employer.models.PayType
-import com.example.dutype.employer.models.ShiftTiming
+import com.example.dutype.employer.models.JobShift
 import com.example.dutype.ui.theme.EmployerColors
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PayTypeDropdown(
-    selectedType: PayType,
-    onTypeSelected: (PayType) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded },
-        modifier = modifier
-    ) {
-        OutlinedTextField(
-            value = selectedType.displayName,
-            onValueChange = { },
-            readOnly = true,
-            label = { Text(stringResource(R.string.pay_type)) },
-            trailingIcon = {
-                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
-            },
-            modifier = Modifier
-                .menuAnchor()
-                .fillMaxWidth()
-        )
-
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            PayType.values().forEach { payType ->
-                DropdownMenuItem(
-                    text = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                imageVector = JobPostingHelpers.getPayTypeIcon(payType),
-                                contentDescription = null,
-                                tint = EmployerColors.Primary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Text(
-                                text = payType.displayName,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    },
-                    onClick = {
-                        onTypeSelected(payType)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
 
 @Composable
 fun WorkScheduleSection(
-    selectedShift: ShiftTiming,
-    onShiftSelected: (ShiftTiming) -> Unit,
+    selectedShift: JobShift,
+    onShiftSelected: (JobShift) -> Unit,
     customStart: String = "",
     onCustomStartChange: (String) -> Unit = {},
     customEnd: String = "",
     onCustomEndChange: (String) -> Unit = {}
 ) {
-    val shiftOptions = listOf(ShiftTiming.MORNING, ShiftTiming.NIGHT, ShiftTiming.BOTH, ShiftTiming.FLEXIBLE)
+    val shiftOptions = JobShift.entries
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
@@ -161,7 +101,7 @@ fun WorkScheduleSection(
 
 @Composable
 private fun ShiftChip(
-    shift: ShiftTiming,
+    shift: JobShift,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
@@ -188,10 +128,6 @@ private fun ShiftChip(
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                text = shift.icon,
-                fontSize = 13.sp
-            )
-            Text(
                 text = shift.displayName,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = if (isSelected) Color.White else EmployerColors.TextPrimary,
@@ -204,127 +140,9 @@ private fun ShiftChip(
     }
 }
 
-@Composable
-fun PostJobBottomBar(
-    onPreviewClick: () -> Unit,
-    onPostClick: () -> Unit,
-    isLoading: Boolean
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            OutlinedButton(
-                onClick = onPreviewClick,
-                modifier = Modifier.weight(1f),
-                enabled = !isLoading
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Preview,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(stringResource(R.string.preview_button))
-            }
-
-            Button(
-                onClick = onPostClick,
-                modifier = Modifier.weight(2f),
-                enabled = !isLoading,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = EmployerColors.Primary
-                )
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Send,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.post_job_button))
-            }
-        }
-    }
-}
-
-
 // =============================================================================
 // FORM COMPONENTS (Merged from PostJobFormComponents.kt)
 // =============================================================================
-
-@Composable
-fun StepHeader(title: String, subtitle: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            color = EmployerColors.TextPrimary
-        )
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodyMedium,
-            color = EmployerColors.TextSecondary,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(top = 4.dp)
-        )
-    }
-}
-
-@Composable
-fun JobTitleSection(
-    title: String,
-    onTitleChange: (String) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.job_title),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            OutlinedTextField(
-                value = title,
-                onValueChange = onTitleChange,
-                placeholder = { Text(stringResource(R.string.edit_job_title_hint)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                leadingIcon = {
-                    Icon(Icons.Default.Work, contentDescription = null)
-                }
-            )
-
-        }
-    }
-}
 
 @Composable
 fun JobDescriptionSection(
@@ -373,139 +191,6 @@ fun JobDescriptionSection(
                     cursorColor = primaryBlue
                 )
             )
-        }
-    }
-}
-
-@Composable
-fun PaymentSection(
-    payAmount: String,
-    onPayAmountChange: (String) -> Unit,
-    payType: PayType,
-    onPayTypeChange: (PayType) -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.payment_details),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            OutlinedTextField(
-                value = payAmount,
-                onValueChange = onPayAmountChange,
-                label = { Text(stringResource(R.string.amount)) },
-                placeholder = { Text(stringResource(R.string.payment_amount_hint)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                leadingIcon = {
-                    Icon(Icons.Default.CurrencyRupee, contentDescription = null)
-                },
-                supportingText = {
-                    Text(
-                        text = stringResource(R.string.auto_enter_amount_range_10000_15000_or_text_bas),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            )
-
-            Text(
-                text = stringResource(R.string.pay_type),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = EmployerColors.TextSecondary
-            )
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(PayType.values().toList()) { type ->
-                    val selected = payType == type
-                    FilterChip(
-                        selected = selected,
-                        onClick = { onPayTypeChange(type) },
-                        modifier = Modifier.height(34.dp),
-                        label = {
-                            Text(
-                                text = type.displayName,
-                                fontSize = 12.sp,
-                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
-                            )
-                        },
-                        shape = RoundedCornerShape(10.dp),
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = EmployerColors.Primary,
-                            selectedLabelColor = Color.White,
-                            containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground,
-                            labelColor = EmployerColors.TextPrimary
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = true,
-                            selected = selected,
-                            borderColor = EmployerColors.Border,
-                            selectedBorderColor = EmployerColors.Primary
-                        )
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun LocationSection(
-    location: String,
-    onLocationChange: (String) -> Unit,
-    isLoadingLocation: Boolean,
-    locationError: String?,
-    onLocationButtonClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.auto_job_location),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            OutlinedTextField(
-                value = location,
-                onValueChange = onLocationChange,
-                placeholder = { Text(stringResource(R.string.enter_location_or_gps)) },
-                modifier = Modifier.fillMaxWidth(),
-                leadingIcon = {
-                    Icon(Icons.Default.LocationOn, contentDescription = null)
-                },
-                trailingIcon = {
-                    IconButton(onClick = onLocationButtonClick) {
-                        if (isLoadingLocation) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                        } else {
-                            Icon(Icons.Default.MyLocation, contentDescription = "Use GPS")
-                        }
-                    }
-                }
-            )
-
-            locationError?.let { error ->
-                Text(
-                    text = error,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
         }
     }
 }

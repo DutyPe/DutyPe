@@ -1,5 +1,8 @@
 package com.example.dutype.worker.screens.profile
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.content.Intent
 import android.net.Uri
@@ -393,7 +396,7 @@ fun WorkerProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 // Flat, fully white page (no cards) — also behind the status bar.
-                .background(Color.White)
+                .background(Color.White.bg())
                 .windowInsetsPadding(WindowInsets.statusBars)
         ) {
             // Offline banner at the very top
@@ -463,8 +466,8 @@ fun WorkerProfileScreen(
                                 modifier = Modifier
                                     .size(72.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFFF0FDF4))
-                                    .border(3.dp, Color(0xFF10B981), CircleShape)
+                                    .background(Color(0xFFF0FDF4).bg())
+                                    .border(3.dp, Color(0xFF10B981).bd(), CircleShape)
                                     .clickable { startImagePicker() },
                                 contentAlignment = Alignment.Center
                             ) {
@@ -472,7 +475,7 @@ fun WorkerProfileScreen(
                                     isUploadingImage -> {
                                         CircularProgressIndicator(
                                             modifier = Modifier.size(24.dp),
-                                            color = Color(0xFF10B981),
+                                            color = Color(0xFF10B981).fg(),
                                             strokeWidth = 2.dp
                                         )
                                     }
@@ -493,14 +496,14 @@ fun WorkerProfileScreen(
                                     hasName -> {
                                         Text(
                                             text = userName.trim().take(1).uppercase(),
-                                            style = profileTextStyle(28.sp, FontWeight.Bold, Color(0xFF10B981))
+                                            style = profileTextStyle(28.sp, FontWeight.Bold, Color(0xFF10B981).fg())
                                         )
                                     }
                                     else -> {
                                         Icon(
                                             imageVector = Icons.Default.Person,
                                             contentDescription = "Default Profile",
-                                            tint = Color(0xFF10B981),
+                                            tint = Color(0xFF10B981).fg(),
                                             modifier = Modifier.size(32.dp)
                                         )
                                     }
@@ -516,7 +519,7 @@ fun WorkerProfileScreen(
                             }
                             Text(
                                 text = nameText,
-                                style = profileTextStyle(22.sp, FontWeight.Bold, Color(0xFF0F0F0F)),
+                                style = profileTextStyle(22.sp, FontWeight.Bold, Color(0xFF0F0F0F).fg()),
                                 maxLines = 1,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.clickable { openProfileDetails() }
@@ -535,7 +538,7 @@ fun WorkerProfileScreen(
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = subtitleText,
-                                    style = profileTextStyle(14.sp, FontWeight.Normal, Color(0xFF64748B)),
+                                    style = profileTextStyle(14.sp, FontWeight.Normal, Color(0xFF64748B).fg()),
                                     textAlign = TextAlign.Center
                                 )
                             }
@@ -560,14 +563,14 @@ fun WorkerProfileScreen(
                                         } else {
                                             stringResource(R.string.emp_profile_no_reviews_yet)
                                         },
-                                        style = profileTextStyle(13.sp, FontWeight.Normal, Color(0xFF64748B))
+                                        style = profileTextStyle(13.sp, FontWeight.Normal, Color(0xFF64748B).fg())
                                     )
                                     if (joinMillis > 0L) {
                                         Box(
                                             modifier = Modifier
                                                 .padding(horizontal = 10.dp)
                                                 .size(3.dp)
-                                                .background(Color(0xFFCBD5E1), CircleShape)
+                                                .background(Color(0xFFCBD5E1).bg(), CircleShape)
                                         )
                                     }
                                     if (joinMillis > 0L) {
@@ -575,7 +578,7 @@ fun WorkerProfileScreen(
                                             .format(java.util.Date(joinMillis))
                                         Text(
                                             text = stringResource(R.string.emp_profile_member_since, joinLabel),
-                                            style = profileTextStyle(11.sp, FontWeight.Normal, Color(0xFF94A3B8))
+                                            style = profileTextStyle(11.sp, FontWeight.Normal, Color(0xFF94A3B8).fg())
                                         )
                                     }
                                 }
@@ -586,14 +589,14 @@ fun WorkerProfileScreen(
                                 modifier = Modifier
                                     .size(72.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFFF0FDF4))
-                                    .border(3.dp, Color(0xFF10B981), CircleShape),
+                                    .background(Color(0xFFF0FDF4).bg())
+                                    .border(3.dp, Color(0xFF10B981).bd(), CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Person,
                                     contentDescription = "Default Profile",
-                                    tint = Color(0xFF10B981),
+                                    tint = Color(0xFF10B981).fg(),
                                     modifier = Modifier.size(32.dp)
                                 )
                             }
@@ -603,7 +606,7 @@ fun WorkerProfileScreen(
                                     rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
                                 },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF0F0F0F),
+                                    containerColor = Color(0xFF0F0F0F).bg(),
                                     contentColor = Color.White
                                 ),
                                 shape = RoundedCornerShape(10.dp),
@@ -619,7 +622,7 @@ fun WorkerProfileScreen(
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = stringResource(R.string.profile_view_update_data),
-                                style = profileTextStyle(14.sp, FontWeight.Normal, Color(0xFF64748B)),
+                                style = profileTextStyle(14.sp, FontWeight.Normal, Color(0xFF64748B).fg()),
                                 textAlign = TextAlign.Center
                             )
                         }
@@ -893,15 +896,15 @@ private fun ModernEditDialog(
                             modifier = Modifier.fillMaxWidth(),
                             enabled = false,
                             colors = OutlinedTextFieldDefaults.colors(
-                                disabledTextColor = Color(0xFF666666),
-                                disabledBorderColor = Color(0xFFE0E0E0),
-                                disabledLabelColor = Color(0xFF999999)
+                                disabledTextColor = Color(0xFF666666).fg(),
+                                disabledBorderColor = Color(0xFFE0E0E0).bd(),
+                                disabledLabelColor = Color(0xFF999999).fg()
                             ),
                             trailingIcon = {
                                 Icon(
                                     Icons.Default.Lock,
                                     contentDescription = null,
-                                    tint = Color(0xFFEF4444),
+                                    tint = Color(0xFFEF4444).fg(),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -1002,7 +1005,7 @@ private fun ModernEditDialog(
                             onSave(newName, newEmail, updatedPersonalInfo)
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF1F2937)
+                            containerColor = Color(0xFF1F2937).bg()
                         ),
                         shape = RoundedCornerShape(0.dp),
                         modifier = Modifier.weight(1f)
@@ -1049,34 +1052,35 @@ private fun ProfileListRow(
             Icon(
                 painter = painterResource(id = iconRes),
                 contentDescription = null,
-                tint = Color.Unspecified,
+                // Black line icons: drawn light in dark mode.
+                tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color.Unspecified,
                 modifier = Modifier.size(20.dp)
             )
         } else if (icon != null) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Color(0xFF0F0F0F),
+                tint = Color(0xFF0F0F0F).fg(),
                 modifier = Modifier.size(20.dp)
             )
         }
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = title,
-            style = profileTextStyle(15.sp, FontWeight.SemiBold, Color(0xFF0F0F0F)),
+            style = profileTextStyle(15.sp, FontWeight.SemiBold, Color(0xFF0F0F0F).fg()),
             maxLines = 1,
             modifier = Modifier.weight(1f)
         )
         if (showStars) {
             Text(
                 text = "\u2605\u2605\u2605\u2605\u2605",
-                style = profileTextStyle(11.sp, FontWeight.Normal, Color(0xFFF59E0B))
+                style = profileTextStyle(11.sp, FontWeight.Normal, Color(0xFFF59E0B).fg())
             )
             Spacer(modifier = Modifier.width(8.dp))
         }
         Text(
             text = "\u203A",
-            style = profileTextStyle(16.sp, FontWeight.Normal, Color(0xFF94A3B8))
+            style = profileTextStyle(16.sp, FontWeight.Normal, Color(0xFF94A3B8).fg())
         )
     }
 }
@@ -1090,7 +1094,7 @@ private fun ProfileCompletenessCard(percent: Int, hint: String, onAdd: () -> Uni
     ) {
         Text(
             text = stringResource(R.string.emp_profile_complete_pct, percent),
-            style = profileTextStyle(14.sp, FontWeight.Medium, Color(0xFF0F0F0F))
+            style = profileTextStyle(14.sp, FontWeight.Medium, Color(0xFF0F0F0F).fg())
         )
         Spacer(modifier = Modifier.height(10.dp))
         Box(
@@ -1098,13 +1102,13 @@ private fun ProfileCompletenessCard(percent: Int, hint: String, onAdd: () -> Uni
                 .fillMaxWidth()
                 .height(4.dp)
                 .clip(RoundedCornerShape(2.dp))
-                .background(Color(0xFFE2E8F0))
+                .background(Color(0xFFE2E8F0).bg())
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth(percent / 100f)
                     .fillMaxHeight()
-                    .background(Color(0xFF10B981))
+                    .background(Color(0xFF10B981).bg())
             )
         }
         Spacer(modifier = Modifier.height(10.dp))
@@ -1114,12 +1118,12 @@ private fun ProfileCompletenessCard(percent: Int, hint: String, onAdd: () -> Uni
         ) {
             Text(
                 text = hint,
-                style = profileTextStyle(12.sp, FontWeight.Normal, Color(0xFF64748B)),
+                style = profileTextStyle(12.sp, FontWeight.Normal, Color(0xFF64748B).fg()),
                 modifier = Modifier.weight(1f)
             )
             Text(
                 text = stringResource(R.string.emp_profile_add_action),
-                style = profileTextStyle(12.sp, FontWeight.SemiBold, Color(0xFF10B981)),
+                style = profileTextStyle(12.sp, FontWeight.SemiBold, Color(0xFF10B981).fg()),
                 modifier = Modifier.clickable(onClick = onAdd)
             )
         }
@@ -1140,7 +1144,7 @@ private fun ProfileSettingsCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(Color.White.bg())
             .padding(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 0.dp)
     ) {
         ProfileListRow(title = stringResource(R.string.edit_profile), onClick = onEditProfile, iconRes = R.drawable.ic_profile_person)
@@ -1187,7 +1191,7 @@ private fun openWhatsAppCommunity(context: android.content.Context) {
 
 @Composable
 private fun ProfileRowDivider() {
-    HorizontalDivider(thickness = 1.dp, color = Color(0xFFF1F5F9))
+    HorizontalDivider(thickness = 1.dp, color = Color(0xFFF1F5F9).bd())
 }
 
 /**
@@ -1213,7 +1217,7 @@ private fun MeeshoMenuItem(
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = if (isDestructive) Color(0xFFDC2626) else Color(0xFF6B7280),
+            tint = if (isDestructive) Color(0xFFDC2626).fg() else Color(0xFF6B7280).fg(),
             modifier = Modifier.size(22.dp)
         )
 
@@ -1225,7 +1229,7 @@ private fun MeeshoMenuItem(
                     text = title,
                     style = MaterialTheme.typography.bodyLarge.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = if (isDestructive) Color(0xFFDC2626) else Color(0xFF0F172A),
+                        color = if (isDestructive) Color(0xFFDC2626).fg() else Color(0xFF0F172A).fg(),
                         fontSize = 15.sp
                     )
                 )
@@ -1234,13 +1238,13 @@ private fun MeeshoMenuItem(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFFEEF2FF))
+                            .background(Color(0xFFEEF2FF).bg())
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     ) {
                         Text(
                             text = badgeText,
                             style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color(0xFF4F46E5),
+                                color = Color(0xFF4F46E5).fg(),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 10.sp
                             )
@@ -1253,7 +1257,7 @@ private fun MeeshoMenuItem(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF94A3B8),
+                        color = Color(0xFF94A3B8).fg(),
                         fontSize = 12.sp
                     )
                 )
@@ -1263,7 +1267,7 @@ private fun MeeshoMenuItem(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
-            tint = Color(0xFFCBD5E1),
+            tint = Color(0xFFCBD5E1).fg(),
             modifier = Modifier.size(18.dp)
         )
     }
@@ -1375,7 +1379,7 @@ private fun FollowUsSection() {
                         .size(40.dp)
                         .clip(CircleShape)
 
-                        .border(1.dp, Color(0xFFE5E7EB), CircleShape)
+                        .border(1.dp, Color(0xFFE5E7EB).bd(), CircleShape)
                         .clickable {
                             val intent = android.content.Intent(
                                 android.content.Intent.ACTION_VIEW,
@@ -1388,7 +1392,7 @@ private fun FollowUsSection() {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_instagram),
                         contentDescription = "Instagram",
-                        tint = Color(0xFF1F2937),
+                        tint = Color(0xFF1F2937).fg(),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -1399,7 +1403,7 @@ private fun FollowUsSection() {
                         .size(40.dp)
                         .clip(CircleShape)
 
-                        .border(1.dp, Color(0xFFE5E7EB), CircleShape)
+                        .border(1.dp, Color(0xFFE5E7EB).bd(), CircleShape)
                         .clickable {
                             val intent = android.content.Intent(
                                 android.content.Intent.ACTION_VIEW,
@@ -1412,7 +1416,7 @@ private fun FollowUsSection() {
                     Icon(
                         painter = painterResource(id = R.drawable.ic_whatsapp),
                         contentDescription = "WhatsApp",
-                        tint = Color(0xFF1F2937),
+                        tint = Color(0xFF1F2937).fg(),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -1499,7 +1503,7 @@ private fun RoleManagementMenuItem(
         Icon(
             imageVector = Icons.Filled.ChevronRight,
             contentDescription = null,
-            tint = Color(0xFF9CA3AF),
+            tint = Color(0xFF9CA3AF).fg(),
             modifier = Modifier.size(24.dp)
         )
     }

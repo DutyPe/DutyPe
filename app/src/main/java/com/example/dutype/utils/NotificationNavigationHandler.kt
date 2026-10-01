@@ -141,7 +141,20 @@ object NotificationNavigationHandler {
         userRole: String
     ) {
         Timber.d("🔔 Handling notification click: ${notification.type} for $userRole")
-        
+
+        // Urgent (instant) work: the worker's offer page, or the employer's request with its responders.
+        val urgentId = notification.actionData["requestId"]
+        if (!urgentId.isNullOrEmpty() && notification.type in setOf(
+                NotificationType.WORKER_HIRED, NotificationType.REJECTED, NotificationType.NEW_APPLICATION
+            )) {
+            onMarkAsRead(notification.id)
+            navigateSafely(
+                navController,
+                if (userRole == "EMPLOYER") Routes.employerUrgentNeedDetailRoute(urgentId) else Routes.urgentOfferRoute(urgentId)
+            )
+            return
+        }
+
         when (notification.type) {
             // ========================================
             // HIGH PRIORITY - Direct Navigation
@@ -149,7 +162,6 @@ object NotificationNavigationHandler {
             
             // Worker: Application Status Updates (including pending reminders)
             NotificationType.APPLICATION_STATUS,
-            NotificationType.APPLICATION_STATUS_UPDATE,
             NotificationType.APPLICATION_STATUS_UPDATE,
             NotificationType.REJECTED -> {
                 navigateToJobOrFallback(notification, navController, onMarkAsRead, onShowDialog)
@@ -214,6 +226,10 @@ object NotificationNavigationHandler {
             // Employer: Application Reminder
             NotificationType.APPLICATION_REMINDER -> {
                 val jobId = notification.actionData["jobId"]
+                if (userRole == "WORKER") {
+                    navigateToJobOrFallback(notification, navController, onMarkAsRead, onShowDialog)
+                    return
+                }
                 onMarkAsRead(notification.id)
                 navigateSafely(
                     navController,
@@ -228,7 +244,8 @@ object NotificationNavigationHandler {
                 onMarkAsRead(notification.id)
                 navigateSafely(
                     navController,
-                    if (!jobId.isNullOrEmpty()) Routes.editJobRoute(jobId)
+                    // The job page has Renew; editing is locked 48 hours after posting.
+                    if (!jobId.isNullOrEmpty()) Routes.employerJobPreviewRoute(jobId)
                     else Routes.EMPLOYER_MY_JOBS
                 )
             }
@@ -266,7 +283,7 @@ object NotificationNavigationHandler {
             }
             
             // Referral Milestone
-            NotificationType.REFERRAL_MILESTONE -> {
+            NotificationType.REFERRAL_MILESTONE, NotificationType.PAYMENT -> {
                 onMarkAsRead(notification.id)
                 onShowDialog(
                     NotificationDialogData(

@@ -1,5 +1,8 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -396,7 +399,7 @@ private fun LoadingWorkerProfileState() {
         ) {
             CircularProgressIndicator(
                 modifier = Modifier.size(48.dp),
-                color = EmployerColors.Primary
+                color = EmployerColors.Primary.fg()
             )
             Text(
                 text = stringResource(R.string.auto_loading_worker_profile),
@@ -552,12 +555,13 @@ private fun wpDial(context: android.content.Context, phone: String) {
     }
 }
 
+@androidx.compose.runtime.Composable
 private fun Modifier.wpCard(): Modifier {
     val shape = RoundedCornerShape(16.dp)
     return this
         .fillMaxWidth()
-        .background(Color.White, shape)
-        .border(1.dp, WpBorder, shape)
+        .background(Color.White.bg(), shape)
+        .border(1.dp, WpBorder.bd(), shape)
 }
 
 @Composable
@@ -577,7 +581,7 @@ private fun WorkerProfileScreenBody(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WpBg)
+            .background(WpBg.bg())
     ) {
         WpTopBar(
             onBack = { navController.popBackStack() },
@@ -630,7 +634,7 @@ private fun WpTopBar(onBack: () -> Unit, onShare: () -> Unit) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = stringResource(R.string.back),
-                tint = WpNavy,
+                tint = WpNavy.fg(),
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -638,7 +642,7 @@ private fun WpTopBar(onBack: () -> Unit, onShare: () -> Unit) {
             Icon(
                 imageVector = Icons.Outlined.Share,
                 contentDescription = stringResource(R.string.share),
-                tint = WpNavy,
+                tint = WpNavy.fg(),
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -697,7 +701,7 @@ private fun WpHeroCard(profile: WorkerProfileData, reviewCount: Int) {
         ).joinToString(" · ")
         if (subtitle.isNotBlank()) {
             Spacer(modifier = Modifier.height(4.dp))
-            Text(text = subtitle, fontSize = 14.sp, color = WpMuted)
+            Text(text = subtitle, fontSize = 14.sp, color = WpMuted.fg())
         }
         WpStatsRow(profile, reviewCount)
         if (profile.memberSince.isNotBlank()) {
@@ -705,7 +709,7 @@ private fun WpHeroCard(profile: WorkerProfileData, reviewCount: Int) {
             Text(
                 text = stringResource(R.string.emp_profile_member_since, profile.memberSince),
                 fontSize = 11.sp,
-                color = WpFaint
+                color = WpFaint.fg()
             )
         }
     }
@@ -717,7 +721,7 @@ private fun WpAvatar(profile: WorkerProfileData) {
         modifier = Modifier
             .size(72.dp)
             .clip(CircleShape)
-            .background(WpAvatarBg),
+            .background(WpAvatarBg.bg()),
         contentAlignment = Alignment.Center
     ) {
         val imageUrl = profile.profileImageUrl
@@ -741,13 +745,13 @@ private fun WpAvatar(profile: WorkerProfileData) {
                     text = initials,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold,
-                    color = WpCobalt
+                    color = WpCobalt.fg()
                 )
             } else {
                 Icon(
                     imageVector = Icons.Default.Person,
                     contentDescription = null,
-                    tint = WpCobalt,
+                    tint = WpCobalt.fg(),
                     modifier = Modifier.size(32.dp)
                 )
             }
@@ -767,7 +771,7 @@ private fun WpNameRow(profile: WorkerProfileData) {
             modifier = Modifier.weight(1f),
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
-            color = WpInk
+            color = WpInk.fg()
         )
         if (profile.isVerified) {
             Spacer(modifier = Modifier.width(8.dp))
@@ -775,11 +779,11 @@ private fun WpNameRow(profile: WorkerProfileData) {
                 text = "Aadhaar ✓",
                 modifier = Modifier
                     .clip(RoundedCornerShape(50))
-                    .background(WpGreenBg)
+                    .background(WpGreenBg.bg())
                     .padding(horizontal = 10.dp, vertical = 4.dp),
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = WpGreen
+                color = WpGreen.fg()
             )
         }
     }
@@ -801,7 +805,7 @@ private fun WpStatsRow(profile: WorkerProfileData, reviewCount: Int) {
                 Icon(
                     imageVector = Icons.Default.Star,
                     contentDescription = null,
-                    tint = WpStar,
+                    tint = WpStar.fg(),
                     modifier = Modifier.size(13.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
@@ -811,7 +815,7 @@ private fun WpStatsRow(profile: WorkerProfileData, reviewCount: Int) {
                 } else {
                     ratingText
                 }
-                Text(text = label, fontSize = 13.sp, color = WpMuted)
+                Text(text = label, fontSize = 13.sp, color = WpMuted.fg())
             }
         } else {
             Spacer(modifier = Modifier.width(1.dp))
@@ -820,7 +824,7 @@ private fun WpStatsRow(profile: WorkerProfileData, reviewCount: Int) {
             Text(
                 text = stringResource(R.string.jobs_completed_format, profile.completedJobs),
                 fontSize = 13.sp,
-                color = WpMuted
+                color = WpMuted.fg()
             )
         }
     }
@@ -847,7 +851,7 @@ private fun WpTabStrip(selected: Int, onSelect: (Int) -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(WpBorder)
+                .background(WpBorder.bg())
         )
     }
 }
@@ -868,14 +872,14 @@ private fun WpTabItem(
             modifier = Modifier.padding(vertical = 12.dp),
             fontSize = 14.sp,
             fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (active) WpNavy else WpMuted,
+            color = if (active) WpNavy.fg() else WpMuted.fg(),
             textAlign = TextAlign.Center
         )
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(2.dp)
-                .background(if (active) WpNavy else Color.Transparent)
+                .background(if (active) WpNavy.bg() else Color.Transparent)
         )
     }
 }
@@ -905,7 +909,7 @@ private fun WpSkillsTab(profile: WorkerProfileData) {
             WpAboutCard(about)
         }
         if (profile.skills.isEmpty() && history.isEmpty() && about.isEmpty()) {
-            Text(text = stringResource(R.string.no_skills_listed_yet), fontSize = 14.sp, color = WpMuted)
+            Text(text = stringResource(R.string.no_skills_listed_yet), fontSize = 14.sp, color = WpMuted.fg())
         }
     }
 }
@@ -916,12 +920,12 @@ private fun WpSkillPill(skill: String) {
     Box(
         modifier = Modifier
             .height(34.dp)
-            .background(Color.White, shape)
-            .border(1.dp, WpBorder, shape)
+            .background(Color.White.bg(), shape)
+            .border(1.dp, WpBorder.bd(), shape)
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(text = skill, fontSize = 13.sp, color = WpNavy)
+        Text(text = skill, fontSize = 13.sp, color = WpNavy.fg())
     }
 }
 
@@ -936,7 +940,7 @@ private fun WpHistoryCard(items: List<WpTimelineItem>) {
             text = stringResource(R.string.work_history),
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
-            color = WpInk
+            color = WpInk.fg()
         )
         Spacer(modifier = Modifier.height(14.dp))
         items.forEachIndexed { index, item ->
@@ -962,14 +966,14 @@ private fun WpTimelineRow(item: WpTimelineItem, isLast: Boolean) {
                 modifier = Modifier
                     .size(10.dp)
                     .clip(CircleShape)
-                    .background(WpNavy)
+                    .background(WpNavy.bg())
             )
             if (!isLast) {
                 Box(
                     modifier = Modifier
                         .width(2.dp)
                         .weight(1f)
-                        .background(WpBorder)
+                        .background(WpBorder.bg())
                 )
             }
         }
@@ -983,13 +987,13 @@ private fun WpTimelineRow(item: WpTimelineItem, isLast: Boolean) {
                 text = item.title,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = WpInk
+                color = WpInk.fg()
             )
             if (item.subtitle.isNotBlank()) {
-                Text(text = item.subtitle, fontSize = 12.sp, color = WpMuted)
+                Text(text = item.subtitle, fontSize = 12.sp, color = WpMuted.fg())
             }
             if (item.dates.isNotBlank()) {
-                Text(text = item.dates, fontSize = 11.sp, color = WpFaint)
+                Text(text = item.dates, fontSize = 11.sp, color = WpFaint.fg())
             }
         }
     }
@@ -1007,12 +1011,12 @@ private fun WpAboutCard(rows: List<Pair<Int, String>>) {
             text = stringResource(R.string.about),
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
-            color = WpInk
+            color = WpInk.fg()
         )
         rows.forEach { row ->
             Column {
-                Text(text = stringResource(row.first), fontSize = 11.sp, color = WpFaint)
-                Text(text = row.second, fontSize = 14.sp, color = WpNavy)
+                Text(text = stringResource(row.first), fontSize = 11.sp, color = WpFaint.fg())
+                Text(text = row.second, fontSize = 14.sp, color = WpNavy.fg())
             }
         }
     }
@@ -1025,7 +1029,7 @@ private fun WpReviewsTab(reviews: List<Rating>) {
             text = stringResource(R.string.no_reviews_yet),
             modifier = Modifier.fillMaxWidth(),
             fontSize = 14.sp,
-            color = WpMuted,
+            color = WpMuted.fg(),
             textAlign = TextAlign.Center
         )
         return
@@ -1051,27 +1055,27 @@ private fun WpReviewCard(review: Rating) {
             text = name,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            color = WpInk
+            color = WpInk.fg()
         )
         Row {
             for (i in 1..5) {
                 Icon(
                     imageVector = Icons.Default.Star,
                     contentDescription = null,
-                    tint = if (i <= review.rating) WpStar else WpBorder,
+                    tint = if (i <= review.rating) WpStar.fg() else WpBorder.fg(),
                     modifier = Modifier.size(14.dp)
                 )
             }
         }
         if (review.review.isNotBlank()) {
-            Text(text = review.review, fontSize = 14.sp, color = WpBody)
+            Text(text = review.review, fontSize = 14.sp, color = WpBody.fg())
         }
         if (review.createdAt > 0L) {
             Text(
                 text = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
                     .format(Date(review.createdAt)),
                 fontSize = 11.sp,
-                color = WpFaint
+                color = WpFaint.fg()
             )
         }
     }
@@ -1087,7 +1091,7 @@ private fun WpContactTab(profile: WorkerProfileData) {
             text = stringResource(R.string.no_contact_details_available),
             modifier = Modifier.fillMaxWidth(),
             fontSize = 14.sp,
-            color = WpMuted,
+            color = WpMuted.fg(),
             textAlign = TextAlign.Center
         )
         return
@@ -1102,7 +1106,7 @@ private fun WpContactTab(profile: WorkerProfileData) {
             WpContactRow(
                 label = stringResource(R.string.phone_label),
                 value = profile.phone,
-                valueColor = WpCobalt,
+                valueColor = WpCobalt.fg(),
                 onClick = { wpDial(context, profile.phone) }
             )
         }
@@ -1110,7 +1114,7 @@ private fun WpContactTab(profile: WorkerProfileData) {
             WpContactRow(
                 label = stringResource(R.string.email),
                 value = profile.email,
-                valueColor = WpNavy,
+                valueColor = WpNavy.fg(),
                 onClick = null
             )
         }
@@ -1118,7 +1122,7 @@ private fun WpContactTab(profile: WorkerProfileData) {
             WpContactRow(
                 label = stringResource(R.string.location),
                 value = profile.location,
-                valueColor = WpNavy,
+                valueColor = WpNavy.fg(),
                 onClick = null
             )
         }
@@ -1140,7 +1144,7 @@ private fun WpContactRow(
         Modifier.fillMaxWidth()
     }
     Column(modifier = rowModifier) {
-        Text(text = label, fontSize = 11.sp, color = WpFaint)
+        Text(text = label, fontSize = 11.sp, color = WpFaint.fg())
         Text(text = value, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = valueColor)
     }
 }
@@ -1153,8 +1157,8 @@ private fun WpRejectButton(onClick: () -> Unit) {
             .fillMaxWidth()
             .height(44.dp)
             .clip(shape)
-            .border(1.dp, WpBorder, shape)
-            .background(Color.White)
+            .border(1.dp, WpBorder.bd(), shape)
+            .background(Color.White.bg())
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -1162,7 +1166,7 @@ private fun WpRejectButton(onClick: () -> Unit) {
             text = stringResource(R.string.reject_application),
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            color = WpDanger
+            color = WpDanger.fg()
         )
     }
 }
@@ -1195,14 +1199,14 @@ private fun WpBottomBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(Color.White.bg())
             .navigationBarsPadding()
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(WpBorder)
+                .background(WpBorder.bg())
         )
         Row(
             modifier = Modifier
@@ -1248,11 +1252,11 @@ private fun WpBarButton(
         .alpha(if (enabled) 1f else 0.45f)
         .clip(shape)
     val styled = if (filled) {
-        base.background(WpNavy)
+        base.background(WpNavy.bg())
     } else {
         base
-            .background(Color.White)
-            .border(1.5.dp, WpNavy, shape)
+            .background(Color.White.bg())
+            .border(1.5.dp, WpNavy.bd(), shape)
     }
     Box(
         modifier = styled.clickable(enabled = enabled, onClick = onClick),
@@ -1263,7 +1267,7 @@ private fun WpBarButton(
                 Icon(
                     imageVector = Icons.Default.Phone,
                     contentDescription = null,
-                    tint = WpNavy,
+                    tint = WpNavy.fg(),
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -1272,7 +1276,7 @@ private fun WpBarButton(
                 text = label,
                 fontSize = 15.sp,
                 fontWeight = if (filled) FontWeight.Bold else FontWeight.SemiBold,
-                color = if (filled) Color.White else WpNavy
+                color = if (filled) Color.White else WpNavy.fg()
             )
         }
     }

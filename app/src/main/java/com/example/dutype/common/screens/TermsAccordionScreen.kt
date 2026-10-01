@@ -1,5 +1,8 @@
 package com.example.dutype.common.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
@@ -71,7 +74,7 @@ internal fun TermsAccordionScreen(navController: NavController) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color.White.bg())
             .statusBarsPadding()
     ) {
         TosHeader(onBack = { navController.popBackStack() })
@@ -115,7 +118,7 @@ private fun TosHeader(onBack: () -> Unit) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = stringResource(R.string.back),
-                tint = TosInk,
+                tint = TosInk.fg(),
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -123,7 +126,7 @@ private fun TosHeader(onBack: () -> Unit) {
             text = stringResource(R.string.terms_of_service),
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
-            color = TosInk,
+            color = TosInk.fg(),
             modifier = Modifier.align(Alignment.Center)
         )
     }
@@ -135,8 +138,8 @@ private fun TosHighlightsCard() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFF0FDF4), shape)
-            .border(1.dp, Color(0xFFA7F3D0), shape)
+            .background(Color(0xFFF0FDF4).bg(), shape)
+            .border(1.dp, Color(0xFFA7F3D0).bd(), shape)
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -144,7 +147,7 @@ private fun TosHighlightsCard() {
             text = stringResource(R.string.tos_summary_title),
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
-            color = TosGreen
+            color = TosGreen.fg()
         )
         TosHighlightRow(stringResource(R.string.tos_summary_1))
         TosHighlightRow(stringResource(R.string.tos_summary_2))
@@ -158,14 +161,14 @@ private fun TosHighlightRow(text: String) {
         Icon(
             imageVector = Icons.Default.Check,
             contentDescription = null,
-            tint = TosCheck,
+            tint = TosCheck.fg(),
             modifier = Modifier.size(16.dp)
         )
         Text(
             text = text,
             fontSize = 14.sp,
             lineHeight = 20.sp,
-            color = TosInk
+            color = TosInk.fg()
         )
     }
 }
@@ -182,8 +185,8 @@ private fun TosSectionCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(Color.White, shape)
-            .border(1.dp, TosBorder, shape)
+            .background(Color.White.bg(), shape)
+            .border(1.dp, TosBorder.bd(), shape)
     ) {
         Row(
             modifier = Modifier
@@ -197,13 +200,13 @@ private fun TosSectionCard(
                 text = title,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF0F0F0F),
+                color = Color(0xFF0F0F0F).fg(),
                 modifier = Modifier.weight(1f)
             )
             Icon(
                 imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.Default.ChevronRight,
                 contentDescription = null,
-                tint = TosMuted,
+                tint = TosMuted.fg(),
                 modifier = Modifier.size(18.dp)
             )
         }
@@ -226,7 +229,7 @@ private fun TosBodyText(text: String) {
         text = text,
         fontSize = 14.sp,
         lineHeight = 22.sp,
-        color = TosBody
+        color = TosBody.fg()
     )
 }
 
@@ -237,7 +240,7 @@ private fun TosSubHeading(text: String) {
         fontSize = 14.sp,
         lineHeight = 22.sp,
         fontWeight = FontWeight.SemiBold,
-        color = TosInk
+        color = TosInk.fg()
     )
 }
 
@@ -313,7 +316,7 @@ private fun TosPrivacyBody(navController: NavController) {
         text = stringResource(R.string.privacy_policy),
         fontSize = 14.sp,
         fontWeight = FontWeight.SemiBold,
-        color = TosLink,
+        color = TosLink.fg(),
         modifier = Modifier.clickable { navController.navigate(Routes.PRIVACY_POLICY) }
     )
     TosBodyText(stringResource(R.string.policy_last_updated))
@@ -327,7 +330,7 @@ private fun TosEmailRow(email: String, subject: String) {
         text = email,
         fontSize = 14.sp,
         fontWeight = FontWeight.SemiBold,
-        color = TosLink,
+        color = TosLink.fg(),
         modifier = Modifier.clickable {
             val intent = Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("mailto:$email")

@@ -1,5 +1,10 @@
 package com.example.dutype.employer.screens.applications
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.HourglassTop
 import com.dutype.app.R
 import timber.log.Timber
 import android.app.Activity
@@ -312,13 +317,13 @@ fun EmployerApplicationManagementScreen(
                             app.jobTitle.ifBlank { stringResource(R.string.dutype_job) }
                         ),
                         fontSize = 14.sp,
-                        color = Color(0xFF1E293B)
+                        color = Color(0xFF1E293B).fg()
                     )
                     Text(
                         text = stringResource(R.string.stop_calls_prompt),
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
-                        color = Color(0xFFDC2626)
+                        color = Color(0xFFDC2626).fg()
                     )
                 }
             },
@@ -333,7 +338,7 @@ fun EmployerApplicationManagementScreen(
                         showStopCallsHiringDialog = false
                         pendingHiringApplication = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626).bg()),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Icon(Icons.Default.CallEnd, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -409,7 +414,7 @@ fun EmployerApplicationManagementScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(HrBackground)
+            .background(HrBackground.bg())
     ) {
         HiringRoomHeader(
             title = if (jobId != null) stringResource(R.string.hiring_room) else stringResource(R.string.all_applications),
@@ -548,7 +553,41 @@ fun EmployerApplicationManagementScreen(
                 isJobLive = isJobLive,
                 ratedApplicationIds = ratedApplicationIds,
                 employerShopAddress = currentJob?.addressText.orEmpty(),
-                leadingContent = if (jobId != null) extras else null,
+                leadingContent = if (jobId != null) {
+                    {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            // AI top picks: best 3 applicants with reasons, one-tap Call / Hire.
+                            val openApplicants = uiState.allApplications.filter { it.status == ApplicationStatus.APPLIED }
+                            if (isJobLive && openApplicants.size >= 2) {
+                                com.example.dutype.employer.ai.AiTopPicksCard(
+                                    jobId = jobId,
+                                    applicantIds = openApplicants.map { it.id },
+                                    onCall = { appId ->
+                                        uiState.allApplications.firstOrNull { it.id == appId }?.let { app ->
+                                            viewModel.unlockContact(
+                                                application = app,
+                                                onSuccess = { phone ->
+                                                    if (phone.isNotBlank()) context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+                                                },
+                                                onFailure = {
+                                                    Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show()
+                                                }
+                                            )
+                                        }
+                                    },
+                                    onHire = { appId ->
+                                        uiState.allApplications.firstOrNull { it.id == appId }?.let { app ->
+                                            pendingHiringApplication = app
+                                            showStopCallsHiringDialog = true
+                                        }
+                                    },
+                                    modifier = Modifier.padding(horizontal = 20.dp)
+                                )
+                            }
+                            extras()
+                        }
+                    }
+                } else null,
                 onCloseJob = { showCloseJobDialog = true },
                 onOpen = { application ->
                     onApplicationClick(application)
@@ -751,7 +790,7 @@ private fun MatchedWorkersContent(
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
                                 text = state.actionError,
-                                style = AppTypography.bodySmall.copy(color = Color(0xFFB91C1C))
+                                style = AppTypography.bodySmall.copy(color = Color(0xFFB91C1C).fg())
                             )
                         }
                     }
@@ -819,7 +858,7 @@ private fun HiringRoomSummaryCard(
                     Text(
                         text = if (isLive) stringResource(R.string.live) else stringResource(R.string.filled),
                         style = AppTypography.caption.copy(
-                            color = if (isLive) Color(0xFF047857) else EmployerColors.TextSecondary,
+                            color = if (isLive) Color(0xFF047857).fg() else EmployerColors.TextSecondary,
                             fontWeight = FontWeight.Bold
                         ),
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
@@ -833,14 +872,14 @@ private fun HiringRoomSummaryCard(
                         value = applicantsCount.toString(),
                         label = stringResource(R.string.applicants),
                         icon = Icons.Default.Person,
-                        color = EmployerColors.Primary,
+                        color = EmployerColors.Primary.fg(),
                         modifier = Modifier.weight(1f)
                     )
                     HiringRoomMetricItem(
                         value = matchedWorkersCount.toString(),
                         label = stringResource(R.string.nearby_matches),
                         icon = Icons.Default.Work,
-                        color = Color(0xFF7C3AED),
+                        color = Color(0xFF7C3AED).fg(),
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -1134,7 +1173,7 @@ private fun MatchedWorkerMetricsGrid(worker: MatchedWorker) {
             icon = Icons.Default.LocationOn,
             label = stringResource(R.string.away_label),
             value = formatWorkerDistanceShort(worker.distanceKm),
-            color = EmployerColors.Primary,
+            color = EmployerColors.Primary.fg(),
             modifier = Modifier.weight(1f)
         )
         WorkerMetricBlock(
@@ -1155,7 +1194,7 @@ private fun MatchedWorkerMetricsGrid(worker: MatchedWorker) {
             icon = Icons.Default.FlashOn,
             label = stringResource(R.string.status_label),
             value = formatMatchedWorkerStatus(worker),
-            color = Color(0xFF7C3AED),
+            color = Color(0xFF7C3AED).fg(),
             modifier = Modifier.weight(1f)
         )
     }
@@ -1258,7 +1297,7 @@ private fun JobReportSummaryCard(
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2).bg()),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
@@ -1281,11 +1320,11 @@ private fun JobReportSummaryCard(
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
-                        color = Color(0xFFB91C1C)
+                        color = Color(0xFFB91C1C).fg()
                     )
                     Text(
                         text = stringResource(R.string.auto_loading_report_details),
-                        style = AppTypography.caption.copy(color = Color(0xFF7F1D1D))
+                        style = AppTypography.caption.copy(color = Color(0xFF7F1D1D).fg())
                     )
                 }
             } else if (summary != null) {
@@ -1293,7 +1332,7 @@ private fun JobReportSummaryCard(
                     text = stringResource(R.string.reported_by_workers_format, summary.reportCount),
                     style = AppTypography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF7F1D1D)
+                        color = Color(0xFF7F1D1D).fg()
                     )
                 )
 
@@ -1303,17 +1342,17 @@ private fun JobReportSummaryCard(
                         .forEach { entry ->
                             Text(
                                 text = "${entry.key}: ${entry.value}",
-                                style = AppTypography.caption.copy(color = Color(0xFF7F1D1D))
+                                style = AppTypography.caption.copy(color = Color(0xFF7F1D1D).fg())
                             )
                         }
                 }
 
                 if (summary.recentReports.isNotEmpty()) {
-                    HorizontalDivider(color = Color(0xFFFECACA), thickness = 1.dp)
+                    HorizontalDivider(color = Color(0xFFFECACA).bd(), thickness = 1.dp)
                     summary.recentReports.take(3).forEach { report ->
                         Text(
                             text = "${report.reportType}: ${report.description}",
-                            style = AppTypography.bodySmall.copy(color = Color(0xFF7F1D1D))
+                            style = AppTypography.bodySmall.copy(color = Color(0xFF7F1D1D).fg())
                         )
                     }
                 }
@@ -1412,7 +1451,7 @@ private fun HiringRoomHeader(
         Icon(
             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
             contentDescription = stringResource(R.string.back),
-            tint = HrInk,
+            tint = HrInk.fg(),
             modifier = Modifier
                 .size(24.dp)
                 .clickable(onClick = onBackClick)
@@ -1422,13 +1461,13 @@ private fun HiringRoomHeader(
             text = title,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
-            color = HrInk
+            color = HrInk.fg()
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = subtitle,
             fontSize = 13.sp,
-            color = HrMuted,
+            color = HrMuted.fg(),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -1483,8 +1522,8 @@ private fun HiringFilterChip(
         modifier = Modifier
             .height(36.dp)
             .clip(shape)
-            .background(if (selected) HrInk else Color.White)
-            .border(1.dp, if (selected) HrInk else HrBorder, shape)
+            .background(if (selected) HrInk.bg() else Color.White.bg())
+            .border(1.dp, if (selected) HrInk.bd() else HrBorder.bd(), shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center
@@ -1493,7 +1532,7 @@ private fun HiringFilterChip(
             text = label,
             fontSize = 13.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (selected) Color.White else HrInk,
+            color = if (selected) Color.White else HrInk.fg(),
             maxLines = 1
         )
     }
@@ -1698,7 +1737,7 @@ private fun HiringAvatar(application: JobApplication) {
                 text = hiringInitials(name),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = HrInk
+                color = HrInk.fg()
             )
         }
     }
@@ -1714,14 +1753,14 @@ private fun HiringCircleButton(
         modifier = Modifier
             .size(40.dp)
             .clip(CircleShape)
-            .border(1.dp, HrBorder, CircleShape)
+            .border(1.dp, HrBorder.bd(), CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = description,
-            tint = HrInk,
+            tint = HrInk.fg(),
             modifier = Modifier.size(18.dp)
         )
     }
@@ -1747,7 +1786,7 @@ private fun HiringCardTopRow(
                 text = displayName,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = HrName,
+                color = HrName.fg(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1756,7 +1795,7 @@ private fun HiringCardTopRow(
                 Text(
                     text = subtitle,
                     fontSize = 13.sp,
-                    color = HrMuted,
+                    color = HrMuted.fg(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1768,7 +1807,7 @@ private fun HiringCardTopRow(
                 Text(
                     text = stringResource(R.string.km_away_format, distance),
                     fontSize = 11.sp,
-                    color = HrFaint,
+                    color = HrFaint.fg(),
                     maxLines = 1
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1788,14 +1827,14 @@ private fun HiringSkillChip(text: String, modifier: Modifier = Modifier) {
         modifier = modifier
             .height(26.dp)
             .clip(shape)
-            .border(1.dp, HrBorder, shape)
+            .border(1.dp, HrBorder.bd(), shape)
             .padding(horizontal = 10.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
             fontSize = 12.sp,
-            color = HrInk,
+            color = HrInk.fg(),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -1814,8 +1853,8 @@ private fun HiringActionChip(
         modifier = Modifier
             .height(32.dp)
             .clip(shape)
-            .background(if (active) activeColor else Color.White)
-            .border(1.dp, if (active) activeColor else HrBorder, shape)
+            .background(if (active) activeColor else Color.White.bg())
+            .border(1.dp, if (active) activeColor else HrBorder.bd(), shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center
@@ -1824,7 +1863,7 @@ private fun HiringActionChip(
             text = label,
             fontSize = 12.sp,
             fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (active) Color.White else HrInk,
+            color = if (active) Color.White else HrInk.fg(),
             maxLines = 1
         )
     }
@@ -1844,10 +1883,10 @@ private fun HiringRateSection(
             .fillMaxWidth()
             .height(36.dp),
         shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, HrBorder),
+        border = BorderStroke(1.dp, HrBorder.bd()),
         colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = HrInk,
-            disabledContentColor = HrGreen
+            contentColor = HrInk.fg(),
+            disabledContentColor = HrGreen.fg()
         ),
         contentPadding = PaddingValues(horizontal = 14.dp)
     ) {
@@ -1918,8 +1957,8 @@ private fun HiringApplicantCard(
         modifier = modifier
             .fillMaxWidth()
             .clip(cardShape)
-            .background(Color.White)
-            .border(1.dp, HrBorder, cardShape)
+            .background(Color.White.bg())
+            .border(1.dp, HrBorder.bd(), cardShape)
             .clickable(onClick = onClick)
             .padding(16.dp)
     ) {
@@ -1940,14 +1979,14 @@ private fun HiringApplicantCard(
         }
 
         Spacer(modifier = Modifier.height(12.dp))
-        HorizontalDivider(thickness = 1.dp, color = HrDivider)
+        HorizontalDivider(thickness = 1.dp, color = HrDivider.bd())
         Spacer(modifier = Modifier.height(12.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             HiringActionChip(
                 label = stringResource(R.string.action_shortlist),
                 active = isShortlisted,
-                activeColor = HrGreen,
+                activeColor = HrGreen.fg(),
                 onClick = {
                     if (status == ApplicationStatus.APPLIED) onHirePrompt(application)
                 }
@@ -1955,13 +1994,13 @@ private fun HiringApplicantCard(
             HiringActionChip(
                 label = stringResource(R.string.action_interview),
                 active = false,
-                activeColor = HrGreen,
+                activeColor = HrGreen.fg(),
                 onClick = onInterview
             )
             HiringActionChip(
                 label = stringResource(R.string.action_reject),
                 active = isRejected,
-                activeColor = HrRed,
+                activeColor = HrRed.fg(),
                 onClick = {
                     if (status == ApplicationStatus.APPLIED) {
                         onStatusUpdate(ApplicationStatus.REJECTED, notSuitableReason)
@@ -1987,51 +2026,19 @@ private fun HiringApplicantCard(
 private fun EmptyApplicationsState(
     isJobSpecific: Boolean
 ) {
-    val subtitle = if (isJobSpecific) {
-        stringResource(R.string.applied_workers_empty_body)
-    } else {
-        stringResource(R.string.applications_empty_body)
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .size(80.dp)
-                .background(EmployerColors.ChipBackground, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.PersonAdd,
-                contentDescription = null,
-                tint = EmployerColors.TextTertiary,
-                modifier = Modifier.size(40.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Text(
-            text = if (isJobSpecific) stringResource(R.string.waiting_applied_workers) else stringResource(R.string.waiting_worker_responses),
-            style = AppTypography.emptyStateTitle.copy(color = com.example.dutype.ui.theme.EmployerColors.TextPrimary)
+    com.example.dutype.components.DutyPeEmptyScreen(
+        icon = Icons.Filled.Groups,
+        badge = Icons.Filled.HourglassTop,
+        tone = com.example.dutype.components.EmptyTone.GREEN,
+        art = com.example.dutype.components.EmptyArt.WAITING,
+        title = if (isJobSpecific) stringResource(R.string.waiting_applied_workers) else stringResource(R.string.waiting_worker_responses),
+        message = if (isJobSpecific) stringResource(R.string.applied_workers_empty_body) else stringResource(R.string.applications_empty_body),
+        tips = listOf(
+            stringResource(R.string.empty_applicants_tip_pay),
+            stringResource(R.string.empty_applicants_tip_photo),
+            stringResource(R.string.empty_applicants_tip_share)
         )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = EmployerColors.TextSecondary,
-                textAlign = TextAlign.Center
-            )
-        )
-
-    }
+    )
 }
 
 private fun List<JobApplication>.sortedApplicationsForConnectNow(): List<JobApplication> {
@@ -2221,7 +2228,7 @@ private fun NeedSubscriptionDialog(
                 Icon(
                     imageVector = Icons.Default.Lock,
                     contentDescription = null,
-                    tint = EmployerColors.Primary,
+                    tint = EmployerColors.Primary.fg(),
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -2270,7 +2277,7 @@ private fun NeedSubscriptionDialog(
                 )
             }
         },
-        containerColor = Color.White,
+        containerColor = Color.White.bg(),
         shape = RoundedCornerShape(24.dp)
     )
 }
@@ -2297,8 +2304,8 @@ private fun JobFilledCandidatesContent(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5)),
-            border = BorderStroke(1.5.dp, Color(0xFFA7F3D0)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFECFDF5).bg()),
+            border = BorderStroke(1.5.dp, Color(0xFFA7F3D0).bd()),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Row(
@@ -2309,13 +2316,13 @@ private fun JobFilledCandidatesContent(
                 Box(
                     modifier = Modifier
                         .size(40.dp)
-                        .background(Color(0xFFD1FAE5), CircleShape),
+                        .background(Color(0xFFD1FAE5).bg(), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = Color(0xFF059669),
+                        tint = Color(0xFF059669).fg(),
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -2324,7 +2331,7 @@ private fun JobFilledCandidatesContent(
                         text = stringResource(R.string.auto_job_position_filled),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF065F46)
+                            color = Color(0xFF065F46).fg()
                         )
                     )
                     Text(
@@ -2333,7 +2340,7 @@ private fun JobFilledCandidatesContent(
                         else
                             stringResource(R.string.hiring_completed_position),
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF047857)
+                            color = Color(0xFF047857).fg()
                         )
                     )
                 }
@@ -2652,9 +2659,9 @@ fun IncomingCallsStatusBanner(
             .padding(horizontal = 16.dp, vertical = 6.dp),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isCallsPaused) Color(0xFFFEF2F2) else Color(0xFFF0FDF4)
+            containerColor = if (isCallsPaused) Color(0xFFFEF2F2).bg() else Color(0xFFF0FDF4).bg()
         ),
-        border = BorderStroke(1.dp, if (isCallsPaused) Color(0xFFFECACA) else Color(0xFFBBF7D0))
+        border = BorderStroke(1.dp, if (isCallsPaused) Color(0xFFFECACA).bd() else Color(0xFFBBF7D0).bd())
     ) {
         Row(
             modifier = Modifier
@@ -2680,7 +2687,7 @@ fun IncomingCallsStatusBanner(
                     Icon(
                         imageVector = if (isCallsPaused) Icons.Default.CallEnd else Icons.Default.PhoneInTalk,
                         contentDescription = null,
-                        tint = if (isCallsPaused) Color(0xFFDC2626) else Color(0xFF16A34A),
+                        tint = if (isCallsPaused) Color(0xFFDC2626).fg() else Color(0xFF16A34A).fg(),
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -2689,12 +2696,12 @@ fun IncomingCallsStatusBanner(
                         text = if (isCallsPaused) stringResource(R.string.incoming_calls_stopped) else stringResource(R.string.accepting_worker_calls),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isCallsPaused) Color(0xFF991B1B) else Color(0xFF166534)
+                        color = if (isCallsPaused) Color(0xFF991B1B).fg() else Color(0xFF166534).fg()
                     )
                     Text(
                         text = if (isCallsPaused) stringResource(R.string.job_filled_cannot_call) else stringResource(R.string.workers_can_call_desc),
                         fontSize = 11.sp,
-                        color = if (isCallsPaused) Color(0xFFB91C1C) else Color(0xFF15803D)
+                        color = if (isCallsPaused) Color(0xFFB91C1C).fg() else Color(0xFF15803D).fg()
                     )
                 }
             }
@@ -2706,9 +2713,9 @@ fun IncomingCallsStatusBanner(
                 },
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color.White,
-                    checkedTrackColor = Color(0xFF16A34A),
+                    checkedTrackColor = Color(0xFF16A34A).bd(),
                     uncheckedThumbColor = Color.White,
-                    uncheckedTrackColor = Color(0xFFDC2626)
+                    uncheckedTrackColor = Color(0xFFDC2626).bd()
                 )
             )
         }

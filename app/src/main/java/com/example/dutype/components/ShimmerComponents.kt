@@ -399,26 +399,18 @@ private fun ApplicationActionBarShimmer() {
  */
 @Composable
 fun ApplicationListItemShimmer() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ShimmerCircle(size = 50.dp)
-            Spacer(modifier = Modifier.width(12.dp))
+    // Same frame as the applicant rows: white card, hairline border, text lines and a status pill.
+    ShimmerFrame {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                ShimmerBox(width = 140.dp, height = 18.dp)
-                Spacer(modifier = Modifier.height(6.dp))
-                ShimmerBox(width = 100.dp, height = 14.dp)
-                Spacer(modifier = Modifier.height(6.dp))
-                ShimmerBox(width = 80.dp, height = 12.dp)
+                ShimmerBox(modifier = Modifier.fillMaxWidth(0.55f), height = 15.dp)
+                Spacer(modifier = Modifier.height(8.dp))
+                ShimmerBox(modifier = Modifier.fillMaxWidth(0.4f), height = 12.dp)
+                Spacer(modifier = Modifier.height(8.dp))
+                ShimmerBox(modifier = Modifier.fillMaxWidth(0.3f), height = 11.dp)
             }
-            ShimmerBox(width = 70.dp, height = 24.dp, shape = RoundedCornerShape(12.dp))
+            Spacer(modifier = Modifier.width(12.dp))
+            ShimmerBox(width = 64.dp, height = 24.dp, shape = RoundedCornerShape(999.dp))
         }
     }
 }
@@ -484,23 +476,20 @@ fun ApplicationManagementShimmer(
  */
 @Composable
 fun NotificationItemShimmer() {
-    Row(
+    // Text-only row like the notification list: title, two lines of body, time.
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(com.example.dutype.ui.theme.WorkerColors.CardBackground)
-            .padding(16.dp),
-        verticalAlignment = Alignment.Top
+            .padding(horizontal = 20.dp, vertical = 14.dp)
     ) {
-        ShimmerCircle(size = 44.dp)
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            ShimmerBox(width = 200.dp, height = 18.dp)
-            Spacer(modifier = Modifier.height(6.dp))
-            ShimmerBox(height = 14.dp)
-            Spacer(modifier = Modifier.height(6.dp))
-            ShimmerBox(width = 80.dp, height = 12.dp)
-        }
-        ShimmerBox(width = 8.dp, height = 8.dp, shape = RoundedCornerShape(4.dp))
+        ShimmerBox(modifier = Modifier.fillMaxWidth(0.6f), height = 14.dp)
+        Spacer(modifier = Modifier.height(8.dp))
+        ShimmerBox(modifier = Modifier.fillMaxWidth(0.95f), height = 12.dp)
+        Spacer(modifier = Modifier.height(6.dp))
+        ShimmerBox(modifier = Modifier.fillMaxWidth(0.7f), height = 12.dp)
+        Spacer(modifier = Modifier.height(8.dp))
+        ShimmerBox(width = 56.dp, height = 10.dp)
     }
 }
 
@@ -741,142 +730,46 @@ private fun WorkerHomePromiseShimmer() {
  * 
  * CONSOLIDATED: Moved from utils/JobCardShimmer.kt
  */
+/**
+ * Mirrors the worker job card: white card with a hairline border; title, company, location, the
+ * chips row, then pay on the left and the pill button on the right. No image blocks.
+ */
 @Composable
 fun JobCardShimmer() {
-    // Bug #16 fix: white-based shimmer for cards (was light grey).
-    val shimmerColors = listOf(
-        WorkerColors.ShimmerBase,
-        WorkerColors.ShimmerHighlight,
-        WorkerColors.ShimmerBase
-    )
-
-    val transition = rememberInfiniteTransition(label = "shimmer")
-    val translateAnim = transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1000f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(600), // Lightning fast shimmer animation for instant feedback
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "shimmer_translate"
-    )
-
-    val brush = Brush.linearGradient(
-        colors = shimmerColors,
-        start = Offset.Zero,
-        end = Offset(x = translateAnim.value, y = translateAnim.value)
-    )
-
-    ShimmerJobCardInternal(brush = brush)
+    ShimmerFrame {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ShimmerBox(modifier = Modifier.weight(1f), height = 16.dp)
+            Spacer(modifier = Modifier.width(48.dp))
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        ShimmerBox(modifier = Modifier.fillMaxWidth(0.42f), height = 12.dp)
+        Spacer(modifier = Modifier.height(8.dp))
+        ShimmerBox(modifier = Modifier.fillMaxWidth(0.55f), height = 12.dp)
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            ShimmerBox(width = 70.dp, height = 22.dp, shape = RoundedCornerShape(12.dp))
+            ShimmerBox(width = 62.dp, height = 22.dp, shape = RoundedCornerShape(12.dp))
+            ShimmerBox(width = 74.dp, height = 22.dp, shape = RoundedCornerShape(12.dp))
+        }
+        Spacer(modifier = Modifier.height(14.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ShimmerBox(width = 96.dp, height = 18.dp)
+            Spacer(modifier = Modifier.weight(1f))
+            ShimmerBox(width = 104.dp, height = 34.dp, shape = RoundedCornerShape(999.dp))
+        }
+    }
 }
 
+/** The card frame every list shimmer sits in: white, 16dp corners, hairline border, no shadow. */
 @Composable
-private fun ShimmerJobCardInternal(brush: Brush) {
+fun ShimmerFrame(content: @Composable ColumnScope.() -> Unit) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        shape = RoundedCornerShape(12.dp)
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, WorkerColors.Border),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            // Job title and company
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Spacer(
-                        modifier = Modifier
-                            .height(20.dp)
-                            .fillMaxWidth(0.7f)
-                            .background(brush)
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Spacer(
-                        modifier = Modifier
-                            .height(16.dp)
-                            .fillMaxWidth(0.5f)
-                            .background(brush)
-                    )
-                }
-
-                Spacer(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(brush, CircleShape)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Pay info
-            Spacer(
-                modifier = Modifier
-                    .height(24.dp)
-                    .fillMaxWidth(0.6f)
-                    .background(brush, RoundedCornerShape(8.dp))
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Location
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Spacer(
-                    modifier = Modifier
-                        .size(16.dp)
-                        .background(brush)
-                )
-                Spacer(
-                    modifier = Modifier
-                        .height(16.dp)
-                        .width(120.dp)
-                        .background(brush)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Tags
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                repeat(3) {
-                    Spacer(
-                        modifier = Modifier
-                            .height(24.dp)
-                            .width(60.dp)
-                            .background(brush, RoundedCornerShape(12.dp))
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Action buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Spacer(
-                    modifier = Modifier
-                        .height(40.dp)
-                        .weight(1f)
-                        .background(brush, RoundedCornerShape(8.dp))
-                )
-                Spacer(
-                    modifier = Modifier
-                        .height(40.dp)
-                        .width(80.dp)
-                        .background(brush, RoundedCornerShape(8.dp))
-                )
-            }
-        }
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp), content = content)
     }
 }

@@ -10,37 +10,22 @@ type JobRow = {
   id: string;
   title?: string;
   companyName?: string;
-  // Stored geo on the card doc is { lat, lng } — NEVER render it as a child.
-  location?: { lat?: number; lng?: number } | string;
   addressText?: string;
-  companyCity?: string;
+  area?: string;
   payAmount?: number | string;
-  salary?: number | string;
   payType?: string;
-  salaryType?: string;
   vacancies?: number;
   status?: string;
   isActive?: boolean;
   applicationCount?: number;
   description?: string;
   category?: string;
-  jobType?: string;
   shift?: string;
-  shiftTiming?: string;
   createdAt?: { _seconds?: number; seconds?: number } | string | number | null;
 };
 
 function renderLocation(job: JobRow): string {
-  if (job.addressText && job.addressText.trim()) return job.addressText;
-  if (job.companyCity && job.companyCity.trim()) return job.companyCity;
-  if (typeof job.location === "string" && job.location.trim()) return job.location;
-  if (job.location && typeof job.location === "object") {
-    const { lat, lng } = job.location;
-    if (typeof lat === "number" && typeof lng === "number") {
-      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-    }
-  }
-  return "N/A";
+  return job.addressText?.trim() || job.area?.trim() || "N/A";
 }
 
 function getEpochMillis(createdAt: any): number {
@@ -73,9 +58,6 @@ type EditingJob = {
   payAmount: string;
   vacancies: string;
   description: string;
-  category: string;
-  shift: string;
-  gender: string;
   isActive: boolean;
 };
 
@@ -224,12 +206,9 @@ export function AdminJobsClient() {
       title: job.title ?? "",
       companyName: job.companyName ?? "",
       location: renderLocation(job) === "N/A" ? "" : renderLocation(job),
-      payAmount: String(job.payAmount ?? job.salary ?? ""),
+      payAmount: String(job.payAmount ?? ""),
       vacancies: String(job.vacancies ?? ""),
       description: job.description ?? "",
-      category: job.category ?? job.jobType ?? "",
-      shift: job.shift ?? job.shiftTiming ?? "",
-      gender: (job as JobRow & { gender?: string }).gender ?? "Any",
       isActive: (job.status ?? (job.isActive ? "open" : "closed")) === "open"
     });
   }
@@ -248,15 +227,10 @@ export function AdminJobsClient() {
           jobId: editing.id,
           title: editing.title,
           companyName: editing.companyName,
-          location: editing.location,
-          salary: editing.payAmount,
-          vacancies: Number(editing.vacancies) || 0,
+          addressText: editing.location,
+          payAmount: Number(editing.payAmount) || 0,
+          vacancies: Number(editing.vacancies) || 1,
           description: editing.description,
-          category: editing.category,
-          jobType: editing.category,
-          shift: editing.shift,
-          shiftTiming: editing.shift,
-          gender: editing.gender,
           status: editing.isActive ? "open" : "closed"
         })
       });
@@ -336,7 +310,7 @@ export function AdminJobsClient() {
                   />
                 </label>
                 <label className="admin-field">
-                  <span>Location</span>
+                  <span>Address</span>
                   <input
                     value={editing.location}
                     onChange={(e) => setEditing({ ...editing, location: e.target.value })}
@@ -356,31 +330,6 @@ export function AdminJobsClient() {
                     value={editing.vacancies}
                     onChange={(e) => setEditing({ ...editing, vacancies: e.target.value })}
                   />
-                </label>
-                <label className="admin-field">
-                  <span>Category</span>
-                  <input
-                    value={editing.category}
-                    onChange={(e) => setEditing({ ...editing, category: e.target.value })}
-                  />
-                </label>
-                <label className="admin-field">
-                  <span>Shift</span>
-                  <input
-                    value={editing.shift}
-                    onChange={(e) => setEditing({ ...editing, shift: e.target.value })}
-                  />
-                </label>
-                <label className="admin-field">
-                  <span>Gender</span>
-                  <select
-                    value={editing.gender}
-                    onChange={(e) => setEditing({ ...editing, gender: e.target.value })}
-                  >
-                    <option value="Any">Any</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                  </select>
                 </label>
                 <label className="admin-field admin-field-check">
                   <input
@@ -481,7 +430,7 @@ export function AdminJobsClient() {
                     <td><strong>{job.title ?? "N/A"}</strong></td>
                     <td>{job.companyName ?? "N/A"}</td>
                     <td>{renderLocation(job)}</td>
-                    <td>{formatCurrencyRange(job.salary ?? job.payAmount, job.salaryType ?? job.payType)}</td>
+                    <td>{job.payType === "NEGOTIABLE" ? "Negotiable" : formatCurrencyRange(job.payAmount, job.payType)}</td>
                     <td>{job.vacancies ?? 0}</td>
                     <td>{formatDateLocal(job.createdAt)}</td>
                     <td>

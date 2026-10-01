@@ -37,7 +37,7 @@ export const coreSeoKeywords = [
 export const primaryNav = [
   { href: "/", label: "Home" },
   { href: "/jobs", label: "Find jobs" },
-  { href: "/app/employer/post-job", label: "For employers" },
+  { href: "/employer", label: "For employers" },
   { href: "/safety", label: "Safety" },
   { href: "/faq", label: "Help centre" }
 ];
@@ -984,7 +984,7 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
     ],
     ctaTitle: "Open the app for support",
     ctaCopy: "Use the in-app support path when you need quicker account-specific help.",
-    ctaHref: "/app",
+    ctaHref: PLAY_STORE_URL,
     ctaLabel: "Open DutyPe app"
   },
   faq: {

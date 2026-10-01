@@ -1,75 +1,93 @@
 package com.example.dutype.models
 
 import androidx.compose.runtime.Stable
-import androidx.room.Entity
-import androidx.room.PrimaryKey
+import com.example.dutype.firestore.FirestoreSchema.Values
+import com.example.dutype.utils.SalaryFormatter
 
 /**
- * JobListing — strict target schema model.
- *
- * Firestore jobs collection:
- *   jobId (doc ID), employerId, title, jobType, salary, salaryType,
- *   location:{lat,lng}, geohash, urgency, status, createdAt, expiresAt
- *
- * job_details collection (loaded on click):
- *   jobId, description, contactNumber, addressText
- *
- * Runtime-only fields (never written to Firestore):
- *   distance, isSaved, companyName, description, location, addressText, contactNumber
+ * A full job — the card (`jobmetadata/{id}`) plus its details (`job_details/{id}`),
+ * read when a job is opened. Field names are exactly the schema's
+ * ([com.example.dutype.firestore.FirestoreSchema.Jobs] + [com.example.dutype.firestore.FirestoreSchema.JobDetails]).
+ * Built by [com.example.dutype.utils.toJobListing].
  */
 @Stable
-@Entity(tableName = "joblisting")
 data class JobListing(
-    @PrimaryKey
+    // jobmetadata
     val id: String = "",
     val employerId: String = "",
     val title: String = "",
-
-    // --- CORE SCHEMA FIELDS ---
-    /**
-     * Free-form pay text. Accepts plain numbers ("18000"), ranges
-     * ("15000-20000"), open-ended ("2000+"), or text ("Negotiable",
-     * "Based on experience"). Stored verbatim in Firestore so cards can
-     * display whatever the employer typed; numeric filters call
-     * [salaryLowerBound] / [salaryUpperBound] which parse on read.
-     */
-    val salary: String = "",
-    val salaryType: String = "",        // "HOURLY" | "DAILY" | "MONTHLY"
-    val jobType: String = "",
-    val geohash: String = "",
-    val urgency: String = "MEDIUM",     // "LOW" | "MEDIUM" | "HIGH"
-    val gender: String = "Any",
-    val experienceRequired: String = "No Experience Required",
-    val shiftTiming: String = "Flexible",
-    val isVerified: Boolean = false,
-    val applicationCount: Int = 0,
-    val status: String = "open",        // "open" | "closed" | "expired"
-    val createdAt: Long = System.currentTimeMillis(),
-    val expiresAt: Long = createdAt + (30L * 24 * 60 * 60 * 1000),
+    val category: String = "",
+    val employmentType: String = Values.EmploymentType.FULL_TIME,
+    val companyName: String = "",
+    val photoUrl: String? = null,
+    val payAmount: Long = 0L,
+    val payType: String = Values.PayType.DAILY,
+    val vacancies: Int = 1,
+    val urgency: String = Values.Urgency.NORMAL,
+    val shift: String = Values.Shift.ANY,
+    val area: String = "",
     val lat: Double = 0.0,
     val lng: Double = 0.0,
+    val geohash: String = "",
+    val district: String = "",
+    val state: String = "",
+    val status: String = Values.JobStatus.OPEN,
+    val applicationCount: Int = 0,
+    val createdAt: Long = 0L,
+    val expiresAt: Long = 0L,
 
-    // --- RUNTIME ONLY (from job_details, never stored in jobs collection) ---
-    val companyName: String = "",
+    // job_details
     val description: String = "",
-    val location: String = "",          // human-readable addressText
     val addressText: String = "",
     val contactNumber: String = "",
-    val vacancies: Int = 1,
+    val gender: String = "",
+    val experienceRequired: String = "",
     val educationRequired: String = "",
+    val benefits: List<String> = emptyList(),
 
-    // --- RUNTIME ONLY (computed, never stored) ---
+    // Runtime only (never stored)
     var distance: Double? = null,
-    var isSaved: Boolean = false,
-
-    // --- Optional employer-uploaded hero image (#5). Stored on jobmetadata
-    //     so worker/employer card lists can render it without an extra read.
-    val jobImageUrl: String? = null
+    var distanceApprox: Boolean = false,
+    var feedSection: FeedSection? = null,
+    var isSaved: Boolean = false
 ) {
-    // Stable alias used throughout the codebase
     val jobId: String get() = id
 
-    fun isExpired(): Boolean = status.equals("expired", ignoreCase = true) ||
-        (status.equals("open", ignoreCase = true) && System.currentTimeMillis() > expiresAt)
-    fun getCategory(): String = com.example.dutype.utils.CategoryDetector.detectCategory(title, description)
+    val payText: String get() = SalaryFormatter.display(payAmount, payType)
+
+    val isUrgent: Boolean get() = urgency == Values.Urgency.HIGH
+
+    fun isExpired(): Boolean = status == Values.JobStatus.EXPIRED ||
+        (status == Values.JobStatus.OPEN && expiresAt > 0L && System.currentTimeMillis() > expiresAt)
+
+    fun isOpen(): Boolean = status == Values.JobStatus.OPEN && !isExpired()
+
+    fun toSummary(): JobListingSummary = JobListingSummary(
+        id = id,
+        employerId = employerId,
+        title = title,
+        category = category,
+        employmentType = employmentType,
+        companyName = companyName,
+        photoUrl = photoUrl,
+        payAmount = payAmount,
+        payType = payType,
+        vacancies = vacancies,
+        urgency = urgency,
+        shift = shift,
+        area = area,
+        lat = lat,
+        lng = lng,
+        geohash = geohash,
+        district = district,
+        state = state,
+        status = status,
+        applicationCount = applicationCount,
+        createdAt = createdAt,
+        expiresAt = expiresAt,
+        distance = distance,
+        distanceApprox = distanceApprox,
+        feedSection = feedSection,
+        isSaved = isSaved
+    )
 }

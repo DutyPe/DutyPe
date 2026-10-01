@@ -1,5 +1,6 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.fg
 import com.example.dutype.models.formatPaise
 import com.example.dutype.firestore.FirestoreSchema.Values
 import com.dutype.app.R
@@ -163,7 +164,7 @@ fun EmployerReferEarnScreen(
                                     Icon(
                                         Icons.Default.Info,
                                         contentDescription = null,
-                                        tint = EmployerColors.Primary,
+                                        tint = EmployerColors.Primary.fg(),
                                         modifier = Modifier.size(24.dp)
                                     )
                                     Spacer(modifier = Modifier.width(12.dp))
@@ -188,7 +189,7 @@ fun EmployerReferEarnScreen(
                                     ) {
                                         Text(
                                             stringResource(R.string.refer_complete_profile_button),
-                                            color = EmployerColors.Primary,
+                                            color = EmployerColors.Primary.fg(),
                                             fontWeight = FontWeight.SemiBold
                                         )
                                     }
@@ -549,7 +550,7 @@ private fun EmployerHowItWorksCard() {
                         ),
                         modifier = Modifier.width(24.dp)
                     )
-                    Text(step, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563)), modifier = Modifier.weight(1f))
+                    Text(step, style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563).fg()), modifier = Modifier.weight(1f))
                 }
             }
         }

@@ -1,5 +1,7 @@
 package com.example.dutype.components
 
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -67,13 +69,13 @@ fun PlayStoreRatingPrompt(
                 Box(
                     modifier = Modifier
                         .size(64.dp)
-                        .background(Color(0xFFFFF8E1), CircleShape),
+                        .background(Color(0xFFFFF8E1).bg(), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Star,
                         contentDescription = "Rating Star",
-                        tint = Color(0xFFFFB300),
+                        tint = Color(0xFFFFB300).fg(),
                         modifier = Modifier.size(36.dp)
                     )
                 }
@@ -100,7 +102,7 @@ fun PlayStoreRatingPrompt(
                         Icon(
                             imageVector = Icons.Default.Star,
                             contentDescription = null,
-                            tint = Color(0xFFFFB300),
+                            tint = Color(0xFFFFB300).fg(),
                             modifier = Modifier
                                 .size(32.dp)
                                 .padding(2.dp)
@@ -131,7 +133,7 @@ fun PlayStoreRatingPrompt(
                         .height(48.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF0D47A1)
+                        containerColor = Color(0xFF0D47A1).bg()
                     )
                 ) {
                     Text(

@@ -1,486 +1,152 @@
 package com.example.dutype.services
 
-import com.example.dutype.models.normalizeReferralCode
+import com.example.dutype.firestore.FirestoreSchema.EmployerProfiles
+import com.example.dutype.firestore.FirestoreSchema.PhoneRoles
+import com.example.dutype.firestore.FirestoreSchema.Values
+import com.example.dutype.firestore.FirestoreSchema.WorkerProfiles
 import com.example.dutype.utils.AuthPerf
 import com.example.dutype.utils.PhoneNumberUtils
-import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.functions.FirebaseFunctions
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Sign-up and sign-in resolution after OTP.
+ *
+ * Registration is one Cloud Function call (`completeRegistration`): it creates
+ * phoneRoles/{+91…} {uid, role}, the role profile, the wallet and the referral atomically on the
+ * server. Login reads phoneRoles (role) and the role profile (name, completeness): two reads.
+ */
 @Singleton
 class AuthFlowService @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth,
     private val functions: FirebaseFunctions
 ) {
-
-    companion object {
-        private const val COLLECTION_PHONE_ROLES = "phoneRoles"
-        private const val COLLECTION_WORKER_PROFILES = "worker_profiles"
-        private const val COLLECTION_EMPLOYER_PROFILES = "employer_profiles"
-        private const val COLLECTION_REFERRALS = "referrals"
-        private const val COLLECTION_REFERRAL_CODES = "referral_codes"
-        private const val LOGIN_READ_TIMEOUT_MS = 5_000L
-        private const val LEGACY_CONFLICT_CHECK_TIMEOUT_MS = 6_000L
-        private val VALID_ROLES = setOf("WORKER", "EMPLOYER")
-    }
-
-    data class RegistrationResolution(
-        val userData: Map<String, Any>,
-        val ownReferralCode: String
+    /** Who signed in: enough to cache the session and route. */
+    data class SessionUser(
+        val uid: String,
+        val role: String,
+        val name: String,
+        val phone: String,
+        val photoUrl: String?
     )
 
-    data class LoginResolution(
-        val userData: Map<String, Any>?,
-        val shouldRouteToProfileSetup: Boolean,
-        val roleForFcm: String
-    )
+    data class RegistrationResolution(val user: SessionUser, val ownReferralCode: String, val referralError: String?)
 
-    private data class RoleProfileState(
-        val workerExists: Boolean,
-        val employerExists: Boolean
-    ) {
-        fun profileExistsFor(role: String): Boolean = when (role) {
-            "WORKER" -> workerExists
-            "EMPLOYER" -> employerExists
-            else -> false
-        }
+    data class LoginResolution(val user: SessionUser, val shouldRouteToProfileSetup: Boolean)
 
-        fun singleExistingRole(): String? = when {
-            workerExists && !employerExists -> "WORKER"
-            employerExists && !workerExists -> "EMPLOYER"
-            else -> null
-        }
-    }
+    private fun phoneKey(): String? =
+        auth.currentUser?.phoneNumber?.takeIf { it.isNotBlank() }?.let(PhoneNumberUtils::normalize)
 
-    private suspend fun readRoleProfileState(userId: String): RoleProfileState {
-        // Both profile lookups are independent: read them concurrently (one round trip).
-        return coroutineScope {
-            val workerDeferred = async {
-                withTimeout(LOGIN_READ_TIMEOUT_MS) {
-                    firestore.collection(COLLECTION_WORKER_PROFILES)
-                        .document(userId)
-                        .get()
-                        .await()
-                        .exists()
-                }
-            }
-            val employerDeferred = async {
-                withTimeout(LOGIN_READ_TIMEOUT_MS) {
-                    firestore.collection(COLLECTION_EMPLOYER_PROFILES)
-                        .document(userId)
-                        .get()
-                        .await()
-                        .exists()
-                }
-            }
-            RoleProfileState(
-                workerExists = workerDeferred.await(),
-                employerExists = employerDeferred.await()
-            )
-        }
-    }
-
-    /**
-     * Live snapshot of `phoneRoles/{phone}` keyed to the current auth phone.
-     */
-    fun observeCurrentUser(): Flow<Map<String, Any>?> = callbackFlow {
-        val phone = auth.currentUser?.phoneNumber?.takeIf { it.isNotBlank() }?.let(PhoneNumberUtils::normalize)
-        if (phone.isNullOrBlank()) {
+    /** Live role from phoneRoles/{phone}; null when signed out or not registered. */
+    fun observeActiveRole(): Flow<String?> = callbackFlow {
+        val phone = phoneKey()
+        if (phone == null) {
             trySend(null)
             close()
             return@callbackFlow
         }
-        val registration = firestore.collection(COLLECTION_PHONE_ROLES).document(phone)
+        val registration = firestore.collection(PhoneRoles.COLLECTION).document(phone)
             .addSnapshotListener { snap, err ->
                 if (err != null) {
-                    Timber.w(err, "AuthFlowService.observeCurrentUser listener failed")
+                    Timber.w(err, "phoneRoles listener failed")
                     trySend(null)
-                    return@addSnapshotListener
+                } else {
+                    trySend(snap?.getString(PhoneRoles.ROLE))
                 }
-                trySend(snap?.data)
             }
         awaitClose { registration.remove() }
-    }
+    }.distinctUntilChanged()
 
-    /**
-    * Emits the user's role derived from the live `phoneRoles/{phone}` doc.
-     */
-    fun observeActiveRole(): Flow<String?> = observeCurrentUser()
-        .map { data ->
-            if (data == null) return@map null
-            (data["role"] as? String)?.trim()?.uppercase()?.takeIf { it in VALID_ROLES }
-        }
-        .distinctUntilChanged()
-
-    private suspend fun findReferralCodeDocument(rawCode: String): DocumentSnapshot? {
-        val normalizedCode = normalizeReferralCode(rawCode)
-        if (normalizedCode.isBlank()) return null
-
-        val candidates = linkedSetOf(
-            normalizedCode,
-            normalizedCode.lowercase()
-        )
-
-        for (candidate in candidates) {
-            try {
-                val snapshot = firestore.collection(COLLECTION_REFERRAL_CODES)
-                    .document(candidate)
-                    .get()
-                    .await()
-                if (snapshot.exists()) {
-                    return snapshot
-                }
-            } catch (e: FirebaseFirestoreException) {
-                if (e.code == FirebaseFirestoreException.Code.PERMISSION_DENIED) {
-                    Timber.w("AuthFlowService: referral code lookup denied for %s", candidate)
-                    continue
-                }
-                throw e
-            }
-        }
-
-        return null
-    }
-
+    /** [employerType] (employers only): INDIVIDUAL → [name] is the owner; COMPANY → it is the business name. */
     suspend fun completeRegistration(
         requestedRole: String,
-        fullName: String,
-        referralCode: String?
-    ): Result<RegistrationResolution> {
-        return try {
-            val currentUser = auth.currentUser ?: return Result.failure(Exception("User not authenticated"))
-            val role = normalizeRole(requestedRole)
-            val trimmedName = fullName.trim()
-            val normalizedPhone = currentUser.phoneNumber
-                ?.takeIf { it.isNotBlank() }
-                ?.let(PhoneNumberUtils::normalize)
-
-            if (trimmedName.isBlank()) {
-                return Result.failure(IllegalArgumentException("Full name is required"))
-            }
-            if (normalizedPhone.isNullOrBlank()) {
-                return Result.failure(IllegalArgumentException("Phone number is required"))
-            }
-
-            val normalizedReferralCode = referralCode
-                ?.takeIf { it.isNotBlank() }
-                ?.let(::normalizeReferralCode)
-                ?.takeIf { it.isNotBlank() }
-
-            val referrerSnapshot = if (normalizedReferralCode != null) {
-                val snapshot = findReferralCodeDocument(normalizedReferralCode)
-                    ?: return Result.failure(IllegalArgumentException("Referral code not found"))
-
-                val isActive = snapshot.getBoolean("isActive") ?: true
-                if (!isActive) {
-                    return Result.failure(IllegalArgumentException("This referral code is no longer active"))
-                }
-
-                val referrerUserId = snapshot.getString("userId").orEmpty()
-                if (referrerUserId.isBlank()) {
-                    return Result.failure(IllegalArgumentException("Referral code is invalid"))
-                }
-                if (referrerUserId == currentUser.uid) {
-                    return Result.failure(IllegalArgumentException("You cannot use your own referral code"))
-                }
-
-                val existingReferral = firestore.collection(COLLECTION_REFERRALS)
-                    .whereEqualTo("referredUserId", currentUser.uid)
-                    .limit(1)
-                    .get()
-                    .await()
-                if (!existingReferral.isEmpty) {
-                    return Result.failure(IllegalStateException("Referral already applied for this account"))
-                }
-
-                snapshot
-            } else {
-                null
-            }
-
-            val resolution = firestore.runTransaction { transaction ->
-                val phoneRoleRef = firestore.collection(COLLECTION_PHONE_ROLES).document(normalizedPhone)
-                val profileRef = firestore.collection(
-                    if (role == "WORKER") COLLECTION_WORKER_PROFILES else COLLECTION_EMPLOYER_PROFILES
-                ).document(currentUser.uid)
-                val userRef = firestore.collection("users").document(currentUser.uid)
-                val existingPhoneRole = transaction.get(phoneRoleRef)
-                val existingProfile = transaction.get(profileRef)
-                val existingData = existingPhoneRole.data.orEmpty()
-                val existingProfileData = existingProfile.data.orEmpty()
-
-                // Single-role architecture: an existing complete account cannot
-                // register again, regardless of which role is requested.
-                val existingRoleRaw = (existingData["role"] as? String)
-                    ?: (existingProfileData["role"] as? String)
-                val existingRole = existingRoleRaw?.uppercase()
-                val existingReferralCode = (existingProfileData["referralCode"] as? String)?.trim().orEmpty()
-                val isExistingCompleteUser =
-                    !(existingData["phoneNumber"] as? String).isNullOrBlank() &&
-                    !(existingData["name"] as? String).isNullOrBlank() &&
-                    !existingRole.isNullOrBlank()
-
-                if (existingPhoneRole.exists() && isExistingCompleteUser) {
-                    throw IllegalStateException("Account already exists")
-                }
-
-                val ownReferralCode = existingReferralCode
-                val now = Timestamp.now()
-                val referrerUserId = referrerSnapshot?.getString("userId").orEmpty()
-                val resolvedFullName = (existingData["name"] as? String)?.trim()
-                    .takeUnless { it.isNullOrBlank() }
-                    ?: trimmedName
-                val resolvedPhone = (existingData["phoneNumber"] as? String)?.trim()
-                    .takeUnless { it.isNullOrBlank() }
-                    ?: normalizedPhone
-
-                val userData = linkedMapOf<String, Any>(
-                    "userId" to currentUser.uid,
-                    "phone" to resolvedPhone,
-                    "phoneNumber" to resolvedPhone,
-                    "fullName" to resolvedFullName,
-                    "name" to resolvedFullName,
+        name: String,
+        referralCode: String?,
+        employerType: String? = null
+    ): Result<RegistrationResolution> =
+        runCatching {
+            val user = auth.currentUser ?: error("User not authenticated")
+            val role = requestedRole.trim().uppercase()
+            @Suppress("UNCHECKED_CAST")
+            val data = functions.getHttpsCallable("completeRegistration").call(
+                mapOf(
                     "role" to role,
-                    "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: now),
-                    "updatedAt" to now
+                    "name" to name.trim(),
+                    "referralCode" to referralCode?.trim().orEmpty(),
+                    "employerType" to employerType.orEmpty()
                 )
-
-                val profileData = linkedMapOf<String, Any>(
-                    "userId" to currentUser.uid,
-                    "phone" to resolvedPhone,
-                    "fullName" to resolvedFullName,
-                    "role" to role,
-                    "createdAt" to ((existingProfileData["createdAt"] as? Timestamp)
-                        ?: (existingData["createdAt"] as? Timestamp)
-                        ?: now),
-                    "updatedAt" to now
-                )
-
-                if (role == "EMPLOYER") {
-                    profileData["subscription"] = mapOf(
-                        "status" to "NONE",
-                        "planId" to "",
-                        "startDate" to 0L,
-                        "expiryDate" to 0L,
-                        "credits" to mapOf(
-                            "normal" to 0,
-                            "instant" to 0
-                        )
-                    )
-                }
-
-                if (ownReferralCode.isNotBlank()) {
-                    userData["referralCode"] = ownReferralCode
-                    profileData["referralCode"] = ownReferralCode
-                }
-
-                if (normalizedReferralCode != null && referrerUserId.isNotBlank()) {
-                    userData["referredByCode"] = normalizedReferralCode
-                    userData["referredByUserId"] = referrerUserId
-                    profileData["referredByCode"] = normalizedReferralCode
-                    profileData["referredByUserId"] = referrerUserId
-                } else {
-                    (existingProfileData["referredByCode"] as? String)?.takeIf { it.isNotBlank() }?.let {
-                        userData["referredByCode"] = it
-                        profileData["referredByCode"] = it
-                    }
-                    (existingProfileData["referredByUserId"] as? String)?.takeIf { it.isNotBlank() }?.let {
-                        userData["referredByUserId"] = it
-                        profileData["referredByUserId"] = it
-                    }
-                }
-
-                val phoneRoleData = linkedMapOf<String, Any>(
-                    "phoneNumber" to resolvedPhone,
-                    "role" to role,
-                    "name" to resolvedFullName,
-                    "uid" to currentUser.uid,
-                    "createdAt" to ((existingData["createdAt"] as? Timestamp) ?: now),
-                    "updatedAt" to now
-                )
-                transaction.set(phoneRoleRef, phoneRoleData)
-                transaction.set(profileRef, profileData, com.google.firebase.firestore.SetOptions.merge())
-                transaction.set(userRef, userData, com.google.firebase.firestore.SetOptions.merge())
-
-                // Referral reward attachment is handled by Cloud Function applyReferralCode
-                // from the registration flow, with profile-setup fallback for retries.
-
-                RegistrationResolution(userData, ownReferralCode)
-            }.await()
-
-            // Account now exists: any cached "phone not registered" result is stale.
+            ).await().data as? Map<String, Any?> ?: emptyMap()
+            // The server set the role claim; refresh so Firestore rules see it now.
+            user.getIdToken(true).await()
             com.example.dutype.utils.FirestoreUtils.invalidatePhoneCheckCache()
-
-            queueOwnReferralCodeEnsure(
-                userRole = role,
-                userName = (resolution.userData["fullName"] as? String)?.trim().orEmpty().ifBlank { trimmedName }
+            RegistrationResolution(
+                user = SessionUser(user.uid, role, name.trim(), user.phoneNumber.orEmpty(), null),
+                ownReferralCode = data["referralCode"] as? String ?: "",
+                referralError = data["referralError"] as? String
             )
-
-            Result.success(resolution)
-        } catch (e: Exception) {
-            Timber.e(e, "AuthFlowService.completeRegistration failed")
-            Result.failure(e)
-        }
-    }
+        }.onFailure { Timber.e(it, "completeRegistration failed") }
 
     /**
-     * Post-sign-in login resolution. This is also the AUTHORITATIVE single-role-per-phone
-     * enforcement point: the pre-OTP phone check may have been skipped/deferred (slow legacy
-     * fallback), so here a conflicting existing role signs the user out and fails with
-     * `phone-already-registered-as:<ROLE>` (the message the UI already maps to the
-     * role-conflict text).
+     * After OTP on the login path. Enforces one role per phone: a number registered with the other
+     * role is signed out and fails with `phone-already-registered-as:<ROLE>`.
      */
-    suspend fun resolveLogin(requestedRole: String): Result<LoginResolution> {
+    suspend fun resolveLogin(requestedRole: String): Result<LoginResolution> = runCatching {
         val perfStart = AuthPerf.now()
-        AuthPerf.log("login_resolve_start")
-        return try {
-            val currentUser = auth.currentUser ?: return Result.failure(Exception("User not authenticated"))
-            val role = normalizeRole(requestedRole)
-            val normalizedPhone = currentUser.phoneNumber?.takeIf { it.isNotBlank() }?.let(PhoneNumberUtils::normalize)
-                ?: return Result.failure(IllegalArgumentException("Phone number is required"))
-            val phoneRoleRef = firestore.collection(COLLECTION_PHONE_ROLES).document(normalizedPhone)
-
-            // phoneRoles doc + both role profiles are independent reads: run them
-            // concurrently (was 3 sequential round trips).
-            val (userSnapshot, roleProfileState) = coroutineScope {
-                val snapshotDeferred = async {
-                    withTimeout(LOGIN_READ_TIMEOUT_MS) {
-                        phoneRoleRef.get().await()
-                    }
-                }
-                val stateDeferred = async { readRoleProfileState(currentUser.uid) }
-                snapshotDeferred.await() to stateDeferred.await()
+        val user = auth.currentUser ?: error("User not authenticated")
+        val phone = phoneKey() ?: error("Phone number is required")
+        val role = requestedRole.trim().uppercase()
+        val (roleDoc, profile) = coroutineScope {
+            val roleRead = async { withTimeout(READ_TIMEOUT_MS) { firestore.collection(PhoneRoles.COLLECTION).document(phone).get().await() } }
+            val profileRead = async {
+                val collection = if (role == Values.Role.EMPLOYER) EmployerProfiles.COLLECTION else WorkerProfiles.COLLECTION
+                withTimeout(READ_TIMEOUT_MS) { firestore.collection(collection).document(user.uid).get().await() }
             }
-            val userData = userSnapshot.data.orEmpty().toMutableMap()
-            val hasAnyRoleProfile = roleProfileState.workerExists || roleProfileState.employerExists
-            if (!userSnapshot.exists() && !hasAnyRoleProfile) {
-                // Legacy account (no phoneRoles doc, no role profile) under a different role?
-                // Only reachable when the pre-send fallback was skipped; bounded and best-effort.
-                val legacy = runCatching {
-                    withTimeoutOrNull(LEGACY_CONFLICT_CHECK_TIMEOUT_MS) {
-                        com.example.dutype.utils.FirestoreUtils.checkPhoneForRole(normalizedPhone, role)
-                    }
-                }.getOrNull()
-                if (legacy != null &&
-                    legacy.exists == com.example.dutype.utils.FirestoreUtils.PhoneExistenceResult.EXISTS &&
-                    legacy.roleConflict
-                ) {
-                    val legacyRole = legacy.existingRole?.uppercase().orEmpty().ifBlank { "UNKNOWN" }
-                    runCatching { auth.signOut() }
-                    AuthPerf.log("login_resolve_end", perfStart, "result=legacy_role_conflict")
-                    return Result.failure(IllegalStateException("phone-already-registered-as:$legacyRole"))
-                }
-                AuthPerf.log("login_resolve_end", perfStart, "result=account_not_found")
-                return Result.failure(IllegalStateException("account-not-found"))
-            }
-
-            val existingRole = (userData["role"] as? String)?.uppercase()
-            val effectiveRole = existingRole
-                ?: roleProfileState.singleExistingRole()
-                ?: role
-            if (effectiveRole != role) {
-                runCatching { auth.signOut() }
-                AuthPerf.log("login_resolve_end", perfStart, "result=role_conflict existing=$effectiveRole")
-                return Result.failure(IllegalStateException("phone-already-registered-as:$effectiveRole"))
-            }
-            userData["userId"] = currentUser.uid
-            userData["fullName"] = userData["name"] as? String ?: ""
-            userData["phone"] = userData["phoneNumber"] as? String ?: normalizedPhone
-            userData["role"] = effectiveRole
-
-            val hasCoreFields =
-                !(userData["phone"] as? String).isNullOrBlank() &&
-                !existingRole.isNullOrBlank()
-
-            val hasRoleProfile = roleProfileState.profileExistsFor(effectiveRole)
-            val shouldRouteToProfileSetup = !hasRoleProfile && !(hasCoreFields && userSnapshot.exists())
-
-            // Login resolution complete — no lastActiveAt write to minimize
-            // per-login write costs at scale.
-            AuthPerf.log("login_resolve_end", perfStart, "result=ok setup=$shouldRouteToProfileSetup")
-
-            Result.success(
-                LoginResolution(
-                    userData = userData,
-                    shouldRouteToProfileSetup = shouldRouteToProfileSetup,
-                    roleForFcm = effectiveRole
-                )
-            )
-        } catch (e: Exception) {
-            Timber.e(e, "AuthFlowService.resolveLogin failed")
-            Result.failure(e)
+            roleRead.await() to profileRead.await()
         }
-    }
-
-    private fun normalizeRole(role: String): String {
-        val normalized = role.trim().uppercase()
-        require(normalized in VALID_ROLES) { "Unsupported role: $role" }
-        return normalized
-    }
-
-    private fun queueOwnReferralCodeEnsure(
-        userRole: String,
-        userName: String
-    ) {
-        CoroutineScope(Dispatchers.IO).launch {
-            val ensuredCode = withTimeoutOrNull(2_500L) {
-                ensureOwnReferralCode(userRole, userName)
-            }
-
-            if (ensuredCode.isNullOrBlank()) {
-                Timber.d("AuthFlowService: referral code ensure deferred or timed out")
-            } else {
-                Timber.d("AuthFlowService: referral code ensured asynchronously")
-            }
+        if (!roleDoc.exists()) {
+            AuthPerf.log("login_resolve_end", perfStart, "result=account_not_found")
+            throw IllegalStateException("account-not-found")
         }
-    }
-
-    private suspend fun ensureOwnReferralCode(
-        userRole: String,
-        userName: String
-    ): String {
-        return try {
-            val payload = hashMapOf<String, Any>(
-                "userRole" to userRole,
-                "userName" to userName
-            )
-
-            val result = functions
-                .getHttpsCallable("ensureUserReferralCode")
-                .call(payload)
-                .await()
-
-            @Suppress("UNCHECKED_CAST")
-            val response = result.data as? Map<String, Any?> ?: emptyMap()
-            val isSuccess = response["success"] as? Boolean ?: false
-            if (!isSuccess) {
-                return ""
-            }
-
-            normalizeReferralCode(response["referralCode"]?.toString().orEmpty())
-        } catch (e: Exception) {
-            Timber.w(e, "AuthFlowService: ensureUserReferralCode failed")
-            ""
+        val existingRole = roleDoc.getString(PhoneRoles.ROLE).orEmpty()
+        if (existingRole != role) {
+            runCatching { auth.signOut() }
+            throw IllegalStateException("phone-already-registered-as:$existingRole")
         }
+        val isEmployer = role == Values.Role.EMPLOYER
+        val name = if (isEmployer) {
+            profile.getString(EmployerProfiles.OWNER_NAME)?.takeIf { it.isNotBlank() }
+                ?: profile.getString(EmployerProfiles.BUSINESS_NAME)
+        } else profile.getString(WorkerProfiles.NAME)
+        // Employers: the same completeness rule as the profile setup (company needs owner, business name and type).
+        val complete = if (isEmployer) com.example.dutype.profile.EmployerProfile.from(user.uid, profile.data.orEmpty()).isComplete else
+            (profile.get(WorkerProfiles.SKILLS) as? List<*>).orEmpty().isNotEmpty()
+        AuthPerf.log("login_resolve_end", perfStart, "result=ok setup=${!complete}")
+        LoginResolution(
+            user = SessionUser(
+                uid = user.uid,
+                role = role,
+                name = name.orEmpty(),
+                phone = phone,
+                photoUrl = profile.getString(if (isEmployer) EmployerProfiles.PHOTO_URL else WorkerProfiles.PHOTO_URL)
+            ),
+            shouldRouteToProfileSetup = !complete
+        )
+    }.onFailure { Timber.w(it, "resolveLogin failed") }
+
+    private companion object {
+        const val READ_TIMEOUT_MS = 6_000L
     }
 }

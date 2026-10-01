@@ -1,5 +1,8 @@
 package com.example.dutype.worker.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.example.dutype.profile.ExperienceBucket
 import com.example.dutype.employer.models.JobCategory
 import com.example.dutype.firestore.FirestoreSchema.WorkerProfiles
@@ -144,7 +147,7 @@ private fun StitchStepProgressBar(currentStep: Int, totalSteps: Int) {
                     .weight(1f)
                     .height(4.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(if (segment <= currentStep) StitchInk else StitchTrack)
+                    .background(if (segment <= currentStep) StitchInk.bg() else StitchTrack.bg())
             )
         }
     }
@@ -167,10 +170,10 @@ private fun StitchPill(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(24.dp))
-            .background(if (selected) StitchInk else StitchWhite)
+            .background(if (selected) StitchInk.bg() else StitchWhite.bg())
             .border(
                 width = 1.dp,
-                color = if (selected) StitchInk else StitchBorder,
+                color = if (selected) StitchInk.fg() else StitchBorder.fg(),
                 shape = RoundedCornerShape(24.dp)
             )
             .clickable(onClick = onClick)
@@ -183,7 +186,7 @@ private fun StitchPill(
                 Icon(
                     imageVector = leadingIcon,
                     contentDescription = null,
-                    tint = if (selected) StitchWhite else StitchTitle,
+                    tint = if (selected) StitchWhite.fg() else StitchTitle.fg(),
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -191,14 +194,14 @@ private fun StitchPill(
             if (selected && leadingCheck) {
                 Text(
                     text = "✓ ",
-                    color = StitchWhite,
+                    color = StitchWhite.fg(),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }
             Text(
                 text = text,
-                color = if (selected) StitchWhite else StitchTitle,
+                color = if (selected) StitchWhite.fg() else StitchTitle.fg(),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1
@@ -249,7 +252,7 @@ private fun genderIcon(option: String): ImageVector {
 private fun StitchSectionLabel(text: String) {
     Text(
         text = text,
-        color = StitchLabel,
+        color = StitchLabel.fg(),
         fontSize = 12.sp,
         fontWeight = FontWeight.SemiBold,
         letterSpacing = 1.sp,
@@ -609,7 +612,7 @@ fun MandatoryWorkerProfileSetupScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 CircularProgressIndicator(
-                    color = WorkerColors.Primary
+                    color = WorkerColors.Primary.fg()
                 )
                 Text(
                     "Loading your profile...",
@@ -809,7 +812,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                 .size(56.dp),
                             shape = RoundedCornerShape(20.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = WorkerColors.Primary
+                                contentColor = WorkerColors.Primary.fg()
                             ),
                             border = androidx.compose.foundation.BorderStroke(
                                 1.5.dp,
@@ -1025,14 +1028,14 @@ fun MandatoryWorkerProfileSetupScreen(
                         contentPadding = PaddingValues(horizontal = 16.dp),
                         shape = RoundedCornerShape(28.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isCurrentStepValid) StitchInk else WorkerColors.TextDisabled,
+                            containerColor = if (isCurrentStepValid) StitchInk.bg() else WorkerColors.TextDisabled,
                             disabledContainerColor = WorkerColors.TextDisabled
                         )
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
-                                color = StitchWhite,
+                                color = StitchWhite.fg(),
                                 strokeWidth = 2.dp
                             )
                         } else {
@@ -1042,7 +1045,7 @@ fun MandatoryWorkerProfileSetupScreen(
                                     2 -> stringResource(R.string.worker_setup_next_location)
                                     else -> stringResource(R.string.worker_setup_complete_profile)
                                 },
-                                color = StitchWhite,
+                                color = StitchWhite.fg(),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
@@ -1090,13 +1093,13 @@ private fun PersonalInformationStep(
         Column(modifier = Modifier.padding(bottom = 4.dp)) {
             Text(
                 text = stringResource(R.string.worker_setup_basic_info_title),
-                color = StitchTitle,
+                color = StitchTitle.fg(),
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = stringResource(R.string.worker_setup_basic_info_sub),
-                color = StitchSubtitle,
+                color = StitchSubtitle.fg(),
                 fontSize = 14.sp,
                 modifier = Modifier.padding(top = 2.dp)
             )
@@ -1153,7 +1156,7 @@ private fun FullNameField(fullName: String, error: String?, onChange: (String) -
             label = {
                 Text(
                     stringResource(R.string.full_name),
-                    color = StitchFieldLabel,
+                    color = StitchFieldLabel.fg(),
                     fontSize = 12.sp
                 )
             },
@@ -1164,17 +1167,17 @@ private fun FullNameField(fullName: String, error: String?, onChange: (String) -
             textStyle = androidx.compose.ui.text.TextStyle(
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = StitchTitle
+                color = StitchTitle.fg()
             ),
             shape = RoundedCornerShape(14.dp),
             isError = error != null,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = if (error != null) WorkerColors.Error else StitchInk,
-                unfocusedBorderColor = if (error != null) WorkerColors.Error else StitchBorder,
-                focusedLabelColor = if (error != null) WorkerColors.Error else StitchFieldLabel,
-                unfocusedLabelColor = StitchFieldLabel,
+                focusedBorderColor = if (error != null) WorkerColors.Error else StitchInk.bd(),
+                unfocusedBorderColor = if (error != null) WorkerColors.Error else StitchBorder.bd(),
+                focusedLabelColor = if (error != null) WorkerColors.Error else StitchFieldLabel.fg(),
+                unfocusedLabelColor = StitchFieldLabel.fg(),
                 errorBorderColor = WorkerColors.Error,
-                cursorColor = StitchInk
+                cursorColor = StitchInk.fg()
             ),
             singleLine = true
         )
@@ -1201,7 +1204,7 @@ private fun ProfilePhotoPicker(selfieUri: Uri?, onSelfieSelected: (Uri) -> Unit)
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        val dashColor = StitchBorder
+        val dashColor = StitchBorder.fg()
         Box(
             modifier = Modifier
                 .size(104.dp)
@@ -1232,14 +1235,14 @@ private fun ProfilePhotoPicker(selfieUri: Uri?, onSelfieSelected: (Uri) -> Unit)
                 Icon(
                     Icons.Default.CameraAlt,
                     contentDescription = "Add profile photo",
-                    tint = StitchSubtitle,
+                    tint = StitchSubtitle.fg(),
                     modifier = Modifier.size(32.dp)
                 )
             }
         }
         Text(
             text = stringResource(R.string.worker_setup_add_photo_optional),
-            color = StitchSubtitle,
+            color = StitchSubtitle.fg(),
             fontSize = 13.sp,
             modifier = Modifier.padding(top = 10.dp)
         )
@@ -1301,7 +1304,7 @@ private fun ContactDetailsSection(
                     isError = emailError != null,
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Primary,
+                        focusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Primary.bd(),
                         unfocusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Border,
                         errorBorderColor = WorkerColors.Error
                     ),
@@ -1330,7 +1333,7 @@ private fun ContactDetailsSection(
                     isError = emailError != null,
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Primary,
+                        focusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Primary.bd(),
                         unfocusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Border,
                         errorBorderColor = WorkerColors.Error
                     ),
@@ -1390,7 +1393,7 @@ private fun ContactDetailsSection(
                     isError = phoneError != null,
                     shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (phoneError != null) WorkerColors.Error else WorkerColors.Primary,
+                        focusedBorderColor = if (phoneError != null) WorkerColors.Error else WorkerColors.Primary.bd(),
                         unfocusedBorderColor = if (phoneError != null) WorkerColors.Error else WorkerColors.Border,
                         errorBorderColor = WorkerColors.Error
                     )
@@ -1517,13 +1520,13 @@ private fun LocationStep(
         Column(modifier = Modifier.padding(bottom = 2.dp)) {
             Text(
                 text = stringResource(R.string.worker_setup_where_based_title),
-                color = StitchTitle,
+                color = StitchTitle.fg(),
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = stringResource(R.string.worker_setup_where_based_sub),
-                color = StitchSubtitle,
+                color = StitchSubtitle.fg(),
                 fontSize = 14.sp,
                 modifier = Modifier.padding(top = 2.dp)
             )
@@ -1551,7 +1554,7 @@ private fun LocationStep(
                 label = stringResource(R.string.address_label),
                 placeholder = stringResource(R.string.search_or_enter_address_w),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = if (addressError != null) WorkerColors.Error else WorkerColors.Primary,
+                    focusedBorderColor = if (addressError != null) WorkerColors.Error else WorkerColors.Primary.bd(),
                     unfocusedBorderColor = if (addressError != null) WorkerColors.Error else WorkerColors.Border,
                     errorBorderColor = WorkerColors.Error
                 )
@@ -1613,7 +1616,7 @@ private fun LocationStatusRow(
             if (isFetching) {
                 Text(
                     text = stringResource(R.string.worker_setup_detecting_location),
-                    color = StitchSubtitle,
+                    color = StitchSubtitle.fg(),
                     fontSize = 12.sp
                 )
             } else if (fetchError != null) {
@@ -1626,13 +1629,13 @@ private fun LocationStatusRow(
                 Icon(
                     Icons.Default.LocationOn,
                     contentDescription = null,
-                    tint = StitchSuccess,
+                    tint = StitchSuccess.fg(),
                     modifier = Modifier.size(14.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = stringResource(R.string.worker_setup_location_detected),
-                    color = StitchSuccess,
+                    color = StitchSuccess.fg(),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1
@@ -1640,7 +1643,7 @@ private fun LocationStatusRow(
                 if (detectedArea != null) {
                     Text(
                         text = "  ·  $detectedArea",
-                        color = StitchSubtitle,
+                        color = StitchSubtitle.fg(),
                         fontSize = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -1659,14 +1662,14 @@ private fun LocationStatusRow(
                 Icons.Default.MyLocation,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
-                tint = StitchAccent
+                tint = StitchAccent.fg()
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = if (isFetching) stringResource(R.string.worker_setup_detecting) else stringResource(R.string.worker_setup_detect),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = StitchAccent
+                color = StitchAccent.fg()
             )
         }
     }
@@ -1775,20 +1778,20 @@ private fun DateOfBirthField(
     val digits = dateOfBirth.filter { it.isDigit() }.take(8)
     val borderColor = when {
         error != null -> WorkerColors.Error
-        focused -> StitchInk
-        else -> StitchBorder
+        focused -> StitchInk.fg()
+        else -> StitchBorder.bd()
     }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = stringResource(R.string.date_of_birth),
-            color = StitchFieldLabel,
+            color = StitchFieldLabel.fg(),
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold
         )
         Text(
             text = stringResource(R.string.worker_setup_dob_subtitle),
-            color = StitchLabel,
+            color = StitchLabel.fg(),
             fontSize = 12.sp,
             modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)
         )
@@ -1833,7 +1836,7 @@ private fun DobInputBox(
             .fillMaxWidth()
             .height(56.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(StitchWhite)
+            .background(StitchWhite.bg())
             .border(1.dp, borderColor, RoundedCornerShape(12.dp))
             .padding(start = 16.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1848,7 +1851,7 @@ private fun DobInputBox(
             textStyle = TextStyle(
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = StitchTitle
+                color = StitchTitle.fg()
             ),
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Number,
@@ -1861,7 +1864,7 @@ private fun DobInputBox(
                     if (digits.isEmpty()) {
                         Text(
                             text = "DD/MM/YYYY",
-                            color = StitchLabel,
+                            color = StitchLabel.fg(),
                             fontSize = 15.sp
                         )
                     }
@@ -1873,7 +1876,7 @@ private fun DobInputBox(
             Icon(
                 imageVector = Icons.Default.CalendarToday,
                 contentDescription = stringResource(R.string.worker_setup_pick_dob_calendar),
-                tint = StitchSubtitle,
+                tint = StitchSubtitle.fg(),
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -1915,10 +1918,10 @@ private fun DobPickerDialog(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(20.dp),
         tonalElevation = 0.dp,
-        colors = DatePickerDefaults.colors(containerColor = Color.White),
+        colors = DatePickerDefaults.colors(containerColor = Color.White.bg()),
         confirmButton = {
             TextButton(
-                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF0F0F0F)),
+                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF0F0F0F).fg()),
                 onClick = {
                     val millis = state.selectedDateMillis
                     if (millis != null) onPicked(formatDobFromUtcMillis(millis)) else onDismiss()
@@ -1930,7 +1933,7 @@ private fun DobPickerDialog(
         dismissButton = {
             TextButton(
                 onClick = onDismiss,
-                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF0F0F0F))
+                colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF0F0F0F).fg())
             ) {
                 Text("Cancel")
             }
@@ -1947,10 +1950,10 @@ private fun DobPickerDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun whiteDatePickerColors(): DatePickerColors {
-    val ink = Color(0xFF0F0F0F)
-    val muted = Color(0xFF64748B)
+    val ink = Color(0xFF0F0F0F).fg()
+    val muted = Color(0xFF64748B).fg()
     return DatePickerDefaults.colors(
-        containerColor = Color.White,
+        containerColor = Color.White.bg(),
         titleContentColor = muted,
         headlineContentColor = ink,
         weekdayContentColor = muted,
@@ -1965,10 +1968,10 @@ private fun whiteDatePickerColors(): DatePickerColors {
         selectedDayContainerColor = ink,
         todayContentColor = ink,
         todayDateBorderColor = ink,
-        dividerColor = Color(0xFFE2E8F0),
+        dividerColor = Color(0xFFE2E8F0).bd(),
         dateTextFieldColors = TextFieldDefaults.colors(
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White,
+            focusedContainerColor = Color.White.bg(),
+            unfocusedContainerColor = Color.White.bg(),
             focusedIndicatorColor = ink,
             cursorColor = ink
         )
@@ -2025,7 +2028,7 @@ private fun skillKeys(raw: String): List<String> = parseSkills(raw).mapNotNull {
 private fun SubSectionHeader(title: String) {
     Text(
         text = title,
-        color = StitchSubtitle,
+        color = StitchSubtitle.fg(),
         fontSize = 13.sp,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier.padding(bottom = 10.dp)
@@ -2052,13 +2055,13 @@ private fun SkillsExperienceStep(
         Column {
             Text(
                 text = stringResource(R.string.worker_setup_skills_exp_title),
-                color = StitchTitle,
+                color = StitchTitle.fg(),
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold
             )
             Text(
                 text = stringResource(R.string.worker_setup_skills_exp_sub),
-                color = StitchSubtitle,
+                color = StitchSubtitle.fg(),
                 fontSize = 14.sp,
                 modifier = Modifier.padding(top = 2.dp)
             )
@@ -2094,7 +2097,7 @@ private fun SkillsExperienceStep(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(StitchBorder)
+                .background(StitchBorder.bg())
         )
 
         Column {
@@ -2162,10 +2165,10 @@ private fun WorkerBioSection(
             isError = bioError != null,
             shape = RoundedCornerShape(14.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = StitchInk,
-                unfocusedBorderColor = StitchBorder,
+                focusedBorderColor = StitchInk.bd(),
+                unfocusedBorderColor = StitchBorder.bd(),
                 errorBorderColor = WorkerColors.Error,
-                cursorColor = StitchInk
+                cursorColor = StitchInk.fg()
             ),
             supportingText = {
                 Text(
@@ -2174,7 +2177,7 @@ private fun WorkerBioSection(
                         workerBio.trim().length,
                         MAX_WORKER_BIO_LENGTH
                     ),
-                    color = if (bioError != null) WorkerColors.Error else StitchSubtitle
+                    color = if (bioError != null) WorkerColors.Error else StitchSubtitle.fg()
                 )
             }
         )
@@ -2227,7 +2230,7 @@ private fun SkillsPickerSection(
         if (addedSkills.isNotEmpty()) {
             Text(
                 text = stringResource(R.string.worker_setup_added_skills),
-                color = StitchLabel,
+                color = StitchLabel.fg(),
                 fontSize = 12.sp
             )
             SkillChipsFlow(
@@ -2288,12 +2291,12 @@ private fun SkillSearchField(
         placeholder = {
             Text(
                 stringResource(R.string.worker_setup_search_skill_placeholder),
-                color = StitchSubtitle,
+                color = StitchSubtitle.fg(),
                 fontSize = 14.sp
             )
         },
         leadingIcon = {
-            Icon(Icons.Default.Search, contentDescription = null, tint = StitchSubtitle)
+            Icon(Icons.Default.Search, contentDescription = null, tint = StitchSubtitle.fg())
         },
         modifier = Modifier
             .fillMaxWidth()
@@ -2303,9 +2306,9 @@ private fun SkillSearchField(
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onDone() }),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = StitchInk,
-            unfocusedBorderColor = StitchBorder,
-            cursorColor = StitchInk
+            focusedBorderColor = StitchInk.bd(),
+            unfocusedBorderColor = StitchBorder.bd(),
+            cursorColor = StitchInk.fg()
         )
     )
 }
@@ -2349,7 +2352,7 @@ private fun SkillSearchResults(
     if (matches.isEmpty() && alreadyKnown) {
         Text(
             text = stringResource(R.string.worker_setup_skill_already_added, query),
-            color = StitchSubtitle,
+            color = StitchSubtitle.fg(),
             fontSize = 13.sp
         )
     }
@@ -2376,7 +2379,7 @@ private fun DefaultSkillsGrid(
         if (remainingCount > 0) {
             Text(
                 text = stringResource(R.string.worker_setup_more_skills, remainingCount),
-                color = StitchSubtitle,
+                color = StitchSubtitle.fg(),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier
@@ -2430,8 +2433,8 @@ private fun GenderSelectionField(
                         selected = (gender == selectedGender),
                         onClick = null,
                         colors = RadioButtonDefaults.colors(
-                            selectedColor = Color(0xFF111111),
-                            unselectedColor = Color(0xFFD1D5DB)
+                            selectedColor = Color(0xFF111111).fg(),
+                            unselectedColor = Color(0xFFD1D5DB).fg()
                         ),
                         modifier = Modifier.size(20.dp)
                     )

@@ -1,5 +1,8 @@
 package com.example.dutype.worker.components
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
@@ -56,8 +59,9 @@ fun JobCard(
     var localIsSaved by remember { mutableStateOf(isSaved) }
     LaunchedEffect(isSaved) { localIsSaved = isSaved }
 
-    val effectiveApplyLabel = applyButtonLabel ?: stringResource(R.string.quick_apply)
-    val payDisplay = job.payText
+    val effectiveApplyLabel = applyButtonLabel ?: stringResource(R.string.card_apply_now)
+    val payDisplay = payAmountLabel(job.payAmount, job.payType)
+    val payUnit = payUnitLabel(job.payAmount, job.payType)
     val locationDisplay = remember(job.area, job.distance, job.feedSection) {
         formatLocationWithDistance(context, job.area, job.distance, job.distanceApprox, job.district, job.feedSection)
     }
@@ -75,6 +79,10 @@ fun JobCard(
         title = job.title,
         companyName = job.companyName,
         payDisplay = payDisplay,
+        payUnit = payUnit,
+        shift = job.shift,
+        postedAt = job.createdAt,
+        applicants = job.applicationCount,
         locationDisplay = locationDisplay,
         vacancies = job.vacancies,
         workTypeLabel = stringResource(EmploymentType.fromKey(job.employmentType).titleRes),
@@ -117,8 +125,9 @@ fun JobCard(
     var localIsSaved by remember { mutableStateOf(isSaved) }
     LaunchedEffect(isSaved) { localIsSaved = isSaved }
 
-    val effectiveApplyLabel = applyButtonLabel ?: stringResource(R.string.quick_apply)
-    val payDisplay = job.payText
+    val effectiveApplyLabel = applyButtonLabel ?: stringResource(R.string.card_apply_now)
+    val payDisplay = payAmountLabel(job.payAmount, job.payType)
+    val payUnit = payUnitLabel(job.payAmount, job.payType)
     val locationDisplay = remember(job.area, job.distance, job.feedSection) {
         formatLocationWithDistance(context, job.area, job.distance, job.distanceApprox, job.district, job.feedSection)
     }
@@ -136,6 +145,10 @@ fun JobCard(
         title = job.title,
         companyName = job.companyName,
         payDisplay = payDisplay,
+        payUnit = payUnit,
+        shift = job.shift,
+        postedAt = job.createdAt,
+        applicants = job.applicationCount,
         locationDisplay = locationDisplay,
         vacancies = job.vacancies,
         workTypeLabel = stringResource(EmploymentType.fromKey(job.employmentType).titleRes),
@@ -169,6 +182,10 @@ private fun JobCardInternal(
     title: String,
     companyName: String,
     payDisplay: String,
+    payUnit: String?,
+    shift: String,
+    postedAt: Long,
+    applicants: Int,
     locationDisplay: String,
     vacancies: Int,
     workTypeLabel: String?,
@@ -178,7 +195,7 @@ private fun JobCardInternal(
     isExpired: Boolean,
     isSaved: Boolean,
     isUrgent: Boolean = false,
-    applyButtonLabel: String = "Quick Apply",
+    applyButtonLabel: String = "Apply now",
     jobImageUrl: String? = null,
     onSaveClick: () -> Unit,
     onCardClick: () -> Unit,
@@ -275,7 +292,16 @@ private fun JobCardInternal(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            JobCardFacts(
+                workTypeLabel = workTypeLabel,
+                shift = shift,
+                vacancies = vacancies,
+                postedAt = postedAt,
+                applicants = applicants,
+                isClosed = isClosed
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Bottom row: bold green salary + black pill apply button
             Row(
@@ -284,34 +310,23 @@ private fun JobCardInternal(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.Bottom) {
-                    if (payDisplay == "Negotiable") {
+                    Text(
+                        text = payDisplay,
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            color = WorkerColors.Success,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = if (payUnit == null) 16.sp else 17.sp
+                        )
+                    )
+                    if (payUnit != null) {
                         Text(
-                            text = payDisplay,
+                            text = " $payUnit",
                             style = MaterialTheme.typography.labelMedium.copy(
-                                color = WorkerColors.Success,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp
+                                color = WorkerColors.TextSecondary,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 13.sp
                             )
                         )
-                    } else {
-                        Text(
-                            text = "₹${payDisplay.substringBefore("/")}",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                color = WorkerColors.Success,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 17.sp
-                            )
-                        )
-                        if (payDisplay.contains("/")) {
-                            Text(
-                                text = " /${payDisplay.substringAfter("/")}",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    color = WorkerColors.TextSecondary,
-                                    fontWeight = FontWeight.Normal,
-                                    fontSize = 13.sp
-                                )
-                            )
-                        }
                     }
                 }
 
@@ -681,8 +696,10 @@ fun WorkerHomeJobCard(
     applyButtonLabel: String? = null,
     isApplied: Boolean = false
 ) {
-    val effectiveApplyLabel = applyButtonLabel ?: stringResource(R.string.quick_apply)
-    val payDisplay = job.payText
+    val effectiveApplyLabel = applyButtonLabel ?: stringResource(R.string.card_apply_now)
+    val payDisplay = payAmountLabel(job.payAmount, job.payType)
+    val payUnit = payUnitLabel(job.payAmount, job.payType)
+    val facts = homeCardFacts(job)
     val subtitle = remember(job.companyName, job.distance, job.feedSection) {
         listOf(job.companyName.trim(), farPlace(job.area, job.district, job.feedSection),
             formatShortDistance(job.distance, job.distanceApprox))
@@ -709,8 +726,8 @@ fun WorkerHomeJobCard(
         modifier = modifier
             .fillMaxWidth()
             .clip(cardShape)
-            .background(Color.White)
-            .border(1.dp, HomeCardBorder, cardShape)
+            .background(Color.White.bg())
+            .border(1.dp, HomeCardBorder.bd(), cardShape)
             .clickable { openJob() }
             .padding(14.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -733,8 +750,18 @@ fun WorkerHomeJobCard(
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = subtitle,
-                    color = HomeCardSlate,
+                    color = HomeCardSlate.fg(),
                     fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            if (facts.isNotEmpty() && !isClosed) {
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = facts,
+                    color = HomeCardSlate.fg(),
+                    fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -742,6 +769,7 @@ fun WorkerHomeJobCard(
             Spacer(modifier = Modifier.height(10.dp))
             HomeJobPayRow(
                 payDisplay = payDisplay,
+                payUnit = payUnit,
                 showApply = !isClosed,
                 applyButtonLabel = effectiveApplyLabel,
                 isApplied = isApplied,
@@ -760,7 +788,7 @@ private fun HomeJobTile(imageUrl: String?, category: String, title: String, desc
             modifier = Modifier
                 .size(48.dp)
                 .clip(tileShape)
-                .background(HomeCardTile),
+                .background(HomeCardTile.bg()),
             contentAlignment = Alignment.Center
         ) {
             OptimizedJobImage(
@@ -788,7 +816,7 @@ private fun HomeJobTitleRow(
     ) {
         Text(
             text = ValidationUtils.capitalizeWords(title),
-            color = if (isClosed) HomeCardSlate else HomeCardInk,
+            color = if (isClosed) HomeCardSlate.fg() else HomeCardInk.fg(),
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
@@ -799,12 +827,12 @@ private fun HomeJobTitleRow(
             Spacer(modifier = Modifier.width(8.dp))
             Box(
                 modifier = Modifier
-                    .background(HomeCardRedBg, RoundedCornerShape(50))
+                    .background(HomeCardRedBg.bg(), RoundedCornerShape(50))
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             ) {
                 Text(
                     text = stringResource(R.string.urgent_caps),
-                    color = HomeCardRed,
+                    color = HomeCardRed.fg(),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -822,6 +850,7 @@ private fun HomeJobTitleRow(
 @Composable
 private fun HomeJobPayRow(
     payDisplay: String,
+    payUnit: String?,
     showApply: Boolean,
     applyButtonLabel: String,
     isApplied: Boolean,
@@ -836,30 +865,20 @@ private fun HomeJobPayRow(
             modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.Bottom
         ) {
-            if (payDisplay == "Negotiable") {
+            Text(
+                text = payDisplay,
+                color = HomeCardInk.fg(),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
+            if (payUnit != null) {
                 Text(
-                    text = payDisplay,
-                    color = HomeCardInk,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
+                    text = " $payUnit",
+                    color = HomeCardSlate.fg(),
+                    fontSize = 12.sp,
                     maxLines = 1
                 )
-            } else {
-                Text(
-                    text = "₹${payDisplay.substringBefore("/")}",
-                    color = HomeCardInk,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-                if (payDisplay.contains("/")) {
-                    Text(
-                        text = " /${payDisplay.substringAfter("/")}",
-                        color = HomeCardSlate,
-                        fontSize = 12.sp,
-                        maxLines = 1
-                    )
-                }
             }
         }
         if (showApply) {
@@ -879,7 +898,7 @@ private fun HomeApplyButton(label: String, onClick: () -> Unit) {
         modifier = Modifier
             .height(36.dp)
             .clip(RoundedCornerShape(18.dp))
-            .background(HomeCardInk)
+            .background(HomeCardInk.bg())
             .clickable { onClick() }
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center
@@ -901,13 +920,13 @@ private fun HomeAppliedButton() {
         modifier = Modifier
             .height(36.dp)
             .clip(shape)
-            .border(1.dp, HomeCardBorder, shape)
+            .border(1.dp, HomeCardBorder.bd(), shape)
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = stringResource(R.string.applied),
-            color = HomeCardSlate,
+            color = HomeCardSlate.fg(),
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1
@@ -921,3 +940,114 @@ private fun formatShortDistance(distance: Double?, approximate: Boolean = false)
     if (approximate) return if (distance < 2.0) "~1 km" else "~${distance.toInt()} km"
     return if (distance < 1.0) "${(distance * 1000).toInt()} m" else "${"%.1f".format(distance)} km"
 }
+
+// =============================================================================
+// PAY + FACTS
+// =============================================================================
+
+/** "₹15,000" or "Negotiable" (one rupee sign; the unit is separate). */
+@Composable
+internal fun payAmountLabel(payAmount: Long, payType: String): String {
+    val type = com.example.dutype.employer.models.PayType.fromKey(payType)
+    return if (payAmount <= 0L || type == com.example.dutype.employer.models.PayType.NEGOTIABLE) {
+        stringResource(R.string.negotiable)
+    } else {
+        "₹" + com.example.dutype.utils.SalaryFormatter.amount(payAmount)
+    }
+}
+
+/** "/day", "/week", "/month", "/hour" in the app language; null when negotiable. */
+@Composable
+internal fun payUnitLabel(payAmount: Long, payType: String): String? {
+    val type = com.example.dutype.employer.models.PayType.fromKey(payType)
+    if (payAmount <= 0L || type.unitRes == 0) return null
+    return stringResource(type.unitRes)
+}
+
+/** "2h ago", "3d ago", "Just posted"; null after two weeks (not worth showing). */
+@Composable
+private fun postedAgoLabel(createdAt: Long): String? {
+    if (createdAt <= 0L) return null
+    val minutes = (System.currentTimeMillis() - createdAt) / 60_000L
+    return when {
+        minutes < 60 -> stringResource(R.string.card_posted_just_now)
+        minutes < 24 * 60 -> stringResource(R.string.card_posted_hours, (minutes / 60).toInt())
+        minutes < 14 * 24 * 60 -> stringResource(R.string.card_posted_days, (minutes / (24 * 60)).toInt())
+        else -> null
+    }
+}
+
+@Composable
+private fun shiftLabel(shift: String): String? = when (shift.uppercase()) {
+    com.example.dutype.firestore.FirestoreSchema.Values.Shift.DAY -> stringResource(R.string.card_day_shift)
+    com.example.dutype.firestore.FirestoreSchema.Values.Shift.NIGHT -> stringResource(R.string.card_night_shift)
+    else -> null
+}
+
+/**
+ * Job type · shift · openings as small chips, then "Posted 2h ago · 12 applied" (or "Be the first
+ * to apply" for a fresh job) — what a worker checks before tapping.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun JobCardFacts(
+    workTypeLabel: String?,
+    shift: String,
+    vacancies: Int,
+    postedAt: Long,
+    applicants: Int,
+    isClosed: Boolean
+) {
+    val shiftText = shiftLabel(shift)
+    val chips = listOfNotNull(
+        workTypeLabel?.takeIf { it.isNotBlank() }?.let { it to ChipType.VACANCY },
+        shiftText?.let { it to ChipType.VACANCY },
+        if (vacancies > 1) stringResource(R.string.card_openings, vacancies) to ChipType.VACANCY else null
+    )
+    if (chips.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(10.dp))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            chips.forEach { (text, type) -> CompactChip(text = text, chipType = type) }
+        }
+    }
+    if (isClosed) return
+    val posted = postedAgoLabel(postedAt)
+    val social = if (applicants > 0) stringResource(R.string.card_applied_count, applicants) else null
+    val line = listOfNotNull(posted, social).joinToString(" · ")
+    val firstToApply = applicants == 0
+    if (line.isBlank() && !firstToApply) return
+    Spacer(modifier = Modifier.height(8.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (line.isNotBlank()) {
+            Text(
+                text = line,
+                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary, fontSize = 11.sp),
+                maxLines = 1
+            )
+        }
+        if (firstToApply) {
+            if (line.isNotBlank()) Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(R.string.card_be_first),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = WorkerColors.Success,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                maxLines = 1
+            )
+        }
+    }
+}
+
+/** One compact line for the home card: "Full-time · Day shift · 3 openings · 2h ago". */
+@Composable
+private fun homeCardFacts(job: JobListing): String = listOfNotNull(
+    stringResource(EmploymentType.fromKey(job.employmentType).titleRes),
+    shiftLabel(job.shift),
+    if (job.vacancies > 1) stringResource(R.string.card_openings, job.vacancies) else null,
+    postedAgoLabel(job.createdAt)
+).joinToString(" · ")

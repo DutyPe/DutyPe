@@ -328,7 +328,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(300, 800),
             PayType.HOURLY to Pair(50, 150),
             PayType.MONTHLY to Pair(8000, 25000),
-            PayType.TASK to Pair(200, 1000)
         ),
         
         // Maid: ₹250-600/day, ₹40-100/hour, ₹5000-15000/month
@@ -336,7 +335,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(250, 600),
             PayType.HOURLY to Pair(40, 100),
             PayType.MONTHLY to Pair(5000, 15000),
-            PayType.TASK to Pair(100, 500)
         ),
         
         // Driver: ₹400-1000/day, ₹60-200/hour, ₹12000-35000/month
@@ -344,7 +342,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(400, 1000),
             PayType.HOURLY to Pair(60, 200),
             PayType.MONTHLY to Pair(12000, 35000),
-            PayType.TASK to Pair(200, 2000)
         ),
         
         // Helper: ₹250-500/day, ₹40-80/hour, ₹6000-15000/month
@@ -352,7 +349,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(250, 500),
             PayType.HOURLY to Pair(40, 80),
             PayType.MONTHLY to Pair(6000, 15000),
-            PayType.TASK to Pair(100, 500)
         ),
         
         // Security: ₹350-700/day, ₹50-100/hour, ₹10000-20000/month
@@ -360,7 +356,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(350, 700),
             PayType.HOURLY to Pair(50, 100),
             PayType.MONTHLY to Pair(10000, 20000),
-            PayType.TASK to Pair(300, 1000)
         ),
         
         // Gardener: ₹300-600/day, ₹50-100/hour, ₹7000-15000/month
@@ -368,7 +363,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(300, 600),
             PayType.HOURLY to Pair(50, 100),
             PayType.MONTHLY to Pair(7000, 15000),
-            PayType.TASK to Pair(200, 800)
         ),
         
         // Caretaker: ₹400-800/day, ₹60-150/hour, ₹10000-25000/month
@@ -376,7 +370,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(400, 800),
             PayType.HOURLY to Pair(60, 150),
             PayType.MONTHLY to Pair(10000, 25000),
-            PayType.TASK to Pair(300, 1500)
         ),
         
         // Delivery: ₹300-700/day, ₹40-100/hour, ₹8000-20000/month
@@ -384,7 +377,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(300, 700),
             PayType.HOURLY to Pair(40, 100),
             PayType.MONTHLY to Pair(8000, 20000),
-            PayType.TASK to Pair(30, 200) // Per delivery
         ),
         
         // Waiter: ₹300-600/day, ₹50-100/hour, ₹8000-18000/month
@@ -392,7 +384,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(300, 600),
             PayType.HOURLY to Pair(50, 100),
             PayType.MONTHLY to Pair(8000, 18000),
-            PayType.TASK to Pair(200, 800)
         ),
         
         // Electrician: ₹500-1200/day, ₹80-200/hour, ₹15000-35000/month
@@ -400,7 +391,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(500, 1200),
             PayType.HOURLY to Pair(80, 200),
             PayType.MONTHLY to Pair(15000, 35000),
-            PayType.TASK to Pair(300, 3000)
         ),
         
         // Plumber: ₹500-1200/day, ₹80-200/hour, ₹15000-35000/month
@@ -408,7 +398,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(500, 1200),
             PayType.HOURLY to Pair(80, 200),
             PayType.MONTHLY to Pair(15000, 35000),
-            PayType.TASK to Pair(300, 3000)
         ),
         
         // Painter: ₹400-1000/day, ₹60-150/hour, ₹12000-30000/month
@@ -416,7 +405,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(400, 1000),
             PayType.HOURLY to Pair(60, 150),
             PayType.MONTHLY to Pair(12000, 30000),
-            PayType.TASK to Pair(500, 5000)
         ),
         
         // Carpenter: ₹500-1200/day, ₹80-200/hour, ₹15000-35000/month
@@ -424,7 +412,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(500, 1200),
             PayType.HOURLY to Pair(80, 200),
             PayType.MONTHLY to Pair(15000, 35000),
-            PayType.TASK to Pair(500, 5000)
         ),
         
         // Receptionist: ₹400-700/day, ₹60-120/hour, ₹10000-25000/month
@@ -432,7 +419,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(400, 700),
             PayType.HOURLY to Pair(60, 120),
             PayType.MONTHLY to Pair(10000, 25000),
-            PayType.TASK to Pair(300, 1000)
         ),
         
         // Cashier: ₹350-600/day, ₹50-100/hour, ₹8000-20000/month
@@ -440,7 +426,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(350, 600),
             PayType.HOURLY to Pair(50, 100),
             PayType.MONTHLY to Pair(8000, 20000),
-            PayType.TASK to Pair(200, 800)
         ),
         
         // Packer: ₹300-500/day, ₹40-80/hour, ₹7000-15000/month
@@ -448,7 +433,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(300, 500),
             PayType.HOURLY to Pair(40, 80),
             PayType.MONTHLY to Pair(7000, 15000),
-            PayType.TASK to Pair(50, 300)
         ),
         
         // Other: Generic ranges
@@ -456,7 +440,6 @@ object JobValidationUtils {
             PayType.DAILY to Pair(250, 1500),
             PayType.HOURLY to Pair(40, 250),
             PayType.MONTHLY to Pair(5000, 50000),
-            PayType.TASK to Pair(50, 5000)
         )
     )
     
@@ -489,12 +472,7 @@ object JobValidationUtils {
         }
         
         val ranges = PAY_RATE_RANGES[category] ?: PAY_RATE_RANGES[JobCategory.OTHER]!!
-        val (minRate, maxRate) = if (payType == PayType.WEEKLY) {
-            val dailyRange = ranges[PayType.DAILY] ?: Pair(250, 1500)
-            Pair(dailyRange.first * 6, dailyRange.second * 6)
-        } else {
-            ranges[payType] ?: Pair(0, Int.MAX_VALUE)
-        }
+        val (minRate, maxRate) = ranges[payType] ?: Pair(0, Int.MAX_VALUE)
         
         return when {
             amountToValidate < minRate -> PayRateValidationResult(
@@ -524,10 +502,6 @@ object JobValidationUtils {
      */
     fun getSuggestedPayRange(category: JobCategory, payType: PayType): Pair<Int, Int> {
         val ranges = PAY_RATE_RANGES[category] ?: PAY_RATE_RANGES[JobCategory.OTHER]!!
-        if (payType == PayType.WEEKLY) {
-            val dailyRange = ranges[PayType.DAILY] ?: Pair(250, 1500)
-            return Pair(dailyRange.first * 6, dailyRange.second * 6)
-        }
         return ranges[payType] ?: Pair(0, 0)
     }
     
@@ -536,13 +510,7 @@ object JobValidationUtils {
      */
     fun formatSuggestedRange(category: JobCategory, payType: PayType): String {
         val (min, max) = getSuggestedPayRange(category, payType)
-        val suffix = when (payType) {
-            PayType.DAILY -> "/day"
-            PayType.WEEKLY -> "/week"
-            PayType.HOURLY -> "/hour"
-            PayType.MONTHLY -> "/month"
-            PayType.TASK -> "/task"
-        }
+        val suffix = if (payType.perUnit.isBlank()) "" else "/${payType.perUnit}"
         return "₹$min - ₹$max$suffix"
     }
 }
@@ -567,164 +535,3 @@ data class PayRateValidationResult(
     val isTooLow: Boolean = false,
     val isTooHigh: Boolean = false
 )
-
-// ==========================================
-// AI SCAM DETECTION - Risk Scoring System
-// ==========================================
-
-/**
- * AI-powered scam detection with risk scoring
- * Analyzes multiple factors to determine scam probability
- */
-object AIScamDetector {
-    
-    /**
-     * Risk levels for job postings
-     */
-    enum class RiskLevel(val score: IntRange, val color: Long) {
-        SAFE(0..20, 0xFF10B981),      // Green
-        LOW(21..40, 0xFF84CC16),       // Light green
-        MEDIUM(41..60, 0xFFF59E0B),    // Orange
-        HIGH(61..80, 0xFFEF4444),      // Red
-        CRITICAL(81..100, 0xFF991B1B)  // Dark red
-    }
-    
-    data class ScamAnalysisResult(
-        val riskScore: Int,
-        val riskLevel: RiskLevel,
-        val flags: List<RiskFlag>,
-        val recommendation: String,
-        val shouldBlock: Boolean
-    )
-    
-    data class RiskFlag(
-        val type: String,
-        val description: String,
-        val severity: Int // 1-10
-    )
-    
-    /**
-     * Comprehensive AI scam analysis
-     */
-    fun analyzeJob(
-        title: String,
-        description: String,
-        category: String,
-        payAmount: String,
-        payType: String,
-        location: String,
-        employerJobCount: Int = 0,
-        employerCategoryCount: Int = 1,
-        hasContactNumber: Boolean = true,
-        employerAccountAgeDays: Int = 30,
-        hasVerifiedBadge: Boolean = false
-    ): ScamAnalysisResult {
-        val flags = mutableListOf<RiskFlag>()
-        var riskScore = 0
-        
-        val combinedText = "$title $description".lowercase()
-        
-        // 1. Keyword Analysis (Weight: 30%)
-        val keywordResult = JobValidationUtils.validateAgainstScamKeywords(title, description)
-        if (!keywordResult.isValid) {
-            flags.add(RiskFlag("BANNED_KEYWORD", "Contains scam keyword: ${keywordResult.blockedKeyword}", 10))
-            riskScore += 30
-        }
-        
-        // 2. Pay Rate Analysis (Weight: 20%)
-        val payAmountNum = payAmount.replace(",", "").replace("₹", "").toIntOrNull() ?: 0
-        if (payAmountNum > 0) {
-            val dailyPay = when {
-                payType.contains("hour", true) -> payAmountNum * 8
-                payType.contains("month", true) -> payAmountNum / 26
-                else -> payAmountNum
-            }
-            
-            // Unrealistic pay detection
-            if (dailyPay > 5000) {
-                flags.add(RiskFlag("HIGH_PAY", "Unusually high pay: ₹$dailyPay/day", 8))
-                riskScore += 15
-            } else if (dailyPay > 3000) {
-                flags.add(RiskFlag("ELEVATED_PAY", "Above market pay: ₹$dailyPay/day", 5))
-                riskScore += 8
-            }
-        }
-        
-        // 3. Multi-Category Poster Detection (Weight: 15%)
-        if (employerCategoryCount >= 5) {
-            flags.add(RiskFlag("CONSULTANCY", "Posts in $employerCategoryCount categories (likely consultancy)", 7))
-            riskScore += 15
-        } else if (employerCategoryCount >= 3) {
-            flags.add(RiskFlag("MULTI_CATEGORY", "Posts in multiple categories", 4))
-            riskScore += 8
-        }
-        
-        // 4. Account Age Analysis (Weight: 10%)
-        if (employerAccountAgeDays < 3) {
-            flags.add(RiskFlag("NEW_ACCOUNT", "Account is only $employerAccountAgeDays days old", 6))
-            riskScore += 10
-        } else if (employerAccountAgeDays < 7) {
-            flags.add(RiskFlag("RECENT_ACCOUNT", "Account is less than a week old", 3))
-            riskScore += 5
-        }
-        
-        // 5. Contact Info Analysis (Weight: 10%)
-        if (!hasContactNumber) {
-            flags.add(RiskFlag("NO_CONTACT", "No contact number provided", 5))
-            riskScore += 10
-        }
-        
-        // 6. Description Quality Analysis (Weight: 10%)
-        if (description.length < 30) {
-            flags.add(RiskFlag("SHORT_DESC", "Description is too short", 3))
-            riskScore += 5
-        }
-        
-        // Check for excessive caps
-        val capsRatio = description.count { it.isUpperCase() }.toFloat() / description.length.coerceAtLeast(1)
-        if (capsRatio > 0.5 && description.length > 20) {
-            flags.add(RiskFlag("EXCESSIVE_CAPS", "Excessive use of capital letters", 4))
-            riskScore += 5
-        }
-        
-        // Check for excessive punctuation
-        val exclamationCount = description.count { it == '!' }
-        if (exclamationCount > 3) {
-            flags.add(RiskFlag("EXCESSIVE_PUNCTUATION", "Excessive exclamation marks", 3))
-            riskScore += 5
-        }
-        
-        // 7. Urgency Language Detection (Weight: 5%)
-        val urgencyWords = listOf("urgent", "immediately", "today only", "limited", "hurry", "last chance")
-        if (urgencyWords.any { combinedText.contains(it) }) {
-            flags.add(RiskFlag("URGENCY", "Uses urgency language", 4))
-            riskScore += 5
-        }
-        
-        // 8. Trust Bonus (Negative weight)
-        if (hasVerifiedBadge) {
-            riskScore -= 15
-        }
-        
-        // Cap score between 0-100
-        riskScore = riskScore.coerceIn(0, 100)
-        
-        val riskLevel = RiskLevel.entries.find { riskScore in it.score } ?: RiskLevel.SAFE
-        
-        val recommendation = when (riskLevel) {
-            RiskLevel.SAFE -> "This job appears legitimate."
-            RiskLevel.LOW -> "This job looks okay. Verify contact details before applying."
-            RiskLevel.MEDIUM -> "Proceed with caution. Verify employer details."
-            RiskLevel.HIGH -> "Multiple red flags detected. High risk of scam."
-            RiskLevel.CRITICAL -> "This job is likely a scam. Do not apply."
-        }
-        
-        return ScamAnalysisResult(
-            riskScore = riskScore,
-            riskLevel = riskLevel,
-            flags = flags,
-            recommendation = recommendation,
-            shouldBlock = riskScore >= 61
-        )
-    }
-}

@@ -55,6 +55,8 @@ data class InstantRequest(
     val firstResponseAt: Long = 0L,
     val lastResponseAt: Long = 0L,
     val responseCount: Int = 0,
+    /** Urgent offers have gone out to workers within this many km (0 = not yet). */
+    val dispatchRadiusKm: Int = 0,
     val callCount: Int = 0,
     val notifiedWorkerCount: Int = 0,
     val notificationFanoutAt: Long = 0L,

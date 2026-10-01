@@ -1,5 +1,6 @@
 package com.example.dutype.components
 
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.compose.ui.res.stringResource
 import android.content.Intent
@@ -85,7 +86,7 @@ fun NotificationPermissionBottomSheet(
                     Icon(
                         imageVector = Icons.Default.Notifications,
                         contentDescription = "Notifications",
-                        tint = WorkerColors.Primary,
+                        tint = WorkerColors.Primary.fg(),
                         modifier = Modifier.size(40.dp)
                     )
                 }

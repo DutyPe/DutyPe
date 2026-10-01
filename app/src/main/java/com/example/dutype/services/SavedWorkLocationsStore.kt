@@ -1,11 +1,12 @@
 package com.example.dutype.services
 
+import com.example.dutype.firestore.FirestoreSchema.EmployerProfiles
+import com.example.dutype.firestore.FirestoreSchema.EmployerProfiles.WorkLocations
 import com.example.dutype.models.WorkLocation
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
-import javax.inject.Inject
-import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -14,166 +15,123 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
- * Firestore-backed store for an employer's saved work locations quick-pick
- * list. The public API stays synchronous for existing Compose call sites;
- * writes update local state immediately and persist in the background.
+ * The employer's saved hiring addresses (`employer_profiles/{uid}/work_locations`, at most 5).
+ * Listens only after [start] (employer screens), so workers never pay for it. Writes update
+ * local state immediately and persist in the background.
  */
 @Singleton
 class SavedWorkLocationsStore @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth
 ) {
-
     private val _locations = MutableStateFlow<List<WorkLocation>>(emptyList())
     val locations: StateFlow<List<WorkLocation>> = _locations.asStateFlow()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var listenerRegistration: ListenerRegistration? = null
+    private var registration: ListenerRegistration? = null
     private var activeUserId: String? = null
 
     init {
-        auth.addAuthStateListener { firebaseAuth ->
-            attachToUser(firebaseAuth.currentUser?.uid)
-        }
-        attachToUser(auth.currentUser?.uid)
+        auth.addAuthStateListener { if (it.currentUser?.uid != activeUserId) stop() }
+    }
+
+    /** Idempotent: starts the listener for the signed-in employer. */
+    fun start() {
+        val uid = auth.currentUser?.takeUnless { it.isAnonymous }?.uid ?: return
+        if (uid == activeUserId && registration != null) return
+        stop()
+        activeUserId = uid
+        registration = collection(uid)
+            .orderBy(FieldPath.documentId())
+            .limit(MAX_LOCATIONS.toLong())
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) return@addSnapshotListener
+                _locations.value = snapshot.documents.map { doc ->
+                    WorkLocation(
+                        id = doc.id,
+                        label = doc.getString(WorkLocations.LABEL).orEmpty(),
+                        address = doc.getString(WorkLocations.ADDRESS).orEmpty(),
+                        latitude = doc.getDouble(WorkLocations.LAT) ?: 0.0,
+                        longitude = doc.getDouble(WorkLocations.LNG) ?: 0.0,
+                        addedAt = doc.id.removePrefix("loc_").toLongOrNull() ?: 0L
+                    )
+                }
+                if (snapshot.isEmpty && !snapshot.metadata.isFromCache) seedFromProfile(uid)
+            }
+    }
+
+    private fun stop() {
+        registration?.remove()
+        registration = null
+        activeUserId = null
+        _locations.value = emptyList()
     }
 
     fun snapshot(): List<WorkLocation> = _locations.value
 
-    fun add(
-        label: String,
-        address: String,
-        latitude: Double,
-        longitude: Double
-    ): WorkLocation {
+    fun add(label: String, address: String, latitude: Double, longitude: Double): WorkLocation {
         val cleanAddress = address.trim()
         require(cleanAddress.isNotBlank()) { "Address cannot be empty" }
         val cleanLabel = label.trim().ifBlank { cleanAddress.take(30) }
-        val now = System.currentTimeMillis()
-        val userId = activeUserId
-
         val current = _locations.value
-        val existing = current.firstOrNull {
-            it.address.equals(cleanAddress, ignoreCase = true)
-        }
-
-        return if (existing != null) {
-            val updated = existing.copy(
-                label = cleanLabel,
-                latitude = latitude,
-                longitude = longitude,
-                usageCount = existing.usageCount + 1
-            )
-            _locations.value = current.map { if (it.id == existing.id) updated else it }.take(MAX_LOCATIONS)
-            persist(userId, updated)
-            updated
+        val existing = current.firstOrNull { it.address.equals(cleanAddress, ignoreCase = true) }
+        val saved = if (existing != null) {
+            existing.copy(label = cleanLabel, latitude = latitude, longitude = longitude, usageCount = existing.usageCount + 1)
+                .also { updated -> _locations.value = current.map { if (it.id == updated.id) updated else it } }
         } else {
-            if (current.size >= MAX_LOCATIONS) {
-                throw IllegalStateException("You can save up to $MAX_LOCATIONS work locations")
-            }
-            val created = WorkLocation(
-                id = "loc_$now",
-                label = cleanLabel,
-                address = cleanAddress,
-                latitude = latitude,
-                longitude = longitude,
-                addedAt = now,
-                usageCount = 1
-            )
-            _locations.value = (current + created).take(MAX_LOCATIONS)
-            persist(userId, created)
-            created
+            check(current.size < MAX_LOCATIONS) { "You can save up to $MAX_LOCATIONS work locations" }
+            val now = System.currentTimeMillis()
+            WorkLocation("loc_$now", cleanLabel, cleanAddress, latitude, longitude, now, 1)
+                .also { _locations.value = current + it }
         }
+        persist(saved)
+        return saved
     }
 
     fun remove(id: String) {
         if (id.isBlank()) return
         _locations.value = _locations.value.filterNot { it.id == id }
-        val userId = activeUserId ?: return
-        scope.launch {
-            runCatching {
-                locationsCollection(userId).document(id).delete().await()
-            }
-        }
+        val uid = activeUserId ?: return
+        scope.launch { runCatching { collection(uid).document(id).delete().await() } }
     }
 
-    private fun attachToUser(userId: String?) {
-        if (activeUserId == userId) return
-        listenerRegistration?.remove()
-        listenerRegistration = null
-        activeUserId = userId
-        _locations.value = emptyList()
-
-        if (userId.isNullOrBlank()) return
-
-        listenerRegistration = locationsCollection(userId)
-            .orderBy("addedAt")
-            .limit(MAX_LOCATIONS.toLong())
-            .addSnapshotListener { snapshot, error ->
-                if (error != null || snapshot == null) return@addSnapshotListener
-                _locations.value = snapshot.documents.mapNotNull { doc ->
-                    val data = doc.data.orEmpty()
-                    WorkLocation(
-                        id = doc.id,
-                        label = (data["label"] as? String).orEmpty(),
-                        address = (data["address"] as? String).orEmpty(),
-                        latitude = (data["latitude"] as? Number)?.toDouble() ?: 0.0,
-                        longitude = (data["longitude"] as? Number)?.toDouble() ?: 0.0,
-                        addedAt = (data["addedAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
-                        usageCount = (data["usageCount"] as? Number)?.toInt() ?: 0
+    private fun persist(location: WorkLocation) {
+        val uid = activeUserId ?: auth.currentUser?.uid ?: return
+        scope.launch {
+            runCatching {
+                collection(uid).document(location.id).set(
+                    mapOf(
+                        WorkLocations.LABEL to location.label.take(80),
+                        WorkLocations.ADDRESS to location.address.take(500),
+                        WorkLocations.LAT to location.latitude,
+                        WorkLocations.LNG to location.longitude
                     )
-                }
-                seedBusinessAddressIfNeeded(userId)
-            }
-
-        seedBusinessAddressIfNeeded(userId)
-    }
-
-    private fun persist(userId: String?, location: WorkLocation) {
-        if (userId.isNullOrBlank()) return
-        scope.launch {
-            runCatching {
-                locationsCollection(userId).document(location.id).set(location.toFirestoreMap()).await()
+                ).await()
             }
         }
     }
 
-    private fun seedBusinessAddressIfNeeded(userId: String) {
-        if (_locations.value.isNotEmpty()) return
+    /** First use: offer the profile's business address as "Main location". */
+    private fun seedFromProfile(uid: String) {
         scope.launch {
             runCatching {
-                val profile = firestore.collection("employer_profiles").document(userId).get().await().data.orEmpty()
-                val address = (profile["businessAddress"] as? String)?.trim().orEmpty()
-                val location = profile["businessLocation"] as? Map<*, *>
-                val lat = (location?.get("lat") as? Number)?.toDouble()
-                val lng = (location?.get("lng") as? Number)?.toDouble()
+                val profile = firestore.collection(EmployerProfiles.COLLECTION).document(uid).get().await()
+                val address = profile.getString(EmployerProfiles.ADDRESS).orEmpty().trim()
+                val lat = profile.getDouble(EmployerProfiles.LAT)
+                val lng = profile.getDouble(EmployerProfiles.LNG)
                 if (address.isNotBlank() && lat != null && lng != null && _locations.value.isEmpty()) {
-                    add(
-                        label = "Main location",
-                        address = address,
-                        latitude = lat,
-                        longitude = lng
-                    )
+                    add("Main location", address, lat, lng)
                 }
             }
         }
     }
 
-    private fun locationsCollection(userId: String) =
-        firestore.collection("employer_profiles")
-            .document(userId)
-            .collection("work_locations")
-
-    private fun WorkLocation.toFirestoreMap(): Map<String, Any> = mapOf(
-        "label" to label.take(80),
-        "address" to address.take(500),
-        "latitude" to latitude,
-        "longitude" to longitude,
-        "addedAt" to addedAt,
-        "usageCount" to usageCount
-    )
+    private fun collection(uid: String) =
+        firestore.collection(EmployerProfiles.COLLECTION).document(uid).collection(WorkLocations.COLLECTION)
 
     private companion object {
         const val MAX_LOCATIONS = 5

@@ -1,5 +1,13 @@
 package com.example.dutype.worker.screens
 
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.fg
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Search
+import com.example.dutype.employer.models.JobShift
+import com.example.dutype.employer.models.EmploymentType
+import com.example.dutype.employer.models.PayType
 import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -46,6 +54,8 @@ import com.example.dutype.viewmodels.JobFilters
 import com.example.dutype.viewmodels.SavedJobsViewModel
 import com.example.dutype.worker.components.WorkerHomeJobCard
 import com.example.dutype.worker.components.JobCard
+import com.example.dutype.worker.components.jobCategoryIcon
+import com.example.dutype.worker.components.jobCategoryTint
 import com.example.dutype.utils.CategoryDetector
 import com.example.dutype.components.CategoryIcon
 import com.example.dutype.components.LocationAutocompleteField
@@ -67,12 +77,12 @@ import com.example.dutype.components.openNotificationSettings
 
 /**
  * AllJobsScreen - Displays all available jobs with infinite scroll
- * 
+ *
  * PAGINATION: 10 jobs per page
  * - Initial load: 10 jobs
  * - On scroll near end: Load 10 more from server
  * - Continues until all jobs are loaded
- * 
+ *
  * @author DutyPe Engineering Team
  * @since 2.4.0
  */
@@ -118,10 +128,13 @@ private fun rememberJobsLocationPermission(
 
     val refreshFix: () -> Unit = {
         coroutineScope.launch {
-            locationRepository.refresh { freshLocation ->
-                if (freshLocation != null) {
-                    val data = viewModel.locationService.toLocationData(freshLocation)
-                    viewModel.setUserLocation(data.latitude, data.longitude)
+            // A picked place (manual location) is kept; GPS only drives the feed in auto mode.
+            if (!viewModel.locationPreferences.isManualLocationLocked()) {
+                locationRepository.refresh { freshLocation ->
+                    if (freshLocation != null) {
+                        val data = viewModel.locationService.toLocationData(freshLocation)
+                        viewModel.setUserLocation(data.latitude, data.longitude)
+                    }
                 }
             }
         }
@@ -171,8 +184,7 @@ private fun rememberJobsLocationPermission(
             !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, android.Manifest.permission.ACCESS_COARSE_LOCATION)
 
         if (isPermanentlyDenied) {
-            val isTelugu = com.example.dutype.utils.LocaleHelper.getLanguage(context) == com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU
-            val message = if (isTelugu) "దయచేసి సెట్టింగ్స్‌లో లొకేషన్ అనుమతిని ఆన్ చేయండి" else "Please enable Location permission in App Settings"
+            val message = context.getString(R.string.worker_enable_location_in_settings)
             android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
             openNotificationSettings(context)
         } else {
@@ -275,7 +287,7 @@ fun AllJobsScreen(
     // If client-side filters hide everything that is loaded, keep pulling pages
     // (nearest first) instead of showing a false empty state while more jobs exist.
     val canAutoFill = displayedJobs.isEmpty() && uiState.hasMore && !uiState.isLoading &&
-        !uiState.isRefreshing && !uiState.isSyncing && !uiState.isLoadingMore &&
+        !uiState.isRefreshing && !uiState.isLoadingMore &&
         !uiState.loadMoreFailed && uiState.jobs.size < AUTO_FILL_LIMIT
     LaunchedEffect(canAutoFill, uiState.jobs.size) {
         if (canAutoFill) viewModel.loadMoreJobs(PAGE_SIZE)
@@ -284,7 +296,7 @@ fun AllJobsScreen(
     // A failed pull-to-refresh keeps the list; tell the user instead of blanking the screen.
     LaunchedEffect(uiState.error, uiState.hasError) {
         if (uiState.error != null && !uiState.hasError && uiState.jobs.isNotEmpty()) {
-            android.widget.Toast.makeText(context, "Couldn't refresh jobs. Check your connection.", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, context.getString(R.string.jobs_couldnt_refresh_connection), android.widget.Toast.LENGTH_SHORT).show()
             viewModel.clearError()
         }
     }
@@ -300,14 +312,14 @@ fun AllJobsScreen(
 
         // Find Jobs is one of the bottom tabs, so no back chevron.
         CommonHeader(
-            title = if (viewModel.isInitialFilterCategory()) "$initialFilter Jobs" else "Find Jobs",
+            title = if (selectedChip != "All Jobs") "$selectedChip Jobs" else stringResource(R.string.find_jobs),
             onBackClick = { navController.popBackStack() },
             showBackButton = false,
             backgroundColor = WorkerColors.CardBackground
         )
 
         JobLocationBar(
-            locationText = currentLocation?.getShortAddress() ?: "Set your location",
+            locationText = currentLocation?.getShortAddress() ?: stringResource(R.string.jobs_set_your_location),
             onClick = { showLocationSheet = true }
         )
 
@@ -380,7 +392,7 @@ fun AllJobsScreen(
                 viewModel.locationPreferences.saveLocation(data, forceManualOverride = true)
                 viewModel.onLocationChanged(lat, lon)
                 showLocationSheet = false
-                android.widget.Toast.makeText(context, "Showing jobs near $address", android.widget.Toast.LENGTH_SHORT).show()
+                android.widget.Toast.makeText(context, context.getString(R.string.jobs_showing_near_address, address), android.widget.Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -436,11 +448,11 @@ private fun JobsSearchAndFilters(
                 ReusableSearchBar(
                     query = searchQuery,
                     onQueryChange = onQueryChange,
-                    placeholder = "Search job, company or area...",
+                    placeholder = stringResource(R.string.jobs_search_placeholder),
                     height = 48,
                     backgroundColor = WorkerColors.CardBackground,
                     borderColor = WorkerColors.Border,
-                    focusedBorderColor = WorkerColors.Primary,
+                    focusedBorderColor = WorkerColors.Primary.bd(),
                     searchIconColor = WorkerColors.IconSecondary,
                     textColor = WorkerColors.TextPrimary,
                     placeholderColor = WorkerColors.TextTertiary,
@@ -460,7 +472,7 @@ private fun JobsSearchAndFilters(
             ) {
                 Icon(
                     imageVector = Icons.Outlined.FilterList,
-                    contentDescription = "Filter",
+                    contentDescription = stringResource(R.string.filter),
                     tint = if (activeFilterCount > 0) Color.White else WorkerColors.IconPrimary,
                     modifier = Modifier.size(IconSizes.Standard)
                 )
@@ -488,7 +500,7 @@ private fun JobsSearchAndFilters(
         if (!correctedQuery.isNullOrBlank() && searchQuery.trim().length >= 2) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Showing results for \u201C$correctedQuery\u201D",
+                text = stringResource(R.string.jobs_showing_results_for, correctedQuery),
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = WorkerColors.TextSecondary,
                     fontSize = 12.sp,
@@ -539,32 +551,6 @@ private fun JobCategoryRail(
     }
 }
 
-private val JobCategoryPalette = listOf(
-    Color(0xFFF5F3FF) to Color(0xFF7C3AED),
-    Color(0xFFECFEFF) to Color(0xFF0891B2),
-    Color(0xFFFFF7ED) to Color(0xFFEA580C),
-    Color(0xFFFDF2F8) to Color(0xFFDB2777),
-    Color(0xFFF1F5F9) to Color(0xFF0F172A)
-)
-
-private fun jobCategoryTint(label: String): Pair<Color, Color> = when (label) {
-    "All Jobs" -> Color(0xFFF1F5F9) to Color(0xFF0F172A)
-    "Electrician" -> Color(0xFFFEF3C7) to Color(0xFFD97706)
-    "Plumber" -> Color(0xFFEFF6FF) to Color(0xFF2563EB)
-    "Driver" -> Color(0xFFF0FDF4) to Color(0xFF16A34A)
-    "Cook" -> Color(0xFFFEF2F2) to Color(0xFFDC2626)
-    else -> JobCategoryPalette[(label.hashCode() and 0x7fffffff) % JobCategoryPalette.size]
-}
-
-private fun jobCategoryIcon(label: String): ImageVector? = when (label) {
-    "All Jobs" -> Icons.Default.Apps
-    "Electrician" -> Icons.Default.Bolt
-    "Plumber" -> Icons.Default.Build
-    "Driver" -> Icons.Default.LocalShipping
-    "Cook" -> Icons.Default.Restaurant
-    else -> null
-}
-
 @Composable
 private fun JobCategoryTile(
     label: String,
@@ -572,7 +558,9 @@ private fun JobCategoryTile(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val (container, tint) = jobCategoryTint(label)
+    val (lightContainer, lightTint) = jobCategoryTint(label)
+    val container = lightContainer.bg()
+    val tint = lightTint.fg()
     val tileShape = RoundedCornerShape(18.dp)
     val icon = jobCategoryIcon(label)
     Column(
@@ -588,7 +576,7 @@ private fun JobCategoryTile(
                 .size(56.dp)
                 .background(container, tileShape)
                 .then(
-                    if (isSelected) Modifier.border(2.dp, Color(0xFF0F0F0F), tileShape)
+                    if (isSelected) Modifier.border(2.dp, Color(0xFF0F0F0F).bd(), tileShape)
                     else Modifier
                 ),
             contentAlignment = Alignment.Center
@@ -605,8 +593,8 @@ private fun JobCategoryTile(
             }
         }
         Text(
-            text = if (label == "All Jobs") "All" else label,
-            color = Color(0xFF0F172A),
+            text = if (label == "All Jobs") stringResource(R.string.all) else label,
+            color = Color(0xFF0F172A).fg(),
             fontSize = 11.sp,
             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
             textAlign = TextAlign.Center,
@@ -667,7 +655,7 @@ private fun JobsContent(
     // Shimmer while the first page is in flight, or while filters hide everything loaded
     // and the auto-fill effect is fetching the next (nearest) page.
     val waitingForData = jobs.isEmpty() && (
-        uiState.isLoading || uiState.isRefreshing || uiState.isSyncing ||
+        uiState.isLoading || uiState.isRefreshing ||
             (uiState.hasMore && !uiState.loadMoreFailed && uiState.jobs.size < AUTO_FILL_LIMIT)
         )
 
@@ -744,7 +732,7 @@ private fun JobsList(
         LoadMoreInputs(
             itemCount = jobs.size,
             hasMore = uiState.hasMore,
-            busy = uiState.isLoadingMore || uiState.isLoading || uiState.isRefreshing || uiState.isSyncing,
+            busy = uiState.isLoadingMore || uiState.isLoading || uiState.isRefreshing,
             failed = uiState.loadMoreFailed
         )
     )
@@ -773,15 +761,26 @@ private fun JobsList(
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 100.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            items(
-                items = jobs,
-                key = { job -> jobListKey(job) },
-                contentType = { "job_card" }
-            ) { job ->
-                WorkerHomeJobCard(
-                    job = job,
-                    onCardClick = { onNavigateToJob(it) }
-                )
+            // Section headers follow the feed order (km bands → district → state); a re-sorted list has none.
+            val showSections = uiState.filters.sortBy == JobFilters.SORT_RELEVANCE
+            jobs.forEachIndexed { index, job ->
+                val section = job.feedSection
+                if (showSections && section != null && section != jobs.getOrNull(index - 1)?.feedSection) {
+                    item(key = "section_${section.name}_$index", contentType = "section_header") {
+                        com.example.dutype.worker.components.FeedSectionHeader(
+                            section = section,
+                            district = job.district,
+                            state = job.state,
+                            isFirst = index == 0
+                        )
+                    }
+                }
+                item(key = jobListKey(job), contentType = "job_card") {
+                    WorkerHomeJobCard(
+                        job = job,
+                        onCardClick = { onNavigateToJob(it) }
+                    )
+                }
             }
 
             if (uiState.hasMore || uiState.loadMoreFailed) {
@@ -815,7 +814,7 @@ private fun JobsList(
             ) {
                 Icon(
                     imageVector = Icons.Default.ArrowUpward,
-                    contentDescription = "Jump to Top",
+                    contentDescription = stringResource(R.string.jobs_jump_to_top),
                     modifier = Modifier.size(IconSizes.Standard)
                 )
             }
@@ -839,7 +838,7 @@ private fun LoadMoreFooter(failed: Boolean, onRetry: () -> Unit) {
                     modifier = Modifier.size(IconSizes.Small)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Couldn't load more jobs. Tap to retry")
+                Text(stringResource(R.string.jobs_couldnt_load_more_retry))
             }
         } else {
             CircularProgressIndicator(
@@ -860,7 +859,7 @@ private fun EndOfListRow() {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "You're all caught up. That's every job near you.",
+            text = stringResource(R.string.jobs_all_caught_up),
             style = AppTypography.bodySmall.copy(
                 color = WorkerColors.TextSecondary,
                 textAlign = TextAlign.Center
@@ -871,35 +870,17 @@ private fun EndOfListRow() {
 
 @Composable
 private fun UrgentEmptyState(onShowAll: () -> Unit) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(32.dp)
-        ) {
-            Text(
-                text = "No urgent jobs right now",
-                style = AppTypography.emptyStateTitle.copy(color = WorkerColors.TextPrimary)
-            )
-            Text(
-                text = "Employers haven't marked any nearby job as urgent. Show all jobs instead.",
-                style = AppTypography.emptyStateSubtitle.copy(
-                    color = WorkerColors.TextSecondary,
-                    textAlign = TextAlign.Center
-                )
-            )
-            Button(
-                onClick = onShowAll,
-                colors = ButtonDefaults.buttonColors(containerColor = WorkerColors.Primary),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Show all jobs")
-            }
-        }
-    }
+    com.example.dutype.components.DutyPeEmptyScreen(
+        icon = Icons.Filled.Bolt,
+        tone = com.example.dutype.components.EmptyTone.ORANGE,
+        title = stringResource(R.string.jobs_no_urgent_title),
+        message = stringResource(R.string.jobs_no_urgent_desc),
+        primary = com.example.dutype.components.EmptyStateAction(
+            label = stringResource(R.string.jobs_show_all_jobs),
+            icon = Icons.Filled.Search,
+            onClick = onShowAll
+        )
+    )
 }
 
 /**
@@ -923,13 +904,13 @@ private fun JobLocationBar(
             modifier = Modifier
                 .size(34.dp)
                 .clip(CircleShape)
-                .background(if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color.White.copy(alpha = 0.15f) else WorkerColors.Primary.copy(alpha = 0.12f)),
+                .background(if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color.White.bg().copy(alpha = 0.15f) else WorkerColors.Primary.copy(alpha = 0.12f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.LocationOn,
                 contentDescription = null,
-                tint = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color.White else WorkerColors.Primary,
+                tint = if (com.example.dutype.ui.theme.isAppInDarkTheme()) Color.White else WorkerColors.Primary.fg(),
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -961,14 +942,14 @@ private fun JobLocationBar(
             Text(
                 text = stringResource(R.string.auto_change),
                 style = AppTypography.labelMedium.copy(
-                    color = WorkerColors.Primary,
+                    color = WorkerColors.Primary.fg(),
                     fontWeight = FontWeight.SemiBold
                 )
             )
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
                 contentDescription = null,
-                tint = WorkerColors.Primary,
+                tint = WorkerColors.Primary.fg(),
                 modifier = Modifier.size(16.dp)
             )
         }
@@ -1017,8 +998,8 @@ private fun JobLocationPickerSheet(
                 onValueChange = { query = it },
                 onLocationSelected = onLocationSelected,
                 locationService = locationService,
-                label = "Search location",
-                placeholder = "e.g. Hitech City, Hyderabad",
+                label = stringResource(R.string.jobs_search_location_label),
+                placeholder = stringResource(R.string.jobs_search_location_placeholder),
                 maxLines = 2,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -1130,24 +1111,21 @@ private fun JobFilterBottomSheet(
     onApplyFilters: (JobFilters) -> Unit,
     onResetFilters: () -> Unit
 ) {
-    var salaryMin by remember { mutableStateOf(filters.salaryMin) }
-    var salaryMax by remember { mutableStateOf(filters.salaryMax) }
     var maxDistance by remember { mutableStateOf(filters.maxDistance) }
-    var experienceLevel by remember { mutableStateOf(filters.experienceLevel) }
     var sortBy by remember { mutableStateOf(filters.sortBy) }
     var payType by remember { mutableStateOf(filters.payType) }
-    var workType by remember { mutableStateOf(filters.workType) }
-    var category by remember { mutableStateOf(filters.category) }
-    var shiftTiming by remember { mutableStateOf(filters.shiftTiming) }
+    var employmentType by remember { mutableStateOf(filters.employmentType) }
+    var shift by remember { mutableStateOf(filters.shift) }
     var urgentOnly by remember { mutableStateOf(filters.urgentOnly) }
-    
-    val experienceOptions = listOf("Any", "Fresher", "1-3 years", "3-5 years", "5+ years")
-    val sortOptions = listOf("Relevance", "Distance", "Newest", "Salary: High to Low", "Salary: Low to High")
-    val payTypeOptions = listOf("Any", "DAILY", "HOURLY", "MONTHLY")
-    val workTypeOptions = listOf("Any", "Part-time", "Full-time", "Contract", "Temporary")
-    val shiftTimingOptions = listOf("Any", "Morning", "Afternoon", "Evening", "Night", "Flexible")
-    val categoryOptions = remember { listOf("Any") + com.example.dutype.utils.CategoryDetector.getAllCategories() }
-    
+
+    val sortOptions = listOf(JobFilters.SORT_RELEVANCE, JobFilters.SORT_DISTANCE, JobFilters.SORT_NEWEST, JobFilters.SORT_PAY_HIGH)
+    // (stored value, label)
+    val payTypeOptions = listOf(JobFilters.ANY to stringResource(R.string.jobs_filter_all_types)) +
+        PayType.entries.filter { it != PayType.NEGOTIABLE }.map { it.key to stringResource(it.labelRes) }
+    val employmentTypeOptions = listOf(JobFilters.ANY to stringResource(R.string.all)) + EmploymentType.entries.map { it.key to it.displayName }
+    val shiftOptions = listOf(JobFilters.ANY to stringResource(R.string.all)) +
+        JobShift.entries.filter { it != JobShift.ANY }.map { it.key to it.displayName }
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
@@ -1174,15 +1152,11 @@ private fun JobFilterBottomSheet(
                 )
                 TextButton(
                     onClick = {
-                        salaryMin = 0
-                        salaryMax = 100000
                         maxDistance = null
-                        experienceLevel = "Any"
-                        sortBy = "Relevance"
-                        payType = "Any"
-                        workType = "Any"
-                        category = "Any"
-                        shiftTiming = "Any"
+                        sortBy = JobFilters.SORT_RELEVANCE
+                        payType = JobFilters.ANY
+                        employmentType = JobFilters.ANY
+                        shift = JobFilters.ANY
                         urgentOnly = false
                         onResetFilters()
                     },
@@ -1193,7 +1167,7 @@ private fun JobFilterBottomSheet(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-            
+
             // Urgent jobs only (moved here from the pills under the search bar)
             Row(
                 modifier = Modifier
@@ -1206,11 +1180,11 @@ private fun JobFilterBottomSheet(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Urgent jobs only",
+                        text = stringResource(R.string.jobs_filter_urgent_only),
                         style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)
                     )
                     Text(
-                        text = "Employers who need someone today",
+                        text = stringResource(R.string.jobs_filter_urgent_only_sub),
                         style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary)
                     )
                 }
@@ -1219,7 +1193,7 @@ private fun JobFilterBottomSheet(
                     onCheckedChange = { urgentOnly = it },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
-                        checkedTrackColor = WorkerColors.Primary
+                        checkedTrackColor = WorkerColors.Primary.fg()
                     )
                 )
             }
@@ -1246,7 +1220,7 @@ private fun JobFilterBottomSheet(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // Job Type (Daily/Hourly)
@@ -1256,12 +1230,11 @@ private fun JobFilterBottomSheet(
             )
             Spacer(modifier = Modifier.height(12.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(payTypeOptions) { option ->
-                    val displayOption = if (option == "Any") "All Types" else option.lowercase().capitalize()
+                items(payTypeOptions) { (value, label) ->
                     FilterChip(
-                        onClick = { payType = option },
-                        label = { Text(displayOption, fontSize = 13.sp) },
-                        selected = payType == option,
+                        onClick = { payType = value },
+                        label = { Text(label, fontSize = 13.sp) },
+                        selected = payType == value,
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = WorkerColors.Primary,
                             selectedLabelColor = Color.White
@@ -1284,18 +1257,19 @@ private fun JobFilterBottomSheet(
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)
                 )
                 Text(
-                    text = if (maxDistance == null) "Everywhere" else "Within ${maxDistance!!.toInt()} km",
-                    style = MaterialTheme.typography.labelMedium.copy(color = WorkerColors.Primary, fontWeight = FontWeight.Bold)
+                    text = if (maxDistance == null) stringResource(R.string.jobs_filter_everywhere) else stringResource(R.string.jobs_filter_within_km, maxDistance!!.toInt()),
+                    style = MaterialTheme.typography.labelMedium.copy(color = WorkerColors.Primary.fg(), fontWeight = FontWeight.Bold)
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
-            val distanceOptions = listOf(null, 5f, 10f, 25f, 50f)
+            // The feed's km bands; "Anywhere" = nearest first, then district, then state.
+            val distanceOptions = listOf(null, 5f, 10f, 15f, 20f)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(distanceOptions) { distance ->
                     FilterChip(
                         onClick = { maxDistance = distance },
-                        label = { 
-                            Text(if (distance == null) "Anywhere" else "${distance.toInt()} km", fontSize = 13.sp) 
+                        label = {
+                            Text(if (distance == null) stringResource(R.string.jobs_filter_everywhere) else "${distance.toInt()} km", fontSize = 13.sp)
                         },
                         selected = maxDistance == distance,
                         colors = FilterChipDefaults.filterChipColors(
@@ -1305,20 +1279,6 @@ private fun JobFilterBottomSheet(
                         shape = RoundedCornerShape(20.dp)
                     )
                 }
-            }
-            if (maxDistance != null) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Slider(
-                    value = maxDistance!!,
-                    onValueChange = { maxDistance = it },
-                    valueRange = 1f..50f,
-                    steps = 49,
-                    colors = SliderDefaults.colors(
-                        thumbColor = WorkerColors.Primary,
-                        activeTrackColor = WorkerColors.Primary,
-                        inactiveTrackColor = WorkerColors.Border
-                    )
-                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -1332,11 +1292,11 @@ private fun JobFilterBottomSheet(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(workTypeOptions) { option ->
+                        items(employmentTypeOptions) { (value, label) ->
                             FilterChip(
-                                onClick = { workType = option },
-                                label = { Text(option, fontSize = 13.sp) },
-                                selected = workType == option,
+                                onClick = { employmentType = value },
+                                label = { Text(label, fontSize = 13.sp) },
+                                selected = employmentType == value,
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = WorkerColors.Primary,
                                     selectedLabelColor = Color.White
@@ -1349,21 +1309,39 @@ private fun JobFilterBottomSheet(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-            
+
+            Text(
+                text = stringResource(R.string.auto_shift),
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = WorkerColors.TextPrimary)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(shiftOptions) { (value, label) ->
+                    FilterChip(
+                        onClick = { shift = value },
+                        label = { Text(label, fontSize = 13.sp) },
+                        selected = shift == value,
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = WorkerColors.Primary,
+                            selectedLabelColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // Apply Button
             Button(
                 onClick = {
                     onApplyFilters(
-                        JobFilters(
-                            salaryMin = salaryMin,
-                            salaryMax = salaryMax,
+                        filters.copy(
                             maxDistance = maxDistance,
-                            experienceLevel = experienceLevel,
                             sortBy = sortBy,
                             payType = payType,
-                            workType = workType,
-                            category = category, // Kept for data integrity, though hidden in UI
-                            shiftTiming = shiftTiming,
+                            employmentType = employmentType,
+                            shift = shift,
                             urgentOnly = urgentOnly
                         )
                     )

@@ -1,5 +1,8 @@
 package com.example.dutype.common.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import android.app.Activity
 import android.content.Intent
 import com.example.dutype.MainActivity
@@ -82,7 +85,7 @@ fun SelectRoleScreen(
     navController: NavHostController,
     onRoleSelected: ((String) -> Unit)? = null
 ) {
-    com.example.dutype.ui.theme.ForceLightTheme {
+    run { // follows the app theme (dark mode too)
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
         val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel =
@@ -110,7 +113,7 @@ fun SelectRoleScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(ScreenBg)
+                .background(ScreenBg.bg())
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .padding(start = 24.dp, end = 24.dp)
@@ -138,8 +141,8 @@ fun SelectRoleScreen(
                 icon = Icons.Default.Engineering,
                 title = stringResource(R.string.select_role_looking_for_work),
                 subtitle = stringResource(R.string.select_role_worker_desc),
-                iconBg = WorkerIconBg,
-                iconTint = WorkerIconTint,
+                iconBg = WorkerIconBg.bg(),
+                iconTint = WorkerIconTint.fg(),
                 selected = selectedRole == "WORKER",
                 onClick = { selectedRole = "WORKER" }
             )
@@ -150,8 +153,8 @@ fun SelectRoleScreen(
                 icon = Icons.Default.Business,
                 title = stringResource(R.string.select_role_want_to_hire),
                 subtitle = stringResource(R.string.select_role_employer_desc),
-                iconBg = EmployerIconBg,
-                iconTint = EmployerIconTint,
+                iconBg = EmployerIconBg.bg(),
+                iconTint = EmployerIconTint.fg(),
                 selected = selectedRole == "EMPLOYER",
                 onClick = { selectedRole = "EMPLOYER" }
             )
@@ -183,8 +186,8 @@ private fun LanguageSelectorChip(onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
-        color = Color.White,
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+        color = Color.White.bg(),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0).bd())
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
@@ -193,7 +196,7 @@ private fun LanguageSelectorChip(onClick: () -> Unit) {
             Icon(
                 imageVector = Icons.Default.Translate,
                 contentDescription = null,
-                tint = Color(0xFF2563EB),
+                tint = Color(0xFF2563EB).fg(),
                 modifier = Modifier.size(16.dp)
             )
             Spacer(modifier = Modifier.width(6.dp))
@@ -201,14 +204,14 @@ private fun LanguageSelectorChip(onClick: () -> Unit) {
                 text = activeLangName,
                 style = MaterialTheme.typography.labelMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF0F172A)
+                    color = Color(0xFF0F172A).fg()
                 )
             )
             Spacer(modifier = Modifier.width(4.dp))
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
                 contentDescription = null,
-                tint = Color(0xFF475569),
+                tint = Color(0xFF475569).fg(),
                 modifier = Modifier.size(16.dp)
             )
         }
@@ -224,7 +227,7 @@ private fun HeadlineBlock() {
                 fontSize = 28.sp,
                 lineHeight = 34.sp,
                 fontWeight = FontWeight.Bold,
-                color = InkColor
+                color = InkColor.fg()
             )
         )
         Spacer(modifier = Modifier.height(8.dp))
@@ -232,7 +235,7 @@ private fun HeadlineBlock() {
             text = stringResource(R.string.select_role_subheadline),
             style = MaterialTheme.typography.bodyLarge.copy(
                 fontSize = 15.sp,
-                color = SubtitleGray
+                color = SubtitleGray.fg()
             )
         )
     }
@@ -249,7 +252,7 @@ private fun ContinueButton(onClick: () -> Unit) {
         shape = RoundedCornerShape(28.dp),
         elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = InkColor,
+            containerColor = InkColor.bg(),
             contentColor = Color.White
         )
     ) {
@@ -288,7 +291,8 @@ private fun RoleSelectCard(
 ) {
     val shape = RoundedCornerShape(20.dp)
     val borderColor by animateColorAsState(
-        targetValue = if (selected) InkColor else BorderNeutral,
+        // Selected: strong outline (white in dark mode); others: a quiet line.
+        targetValue = if (selected) InkColor.fg() else BorderNeutral.bd(),
         animationSpec = tween(durationMillis = 200),
         label = "roleCardBorder"
     )
@@ -297,7 +301,7 @@ private fun RoleSelectCard(
             .fillMaxWidth()
             .heightIn(min = 112.dp)
             .clip(shape)
-            .background(if (selected) SelectedTint else Color.White)
+            .background(if (selected) SelectedTint.bg() else Color.White.bg())
             .border(
                 width = if (selected) 2.dp else 1.dp,
                 color = borderColor,
@@ -337,7 +341,7 @@ private fun RoleSelectCard(
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
-                        color = InkColor
+                        color = InkColor.fg()
                     )
                 )
                 Spacer(modifier = Modifier.height(4.dp))
@@ -346,7 +350,7 @@ private fun RoleSelectCard(
                     maxLines = 2,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontSize = 13.sp,
-                        color = SubtitleGray,
+                        color = SubtitleGray.fg(),
                         lineHeight = 18.sp
                     )
                 )
@@ -366,7 +370,7 @@ private fun SelectionIndicator(selected: Boolean) {
             modifier = Modifier
                 .size(22.dp)
                 .clip(CircleShape)
-                .background(InkColor),
+                .background(InkColor.bg()),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -381,7 +385,7 @@ private fun SelectionIndicator(selected: Boolean) {
             modifier = Modifier
                 .size(22.dp)
                 .clip(CircleShape)
-                .border(1.5.dp, RadioRing, CircleShape)
+                .border(1.5.dp, RadioRing.bd(), CircleShape)
         )
     }
 }

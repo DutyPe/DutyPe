@@ -1,5 +1,8 @@
 package com.example.dutype.employer.screens.profilescreen
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -17,6 +20,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -30,7 +35,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -61,6 +68,8 @@ private class EmpProfileUi(
     val category: String,
     val gstVerified: Boolean,
     val rating: Double,
+    val ratingCount: Int,
+    val memberSinceMillis: Long,
     val imageModel: String?,
     val uploading: Boolean,
     val activeJobs: Int,
@@ -79,10 +88,12 @@ private class EmpProfileActions(
     val onAvatar: () -> Unit,
     val onLogin: () -> Unit,
     val onCompany: () -> Unit,
+    val onMyJobs: () -> Unit = {},
     val onLocations: () -> Unit,
     val onSubscription: () -> Unit,
     val onHistory: () -> Unit,
     val onRefer: () -> Unit,
+    val onRateApp: () -> Unit = {},
     val onSwitch: () -> Unit,
     val onLogout: () -> Unit
 )
@@ -134,8 +145,8 @@ private fun EmpTopBar(onHelp: () -> Unit) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
-            text = "Account",
-            color = EmpNavy,
+            text = stringResource(R.string.emp_profile_account),
+            color = EmpNavy.fg(),
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold
         )
@@ -143,14 +154,14 @@ private fun EmpTopBar(onHelp: () -> Unit) {
             modifier = Modifier
                 .height(32.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .border(1.dp, EmpCobalt, RoundedCornerShape(16.dp))
+                .border(1.dp, EmpCobalt.bd(), RoundedCornerShape(16.dp))
                 .clickable(onClick = onHelp)
                 .padding(horizontal = 14.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Help Desk",
-                color = EmpCobalt,
+                text = stringResource(R.string.emp_profile_help_desk),
+                color = EmpCobalt.fg(),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold
             )
@@ -158,277 +169,159 @@ private fun EmpTopBar(onHelp: () -> Unit) {
     }
 }
 
-@Composable
-private fun EmpChip(text: String, bg: Color, fg: Color, icon: ImageVector) {
-    Row(
-        modifier = Modifier
-            .height(28.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(bg)
-            .padding(horizontal = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(imageVector = icon, contentDescription = null, tint = fg, modifier = Modifier.size(12.dp))
-        Spacer(modifier = Modifier.width(5.dp))
-        Text(text = text, color = fg, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-    }
-}
-
+/** Same avatar as the worker profile: 72 dp circle with a 3 dp ring, photo or initials. */
 @Composable
 private fun EmpAvatar(ui: EmpProfileUi, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(12.dp)
     Box(
         modifier = Modifier
-            .size(60.dp)
-            .clip(shape)
-            .border(2.dp, EmpAmber, shape)
+            .size(72.dp)
+            .clip(CircleShape)
+            .background(Color(0xFFEFF6FF).bg())
+            .border(3.dp, EmpCobalt.bd(), CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        if (ui.uploading) {
-            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
-        } else if (!ui.imageModel.isNullOrBlank()) {
-            com.example.dutype.components.OptimizedProfileImage(
+        when {
+            ui.uploading -> CircularProgressIndicator(modifier = Modifier.size(24.dp), color = EmpCobalt.fg(), strokeWidth = 2.dp)
+            !ui.imageModel.isNullOrBlank() -> com.example.dutype.components.OptimizedProfileImage(
                 imageUrl = ui.imageModel,
-                contentDescription = "Company Logo",
+                contentDescription = "Profile photo",
                 modifier = Modifier.fillMaxSize()
             )
-        } else {
-            Text(
+            ui.businessName.isNotBlank() -> Text(
                 text = empInitials(ui.businessName),
-                color = Color.White,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
+                style = profileTextStyle(26.sp, FontWeight.Bold, EmpCobalt.fg())
             )
+            else -> Icon(Icons.Filled.Business, contentDescription = null, tint = EmpCobalt.fg(), modifier = Modifier.size(32.dp))
         }
     }
 }
 
+/**
+ * Flat, centred hero — the worker profile's layout: avatar, name, one subtitle line, then
+ * rating · member since. Guests get the same avatar with a log-in button.
+ */
 @Composable
-private fun EmpHeroTexts(ui: EmpProfileUi, onLogin: () -> Unit, modifier: Modifier) {
-    Column(modifier = modifier) {
-        if (ui.isLoggedIn) {
-            Text(
-                text = ui.businessName.ifEmpty { "Your Company" },
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (ui.contact.isNotBlank()) {
-                Text(
-                    text = ui.contact + " (Owner)",
-                    color = EmpSlate,
-                    fontSize = 13.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
-            if (ui.phone.isNotBlank()) {
-                Text(
-                    text = ui.phone,
-                    color = Color(0xFFCBD5E1),
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
-        } else {
-            Text(
-                text = "Log in / Sign up",
-                color = Color.White,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable(onClick = onLogin)
-            )
-            Text(
-                text = "View and update your profile data",
-                color = EmpSlate,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(top = 2.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun EmpHeroCard(ui: EmpProfileUi, actions: EmpProfileActions) {
-    val shape = RoundedCornerShape(16.dp)
+private fun EmpHero(ui: EmpProfileUi, actions: EmpProfileActions) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(EmpNavy)
-            .padding(20.dp)
+            .padding(horizontal = 24.dp, vertical = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            EmpAvatar(ui = ui, onClick = actions.onAvatar)
-            Spacer(modifier = Modifier.width(12.dp))
-            EmpHeroTexts(ui = ui, onLogin = actions.onLogin, modifier = Modifier.weight(1f))
-            if (ui.isLoggedIn) {
-                Spacer(modifier = Modifier.width(12.dp))
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.Top)
-                        .height(32.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .border(1.dp, Color.White, RoundedCornerShape(16.dp))
-                        .clickable(onClick = actions.onEdit)
-                        .padding(horizontal = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Edit Profile",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1
-                    )
-                }
-            }
-        }
-        if (ui.isLoggedIn && (ui.gstVerified || ui.rating > 0.0 || ui.category.isNotBlank())) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+        EmpAvatar(ui = ui, onClick = if (ui.isLoggedIn) actions.onAvatar else actions.onLogin)
+        Spacer(modifier = Modifier.height(12.dp))
+        if (!ui.isLoggedIn) {
+            Button(
+                onClick = actions.onLogin,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F0F0F).bg(), contentColor = Color.White),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+                modifier = Modifier.height(44.dp)
             ) {
-                if (ui.gstVerified) {
-                    EmpChip("GST Verified", Color(0xFF064E3B), Color(0xFF34D399), Icons.Filled.Check)
-                }
-                if (ui.rating > 0.0) {
-                    EmpChip(String.format(java.util.Locale.US, "%.1f Employer Score", ui.rating), Color(0xFF451A03), Color(0xFFFBBF24), Icons.Filled.Star)
-                }
-                if (ui.category.isNotBlank()) {
-                    EmpChip(ui.category, Color(0xFF1E3A8A), Color(0xFF60A5FA), Icons.Filled.Business)
-                }
+                Text(text = stringResource(R.string.profile_login_signup), style = profileTextStyle(15.sp, FontWeight.SemiBold, Color.White))
             }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = stringResource(R.string.profile_view_update_data),
+                style = profileTextStyle(14.sp, FontWeight.Normal, Color(0xFF64748B).fg()),
+                textAlign = TextAlign.Center
+            )
+            return@Column
         }
-    }
-}
-
-@Composable
-private fun EmpSnapshotCard(
-    iconRes: Int,
-    title: String,
-    modifier: Modifier,
-    content: @Composable () -> Unit
-) {
-    val shape = RoundedCornerShape(14.dp)
-    Column(
-        modifier = modifier
-            .clip(shape)
-            .background(Color.White)
-            .border(1.dp, EmpBorder, shape)
-            .padding(14.dp)
-    ) {
-        Icon(
-            painter = painterResource(id = iconRes),
-            contentDescription = null,
-            tint = EmpCobalt,
-            modifier = Modifier.size(22.dp)
-        )
         Text(
-            text = title,
-            color = EmpNavy,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
+            text = ui.businessName.ifBlank { ui.phone.ifBlank { stringResource(R.string.profile_set_up_profile) } },
+            style = profileTextStyle(22.sp, FontWeight.Bold, Color(0xFF0F0F0F).fg()),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 8.dp)
+            textAlign = TextAlign.Center,
+            modifier = Modifier.clickable(onClick = actions.onEdit)
         )
-        Box(modifier = Modifier.padding(top = 3.dp)) { content() }
-    }
-}
-
-@Composable
-private fun EmpSnapshotRow(ui: EmpProfileUi) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(IntrinsicSize.Min),
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        EmpSnapshotCard(
-            iconRes = R.drawable.ic_emp_briefcase,
-            title = ui.activeJobs.toString() + (if (ui.activeJobs == 1) " Active Job" else " Active Jobs"),
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        val subtitle = listOf(ui.contact, ui.category, ui.city.takeIf { ui.locCount > 0 }.orEmpty())
+            .filter { it.isNotBlank() }
+            .joinToString(" · ")
+            .ifBlank { stringResource(R.string.profile_tap_add_details) }
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = subtitle,
+            style = profileTextStyle(14.sp, FontWeight.Normal, Color(0xFF64748B).fg()),
+            textAlign = TextAlign.Center,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            Text(
+                text = if (ui.ratingCount > 0 && ui.rating > 0.0) {
+                    "★ " + String.format(java.util.Locale.US, "%.1f", ui.rating) +
+                        " (" + ui.ratingCount + " " + (if (ui.ratingCount == 1) "review" else "reviews") + ")"
+                } else stringResource(R.string.emp_profile_no_reviews_yet),
+                style = profileTextStyle(13.sp, FontWeight.Normal, Color(0xFF64748B).fg())
+            )
+            if (ui.memberSinceMillis > 0L) {
                 Box(
                     modifier = Modifier
-                        .size(7.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF10B981))
+                        .padding(horizontal = 10.dp)
+                        .size(3.dp)
+                        .background(Color(0xFFCBD5E1).bg(), CircleShape)
                 )
-                Spacer(modifier = Modifier.width(5.dp))
                 Text(
-                    text = ui.applicants.toString() + " Applicants waiting",
-                    color = Color(0xFF10B981),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = stringResource(
+                        R.string.emp_profile_member_since,
+                        java.text.SimpleDateFormat("MMM yyyy", java.util.Locale.ENGLISH).format(java.util.Date(ui.memberSinceMillis))
+                    ),
+                    style = profileTextStyle(11.sp, FontWeight.Normal, Color(0xFF94A3B8).fg())
                 )
             }
         }
-        EmpSnapshotCard(
-            iconRes = R.drawable.ic_emp_pin,
-            title = ui.locCount.toString() + (if (ui.locCount == 1) " Work Location" else " Work Locations"),
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-        ) {
+        if (ui.gstVerified) {
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = ui.city,
-                color = Color(0xFF64748B),
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                text = stringResource(R.string.emp_profile_gst_verified),
+                style = profileTextStyle(12.sp, FontWeight.SemiBold, Color(0xFF10B981).fg())
             )
         }
     }
 }
 
+/** The worker profile's completeness block: title, thin progress bar, hint and "Add →". */
 @Composable
 private fun EmpCompletenessCard(ui: EmpProfileUi, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(12.dp)
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(Color.White)
-            .border(1.dp, EmpBorder, shape)
-            .clickable(onClick = onClick)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(start = 24.dp, top = 4.dp, end = 24.dp, bottom = 8.dp)
     ) {
-        Icon(
-            painter = painterResource(id = R.drawable.ic_emp_bolt),
-            contentDescription = null,
-            tint = Color.Unspecified,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = "Profile " + ui.pct + "% Complete · " + ui.hint,
-            color = EmpNavy,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.weight(1f)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = "Complete →",
-            color = EmpCobalt,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1
-        )
+        Text(text = stringResource(R.string.emp_profile_complete_pct, ui.pct), style = profileTextStyle(14.sp, FontWeight.Medium, Color(0xFF0F0F0F).fg()))
+        Spacer(modifier = Modifier.height(10.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(Color(0xFFE2E8F0).bg())
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(ui.pct.coerceIn(0, 100) / 100f)
+                    .fillMaxHeight()
+                    .background(EmpCobalt.bg())
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.emp_profile_reach_100, ui.hint),
+                style = profileTextStyle(12.sp, FontWeight.Normal, Color(0xFF64748B).fg()),
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = stringResource(R.string.emp_profile_add_action),
+                style = profileTextStyle(12.sp, FontWeight.SemiBold, EmpCobalt.fg()),
+                modifier = Modifier.clickable(onClick = onClick)
+            )
+        }
     }
 }
 
@@ -444,7 +337,7 @@ private fun profileTextStyle(size: androidx.compose.ui.unit.TextUnit, weight: Fo
 
 @Composable
 private fun ProfileRowDivider() {
-    HorizontalDivider(thickness = 1.dp, color = Color(0xFFF1F5F9))
+    HorizontalDivider(thickness = 1.dp, color = Color(0xFFF1F5F9).bd())
 }
 
 @Composable
@@ -452,7 +345,8 @@ private fun EmpMenuRow(
     iconRes: Int,
     title: String,
     pill: String? = null,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    showStars: Boolean = false
 ) {
     Row(
         modifier = Modifier
@@ -465,27 +359,35 @@ private fun EmpMenuRow(
         Icon(
             painter = painterResource(id = iconRes),
             contentDescription = null,
-            tint = Color.Unspecified,
+            // Black line icons: drawn light in dark mode.
+            tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color.Unspecified,
             modifier = Modifier.size(20.dp)
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = title,
-            style = profileTextStyle(15.sp, FontWeight.SemiBold, Color(0xFF0F0F0F)),
+            style = profileTextStyle(15.sp, FontWeight.SemiBold, Color(0xFF0F0F0F).fg()),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
+        if (showStars) {
+            Text(
+                text = "\u2605\u2605\u2605\u2605\u2605",
+                style = profileTextStyle(11.sp, FontWeight.Normal, EmpAmber.fg())
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+        }
         if (!pill.isNullOrBlank()) {
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
-                    .background(Color(0xFFEFF6FF))
+                    .background(Color(0xFFEFF6FF).bg())
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             ) {
                 Text(
                     text = pill,
-                    style = profileTextStyle(11.sp, FontWeight.SemiBold, Color(0xFF2563EB)),
+                    style = profileTextStyle(11.sp, FontWeight.SemiBold, Color(0xFF2563EB).fg()),
                     maxLines = 1
                 )
             }
@@ -493,7 +395,7 @@ private fun EmpMenuRow(
         }
         Text(
             text = "›",
-            style = profileTextStyle(16.sp, FontWeight.Normal, Color(0xFF94A3B8))
+            style = profileTextStyle(16.sp, FontWeight.Normal, Color(0xFF94A3B8).fg())
         )
     }
 }
@@ -503,20 +405,38 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
-            .padding(start = 0.dp, top = 4.dp, end = 0.dp, bottom = 0.dp)
+            .background(Color.White.bg())
+            .padding(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 0.dp)
     ) {
-        EmpMenuRow(R.drawable.ic_profile_person, "Company Details & Photos", null, actions.onCompany)
+        EmpMenuRow(R.drawable.ic_profile_person, stringResource(R.string.emp_profile_company_details), null, actions.onCompany)
         ProfileRowDivider()
-        EmpMenuRow(R.drawable.ic_profile_globe, "Work Locations & Job Sites", null, actions.onLocations)
+        EmpMenuRow(
+            R.drawable.myjobs, stringResource(R.string.emp_profile_my_posted_jobs),
+            when {
+                ui.activeJobs <= 0 -> null
+                ui.applicants > 0 -> stringResource(R.string.emp_profile_active_waiting, ui.activeJobs, ui.applicants)
+                else -> stringResource(R.string.emp_profile_active_only, ui.activeJobs)
+            },
+            actions.onMyJobs
+        )
         ProfileRowDivider()
-        EmpMenuRow(R.drawable.ic_profile_wallet, "Subscription & Credits", ui.pill, actions.onSubscription)
+        EmpMenuRow(R.drawable.ic_profile_globe, stringResource(R.string.emp_profile_work_locations), ui.locCount.takeIf { it > 0 }?.toString(), actions.onLocations)
         ProfileRowDivider()
-        EmpMenuRow(R.drawable.ic_profile_history, "Hiring History & Closed Posts", null, actions.onHistory)
+        EmpMenuRow(R.drawable.ic_profile_wallet, stringResource(R.string.emp_profile_subscription_credits), ui.pill, actions.onSubscription)
         ProfileRowDivider()
-        EmpMenuRow(R.drawable.ic_profile_gift, "Refer an Employer (Earn ₹" + EmpReferAmount + ")", null, actions.onRefer)
+        EmpMenuRow(R.drawable.ic_profile_history, stringResource(R.string.emp_profile_hiring_history), null, actions.onHistory)
         ProfileRowDivider()
-        EmpMenuRow(R.drawable.ic_profile_help, "Help & Support", null, actions.onHelp)
+        EmpMenuRow(R.drawable.ic_profile_gift, stringResource(R.string.emp_profile_refer_employer, EmpReferAmount), null, actions.onRefer)
+        ProfileRowDivider()
+        EmpMenuRow(
+            iconRes = R.drawable.ic_profile_star,
+            title = stringResource(R.string.about_nav_rate_playstore),
+            pill = null,
+            onClick = actions.onRateApp,
+            showStars = true
+        )
+        ProfileRowDivider()
+        EmpMenuRow(R.drawable.ic_profile_help, stringResource(R.string.emp_profile_help_support), null, actions.onHelp)
     }
 }
 
@@ -525,16 +445,16 @@ private fun EmpAccountCard(ui: EmpProfileUi, actions: EmpProfileActions) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(Color.White.bg())
     ) {
-        EmpMenuRow(
-            iconRes = R.drawable.ic_profile_settings,
-            title = "Switch to Worker Mode",
-            pill = null,
-            onClick = actions.onSwitch
-        )
+        // Switch to Worker Mode commented out as requested
+        // EmpMenuRow(
+        //     iconRes = R.drawable.ic_profile_settings,
+        //     title = "Switch to Worker Mode",
+        //     pill = null,
+        //     onClick = actions.onSwitch
+        // )
         if (ui.isLoggedIn) {
-            ProfileRowDivider()
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -544,8 +464,8 @@ private fun EmpAccountCard(ui: EmpProfileUi, actions: EmpProfileActions) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Log Out",
-                    style = profileTextStyle(15.sp, FontWeight.SemiBold, Color(0xFFEF4444)),
+                    text = stringResource(R.string.emp_profile_logout),
+                    style = profileTextStyle(15.sp, FontWeight.SemiBold, Color(0xFFEF4444).fg()),
                     maxLines = 1,
                     modifier = Modifier.weight(1f)
                 )
@@ -562,18 +482,9 @@ private fun EmpProfileBody(ui: EmpProfileUi, actions: EmpProfileActions, modifie
             .padding(top = 4.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            EmpHeroCard(ui = ui, actions = actions)
-        }
-        if (ui.isLoggedIn) {
-            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                EmpSnapshotRow(ui = ui)
-            }
-            if (ui.pct < 100) {
-                Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                    EmpCompletenessCard(ui = ui, onClick = actions.onCompany)
-                }
-            }
+        EmpHero(ui = ui, actions = actions)
+        if (ui.isLoggedIn && ui.pct < 100) {
+            EmpCompletenessCard(ui = ui, onClick = actions.onCompany)
         }
         EmpMenuCard(ui = ui, actions = actions)
         EmpAccountCard(ui = ui, actions = actions)
@@ -617,6 +528,8 @@ fun EmployerProfileScreen(
     var profGstin by remember { mutableStateOf("") }
     var profAddress by remember { mutableStateOf("") }
     var profRating by remember { mutableStateOf(0.0) }
+    var profRatingCount by remember { mutableStateOf(0) }
+    var profCreatedAt by remember { mutableStateOf(0L) }
     var profPhotoUrl by remember { mutableStateOf("") }
     var storedPct by remember { mutableStateOf(0) }
     var isLoadingProfile by remember { mutableStateOf(true) }
@@ -642,6 +555,8 @@ fun EmployerProfileScreen(
         profAddress = p.address
         profPhotoUrl = p.photoUrl
         profRating = p.rating
+        profRatingCount = p.ratingCount
+        profCreatedAt = p.createdAt
         storedPct = p.completionPercent
         companyPhone = p.phone.ifBlank {
             com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber.orEmpty()
@@ -756,6 +671,8 @@ fun EmployerProfileScreen(
             category = profIndustry,
             gstVerified = profGstin.isNotBlank(),
             rating = profRating,
+            ratingCount = profRatingCount,
+            memberSinceMillis = profCreatedAt,
             imageModel = if (profileImageUri != null) profileImageUri.toString() else photoUrl.ifBlank { null },
             uploading = isUploadingImage,
             activeJobs = openJobsCount,
@@ -781,10 +698,12 @@ fun EmployerProfileScreen(
             },
             onLogin = { rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=EMPLOYER") },
             onCompany = { go(Routes.EMPLOYER_COMPANY_DETAILS, "profile") },
+            onMyJobs = { go(Routes.EMPLOYER_MY_JOBS, "my_jobs") },
             onLocations = { go(Routes.EMPLOYER_MANAGE_ADDRESSES, "locations") },
             onSubscription = { go(Routes.EMPLOYER_SUBSCRIPTION, null) },
             onHistory = { go(Routes.EMPLOYER_HISTORY, "job_posts") },
             onRefer = { go(Routes.EMPLOYER_REFER_EARN, null) },
+            onRateApp = { openPlayStoreListing(context) },
             onSwitch = {
                 rootNavController.navigate(Routes.SELECT_ROLE) {
                     launchSingleTop = true
@@ -892,4 +811,28 @@ fun EmployerProfileScreen(
             else -> androidx.compose.ui.res.stringResource(R.string.login_access_feature)
         }
     )
+}
+
+private const val PLAY_STORE_PACKAGE = "com.dutype.app"
+
+private fun openPlayStoreListing(context: android.content.Context) {
+    try {
+        context.startActivity(
+            android.content.Intent(
+                android.content.Intent.ACTION_VIEW,
+                android.net.Uri.parse("market://details?id=$PLAY_STORE_PACKAGE")
+            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    } catch (e: android.content.ActivityNotFoundException) {
+        try {
+            context.startActivity(
+                android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("https://play.google.com/store/apps/details?id=$PLAY_STORE_PACKAGE")
+                ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        } catch (e2: Exception) {
+            timber.log.Timber.e(e2, "Unable to open Play Store")
+        }
+    }
 }

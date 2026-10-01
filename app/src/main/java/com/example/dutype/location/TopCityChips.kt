@@ -56,7 +56,7 @@ object TopCityChips {
 
         val map = mutableMapOf<String, RunningAgg>()
         jobs.forEach { job ->
-            val city = parseCityName(job.addressText.ifBlank { job.location })
+            val city = parseCityName(job.area)
             if (city.isBlank()) return@forEach
 
             val key = city.lowercase()

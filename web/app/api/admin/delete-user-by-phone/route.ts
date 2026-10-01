@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
-import {
-  getFirebaseAdminAuth,
-  getFirebaseAdminDb
-} from "@/lib/firebase/admin-server";
+import { deleteAccountCompletely, findUserIdsForPhone } from "@/lib/firebase/admin-account-deletion";
 
 export const runtime = "nodejs";
 
@@ -39,113 +36,26 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const db = getFirebaseAdminDb();
-    const auth = getFirebaseAdminAuth();
-
-    // Step 1: Look up userId from phoneRoles collection using phone as doc ID
-    const phoneRoleRef = db.collection("phoneRoles").doc(phone);
-    const phoneRoleSnap = await phoneRoleRef.get();
-
-    if (!phoneRoleSnap.exists) {
+    // Finds the account through phoneRoles, the Auth phone login, users and both profiles,
+    // so it also works when the phoneRoles doc is missing (the case that used to fail).
+    const { userIds, variants } = await findUserIdsForPhone(phone);
+    if (userIds.length === 0) {
       return NextResponse.json({
-        error: `No phoneRole found for phone: ${phone}`,
+        error: `No account found for phone: ${phone}`,
         deletedCount: 0
       }, { status: 404 });
     }
 
-    const phoneRoleData = phoneRoleSnap.data() as Record<string, unknown> | undefined;
-    const userId = typeof phoneRoleData?.uid === "string" ? phoneRoleData.uid : null;
-
-    if (!userId) {
-      return NextResponse.json({
-        error: `PhoneRole document missing uid for phone: ${phone}`,
-        deletedCount: 0
-      }, { status: 400 });
-    }
-
-    // Step 2: Delete all user data using the found userId
     let deletedCount = 0;
-
-    // Delete core user docs
-    await Promise.all([
-      db.collection("users").doc(userId).delete().then(() => { deletedCount++; }),
-      db.collection("worker_profiles").doc(userId).delete().then(() => { deletedCount++; }),
-      db.collection("employer_profiles").doc(userId).delete().then(() => { deletedCount++; }),
-      db.collection("referral_stats").doc(userId).delete().then(() => { deletedCount++; }),
-      db.collection("phoneRoles").doc(phone).delete().then(() => { deletedCount++; })
-    ]);
-
-    // Delete referral codes owned by this user
-    const referralCodes = await db.collection("referral_codes").where("userId", "==", userId).get();
-    if (!referralCodes.empty) {
-      const batch = db.batch();
-      referralCodes.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-        deletedCount++;
-      });
-      await batch.commit();
-    }
-
-    // Delete jobs created by this user (if employer)
-    const jobs = await db.collection("jobs").where("employerId", "==", userId).get();
-    if (!jobs.empty) {
-      const batch = db.batch();
-      jobs.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-        deletedCount++;
-      });
-      await batch.commit();
-    }
-
-    // Delete applications made by this user (if worker)
-    const workerApps = await db.collection("jobApplications").where("workerId", "==", userId).get();
-    if (!workerApps.empty) {
-      const batch = db.batch();
-      workerApps.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-        deletedCount++;
-      });
-      await batch.commit();
-    }
-
-    // Delete applications received by this user (if employer)
-    const employerApps = await db.collection("jobApplications").where("employerId", "==", userId).get();
-    if (!employerApps.empty) {
-      const batch = db.batch();
-      employerApps.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-        deletedCount++;
-      });
-      await batch.commit();
-    }
-
-    // Delete saved jobs made by this user
-    const savedJobs = await db.collection("saved_jobs").where("workerId", "==", userId).get();
-    if (!savedJobs.empty) {
-      const batch = db.batch();
-      savedJobs.docs.forEach((doc) => {
-        batch.delete(doc.ref);
-        deletedCount++;
-      });
-      await batch.commit();
-    }
-
-    // Delete auth user
-    try {
-      await auth.deleteUser(userId);
-      deletedCount++;
-    } catch (error) {
-      const code = (error as { code?: string })?.code;
-      if (code !== "auth/user-not-found") {
-        throw error;
-      }
+    for (const userId of userIds) {
+      deletedCount += await deleteAccountCompletely(userId, variants);
     }
 
     return NextResponse.json({
       ok: true,
-      message: `Successfully deleted all data for user with phone: ${phone}`,
-      userId,
-      phone,
+      message: `Deleted ${userIds.length} account(s) and all linked data for ${variants[0] || phone}`,
+      userId: userIds.join(", "),
+      phone: variants[0] || phone,
       deletedCount
     });
   } catch (error) {

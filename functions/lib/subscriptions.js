@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifySubscriptionPayment = void 0;
+exports.verifySubscriptionPayment = exports.DEFAULT_PLANS = void 0;
 /**
  * Employer subscriptions. The employer pays by UPI and uploads proof
  * (subscription_payment_requests, client-created as PENDING); an admin verifies it here and the
@@ -15,18 +15,24 @@ const schema_1 = require("./schema");
 const db = admin.firestore();
 const { FieldValue, Timestamp } = admin.firestore;
 const DAY_MS = 24 * 60 * 60 * 1000;
-/** Same built-in plans the app shows when app_config/subscription_plans is missing (SubscriptionRepository). */
-const DEFAULT_PLANS = [
-    { id: "single_49", pricePaise: 4900, jobs: 1, instantUnlocks: 0, validityDays: 30 },
-    { id: "starter_99", pricePaise: 9900, jobs: 3, instantUnlocks: 5, validityDays: 30 },
-    { id: "growth_149", pricePaise: 14900, jobs: 6, instantUnlocks: 15, validityDays: 30 },
-    { id: "premium_299", pricePaise: 29900, jobs: 12, instantUnlocks: 40, validityDays: 30 },
+/**
+ * Built-in plans, used when app_config/subscription_plans is missing (the app has the same list in
+ * SubscriptionRepository). ₹99 has no AI; ₹199 and ₹299 include DutyPe AI.
+ */
+exports.DEFAULT_PLANS = [
+    { id: "basic_99", pricePaise: 9900, jobs: 3, instantUnlocks: 5, validityDays: 30, ai: false },
+    { id: "pro_ai_199", pricePaise: 19900, jobs: 6, instantUnlocks: 15, validityDays: 30, ai: true, aiPerDay: 100 },
+    { id: "max_ai_299", pricePaise: 29900, jobs: 12, instantUnlocks: 40, validityDays: 30, ai: true, aiPerDay: 300 },
+    // Earlier plans, kept so pending payments for them can still be verified.
+    { id: "single_49", pricePaise: 4900, jobs: 1, instantUnlocks: 0, validityDays: 30, legacy: true },
+    { id: "starter_99", pricePaise: 9900, jobs: 3, instantUnlocks: 5, validityDays: 30, legacy: true },
+    { id: "growth_149", pricePaise: 14900, jobs: 6, instantUnlocks: 15, validityDays: 30, legacy: true },
+    { id: "premium_299", pricePaise: 29900, jobs: 12, instantUnlocks: 40, validityDays: 30, ai: true, aiPerDay: 300, legacy: true },
 ];
 async function planById(planId) {
     const doc = await db.collection(schema_1.AppConfig.COLLECTION).doc(schema_1.AppConfig.DOC_SUBSCRIPTION_PLANS).get();
     const configured = doc.get("plans") || [];
-    const plans = configured.length ? configured : DEFAULT_PLANS;
-    return plans.find((p) => p.id === planId) || null;
+    return configured.find((p) => p.id === planId) || exports.DEFAULT_PLANS.find((p) => p.id === planId) || null;
 }
 exports.verifySubscriptionPayment = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
     if (!(await (0, app_config_1.isCallerAdmin)(context)))
@@ -61,6 +67,8 @@ exports.verifySubscriptionPayment = (0, secure_callable_1.onCallSecured)({ enfor
                         [S.CREDITS_NORMAL]: FieldValue.increment(plan.jobs || 0),
                         [S.CREDITS_INSTANT]: FieldValue.increment(plan.instantUnlocks || 0),
                     },
+                    [S.AI]: plan.ai === true,
+                    [S.AI_PER_DAY]: plan.ai === true ? plan.aiPerDay || 100 : 0,
                 },
             }, { merge: true });
         }

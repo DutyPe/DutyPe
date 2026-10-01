@@ -1,5 +1,7 @@
 package com.example.dutype.components
 
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.clickable
@@ -31,6 +33,7 @@ import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 
 /**
@@ -57,7 +60,7 @@ fun AccountDeletionDialog(
             onDismissRequest = onDismiss,
             sheetState = sheetState,
             scrimColor = Color.Black.copy(alpha = 0.45f),
-            containerColor = Color.White,
+            containerColor = Color.White.bg(),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             sheetMaxWidth = Dp.Unspecified
         ) {
@@ -119,14 +122,14 @@ private fun AccountDeletionContent(
             modifier = Modifier
                 .size(60.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFFEE2E2)),
+                .background(Color(0xFFFEE2E2).bg()),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.DeleteForever,
                 contentDescription = "Delete Account",
                 modifier = Modifier.size(32.dp),
-                tint = Color(0xFFDC2626)
+                tint = Color(0xFFDC2626).fg()
             )
         }
 
@@ -136,7 +139,7 @@ private fun AccountDeletionContent(
             style = AppTypography.pageTitle.copy(
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A)
+                color = Color(0xFF0F172A).fg()
             ),
             textAlign = TextAlign.Center
         )
@@ -148,7 +151,7 @@ private fun AccountDeletionContent(
             else
                 "Deleting your account will permanently remove your profile data, job applications, saved listings, and application history from DutyPe. This action cannot be undone.",
             style = AppTypography.bodyMedium.copy(
-                color = Color(0xFF475569),
+                color = Color(0xFF475569).fg(),
                 lineHeight = 20.sp
             ),
             textAlign = TextAlign.Center
@@ -167,7 +170,7 @@ private fun AccountDeletionContent(
                 imageVector = Icons.Default.OpenInNew,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
-                tint = Color(0xFF2563EB)
+                tint = Color(0xFF2563EB).fg()
             )
             Spacer(modifier = Modifier.width(6.dp))
             Text(
@@ -175,7 +178,7 @@ private fun AccountDeletionContent(
                 style = AppTypography.buttonMedium.copy(
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF2563EB),
+                    color = Color(0xFF2563EB).fg(),
                     textDecoration = TextDecoration.Underline
                 )
             )
@@ -197,7 +200,7 @@ private fun AccountDeletionContent(
                 enabled = !isDeleting,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFF475569)
+                    contentColor = Color(0xFF475569).fg()
                 )
             ) {
                 Text(
@@ -218,7 +221,7 @@ private fun AccountDeletionContent(
                 enabled = !isDeleting,
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFDC2626)
+                    containerColor = Color(0xFFDC2626).bg()
                 )
             ) {
                 Text(
@@ -230,7 +233,7 @@ private fun AccountDeletionContent(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(8.dp))
     }
 }
@@ -243,15 +246,13 @@ private fun performAccountDeletion(
     userRole: String
 ) {
     val currentUser = FirebaseAuth.getInstance().currentUser ?: return
-    val uid = currentUser.uid
 
     scope.launch {
         try {
-            val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
-            val collection = if (userRole.equals("EMPLOYER", ignoreCase = true)) "employerProfiles" else "workerProfiles"
-            
-            runCatching { db.collection("users").document(uid).delete() }
-            runCatching { db.collection(collection).document(uid).delete() }
+            // The server removes the profile, public card, phone registration and tokens, closes open
+            // jobs / withdraws open applications, then deletes the sign-in account.
+            com.google.firebase.functions.FirebaseFunctions.getInstance("asia-south1")
+                .getHttpsCallable("deleteAccount").call().await()
 
             authManager.logout()
             navController.navigate(com.example.dutype.navigation.Routes.SELECT_ROLE) {

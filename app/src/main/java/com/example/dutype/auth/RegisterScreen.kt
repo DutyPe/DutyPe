@@ -1,5 +1,8 @@
 package com.example.dutype.auth
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import androidx.compose.ui.res.stringResource
 import android.app.Activity
@@ -234,7 +237,7 @@ private fun RegisterContent(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
+                .background(Color.White.bg())
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .padding(24.dp)
@@ -269,7 +272,7 @@ private fun RegisterContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.White)
+                .background(Color.White.bg())
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .padding(horizontal = 24.dp)
@@ -303,8 +306,8 @@ private fun RegisterContent(
                             }
                         },
                         shape = RoundedCornerShape(20.dp),
-                        color = Color.White,
-                        border = BorderStroke(1.dp, CardBorder)
+                        color = Color.White.bg(),
+                        border = BorderStroke(1.dp, CardBorder.bd())
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
@@ -313,13 +316,13 @@ private fun RegisterContent(
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_whatsapp),
                                 contentDescription = null,
-                                tint = Color(0xFF25D366),
+                                tint = Color(0xFF25D366).fg(),
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = stringResource(R.string.auth_help),
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, color = Ink900)
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold, color = Ink900.fg())
                             )
                         }
                     }
@@ -333,7 +336,7 @@ private fun RegisterContent(
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Ink900
+                    color = Ink900.fg()
                 )
             )
 
@@ -416,13 +419,13 @@ private fun RegisterContent(
             val termsAnnotated = buildAnnotatedString {
                 append(termsPrefix)
                 pushStringAnnotation(tag = "TERMS", annotation = "terms")
-                withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold)) {
+                withStyle(SpanStyle(color = Ink900.fg(), fontWeight = FontWeight.SemiBold)) {
                     append(termsTitle)
                 }
                 pop()
                 append(" & ")
                 pushStringAnnotation(tag = "PRIVACY", annotation = "privacy")
-                withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold)) {
+                withStyle(SpanStyle(color = Ink900.fg(), fontWeight = FontWeight.SemiBold)) {
                     append(privacyTitle)
                 }
                 pop()
@@ -430,7 +433,7 @@ private fun RegisterContent(
             androidx.compose.foundation.text.ClickableText(
                 text = termsAnnotated,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = Ink600,
+                    color = Ink600.fg(),
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center
                 ),
@@ -456,7 +459,7 @@ private fun RegisterContent(
             ) {
                 Text(
                     text = stringResource(R.string.auth_already_have_account),
-                    style = MaterialTheme.typography.bodyMedium.copy(color = Ink600)
+                    style = MaterialTheme.typography.bodyMedium.copy(color = Ink600.fg())
                 )
                 TextButton(
                     onClick = {
@@ -470,7 +473,7 @@ private fun RegisterContent(
                         text = stringResource(R.string.auth_login),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = BrandBluePrimary
+                            color = BrandBluePrimary.fg()
                         )
                     )
                 }
@@ -615,14 +618,14 @@ private fun RegisterEntrySection(
             style = MaterialTheme.typography.bodySmall.copy(
                 fontWeight = FontWeight.Medium,
                 fontSize = 12.sp,
-                color = Ink600
+                color = Ink600.fg()
             )
         )
         Spacer(modifier = Modifier.height(6.dp))
         RegisterNameField(
             value = fullName,
             isTelugu = isTelugu,
-            textColor = Ink900,
+            textColor = Ink900.fg(),
             role = role,
             isCompany = isCompany,
             onValueChange = onFullNameChange
@@ -636,7 +639,7 @@ private fun RegisterEntrySection(
             style = MaterialTheme.typography.bodySmall.copy(
                 fontWeight = FontWeight.Medium,
                 fontSize = 12.sp,
-                color = Ink600
+                color = Ink600.fg()
             )
         )
         Spacer(modifier = Modifier.height(6.dp))
@@ -647,12 +650,12 @@ private fun RegisterEntrySection(
                 .fillMaxWidth()
                 .height(56.dp),
             shape = RoundedCornerShape(16.dp),
-            color = Color.White,
+            color = Color.White.bg(),
             border = BorderStroke(
                 if (phoneNumber.isNotEmpty()) 2.dp else 1.dp,
                 if (phoneValidationError != null) WorkerColors.Error
-                else if (phoneNumber.isNotEmpty()) BrandBluePrimary
-                else BrandBlueBorder
+                else if (phoneNumber.isNotEmpty()) BrandBluePrimary.bd()
+                else BrandBlueBorder.bd()
             )
         ) {
             Row(
@@ -671,7 +674,7 @@ private fun RegisterEntrySection(
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp,
-                        color = Ink900
+                        color = Ink900.fg()
                     )
                 )
                 Spacer(modifier = Modifier.width(10.dp))
@@ -680,7 +683,7 @@ private fun RegisterEntrySection(
                     modifier = Modifier
                         .width(1.dp)
                         .height(22.dp)
-                        .background(CardBorder)
+                        .background(CardBorder.bg())
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -717,10 +720,10 @@ private fun RegisterEntrySection(
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodyLarge.copy(
                         fontSize = 16.sp,
-                        color = Ink900,
+                        color = Ink900.fg(),
                         fontWeight = FontWeight.Medium
                     ),
-                    cursorBrush = SolidColor(BrandBluePrimary),
+                    cursorBrush = SolidColor(BrandBluePrimary.fg()),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     decorationBox = { innerTextField ->
                         if (phoneNumber.isBlank()) {
@@ -728,7 +731,7 @@ private fun RegisterEntrySection(
                                 text = stringResource(R.string.auto_phone_number),
                                 style = MaterialTheme.typography.bodyLarge.copy(
                                     fontSize = 15.sp,
-                                    color = Ink600
+                                    color = Ink600.fg()
                                 )
                             )
                         }
@@ -748,7 +751,7 @@ private fun RegisterEntrySection(
         if (role != UserRole.EMPLOYER) {
             RegisterReferralSection(
                 isTelugu = isTelugu,
-                textColor = Ink900,
+                textColor = Ink900.fg(),
                 onValidatedCodeChanged = onValidatedCodeChanged
             )
         }
@@ -764,16 +767,16 @@ private fun RegisterEntrySection(
             enabled = buttonEnabled,
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = BrandBluePrimary,
+                containerColor = BrandBluePrimary.bg(),
                 contentColor = Color.White,
-                disabledContainerColor = Color(0xFFE2E8F0),
-                disabledContentColor = Color(0xFF94A3B8)
+                disabledContainerColor = Color(0xFFE2E8F0).bg(),
+                disabledContentColor = Color(0xFF94A3B8).fg()
             )
         ) {
             if (isCheckingPhone || otpState.isLoading) {
                 CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
             } else {
-                val ctaColor = if (buttonEnabled) Color.White else Color(0xFF94A3B8)
+                val ctaColor = if (buttonEnabled) Color.White else Color(0xFF94A3B8).fg()
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -835,11 +838,11 @@ private fun RegisterNameField(
         placeholder = {
             Text(
                 text = if (isCompany) stringResource(R.string.auth_company_name_hint) else stringResource(R.string.auth_enter_full_name_hint),
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, color = Ink600)
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp, color = Ink600.fg())
             )
         },
         leadingIcon = {
-            Icon(if (isCompany) Icons.Filled.Business else Icons.Filled.Person, contentDescription = null, tint = Ink400, modifier = Modifier.size(20.dp))
+            Icon(if (isCompany) Icons.Filled.Business else Icons.Filled.Person, contentDescription = null, tint = Ink400.fg(), modifier = Modifier.size(20.dp))
         },
         modifier = Modifier
             .fillMaxWidth()
@@ -847,11 +850,11 @@ private fun RegisterNameField(
         singleLine = true,
         shape = RoundedCornerShape(16.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = BrandBluePrimary,
-            unfocusedBorderColor = BrandBlueBorder,
-            cursorColor = BrandBluePrimary,
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White
+            focusedBorderColor = BrandBluePrimary.bd(),
+            unfocusedBorderColor = BrandBlueBorder.bd(),
+            cursorColor = BrandBluePrimary.fg(),
+            focusedContainerColor = Color.White.bg(),
+            unfocusedContainerColor = Color.White.bg()
         ),
         textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp, color = textColor, fontWeight = FontWeight.Medium),
         keyboardOptions = KeyboardOptions(
@@ -1025,7 +1028,7 @@ private fun RegisterReferralCard(
                         placeholder = {
                             Text(
                                 stringResource(R.string.auth_referral_hint),
-                                style = AppTypography.bodyMedium.copy(color = Ink400)
+                                style = AppTypography.bodyMedium.copy(color = Ink400.fg())
                             )
                         },
                         trailingIcon = {
@@ -1033,7 +1036,7 @@ private fun RegisterReferralCard(
                                 isValidatingCode -> CircularProgressIndicator(
                                     modifier = Modifier.size(20.dp),
                                     strokeWidth = 2.dp,
-                                    color = BrandBluePrimary
+                                    color = BrandBluePrimary.fg()
                                 )
                                 validatedReferrerName != null -> Icon(
                                     Icons.Filled.CheckCircle,
@@ -1071,9 +1074,9 @@ private fun RegisterReferralCard(
                                 codeValidationError != null -> WorkerColors.Error
                                 else -> BrandBlueBorder
                             },
-                            cursorColor = BrandBluePrimary,
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White
+                            cursorColor = BrandBluePrimary.fg(),
+                            focusedContainerColor = Color.White.bg(),
+                            unfocusedContainerColor = Color.White.bg()
                         ),
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Text,
@@ -1086,10 +1089,10 @@ private fun RegisterReferralCard(
                         modifier = Modifier.height(56.dp),
                         enabled = referralCode.length >= 7 && !isValidatingCode && validatedReferrerName == null,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = BrandBluePrimary,
+                            containerColor = BrandBluePrimary.bg(),
                             contentColor = Color.White,
-                            disabledContainerColor = Color(0xFFE2E8F0),
-                            disabledContentColor = Ink400
+                            disabledContainerColor = Color(0xFFE2E8F0).bg(),
+                            disabledContentColor = Ink400.fg()
                         ),
                         shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp)
@@ -1155,7 +1158,7 @@ private fun RegisterOtpSection(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = stringResource(R.string.back),
-                tint = Ink900
+                tint = Ink900.fg()
             )
         }
 
@@ -1166,7 +1169,7 @@ private fun RegisterOtpSection(
             style = MaterialTheme.typography.titleLarge.copy(
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = Ink900
+                color = Ink900.fg()
             )
         )
 
@@ -1178,7 +1181,7 @@ private fun RegisterOtpSection(
             append("+91 $phoneNumber")
             append("  ·  ")
             pushStringAnnotation(tag = "CHANGE", annotation = "change")
-            withStyle(SpanStyle(color = BrandBluePrimary, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
+            withStyle(SpanStyle(color = BrandBluePrimary.fg(), fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
                 append(changeNumberLabel)
             }
             pop()
@@ -1186,7 +1189,7 @@ private fun RegisterOtpSection(
 
         androidx.compose.foundation.text.ClickableText(
             text = annotatedText,
-            style = MaterialTheme.typography.bodyMedium.copy(color = Ink600, fontSize = 14.sp),
+            style = MaterialTheme.typography.bodyMedium.copy(color = Ink600.fg(), fontSize = 14.sp),
             modifier = Modifier.fillMaxWidth(),
             onClick = { offset ->
                 annotatedText.getStringAnnotations(tag = "CHANGE", start = offset, end = offset)
@@ -1213,7 +1216,7 @@ private fun RegisterOtpSection(
                 Text(
                     text = stringResource(R.string.auth_resend_otp_in, minutes, seconds),
                     style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Ink600,
+                        color = Ink600.fg(),
                         fontSize = 14.sp
                     )
                 )
@@ -1227,7 +1230,7 @@ private fun RegisterOtpSection(
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
-                            color = BrandEmeraldAccent
+                            color = BrandEmeraldAccent.fg()
                         )
                     )
                 }
@@ -1237,7 +1240,7 @@ private fun RegisterOtpSection(
         Spacer(modifier = Modifier.height(28.dp))
 
         val otpButtonEnabled = otpValue.length == 6 && !otpState.isLoading
-        val otpCtaColor = if (otpButtonEnabled) Color.White else Color(0xFF94A3B8)
+        val otpCtaColor = if (otpButtonEnabled) Color.White else Color(0xFF94A3B8).fg()
 
         Button(
             onClick = onVerifyClick,
@@ -1247,10 +1250,10 @@ private fun RegisterOtpSection(
                 .height(56.dp),
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = BrandBluePrimary,
+                containerColor = BrandBluePrimary.bg(),
                 contentColor = Color.White,
-                disabledContainerColor = Color(0xFFE2E8F0),
-                disabledContentColor = Color(0xFF94A3B8)
+                disabledContainerColor = Color(0xFFE2E8F0).bg(),
+                disabledContentColor = Color(0xFF94A3B8).fg()
             )
         ) {
             if (otpState.isLoading) {

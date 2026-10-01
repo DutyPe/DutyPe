@@ -1,135 +1,74 @@
 package com.example.dutype.repositories
 
+import com.example.dutype.firestore.FirestoreSchema.SavedJobs
+import com.example.dutype.jobs.JobRepository
 import com.example.dutype.models.JobListing
 import com.example.dutype.models.JobListingSummary
-import com.example.dutype.performance.MainThreadChecker
-import com.example.dutype.services.FirestoreService
 import com.example.dutype.utils.toJobListing
-import com.example.dutype.utils.toJobListingSummary
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
-import timber.log.Timber
 
 /**
- * FirestoreSavedJobRepository - Handles saved jobs operations
- * 
- * SIMPLE IMPLEMENTATION (February 2026):
- * - NO CACHE - Always fetch fresh from Firestore
- * - NO STATE MANAGER - Direct Firestore updates
- * - Like Naukri/Lokal Jobs - Simple and reliable
- * 
- * @author DutyPe Engineering Team
- * @since 2.5.0
+ * Saved jobs: `saved_jobs/{uid_jobId}` holds only the link; the cards are read in batches of 30
+ * through [JobRepository.getCards], so a list of N saved jobs costs about N + N/30 reads.
+ * Saved jobs that were closed or expired stay in the list with their status.
  */
 @Singleton
 class FirestoreSavedJobRepository @Inject constructor(
-    private val firestoreService: FirestoreService,
-    private val auth: FirebaseAuth // Inject FirebaseAuth instead of capturing currentUser
+    private val firestore: FirebaseFirestore,
+    private val jobRepository: JobRepository,
+    private val auth: FirebaseAuth
 ) {
-    
-    /**
-     * Get current user ID dynamically to avoid stale reference
-     * This is called in each method to ensure we always have the current user
-     */
-    private fun getCurrentUserId(): String? = auth.currentUser?.uid
-    
-    fun getSavedJobs(): Flow<Result<List<JobListing>>> = flow {
-        MainThreadChecker.assertBackgroundThread("FirestoreSavedJobRepository.getSavedJobs")
-        
-        val workerId = getCurrentUserId()
-        if (workerId == null) {
-            emit(Result.failure(Exception("User not authenticated")))
-            return@flow
-        }
-        
-        val result = firestoreService.getSavedJobs(workerId)
-        result.fold(
-            onSuccess = { jobMaps ->
-                // Use shared extension function for conversion
-                val jobListings = jobMaps.mapNotNull { jobMap ->
-                    try {
-                        jobMap.toJobListing(isSaved = true)
-                    } catch (e: Exception) {
-                        Timber.e(e, "Error converting job map to JobListing")
-                        null
-                    }
-                }
-                emit(Result.success(jobListings))
-            },
-            onFailure = { exception ->
-                emit(Result.failure(exception))
-            }
-        )
-    }.flowOn(Dispatchers.IO)
-    
-    /**
-     * PERFORMANCE OPTIMIZATION: Get saved jobs as summaries
-     * Returns lightweight JobListingSummary for list views
-     */
+    private fun uid(): String? = auth.currentUser?.uid
+
+    private fun doc(uid: String, jobId: String) =
+        firestore.collection(SavedJobs.COLLECTION).document("${uid}_$jobId")
+
     fun getSavedJobSummaries(): Flow<Result<List<JobListingSummary>>> = flow {
-        val workerId = getCurrentUserId()
-        if (workerId == null) {
-            emit(Result.failure(Exception("User not authenticated")))
-            return@flow
-        }
-        
-        val result = firestoreService.getSavedJobs(workerId)
-        result.fold(
-            onSuccess = { jobMaps ->
-                // Use shared extension function for conversion
-                val summaries = jobMaps.mapNotNull { jobMap ->
-                    try {
-                        jobMap.toJobListingSummary(isSaved = true)
-                    } catch (e: Exception) {
-                        Timber.e(e, "Error converting job map to JobListingSummary")
-                        null
-                    }
-                }
-                emit(Result.success(summaries))
-            },
-            onFailure = { exception ->
-                emit(Result.failure(exception))
-            }
-        )
+        val uid = uid() ?: return@flow emit(Result.failure(IllegalStateException("User not authenticated")))
+        emit(runCatching {
+            val jobIds = firestore.collection(SavedJobs.COLLECTION)
+                .whereEqualTo(SavedJobs.USER_ID, uid)
+                .orderBy(SavedJobs.CREATED_AT, Query.Direction.DESCENDING)
+                .limit(MAX_SAVED)
+                .get().await().documents
+                .mapNotNull { it.getString(SavedJobs.JOB_ID) }
+            val cards = jobRepository.getCards(jobIds).getOrThrow().associateBy { it.id }
+            jobIds.mapNotNull { cards[it]?.copy(isSaved = true) }
+        })
     }.flowOn(Dispatchers.IO)
-    
-    suspend fun saveJob(jobId: String): Result<Unit> {
-        MainThreadChecker.assertBackgroundThread("FirestoreSavedJobRepository.saveJob")
-        
-        val workerId = getCurrentUserId()
-        if (workerId == null) {
-            return Result.failure(Exception("User not authenticated"))
-        }
-        
-        // SIMPLE: Just update Firestore, no cache
-        return firestoreService.saveJob(workerId, jobId)
+
+    fun getSavedJobs(): Flow<Result<List<JobListing>>> = flow {
+        getSavedJobSummaries().collect { result -> emit(result.map { list -> list.map { it.toJobListing() } }) }
     }
-    
-    suspend fun unsaveJob(jobId: String): Result<Unit> {
-        MainThreadChecker.assertBackgroundThread("FirestoreSavedJobRepository.unsaveJob")
-        
-        val workerId = getCurrentUserId()
-        if (workerId == null) {
-            return Result.failure(Exception("User not authenticated"))
-        }
-        
-        // SIMPLE: Just update Firestore, no cache
-        return firestoreService.unsaveJob(workerId, jobId)
+
+    suspend fun saveJob(jobId: String): Result<Unit> = runCatching {
+        val uid = uid() ?: throw IllegalStateException("User not authenticated")
+        doc(uid, jobId).set(
+            mapOf(SavedJobs.USER_ID to uid, SavedJobs.JOB_ID to jobId, SavedJobs.CREATED_AT to Timestamp.now())
+        ).await()
     }
-    
-    suspend fun isJobSaved(jobId: String): Result<Boolean> {
-        MainThreadChecker.assertBackgroundThread("FirestoreSavedJobRepository.isJobSaved")
-        
-        val workerId = getCurrentUserId()
-        if (workerId == null) {
-            return Result.failure(Exception("User not authenticated"))
-        }
-        
-        return firestoreService.isJobSaved(workerId, jobId)
+
+    suspend fun unsaveJob(jobId: String): Result<Unit> = runCatching {
+        val uid = uid() ?: throw IllegalStateException("User not authenticated")
+        doc(uid, jobId).delete().await()
+    }
+
+    suspend fun isJobSaved(jobId: String): Result<Boolean> = runCatching {
+        val uid = uid() ?: throw IllegalStateException("User not authenticated")
+        doc(uid, jobId).get().await().exists()
+    }
+
+    private companion object {
+        const val MAX_SAVED = 200L
     }
 }

@@ -1,5 +1,6 @@
 package com.example.dutype.components
 
+import com.example.dutype.ui.theme.fg
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -107,20 +108,20 @@ data class LoginResult(
 
 /**
  * Login Bottom Sheet - Reusable component for guest mode login prompts
- * 
+ *
  * Shows a bottom sheet with OTP login when users try to access restricted features
  * without being logged in.
- * 
+ *
  * Two flows supported:
  * 1. Job Application flow (requiresProfileCheck = true):
  *    - After login, checks if profile has required fields (name, gender, location)
  *    - If incomplete, calls onProfileSetupRequired() to navigate to ProfileSetup
  *    - If complete, calls onLoginSuccess()
- * 
+ *
  * 2. Profile menu items flow (requiresProfileCheck = false):
  *    - After login, directly calls onLoginSuccess()
  *    - No profile check needed
- * 
+ *
  * @param isVisible Whether the bottom sheet is visible
  * @param onDismiss Callback when the sheet is dismissed
  * @param onLoginSuccess Callback when login is successful (and profile is complete if required)
@@ -146,13 +147,13 @@ fun LoginBottomSheet(
     profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
 ) {
     if (!isVisible) return
-    
+
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
     val scope = rememberCoroutineScope()
     val otpState by otpViewModel.otpState.collectAsState()
-    
+
     var phoneNumber by remember { mutableStateOf("") }
     var registerName by remember { mutableStateOf("") }
     var otpValue by remember { mutableStateOf("") }
@@ -160,7 +161,7 @@ fun LoginBottomSheet(
     var isCheckingProfile by remember { mutableStateOf(false) }
     var isRegistrationMode by remember { mutableStateOf(false) } // Toggle between Login/Registration
     val selectedCountryCode = "+91"
-    
+
     // Referral code state - moved to parent scope so it's accessible in onContinueClick
     var referralCode by remember { mutableStateOf("") }
     var showReferralInput by remember { mutableStateOf(false) }
@@ -179,7 +180,7 @@ fun LoginBottomSheet(
     } else {
         subtitle
     }
-    
+
     // Set role context for FCM registration when bottom sheet is shown
     LaunchedEffect(isVisible, role) {
         if (isVisible) {
@@ -187,12 +188,12 @@ fun LoginBottomSheet(
             Timber.d("📱 LoginBottomSheet - Role context set to $role for FCM")
         }
     }
-    
+
     // Handle OTP verification success
     LaunchedEffect(otpState.otpVerified) {
         if (otpState.otpVerified) {
             Timber.d("📱 LoginBottomSheet - OTP verified successfully")
-            
+
             try {
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 if (currentUser != null) {
@@ -212,18 +213,8 @@ fun LoginBottomSheet(
                                     role = role
                                 )
 
-                                if (!pendingReferralCode.isNullOrBlank()) {
-                                    val resolvedPhone = currentUser.phoneNumber ?: otpState.phoneNumber ?: ""
-                                    scope.launch {
-                                        profileCompletionViewModel.applyReferralCode(
-                                            referralCode = pendingReferralCode,
-                                            newUserId = currentUser.uid,
-                                            newUserRole = role.name,
-                                            newUserName = registerName.trim().ifBlank { resolvedPhone.ifBlank { "DutyPe User" } },
-                                            newUserPhone = resolvedPhone
-                                        )
-                                    }
-                                }
+                                // completeRegistration already applied the referral code server-side.
+                                if (!pendingReferralCode.isNullOrBlank()) profileCompletionViewModel.clearReferralCode()
 
                                 otpViewModel.resetState()
                                 isCheckingProfile = false
@@ -332,7 +323,7 @@ fun LoginBottomSheet(
             }
         }
     }
-    
+
     ModalBottomSheet(
         onDismissRequest = {
             otpViewModel.resetState()
@@ -437,16 +428,13 @@ fun LoginBottomSheet(
                                 scope.launch {
                                 try {
                                     isCheckingPhone = true
-                                    
+
                                     // PRE-OTP USER CHECK: Verify user existence AND role match.
                                     // Single-role-per-phone means a number registered as WORKER
                                     // cannot log in / re-register on the EMPLOYER side.
                                     val phoneCheck = com.example.dutype.utils.FirestoreUtils.checkPhoneForRole(
                                         phoneNumber = fullPhoneNumber,
-                                        requestedRole = role.name,
-                                        // Login mode: slow legacy fallback must not block the OTP;
-                                        // AuthFlowService.resolveLogin enforces conflicts after sign-in.
-                                        assumeRegisteredWhenFallbackSlow = !isRegistrationMode
+                                        requestedRole = role.name
                                     )
                                     val existingRoleLabel = when (phoneCheck.existingRole?.uppercase()) {
                                         "WORKER" -> if (isTelugu) "వర్కర్" else "worker"
@@ -497,29 +485,28 @@ fun LoginBottomSheet(
                                             isCheckingPhone = false
                                             Toast.makeText(
                                                 context,
-                                                if (isTelugu) "ఖాతా ధృవీకరణ విఫలమైంది. దయచేసి ఇంటర్నెట్ కనెక్షన్ తనిఖీ చేసి మళ్లీ ప్రయత్నించండి."
-                                                else "Could not verify account. Please check your internet connection and try again.",
+                                                com.example.dutype.utils.FirestoreUtils.unknownMessage(context, phoneCheck),
                                                 Toast.LENGTH_LONG
                                             ).show()
                                             return@launch
                                         }
                                     }
-                                    
+
                                     isCheckingPhone = false
                                     profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
                                     profileCompletionViewModel.savePhoneNumber(fullPhoneNumber)
-                                    
+
                                     // Save referral code if provided and user hasn't used one before (only in registration mode)
                                     if (isRegistrationMode && referralCode.isNotBlank() && !hasAlreadyUsedReferral && validatedReferrerName != null) {
                                         profileCompletionViewModel.saveReferralCode(com.example.dutype.models.normalizeReferralCode(referralCode))
                                         Timber.d("🎁 REFERRAL: Saved referral code for signup: $referralCode")
                                     }
-                                    
+
                                     otpViewModel.sendOtp(fullPhoneNumber, context)
                                 } catch (e: Exception) {
                                     isCheckingPhone = false
                                     Timber.e(e, "📱 Error in phone check")
-                                    
+
                                     // Save referral code if provided (only in registration mode)
                                     if (isRegistrationMode && referralCode.isNotBlank() && !hasAlreadyUsedReferral && validatedReferrerName != null) {
                                         profileCompletionViewModel.saveReferralCode(com.example.dutype.models.normalizeReferralCode(referralCode))
@@ -620,12 +607,12 @@ private fun PhoneInputContent(
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         }
     )
-    
+
     val phoneValidationError = remember(phoneNumber, hasInteracted) {
         if (!hasInteracted || phoneNumber.isEmpty() || phoneNumber.length < 10) null
         else ValidationUtils.getPhoneError(phoneNumber, true)
     }
-    
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.Start
@@ -640,9 +627,9 @@ private fun PhoneInputContent(
             ),
             color = WorkerColors.TextPrimary
         )
-        
+
         Spacer(modifier = Modifier.height(4.dp))
-        
+
         // Subtitle with better readability
         Text(
             text = subtitle,
@@ -652,9 +639,9 @@ private fun PhoneInputContent(
                 lineHeight = 20.sp
             )
         )
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         // Phone input with enhanced visual design
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -681,7 +668,7 @@ private fun PhoneInputContent(
             ) {
                 Text(text = "🇮🇳", fontSize = 20.sp, fontFamily = MeeshoFontFamily)
             }
-            
+
             OutlinedTextField(
                 value = phoneNumber,
                 onValueChange = { newValue ->
@@ -689,18 +676,18 @@ private fun PhoneInputContent(
                     hasInteracted = true
                     onPhoneNumberChange(filtered)
                 },
-                placeholder = { 
+                placeholder = {
                     Text(
-                        "9876543210", 
+                        "9876543210",
                         style = AppTypography.bodyLarge.copy(
                             color = WorkerColors.TextTertiary,
                             fontSize = 16.sp
                         )
-                    ) 
+                    )
                 },
                 leadingIcon = {
                     Text(
-                        selectedCountryCode, 
+                        selectedCountryCode,
                         style = AppTypography.bodyLarge.copy(
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 16.sp
@@ -730,12 +717,12 @@ private fun PhoneInputContent(
                 textStyle = AppTypography.bodyLarge.copy(fontSize = 16.sp)  // Larger text
             )
         }
-        
+
         if (phoneValidationError != null) {
             Spacer(modifier = Modifier.height(6.dp))
             Text(phoneValidationError, color = WorkerColors.Error, style = AppTypography.caption)
         }
-        
+
         Spacer(modifier = Modifier.height(12.dp))
 
         // Registration name — full name for workers, company name for employers
@@ -810,7 +797,7 @@ private fun PhoneInputContent(
                     )
                 }
             }
-        
+
             // Referral Code Input (Expandable)
             AnimatedVisibility(
             visible = showReferralInput,
@@ -825,7 +812,7 @@ private fun PhoneInputContent(
         ) {
             Column {
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 // Referral code input with Verify button
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -838,12 +825,12 @@ private fun PhoneInputContent(
                             // FIXED: Use lowercase to match Firebase storage format
                             val filtered = com.example.dutype.models.normalizeReferralCode(newValue)
                             onReferralCodeChange(filtered)
-                            
+
                             // Reset validation state when user types
                             onCodeValidationErrorChange(null)
                             onValidatedReferrerNameChange(null)
                         },
-                        placeholder = { 
+                        placeholder = {
                             Text(
                                 "DUTY4F9A",
                                 style = AppTypography.bodyMedium.copy(color = WorkerColors.TextTertiary)
@@ -876,7 +863,7 @@ private fun PhoneInputContent(
                                 }
                                 referralCode.isNotEmpty() -> {
                                     androidx.compose.material3.IconButton(
-                                        onClick = { 
+                                        onClick = {
                                             onReferralCodeChange("")
                                             onCodeValidationErrorChange(null)
                                             onValidatedReferrerNameChange(null)
@@ -918,7 +905,7 @@ private fun PhoneInputContent(
                             autoCorrect = false
                         )
                     )
-                    
+
                     // Verify Button
                     Button(
                         onClick = {
@@ -927,11 +914,11 @@ private fun PhoneInputContent(
                                 scope.launch {
                                     try {
                                         val referralService = com.example.dutype.di.referralServiceFromHilt(context)
-                                        
+
                                         val validation = referralService.validateReferralCode(referralCode)
-                                        
+
                                         onIsValidatingCodeChange(false)
-                                        
+
                                         if (validation.isValid) {
                                             onValidatedReferrerNameChange(validation.referrerName)
                                             onCodeValidationErrorChange(null)
@@ -989,9 +976,9 @@ private fun PhoneInputContent(
                         }
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(4.dp))
-                
+
                 // Validation feedback
                 when {
                     validatedReferrerName != null -> {
@@ -1016,28 +1003,26 @@ private fun PhoneInputContent(
             }
         }
         } // Close if (!hasAlreadyUsedReferral)
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading && !isCheckingPhone
-        
+
         // Check if user already used referral code
         LaunchedEffect(phoneNumber) {
             if (ValidationUtils.isValidIndianPhoneNumber(phoneNumber)) {
                 try {
-                    val fullPhone = selectedCountryCode + phoneNumber
                     val userId = com.example.dutype.di.authFromHilt(context).currentUser?.uid
-                    
+
                     if (userId != null) {
                         // Check if user already has a referral record
                         val db = com.example.dutype.di.firestoreFromHilt(context)
-                        val referralSnapshot = db.collection(com.example.dutype.firestore.FirestoreCollections.REFERRALS)
-                            .whereEqualTo("referredUserId", userId)
-                            .limit(1)
+                        val referralDoc = db.collection(com.example.dutype.firestore.FirestoreSchema.Referrals.COLLECTION)
+                            .document(userId)
                             .get()
                             .await()
-                        
-                        if (!referralSnapshot.isEmpty) {
+
+                        if (referralDoc.exists()) {
                             onHasAlreadyUsedReferralChange(true)
                             onShowReferralInputChange(false)
                             Timber.d("🎁 REFERRAL: User already used referral code")
@@ -1048,7 +1033,7 @@ private fun PhoneInputContent(
                 }
             }
         }
-        
+
         Button(
             onClick = {
                 // Validate referral code before continuing
@@ -1060,7 +1045,7 @@ private fun PhoneInputContent(
                     ).show()
                     return@Button
                 }
-                
+
                 onContinueClick()
             },
             modifier = Modifier
@@ -1090,9 +1075,9 @@ private fun PhoneInputContent(
                 Text(if (isTelugu) "కొనసాగించండి" else "Continue", style = AppTypography.buttonLarge)
             }
         }
-        
+
         Spacer(modifier = Modifier.height(16.dp))
-        
+
         // MODE TOGGLE - Professional design at bottom
         Row(
             modifier = Modifier
@@ -1123,18 +1108,18 @@ private fun PhoneInputContent(
                     },
                     style = AppTypography.bodyMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF60A5FA) else Color(0xFF1D4ED8)
+                        color = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF60A5FA).fg() else Color(0xFF1D4ED8).fg()
                     )
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         // Terms and Privacy Policy with clickable links
         val termsUrl = com.example.dutype.utils.AppConstants.TERMS_URL
         val privacyUrl = com.example.dutype.utils.AppConstants.PRIVACY_URL
-        
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center
@@ -1175,7 +1160,7 @@ private fun PhoneInputContent(
                 }
             )
         }
-        
+
         AnimatedVisibility(
             visible = otpState.error != null,
             enter = slideInVertically() + fadeIn(),
@@ -1209,9 +1194,9 @@ private fun OtpInputContent(
             style = AppTypography.pageTitle.copy(fontWeight = FontWeight.Bold),
             color = WorkerColors.TextPrimary
         )
-        
+
         Spacer(modifier = Modifier.height(6.dp))
-        
+
         Text(
             text = if (isTelugu) "పంపిన 6 అంకెల కోడ్‌ను నమోదు చేయండి:" else "Enter the 6-digit code sent to",
             style = AppTypography.bodyMedium.copy(color = WorkerColors.TextSecondary)
@@ -1233,24 +1218,24 @@ private fun OtpInputContent(
                 color = WorkerColors.TextPrimary
             )
         }
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         // OTP Input boxes
         OtpInputBoxes(
             otpValue = otpValue,
             onOtpChange = { if (it.all { c -> c.isDigit() } && it.length <= 6) onOtpChange(it) },
             digitCount = 6
         )
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         // Timer and resend - Use ViewModel cooldown instead of local timer
         val timerActive = resendCooldownSeconds > 0
         val remainingSeconds = resendCooldownSeconds
-        
+
         val otpButtonEnabled = otpValue.length == 6 && !otpState.isLoading
-        
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1303,7 +1288,7 @@ private fun OtpInputContent(
                     )
                 )
             }
-            
+
             Button(
                 onClick = onVerifyClick,
                 enabled = otpButtonEnabled,
@@ -1330,7 +1315,7 @@ private fun OtpInputContent(
                 }
             }
         }
-        
+
         AnimatedVisibility(
             visible = otpState.error != null,
             enter = slideInVertically() + fadeIn(),

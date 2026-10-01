@@ -1,5 +1,8 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import com.example.dutype.firestore.FirestoreSchema.Values
 import com.example.dutype.firestore.FirestoreSchema.EmployerProfiles
 import com.dutype.app.R
@@ -227,7 +230,7 @@ fun EmployerCompanyDetailsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color.White.bg())
             .imePadding()
     ) {
         Column(
@@ -316,7 +319,7 @@ private fun CdTopBar(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = stringResource(R.string.back),
-                tint = CdNavy,
+                tint = CdNavy.fg(),
                 modifier = Modifier
                     .size(24.dp)
                     .clickable(onClick = onBack)
@@ -326,14 +329,14 @@ private fun CdTopBar(
                 text = stringResource(R.string.company_details_section),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = CdNavy
+                color = CdNavy.fg()
             )
         }
         Text(
             text = stringResource(R.string.save),
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
-            color = CdCobalt,
+            color = CdCobalt.fg(),
             modifier = Modifier.clickable(enabled = !isSaving, onClick = onSave)
         )
     }
@@ -346,7 +349,7 @@ private fun CdPhotoCard(
     isUploading: Boolean,
     onChoose: () -> Unit
 ) {
-    val dashColor = CdHint
+    val dashColor = CdHint.fg()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -377,7 +380,7 @@ private fun CdPhotoCard(
                 ) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(32.dp),
-                        color = CdCobalt,
+                        color = CdCobalt.fg(),
                         strokeWidth = 3.dp
                     )
                 }
@@ -399,7 +402,7 @@ private fun CdPhotoCard(
                 Icon(
                     imageVector = Icons.Outlined.CameraAlt,
                     contentDescription = null,
-                    tint = CdMuted,
+                    tint = CdMuted.fg(),
                     modifier = Modifier.size(36.dp)
                 )
             }
@@ -408,7 +411,7 @@ private fun CdPhotoCard(
             text = stringResource(R.string.upload_workplace_photo_title),
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
-            color = CdNavy,
+            color = CdNavy.fg(),
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 8.dp)
         )
@@ -416,7 +419,7 @@ private fun CdPhotoCard(
             text = stringResource(R.string.upload_workplace_photo_desc),
             fontSize = 12.sp,
             lineHeight = 17.sp,
-            color = CdMuted,
+            color = CdMuted.fg(),
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(top = 4.dp)
         )
@@ -425,7 +428,7 @@ private fun CdPhotoCard(
                 .padding(top = 12.dp)
                 .height(36.dp)
                 .clip(RoundedCornerShape(18.dp))
-                .border(BorderStroke(1.dp, CdNavy), RoundedCornerShape(18.dp))
+                .border(BorderStroke(1.dp, CdNavy.bd()), RoundedCornerShape(18.dp))
                 .clickable(enabled = !isUploading, onClick = onChoose)
                 .padding(horizontal = 18.dp),
             contentAlignment = Alignment.Center
@@ -434,7 +437,7 @@ private fun CdPhotoCard(
                 text = stringResource(R.string.choose_photo),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = CdNavy
+                color = CdNavy.fg()
             )
         }
     }
@@ -445,7 +448,7 @@ private fun CdCard(content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .border(BorderStroke(1.dp, CdBorder), RoundedCornerShape(16.dp))
+            .border(BorderStroke(1.dp, CdBorder.bd()), RoundedCornerShape(16.dp))
             .padding(16.dp),
         content = content
     )
@@ -464,7 +467,7 @@ private fun CdBasicsCard(
             text = stringResource(R.string.business_basics),
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
-            color = CdHint,
+            color = CdHint.fg(),
             letterSpacing = 0.6.sp
         )
         Spacer(modifier = Modifier.height(10.dp))
@@ -507,7 +510,7 @@ private fun CdCategoryTaxCard(
             text = stringResource(R.string.business_category),
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
-            color = CdNavy
+            color = CdNavy.fg()
         )
         Row(
             modifier = Modifier
@@ -535,7 +538,7 @@ private fun CdCategoryTaxCard(
                     modifier = Modifier
                         .height(36.dp)
                         .clip(RoundedCornerShape(18.dp))
-                        .background(CdCobalt)
+                        .background(CdCobalt.bg())
                         .clickable(onClick = onVerify)
                         .padding(horizontal = 16.dp),
                     contentAlignment = Alignment.Center
@@ -554,7 +557,7 @@ private fun CdCategoryTaxCard(
                 text = stringResource(R.string.gst_active, gstin),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = CdGstGreen,
+                color = CdGstGreen.fg(),
                 modifier = Modifier.padding(top = 8.dp)
             )
         }
@@ -570,10 +573,10 @@ private fun CdBottomBar(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(Color.White.bg())
             .navigationBarsPadding()
     ) {
-        HorizontalDivider(thickness = 1.dp, color = CdBorder)
+        HorizontalDivider(thickness = 1.dp, color = CdBorder.bd())
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -586,7 +589,7 @@ private fun CdBottomBar(
                     .fillMaxWidth()
                     .height(56.dp)
                     .clip(RoundedCornerShape(28.dp))
-                    .background(CdNavy)
+                    .background(CdNavy.bg())
                     .clickable(enabled = !isSaving, onClick = onSave),
                 contentAlignment = Alignment.Center
             ) {
@@ -624,8 +627,8 @@ private fun CdChip(
         modifier = Modifier
             .height(34.dp)
             .clip(shape)
-            .background(if (selected) CdNavy else Color.White)
-            .border(BorderStroke(1.dp, if (selected) CdNavy else CdBorder), shape)
+            .background(if (selected) CdNavy.bg() else Color.White.bg())
+            .border(BorderStroke(1.dp, if (selected) CdNavy.bd() else CdBorder.bd()), shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center
@@ -634,7 +637,7 @@ private fun CdChip(
             text = text,
             fontSize = 13.sp,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-            color = if (selected) Color.White else CdChipText,
+            color = if (selected) Color.White else CdChipText.fg(),
             maxLines = 1
         )
     }
@@ -645,14 +648,14 @@ private fun CdVerifiedBadge() {
     Row(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
-            .background(CdGreenBg)
+            .background(CdGreenBg.bg())
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = Icons.Filled.Check,
             contentDescription = null,
-            tint = CdGreen,
+            tint = CdGreen.fg(),
             modifier = Modifier.size(12.dp)
         )
         Spacer(modifier = Modifier.width(4.dp))
@@ -660,7 +663,7 @@ private fun CdVerifiedBadge() {
             text = stringResource(R.string.verified_label),
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
-            color = CdGreen,
+            color = CdGreen.fg(),
             maxLines = 1
         )
     }
@@ -684,7 +687,7 @@ private fun CdField(
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp)
-            .border(BorderStroke(1.dp, CdBorder), RoundedCornerShape(12.dp))
+            .border(BorderStroke(1.dp, CdBorder.bd()), RoundedCornerShape(12.dp))
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -693,7 +696,7 @@ private fun CdField(
                 text = label,
                 fontSize = 11.sp,
                 lineHeight = 14.sp,
-                color = CdMuted,
+                color = CdMuted.fg(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -705,9 +708,9 @@ private fun CdField(
                 textStyle = TextStyle(
                     fontSize = 14.sp,
                     lineHeight = 18.sp,
-                    color = CdNavy
+                    color = CdNavy.fg()
                 ),
-                cursorBrush = SolidColor(CdCobalt),
+                cursorBrush = SolidColor(CdCobalt.fg()),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = keyboardType,
                     capitalization = capitalization
@@ -722,7 +725,7 @@ private fun CdField(
                                 text = placeholder,
                                 fontSize = 14.sp,
                                 lineHeight = 18.sp,
-                                color = CdHint,
+                                color = CdHint.fg(),
                                 maxLines = 1
                             )
                         }

@@ -1,334 +1,937 @@
 {
   "indexes": [
     {
-      "collectionGroup": "jobs",
+      "collectionGroup": "jobmetadata",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "employerId", "order": "ASCENDING" },
-        { "fieldPath": "idempotencyKey", "order": "ASCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "cell",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "jobs",
+      "collectionGroup": "jobmetadata",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "employerId", "order": "ASCENDING" },
-        { "fieldPath": "title", "order": "ASCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "districtId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "withdrawal_requests",
+      "collectionGroup": "jobmetadata",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stateId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "job_applications",
+      "collectionGroup": "jobmetadata",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "employerId", "order": "ASCENDING" },
-        { "fieldPath": "jobId", "order": "ASCENDING" },
-        { "fieldPath": "appliedAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "job_applications",
+      "collectionGroup": "jobmetadata",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "employerId", "order": "ASCENDING" },
-        { "fieldPath": "workerId", "order": "ASCENDING" },
-        { "fieldPath": "jobId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "cell",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "job_applications",
+      "collectionGroup": "jobmetadata",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "employerId", "order": "ASCENDING" },
-        { "fieldPath": "verificationCode", "order": "ASCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "districtId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "public_profiles",
+      "collectionGroup": "jobmetadata",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "roles", "arrayConfig": "CONTAINS" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stateId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "job_applications",
+      "collectionGroup": "jobmetadata",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "employerId", "order": "ASCENDING" },
-        { "fieldPath": "verificationCode", "order": "ASCENDING" },
-        { "fieldPath": "verificationStatus", "order": "ASCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "job_applications",
+      "collectionGroup": "jobmetadata",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "workerId", "order": "ASCENDING" },
-        { "fieldPath": "verificationId", "order": "ASCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "urgency",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "cell",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "job_applications",
+      "collectionGroup": "jobmetadata",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "employerId", "order": "ASCENDING" },
-        { "fieldPath": "verificationId", "order": "ASCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "urgency",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "districtId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "job_applications",
+      "collectionGroup": "jobmetadata",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "workerId", "order": "ASCENDING" },
-        { "fieldPath": "verification.verificationCode", "order": "ASCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "urgency",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stateId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "job_applications",
+      "collectionGroup": "jobmetadata",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "employerId", "order": "ASCENDING" },
-        { "fieldPath": "verification.verificationCode", "order": "ASCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "urgency",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "jobmetadata",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "urgency",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "cell",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "jobmetadata",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "urgency",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "districtId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "jobmetadata",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "urgency",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stateId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "jobmetadata",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "urgency",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "jobmetadata",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "keywords",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "cell",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "jobmetadata",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "keywords",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "districtId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "jobmetadata",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "keywords",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "stateId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "jobmetadata",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "keywords",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "jobmetadata",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "employerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "jobmetadata",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "employerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "jobmetadata",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "expiresAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "workerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "workerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "employerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "employerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "jobId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "employerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "jobId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "employerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "workerId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "hiredAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "applications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "jobId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "worker_cards",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "skillCells",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "lastActiveAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "worker_cards",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "skillDistricts",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "lastActiveAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "worker_cards",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "available",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "skillCells",
+          "arrayConfig": "CONTAINS"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "instant_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "cell",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "instant_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "employerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "instant_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "expiresAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "instant_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextWaveAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "responses",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "workerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "ratings",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "applicationId", "order": "ASCENDING" },
-        { "fieldPath": "raterId", "order": "ASCENDING" }
+        {
+          "fieldPath": "targetId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "jobs",
+      "collectionGroup": "ratings",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "category", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "jobs",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "isActive", "order": "ASCENDING" },
-        { "fieldPath": "isFilled", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "jobs",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "isActive", "order": "ASCENDING" },
-        { "fieldPath": "isFilled", "order": "ASCENDING" },
-        { "fieldPath": "category", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "jobs",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "employerId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "job_applications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "employerId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "appliedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "job_applications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "employerId", "order": "ASCENDING" },
-        { "fieldPath": "active", "order": "ASCENDING" },
-        { "fieldPath": "appliedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "job_applications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "workerId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "appliedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "job_applications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "workerId", "order": "ASCENDING" },
-        { "fieldPath": "active", "order": "ASCENDING" },
-        { "fieldPath": "appliedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "job_applications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "jobId", "order": "ASCENDING" },
-        { "fieldPath": "active", "order": "ASCENDING" },
-        { "fieldPath": "appliedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "job_applications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "jobId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "job_applications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "employerId", "order": "ASCENDING" },
-        { "fieldPath": "jobId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "job_applications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "active", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "appliedAt", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "job_applications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "active", "order": "ASCENDING" },
-        { "fieldPath": "appliedAt", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "job_applications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "workerId", "order": "ASCENDING" },
-        { "fieldPath": "jobId", "order": "ASCENDING" },
-        { "fieldPath": "appliedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "job_applications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "employerId", "order": "ASCENDING" },
-        { "fieldPath": "verificationStatus", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "notifications",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "recipientId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "raterId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "referrals",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "referrerUserId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "referrerUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "referrals",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "referrerId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "referrerUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "referrals",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "deviceFingerprint", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "referrals",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "ipAddress", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "referrals",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "expiresAt",
+          "order": "ASCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "referral_stats",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "isBlocked", "order": "ASCENDING" },
-        { "fieldPath": "successfulReferrals", "order": "DESCENDING" }
+        {
+          "fieldPath": "blocked",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "successfulReferrals",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "referral_stats",
+      "collectionGroup": "wallet_ledger",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userRole", "order": "ASCENDING" },
-        { "fieldPath": "isBlocked", "order": "ASCENDING" },
-        { "fieldPath": "successfulReferrals", "order": "DESCENDING" }
+        {
+          "fieldPath": "uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "withdrawal_requests",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "uid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "referrals",
+      "collectionGroup": "withdrawal_requests",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "referredUserPhone", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
-      "collectionGroup": "referrals",
+      "collectionGroup": "subscription_payment_requests",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "referredUserId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" }
+        {
+          "fieldPath": "employerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "subscription_payment_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "recipientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "read",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "recipientId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "saved_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "job_details",
+      "fieldPath": "description",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "notifications",
+      "fieldPath": "expireAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "idempotency",
+      "fieldPath": "expireAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "withdrawal_daily",
+      "fieldPath": "expireAt",
+      "ttl": true,
+      "indexes": []
+    }
+  ]
 }

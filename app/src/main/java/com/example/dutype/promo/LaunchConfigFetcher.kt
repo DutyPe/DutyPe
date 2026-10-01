@@ -5,7 +5,6 @@ import android.net.ConnectivityManager
 import coil.imageLoader
 import coil.request.CachePolicy
 import coil.request.ImageRequest
-import com.example.dutype.firestore.FirestoreCollections
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Source
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +35,7 @@ object LaunchConfigFetcher {
         val ctx = context.applicationContext
         try {
             val snap = FirebaseFirestore.getInstance()
-                .collection(FirestoreCollections.APP_CONFIG)
+                .collection(com.example.dutype.firestore.FirestoreSchema.AppConfig.COLLECTION)
                 .document(DOC_ID)
                 .get(Source.SERVER)
                 .await()

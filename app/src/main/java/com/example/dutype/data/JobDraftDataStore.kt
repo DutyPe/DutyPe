@@ -9,7 +9,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.dutype.employer.models.JobCategory
 import com.example.dutype.employer.models.PayType
-import com.example.dutype.employer.models.ShiftTiming
+import com.example.dutype.employer.models.JobShift
+import com.example.dutype.employer.models.EmploymentType
 import com.google.gson.reflect.TypeToken
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -60,13 +61,14 @@ class JobDraftDataStore @Inject constructor(
         private val KEY_CUSTOM_CATEGORY = stringPreferencesKey("draft_custom_category")
         private val KEY_VACANCIES = stringPreferencesKey("draft_vacancies")
         private val KEY_CONTACT_NUMBER = stringPreferencesKey("draft_contact_number")
-        private val KEY_SHIFT_TIMING = stringPreferencesKey("draft_shift_timing")
-        private val KEY_WORK_TYPE = stringPreferencesKey("draft_work_type")
+        private val KEY_SHIFT = stringPreferencesKey("draft_shift")
+        private val KEY_EMPLOYMENT_TYPE = stringPreferencesKey("draft_employment_type")
         private val KEY_EXPERIENCE_LEVEL = stringPreferencesKey("draft_experience_level")
         private val KEY_EDUCATION_REQUIRED = stringPreferencesKey("draft_education_required")
         private val KEY_GENDER = stringPreferencesKey("draft_gender")
         private val KEY_TIMESTAMP = longPreferencesKey("draft_timestamp")
         private val KEY_EMPLOYER_ID = stringPreferencesKey("draft_employer_id")
+        private val KEY_BENEFITS = stringPreferencesKey("draft_benefits")
         private val KEY_REPOST_OF_JOB_ID = stringPreferencesKey("draft_repost_of_job_id")
     }
     
@@ -82,7 +84,7 @@ class JobDraftDataStore @Inject constructor(
         val title: String = "",
         val description: String = "",
         val payAmount: String = "",
-        val payType: PayType = PayType.HOURLY,
+        val payType: PayType = PayType.DAILY,
         val location: String = "",
         val locationLatitude: Double = 0.0,
         val locationLongitude: Double = 0.0,
@@ -90,13 +92,12 @@ class JobDraftDataStore @Inject constructor(
         val customCategory: String = "",
         val vacancies: String = "",
         val contactNumber: String = "",
-        val shiftTiming: ShiftTiming = ShiftTiming.FLEXIBLE,
-        val workType: String = "Part-time",
+        val shift: JobShift = JobShift.ANY,
+        val employmentType: EmploymentType = EmploymentType.FULL_TIME,
         val experienceLevel: String = "No Experience Required",
         val educationRequired: String = "No qualification required",
-        val gender: String = "Any",
-        val landmark: String = "",
-        val requirements: String = "",
+        val gender: String = "Both",
+        val benefits: List<String> = emptyList(),
         val repostOfJobId: String = "",
         val timestamp: Long = 0L,
         val employerId: String = ""
@@ -112,7 +113,7 @@ class JobDraftDataStore @Inject constructor(
         prefs[KEY_TITLE] = draft.title
         prefs[KEY_DESCRIPTION] = draft.description
         prefs[KEY_PAY_AMOUNT] = draft.payAmount
-        prefs[KEY_PAY_TYPE] = draft.payType.name
+        prefs[KEY_PAY_TYPE] = draft.payType.key
         prefs[KEY_LOCATION] = draft.location
         prefs[KEY_LOCATION_LAT] = draft.locationLatitude
         prefs[KEY_LOCATION_LNG] = draft.locationLongitude
@@ -120,8 +121,9 @@ class JobDraftDataStore @Inject constructor(
         prefs[KEY_CUSTOM_CATEGORY] = draft.customCategory
         prefs[KEY_VACANCIES] = draft.vacancies
         prefs[KEY_CONTACT_NUMBER] = draft.contactNumber
-        prefs[KEY_SHIFT_TIMING] = draft.shiftTiming.name
-        prefs[KEY_WORK_TYPE] = draft.workType
+        prefs[KEY_SHIFT] = draft.shift.key
+        prefs[KEY_EMPLOYMENT_TYPE] = draft.employmentType.key
+        prefs[KEY_BENEFITS] = draft.benefits.joinToString("|")
         prefs[KEY_EXPERIENCE_LEVEL] = draft.experienceLevel
         prefs[KEY_EDUCATION_REQUIRED] = draft.educationRequired
         prefs[KEY_GENDER] = draft.gender
@@ -160,20 +162,20 @@ class JobDraftDataStore @Inject constructor(
                     title = prefs[KEY_TITLE] ?: "",
                     description = prefs[KEY_DESCRIPTION] ?: "",
                     payAmount = prefs[KEY_PAY_AMOUNT] ?: "",
-                    payType = try { PayType.valueOf(prefs[KEY_PAY_TYPE] ?: "HOURLY") } 
-                        catch (e: Exception) { PayType.HOURLY },
-                    location = prefs[KEY_LOCATION] ?: "",                    locationLatitude = prefs[KEY_LOCATION_LAT] ?: 0.0,
-                    locationLongitude = prefs[KEY_LOCATION_LNG] ?: 0.0,                    category = try { JobCategory.valueOf(prefs[KEY_CATEGORY] ?: "COOK") } 
-                        catch (e: Exception) { JobCategory.COOK },
+                    payType = PayType.fromKey(prefs[KEY_PAY_TYPE]),
+                    location = prefs[KEY_LOCATION] ?: "",
+                    locationLatitude = prefs[KEY_LOCATION_LAT] ?: 0.0,
+                    locationLongitude = prefs[KEY_LOCATION_LNG] ?: 0.0,
+                    category = JobCategory.fromKey(prefs[KEY_CATEGORY]),
                     customCategory = prefs[KEY_CUSTOM_CATEGORY] ?: "",
                     vacancies = prefs[KEY_VACANCIES] ?: "",
                     contactNumber = prefs[KEY_CONTACT_NUMBER] ?: "",
-                    shiftTiming = try { ShiftTiming.valueOf(prefs[KEY_SHIFT_TIMING] ?: "FLEXIBLE") } 
-                        catch (e: Exception) { ShiftTiming.FLEXIBLE },
-                    workType = prefs[KEY_WORK_TYPE] ?: "Part-time",
+                    shift = JobShift.fromKey(prefs[KEY_SHIFT]),
+                    employmentType = EmploymentType.fromKey(prefs[KEY_EMPLOYMENT_TYPE]),
+                    benefits = prefs[KEY_BENEFITS].orEmpty().split('|').filter { it.isNotBlank() },
                     experienceLevel = prefs[KEY_EXPERIENCE_LEVEL] ?: "No Experience Required",
                     educationRequired = prefs[KEY_EDUCATION_REQUIRED] ?: "No qualification required",
-                    gender = prefs[KEY_GENDER] ?: "Any",
+                    gender = prefs[KEY_GENDER] ?: "Both",
                     repostOfJobId = prefs[KEY_REPOST_OF_JOB_ID] ?: "",
                     timestamp = timestamp,
                     employerId = savedEmployerId

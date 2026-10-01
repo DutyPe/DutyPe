@@ -195,9 +195,16 @@ class LocationService(private val context: Context) {
         return isValidCoordinates(location.latitude, location.longitude) && isRecentLocation(location, maxAgeMs)
     }
 
-    private fun googleMapsApiKey(): String? {
-        return context.googleMapsApiKey()
-    }
+    /**
+     * Google's web-service endpoints (legacy Places autocomplete + details, Geocoding) are off: the
+     * project's key is restricted to the Android app (web calls are refused), the legacy Places API
+     * is not enabled, and per keystroke they cost an autocomplete + a details call per suggestion.
+     * Search and reverse geocoding use the free on-device Android Geocoder instead. The key itself
+     * still powers the Maps SDK through the manifest. Return the key here only after moving these
+     * calls to Places API (New) with the Android app headers.
+     */
+    @Suppress("FunctionOnlyReturningConstant")
+    private fun googleMapsApiKey(): String? = null
 
     /**
      * UBER/SWIGGY STRATEGY: Get location instantly using hybrid approach
@@ -1089,6 +1096,8 @@ class LocationService(private val context: Context) {
             }
 
             cleanAndDedupePlaceSuggestions(candidates, maxResults)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e // the user typed again; not a failure
         } catch (e: Exception) {
             Timber.e(e, "❌ LocationService: Failed to search places for query: $query")
             emptyList()

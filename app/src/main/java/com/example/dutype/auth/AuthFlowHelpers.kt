@@ -1,5 +1,8 @@
 package com.example.dutype.auth
 
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -163,7 +166,7 @@ internal fun AuthScreenBackdrop() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Color.White.bg())
     )
 }
 
@@ -182,8 +185,8 @@ internal fun AuthPhoneEntryField(
             .fillMaxWidth()
             .height(56.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
-            .border(1.5.dp, if (hasError) WorkerColors.Error else Color(0xFFE2E8F0), RoundedCornerShape(16.dp)),
+            .background(Color.White.bg())
+            .border(1.5.dp, if (hasError) WorkerColors.Error else Color(0xFFE2E8F0).bd(), RoundedCornerShape(16.dp)),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
@@ -207,7 +210,7 @@ internal fun AuthPhoneEntryField(
             modifier = Modifier
                 .width(1.dp)
                 .height(24.dp)
-                .background(Color(0xFFE2E8F0))
+                .background(Color(0xFFE2E8F0).bg())
         )
 
         Row(
@@ -242,7 +245,7 @@ internal fun AuthPhoneEntryField(
                     color = WorkerColors.TextPrimary,
                     fontWeight = FontWeight.Medium
                 ),
-                cursorBrush = SolidColor(Color(0xFFD81B60)),
+                cursorBrush = SolidColor(Color(0xFFD81B60).fg()),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 decorationBox = { innerTextField ->
                     if (phoneNumber.isBlank() && placeholderText.isNotBlank()) {
@@ -250,7 +253,7 @@ internal fun AuthPhoneEntryField(
                             text = placeholderText,
                             style = MaterialTheme.typography.bodyLarge.copy(
                                 fontSize = 17.sp,
-                                color = Color(0xFF94A3B8)
+                                color = Color(0xFF94A3B8).fg()
                             )
                         )
                     }
@@ -274,9 +277,9 @@ internal fun AuthPrimaryButton(
             .fillMaxWidth()
             .height(52.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFFD81B60),
+            containerColor = Color(0xFFD81B60).bg(),
             contentColor = Color.White,
-            disabledContainerColor = Color(0xFFF8BBD0),
+            disabledContainerColor = Color(0xFFF8BBD0).bg(),
             disabledContentColor = Color.White
         ),
         shape = RoundedCornerShape(26.dp),
@@ -304,7 +307,7 @@ internal fun OrDivider(label: String = "or") {
             modifier = Modifier
                 .weight(1f)
                 .height(1.dp)
-                .background(Color(0xFFE2E8F0))
+                .background(Color(0xFFE2E8F0).bg())
         )
         Text(
             text = label,
@@ -315,7 +318,17 @@ internal fun OrDivider(label: String = "or") {
             modifier = Modifier
                 .weight(1f)
                 .height(1.dp)
-                .background(Color(0xFFE2E8F0))
+                .background(Color(0xFFE2E8F0).bg())
         )
     }
+}
+
+/**
+ * Top gap that pushes the auth form toward the vertical centre on any screen size
+ * (the forms scroll, so a flexible weight spacer can't be used).
+ */
+@Composable
+internal fun authTopGap(fraction: Float): androidx.compose.ui.unit.Dp {
+    val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
+    return (screenHeight * fraction).dp.coerceIn(24.dp, 180.dp)
 }
