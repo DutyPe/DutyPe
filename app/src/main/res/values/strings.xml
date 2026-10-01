@@ -1581,8 +1581,8 @@
     <string name="auto_report_job">Report Job</string>
     <string name="auto_help_us_keep_dutype_safe">Help us keep DutyPe safe</string>
     <string name="auto_what_s_the_issue">What\'s the issue?</string>
-    <string name="auto_submit_report">Submit Report</string>
-    <string name="auto_your_report_is_anonymous">Your report is anonymous</string>
+    <string name="auto_submit_report">Send to WhatsApp Support</string>
+    <string name="auto_your_report_is_anonymous">Opens a WhatsApp chat with DutyPe support</string>
     <string name="auto_report_submitted">Report Submitted</string>
     <string name="auto_thank_you_for_helping_keep_dutype_safe">Thank you for helping keep DutyPe safe!</string>
     <string name="auto_report_user">Report User</string>
@@ -1753,7 +1753,7 @@
     <string name="report_non_payment_work_date">Work date: %1$s</string>
     <string name="report_non_payment_details_label">What happened? (optional)</string>
     <string name="report_non_payment_details_hint">Worked full day, employer stopped answering calls</string>
-    <string name="report_non_payment_submit">Report</string>
+    <string name="report_non_payment_submit">Send to WhatsApp Support</string>
     <string name="report_non_payment_action">Not paid for this job?</string>
 
     <!-- DutyPe Expanding to Area / Promising Empty State -->

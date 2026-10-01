@@ -286,16 +286,6 @@ object FirestoreSchema {
         const val CREATED_AT = "createdAt"
     }
 
-    object JobReports {
-        const val COLLECTION = "job_reports"
-        const val JOB_ID = "jobId"
-        const val REPORTER_ID = "reporterId"
-        const val REASON = "reason"
-        const val NOTE = "note"
-        const val STATUS = "status"                 // open | reviewed | actioned (admin)
-        const val CREATED_AT = "createdAt"
-    }
-
     /** instant_requests/{id} (+ /responses/{workerId}) — urgent same-day needs. */
     object InstantRequests {
         const val COLLECTION = "instant_requests"

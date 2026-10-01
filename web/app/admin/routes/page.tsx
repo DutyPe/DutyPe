@@ -20,7 +20,6 @@ const adminRoutes = [
   { href: "/admin/instant-help", label: "Instant Help", description: "Monitor urgent hiring requests and response speed." },
   { href: "/admin/saved-jobs", label: "Saved Jobs", description: "Review saved-job collection records." },
   { href: "/admin/ratings", label: "Ratings", description: "Inspect ratings and trust signals." },
-  { href: "/admin/job-reports", label: "Job Reports", description: "Moderate reported jobs and abuse signals." },
   { href: "/admin/referrals", label: "Referrals", description: "Monitor referrals and payouts." },
   { href: "/admin/referral-config", label: "Referral Config", description: "Edit referral program configuration values." },
   { href: "/admin/referral-stats", label: "Referral Stats", description: "Inspect referral stats documents and rewards." },

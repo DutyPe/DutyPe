@@ -231,16 +231,6 @@ export const Ratings = {
   CREATED_AT: "createdAt",
 } as const;
 
-export const JobReports = {
-  COLLECTION: "job_reports",
-  JOB_ID: "jobId",
-  REPORTER_ID: "reporterId",
-  REASON: "reason",
-  NOTE: "note",
-  STATUS: "status",
-  CREATED_AT: "createdAt",
-} as const;
-
 export const InstantRequests = {
   COLLECTION: "instant_requests",
   EMPLOYER_ID: "employerId",

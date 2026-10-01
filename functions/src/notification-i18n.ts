@@ -540,33 +540,6 @@ export const NOTIFICATION_TEMPLATES: Translations = {
       body: "डुप्लिकेट संकेतों के कारण आपकी नौकरी \"{title}\" की मैन्युअल समीक्षा आवश्यक है।",
     },
   },
-  JOB_HIDDEN_REPORTS: {
-    en: {
-      title: "Hi {recipient}, your job was hidden for review",
-      body: "Your job \"{title}\" has been hidden due to community reports.",
-    },
-    te: {
-      title: "హాయ్ {recipient}, మీ ఉద్యోగం సమీక్ష కోసం దాచబడింది",
-      body: "కమ్యూనిటీ నివేదికల కారణంగా మీ ఉద్యోగం \"{title}\" దాచబడింది.",
-    },
-    hi: {
-      title: "नमस्ते {recipient}, आपकी नौकरी समीक्षा के लिए छिपाई गई",
-      body: "सामुदायिक रिपोर्ट के कारण आपकी नौकरी \"{title}\" छिपा दी गई है।",
-    },
-  },
-  NON_PAYMENT_REPORTED: {    en: {
-      title: "Hi {recipient}, a payment complaint was raised",
-      body: "A worker reported not being paid for \"{title}\". Please settle it or reply to support.",
-    },
-    te: {
-      title: "హాయ్ {recipient}, చెల్లింపు ఫిర్యాదు వచ్చింది",
-      body: "\"{title}\" కోసం చెల్లింపు అందలేదని ఒక కార్మికుడు నివేదించారు. దయచేసి చెల్లించండి లేదా సపోర్ట్‌కు సమాధానం ఇవ్వండి.",
-    },
-    hi: {
-      title: "नमस्ते {recipient}, भुगतान की शिकायत मिली है",
-      body: "एक कर्मचारी ने \"{title}\" के लिए भुगतान न मिलने की शिकायत की है। कृपया भुगतान करें या सहायता को जवाब दें।",
-    },
-  },
   WORK_AUTO_COMPLETED: {
     en: {
       title: "Hi {recipient}, \"{title}\" is marked complete",

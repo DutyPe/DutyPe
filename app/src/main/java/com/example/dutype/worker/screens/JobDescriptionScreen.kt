@@ -618,7 +618,7 @@ fun JobDescriptionScreen(
             companyName = job!!.companyName,
             onDismiss = { showReportSheet = false },
             onReport = { reportType, description ->
-                reportingService.reportJob(jobId, reportType, description)
+                reportingService.reportJob(jobId, job!!.title, job!!.companyName, reportType, description)
             }
         )
     }
@@ -632,7 +632,8 @@ fun JobDescriptionScreen(
             onReport = { amount, workedOn, description ->
                 reportingService.reportNonPayment(
                     jobId = jobId,
-                    employerId = job!!.employerId,
+                    jobTitle = job!!.title,
+                    companyName = job!!.companyName,
                     amountOwed = amount,
                     workedOn = workedOn,
                     description = description
@@ -1397,7 +1398,7 @@ private fun JobDetailsContent(
             }
         }
 
-        // Only shown to workers who applied; the server rejects claims from anyone else.
+        // Only shown to workers who applied.
         if (hasApplied) {
             item { Spacer(modifier = Modifier.height(8.dp)) }
             item {

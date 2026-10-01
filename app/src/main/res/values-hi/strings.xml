@@ -1535,8 +1535,8 @@
     <string name="auto_report_job">रिपोर्ट करें</string>
     <string name="auto_help_us_keep_dutype_safe">DutyPe को सुरक्षित रखने में मदद करें</string>
     <string name="auto_what_s_the_issue">समस्या क्या है?</string>
-    <string name="auto_submit_report">शिकायत भेजें</string>
-    <string name="auto_your_report_is_anonymous">आपकी रिपोर्ट गुमनाम है</string>
+    <string name="auto_submit_report">WhatsApp सपोर्ट को भेजें</string>
+    <string name="auto_your_report_is_anonymous">DutyPe सपोर्ट के साथ WhatsApp चैट खुलेगी</string>
     <string name="auto_report_submitted">शिकायत दर्ज हो गई</string>
     <string name="auto_thank_you_for_helping_keep_dutype_safe">DutyPe को सुरक्षित रखने के लिए धन्यवाद!</string>
     <string name="auto_report_user">उपयोगकर्ता की रिपोर्ट करें</string>
@@ -1711,7 +1711,7 @@
     <string name="report_non_payment_work_date">काम की तारीख: %1$s</string>
     <string name="report_non_payment_details_label">क्या हुआ? (वैकल्पिक)</string>
     <string name="report_non_payment_details_hint">पूरा दिन काम किया, नियोक्ता ने कॉल उठाना बंद कर दिया</string>
-    <string name="report_non_payment_submit">शिकायत करें</string>
+    <string name="report_non_payment_submit">WhatsApp सपोर्ट को भेजें</string>
     <string name="report_non_payment_action">इस नौकरी का भुगतान नहीं मिला?</string>
     <!-- Expanding / Hubs Keys in Hindi -->
     <string name="auto_dutype">DutyPe</string>

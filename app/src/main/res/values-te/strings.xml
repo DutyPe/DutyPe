@@ -1537,8 +1537,8 @@
     <string name="auto_report_job">ఉద్యోగం రిపోర్ట్ చేయండి</string>
     <string name="auto_help_us_keep_dutype_safe">DutyPeని సురక్షితంగా ఉంచడంలో సహాయపడండి</string>
     <string name="auto_what_s_the_issue">సమస్య ఏమిటి?</string>
-    <string name="auto_submit_report">నివేదికను సమర్పించు</string>
-    <string name="auto_your_report_is_anonymous">మీ నివేదిక అనామకం</string>
+    <string name="auto_submit_report">WhatsApp సపోర్ట్‌కు పంపండి</string>
+    <string name="auto_your_report_is_anonymous">DutyPe సపోర్ట్‌తో WhatsApp చాట్ తెరుచుకుంటుంది</string>
     <string name="auto_report_submitted">నివేదిక సమర్పించబడింది</string>
     <string name="auto_thank_you_for_helping_keep_dutype_safe">DutyPeని సురక్షితంగా ఉంచినందుకు ధన్యవాదాలు!</string>
     <string name="auto_report_user">వినియోగదారుని నివేదించండి</string>
@@ -1713,7 +1713,7 @@
     <string name="report_non_payment_work_date">పని తేదీ: %1$s</string>
     <string name="report_non_payment_details_label">ఏమి జరిగింది? (ఐచ్ఛికం)</string>
     <string name="report_non_payment_details_hint">పూర్తి రోజు పని చేశాను, యజమాని కాల్స్ ఎత్తడం మానేశారు</string>
-    <string name="report_non_payment_submit">నివేదించండి</string>
+    <string name="report_non_payment_submit">WhatsApp సపోర్ట్‌కు పంపండి</string>
     <string name="report_non_payment_action">ఈ ఉద్యోగానికి చెల్లింపు అందలేదా?</string>
     <!-- Expanding / Hubs Keys in Telugu -->
     <string name="auto_dutype">DutyPe</string>

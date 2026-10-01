@@ -33,8 +33,8 @@ import com.example.dutype.ui.theme.WorkerColors
 /**
  * Report Job Bottom Sheet - Improved Design
  * 
- * P1 Feature: Community Reporting
- * 3 reports = auto-hide job
+ * The worker picks a reason and the report is sent to DutyPe WhatsApp support
+ * (see [com.example.dutype.services.ReportingService]); nothing is stored in Firestore.
  */
 
 @OptIn(ExperimentalMaterial3Api::class)

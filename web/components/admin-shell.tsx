@@ -20,7 +20,6 @@ import {
   Zap,
   Bookmark,
   Star,
-  Flag,
   Gift,
   BarChart3,
   Ticket,
@@ -78,7 +77,6 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
       { href: "/admin/instant-help", label: "Instant Help", icon: Zap, summary: "Urgent request speed and fill rate metrics." },
       { href: "/admin/saved-jobs", label: "Saved Jobs", icon: Bookmark, summary: "Worker saved jobs activity." },
       { href: "/admin/ratings", label: "Ratings & Trust", icon: Star, summary: "Worker and employer review signals." },
-      { href: "/admin/job-reports", label: "Job Reports", icon: Flag, summary: "Reported jobs and moderation alerts." }
     ]
   },
   {
