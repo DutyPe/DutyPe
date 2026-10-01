@@ -132,7 +132,6 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
     val currentUser = FirebaseAuth.getInstance().currentUser
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val authManager = profileCompletionViewModel.authManager
@@ -176,31 +175,30 @@ fun SettingsScreen(
                 .padding(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 32.dp)
         ) {
             SettingsHeader(
-                title = if (isTelugu) "సెట్టింగ్‌లు" else "Settings",
+                title = stringResource(R.string.settings),
                 onBack = { navController.navigateUp() }
             )
 
-            SettingsSectionLabel(if (isTelugu) "ఖాతా" else "Account")
+            SettingsSectionLabel(stringResource(R.string.settings_account))
             AccountCard(
-                isTelugu = isTelugu,
                 phoneNumber = phoneNumber,
                 onEditProfile = openEditProfile
             )
 
-            SettingsSectionLabel(if (isTelugu) "ప్రాధాన్యతలు" else "Preferences")
-            PreferencesCard(isTelugu = isTelugu)
+            SettingsSectionLabel(stringResource(R.string.settings_preferences))
+            PreferencesCard()
 
-            SettingsSectionLabel(if (isTelugu) "నోటిఫికేషన్లు" else "Notifications")
-            NotificationsCard(isTelugu = isTelugu)
+            SettingsSectionLabel(stringResource(R.string.notifications))
+            NotificationsCard()
 
-            SettingsSectionLabel(if (isTelugu) "చట్టపరమైన" else "Legal")
-            LegalCard(isTelugu = isTelugu, navController = navController)
+            SettingsSectionLabel(stringResource(R.string.settings_legal))
+            LegalCard(navController = navController)
 
             if (currentUser != null) {
                 Spacer(modifier = Modifier.height(20.dp))
                 DangerCard(
                     logoutText = stringResource(R.string.log_out),
-                    deleteText = if (isTelugu) "ఖాతా తొలగించు" else "Delete Account",
+                    deleteText = stringResource(R.string.delete_account),
                     onLogout = { showLogoutDialog = true },
                     onDelete = { showAccountDeletionDialog = true }
                 )
@@ -244,7 +242,7 @@ private fun SettingsHeader(title: String, onBack: () -> Unit) {
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(R.string.back),
                 tint = SettingsInk,
                 modifier = Modifier.size(20.dp)
             )
@@ -387,11 +385,11 @@ private fun FlatToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
 }
 
 @Composable
-private fun AccountCard(isTelugu: Boolean, phoneNumber: String, onEditProfile: () -> Unit) {
+private fun AccountCard(phoneNumber: String, onEditProfile: () -> Unit) {
     SettingsCard {
         SettingsRow(
             icon = Icons.Outlined.Phone,
-            title = if (isTelugu) "ఫోన్ నంబర్" else "Phone Number",
+            title = stringResource(R.string.phone_number),
             onClick = onEditProfile
         ) {
             Text(
@@ -404,14 +402,14 @@ private fun AccountCard(isTelugu: Boolean, phoneNumber: String, onEditProfile: (
         SettingsDividerLine()
         NavRow(
             icon = Icons.Outlined.Person,
-            title = if (isTelugu) "ప్రొఫైల్ సవరించు" else "Edit Profile",
+            title = stringResource(R.string.edit_profile),
             onClick = onEditProfile
         )
     }
 }
 
 @Composable
-private fun PreferencesCard(isTelugu: Boolean) {
+private fun PreferencesCard() {
     val themeViewModel: ThemeModeViewModel = hiltViewModel()
     val themeMode = LocalThemeMode.current
     val systemDark = isSystemInDarkTheme()
@@ -419,14 +417,14 @@ private fun PreferencesCard(isTelugu: Boolean) {
     SettingsCard {
         SettingsRow(
             icon = Icons.Outlined.Language,
-            title = if (isTelugu) "భాష" else "Language"
+            title = stringResource(R.string.language)
         ) {
             LanguageChips()
         }
         SettingsDividerLine()
         ToggleRow(
             icon = Icons.Outlined.DarkMode,
-            title = if (isTelugu) "డార్క్ మోడ్" else "Dark Mode",
+            title = stringResource(R.string.dark_mode),
             checked = isDark,
             onCheckedChange = { on ->
                 themeViewModel.setMode(if (on) ThemeMode.DARK else ThemeMode.LIGHT)
@@ -478,14 +476,14 @@ private fun LanguageChip(label: String, active: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun NotificationsCard(isTelugu: Boolean) {
+private fun NotificationsCard() {
     val context = LocalContext.current
     var pushEnabled by remember { mutableStateOf(readSettingsFlag(context, KEY_PUSH_ENABLED)) }
     var whatsappEnabled by remember { mutableStateOf(readSettingsFlag(context, KEY_WHATSAPP_ENABLED)) }
     SettingsCard {
         ToggleRow(
             icon = Icons.Outlined.Notifications,
-            title = if (isTelugu) "పుష్ నోటిఫికేషన్లు" else "Push Notifications",
+            title = stringResource(R.string.push_notifications),
             checked = pushEnabled,
             onCheckedChange = { on ->
                 pushEnabled = on
@@ -495,7 +493,7 @@ private fun NotificationsCard(isTelugu: Boolean) {
         SettingsDividerLine()
         ToggleRow(
             icon = Icons.Outlined.ChatBubbleOutline,
-            title = if (isTelugu) "వాట్సాప్ అలర్ట్‌లు" else "WhatsApp Alerts",
+            title = stringResource(R.string.whatsapp_alerts),
             checked = whatsappEnabled,
             onCheckedChange = { on ->
                 whatsappEnabled = on
@@ -506,17 +504,17 @@ private fun NotificationsCard(isTelugu: Boolean) {
 }
 
 @Composable
-private fun LegalCard(isTelugu: Boolean, navController: NavController) {
+private fun LegalCard(navController: NavController) {
     SettingsCard {
         NavRow(
             icon = Icons.Outlined.Shield,
-            title = if (isTelugu) "గోప్యతా విధానం" else "Privacy Policy",
+            title = stringResource(R.string.privacy_policy),
             onClick = { navController.navigate(Routes.PRIVACY_POLICY) }
         )
         SettingsDividerLine()
         NavRow(
             icon = Icons.Outlined.Description,
-            title = if (isTelugu) "సేవా నిబంధనలు" else "Terms of Service",
+            title = stringResource(R.string.terms_of_service),
             onClick = { navController.navigate(Routes.TERMS_OF_SERVICE) }
         )
     }
@@ -571,7 +569,7 @@ private fun SettingsFooter(appVersion: String) {
             )
         )
         Text(
-            text = "Made with ❤️ in Bharat",
+            text = stringResource(R.string.about_made_in_bharat),
             style = TextStyle(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,

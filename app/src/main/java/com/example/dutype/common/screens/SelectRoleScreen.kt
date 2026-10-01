@@ -53,6 +53,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -143,8 +144,8 @@ fun SelectRoleScreen(
 
             RoleSelectCard(
                 icon = Icons.Default.Engineering,
-                title = "I'm Looking for Work",
-                subtitle = "Find daily jobs and instant gigs, get paid fast",
+                title = stringResource(R.string.select_role_looking_for_work),
+                subtitle = stringResource(R.string.select_role_worker_desc),
                 iconBg = WorkerIconBg,
                 iconTint = WorkerIconTint,
                 selected = selectedRole == "WORKER",
@@ -155,8 +156,8 @@ fun SelectRoleScreen(
 
             RoleSelectCard(
                 icon = Icons.Default.Business,
-                title = "I Want to Hire",
-                subtitle = "Post jobs, find workers nearby, manage hiring",
+                title = stringResource(R.string.select_role_want_to_hire),
+                subtitle = stringResource(R.string.select_role_employer_desc),
                 iconBg = EmployerIconBg,
                 iconTint = EmployerIconTint,
                 selected = selectedRole == "EMPLOYER",
@@ -226,7 +227,7 @@ private fun LanguageSelectorChip(onClick: () -> Unit) {
 private fun HeadlineBlock() {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = "How will you use DutyPe?",
+            text = stringResource(R.string.select_role_headline),
             style = MaterialTheme.typography.headlineMedium.copy(
                 fontSize = 28.sp,
                 lineHeight = 34.sp,
@@ -236,7 +237,7 @@ private fun HeadlineBlock() {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Choose how you want to use the app",
+            text = stringResource(R.string.select_role_subheadline),
             style = MaterialTheme.typography.bodyLarge.copy(
                 fontSize = 15.sp,
                 color = SubtitleGray
@@ -265,7 +266,7 @@ private fun ContinueButton(onClick: () -> Unit) {
             horizontalArrangement = Arrangement.Center
         ) {
             Text(
-                text = "Continue",
+                text = stringResource(R.string.continue_text),
                 style = MaterialTheme.typography.labelLarge.copy(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,

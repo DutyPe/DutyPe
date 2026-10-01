@@ -1,4 +1,4 @@
-﻿package com.example.dutype.common.screens
+package com.example.dutype.common.screens
 
 import com.dutype.app.R
 import android.content.Intent
@@ -113,7 +113,7 @@ fun PrivacyPolicyScreen(navController: NavController) {
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "Last updated: Sep 2026",
+            text = stringResource(R.string.policy_last_updated_short),
             fontSize = 12.sp,
             color = Ink400
         )
@@ -470,7 +470,7 @@ private fun PvBackRow(onBack: () -> Unit) {
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-            contentDescription = "Back",
+            contentDescription = stringResource(R.string.back),
             tint = Ink900,
             modifier = Modifier.size(24.dp)
         )
@@ -487,20 +487,20 @@ private fun PvPermissionCards() {
     ) {
         PvPermissionCard(
             icon = Icons.Outlined.OutlinedLocationOn,
-            label = "Location",
-            description = "Used only to show nearby jobs",
+            label = stringResource(R.string.permission_location_label),
+            description = stringResource(R.string.permission_location_desc),
             modifier = Modifier.weight(1f).fillMaxHeight()
         )
         PvPermissionCard(
             icon = Icons.Outlined.OutlinedPhoneAndroid,
-            label = "Phone",
-            description = "Only for OTP, never shared",
+            label = stringResource(R.string.permission_phone_label),
+            description = stringResource(R.string.permission_phone_desc),
             modifier = Modifier.weight(1f).fillMaxHeight()
         )
         PvPermissionCard(
             icon = Icons.Outlined.OutlinedLock,
-            label = "Storage",
-            description = "Photos stored encrypted, optional",
+            label = stringResource(R.string.permission_storage_label),
+            description = stringResource(R.string.permission_storage_desc),
             modifier = Modifier.weight(1f).fillMaxHeight()
         )
     }
@@ -565,7 +565,7 @@ private fun PvAccordionCard() {
             .border(1.dp, PvBorder, shape)
     ) {
         PvAccordionRow(
-            title = "What we collect",
+            title = stringResource(R.string.policy_what_we_collect),
             initiallyExpanded = true,
             showDivider = true
         ) {
@@ -573,28 +573,28 @@ private fun PvAccordionCard() {
             PvSectionBody(stringResource(R.string.policy_privacy_s5_title), stringResource(R.string.policy_privacy_s5_content))
         }
         PvAccordionRow(
-            title = "How we use it",
+            title = stringResource(R.string.policy_how_we_use_it),
             initiallyExpanded = false,
             showDivider = true
         ) {
             PvSectionBody(stringResource(R.string.policy_privacy_s2_title), stringResource(R.string.policy_privacy_s2_content))
         }
         PvAccordionRow(
-            title = "Third-party sharing",
+            title = stringResource(R.string.policy_third_party_sharing),
             initiallyExpanded = false,
             showDivider = true
         ) {
             PvSectionBody(stringResource(R.string.policy_privacy_s3_title), stringResource(R.string.policy_privacy_s3_content))
         }
         PvAccordionRow(
-            title = "Data retention",
+            title = stringResource(R.string.policy_data_retention),
             initiallyExpanded = false,
             showDivider = true
         ) {
             PvSectionBody(stringResource(R.string.policy_privacy_s4_title), stringResource(R.string.policy_privacy_s4_content))
         }
         PvAccordionRow(
-            title = "Your rights",
+            title = stringResource(R.string.policy_your_rights),
             initiallyExpanded = false,
             showDivider = false
         ) {

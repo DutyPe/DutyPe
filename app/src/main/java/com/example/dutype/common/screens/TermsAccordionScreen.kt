@@ -53,12 +53,12 @@ private val TosGreen = Color(0xFF16A34A)
 private val TosCheck = Color(0xFF10B981)
 private val TosLink = Color(0xFF2563EB)
 
-private val TosSectionTitles = listOf(
-    "1. Eligibility & Accounts",
-    "2. Worker Terms",
-    "3. Employer Terms",
-    "4. Payments & Disputes",
-    "5. Privacy"
+private val TosSectionTitleRes = listOf(
+    R.string.tos_section_1,
+    R.string.tos_section_2,
+    R.string.tos_section_3,
+    R.string.tos_section_4,
+    R.string.tos_section_5
 )
 
 /**
@@ -84,10 +84,10 @@ internal fun TermsAccordionScreen(navController: NavController) {
         ) {
             TosHighlightsCard()
             Spacer(modifier = Modifier.height(16.dp))
-            TosSectionTitles.forEachIndexed { index, title ->
+            TosSectionTitleRes.forEachIndexed { index, titleRes ->
                 if (index > 0) Spacer(modifier = Modifier.height(10.dp))
                 TosSectionCard(
-                    title = title,
+                    title = stringResource(titleRes),
                     expanded = expandedIndex == index,
                     onToggle = { expandedIndex = if (expandedIndex == index) -1 else index }
                 ) {
@@ -114,13 +114,13 @@ private fun TosHeader(onBack: () -> Unit) {
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = null,
+                contentDescription = stringResource(R.string.back),
                 tint = TosInk,
                 modifier = Modifier.size(24.dp)
             )
         }
         Text(
-            text = "Terms of Service",
+            text = stringResource(R.string.terms_of_service),
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = TosInk,
@@ -141,14 +141,14 @@ private fun TosHighlightsCard() {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
-            text = "Plain Language Summary",
+            text = stringResource(R.string.tos_summary_title),
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             color = TosGreen
         )
-        TosHighlightRow("No commission taken from worker wages.")
-        TosHighlightRow("All employer identities are manually verified.")
-        TosHighlightRow("Your data is never sold to third parties.")
+        TosHighlightRow(stringResource(R.string.tos_summary_1))
+        TosHighlightRow(stringResource(R.string.tos_summary_2))
+        TosHighlightRow(stringResource(R.string.tos_summary_3))
     }
 }
 

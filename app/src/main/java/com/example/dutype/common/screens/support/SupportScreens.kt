@@ -1,4 +1,4 @@
-﻿package com.example.dutype.common.screens.support
+package com.example.dutype.common.screens.support
 
 import com.dutype.app.R
 import android.content.Intent
@@ -66,7 +66,7 @@ fun ContactUsScreen(
     ) {
         ContactBackRow(onBack = { navController.popBackStack() })
         Spacer(Modifier.height(8.dp))
-        Text("Get in Touch", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = CuInk)
+        Text(stringResource(R.string.contact_get_in_touch), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = CuInk)
         Spacer(Modifier.height(16.dp))
         ContactReplyBadge()
         Spacer(Modifier.height(16.dp))
@@ -74,8 +74,8 @@ fun ContactUsScreen(
             icon = Icons.Outlined.Chat,
             circleColor = Color(0xFFF0FDF4),
             tint = CuGreen,
-            title = "Chat on WhatsApp",
-            subtitle = "Fastest · Typical reply in 5 mins",
+            title = stringResource(R.string.contact_whatsapp_title),
+            subtitle = stringResource(R.string.contact_whatsapp_subtitle),
             onClick = {
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/919876543210"))
                 context.startActivity(intent)
@@ -86,8 +86,8 @@ fun ContactUsScreen(
             icon = Icons.Outlined.Phone,
             circleColor = Color(0xFFEFF6FF),
             tint = Color(0xFF2563EB),
-            title = "Call Helpline",
-            subtitle = "Toll-free · Mon–Sat 9 AM–7 PM",
+            title = stringResource(R.string.contact_helpline_title),
+            subtitle = stringResource(R.string.contact_helpline_subtitle),
             onClick = {
                 context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:+918500717800")))
             }
@@ -97,12 +97,12 @@ fun ContactUsScreen(
             icon = Icons.Outlined.Email,
             circleColor = Color(0xFFFEF3C7),
             tint = Color(0xFFD97706),
-            title = "Email Support",
-            subtitle = "For non-urgent queries · reply in 4 hrs",
+            title = stringResource(R.string.contact_email_title),
+            subtitle = stringResource(R.string.contact_email_subtitle),
             onClick = {
                 val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@dutypeapp.com"))
                 intent.putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.email_subject_support_request))
-                context.startActivity(Intent.createChooser(intent, "Send Email"))
+                context.startActivity(Intent.createChooser(intent, context.getString(R.string.send_email)))
             }
         )
         Spacer(Modifier.height(16.dp))
@@ -130,7 +130,7 @@ fun ContactUsScreen(
                         putExtra(Intent.EXTRA_TEXT, body)
                     }
                 }
-                context.startActivity(Intent.createChooser(intent, "Send Message"))
+                context.startActivity(Intent.createChooser(intent, context.getString(R.string.contact_send_message)))
             }
         )
     }
@@ -144,7 +144,7 @@ private fun ContactBackRow(onBack: () -> Unit) {
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-            contentDescription = "Back",
+            contentDescription = stringResource(R.string.back),
             tint = CuInk,
             modifier = Modifier.size(24.dp).clickable { onBack() }
         )
@@ -163,7 +163,7 @@ private fun ContactReplyBadge() {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            "✓ We reply within 15 minutes",
+            stringResource(R.string.contact_reply_time),
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             color = CuGreen
@@ -229,7 +229,7 @@ private fun ContactMessageField(value: String, onValueChange: (String) -> Unit) 
         decorationBox = { inner ->
             Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
                 if (value.isEmpty()) {
-                    Text("How can we help?", fontSize = 14.sp, color = CuHint)
+                    Text(stringResource(R.string.help_hero_title), fontSize = 14.sp, color = CuHint)
                 }
                 inner()
             }
@@ -254,7 +254,7 @@ private fun ContactFormCard(
             .border(1.dp, CuBorder, shape)
             .padding(16.dp)
     ) {
-        Text("Or send us a message", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = CuBlack)
+        Text(stringResource(R.string.contact_or_send_message), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = CuBlack)
         Spacer(Modifier.height(12.dp))
         ContactMessageField(value = message, onValueChange = onMessageChange)
         Spacer(Modifier.height(14.dp))
@@ -265,7 +265,7 @@ private fun ContactFormCard(
             Icon(Icons.Outlined.AttachFile, contentDescription = null, tint = CuMuted, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(8.dp))
             Text(
-                if (attached) "Screenshot attached" else "Attach Screenshot (optional)",
+                if (attached) stringResource(R.string.contact_screenshot_attached) else stringResource(R.string.contact_attach_screenshot),
                 fontSize = 13.sp,
                 color = CuMuted
             )
@@ -284,7 +284,7 @@ private fun ContactFormCard(
                 disabledContentColor = Color.White
             )
         ) {
-            Text("Send Message →", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.contact_send_message), fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -402,7 +402,7 @@ private fun HelpHeader(title: String, onBack: () -> Unit) {
                 .clickable { onBack() },
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = CuInk, modifier = Modifier.size(24.dp))
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), tint = CuInk, modifier = Modifier.size(24.dp))
         }
         Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CuInk, modifier = Modifier.align(Alignment.Center))
     }
@@ -420,9 +420,9 @@ private fun HelpSummaryCard(onWhatsApp: () -> Unit, onEmail: () -> Unit, onRepor
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Need help fast?", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = CuGreen)
+        Text(stringResource(R.string.help_need_fast), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = CuGreen)
         Text(
-            "Most questions are answered below. Still stuck? Reach us directly and we usually reply within minutes.",
+            stringResource(R.string.help_need_fast_desc),
             fontSize = 14.sp,
             lineHeight = 20.sp,
             color = CuInk
@@ -487,7 +487,7 @@ private fun HelpSearchField(value: String, onValueChange: (String) -> Unit) {
                 if (value.isNotEmpty()) {
                     Icon(
                         Icons.Default.Close,
-                        contentDescription = "Clear",
+                        contentDescription = stringResource(R.string.clear),
                         tint = CuMuted,
                         modifier = Modifier.size(18.dp).clickable { onValueChange("") }
                     )
@@ -582,7 +582,7 @@ fun ReportProblemScreen(
                 title = { Text(stringResource(R.string.report_a_problem)) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 }
             )
