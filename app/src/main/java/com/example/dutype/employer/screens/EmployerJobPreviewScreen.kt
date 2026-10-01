@@ -1,5 +1,9 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.employer.models.JobShift
+import com.example.dutype.employer.models.EmploymentType
+import com.example.dutype.jobs.toForm
+import com.example.dutype.firestore.FirestoreSchema.Values
 import com.dutype.app.R
 import android.net.Uri
 import android.widget.Toast
@@ -63,7 +67,7 @@ import com.example.dutype.ui.theme.LocalRoleColors
 import com.example.dutype.utils.ImageUploadUtils
 import com.example.dutype.utils.JobEditPolicy
 import com.example.dutype.utils.JobDeletePolicy
-import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
+import com.example.dutype.viewmodels.EmployerJobsViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -88,7 +92,7 @@ import java.util.Locale
 fun EmployerJobPreviewScreen(
     navController: NavController,
     jobId: String,
-    viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
+    viewModel: EmployerJobsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -105,16 +109,16 @@ fun EmployerJobPreviewScreen(
         val currentJob = job ?: return
         scope.launch {
             isUploadingImage = true
-            val storagePath = "job_images/${currentJob.id}/hero_${System.currentTimeMillis()}.jpg"
+            val storagePath = "job_images/${currentJob.employerId}/hero_${currentJob.id}_${System.currentTimeMillis()}.jpg"
             when (val uploadResult = ImageUploadUtils.uploadWithRetry(context, uri, storagePath)) {
                 is ImageUploadUtils.UploadResult.Success -> {
                     val newUrl = uploadResult.downloadUrl
                     viewModel.updateJob(
                         currentJob.id,
-                        mapOf("jobImageUrl" to newUrl)
+                        currentJob.toForm().copy(photoUrl = newUrl)
                     ) { success, message ->
                         if (success) {
-                            job = currentJob.copy(jobImageUrl = newUrl)
+                            job = currentJob.copy(photoUrl = newUrl)
                             Toast.makeText(context, context.getString(R.string.job_image_updated), Toast.LENGTH_SHORT).show()
                         } else {
                             Toast.makeText(
@@ -154,7 +158,7 @@ fun EmployerJobPreviewScreen(
             notFound = true
             return@LaunchedEffect
         }
-        viewModel.getJobById(jobId) { fetched ->
+        viewModel.getJob(jobId) { fetched ->
             job = fetched
             notFound = fetched == null
             isLoading = false
@@ -181,7 +185,7 @@ fun EmployerJobPreviewScreen(
                     }) {
                         Icon(
                             imageVector = Icons.Default.Home,
-                            contentDescription = "Home",
+                            contentDescription = stringResource(R.string.home),
                             tint = EmployerColors.TextPrimary
                         )
                     }
@@ -251,12 +255,12 @@ fun EmployerJobPreviewScreen(
         if (!isLoading && job != null) {
             val j = job!!
             val currentStatus = j.status.lowercase()
-            val isPaused = currentStatus == "paused"
-            val isExpired = currentStatus == "expired"
-            val isDeleted = currentStatus == "deleted"
-            val showDelete = JobDeletePolicy.canDeleteNormal(j.createdAt) && !isDeleted
-            val showPauseResume = !JobDeletePolicy.canDeleteNormal(j.createdAt) && currentStatus in listOf("open", "paused") && !isDeleted
-            val showRenew = isExpired && !isDeleted
+            // "Paused" = closed by the employer; it can be reopened until it expires.
+            val isPaused = currentStatus == Values.JobStatus.CLOSED
+            val isExpired = currentStatus == Values.JobStatus.EXPIRED
+            val showDelete = JobDeletePolicy.canDeleteNormal(j.createdAt)
+            val showPauseResume = !showDelete && currentStatus in listOf(Values.JobStatus.OPEN, Values.JobStatus.CLOSED)
+            val showRenew = isExpired
 
             Box(modifier = Modifier.align(Alignment.BottomCenter)) {
                 StickyEditBar(
@@ -280,37 +284,32 @@ fun EmployerJobPreviewScreen(
                     onPauseResume = {
                         scope.launch {
                             isPausingJob = true
-                            val result = if (isPaused) {
-                                viewModel.resumeJob(j.id)
-                            } else {
-                                viewModel.pauseJob(j.id)
+                            val done = { success: Boolean, message: String? ->
+                                if (success) {
+                                    job = j.copy(status = if (isPaused) Values.JobStatus.OPEN else Values.JobStatus.CLOSED)
+                                    val msg = if (isPaused) context.getString(R.string.job_resumed_msg) else context.getString(R.string.job_paused_msg)
+                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, context.getString(R.string.failed_with_reason, message ?: ""), Toast.LENGTH_SHORT).show()
+                                }
+                                isPausingJob = false
                             }
-                            result.onSuccess {
-                                val newStatus = if (isPaused) "open" else "paused"
-                                job = j.copy(status = newStatus)
-                                val msg = if (isPaused) "Job resumed — visible to workers" else "Job paused — hidden from workers"
-                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                            }.onFailure { e ->
-                                Toast.makeText(context, "Failed: ${e.message}", Toast.LENGTH_SHORT).show()
-                            }
-                            isPausingJob = false
+                            if (isPaused) viewModel.reopenJob(j.id, done) else viewModel.closeJob(j.id, done)
                         }
                     },
                     showRenew = showRenew,
                     onRenew = {
                         scope.launch {
                             isRenewingJob = true
-                            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                            if (currentUser != null) {
-                                val result = viewModel.renewJob(j.id, currentUser.uid)
-                                result.onSuccess {
-                                    job = j.copy(status = "open")
-                                    Toast.makeText(context, "Job renewed for 30 more days (1 credit used)", Toast.LENGTH_LONG).show()
-                                }.onFailure { e ->
-                                    Toast.makeText(context, "Renew failed: ${e.message}", Toast.LENGTH_LONG).show()
+                            viewModel.renewJob(j.id) { success, message ->
+                                if (success) {
+                                    job = j.copy(status = Values.JobStatus.OPEN)
+                                    Toast.makeText(context, context.getString(R.string.job_renewed_toast), Toast.LENGTH_LONG).show()
+                                } else {
+                                    Toast.makeText(context, context.getString(R.string.job_renew_failed_toast, message ?: ""), Toast.LENGTH_LONG).show()
                                 }
+                                isRenewingJob = false
                             }
-                            isRenewingJob = false
                         }
                     },
                     isProcessing = isPausingJob || isRenewingJob
@@ -388,7 +387,7 @@ private fun HeroBlock(
     isUploading: Boolean,
     onUploadClick: () -> Unit
 ) {
-    val imageUrl = job.jobImageUrl
+    val imageUrl = job.photoUrl
     var isImageLoading by remember(imageUrl) { mutableStateOf(!imageUrl.isNullOrBlank()) }
     Surface(
         modifier = Modifier
@@ -506,12 +505,12 @@ private fun TitleBlock(job: JobListing) {
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = job.title.ifBlank { "Untitled job" },
+                text = job.title.ifBlank { stringResource(R.string.untitled_job) },
                 fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = EmployerColors.TextPrimary
             )
-            if (job.location.isNotBlank()) {
+            if (job.addressText.isNotBlank()) {
                 Spacer(Modifier.height(12.dp))
                 HorizontalDivider(color = Color(0xFFEDF2F7))
                 Spacer(Modifier.height(12.dp))
@@ -524,7 +523,7 @@ private fun TitleBlock(job: JobListing) {
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = job.location,
+                        text = job.addressText,
                         fontSize = 14.sp,
                         color = EmployerColors.TextSecondary
                     )
@@ -572,19 +571,16 @@ private fun DetailsCard(job: JobListing) {
                     Spacer(Modifier.height(8.dp))
                     HorizontalDivider(color = Color(0xFFEDF2F7))
 
-                    InfoRow("Work type", job.jobType.ifBlank { "—" })
-                    InfoRow("Salary", job.salary.ifBlank { "—" })
-                    if (job.salaryType.isNotBlank()) {
-                        InfoRow("Pay type", job.salaryType.lowercase().replaceFirstChar { it.titlecase() })
-                    }
-                    InfoRow("Vacancies", job.vacancies.toString())
-                    InfoRow("Shift", job.shiftTiming.ifBlank { "—" })
-                    InfoRow("Gender", job.gender.ifBlank { "Any" })
-                    InfoRow("Experience", job.experienceRequired.ifBlank { "—" })
+                    InfoRow(stringResource(R.string.work_type), EmploymentType.fromKey(job.employmentType).displayName)
+                    InfoRow(stringResource(R.string.salary), job.payText)
+                    InfoRow(stringResource(R.string.vacancies), job.vacancies.toString())
+                    InfoRow(stringResource(R.string.auto_shift), JobShift.fromKey(job.shift).displayName)
+                    InfoRow(stringResource(R.string.gender), job.gender.lowercase().replaceFirstChar { it.titlecase() }.ifBlank { stringResource(R.string.gender_any) })
+                    InfoRow(stringResource(R.string.experience), job.experienceRequired.ifBlank { "—" })
                     if (job.contactNumber.isNotBlank()) {
-                        InfoRow("Contact", job.contactNumber)
+                        InfoRow(stringResource(R.string.contact), job.contactNumber)
                     }
-                    InfoRow("Posted on", formatDate(job.createdAt))
+                    InfoRow(stringResource(R.string.posted_on), formatDate(job.createdAt))
                 }
             }
         }
@@ -691,7 +687,7 @@ private fun StickyEditBar(
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                             } else {
                                 Text(
-                                    text = if (isPaused) "▶ Resume Job" else "⏸ Pause Job",
+                                    text = if (isPaused) stringResource(R.string.resume_job) else stringResource(R.string.pause_job),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -742,12 +738,12 @@ private fun StickyEditBar(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Home,
-                        contentDescription = "Home",
+                        contentDescription = stringResource(R.string.home),
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "Home",
+                        text = stringResource(R.string.home),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold
                     )

@@ -1,9 +1,13 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.firestore.FirestoreSchema.Values
+import com.example.dutype.firestore.FirestoreSchema.EmployerProfiles
 import com.dutype.app.R
 import android.app.Activity
+import android.content.Context
 import android.net.Uri
 import android.widget.Toast
+import androidx.annotation.StringRes
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
@@ -74,14 +78,16 @@ private val StitchLabel = Color(0xFF64748B)
 private val StitchDisabledBg = Color(0xFFF1F5F9)
 private val StitchFieldValue = Color(0xFF0F172A)
 
+private data class StitchIndustryOption(val key: String, @StringRes val labelRes: Int)
+
 private val StitchIndustryOptions = listOf(
-    "Construction",
-    "Retail / Shop",
-    "Hospitality",
-    "Manufacturing",
-    "Logistics & Transport",
-    "Services",
-    "Other"
+    StitchIndustryOption("Construction", R.string.company_category_construction),
+    StitchIndustryOption("Retail / Shop", R.string.company_category_retail),
+    StitchIndustryOption("Hospitality", R.string.industry_hospitality),
+    StitchIndustryOption("Manufacturing", R.string.company_category_manufacturing),
+    StitchIndustryOption("Logistics & Transport", R.string.industry_logistics_transport),
+    StitchIndustryOption("Services", R.string.industry_services),
+    StitchIndustryOption("Other", R.string.industry_other)
 )
 
 /**
@@ -145,11 +151,12 @@ private fun StitchTextField(
 private fun StitchDropdownField(
     label: String,
     value: String,
-    options: List<String>,
+    options: List<StitchIndustryOption>,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val displayValue = options.find { it.key == value }?.let { stringResource(it.labelRes) } ?: value.ifBlank { stringResource(R.string.select_industry) }
     Box(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -165,7 +172,7 @@ private fun StitchDropdownField(
                 Text(text = label, fontSize = 12.sp, color = StitchLabel)
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = value.ifBlank { "Select industry" },
+                    text = displayValue,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = if (value.isBlank()) StitchLabel.copy(alpha = 0.6f) else StitchBlue
@@ -176,9 +183,9 @@ private fun StitchDropdownField(
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(option) },
+                    text = { Text(stringResource(option.labelRes)) },
                     onClick = {
-                        onValueChange(option)
+                        onValueChange(option.key)
                         expanded = false
                     }
                 )
@@ -189,11 +196,13 @@ private fun StitchDropdownField(
 
 /** Pill-shaped two-option segmented toggle matching the Stitch design spec. */
 @Composable
-private fun StitchSegmentedToggle(
+internal fun StitchSegmentedToggle(
     isIndividual: Boolean,
     onIndividualSelected: () -> Unit,
     onCompanySelected: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    individualLabel: String = stringResource(R.string.auth_individual),
+    companyLabel: String = stringResource(R.string.auth_company_business)
 ) {
     Row(
         modifier = modifier
@@ -212,7 +221,7 @@ private fun StitchSegmentedToggle(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Individual",
+                text = individualLabel,
                 color = if (isIndividual) Color.White else StitchLabel,
                 fontSize = 14.sp,
                 fontWeight = if (isIndividual) FontWeight.Bold else FontWeight.Medium
@@ -228,7 +237,7 @@ private fun StitchSegmentedToggle(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Company / Business",
+                text = companyLabel,
                 color = if (!isIndividual) Color.White else StitchLabel,
                 fontSize = 14.sp,
                 fontWeight = if (!isIndividual) FontWeight.Bold else FontWeight.Medium
@@ -273,14 +282,14 @@ fun MandatoryEmployerProfileSetupScreen(
     var contactName by rememberSaveable { mutableStateOf("") }
     var isVerifyingGstin by remember { mutableStateOf(false) }
     var gstinVerifiedMessage by remember { mutableStateOf<String?>(null) }
-    
+
     // Selfie state - Uri cannot be saved directly, so we save the string representation
     var selfieUriString by rememberSaveable { mutableStateOf<String?>(null) }
     val selfieUri = selfieUriString?.let { Uri.parse(it) }
     var selfieUrl by rememberSaveable { mutableStateOf<String?>(null) }
     var isUploadingSelfie by remember { mutableStateOf(false) }
     var selfieError by remember { mutableStateOf<String?>(null) }
-    
+
     // Referral code state - REMOVED: Now handled in login flow before profile setup
     // Referral codes must be entered during registration, not profile setup
     var referralCode by rememberSaveable { mutableStateOf("") }
@@ -320,81 +329,27 @@ fun MandatoryEmployerProfileSetupScreen(
         try {
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
-                // REMOVED: Referral code retrieval - now handled in login screen
-                // Referral is applied immediately after OTP, not during profile setup
-                
-                // Check if user has already used a referral code
-                hasAlreadyUsedReferral = profileCompletionViewModel.hasUserUsedReferralCode(currentUser.uid)
-                showReferralSection = !hasAlreadyUsedReferral
-                Timber.d("🎁 REFERRAL: hasAlreadyUsedReferral=$hasAlreadyUsedReferral, showReferralSection=$showReferralSection")
-                
-                // Load full profile data for prefilling (all fields needed for form)
-                val existingDataResult = profileCompletionViewModel.loadExistingProfileData()
-                existingDataResult.onSuccess { existingData ->
-                    Timber.d("📦 PREFILL: Loading existing employer profile data (lightweight)")
-                    
-                    // Prefill form fields with existing data (schema-compliant fields only)
-                    val savedCompanyName = existingData["companyName"] as? String
-                    val savedContactPhone = existingData["phone"] as? String
-                    val savedProfileImageUrl = existingData["profileImageUrl"] as? String
-                    // employer_profiles fields
-                    val savedIndustry = existingData["industry"] as? String
-                    val savedBusinessAddress = existingData["businessAddress"] as? String
-                    val savedBusinessLocation = existingData["businessLocation"] as? Map<*, *>
-                    val savedEmployerType = existingData["employerType"] as? String
-                    val savedGstin = existingData["gstin"] as? String
-                    val savedFullName = existingData["fullName"] as? String
-                    
-                    if (!savedEmployerType.isNullOrBlank()) {
-                        employerType = savedEmployerType
-                        Timber.d("📦 PREFILL: employerType = $employerType")
-                    } else if (!savedCompanyName.isNullOrBlank() && savedCompanyName != currentUser.displayName) {
-                        employerType = "COMPANY"
+                profileCompletionViewModel.getEmployer(currentUser.uid).getOrNull()?.let { saved ->
+                    employerType = saved.employerType
+                    if (saved.isCompany) {
+                        if (companyName.isBlank()) companyName = saved.businessName
+                        if (contactName.isBlank()) contactName = saved.ownerName
+                    } else if (companyName.isBlank()) {
+                        companyName = saved.ownerName
                     }
-                    
-                    // Apply prefilled values (only if current field is empty)
-                    if (companyName.isBlank() && !savedCompanyName.isNullOrBlank()) {
-                        companyName = savedCompanyName
-                        Timber.d("📦 PREFILL: companyName = $companyName")
+                    if (contactPhone.isBlank()) contactPhone = saved.phone.removePrefix("+91").trim()
+                    if (industry.isBlank()) industry = saved.businessType
+                    if (gstin.isBlank()) gstin = saved.gstin
+                    if (businessAddress.isBlank()) businessAddress = saved.address
+                    if (businessLatitude == 0.0 && businessLongitude == 0.0 &&
+                        com.example.dutype.utils.GeoUtils.hasValidCoordinates(saved.lat, saved.lng)
+                    ) {
+                        businessLatitude = saved.lat
+                        businessLongitude = saved.lng
                     }
-                    if (contactPhone.isBlank() && !savedContactPhone.isNullOrBlank()) {
-                        // Clean phone number (remove country code if present)
-                        contactPhone = savedContactPhone.replace("+91", "").trim()
-                        Timber.d("📦 PREFILL: contactPhone = $contactPhone")
-                    }
-                    if (industry.isBlank() && !savedIndustry.isNullOrBlank()) {
-                        industry = savedIndustry
-                        Timber.d("📦 PREFILL: industry = $industry")
-                    }
-                    if (gstin.isBlank() && !savedGstin.isNullOrBlank()) {
-                        gstin = savedGstin
-                        Timber.d("📦 PREFILL: gstin loaded")
-                    }
-                    if (contactName.isBlank() && !savedFullName.isNullOrBlank() && savedFullName != savedCompanyName) {
-                        contactName = savedFullName
-                        Timber.d("📦 PREFILL: contactName = $contactName")
-                    }
-                    if (businessAddress.isBlank() && !savedBusinessAddress.isNullOrBlank()) {
-                        businessAddress = savedBusinessAddress
-                        Timber.d("PREFILL: businessAddress loaded")
-                    }
-                    if (businessLatitude == 0.0 && businessLongitude == 0.0 && savedBusinessLocation != null) {
-                        val savedLat = (savedBusinessLocation["lat"] as? Number)?.toDouble()
-                        val savedLng = (savedBusinessLocation["lng"] as? Number)?.toDouble()
-                        if (savedLat != null && savedLng != null &&
-                            com.example.dutype.utils.GeoUtils.hasValidCoordinates(savedLat, savedLng)
-                        ) {
-                            businessLatitude = savedLat
-                            businessLongitude = savedLng
-                            Timber.d("PREFILL: businessLocation loaded")
-                        }
-                    }
-                    if (!savedProfileImageUrl.isNullOrBlank()) {
-                        selfieUrl = savedProfileImageUrl
-                        Timber.d("📦 PREFILL: profileImageUrl exists")
-                    }
+                    if (saved.photoUrl.isNotBlank()) selfieUrl = saved.photoUrl
                 }
-                
+
                 // Fallback: Load display name from Google Sign-In if still empty
                 if (companyName.isBlank()) {
                     val savedName = profileCompletionViewModel.getUserName()
@@ -403,7 +358,7 @@ fun MandatoryEmployerProfileSetupScreen(
                         Timber.d("📦 PREFILL: companyName from Google = $companyName")
                     }
                 }
-                
+
                 // Load phone from OTP auth if available
                 if (contactPhone.isBlank()) {
                     val savedPhone = profileCompletionViewModel.getPhoneNumber()
@@ -425,7 +380,7 @@ fun MandatoryEmployerProfileSetupScreen(
     }
 
     // Validation logic
-    val isStep1Valid = companyName.isNotBlank()
+    val isStep1Valid = companyName.isNotBlank() && (employerType != Values.EmployerType.COMPANY || industry.isNotBlank())
     val isStep2Valid = ValidationUtils.isValidIndianPhoneNumber(contactPhone) && businessAddress.isNotBlank()
     val isStep3Valid = true  // Selfie is optional - always valid
 
@@ -438,8 +393,9 @@ fun MandatoryEmployerProfileSetupScreen(
     val isIndividual = employerType == "INDIVIDUAL"
     val phoneNumberRequiredError = stringResource(R.string.phone_number_required_error)
     val validPhoneError = stringResource(R.string.valid_10_digit_phone_error)
-    val companyNameRequiredError = if (isIndividual) "Your full name is required" else stringResource(R.string.company_name_required_error)
-    val workLocationRequiredError = if (isIndividual) "Home or task location is required" else stringResource(R.string.work_location_required_error)
+    val companyNameRequiredError = if (isIndividual) stringResource(R.string.your_full_name_required) else stringResource(R.string.company_name_required_error)
+    val workLocationRequiredError = if (isIndividual) stringResource(R.string.home_or_task_location_required) else stringResource(R.string.work_location_required_error)
+    val selectYourIndustryError = stringResource(R.string.select_your_industry)
 
     LaunchedEffect(contactPhone, companyName, industry, businessAddress, employerType, showValidationErrors) {
         if (showValidationErrors) {
@@ -449,7 +405,7 @@ fun MandatoryEmployerProfileSetupScreen(
                 else -> null
             }
             companyNameError = if (companyName.isBlank()) companyNameRequiredError else null
-            industryError = null
+            industryError = if (!isIndividual && industry.isBlank()) selectYourIndustryError else null
             addressError = if (businessAddress.isBlank()) workLocationRequiredError else null
         } else {
             phoneError = null
@@ -470,7 +426,7 @@ fun MandatoryEmployerProfileSetupScreen(
             Timber.w("📍 Profile completion already in progress, ignoring duplicate call")
             return
         }
-        
+
         isCompletionInProgress = true
         scope.launch {
             isLoading = true
@@ -500,87 +456,44 @@ fun MandatoryEmployerProfileSetupScreen(
                                 onFailure = { e ->
                                     Timber.e(e, "📸 Failed to upload employer selfie")
                                     // Show error but continue - selfie upload is not blocking
-                                    selfieError = "Photo upload failed. Your profile will be saved without photo."
+                                    selfieError = context.getString(R.string.employer_photo_upload_failed_saved)
                                 }
                             )
                         } catch (e: Exception) {
                             Timber.e(e, "📸 Exception during employer selfie upload")
-                            selfieError = "Photo upload failed. Your profile will be saved without photo."
+                            selfieError = context.getString(R.string.employer_photo_upload_failed_saved)
                         } finally {
                             isUploadingSelfie = false
                         }
                     }
-                    
-                    val employerProfileData = mutableMapOf<String, Any>(
-                        "companyName" to companyName,
-                        "fullName" to contactName.ifBlank { companyName },
-                        "phone" to contactPhone,
-                        "employerType" to employerType
-                    )
 
-                    if (industry.isNotBlank()) {
-                        employerProfileData["industry"] = industry.trim()
-                    }
-                    if (gstin.isNotBlank()) {
-                        employerProfileData["gstin"] = gstin.trim().uppercase()
-                    }
+                    val isCompany = employerType == Values.EmployerType.COMPANY
+                    val employerProfileData = mutableMapOf<String, Any?>(
+                        EmployerProfiles.EMPLOYER_TYPE to employerType,
+                        EmployerProfiles.OWNER_NAME to (if (isCompany) contactName.ifBlank { companyName } else companyName).trim(),
+                        EmployerProfiles.BUSINESS_NAME to if (isCompany) companyName.trim() else "",
+                        EmployerProfiles.BUSINESS_TYPE to industry.trim(),
+                        EmployerProfiles.GSTIN to if (isCompany) gstin.trim() else ""
+                    )
                     if (businessAddress.isNotBlank()) {
-                        employerProfileData["businessAddress"] = businessAddress.trim()
+                        employerProfileData[EmployerProfiles.ADDRESS] = businessAddress.trim()
                     }
                     if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(businessLatitude, businessLongitude)) {
-                        employerProfileData["businessLocation"] = mapOf(
-                            "lat" to businessLatitude,
-                            "lng" to businessLongitude
-                        )
-                    }
-                    // Add selfie URL if uploaded
-                    if (uploadedSelfieUrl != null) {
-                        employerProfileData["profileImageUrl"] = uploadedSelfieUrl!!
+                        employerProfileData[EmployerProfiles.LAT] = businessLatitude
+                        employerProfileData[EmployerProfiles.LNG] = businessLongitude
                     }
 
-                    profileCompletionViewModel
-                        .saveEmployerProfileData(employerProfileData)
-                        .getOrThrow()
-
-                    // Referral apply is non-critical for the navigation gate —
-                    // run it AFTER the user has been routed to home so the
-                    // "saving" sheet dismisses promptly. Failure here only
-                    // affects bonus crediting; the profile itself is saved.
-                    val savedReferralCode = profileCompletionViewModel.getReferralCode()
-                        ?.takeIf { it.isNotBlank() }
-                        ?: (employerProfileData["referredByCode"] as? String)?.takeIf { it.isNotBlank() }
-                    if (!savedReferralCode.isNullOrBlank()) {
-                        scope.launch {
-                            runCatching {
-                                val referralApplyResult = profileCompletionViewModel.applyReferralCode(
-                                    referralCode = savedReferralCode,
-                                    newUserId = currentUser.uid,
-                                    newUserRole = UserRole.EMPLOYER.name,
-                                    newUserName = companyName.ifBlank { contactPhone },
-                                    newUserPhone = contactPhone
-                                )
-                                if (referralApplyResult.isSuccess) {
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(R.string.referral_code_applied_success),
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                } else {
-                                    Timber.w(
-                                        "🎁 REFERRAL: Employer fallback apply failed: ${referralApplyResult.exceptionOrNull()?.message}"
-                                    )
-                                }
-                            }.onFailure { Timber.w(it, "🎁 REFERRAL: background apply error") }
-                        }
-                    }
+                    profileCompletionViewModel.saveEmployer(employerProfileData).getOrThrow()
+                    // The photo was saved by uploadProfileImage itself.
+                    if (uploadedSelfieUrl != null) Timber.d("Employer photo saved")
                 }
 
                 // Save role to local DataStore so app knows which home to navigate to on reopen
                 profileCompletionViewModel.saveUserInfoToLocalStorage(companyName, UserRole.EMPLOYER)
-                
+
                 // Check if this is the FIRST time completing profile (not an update)
                 val wasAlreadyComplete = profileCompletionViewModel.isProfileComplete(UserRole.EMPLOYER)
-                
+
                 profileCompletionViewModel.markProfileComplete(UserRole.EMPLOYER)
                 profileCompletionViewModel.markProfileSetupAsShown(UserRole.EMPLOYER)
 
@@ -650,14 +563,14 @@ fun MandatoryEmployerProfileSetupScreen(
                 }
             } catch (e: Exception) {
                 logFunnelEvent("completion_failed", mapOf("reason" to "exception"))
-                errorMessage = e.message ?: "Failed to complete profile setup"
+                errorMessage = e.message ?: context.getString(R.string.failed_to_complete_profile_setup)
             } finally {
                 isLoading = false
                 isCompletionInProgress = false
             }
         }
     }
-    
+
     // Show loading while fetching existing profile data
     if (isLoadingExistingData) {
         androidx.compose.foundation.layout.Box(
@@ -674,7 +587,7 @@ fun MandatoryEmployerProfileSetupScreen(
                     color = EmployerColors.Primary
                 )
                 androidx.compose.material3.Text(
-                    "Loading your profile...",
+                    stringResource(R.string.loading_your_profile),
                     color = Color.Gray
                 )
             }
@@ -731,9 +644,9 @@ fun MandatoryEmployerProfileSetupScreen(
                 gstinVerifiedMessage = null
                 kotlinx.coroutines.delay(600)
                 gstinVerifiedMessage = if (gstinPattern.matches(gstin.trim().uppercase())) {
-                    "GSTIN format looks valid"
+                    context.getString(R.string.gstin_format_valid)
                 } else {
-                    "Please check the GSTIN format"
+                    context.getString(R.string.check_gstin_format)
                 }
                 isVerifyingGstin = false
             }
@@ -749,34 +662,13 @@ fun MandatoryEmployerProfileSetupScreen(
                 scope.launch {
                     isValidatingReferral = true
                     try {
-                        val result = profileCompletionViewModel.validateReferralCode(code)
-                        result.fold(
-                            onSuccess = { referrerInfo ->
-                                if (referrerInfo != null) {
-                                    val roleDisplay = when (referrerInfo.second.uppercase()) {
-                                        "EMPLOYER" -> "an Employer"
-                                        "WORKER" -> "a Worker"
-                                        else -> "a user"
-                                    }
-                                    referralValidationResult = ReferralValidationResult(
-                                        isValid = true,
-                                        message = "Valid code from $roleDisplay! You'll both earn ₹25.",
-                                        referrerName = referrerInfo.first
-                                    )
-                                } else {
-                                    referralValidationResult = ReferralValidationResult(
-                                        isValid = false,
-                                        message = "Referral code not found"
-                                    )
-                                }
-                            },
-                            onFailure = { e ->
-                                referralValidationResult = ReferralValidationResult(
-                                    isValid = false,
-                                    message = e.message ?: "Invalid referral code"
-                                )
-                            }
-                        )
+                        val info = profileCompletionViewModel.validateReferralCode(code)
+                        referralValidationResult = if (info.isValid) {
+                            val roleDisplay = if (info.referrerRole == Values.Role.EMPLOYER) context.getString(R.string.an_employer) else context.getString(R.string.a_worker)
+                            ReferralValidationResult(isValid = true, message = context.getString(R.string.valid_code_from_role, roleDisplay))
+                        } else {
+                            ReferralValidationResult(isValid = false, message = info.errorMessage ?: context.getString(R.string.referral_code_not_found))
+                        }
                     } finally {
                         isValidatingReferral = false
                     }
@@ -998,7 +890,7 @@ fun MandatoryEmployerProfileSetupContent(
                             border = androidx.compose.foundation.BorderStroke(1.dp, StitchBorder),
                             contentPadding = PaddingValues(0.dp)
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Go back", modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
                         }
                     }
 
@@ -1024,7 +916,7 @@ fun MandatoryEmployerProfileSetupContent(
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                         } else {
                             Text(
-                                text = if (currentStep == totalSteps) "Start Hiring" else "Next",
+                                text = if (currentStep == totalSteps) stringResource(R.string.start_hiring) else stringResource(R.string.next),
                                 color = Color.White,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
@@ -1089,10 +981,10 @@ private fun CompanyInformationStep(
         if (!isIndividual) {
             Column {
                 StitchTextField(
-                    label = "Business / Shop Name",
+                    label = stringResource(R.string.auth_company_shop_name),
                     value = companyName,
                     onValueChange = onCompanyNameChange,
-                    placeholder = "e.g. Ravi Constructions"
+                    placeholder = stringResource(R.string.auth_company_name_hint)
                 )
                 if (companyNameError != null) {
                     Text(
@@ -1107,7 +999,7 @@ private fun CompanyInformationStep(
 
         // Industry — dropdown picker
         StitchDropdownField(
-            label = if (isIndividual) "Help Needed (Optional)" else "Industry",
+            label = if (isIndividual) stringResource(R.string.help_needed_optional) else stringResource(R.string.industry),
             value = industry,
             options = StitchIndustryOptions,
             onValueChange = { onIndustryChange(it) }
@@ -1117,10 +1009,10 @@ private fun CompanyInformationStep(
         if (!isIndividual) {
             Column {
                 StitchTextField(
-                    label = "GSTIN (optional)",
+                    label = stringResource(R.string.gstin_optional),
                     value = gstin,
                     onValueChange = { onGstinChange(it) },
-                    placeholder = "e.g. 36AABCR1234M1Z5",
+                    placeholder = stringResource(R.string.gstin_hint),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                     trailingContent = {
                         Row(
@@ -1130,9 +1022,9 @@ private fun CompanyInformationStep(
                             if (isVerifyingGstin) {
                                 CircularProgressIndicator(modifier = Modifier.size(14.dp), color = StitchBlue, strokeWidth = 2.dp)
                             } else {
-                                Text(text = "Verify", color = StitchBlue, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text(text = stringResource(R.string.verify), color = StitchBlue, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                                 Spacer(modifier = Modifier.width(2.dp))
-                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Verify GSTIN", tint = StitchBlue, modifier = Modifier.size(14.dp))
+                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.verify_gstin), tint = StitchBlue, modifier = Modifier.size(14.dp))
                             }
                         }
                     }
@@ -1151,10 +1043,10 @@ private fun CompanyInformationStep(
         // Your Full Name
         Column {
             StitchTextField(
-                label = "Your Full Name",
+                label = stringResource(R.string.auth_your_full_name),
                 value = if (isIndividual) companyName else contactName,
                 onValueChange = if (isIndividual) onCompanyNameChange else onContactNameChange,
-                placeholder = "e.g. Ravi Teja"
+                placeholder = stringResource(R.string.full_name_hint)
             )
             if (isIndividual && companyNameError != null) {
                 Text(
@@ -1189,6 +1081,7 @@ private class LocationFetchOutcome(val areaText: String?, val errorText: String?
 
 /** Fetches the current location, reverse-geocodes it and pushes it into the form. */
 private suspend fun fetchCurrentLocationInto(
+    context: Context,
     locationService: com.example.dutype.utils.LocationService,
     onAddress: (String) -> Unit,
     onLocation: (Double, Double) -> Unit,
@@ -1205,11 +1098,11 @@ private suspend fun fetchCurrentLocationInto(
             onLocation(locationInfo.latitude, locationInfo.longitude)
             LocationFetchOutcome(locationInfo.getShortAddress(), null)
         } else {
-            LocationFetchOutcome(null, "Could not get current location. Please enter manually or try again.")
+            LocationFetchOutcome(null, context.getString(R.string.could_not_get_current_location))
         }
     } catch (e: Exception) {
         Timber.e(e, "Error fetching location")
-        LocationFetchOutcome(null, "Error fetching location: ${e.message}")
+        LocationFetchOutcome(null, context.getString(R.string.error_fetching_location_format, e.message ?: ""))
     } finally {
         setFetching(false)
     }
@@ -1238,7 +1131,7 @@ private fun LocationFetchStatus(areaText: String?, errorText: String?) {
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = "Location detected",
+                text = stringResource(R.string.worker_setup_location_detected),
                 color = Color(0xFF16A34A),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold
@@ -1305,6 +1198,7 @@ private fun ContactDetailsStep(
         coroutineScope.launch {
             locationErrorText = null
             val outcome = fetchCurrentLocationInto(
+                context,
                 locationService,
                 onBusinessAddressChange, onBusinessLocationChange
             ) { isFetchingLocation = it }
@@ -1349,7 +1243,7 @@ private fun ContactDetailsStep(
     ) {
         // Phone — verified via OTP during login, shown locked/read-only
         StitchTextField(
-            label = "Phone",
+            label = stringResource(R.string.phone_label),
             value = if (contactPhone.isBlank()) "" else "+91 $contactPhone",
             onValueChange = {},
             readOnly = true,
@@ -1357,7 +1251,7 @@ private fun ContactDetailsStep(
             valueColor = StitchLabel,
             placeholder = stringResource(R.string.enter_10_digit_phone),
             trailingContent = {
-                Icon(Icons.Default.Lock, contentDescription = "Verified phone number", tint = StitchLabel, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.verified_phone_number), tint = StitchLabel, modifier = Modifier.size(18.dp))
             }
         )
         if (phoneError != null) {
@@ -1402,7 +1296,7 @@ private fun ContactDetailsStep(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Use current location",
+                        text = stringResource(R.string.use_current_location),
                         style = MaterialTheme.typography.labelSmall,
                         color = StitchBlue
                     )
@@ -1417,8 +1311,8 @@ private fun ContactDetailsStep(
                     onBusinessLocationChange(latitude, longitude)
                 },
                 locationService = locationService,
-                label = "City / Area",
-                placeholder = if (isIndividual) "Search or enter your area / landmark" else stringResource(R.string.search_or_enter_work_location),
+                label = stringResource(R.string.city_area_label),
+                placeholder = if (isIndividual) stringResource(R.string.search_area_landmark_hint) else stringResource(R.string.search_or_enter_work_location),
                 maxLines = 2,
                 shape = RoundedCornerShape(14.dp),
                 leadingIcon = Icons.Default.LocationOn,
@@ -1440,7 +1334,7 @@ private fun ContactDetailsStep(
             }
             if (isFetchingLocation) {
                 Text(
-                    text = "Fetching location...",
+                    text = stringResource(R.string.fetching_your_location),
                     color = Color(0xFF64748B),
                     fontSize = 12.sp,
                     modifier = Modifier.padding(start = 4.dp)
@@ -1464,7 +1358,7 @@ private fun ContactDetailsStep(
                     latitude = businessLatitude,
                     longitude = businessLongitude,
                     modifier = Modifier.fillMaxSize(),
-                    markerTitle = if (isIndividual) "Your location" else "Business location",
+                    markerTitle = if (isIndividual) stringResource(R.string.your_location) else stringResource(R.string.business_location),
                     onLocationPicked = { lat, lng -> onBusinessLocationChange(lat, lng) }
                 )
             } else {
@@ -1478,7 +1372,7 @@ private fun ContactDetailsStep(
                     Icon(Icons.Default.LocationOn, contentDescription = null, tint = StitchLabel, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Pick a location above to preview the map",
+                        text = stringResource(R.string.pick_location_preview_map),
                         style = MaterialTheme.typography.bodySmall,
                         color = StitchLabel,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center

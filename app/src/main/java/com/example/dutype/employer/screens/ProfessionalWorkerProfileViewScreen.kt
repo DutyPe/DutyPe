@@ -91,7 +91,6 @@ import com.example.dutype.models.ApplicationStatus
 import com.example.dutype.models.JobApplication
 import com.example.dutype.models.getDisplayName
 import com.example.dutype.models.getStatusColor
-import com.example.dutype.services.JobApplicationService
 import com.example.dutype.services.ProfileCompletionService
 import com.example.dutype.state.ApplicationStateManager
 import com.example.dutype.ui.theme.EmployerColors
@@ -119,17 +118,11 @@ fun ProfessionalWorkerProfileViewScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     // Services accessed via ViewModels (proper DI pattern)
-    val jobApplicationViewModel: com.example.dutype.viewmodels.SmartJobApplicationViewModel = hiltViewModel()
-    val jobApplicationService = jobApplicationViewModel.jobApplicationService
+    val applicationViewModel: com.example.dutype.viewmodels.EmployerApplicationViewModel = hiltViewModel()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val profileCompletionService = profileCompletionViewModel.profileCompletionService
-    val ratingService = remember {
-        com.example.dutype.services.RatingService(
-            com.example.dutype.di.firestoreFromHilt(context),
-            com.example.dutype.di.authFromHilt(context)
-        )
-    }
-    
+    val ratingService = remember { com.example.dutype.di.ratingServiceFromHilt(context) }
+
     // State management
     var workerProfile by remember { mutableStateOf<WorkerProfileData?>(null) }
     var application by remember { mutableStateOf<JobApplication?>(null) }
@@ -156,155 +149,57 @@ fun ProfessionalWorkerProfileViewScreen(
             isLoading = true
             error = null
 
-            // If we have an applicationId, seed from the denormalized
-            // snapshot on the application doc so the screen has data even
-            // if the callable below is slow/unavailable.
-            applicationId?.let { appId ->
-                val applicationsResult = jobApplicationService.getApplicationById(appId)
-                applicationsResult.onSuccess { appResult: com.example.dutype.models.JobApplication? ->
-                    val app = appResult
-                    if (app != null) {
-                        application = app
-                        workerProfile = WorkerProfileData(
-                            workerId = app.workerId,
-                            fullName = app.workerName.ifBlank { "Worker" },
-                            phone = app.workerPhone.orEmpty(),
-                            email = app.workerEmail.orEmpty(),
-                            location = "",
-                            gender = app.workerGender,
-                            profileImageUrl = app.workerProfileImageUrl,
-                            experience = emptyList(),
-                            skills = app.workerSkills,
-                            languages = emptyList(),
-                            experienceLevel = app.workerExperience,
-                            dateOfBirth = app.workerDateOfBirth,
-                            educationQualification = app.workerEducationQualification,
-                            bio = app.workerBio
-                        )
-                        
-                        // Auto-mark application as viewed (Seen by Employer) when employer opens details
-                        if (app.status == ApplicationStatus.APPLIED) {
-                            scope.launch {
-                                val markResult = jobApplicationService.markApplicationAsUnderReview(app.id, app.employerId)
-                                markResult.onSuccess { updatedApp ->
-                                    application = updatedApp
-                                }
-                            }
-                        }
-                    }
-                }
+            // The application (status, job) and the profile the callable allows this employer to see.
+            application = applicationId?.let { applicationViewModel.getApplication(it) }
+            application?.let { app ->
+                workerProfile = WorkerProfileData(
+                    workerId = app.workerId,
+                    fullName = app.workerName.ifBlank { "Worker" },
+                    phone = "",
+                    email = "",
+                    location = "",
+                    gender = "",
+                    profileImageUrl = app.workerPhoto.ifBlank { null },
+                    experience = emptyList(),
+                    skills = listOf(app.workerSkill).filter { it.isNotBlank() },
+                    languages = emptyList(),
+                    experienceLevel = "",
+                    dateOfBirth = "",
+                    educationQualification = "",
+                    bio = ""
+                )
             }
 
-            // Always attempt the callable to get full profile (callable is
-            // region-pinned to asia-south1 by ProfileCompletionService).
-            val profileResult = profileCompletionService.getWorkerProfileForEmployer(
+            profileCompletionService.getWorkerProfileForEmployer(
                 workerId = workerId,
                 jobId = application?.jobId?.takeIf { it.isNotBlank() }
-            )
-            profileResult.fold(
+            ).fold(
                 onSuccess = { data ->
-                    val locationMap = data["location"] as? Map<*, *>
-                    val lat = (locationMap?.get("lat") as? Number)?.toDouble()
-                    val lng = (locationMap?.get("lng") as? Number)?.toDouble()
-                    val locationText = when {
-                        !((data["city"] as? String).isNullOrBlank()) -> data["city"] as String
-                        lat != null && lng != null && (lat != 0.0 || lng != 0.0) ->
-                            String.format(Locale.US, "%.4f, %.4f", lat, lng)
-                        else -> ""
-                    }
-
-                    val primarySkills = (data["skills"] as? List<*>)
-                        ?.mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
-                        .orEmpty()
-                    val jobTypeSkills = (data["jobTypes"] as? List<*>)
-                        ?.mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
-                        .orEmpty()
-
+                    val P = com.example.dutype.firestore.FirestoreSchema.WorkerProfiles
+                    val C = com.example.dutype.firestore.FirestoreSchema.WorkerCards
+                    val years = (data[P.EXPERIENCE_YEARS] as? Number)?.toInt() ?: 0
                     workerProfile = WorkerProfileData(
                         workerId = workerId,
-                        fullName = (data["fullName"] as? String).orEmpty()
-                            .ifBlank { workerProfile?.fullName.orEmpty() }
-                            .ifBlank { "Worker" },
-                        phone = (data["phone"] as? String).orEmpty()
-                            .ifBlank { workerProfile?.phone.orEmpty() },
-                        email = (data["email"] as? String).orEmpty()
-                            .ifBlank { workerProfile?.email.orEmpty() },
-                        location = locationText,
-                        gender = (data["gender"] as? String).orEmpty()
-                            .ifBlank { workerProfile?.gender.orEmpty() },
-                        profileImageUrl = (data["profileImageUrl"] as? String)
-                            ?: workerProfile?.profileImageUrl,
+                        fullName = (data[P.NAME] as? String).orEmpty().ifBlank { workerProfile?.fullName ?: "Worker" },
+                        phone = (data[P.PHONE] as? String).orEmpty(),
+                        email = "",
+                        location = (data[P.AREA] as? String).orEmpty(),
+                        gender = (data[P.GENDER] as? String).orEmpty(),
+                        profileImageUrl = (data[P.PHOTO_URL] as? String)?.ifBlank { null } ?: workerProfile?.profileImageUrl,
                         experience = emptyList(),
-                        skills = (primarySkills + jobTypeSkills + (workerProfile?.skills ?: emptyList())).distinct(),
-                        languages = (data["languages"] as? List<*>)
-                            ?.mapNotNull { it?.toString()?.trim()?.takeIf { value -> value.isNotBlank() } }
-                            .orEmpty(),
-                        experienceLevel = (data["experience"] as? String).orEmpty()
-                            .ifBlank { workerProfile?.experienceLevel.orEmpty() },
-                        dateOfBirth = (data["dateOfBirth"] as? String).orEmpty()
-                            .ifBlank { workerProfile?.dateOfBirth.orEmpty() },
-                        educationQualification = (data["educationQualification"] as? String).orEmpty()
-                            .ifBlank { workerProfile?.educationQualification.orEmpty() },
-                        bio = (data["bio"] as? String).orEmpty()
-                            .ifBlank { workerProfile?.bio.orEmpty() },
-                        rating = (data["rating"] as? Number)?.toDouble()
-                            ?: (data["ratingAvg"] as? Number)?.toDouble() ?: 0.0,
-                        totalJobs = (data["totalJobs"] as? Number)?.toInt() ?: 0,
-                        completedJobs = (data["completedJobs"] as? Number)?.toInt() ?: 0,
-                        isVerified = (data["aadhaarVerified"] as? Boolean)
-                            ?: (data["isAadhaarVerified"] as? Boolean) ?: false,
-                        memberSince = wpMemberSince(data["createdAt"])
+                        skills = (data[P.SKILLS] as? List<*>)?.mapNotNull { it as? String }.orEmpty()
+                            .map { com.example.dutype.employer.models.JobCategory.fromKey(it).displayName },
+                        languages = emptyList(),
+                        experienceLevel = if (years > 0) "$years years" else context.getString(R.string.fresher_label),
+                        dateOfBirth = (data[P.DATE_OF_BIRTH] as? String).orEmpty(),
+                        educationQualification = (data[P.EDUCATION] as? String).orEmpty(),
+                        bio = (data[P.BIO] as? String).orEmpty(),
+                        rating = (data[C.RATING] as? Number)?.toDouble() ?: 0.0,
+                        totalJobs = (data[C.JOBS_COMPLETED] as? Number)?.toInt() ?: 0,
+                        completedJobs = (data[C.JOBS_COMPLETED] as? Number)?.toInt() ?: 0
                     )
                 },
-                onFailure = { e ->
-                    // Batch-k fix: the callable may fail (region mismatch,
-                    // network, cold start). Fall back to the employer-owned
-                    // applications row, which carries a denormalized worker
-                    // snapshot (workerName/phone/email/skills/profileImageUrl).
-                    // Employer rules allow reads where employerId == uid.
-                    if (workerProfile == null) {
-                        val fallback = runCatching {
-                            val uid = com.google.firebase.auth.FirebaseAuth
-                                .getInstance().currentUser?.uid
-                            if (uid.isNullOrBlank()) return@runCatching null
-                            val snap = com.google.firebase.firestore.FirebaseFirestore
-                                .getInstance()
-                                .collection("applications")
-                                .whereEqualTo("employerId", uid)
-                                .whereEqualTo("workerId", workerId)
-                                .limit(1)
-                                .get()
-                                .await()
-                            val d = snap.documents.firstOrNull()?.data ?: return@runCatching null
-                            WorkerProfileData(
-                                workerId = workerId,
-                                fullName = (d["workerName"] as? String).orEmpty().ifBlank { "Worker" },
-                                phone = (d["workerPhone"] as? String).orEmpty(),
-                                email = (d["workerEmail"] as? String).orEmpty(),
-                                location = "",
-                                gender = (d["workerGender"] as? String).orEmpty(),
-                                profileImageUrl = d["workerProfileImageUrl"] as? String,
-                                experience = emptyList(),
-                                skills = (d["workerSkills"] as? List<*>)
-                                    ?.mapNotNull { it?.toString()?.trim()?.takeIf { v -> v.isNotBlank() } }
-                                    .orEmpty(),
-                                languages = emptyList(),
-                                experienceLevel = (d["workerExperience"] as? String).orEmpty(),
-                                dateOfBirth = (d["workerDateOfBirth"] as? String).orEmpty(),
-                                educationQualification = (d["workerEducationQualification"] as? String).orEmpty(),
-                                bio = (d["workerBio"] as? String).orEmpty()
-                            )
-                        }.getOrNull()
-
-                        if (fallback != null) {
-                            workerProfile = fallback
-                        } else {
-                            error = e.message ?: "Failed to load worker profile"
-                        }
-                    }
-                    // If workerProfile was already seeded from applicationId
-                    // snapshot, keep it and show no error.
-                }
+                onFailure = { e -> if (workerProfile == null) error = e.message ?: "Failed to load worker profile" }
             )
 
             isLoading = false
@@ -327,7 +222,7 @@ fun ProfessionalWorkerProfileViewScreen(
     if (showRatingSheet && workerProfile != null) {
         RatingBottomSheet(
             isVisible = showRatingSheet,
-            targetName = workerProfile?.fullName?.ifBlank { application?.workerName.orEmpty() } ?: "this worker",
+            targetName = workerProfile?.fullName?.ifBlank { application?.workerName.orEmpty() } ?: stringResource(R.string.this_worker),
             targetRole = "WORKER",
             onDismiss = { showRatingSheet = false },
             onSubmit = { rating, review, tags ->
@@ -349,7 +244,7 @@ fun ProfessionalWorkerProfileViewScreen(
                                 }
                             },
                             onFailure = { error ->
-                                Toast.makeText(context, error.message ?: "Failed to submit rating", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, error.message ?: context.getString(R.string.failed_to_submit_rating), Toast.LENGTH_LONG).show()
                             }
                         )
                     }
@@ -357,7 +252,7 @@ fun ProfessionalWorkerProfileViewScreen(
             }
         )
     }
-    
+
     WorkerProfileScreenBody(
         navController = navController,
         workerProfile = workerProfile,
@@ -390,7 +285,7 @@ fun ProfessionalWorkerProfileViewScreen(
         ApplicationActionDialog(
             action = selectedAction!!,
             workerName = workerProfile?.fullName ?: "Worker",
-            onDismiss = { 
+            onDismiss = {
                 showActionDialog = false
                 selectedAction = null
             },
@@ -400,26 +295,20 @@ fun ProfessionalWorkerProfileViewScreen(
                         when (action) {
                             ApplicationAction.SHORTLIST -> {
                                 application?.let { app ->
-                                    val result = jobApplicationService.acceptApplication(app.id, app.employerId)
-                                    result.getOrThrow()
+                                    applicationViewModel.updateApplicationStatusForResult(app.id, ApplicationStatus.HIRED).getOrThrow()
                                     application = app.copy(status = ApplicationStatus.HIRED)
                                 }
                             }
             ApplicationAction.REJECT -> {
                                 application?.let { app ->
-                                    val result = jobApplicationService.rejectApplication(app.id, app.employerId)
-                                    result.getOrThrow()
+                                    applicationViewModel.updateApplicationStatusForResult(app.id, ApplicationStatus.REJECTED).getOrThrow()
                                     application = app.copy(status = ApplicationStatus.REJECTED)
                                 }
                             }
                             ApplicationAction.MARK_COMPLETED -> {
                                 application?.let { app ->
-                                    val updatedApplication = jobApplicationService.updateApplicationStatus(
-                                        app.id,
-                                        ApplicationStatus.COMPLETED,
-                                        "employer"
-                                    ).getOrThrow()
-                                    application = updatedApplication.copy(status = ApplicationStatus.COMPLETED)
+                                    applicationViewModel.updateApplicationStatusForResult(app.id, ApplicationStatus.COMPLETED).getOrThrow()
+                                    application = app.copy(status = ApplicationStatus.COMPLETED)
                                     val alreadyRated = ratingService.hasRated(app.jobId, app.workerId)
                                     if (alreadyRated) {
                                         hasRatedWorker = true
@@ -443,635 +332,6 @@ fun ProfessionalWorkerProfileViewScreen(
 }
 
 @Composable
-private fun ProfessionalWorkerProfileHeader(
-    workerProfile: WorkerProfileData?,
-    application: JobApplication?
-) {
-    // Bug fix: redesigned the header.
-    // - Removed the noisy "Contact" message-style button (DutyPe has no
-    //   in-app messaging; the dial fallback was confusing). Employers can
-    //   tap the phone row in Personal Information to dial.
-    // - The header now shows ONE clean identity block: large avatar,
-    //   name, applied-job title, and a chip with location + status, so
-    //   we no longer render the worker's name twice.
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        shape = RoundedCornerShape(0.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Avatar
-            Box(
-                modifier = Modifier
-                    .size(88.dp)
-                    .clip(CircleShape)
-                    .background(EmployerColors.Primary.copy(alpha = 0.10f)),
-                contentAlignment = Alignment.Center
-            ) {
-                val imageUrl = workerProfile?.profileImageUrl
-                if (!imageUrl.isNullOrBlank()) {
-                    com.example.dutype.components.OptimizedProfileImage(
-                        imageUrl = imageUrl,
-                        contentDescription = "Worker Profile",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape)
-                    )
-                } else {
-                    val initials = workerProfile?.fullName.orEmpty()
-                        .split(" ")
-                        .take(2)
-                        .mapNotNull { it.firstOrNull()?.uppercaseChar() }
-                        .joinToString("")
-                        .ifEmpty { workerProfile?.fullName?.take(1)?.uppercase().orEmpty() }
-                    if (initials.isNotBlank()) {
-                        Text(
-                            text = initials,
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = EmployerColors.Primary
-                            )
-                        )
-                    } else {
-                        Icon(
-                            Icons.Default.Person,
-                            contentDescription = "Profile",
-                            tint = EmployerColors.Primary,
-                            modifier = Modifier.size(40.dp)
-                        )
-                    }
-                }
-            }
-
-            // Name
-            Text(
-                text = workerProfile?.fullName.orEmpty().ifBlank { "Worker" },
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = EmployerColors.TextPrimary
-                )
-            )
-
-            // Applied for
-            val appliedFor = application?.jobTitle.orEmpty()
-            if (appliedFor.isNotBlank()) {
-                Text(
-                    text = "Applied for $appliedFor",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = EmployerColors.TextSecondary
-                    )
-                )
-            }
-
-            // Location row
-            val location = workerProfile?.location.orEmpty()
-            if (location.isNotBlank()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = EmployerColors.TextSecondary,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Text(
-                        text = location,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = EmployerColors.TextSecondary
-                        )
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ApplicationStatusCard(
-    application: JobApplication,
-    onUpdateStatus: (ApplicationStatus) -> Unit
-) {
-    val statusColor = application.status.getStatusColor()
-    val dateFormat = SimpleDateFormat("MMM dd, yyyy 'at' HH:mm", Locale.getDefault())
-    
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(0.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.auto_application_status),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
-                    )
-                )
-                
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = statusColor.copy(alpha = 0.1f)
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        text = application.status.getDisplayName(),
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontWeight = FontWeight.Medium,
-                            color = statusColor
-                        )
-                    )
-                }
-            }
-            
-            Text(
-                text = "Applied for ${application.jobTitle} at ${application.companyName}",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = EmployerColors.TextSecondary
-                )
-            )
-            
-            Text(
-                text = "Applied on ${dateFormat.format(Date(application.createdAt))}",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = EmployerColors.TextTertiary
-                )
-            )
-            
-            // Cover letter preview
-            if (application.coverLetter.isNotEmpty()) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = EmployerColors.ChipBackground
-                    ),
-                    shape = RoundedCornerShape(0.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(12.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.auto_cover_letter),
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = EmployerColors.TextSecondary
-                            )
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = application.coverLetter,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = EmployerColors.TextSecondary
-                            )
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PersonalInformationCard(
-    workerProfile: WorkerProfileData,
-    application: JobApplication? = null
-) {
-    val appliedAt = application?.createdAt?.takeIf { it > 0L }?.let { createdAt ->
-        SimpleDateFormat("MMM dd, h:mm a", Locale.getDefault()).format(Date(createdAt))
-    }
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(0.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Batch-k fix: inline identity block (avatar + name + applied-for)
-            // inside the Personal Information card so the screen no longer
-            // needs a separate big "Worker" header card.
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(EmployerColors.Primary.copy(alpha = 0.10f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val imageUrl = workerProfile.profileImageUrl
-                    if (!imageUrl.isNullOrBlank()) {
-                        com.example.dutype.components.OptimizedProfileImage(
-                            imageUrl = imageUrl,
-                            contentDescription = "Worker Profile",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape)
-                        )
-                    } else {
-                        val initials = workerProfile.fullName
-                            .split(" ")
-                            .take(2)
-                            .mapNotNull { it.firstOrNull()?.uppercaseChar() }
-                            .joinToString("")
-                            .ifEmpty { workerProfile.fullName.take(1).uppercase() }
-                        if (initials.isNotBlank()) {
-                            Text(
-                                text = initials,
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = EmployerColors.Primary
-                                )
-                            )
-                        } else {
-                            Icon(
-                                Icons.Default.Person,
-                                contentDescription = "Profile",
-                                tint = EmployerColors.Primary,
-                                modifier = Modifier.size(28.dp)
-                            )
-                        }
-                    }
-                }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        text = workerProfile.fullName.ifBlank { "Worker" },
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = EmployerColors.TextPrimary
-                        )
-                    )
-                }
-
-                if (appliedAt != null) {
-                    Text(
-                        text = "Applied $appliedAt",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = EmployerColors.TextSecondary
-                        ),
-                        textAlign = TextAlign.End
-                    )
-                }
-            }
-
-            androidx.compose.material3.HorizontalDivider(
-                color = EmployerColors.Border,
-                thickness = 0.5.dp
-            )
-
-            Text(
-                text = stringResource(R.string.auto_personal_information),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
-                )
-            )
-
-            if (workerProfile.phone.isNotBlank()) {
-                PersonalInfoRow("Phone", workerProfile.phone, isPhone = true)
-            }
-            if (workerProfile.email.isNotBlank()) {
-                PersonalInfoRow("Email", workerProfile.email)
-            }
-            if (workerProfile.gender.isNotBlank()) {
-                PersonalInfoRow("Gender", workerProfile.gender)
-            }
-            if (workerProfile.experienceLevel.isNotBlank()) {
-                PersonalInfoRow("Experience", workerProfile.experienceLevel)
-            }
-            if (workerProfile.educationQualification.isNotBlank()) {
-                PersonalInfoRow("Education", workerProfile.educationQualification)
-            }
-            if (workerProfile.dateOfBirth.isNotBlank()) {
-                PersonalInfoRow("Age", formatWorkerAge(workerProfile.dateOfBirth))
-            }
-            if (workerProfile.bio.isNotBlank()) {
-                PersonalInfoRow("Bio", workerProfile.bio)
-            }
-            if (workerProfile.rating > 0.0) {
-                PersonalInfoRow(
-                    "Rating",
-                    String.format(java.util.Locale.US, "%.1f / 5", workerProfile.rating)
-                )
-            }
-            if (workerProfile.languages.isNotEmpty()) {
-                PersonalInfoRow("Languages", workerProfile.languages.joinToString(", "))
-            }
-        }
-    }
-}
-
-@Composable
-private fun PersonalInfoRow(label: String, value: String, isPhone: Boolean = false) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(
-                if (isPhone && value.isNotBlank()) {
-                    Modifier.clickable {
-                        runCatching {
-                            context.startActivity(
-                                android.content.Intent(
-                                    android.content.Intent.ACTION_DIAL,
-                                    android.net.Uri.parse("tel:$value")
-                                )
-                            )
-                        }
-                    }
-                } else Modifier
-            ),
-            verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            text = "$label : ",
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = EmployerColors.TextSecondary
-            )
-        )
-        Text(
-            text = value,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontWeight = FontWeight.Medium,
-                color = if (isPhone && value.isNotBlank()) EmployerColors.Primary else EmployerColors.TextPrimary
-            )
-        )
-    }
-}
-
-@Composable
-private fun WorkExperienceCard(experience: List<WorkExperienceDisplay>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(0.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.auto_work_experience),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
-                )
-            )
-            
-            experience.forEach { exp ->
-                ExperienceItem(experience = exp)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ExperienceItem(experience: WorkExperienceDisplay) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = EmployerColors.ChipBackground
-        ),
-        shape = RoundedCornerShape(0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = experience.position,
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
-                    )
-                )
-                Text(
-                    text = experience.duration,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = EmployerColors.TextSecondary
-                    )
-                )
-            }
-            
-            Text(
-                text = experience.company,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = EmployerColors.Primary
-                )
-            )
-            
-            Text(
-                text = experience.description,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = EmployerColors.TextSecondary
-                )
-            )
-        }
-    }
-}
-
-@Composable
-private fun SkillsCard(skills: List<String>) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(0.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.auto_skills),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
-                )
-            )
-            
-            // Skills chips
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(skills) { skill ->
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = EmployerColors.Primary.copy(alpha = 0.1f)
-                        ),
-                        shape = RoundedCornerShape(0.dp)
-                    ) {
-                        Text(
-                            text = skill,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontWeight = FontWeight.Medium,
-                                color = EmployerColors.Primary
-                            )
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AdditionalInfoCard(workerProfile: WorkerProfileData) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(0.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.auto_additional_information),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
-                )
-            )
-            
-            if (workerProfile.languages.isNotEmpty()) {
-                Text(
-                    text = "Languages: ${workerProfile.languages.joinToString(", ")}",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = EmployerColors.TextSecondary
-                    )
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActionButtonsCard(
-    application: JobApplication?,
-    hasRatedWorker: Boolean,
-    onRateWorkerClick: () -> Unit,
-    onActionClick: (ApplicationAction) -> Unit
-) {
-    // Batch-p #6: dropped the elevated Card wrapper and the multiple
-    // single-button rows. Shortlist + Reject now share ONE row with
-    // weight(1f) on each button so they fill evenly and read clearly
-    // as a paired primary/secondary action.
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        if (application?.status == ApplicationStatus.APPLIED || application?.status == ApplicationStatus.APPLIED) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
-                    onClick = { onActionClick(ApplicationAction.REJECT) },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = EmployerColors.Error
-                    )
-                ) {
-                    Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.reject), style = MaterialTheme.typography.bodyMedium)
-                }
-                Button(
-                    onClick = { onActionClick(ApplicationAction.SHORTLIST) },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = EmployerColors.Success
-                    )
-                ) {
-                    Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.accept), style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        }
-
-        // Shown once the candidate is hired so the employer can close the contract early.
-        // If they never do, the job auto-completes server-side a few hours after hiring.
-        if (application?.status == ApplicationStatus.HIRED) {
-            Button(
-                onClick = { onActionClick(ApplicationAction.MARK_COMPLETED) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF1F8B4C)
-                )
-            ) {
-                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(stringResource(R.string.mark_work_done), style = MaterialTheme.typography.bodyMedium)
-            }
-        }
-
-        if (application?.status == ApplicationStatus.COMPLETED) {
-            OutlinedButton(
-                onClick = onRateWorkerClick,
-                enabled = !hasRatedWorker,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = EmployerColors.Warning,
-                    disabledContentColor = EmployerColors.Success
-                )
-            ) {
-                Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    if (hasRatedWorker) "Rated Worker" else "Rate Worker",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun ApplicationActionDialog(
     action: ApplicationAction,
     workerName: String,
@@ -1083,9 +343,9 @@ private fun ApplicationActionDialog(
         title = {
             Text(
                 text = when (action) {
-                    ApplicationAction.SHORTLIST -> "Accept Candidate"
-                    ApplicationAction.REJECT -> "Reject Application"
-                    ApplicationAction.MARK_COMPLETED -> "Mark Work Done"
+                    ApplicationAction.SHORTLIST -> stringResource(R.string.accept_candidate)
+                    ApplicationAction.REJECT -> stringResource(R.string.reject_application)
+                    ApplicationAction.MARK_COMPLETED -> stringResource(R.string.mark_work_done)
                 },
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold
@@ -1095,9 +355,9 @@ private fun ApplicationActionDialog(
         text = {
             Text(
                 text = when (action) {
-                    ApplicationAction.SHORTLIST -> "Are you sure you want to accept $workerName for this position?"
-                    ApplicationAction.REJECT -> "Are you sure you want to reject $workerName's application?"
-                    ApplicationAction.MARK_COMPLETED -> "Mark this work as completed for $workerName? Their earnings will be unlocked."
+                    ApplicationAction.SHORTLIST -> stringResource(R.string.accept_candidate_confirm_msg, workerName)
+                    ApplicationAction.REJECT -> stringResource(R.string.reject_application_confirm_msg, workerName)
+                    ApplicationAction.MARK_COMPLETED -> stringResource(R.string.mark_completed_confirm_msg, workerName)
                 },
                 style = MaterialTheme.typography.bodyMedium
             )
@@ -1219,7 +479,7 @@ private val WpGreen = Color(0xFF16A34A)
 private val WpGreenBg = Color(0xFFF0FDF4)
 private val WpAvatarBg = Color(0xFFDBEAFE)
 private val WpDanger = Color(0xFFDC2626)
-private val WpTabs = listOf("Skills & Exp", "Reviews", "Contact")
+private val WpTabs = listOf(R.string.wp_tab_skills_exp, R.string.wp_tab_reviews, R.string.wp_tab_contact)
 
 private data class WpTimelineItem(
     val title: String,
@@ -1227,20 +487,7 @@ private data class WpTimelineItem(
     val dates: String
 )
 
-private fun wpMemberSince(raw: Any?): String {
-    var millis = 0L
-    if (raw is Number) {
-        millis = raw.toLong()
-    } else if (raw is Map<*, *>) {
-        val secs = (raw["_seconds"] as? Number) ?: (raw["seconds"] as? Number)
-        millis = (secs?.toLong() ?: 0L) * 1000L
-    }
-    if (millis in 1..99_999_999_999L) millis *= 1000L
-    if (millis <= 0L) return ""
-    return SimpleDateFormat("MMM yyyy", Locale.getDefault()).format(Date(millis))
-}
-
-private fun wpBuildHistory(profile: WorkerProfileData): List<WpTimelineItem> {
+private fun wpBuildHistory(profile: WorkerProfileData, expLabel: String): List<WpTimelineItem> {
     if (profile.experience.isNotEmpty()) {
         return profile.experience.map {
             WpTimelineItem(it.position, it.company, it.duration)
@@ -1249,7 +496,7 @@ private fun wpBuildHistory(profile: WorkerProfileData): List<WpTimelineItem> {
     if (profile.experienceLevel.isNotBlank()) {
         return listOf(
             WpTimelineItem(
-                title = "Experience: " + profile.experienceLevel,
+                title = "$expLabel: " + profile.experienceLevel,
                 subtitle = profile.bio,
                 dates = ""
             )
@@ -1258,18 +505,18 @@ private fun wpBuildHistory(profile: WorkerProfileData): List<WpTimelineItem> {
     return emptyList()
 }
 
-private fun wpAboutRows(profile: WorkerProfileData): List<Pair<String, String>> {
-    val rows = mutableListOf<Pair<String, String>>()
-    if (profile.gender.isNotBlank()) rows.add("Gender" to profile.gender)
+private fun wpAboutRows(context: android.content.Context, profile: WorkerProfileData): List<Pair<Int, String>> {
+    val rows = mutableListOf<Pair<Int, String>>()
+    if (profile.gender.isNotBlank()) rows.add(R.string.gender to profile.gender)
     if (profile.educationQualification.isNotBlank()) {
-        rows.add("Education" to profile.educationQualification)
+        rows.add(R.string.education to profile.educationQualification)
     }
-    if (profile.dateOfBirth.isNotBlank()) rows.add("Age" to formatWorkerAge(profile.dateOfBirth))
-    if (profile.languages.isNotEmpty()) rows.add("Languages" to profile.languages.joinToString(", "))
+    if (profile.dateOfBirth.isNotBlank()) rows.add(R.string.age_label to formatWorkerAge(context, profile.dateOfBirth))
+    if (profile.languages.isNotEmpty()) rows.add(R.string.languages_label to profile.languages.joinToString(", "))
     if (profile.experienceLevel.isNotBlank() && profile.experience.isNotEmpty()) {
-        rows.add("Experience" to profile.experienceLevel)
+        rows.add(R.string.experience to profile.experienceLevel)
     }
-    if (profile.bio.isNotBlank() && profile.experience.isNotEmpty()) rows.add("Bio" to profile.bio)
+    if (profile.bio.isNotBlank() && profile.experience.isNotEmpty()) rows.add(R.string.bio_label to profile.bio)
     return rows
 }
 
@@ -1279,17 +526,17 @@ private fun wpShare(context: android.content.Context, profile: WorkerProfileData
         profile.location.takeIf { it.isNotBlank() }
     ).joinToString(" · ")
     val text = buildString {
-        append(profile.fullName.ifBlank { "Worker" })
+        append(profile.fullName.ifBlank { context.getString(R.string.worker) })
         if (title.isNotBlank()) append("\n").append(title)
-        if (profile.skills.isNotEmpty()) append("\nSkills: ").append(profile.skills.joinToString(", "))
-        append("\nShared via DutyPe")
+        if (profile.skills.isNotEmpty()) append("\n").append(context.getString(R.string.skills)).append(": ").append(profile.skills.joinToString(", "))
+        append("\n").append(context.getString(R.string.shared_via_dutype))
     }
     runCatching {
         val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(android.content.Intent.EXTRA_TEXT, text)
         }
-        context.startActivity(android.content.Intent.createChooser(send, "Share worker profile"))
+        context.startActivity(android.content.Intent.createChooser(send, context.getString(R.string.share_worker_profile)))
     }
 }
 
@@ -1382,7 +629,7 @@ private fun WpTopBar(onBack: () -> Unit, onShare: () -> Unit) {
         IconButton(onClick = onBack, modifier = Modifier.size(40.dp)) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(R.string.back),
                 tint = WpNavy,
                 modifier = Modifier.size(24.dp)
             )
@@ -1390,7 +637,7 @@ private fun WpTopBar(onBack: () -> Unit, onShare: () -> Unit) {
         IconButton(onClick = onShare, modifier = Modifier.size(40.dp)) {
             Icon(
                 imageVector = Icons.Outlined.Share,
-                contentDescription = "Share",
+                contentDescription = stringResource(R.string.share),
                 tint = WpNavy,
                 modifier = Modifier.size(22.dp)
             )
@@ -1456,7 +703,7 @@ private fun WpHeroCard(profile: WorkerProfileData, reviewCount: Int) {
         if (profile.memberSince.isNotBlank()) {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Member since " + profile.memberSince,
+                text = stringResource(R.string.emp_profile_member_since, profile.memberSince),
                 fontSize = 11.sp,
                 color = WpFaint
             )
@@ -1499,7 +746,7 @@ private fun WpAvatar(profile: WorkerProfileData) {
             } else {
                 Icon(
                     imageVector = Icons.Default.Person,
-                    contentDescription = "Profile",
+                    contentDescription = null,
                     tint = WpCobalt,
                     modifier = Modifier.size(32.dp)
                 )
@@ -1516,7 +763,7 @@ private fun WpNameRow(profile: WorkerProfileData) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = profile.fullName.ifBlank { "Worker" },
+            text = profile.fullName.ifBlank { stringResource(R.string.worker) },
             modifier = Modifier.weight(1f),
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
@@ -1560,7 +807,7 @@ private fun WpStatsRow(profile: WorkerProfileData, reviewCount: Int) {
                 Spacer(modifier = Modifier.width(4.dp))
                 val ratingText = String.format(Locale.US, "%.1f", profile.rating)
                 val label = if (reviewCount > 0) {
-                    ratingText + " · " + reviewCount + " reviews"
+                    stringResource(R.string.rating_reviews_format, ratingText, reviewCount)
                 } else {
                     ratingText
                 }
@@ -1571,7 +818,7 @@ private fun WpStatsRow(profile: WorkerProfileData, reviewCount: Int) {
         }
         if (hasJobs) {
             Text(
-                text = profile.completedJobs.toString() + " Jobs Completed",
+                text = stringResource(R.string.jobs_completed_format, profile.completedJobs),
                 fontSize = 13.sp,
                 color = WpMuted
             )
@@ -1587,9 +834,9 @@ private fun WpTabStrip(selected: Int, onSelect: (Int) -> Unit) {
             .padding(horizontal = 20.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
-            WpTabs.forEachIndexed { index, label ->
+            WpTabs.forEachIndexed { index, labelRes ->
                 WpTabItem(
-                    label = label,
+                    label = stringResource(labelRes),
                     active = index == selected,
                     modifier = Modifier.weight(1f),
                     onClick = { onSelect(index) }
@@ -1636,8 +883,9 @@ private fun WpTabItem(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WpSkillsTab(profile: WorkerProfileData) {
-    val history = wpBuildHistory(profile)
-    val about = wpAboutRows(profile)
+    val context = LocalContext.current
+    val history = wpBuildHistory(profile, stringResource(R.string.experience))
+    val about = wpAboutRows(context, profile)
     Column(modifier = Modifier.fillMaxWidth()) {
         if (profile.skills.isNotEmpty()) {
             FlowRow(
@@ -1657,7 +905,7 @@ private fun WpSkillsTab(profile: WorkerProfileData) {
             WpAboutCard(about)
         }
         if (profile.skills.isEmpty() && history.isEmpty() && about.isEmpty()) {
-            Text(text = "No skills listed yet", fontSize = 14.sp, color = WpMuted)
+            Text(text = stringResource(R.string.no_skills_listed_yet), fontSize = 14.sp, color = WpMuted)
         }
     }
 }
@@ -1685,7 +933,7 @@ private fun WpHistoryCard(items: List<WpTimelineItem>) {
             .padding(16.dp)
     ) {
         Text(
-            text = "Work History",
+            text = stringResource(R.string.work_history),
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             color = WpInk
@@ -1748,7 +996,7 @@ private fun WpTimelineRow(item: WpTimelineItem, isLast: Boolean) {
 }
 
 @Composable
-private fun WpAboutCard(rows: List<Pair<String, String>>) {
+private fun WpAboutCard(rows: List<Pair<Int, String>>) {
     Column(
         modifier = Modifier
             .wpCard()
@@ -1756,14 +1004,14 @@ private fun WpAboutCard(rows: List<Pair<String, String>>) {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
-            text = "About",
+            text = stringResource(R.string.about),
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             color = WpInk
         )
         rows.forEach { row ->
             Column {
-                Text(text = row.first, fontSize = 11.sp, color = WpFaint)
+                Text(text = stringResource(row.first), fontSize = 11.sp, color = WpFaint)
                 Text(text = row.second, fontSize = 14.sp, color = WpNavy)
             }
         }
@@ -1774,7 +1022,7 @@ private fun WpAboutCard(rows: List<Pair<String, String>>) {
 private fun WpReviewsTab(reviews: List<Rating>) {
     if (reviews.isEmpty()) {
         Text(
-            text = "No reviews yet",
+            text = stringResource(R.string.no_reviews_yet),
             modifier = Modifier.fillMaxWidth(),
             fontSize = 14.sp,
             color = WpMuted,
@@ -1792,7 +1040,7 @@ private fun WpReviewsTab(reviews: List<Rating>) {
 
 @Composable
 private fun WpReviewCard(review: Rating) {
-    val name = review.raterCompanyName.ifBlank { review.raterName }.ifBlank { "Employer" }
+    val name = review.raterCompanyName.ifBlank { review.raterName }.ifBlank { stringResource(R.string.employer) }
     Column(
         modifier = Modifier
             .wpCard()
@@ -1836,7 +1084,7 @@ private fun WpContactTab(profile: WorkerProfileData) {
         profile.location.isNotBlank()
     if (!hasAny) {
         Text(
-            text = "No contact details available",
+            text = stringResource(R.string.no_contact_details_available),
             modifier = Modifier.fillMaxWidth(),
             fontSize = 14.sp,
             color = WpMuted,
@@ -1852,7 +1100,7 @@ private fun WpContactTab(profile: WorkerProfileData) {
     ) {
         if (profile.phone.isNotBlank()) {
             WpContactRow(
-                label = "Phone",
+                label = stringResource(R.string.phone_label),
                 value = profile.phone,
                 valueColor = WpCobalt,
                 onClick = { wpDial(context, profile.phone) }
@@ -1860,7 +1108,7 @@ private fun WpContactTab(profile: WorkerProfileData) {
         }
         if (profile.email.isNotBlank()) {
             WpContactRow(
-                label = "Email",
+                label = stringResource(R.string.email),
                 value = profile.email,
                 valueColor = WpNavy,
                 onClick = null
@@ -1868,7 +1116,7 @@ private fun WpContactTab(profile: WorkerProfileData) {
         }
         if (profile.location.isNotBlank()) {
             WpContactRow(
-                label = "Location",
+                label = stringResource(R.string.location),
                 value = profile.location,
                 valueColor = WpNavy,
                 onClick = null
@@ -1911,7 +1159,7 @@ private fun WpRejectButton(onClick: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "Reject application",
+            text = stringResource(R.string.reject_application),
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             color = WpDanger
@@ -1929,9 +1177,9 @@ private fun WpBottomBar(
     onActionClick: (ApplicationAction) -> Unit
 ) {
     val rightLabel: String? = when (status) {
-        ApplicationStatus.APPLIED -> "✓ Hire for This Job"
-        ApplicationStatus.HIRED -> "✓ Mark Work Done"
-        ApplicationStatus.COMPLETED -> if (hasRatedWorker) "Rated Worker" else "Rate Worker"
+        ApplicationStatus.APPLIED -> stringResource(R.string.hire_for_this_job)
+        ApplicationStatus.HIRED -> stringResource(R.string.mark_work_done)
+        ApplicationStatus.COMPLETED -> if (hasRatedWorker) stringResource(R.string.rated_worker) else stringResource(R.string.rate_worker)
         else -> null
     }
     if (phone.isBlank() && rightLabel == null) return
@@ -1964,7 +1212,7 @@ private fun WpBottomBar(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             WpBarButton(
-                label = "Call Worker",
+                label = stringResource(R.string.call_worker),
                 modifier = Modifier.weight(1f),
                 filled = false,
                 showPhone = true,
@@ -2061,7 +1309,7 @@ data class WorkerProfileData(
     val memberSince: String = ""
 )
 
-private fun formatWorkerAge(dateOfBirth: String): String {
+private fun formatWorkerAge(context: android.content.Context, dateOfBirth: String): String {
     val formats = listOf("dd/MM/yyyy", "dd-MM-yyyy", "yyyy-MM-dd")
     val birthDate = formats.firstNotNullOfOrNull { pattern ->
         runCatching {
@@ -2072,7 +1320,7 @@ private fun formatWorkerAge(dateOfBirth: String): String {
     val today = java.util.Calendar.getInstance()
     var age = today.get(java.util.Calendar.YEAR) - birth.get(java.util.Calendar.YEAR)
     if (today.get(java.util.Calendar.DAY_OF_YEAR) < birth.get(java.util.Calendar.DAY_OF_YEAR)) age--
-    return if (age > 0) "$age years old" else dateOfBirth
+    return if (age > 0) context.getString(R.string.years_old_format, age) else dateOfBirth
 }
 
 /**
@@ -2095,10 +1343,4 @@ enum class ApplicationAction {
 }
 
 // NOTE: getStatusColor removed - use ApplicationStatus.getStatusColor() extension from models instead
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun ProfessionalWorkerProfileViewScreenPreview() {
-    ProfessionalWorkerProfileViewScreen(navController = rememberNavController(), workerId = "sample_worker_id")
-}
 

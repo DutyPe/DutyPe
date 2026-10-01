@@ -28,8 +28,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.employer.components.JobImageUploadSection
+import com.example.dutype.employer.models.EmploymentType
 import com.example.dutype.employer.models.*
-import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
+import com.example.dutype.viewmodels.EmployerJobsViewModel
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.utils.JobEditPolicy
@@ -47,26 +48,21 @@ import androidx.compose.ui.res.stringResource
 fun EditJobScreen(
     navController: NavController,
     jobId: String,
-    viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
+    viewModel: EmployerJobsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    // LocationService accessed via FirestoreJobViewModel (proper DI pattern)
-    val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
-    val locationService = jobViewModel.locationService
-    
-    // Saved work locations quick-pick (process-scoped, in-memory)
-    val savedWorkLocationsStore: com.example.dutype.services.SavedWorkLocationsStore =
-        hiltViewModel<com.example.dutype.viewmodels.WorkerHomeViewModel>().savedWorkLocationsStore
+    val locationService = viewModel.locationService
+    val savedWorkLocationsStore = viewModel.savedWorkLocationsStore
     val savedWorkLocations by savedWorkLocationsStore.locations.collectAsState()
 
     // Get the current job from ViewModel
     val uiState by viewModel.uiState.collectAsState()
-    val isLoading = uiState.isUpdatingJob || uiState.isDeletingJob
-    
+    val isLoading = uiState.isUpdatingJob
+
     // Current job state
     var currentJob by remember { mutableStateOf<com.example.dutype.models.JobListing?>(null) }
-    
+
     // Timing restriction - can't edit after 48 hours
     var canEditJob by remember { mutableStateOf(true) }
     var timeRestrictionMessage by remember { mutableStateOf("") }
@@ -78,10 +74,10 @@ fun EditJobScreen(
     var location by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var contactNumber by remember { mutableStateOf("") }
-    var shiftTiming by remember { mutableStateOf(ShiftTiming.FLEXIBLE) }
+    var shift by remember { mutableStateOf(JobShift.ANY) }
     var vacancies by remember { mutableStateOf("") }
     var employerName by remember { mutableStateOf("") }
-    var workType by remember { mutableStateOf("Part-time") }
+    var employmentType by remember { mutableStateOf(EmploymentType.FULL_TIME) }
     var experienceLevel by remember { mutableStateOf("No Experience Required") }
     var educationRequired by remember { mutableStateOf("No qualification required") }
     var gender by remember { mutableStateOf("Both") }
@@ -89,7 +85,6 @@ fun EditJobScreen(
     var jobImageUrl by remember { mutableStateOf("") }
     var isUploadingJobImage by remember { mutableStateOf(false) }
 
-    val workTypes = listOf("Part-time", "Full-time", "Contract", "Temporary", "Weekend Only", "Student-friendly")
     val baseExperienceLevels = listOf(
         "No Experience Required",
         "Fresher (Educated)",
@@ -127,66 +122,23 @@ fun EditJobScreen(
     var locationError by remember { mutableStateOf<String?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var isLoadingJob by remember { mutableStateOf(true) }
-    
+
     // Saved work locations are read-only here; new addresses are saved only from Manage Addresses.
     var showSavedLocationsSheet by remember { mutableStateOf(false) }
-    
+
     // Location coordinates for distance calculation
     var locationLatitude by remember { mutableStateOf(0.0) }
     var locationLongitude by remember { mutableStateOf(0.0) }
 
-    // Load jobs first, then find the specific job
+    // Card + details in one read of each doc; closes the screen if the job is gone.
     LaunchedEffect(jobId) {
-        Timber.d(" EditJobScreen - Loading job with ID: $jobId")
-        
-        // First load all jobs to ensure we have the latest data
-        viewModel.loadMyJobs()
-    }
-    
-    // Saved work locations now flow from SavedWorkLocationsStore via collectAsState above.
-    
-    // Add timeout for job loading (10 seconds)
-    LaunchedEffect(jobId) {
-        kotlinx.coroutines.delay(10000) // 10 seconds timeout
-        if (isLoadingJob && currentJob == null) {
-            Timber.w(" EditJobScreen - Job loading timeout, navigating back")
+        viewModel.getJob(jobId) { job ->
+            currentJob = job
             isLoadingJob = false
-            navController.popBackStack()
+            if (job == null) navController.popBackStack()
         }
     }
-    
-    // Load the specific job once jobs are loaded
-    LaunchedEffect(uiState.myJobs, jobId) {
-        Timber.d(" EditJobScreen - Jobs loaded: ${uiState.myJobs.size}, looking for jobId: $jobId")
-        uiState.myJobs.forEach { job ->
-            Timber.d(" EditJobScreen - Available job: ${job.id} - ${job.title}")
-        }
-        
-        if (uiState.myJobs.isNotEmpty()) {
-            // Bug #1 fix: Use the cached card ONLY as a skeleton placeholder so the
-            // form renders instantly, but ALWAYS fetch the full merged document via
-            // getJobById(). uiState.myJobs is sourced from getJobsByEmployer() which
-            // reads only the public `jobmetadata` collection (no description,
-            // contactNumber, vacancies, benefits). The merged read pulls `job_details`
-            // too, so the edit form is correctly pre-filled.
-            val existingJob = uiState.myJobs.find { it.id == jobId }
-            if (existingJob != null) {
-                Timber.d(" EditJobScreen - placeholder from cache: ${existingJob.title}")
-                currentJob = existingJob
-            }
-            Timber.d(" EditJobScreen - fetching full merged job from repository")
-            viewModel.getJobById(jobId) { job ->
-                if (job != null) {
-                    Timber.d(" EditJobScreen - merged job loaded: ${job.title}")
-                    currentJob = job
-                } else if (existingJob == null) {
-                    Timber.w(" EditJobScreen - Job not found in repository")
-                }
-                isLoadingJob = false
-            }
-        }
-    }
-    
+
     // Observe current job and check timing restriction
     LaunchedEffect(currentJob) {
         val job = currentJob
@@ -194,15 +146,15 @@ fun EditJobScreen(
             try {
                 Timber.d(" EditJobScreen - Job loaded: ${job.title}")
                 Timber.d(" EditJobScreen - Job posted at: ${job.createdAt}")
-                
+
                 val currentTime = System.currentTimeMillis()
                 val jobPostedTime = job.createdAt
-                
+
                 Timber.d(" EditJobScreen - Current time: $currentTime")
                 Timber.d(" EditJobScreen - Job posted time: $jobPostedTime")
                 Timber.d(" EditJobScreen - Time difference: ${currentTime - jobPostedTime}")
                 Timber.d(" EditJobScreen - Edit window millis: ${JobEditPolicy.EDIT_WINDOW_MILLIS}")
-                
+
                 if (!JobEditPolicy.canEdit(jobPostedTime, currentTime)) {
                     canEditJob = false
                     timeRestrictionMessage = JobEditPolicy.blockedMessage(jobPostedTime, currentTime)
@@ -227,44 +179,26 @@ fun EditJobScreen(
     LaunchedEffect(currentJob) {
         currentJob?.let { job ->
             title = job.title
-            payAmount = job.salary
-            location = job.addressText.ifBlank { job.location }
+            payAmount = if (job.payAmount > 0) job.payAmount.toString() else ""
+            location = job.addressText.ifBlank { job.area }
             description = job.description
             contactNumber = job.contactNumber
-            // Initialize location coordinates from existing job
             locationLatitude = job.lat
             locationLongitude = job.lng
-            Timber.d(" EditJob: Loaded existing coordinates - lat: $locationLatitude, lon: $locationLongitude")
-            // Pay type from stored salaryType ("HOURLY"|"DAILY"|"MONTHLY")
-            payType = PayType.values().firstOrNull {
-                it.name.equals(job.salaryType, ignoreCase = true) ||
-                    it.displayName.equals(job.salaryType, ignoreCase = true)
-            } ?: PayType.DAILY
+            payType = PayType.fromKey(job.payType)
             vacancies = job.vacancies.toString()
             employerName = job.companyName
-            // Job type stored on `jobType` (Full-time / Part-time / …).
-            workType = job.jobType.ifBlank { "Part-time" }
+            employmentType = EmploymentType.fromKey(job.employmentType)
             experienceLevel = job.experienceRequired.ifBlank { "No Experience Required" }
             educationRequired = job.educationRequired.ifBlank { "No qualification required" }
-            gender = when {
-                job.gender.equals("Any", ignoreCase = true) -> "Both"
-                job.gender.isBlank() -> "Both"
-                else -> job.gender
+            gender = when (job.gender) {
+                "MALE" -> "Male"
+                "FEMALE" -> "Female"
+                else -> "Both"
             }
-            jobImageUrl = job.jobImageUrl.orEmpty()
+            jobImageUrl = job.photoUrl.orEmpty()
             jobImageUri = null
-            val storedShiftTiming = job.shiftTiming.ifBlank { ShiftTiming.FLEXIBLE.displayName }
-            val matchedShift = listOf(
-                ShiftTiming.MORNING,
-                ShiftTiming.NIGHT,
-                ShiftTiming.BOTH,
-                ShiftTiming.FLEXIBLE
-            ).firstOrNull { shift ->
-                shift.name.equals(storedShiftTiming, ignoreCase = true) ||
-                    shift.displayName.equals(storedShiftTiming, ignoreCase = true)
-            }
-            shiftTiming = matchedShift ?: ShiftTiming.FLEXIBLE
-            Timber.d(" EditJob: prefilled payType=$payType shift=$storedShiftTiming")
+            shift = JobShift.fromKey(job.shift)
         }
     }
 
@@ -307,7 +241,7 @@ fun EditJobScreen(
     fun validateForm(): Boolean {
         val vacancyCount = vacancies.toIntOrNull()
         return title.isNotBlank() &&
-                payAmount.trim().length >= 4 &&
+                (payType == PayType.NEGOTIABLE || (payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L) > 0L) &&
                 location.isNotBlank() &&
                 description.isNotBlank() &&
                 contactNumber.isNotBlank() &&
@@ -324,8 +258,8 @@ fun EditJobScreen(
                     // If coordinates are 0,0 (user typed location manually), try to geocode
                     var finalLatitude = locationLatitude
                     var finalLongitude = locationLongitude
-                    val locationChanged = location != originalJob.addressText.ifBlank { originalJob.location }
-                    
+                    val locationChanged = location != originalJob.addressText
+
                     if (locationLatitude == 0.0 && locationLongitude == 0.0 && location.isNotBlank()) {
                         Timber.d(" EDIT JOB: Geocoding manual location: $location")
                         val geocodedLocation = locationService.getCoordinatesFromAddress(location)
@@ -342,42 +276,39 @@ fun EditJobScreen(
                             return@launch
                         }
                     }
-                    
+
                     if (!com.example.dutype.utils.GeoUtils.hasValidCoordinates(finalLatitude, finalLongitude)) {
                         locationError = context.getString(R.string.valid_job_location_required)
                         return@launch
                     }
 
-                    val finalShiftTiming = shiftTiming.displayName
-
-                    val updates = mapOf(
-                        "title" to title,
-                        "salary" to payAmount.trim(),
-                        "salaryType" to payType.name,
-                        "location" to mapOf("lat" to finalLatitude, "lng" to finalLongitude),
-                        "addressText" to location,
-                        "description" to description,
-                        "contactNumber" to contactNumber,
-                        "vacancies" to (vacancies.toIntOrNull() ?: return@launch),
-                        // Save the chosen work mode (Part-time / Full-time / …)
-                        // as `jobType`.
-                        "jobType" to workType,
-                        "category" to com.example.dutype.utils.JobCategoryResolver.inferCategoryName(title, description),
-                        "shiftTiming" to finalShiftTiming,
-                        "experienceRequired" to experienceLevel,
-                        "educationRequired" to educationRequired,
-                        "gender" to gender,
-                        "jobImageUrl" to jobImageUrl
+                    val form = com.example.dutype.jobs.JobForm(
+                        title = title.trim(),
+                        category = com.example.dutype.utils.JobCategoryResolver.inferCategoryName(title, description, originalJob.category),
+                        employmentType = employmentType.key,
+                        payAmount = if (payType == PayType.NEGOTIABLE) 0L else payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L,
+                        payType = payType.key,
+                        vacancies = vacancies.toIntOrNull() ?: return@launch,
+                        urgency = originalJob.urgency,
+                        shift = shift.key,
+                        area = com.example.dutype.utils.AreaText.from(location),
+                        lat = finalLatitude,
+                        lng = finalLongitude,
+                        photoUrl = jobImageUrl.ifBlank { null },
+                        description = description.trim(),
+                        addressText = location.trim(),
+                        contactNumber = contactNumber,
+                        gender = when (gender) { "Male" -> "MALE"; "Female" -> "FEMALE"; else -> "ANY" },
+                        experienceRequired = experienceLevel,
+                        educationRequired = educationRequired,
+                        benefits = originalJob.benefits
                     )
-                    
-                    Timber.d(" EDIT JOB: Updating job with coordinates - lat: $finalLatitude, lon: $finalLongitude")
-                    
-                    viewModel.updateJob(originalJob.id, updates) { success, error ->
+
+                    viewModel.updateJob(originalJob.id, form) { success, error ->
                         if (success) {
                             navController.popBackStack()
                         } else {
-                            // Handle error - could show a toast or error message
-                            Timber.e("❌ Failed to update job: $error")
+                            android.widget.Toast.makeText(context, error ?: context.getString(R.string.failed_update_job), android.widget.Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -392,8 +323,7 @@ fun EditJobScreen(
                 if (success) {
                     navController.popBackStack()
                 } else {
-                    // Handle error - could show a toast or error message
-                    Timber.e("❌ Failed to delete job: $error")
+                    android.widget.Toast.makeText(context, error ?: context.getString(R.string.failed_delete_job), android.widget.Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -461,9 +391,9 @@ fun EditJobScreen(
                             )
                         }
                     }
-                    
+
                     Spacer(modifier = Modifier.width(12.dp))
-                    
+
                     Text(
                         text = stringResource(R.string.auto_edit_job),
                         style = AppTypography.screenTitle.copy(
@@ -471,7 +401,7 @@ fun EditJobScreen(
                         ),
                         modifier = Modifier.weight(1f)
                     )
-                    
+
                     if (canEditJob) {
                         Surface(
                             onClick = { showDeleteDialog = true },
@@ -532,7 +462,7 @@ fun EditJobScreen(
                             }
                         }
                     }
-                    
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -583,7 +513,7 @@ fun EditJobScreen(
                             }
                         }
                     }
-                    
+
                     // Navigation bar spacer
                     Spacer(
                         modifier = Modifier
@@ -713,7 +643,7 @@ fun EditJobScreen(
                             supportingText = {
                                 if (isPayAmountInvalid) {
                                     Text(
-                                        "Salary must be at least 4 characters",
+                                        stringResource(R.string.salary_min_4_chars),
                                         color = MaterialTheme.colorScheme.error
                                     )
                                 }
@@ -728,7 +658,7 @@ fun EditJobScreen(
                             )
                         )
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(PayType.values().toList()) { type ->
+                            items(PayType.entries) { type ->
                                 val selected = payType == type
                                 FilterChip(
                                     selected = selected,
@@ -854,7 +784,7 @@ fun EditJobScreen(
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
-                        
+
                         if (savedWorkLocations.isNotEmpty()) {
                             OutlinedButton(
                                 onClick = { showSavedLocationsSheet = true },
@@ -1112,13 +1042,13 @@ fun EditJobScreen(
                                 )
                             )
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(workTypes) { type ->
-                                    val selected = workType == type
+                                items(EmploymentType.entries) { type ->
+                                    val selected = employmentType == type
                                     FilterChip(
-                                        onClick = { workType = type },
+                                        onClick = { employmentType = type },
                                         label = {
                                             Text(
-                                                type,
+                                                type.displayName,
                                                 fontSize = 12.sp,
                                                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
                                             )
@@ -1152,17 +1082,12 @@ fun EditJobScreen(
                                     color = EmployerColors.TextSecondary
                                 )
                             )
-                            val shiftOptions = listOf(
-                                ShiftTiming.MORNING,
-                                ShiftTiming.NIGHT,
-                                ShiftTiming.BOTH,
-                                ShiftTiming.FLEXIBLE
-                            )
+                            val shiftOptions = JobShift.entries
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(shiftOptions) { option ->
-                                    val selected = shiftTiming == option
+                                    val selected = shift == option
                                     FilterChip(
-                                        onClick = { shiftTiming = option },
+                                        onClick = { shift = option },
                                         label = {
                                             Text(
                                                 option.displayName,
@@ -1271,16 +1196,16 @@ fun EditJobScreen(
             }
         )
     }
-    
+
     // Saved Locations Bottom Sheet (Industry standard pattern - Uber, Swiggy, Zomato)
     if (showSavedLocationsSheet) {
         AlertDialog(
             onDismissRequest = { showSavedLocationsSheet = false },
-            title = { 
+            title = {
                 Text(
                     stringResource(R.string.saved_work_locations),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                ) 
+                )
             },
             text = {
                 LazyColumn(
@@ -1337,7 +1262,7 @@ fun EditJobScreen(
                                     )
                                     if (workLocation.usageCount > 0) {
                                         Text(
-                                            "Used ${workLocation.usageCount} times",
+                                            stringResource(R.string.used_times_format, workLocation.usageCount),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = EmployerColors.Success,
                                             fontSize = 11.sp

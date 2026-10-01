@@ -30,7 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
+import com.example.dutype.viewmodels.EmployerJobsViewModel
 import com.example.dutype.viewmodels.InstantHelpViewModel
 import com.example.dutype.models.InstantRequest
 import com.example.dutype.models.JobListing
@@ -68,11 +68,11 @@ private fun InstantRequest.toJobListing(): JobListing {
         id = requestId,
         employerId = employerId,
         title = "[Urgent] $title",
-        salary = budgetText,
-        salaryType = "HOURLY",
-        jobType = "Urgent Gig",
+        payAmount = budgetText.filter { it.isDigit() }.toLongOrNull() ?: 0L,
+        payType = com.example.dutype.firestore.FirestoreSchema.Values.PayType.DAILY,
+        employmentType = com.example.dutype.firestore.FirestoreSchema.Values.EmploymentType.DAILY,
         geohash = geohash,
-        urgency = "HIGH",
+        urgency = com.example.dutype.firestore.FirestoreSchema.Values.Urgency.HIGH,
         status = status,
         createdAt = createdAt,
         expiresAt = expiresAt,
@@ -92,16 +92,16 @@ private val HiBlack = Color(0xFF0F0F0F)
 private val HiBorder = Color(0xFFE2E8F0)
 private val HiMuted = Color(0xFF94A3B8)
 private val HiGreen = Color(0xFF10B981)
-private val HiRanges = listOf("This Week", "This Month", "3 Months")
+private val HiRanges = listOf(R.string.this_week, R.string.this_month, R.string.period_3_months)
 private val HiRangeDays = listOf(7, 30, 90)
-private val HiDays = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+private val HiDays = listOf(R.string.day_mon, R.string.day_tue, R.string.day_wed, R.string.day_thu, R.string.day_fri, R.string.day_sat, R.string.day_sun)
 
 // PLACEHOLDER scale used when there is no application data yet (mock design values)
 private val HiMockBars = listOf(70f, 96f, 58f, 140f, 110f, 44f, 32f)
 
 @Composable
 fun AnalyticsScreen(navController: NavController) {
-    val viewModel: FirestoreEmployerJobViewModel = hiltViewModel()
+    val viewModel: EmployerJobsViewModel = hiltViewModel()
 
     val applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
     val appUiState by applicationViewModel.uiState.collectAsStateWithLifecycle()
@@ -158,7 +158,7 @@ private fun HiTitleRow(navController: NavController) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
             imageVector = Icons.Default.ArrowBack,
-            contentDescription = "Back",
+            contentDescription = stringResource(R.string.back),
             tint = HiInk,
             modifier = Modifier
                 .size(24.dp)
@@ -166,7 +166,7 @@ private fun HiTitleRow(navController: NavController) {
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
-            text = "Hiring Insights",
+            text = stringResource(R.string.hiring_insights),
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = HiInk
@@ -177,8 +177,8 @@ private fun HiTitleRow(navController: NavController) {
 @Composable
 private fun HiFilterChips(selected: Int, onSelect: (Int) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        HiRanges.forEachIndexed { index, label ->
-            HiChip(label = label, active = index == selected, onClick = { onSelect(index) })
+        HiRanges.forEachIndexed { index, labelRes ->
+            HiChip(label = stringResource(labelRes), active = index == selected, onClick = { onSelect(index) })
         }
     }
 }
@@ -211,15 +211,15 @@ private fun HiKpiGrid(applications: Int, hired: Int) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             // PLACEHOLDER: job views are not tracked yet
-            HiKpiCard("Job Views", "1,240", "↑ 12%", Modifier.weight(1f))
+            HiKpiCard(stringResource(R.string.job_views), "1,240", "↑ 12%", Modifier.weight(1f))
             // Real count; delta is a placeholder
-            HiKpiCard("Applications", applications.toString(), "↑ 8%", Modifier.weight(1f))
+            HiKpiCard(stringResource(R.string.applications), applications.toString(), "↑ 8%", Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             // Real count; delta is a placeholder
-            HiKpiCard("Workers Hired", hired.toString(), "↑ 5%", Modifier.weight(1f))
+            HiKpiCard(stringResource(R.string.workers_hired), hired.toString(), "↑ 5%", Modifier.weight(1f))
             // PLACEHOLDER: response time is not tracked yet
-            HiKpiCard("Avg Response", "18 min", "↓ Better", Modifier.weight(1f))
+            HiKpiCard(stringResource(R.string.avg_response), stringResource(R.string.eighteen_min), stringResource(R.string.delta_better), Modifier.weight(1f))
         }
     }
 }
@@ -259,7 +259,7 @@ private fun HiBarChartCard(counts: List<Int>) {
             .padding(20.dp)
     ) {
         Text(
-            text = "Weekly Applications",
+            text = stringResource(R.string.weekly_applications),
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             color = HiBlack
@@ -306,9 +306,9 @@ private fun HiBarLabels() {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        HiDays.forEach { day ->
+        HiDays.forEach { dayRes ->
             Text(
-                text = day,
+                text = stringResource(dayRes),
                 modifier = Modifier.width(24.dp),
                 fontSize = 11.sp,
                 color = HiMuted,
@@ -331,7 +331,7 @@ private fun HiInsightCard() {
             .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 14.dp)
     ) {
         Text(
-            text = "💡 Post urgent needs before 9 AM for 2× faster responses",
+            text = stringResource(R.string.hiring_insight_tip),
             fontSize = 13.sp,
             color = Color(0xFF1D4ED8)
         )
@@ -352,7 +352,7 @@ fun OverviewStatsSection(
                 color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
             )
         )
-        
+
         // First row
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard(
@@ -370,7 +370,7 @@ fun OverviewStatsSection(
                 modifier = Modifier.weight(1f)
             )
         }
-        
+
         // Second row
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard(
@@ -404,7 +404,7 @@ fun ApplicationStatsCard(appStats: ApplicationStats) {
                     color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 )
             )
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
@@ -499,7 +499,7 @@ fun RecentApplicationsSection(
                     )
                 }
             }
-            
+
             if (applications.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -559,7 +559,7 @@ fun RecentJobsActivitySection(jobs: List<JobListing>) {
                     color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                 )
             )
-            
+
             if (jobs.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -619,9 +619,9 @@ private fun JobActivityItem(job: JobListing) {
                 modifier = Modifier.size(20.dp)
             )
         }
-        
+
         Spacer(modifier = Modifier.width(12.dp))
-        
+
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = job.title,
@@ -633,13 +633,13 @@ private fun JobActivityItem(job: JobListing) {
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = "Posted ${DateTimeUtils.formatRelativeTime(job.createdAt)}",
+                text = stringResource(R.string.posted_time_ago_format, DateTimeUtils.formatRelativeTime(job.createdAt)),
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = EmployerColors.TextSecondary
                 )
             )
         }
-        
+
         // Status badge
         Box(
             modifier = Modifier
@@ -794,11 +794,11 @@ fun RecentApplicationItem(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Worker ${application.workerId.takeLast(6)}",
+                    text = stringResource(R.string.worker_id_format, application.workerId.takeLast(6)),
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium)
                 )
                 Text(
-                    text = "Job ${application.jobId.takeLast(6)}",
+                    text = stringResource(R.string.job_id_format, application.jobId.takeLast(6)),
                     style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
                 )
             }

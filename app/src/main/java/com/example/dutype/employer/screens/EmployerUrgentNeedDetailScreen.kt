@@ -48,12 +48,7 @@ fun EmployerUrgentNeedDetailScreen(
     val applicationViewModel: com.example.dutype.viewmodels.EmployerApplicationViewModel = hiltViewModel()
     val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
     val matchedWorkersState by applicationViewModel.matchedWorkersState.collectAsStateWithLifecycle()
-    val ratingService = remember {
-        com.example.dutype.services.RatingService(
-            com.example.dutype.di.firestoreFromHilt(context),
-            com.example.dutype.di.authFromHilt(context)
-        )
-    }
+    val ratingService = remember { com.example.dutype.di.ratingServiceFromHilt(context) }
 
     var pendingRatingResponse by remember { mutableStateOf<InstantResponse?>(null) }
     var pendingCompletionResponse by remember { mutableStateOf<InstantResponse?>(null) }
@@ -111,7 +106,8 @@ fun EmployerUrgentNeedDetailScreen(
                             rating = rating,
                             review = review,
                             tags = tags,
-                            targetRole = "WORKER"
+                            targetRole = "WORKER",
+                            source = com.example.dutype.services.RatingService.SOURCE_INSTANT
                         ).fold(
                             onSuccess = { result ->
                                 Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
@@ -176,23 +172,23 @@ fun EmployerUrgentNeedDetailScreen(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Delete Urgent Post") },
-            text = { Text("Are you sure you want to delete this urgent post? This action cannot be undone.") },
+            title = { Text(stringResource(R.string.delete_urgent_post_title)) },
+            text = { Text(stringResource(R.string.delete_urgent_post_body)) },
             confirmButton = {
                 TextButton(
                     onClick = {
                         showDeleteConfirm = false
                         instantHelpViewModel.deleteEmployerInstantRequest(requestId) { success ->
                             if (success) {
-                                Toast.makeText(context, "Post deleted successfully", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.post_deleted_success), Toast.LENGTH_SHORT).show()
                                 onNavigateBack()
                             } else {
-                                Toast.makeText(context, "Failed to delete post", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.failed_delete_post), Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
                 ) {
-                    Text("Delete", color = EmployerColors.Error)
+                    Text(stringResource(R.string.delete), color = EmployerColors.Error)
                 }
             },
             dismissButton = {
@@ -209,8 +205,8 @@ fun EmployerUrgentNeedDetailScreen(
             .background(EmployerColors.ScreenBackground)
     ) {
         CommonHeader(
-            title = "⚡ Instant Hiring Room",
-            subtitle = request?.title ?: "Review workers, call directly & hire instantly",
+            title = stringResource(R.string.instant_hiring_room),
+            subtitle = request?.title ?: stringResource(R.string.instant_hiring_room_subtitle),
             navController = navController,
             onBackClick = onNavigateBack,
             backgroundColor = EmployerColors.ScreenBackground
@@ -237,15 +233,11 @@ fun EmployerUrgentNeedDetailScreen(
                     )
                 }
             },
-            onRequestMatchedWorker = { worker ->
-                applicationViewModel.requestMatchedWorker(requestId, worker.workerId)
-                Toast.makeText(context, "Request sent to ${worker.fullName}!", Toast.LENGTH_SHORT).show()
-            },
             onOpenMatchedWorkerProfile = { worker ->
                 navController.navigate(Routes.workerProfileViewRoute(worker.workerId))
             },
             onOpenWorkerProfile = { response -> navController.navigate(Routes.workerProfileViewRoute(response.workerId)) },
-            onCallWorker = { phone -> openDialer(context, phone) },
+            onCallWorker = { response -> instantHelpViewModel.callWorker(response) { phone -> openDialer(context, phone) } },
             onSelectResponse = { response -> instantHelpViewModel.acceptEmployerInstantResponse(response) },
             onCompleteResponse = { response -> pendingCompletionResponse = response },
             onNoShowResponse = { response -> pendingNoShowResponse = response },

@@ -56,7 +56,7 @@ import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
-import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
+import com.example.dutype.viewmodels.EmployerJobsViewModel
 import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -80,15 +80,10 @@ fun EmployerApplicationManagementScreen(
 ) {
     val context = LocalContext.current
     val viewModel: EmployerApplicationViewModel = hiltViewModel()
-    val jobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
+    val jobViewModel: EmployerJobsViewModel = hiltViewModel()
     val reviewTriggerService = rememberInAppReviewTriggerService()
     val scope = rememberCoroutineScope()
-    val ratingService = remember {
-        com.example.dutype.services.RatingService(
-            com.example.dutype.di.firestoreFromHilt(context),
-            com.example.dutype.di.authFromHilt(context)
-        )
-    }
+    val ratingService = remember { com.example.dutype.di.ratingServiceFromHilt(context) }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val stats by viewModel.stats.collectAsStateWithLifecycle()
     val matchedWorkersState by viewModel.matchedWorkersState.collectAsStateWithLifecycle()
@@ -97,7 +92,7 @@ fun EmployerApplicationManagementScreen(
     var showStatusFilter by remember { mutableStateOf(false) }
     var showSearchBar by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
-    
+
     // FINTECH: Contact Unlock Dialog State
     var showUnlockDialog by remember { mutableStateOf(false) }
     var pendingUnlockApplication by remember { mutableStateOf<JobApplication?>(null) }
@@ -112,55 +107,38 @@ fun EmployerApplicationManagementScreen(
     var pendingCloseJobId by remember { mutableStateOf<String?>(null) }
     var isClosingJob by remember { mutableStateOf(false) }
 
-    // Audio intro playback helper & Stop-calls hiring dialog
-    val playbackHelper = remember { com.example.dutype.utils.AudioPlaybackHelper(scope) }
-    DisposableEffect(Unit) {
-        onDispose {
-            playbackHelper.release()
-        }
-    }
+    // Stop-calls hiring dialog
     var showStopCallsHiringDialog by remember { mutableStateOf(false) }
     var pendingHiringApplication by remember { mutableStateOf<JobApplication?>(null) }
 
     val toggleJobCalls: (String, Boolean) -> Unit = { targetJobId, pauseCalls ->
-        scope.launch {
-            try {
-                val firestore = FirebaseFirestore.getInstance()
-                val updates = mapOf(
-                    "callsStopped" to pauseCalls,
-                    "status" to if (pauseCalls) "filled" else "open",
-                    "updatedAt" to com.google.firebase.Timestamp.now()
-                )
-                firestore.collection("jobs").document(targetJobId).update(updates).await()
-                firestore.collection("jobmetadata").document(targetJobId).update(updates).await()
-                firestore.collection("job_details").document(targetJobId).update(updates).await()
+        val done: (Boolean, String?) -> Unit = { ok, error ->
+            if (ok) {
                 isJobClosedOverride = pauseCalls
                 currentJob = currentJob?.copy(status = if (pauseCalls) "filled" else "open")
                 Toast.makeText(
                     context,
-                    if (pauseCalls) "Calls stopped (Job Filled)" else "Job reopened (Accepting Calls)",
+                    if (pauseCalls) context.getString(R.string.calls_stopped_job_filled) else context.getString(R.string.job_reopened_accepting_calls),
                     Toast.LENGTH_SHORT
                 ).show()
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to toggle job calls")
-                Toast.makeText(context, "Failed to update call status", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, error ?: context.getString(R.string.failed_update_call_status), Toast.LENGTH_SHORT).show()
             }
         }
+        if (pauseCalls) jobViewModel.markFilled(targetJobId, done) else jobViewModel.reopenJob(targetJobId, done)
     }
-    
+
     val isJobFilled = remember(currentJob, uiState.applications, isJobClosedOverride) {
         isJobClosedOverride ||
         currentJob?.status?.equals("filled", ignoreCase = true) == true ||
         currentJob?.status?.equals("closed", ignoreCase = true) == true ||
-        currentJob?.status?.equals("completed", ignoreCase = true) == true ||
-        uiState.applications.any { it.status == ApplicationStatus.HIRED || it.status == ApplicationStatus.COMPLETED || it.status == ApplicationStatus.FILLED }
+        uiState.applications.any { it.status == ApplicationStatus.HIRED || it.status == ApplicationStatus.COMPLETED }
     }
 
     val hiredApplications = remember(uiState.applications) {
         uiState.applications.filter {
             it.status == ApplicationStatus.HIRED ||
-            it.status == ApplicationStatus.COMPLETED ||
-            it.status == ApplicationStatus.FILLED
+            it.status == ApplicationStatus.COMPLETED
         }
     }
 
@@ -171,11 +149,9 @@ fun EmployerApplicationManagementScreen(
             viewModel.loadEmployerApplications()
         } else {
             viewModel.loadJobApplications(jobId)
-            jobViewModel.getJobById(jobId) { job ->
+            jobViewModel.getJob(jobId) { job ->
                 currentJob = job
-                val statusStr = job?.status.orEmpty().lowercase(Locale.ROOT)
-                val isFilledStatus = statusStr == "filled" || statusStr == "closed" || statusStr == "completed"
-                isJobClosedOverride = isFilledStatus
+                isJobClosedOverride = job != null && !job.isOpen()
             }
         }
     }
@@ -197,7 +173,7 @@ fun EmployerApplicationManagementScreen(
         reportSummary = fetchJobReportSummary(jobId)
         isReportSummaryLoading = false
     }
-    
+
     // Handle search
     LaunchedEffect(searchQuery, selectedTabIndex, jobId) {
         if (jobId == null || selectedTabIndex == 1) {
@@ -211,11 +187,11 @@ fun EmployerApplicationManagementScreen(
             if (ratingService.hasRated(application.jobId, application.workerId)) application.id else null
         }.toSet()
     }
-    
+
     // FINTECH: Contact Unlock Payment Dialog
     if (showUnlockDialog && pendingUnlockApplication != null) {
         NeedSubscriptionDialog(
-            onDismiss = { 
+            onDismiss = {
                 showUnlockDialog = false
                 pendingUnlockApplication = null
             },
@@ -256,7 +232,7 @@ fun EmployerApplicationManagementScreen(
                                 }
                             },
                             onFailure = { error ->
-                                Toast.makeText(context, error.message ?: "Failed to submit rating", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, error.message ?: context.getString(R.string.failed_to_submit_rating), Toast.LENGTH_LONG).show()
                             }
                         )
                     }
@@ -274,16 +250,16 @@ fun EmployerApplicationManagementScreen(
                     pendingCloseJobId = null
                 }
             },
-            title = { Text("Vacancies Filled!") },
+            title = { Text(stringResource(R.string.vacancies_filled_title)) },
             text = {
-                Text("You have hired all required workers! Would you like to mark this job as Filled?")
+                Text(stringResource(R.string.vacancies_filled_message))
             },
             confirmButton = {
                 TextButton(
                     enabled = !isClosingJob,
                     onClick = {
                         isClosingJob = true
-                        jobViewModel.updateJob(effectiveCloseJobId, mapOf("status" to "filled")) { success, error ->
+                        jobViewModel.markFilled(effectiveCloseJobId) { success, error ->
                             isClosingJob = false
                             if (success) {
                                 showCloseJobDialog = false
@@ -297,7 +273,7 @@ fun EmployerApplicationManagementScreen(
                         }
                     }
                 ) {
-                    Text(if (isClosingJob) stringResource(R.string.closing_ellipsis) else "Mark as Filled")
+                    Text(if (isClosingJob) stringResource(R.string.closing_ellipsis) else stringResource(R.string.mark_as_filled))
                 }
             },
             dismissButton = {
@@ -324,18 +300,22 @@ fun EmployerApplicationManagementScreen(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("🎉", fontSize = 20.sp)
-                    Text("Confirm Hiring", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text(stringResource(R.string.confirm_hiring), fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 }
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "You are hiring ${app.workerName.ifBlank { "this worker" }} for ${app.jobTitle.ifBlank { "this job" }}.",
+                        text = stringResource(
+                            R.string.hiring_worker_for_job_prompt,
+                            app.workerName.ifBlank { stringResource(R.string.this_worker) },
+                            app.jobTitle.ifBlank { stringResource(R.string.dutype_job) }
+                        ),
                         fontSize = 14.sp,
                         color = Color(0xFF1E293B)
                     )
                     Text(
-                        text = "Do you want to STOP incoming phone calls for this job now to prevent spam calls?",
+                        text = stringResource(R.string.stop_calls_prompt),
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
                         color = Color(0xFFDC2626)
@@ -358,20 +338,20 @@ fun EmployerApplicationManagementScreen(
                 ) {
                     Icon(Icons.Default.CallEnd, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Stop Calls (Job Filled)", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(stringResource(R.string.stop_calls_job_filled), fontWeight = FontWeight.Bold, color = Color.White)
                 }
             },
             dismissButton = {
                 OutlinedButton(
                     onClick = {
                         viewModel.updateApplicationStatus(app.id, ApplicationStatus.HIRED, "Hired from passbook (keep open)")
-                        Toast.makeText(context, "Candidate hired! Job remains open for more calls.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.candidate_hired_keep_open), Toast.LENGTH_SHORT).show()
                         showStopCallsHiringDialog = false
                         pendingHiringApplication = null
                     },
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("Keep Open (Need More)")
+                    Text(stringResource(R.string.keep_open_need_more))
                 }
             }
         )
@@ -402,12 +382,13 @@ fun EmployerApplicationManagementScreen(
     val hiredCount = remember(uiState.applications) {
         uiState.applications.count { it.status in filledApplicationStatuses }
     }
-    
+
     val isApplicantsList = !(jobId != null && isJobFilled) && !(jobId != null && selectedTabIndex == 0 && isJobLive)
+    val applicantText = if (applicantCountForSummary == 1) stringResource(R.string.applicant) else stringResource(R.string.applicants)
     val headerStrip = if (jobId != null) {
-        "$jobTitleForActions · $applicantCountForSummary ${if (applicantCountForSummary == 1) "Applicant" else "Applicants"}"
+        "$jobTitleForActions · $applicantCountForSummary $applicantText"
     } else {
-        "$applicantCountForSummary ${if (applicantCountForSummary == 1) "Applicant" else "Applicants"}"
+        "$applicantCountForSummary $applicantText"
     }
     val extras: @Composable () -> Unit = {
         HiringRoomExtras(
@@ -431,7 +412,7 @@ fun EmployerApplicationManagementScreen(
             .background(HrBackground)
     ) {
         HiringRoomHeader(
-            title = if (jobId != null) "Hiring Room" else "All Applications",
+            title = if (jobId != null) stringResource(R.string.hiring_room) else stringResource(R.string.all_applications),
             subtitle = headerStrip,
             onBackClick = onBackClick
         )
@@ -470,28 +451,27 @@ fun EmployerApplicationManagementScreen(
                 onApplicationClick = onApplicationClick,
                 onUnlockContact = { application ->
                     viewModel.unlockContact(
-                        applicationId = application.id,
-                        onSuccess = {
+                        application = application,
+                        onSuccess = { _ ->
                             Toast.makeText(context, context.getString(R.string.contact_unlocked), Toast.LENGTH_SHORT).show()
                             val activity = context as? Activity
                             if (activity != null) {
                                 reviewTriggerService.onEmployerContactUnlocked(activity)
                             }
                         },
-                        onPaymentRequired = {
-                            showUnlockDialog = true
-                            pendingUnlockApplication = application
+                        onFailure = {
+                            Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show()
                         }
                     )
                 },
-                isContactUnlocked = { id, idx -> viewModel.isContactUnlocked(id, idx) },
+                isContactUnlocked = { workerId, _ -> viewModel.isContactUnlocked(workerId) },
                 ratedApplicationIds = ratedApplicationIds,
                 onStatusUpdate = { app, status, notes ->
                     viewModel.updateApplicationStatus(app.id, status, notes)
                     if (status == ApplicationStatus.HIRED) {
                         val targetJobId = jobId ?: app.jobId
                         if (targetJobId.isNotBlank()) {
-                            viewModel.canHireMoreApplicants(targetJobId) { canAccept, remaining ->
+                            viewModel.canHireMoreApplicants(currentJob?.vacancies ?: 1) { canAccept, remaining ->
                                 if (!canAccept || remaining <= 0) {
                                     pendingCloseJobId = targetJobId
                                     showCloseJobDialog = true
@@ -504,7 +484,6 @@ fun EmployerApplicationManagementScreen(
                     pendingRatingApplication = application
                     showRatingSheet = true
                 },
-                playbackHelper = playbackHelper,
                 modifier = Modifier.weight(1f)
             )
         } else if (jobId != null && selectedTabIndex == 0 && isJobLive) {
@@ -512,26 +491,23 @@ fun EmployerApplicationManagementScreen(
                 state = matchedWorkersState,
                 isJobLive = isJobLive,
                 onRefresh = { viewModel.loadMatchedWorkers(jobId, force = true) },
-                isContactUnlocked = { workerId -> viewModel.isContactUnlocked(workerId, 0) },
-                onUnlockContact = { worker -> 
-                    viewModel.unlockContact(
-                        applicationId = worker.workerId,
-                        onSuccess = {
-                            // Contact unlocked, reload to fetch phone number
-                            viewModel.loadMatchedWorkers(jobId, force = true)
-                        },
-                        onPaymentRequired = {
-                            onSubscribeClick()
+                isContactUnlocked = { workerId -> viewModel.isContactUnlocked(workerId) },
+                onUnlockContact = { worker ->
+                    viewModel.fetchPhoneNumberForWorker(
+                        jobId = jobId,
+                        workerId = worker.workerId,
+                        onSuccess = { },
+                        onFailure = {
+                            Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show()
                         }
                     )
                 },
-                onRequestWorker = { worker -> viewModel.requestMatchedWorker(jobId, worker.workerId) },
                 onCallWorker = { worker ->
                     val phone = worker.phone
                     if (phone.isNotBlank()) {
                         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
                     } else {
-                        Toast.makeText(context, "Fetching phone number...", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.fetching_phone_number), Toast.LENGTH_SHORT).show()
                         viewModel.fetchPhoneNumberForWorker(
                             jobId = jobId,
                             workerId = worker.workerId,
@@ -539,11 +515,11 @@ fun EmployerApplicationManagementScreen(
                                 if (fetchedPhone.isNotBlank()) {
                                     context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$fetchedPhone")))
                                 } else {
-                                    Toast.makeText(context, "Phone number is not available.", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show()
                                 }
                             },
                             onFailure = {
-                                Toast.makeText(context, "Failed to fetch phone number. Please try again.", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.failed_fetch_phone_number), Toast.LENGTH_SHORT).show()
                             }
                         )
                     }
@@ -568,31 +544,27 @@ fun EmployerApplicationManagementScreen(
                 allApplications = uiState.applications,
                 visibleApplications = visibleApplications,
                 isJobSpecific = jobId != null,
-                freeContactsRemaining = uiState.freeContactsRemaining,
                 callReadyCandidates = callReadyCandidates,
                 isJobLive = isJobLive,
                 ratedApplicationIds = ratedApplicationIds,
-                playbackHelper = playbackHelper,
                 employerShopAddress = currentJob?.addressText.orEmpty(),
                 leadingContent = if (jobId != null) extras else null,
                 onCloseJob = { showCloseJobDialog = true },
                 onOpen = { application ->
-                    viewModel.markApplicationAsViewed(application.id)
                     onApplicationClick(application)
                 },
                 onUnlock = { application ->
                     viewModel.unlockContact(
-                        applicationId = application.id,
-                        onSuccess = {
+                        application = application,
+                        onSuccess = { _ ->
                             Toast.makeText(context, context.getString(R.string.contact_unlocked), Toast.LENGTH_SHORT).show()
                             val activity = context as? Activity
                             if (activity != null) {
                                 reviewTriggerService.onEmployerContactUnlocked(activity)
                             }
                         },
-                        onPaymentRequired = {
-                            showUnlockDialog = true
-                            pendingUnlockApplication = application
+                        onFailure = {
+                            Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show()
                         }
                     )
                 },
@@ -605,7 +577,7 @@ fun EmployerApplicationManagementScreen(
                     if (newStatus == ApplicationStatus.HIRED) {
                         val targetJobId = jobId ?: application.jobId
                         if (targetJobId.isNotBlank()) {
-                            viewModel.canHireMoreApplicants(targetJobId) { canAccept, remaining ->
+                            viewModel.canHireMoreApplicants(currentJob?.vacancies ?: 1) { canAccept, remaining ->
                                 if (!canAccept || remaining <= 0) {
                                     pendingCloseJobId = targetJobId
                                     showCloseJobDialog = true
@@ -623,13 +595,12 @@ fun EmployerApplicationManagementScreen(
                         if (application.status == ApplicationStatus.HIRED) {
                             val completed = viewModel.updateApplicationStatusForResult(
                                 applicationId = application.id,
-                                newStatus = ApplicationStatus.COMPLETED,
-                                notes = "Marked work done from applications list"
+                                newStatus = ApplicationStatus.COMPLETED
                             )
                             if (completed.isFailure) {
                                 Toast.makeText(
                                     context,
-                                    completed.exceptionOrNull()?.message ?: "Failed to mark work done",
+                                    completed.exceptionOrNull()?.message ?: context.getString(R.string.failed_mark_work_done),
                                     Toast.LENGTH_LONG
                                 ).show()
                                 return@launch
@@ -660,7 +631,6 @@ private fun MatchedWorkersContent(
     onRefresh: () -> Unit,
     isContactUnlocked: (String) -> Boolean,
     onUnlockContact: (MatchedWorker) -> Unit,
-    onRequestWorker: (MatchedWorker) -> Unit,
     onCallWorker: (MatchedWorker) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -682,7 +652,7 @@ private fun MatchedWorkersContent(
                     modifier = Modifier.padding(24.dp)
                 ) {
                     Text(
-                        text = state.error ?: "Failed to load matched workers",
+                        text = state.error ?: stringResource(R.string.failed_load_matched_workers),
                         style = AppTypography.bodyMedium.copy(color = EmployerColors.Error),
                         textAlign = TextAlign.Center
                     )
@@ -713,9 +683,9 @@ private fun MatchedWorkersContent(
                     )
                     Text(
                         text = if (isJobLive) {
-                            "Matches improve when workers add skills and location."
+                            stringResource(R.string.matches_improve_hint)
                         } else {
-                            "Accepted workers will stay visible here when available."
+                            stringResource(R.string.accepted_workers_hint)
                         },
                         style = AppTypography.bodySmall.copy(color = EmployerColors.TextSecondary),
                         textAlign = TextAlign.Center
@@ -727,16 +697,8 @@ private fun MatchedWorkersContent(
             val rankedWorkers = remember(state.workers) {
                 state.workers.sortedMatchedWorkersForConnectNow()
             }
-            val visibleWorkers = remember(rankedWorkers, isJobLive) {
-                if (isJobLive) {
-                    rankedWorkers
-                } else {
-                    rankedWorkers.sortedWith(
-                        compareByDescending<MatchedWorker> { it.requestStatus.equals("accepted", ignoreCase = true) }
-                            .thenByDescending { it.connectNowScore() }
-                    )
-                }
-            }
+            // A filled job shows no new matches.
+            val visibleWorkers = if (isJobLive) rankedWorkers else emptyList()
 
             if (visibleWorkers.isEmpty()) {
                 Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -779,9 +741,9 @@ private fun MatchedWorkersContent(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = if (isJobLive) {
-                                "Nearest workers are shown first, then availability and profile strength."
+                                stringResource(R.string.nearest_workers_sort_hint)
                             } else {
-                                "Selected workers stay active. Remaining matches are shown as disabled cards."
+                                stringResource(R.string.selected_workers_stay_active_hint)
                             },
                             style = AppTypography.bodySmall.copy(color = EmployerColors.TextSecondary)
                         )
@@ -798,11 +760,9 @@ private fun MatchedWorkersContent(
                         MatchedWorkerCard(
                             worker = worker,
                             isJobLive = isJobLive,
-                            isDisabledForFilledJob = !isJobLive && !worker.requestStatus.equals("accepted", ignoreCase = true),
-                            isRequesting = state.requestingWorkerId == worker.workerId,
+                            isDisabledForFilledJob = !isJobLive,
                             isContactUnlocked = isContactUnlocked(worker.workerId),
                             onUnlockContact = { onUnlockContact(worker) },
-                            onRequestWorker = { onRequestWorker(worker) },
                             onCallWorker = { onCallWorker(worker) }
                         )
                     }
@@ -969,25 +929,6 @@ private fun HiringRoomMetricItem(
 }
 
 @Composable
-private fun RankingHintBanner() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(EmployerColors.InfoLight, RoundedCornerShape(12.dp))
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Icon(Icons.Default.Call, contentDescription = null, tint = EmployerColors.Primary, modifier = Modifier.size(18.dp))
-        Text(
-            text = stringResource(R.string.ranking_hint_best_first),
-            style = AppTypography.bodySmall.copy(color = EmployerColors.Info),
-            modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
 private fun TooManyApplicationsBanner(
     totalApplications: Int,
     callReadyCandidates: Int,
@@ -1028,21 +969,16 @@ private fun MatchedWorkerCard(
     worker: MatchedWorker,
     isJobLive: Boolean,
     isDisabledForFilledJob: Boolean,
-    isRequesting: Boolean,
     isContactUnlocked: Boolean,
     onUnlockContact: () -> Unit,
-    onRequestWorker: () -> Unit,
     onCallWorker: (MatchedWorker) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val status = worker.requestStatus.lowercase(Locale.ROOT)
-    val requestSent = status in setOf("pending", "accepted")
     val canCall = (worker.phone.isNotBlank() || isContactUnlocked) && !isDisabledForFilledJob
-    val workerStatusText = when (status) {
-        "accepted" -> stringResource(R.string.selected_worker)
-        "pending" -> stringResource(R.string.request_sent)
-        "rejected" -> stringResource(R.string.not_available_for_job)
-        else -> if (isDisabledForFilledJob) stringResource(R.string.job_is_filled) else if (worker.isAvailable) stringResource(R.string.available_now) else stringResource(R.string.invite_to_confirm)
+    val workerStatusText = when {
+        isDisabledForFilledJob -> stringResource(R.string.job_is_filled)
+        worker.isAvailable -> stringResource(R.string.available_now)
+        else -> formatWorkerDistance(worker.distanceKm)
     }
     val contentAlpha = if (isDisabledForFilledJob) 0.58f else 1f
     val cardContainerColor = if (isDisabledForFilledJob) {
@@ -1108,30 +1044,9 @@ private fun MatchedWorkerCard(
                     )
                 }
 
-                if (status.isNotBlank()) {
-                    RequestStatusPill(status)
-                }
             }
 
             MatchedWorkerMetricsGrid(worker = worker)
-
-            if (status == "accepted") {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    color = EmployerColors.SuccessLight
-                ) {
-                    Text(
-                        text = if (isJobLive) {
-                            stringResource(R.string.selected_keep_job_open)
-                        } else {
-                            stringResource(R.string.selected_filled_job)
-                        },
-                        style = AppTypography.bodySmall.copy(color = Color(0xFF047857)),
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                    )
-                }
-            }
 
             if (isDisabledForFilledJob) {
                 Surface(
@@ -1177,27 +1092,6 @@ private fun MatchedWorkerCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedButton(
-                    onClick = onRequestWorker,
-                    enabled = isJobLive && !requestSent && !isRequesting && !isDisabledForFilledJob,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    if (isRequesting) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, modifier = Modifier.size(18.dp))
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        when {
-                            !isJobLive -> stringResource(R.string.job_is_filled)
-                            requestSent -> stringResource(R.string.requested)
-                            else -> stringResource(R.string.request)
-                        }
-                    )
-                }
-
                 if (!isContactUnlocked) {
                     Button(
                         onClick = onUnlockContact,
@@ -1210,7 +1104,7 @@ private fun MatchedWorkerCard(
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Unlock")
+                        Text(stringResource(R.string.unlock))
                     }
                 } else {
                     Button(
@@ -1238,14 +1132,14 @@ private fun MatchedWorkerMetricsGrid(worker: MatchedWorker) {
     ) {
         WorkerMetricBlock(
             icon = Icons.Default.LocationOn,
-            label = "Away",
+            label = stringResource(R.string.away_label),
             value = formatWorkerDistanceShort(worker.distanceKm),
             color = EmployerColors.Primary,
             modifier = Modifier.weight(1f)
         )
         WorkerMetricBlock(
             icon = Icons.Default.CheckCircle,
-            label = "Jobs done",
+            label = stringResource(R.string.jobs_done_label),
             value = worker.completedJobs.toString(),
             color = EmployerColors.Success,
             modifier = Modifier.weight(1f)
@@ -1259,7 +1153,7 @@ private fun MatchedWorkerMetricsGrid(worker: MatchedWorker) {
         )
         WorkerMetricBlock(
             icon = Icons.Default.FlashOn,
-            label = "Status",
+            label = stringResource(R.string.status_label),
             value = formatMatchedWorkerStatus(worker),
             color = Color(0xFF7C3AED),
             modifier = Modifier.weight(1f)
@@ -1295,27 +1189,6 @@ private fun WorkerMetricBlock(
             style = AppTypography.caption.copy(color = EmployerColors.TextSecondary),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
-private fun RequestStatusPill(status: String) {
-    val normalized = status.lowercase(Locale.ROOT)
-    val color = when (normalized) {
-        "accepted" -> EmployerColors.Success
-        "rejected" -> EmployerColors.Error
-        "expired" -> EmployerColors.TextSecondary
-        else -> EmployerColors.Warning
-    }
-    Surface(
-        color = color.copy(alpha = 0.12f),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Text(
-            text = normalized.replaceFirstChar { it.titlecase(Locale.ROOT) },
-            style = AppTypography.caption.copy(color = color, fontWeight = FontWeight.SemiBold),
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
         )
     }
 }
@@ -1417,7 +1290,7 @@ private fun JobReportSummaryCard(
                 }
             } else if (summary != null) {
                 Text(
-                    text = "Reported by ${summary.reportCount} worker(s)",
+                    text = stringResource(R.string.reported_by_workers_format, summary.reportCount),
                     style = AppTypography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF7F1D1D)
@@ -1449,90 +1322,6 @@ private fun JobReportSummaryCard(
     }
 }
 
-// Stats Summary Card
-@Composable
-private fun ApplicationStatsSummary(
-    stats: com.example.dutype.models.ApplicationStats,
-    selectedFilter: ApplicationStatus?,
-    onFilterSelected: (ApplicationStatus?) -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = EmployerColors.ChipBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            StatsSummaryItem(
-                value = stats.totalApplications.toString(),
-                label = stringResource(R.string.total_label),
-                color = EmployerColors.Primary,
-                isSelected = selectedFilter == null,
-                onClick = { onFilterSelected(null) }
-            )
-            StatsSummaryItem(
-                value = stats.appliedApplications.toString(),
-                label = stringResource(R.string.applied),
-                color = EmployerColors.Warning,
-                isSelected = selectedFilter == ApplicationStatus.APPLIED,
-                onClick = { onFilterSelected(ApplicationStatus.APPLIED) }
-            )
-            StatsSummaryItem(
-                value = stats.totalApplications.toString(),
-                label = stringResource(R.string.shortlisted),
-                color = Color(0xFF8B5CF6),
-                isSelected = selectedFilter == ApplicationStatus.APPLIED,
-                onClick = { onFilterSelected(ApplicationStatus.APPLIED) }
-            )
-            StatsSummaryItem(
-                value = stats.hiredApplications.toString(),
-                label = stringResource(R.string.hired),
-                color = EmployerColors.Success,
-                isSelected = selectedFilter == ApplicationStatus.HIRED,
-                onClick = { onFilterSelected(ApplicationStatus.HIRED) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatsSummaryItem(
-    value: String,
-    label: String,
-    color: Color,
-    isSelected: Boolean = false,
-    onClick: () -> Unit = {}
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clickable(onClick = onClick)
-            .background(
-                color = if (isSelected) color.copy(alpha = 0.12f) else Color.Transparent,
-                shape = RoundedCornerShape(10.dp)
-            )
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-    ) {
-        Text(
-            text = value,
-            style = AppTypography.statNumber.copy(color = color)
-        )
-        Text(
-            text = label,
-            style = AppTypography.caption.copy(
-                color = if (isSelected) color else EmployerColors.TextSecondary
-            )
-        )
-    }
-}
-
 // NOTE: getStatusColor removed - use ApplicationStatus.getStatusColor() extension function
 // Import: import com.example.dutype.models.getStatusColor
 
@@ -1550,35 +1339,31 @@ private val HrRed = Color(0xFFDC2626)
 private val HrAvatarColors = listOf(Color(0xFFDBEAFE), Color(0xFFBBF7D0), Color(0xFFFDE68A))
 private val HrShortlistedStatuses = setOf(
     ApplicationStatus.HIRED,
-    ApplicationStatus.COMPLETED,
-    ApplicationStatus.FILLED
+    ApplicationStatus.COMPLETED
 )
 
-private enum class HiringFilter(val label: String) {
-    ALL("All"),
-    NEW("New"),
-    SHORTLISTED("Shortlisted"),
-    CONTACTED("Contacted"),
-    REJECTED("Rejected")
+private enum class HiringFilter(val labelRes: Int) {
+    ALL(R.string.filter_all),
+    NEW(R.string.filter_new),
+    SHORTLISTED(R.string.filter_shortlisted),
+    CONTACTED(R.string.filter_contacted),
+    REJECTED(R.string.filter_rejected)
 }
 
 private fun JobApplication.matchesHiringFilter(filter: HiringFilter, contacted: Set<String>): Boolean {
     return when (filter) {
         HiringFilter.ALL -> true
-        HiringFilter.NEW -> status == ApplicationStatus.APPLIED && viewedAt == 0L
+        HiringFilter.NEW -> status == ApplicationStatus.APPLIED
         HiringFilter.SHORTLISTED -> status in HrShortlistedStatuses
         HiringFilter.CONTACTED -> id in contacted
         HiringFilter.REJECTED -> status == ApplicationStatus.REJECTED
     }
 }
 
+@Composable
 private fun hiringSubtitle(application: JobApplication): String {
-    val exp = application.workerExperience.trim()
-    val expText = when {
-        exp.isBlank() -> ""
-        exp.all { it.isDigit() } -> "$exp yrs exp"
-        else -> exp
-    }
+    val years = application.worker?.experienceYears ?: 0
+    val expText = if (years > 0) stringResource(R.string.years_exp_format, years) else ""
     return listOf(application.jobTitle.trim(), expText)
         .filter { it.isNotBlank() }
         .joinToString(" · ")
@@ -1608,7 +1393,7 @@ private fun openWorkerWhatsApp(context: Context, phone: String, message: String)
     runCatching {
         context.startActivity(Intent(Intent.ACTION_VIEW, waUri))
     }.onFailure {
-        Toast.makeText(context, "WhatsApp is not installed", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, context.getString(R.string.whatsapp_not_installed), Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -1626,7 +1411,7 @@ private fun HiringRoomHeader(
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-            contentDescription = "Back",
+            contentDescription = stringResource(R.string.back),
             tint = HrInk,
             modifier = Modifier
                 .size(24.dp)
@@ -1729,10 +1514,11 @@ private fun HiringFilterRow(
     ) {
         items(HiringFilter.values().toList()) { filter ->
             val count = counts[filter] ?: 0
+            val filterName = stringResource(filter.labelRes)
             val label = if (filter == HiringFilter.REJECTED && count == 0) {
-                filter.label
+                filterName
             } else {
-                "${filter.label} ($count)"
+                "$filterName ($count)"
             }
             HiringFilterChip(
                 label = label,
@@ -1750,11 +1536,9 @@ private fun HiringApplicantsSection(
     allApplications: List<JobApplication>,
     visibleApplications: List<JobApplication>,
     isJobSpecific: Boolean,
-    freeContactsRemaining: Int,
     callReadyCandidates: Int,
     isJobLive: Boolean,
     ratedApplicationIds: Set<String>,
-    playbackHelper: com.example.dutype.utils.AudioPlaybackHelper?,
     employerShopAddress: String,
     leadingContent: (@Composable () -> Unit)?,
     onCloseJob: () -> Unit,
@@ -1779,9 +1563,6 @@ private fun HiringApplicantsSection(
     val showList = !isLoading && allApplications.isNotEmpty() && displayed.isNotEmpty()
 
     Column(modifier = modifier) {
-        if (freeContactsRemaining > 0 && allApplications.size > 3) {
-            FreeContactsBanner(freeRemaining = freeContactsRemaining)
-        }
         if (!showList && leadingContent != null) {
             leadingContent()
         }
@@ -1821,7 +1602,6 @@ private fun HiringApplicantsSection(
                     callReadyCandidates = callReadyCandidates,
                     isJobLive = isJobLive,
                     ratedApplicationIds = ratedApplicationIds,
-                    playbackHelper = playbackHelper,
                     employerShopAddress = employerShopAddress,
                     leadingContent = leadingContent,
                     onCloseJob = onCloseJob,
@@ -1846,7 +1626,6 @@ private fun HiringApplicantsList(
     callReadyCandidates: Int,
     isJobLive: Boolean,
     ratedApplicationIds: Set<String>,
-    playbackHelper: com.example.dutype.utils.AudioPlaybackHelper?,
     employerShopAddress: String,
     leadingContent: (@Composable () -> Unit)?,
     onCloseJob: () -> Unit,
@@ -1881,7 +1660,6 @@ private fun HiringApplicantsList(
             HiringApplicantCard(
                 application = application,
                 hasAlreadyRated = application.id in ratedApplicationIds,
-                playbackHelper = playbackHelper,
                 employerShopAddress = employerShopAddress,
                 modifier = Modifier.padding(horizontal = 20.dp),
                 onClick = { onOpen(application) },
@@ -1899,7 +1677,7 @@ private fun HiringApplicantsList(
 private fun HiringAvatar(application: JobApplication) {
     val name = application.workerName
     val bg = HrAvatarColors[(name.hashCode() and 0x7fffffff) % HrAvatarColors.size]
-    val imageUrl = application.workerProfileImageUrl
+    val imageUrl = application.workerPhoto
     Box(
         modifier = Modifier
             .size(48.dp)
@@ -1957,7 +1735,7 @@ private fun HiringCardTopRow(
     onChat: () -> Unit
 ) {
     val subtitle = hiringSubtitle(application)
-    val distance = application.distanceKm
+    val distance = application.worker?.distanceKm
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top
@@ -1988,7 +1766,7 @@ private fun HiringCardTopRow(
         Column(horizontalAlignment = Alignment.End) {
             if (distance != null && distance > 0.0) {
                 Text(
-                    text = String.format(Locale.ROOT, "%.1f km away", distance),
+                    text = stringResource(R.string.km_away_format, distance),
                     fontSize = 11.sp,
                     color = HrFaint,
                     maxLines = 1
@@ -1996,8 +1774,8 @@ private fun HiringCardTopRow(
                 Spacer(modifier = Modifier.height(8.dp))
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HiringCircleButton(Icons.Outlined.Call, "Call", onCall)
-                HiringCircleButton(Icons.Outlined.ChatBubbleOutline, "Chat", onChat)
+                HiringCircleButton(Icons.Outlined.Call, stringResource(R.string.call), onCall)
+                HiringCircleButton(Icons.Outlined.ChatBubbleOutline, stringResource(R.string.chat), onChat)
             }
         }
     }
@@ -2074,7 +1852,7 @@ private fun HiringRateSection(
         contentPadding = PaddingValues(horizontal = 14.dp)
     ) {
         Text(
-            text = if (canMarkWorkDone) "Mark Work Done" else if (hasAlreadyRated) "Rated Worker" else "Rate Worker",
+            text = if (canMarkWorkDone) stringResource(R.string.mark_work_done) else if (hasAlreadyRated) stringResource(R.string.rated_worker) else stringResource(R.string.rate_worker),
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold
         )
@@ -2085,7 +1863,6 @@ private fun HiringRateSection(
 private fun HiringApplicantCard(
     application: JobApplication,
     hasAlreadyRated: Boolean,
-    playbackHelper: com.example.dutype.utils.AudioPlaybackHelper?,
     employerShopAddress: String,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
@@ -2096,13 +1873,20 @@ private fun HiringApplicantCard(
     onRate: () -> Unit
 ) {
     val context = LocalContext.current
-    val phone = application.workerPhone.orEmpty().trim()
-    val displayName = application.workerName.ifBlank { "Unknown Worker" }
+    val phone = application.workerPhone.trim()
+    val displayName = application.workerName.ifBlank { stringResource(R.string.unknown_worker) }
+    val defaultWaMsg = stringResource(R.string.whatsapp_msg_application, displayName)
+    val interviewMsg = if (employerShopAddress.isNotBlank()) {
+        stringResource(R.string.whatsapp_msg_interview_address, displayName, employerShopAddress)
+    } else {
+        stringResource(R.string.whatsapp_msg_interview_simple, displayName)
+    }
+    val notSuitableReason = stringResource(R.string.reason_not_suitable)
     val status = application.status
     val isShortlisted = status in HrShortlistedStatuses
     val isRejected = status == ApplicationStatus.REJECTED
-    val skills = application.workerSkills.filter { it.isNotBlank() }.take(3)
-    val audioUrl = application.audioIntroUrl
+    val skills = listOf(application.workerSkill).filter { it.isNotBlank() }
+        .map { com.example.dutype.employer.models.JobCategory.fromKey(it).displayName }
     val cardShape = RoundedCornerShape(16.dp)
 
     val onCall: () -> Unit = {
@@ -2115,11 +1899,7 @@ private fun HiringApplicantCard(
     }
     val onChat: () -> Unit = {
         if (phone.isNotBlank()) {
-            openWorkerWhatsApp(
-                context,
-                phone,
-                "Hello $displayName, this is regarding your application on DutyPe."
-            )
+            openWorkerWhatsApp(context, phone, defaultWaMsg)
             onContacted()
         } else {
             onUnlockContact()
@@ -2127,11 +1907,6 @@ private fun HiringApplicantCard(
     }
     val onInterview: () -> Unit = {
         if (phone.isNotBlank()) {
-            val interviewMsg = if (employerShopAddress.isNotBlank()) {
-                "Hello $displayName, this is regarding your application on DutyPe. Here is our shop/work address: $employerShopAddress. Please let us know when you can visit for an interview."
-            } else {
-                "Hello $displayName, this is regarding your application on DutyPe. When can you visit for an interview?"
-            }
             openWorkerWhatsApp(context, phone, interviewMsg)
             onContacted()
         } else {
@@ -2164,22 +1939,13 @@ private fun HiringApplicantCard(
             }
         }
 
-        if (!audioUrl.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(12.dp))
-            CandidateVoiceIntroPlayer(
-                audioUrl = audioUrl,
-                audioDurationSec = application.audioDurationSec ?: 15,
-                playbackHelper = playbackHelper
-            )
-        }
-
         Spacer(modifier = Modifier.height(12.dp))
         HorizontalDivider(thickness = 1.dp, color = HrDivider)
         Spacer(modifier = Modifier.height(12.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             HiringActionChip(
-                label = "Shortlist ✓",
+                label = stringResource(R.string.action_shortlist),
                 active = isShortlisted,
                 activeColor = HrGreen,
                 onClick = {
@@ -2187,18 +1953,18 @@ private fun HiringApplicantCard(
                 }
             )
             HiringActionChip(
-                label = "Interview",
+                label = stringResource(R.string.action_interview),
                 active = false,
                 activeColor = HrGreen,
                 onClick = onInterview
             )
             HiringActionChip(
-                label = "Reject ✗",
+                label = stringResource(R.string.action_reject),
                 active = isRejected,
                 activeColor = HrRed,
                 onClick = {
                     if (status == ApplicationStatus.APPLIED) {
-                        onStatusUpdate(ApplicationStatus.REJECTED, "Not suitable")
+                        onStatusUpdate(ApplicationStatus.REJECTED, notSuitableReason)
                     }
                 }
             )
@@ -2247,16 +2013,16 @@ private fun EmptyApplicationsState(
                 modifier = Modifier.size(40.dp)
             )
         }
-        
+
         Spacer(modifier = Modifier.height(20.dp))
-        
+
         Text(
             text = if (isJobSpecific) stringResource(R.string.waiting_applied_workers) else stringResource(R.string.waiting_worker_responses),
             style = AppTypography.emptyStateTitle.copy(color = com.example.dutype.ui.theme.EmployerColors.TextPrimary)
         )
 
         Spacer(modifier = Modifier.height(8.dp))
-        
+
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodyMedium.copy(
@@ -2267,9 +2033,6 @@ private fun EmptyApplicationsState(
 
     }
 }
-
-
-
 
 private fun List<JobApplication>.sortedApplicationsForConnectNow(): List<JobApplication> {
     return sortedWith(
@@ -2286,65 +2049,49 @@ private fun List<MatchedWorker>.sortedMatchedWorkersForConnectNow(): List<Matche
     )
 }
 
+@Composable
 private fun formatWorkerDistance(distanceKm: Double?): String {
     return when {
-        distanceKm == null -> "Nearby"
-        distanceKm < 0.1 -> "Under 100 m"
-        distanceKm < 1.0 -> "${(distanceKm * 1000).toInt()} m away"
-        else -> String.format(Locale.ROOT, "%.1f km away", distanceKm)
+        distanceKm == null -> stringResource(R.string.distance_nearby)
+        distanceKm < 0.1 -> stringResource(R.string.distance_under_100m)
+        distanceKm < 1.0 -> stringResource(R.string.distance_meters_away, (distanceKm * 1000).toInt())
+        else -> stringResource(R.string.km_away_format, distanceKm)
     }
 }
 
+@Composable
 private fun formatWorkerDistanceShort(distanceKm: Double?): String {
     return when {
-        distanceKm == null -> "Nearby"
+        distanceKm == null -> stringResource(R.string.distance_nearby)
         distanceKm < 0.1 -> "<100m"
         distanceKm < 1.0 -> "${(distanceKm * 1000).toInt()}m"
         else -> String.format(Locale.ROOT, "%.1fkm", distanceKm)
     }
 }
 
-private fun formatCompletedWork(completedJobs: Int): String {
-    return when (completedJobs) {
-        0 -> "No jobs yet"
-        1 -> "1 job"
-        else -> "$completedJobs jobs"
-    }
-}
-
-private fun formatWorkerRating(rating: Double, ratingCount: Int): String {
-    return when {
-        rating <= 0.0 -> "New"
-        ratingCount > 0 -> String.format(Locale.ROOT, "%.1f (%d)", rating, ratingCount)
-        else -> String.format(Locale.ROOT, "%.1f", rating)
-    }
-}
-
+@Composable
 private fun formatWorkerRatingValue(rating: Double): String {
-    return if (rating > 0.0) String.format(Locale.ROOT, "%.1f", rating) else "New"
+    return if (rating > 0.0) String.format(Locale.ROOT, "%.1f", rating) else stringResource(R.string.rating_new)
 }
 
+@Composable
 private fun formatWorkerRatingCount(ratingCount: Int): String {
     return when (ratingCount) {
-        0 -> "Rating"
-        1 -> "1 rating"
-        else -> "$ratingCount ratings"
+        0 -> stringResource(R.string.rating_label_none)
+        1 -> stringResource(R.string.rating_label_single)
+        else -> stringResource(R.string.rating_label_multiple, ratingCount)
     }
 }
 
+@Composable
 private fun formatMatchedWorkerStatus(worker: MatchedWorker): String {
-    return when (worker.requestStatus.lowercase(Locale.ROOT)) {
-        "accepted" -> "Selected"
-        "pending" -> "Waiting"
-        "rejected" -> "Declined"
-        else -> if (worker.isAvailable) "Available" else "Invite"
-    }
+    return if (worker.isAvailable) stringResource(R.string.available) else stringResource(R.string.distance_nearby)
 }
 
 private fun JobApplication.connectNowScore(): Int {
     var score = 0
     if (status in connectableApplicationStatuses) score += 1_000
-    if (!workerPhone.isNullOrBlank()) score += 500
+    if (workerPhone.isNotBlank()) score += 500
     if (status == ApplicationStatus.APPLIED) score += 120
     if (status == ApplicationStatus.APPLIED) score += 90
     if (status == ApplicationStatus.HIRED) score += 60
@@ -2355,18 +2102,19 @@ private fun JobApplication.connectNowScore(): Int {
 private fun JobApplication.profileCompletenessScore(): Int {
     var score = 0
     if (workerName.isNotBlank()) score += 40
-    if (!workerProfileImageUrl.isNullOrBlank()) score += 30
-    if (!workerPhone.isNullOrBlank()) score += 40
-    if (!workerEmail.isNullOrBlank()) score += 20
-    if (workerSkills.isNotEmpty()) score += 40
-    if (workerExperience.isNotBlank()) score += 25
-    if (workerEducationQualification.isNotBlank()) score += 20
-    if (workerBio.isNotBlank()) score += 20
+    if (workerPhoto.isNotBlank()) score += 30
+    if (workerSkill.isNotBlank()) score += 40
+    worker?.let { card ->
+        if (card.experienceYears > 0) score += 25
+        if (card.ratingCount > 0) score += (card.rating * 10).toInt()
+        score += card.jobsCompleted.coerceAtMost(20) * 2
+        card.distanceKm?.let { km -> score += (40 - km * 2).toInt().coerceAtLeast(0) }
+    }
     return score
 }
 
 private fun JobApplication.isConnectNowCandidate(): Boolean {
-    return status in connectableApplicationStatuses && !workerPhone.isNullOrBlank()
+    return status in connectableApplicationStatuses && workerPhone.isNotBlank()
 }
 
 private fun MatchedWorker.connectNowScore(): Int {
@@ -2409,7 +2157,7 @@ private val filledApplicationStatuses = setOf(
 // NOTE: getStatusDisplayName removed - use ApplicationStatus.getDisplayName() extension function
 // Import: import com.example.dutype.models.getDisplayName
 
-// NOTE: getStatusIcon removed - use ApplicationStatus.getStatusIcon() extension function  
+// NOTE: getStatusIcon removed - use ApplicationStatus.getStatusIcon() extension function
 // Import: import com.example.dutype.models.getStatusIcon
 
 // NOTE: getTimeAgo removed - use DateTimeUtils.formatRelativeTime() instead
@@ -2443,7 +2191,7 @@ private fun FreeContactsBanner(freeRemaining: Int) {
                 modifier = Modifier.size(20.dp)
             )
             Text(
-                text = "🎁 $freeRemaining free contact unlocks remaining",
+                text = stringResource(R.string.free_contacts_remaining, freeRemaining),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = EmployerColors.Success,
                     fontWeight = FontWeight.Medium
@@ -2536,7 +2284,6 @@ private fun JobFilledCandidatesContent(
     ratedApplicationIds: Set<String>,
     onStatusUpdate: (JobApplication, ApplicationStatus, String?) -> Unit,
     onShowRatingSheet: (JobApplication) -> Unit = {},
-    playbackHelper: com.example.dutype.utils.AudioPlaybackHelper? = null,
     modifier: Modifier = Modifier
 ) {
     val displayList = hiredApplications
@@ -2581,10 +2328,10 @@ private fun JobFilledCandidatesContent(
                         )
                     )
                     Text(
-                        text = if (hiredApplications.isNotEmpty()) 
-                            "Showing selected hired candidate(s) for this position."
-                        else 
-                            "Hiring completed for this job position.",
+                        text = if (hiredApplications.isNotEmpty())
+                            stringResource(R.string.showing_hired_candidates)
+                        else
+                            stringResource(R.string.hiring_completed_position),
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = Color(0xFF047857)
                         )
@@ -2610,13 +2357,12 @@ private fun JobFilledCandidatesContent(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 itemsIndexed(displayList) { index, application ->
-                    val unlocked = isContactUnlocked(application.id, index)
+                    val unlocked = isContactUnlocked(application.workerId, index)
                     SelectedWorkerCard(
                         application = application,
                         applicationIndex = index,
                         isContactUnlocked = unlocked,
                         hasAlreadyRated = application.id in ratedApplicationIds,
-                        playbackHelper = playbackHelper,
                         onClick = { onApplicationClick(application) },
                         onUnlockContact = { onUnlockContact(application) },
                         onStatusUpdate = { status, notes -> onStatusUpdate(application, status, notes) },
@@ -2634,23 +2380,22 @@ private fun SelectedWorkerCard(
     applicationIndex: Int,
     isContactUnlocked: Boolean,
     hasAlreadyRated: Boolean,
-    playbackHelper: com.example.dutype.utils.AudioPlaybackHelper? = null,
     onClick: () -> Unit,
     onUnlockContact: () -> Unit,
     onStatusUpdate: (ApplicationStatus, String?) -> Unit,
     onRateWorker: () -> Unit
 ) {
-    val workerPhone = application.workerPhone.orEmpty().trim()
-    val workerEmail = application.workerEmail.orEmpty()
+    val workerPhone = application.workerPhone.trim()
     val context = LocalContext.current
     val canMarkWorkDone = application.status == ApplicationStatus.HIRED
     val canRateCompletedWork = application.status == ApplicationStatus.COMPLETED
     val canCallWorker = workerPhone.isNotBlank() &&
             application.status != ApplicationStatus.REJECTED &&
             application.status != ApplicationStatus.WITHDRAWN
-            
-    val displayName = application.workerName.ifBlank { "Unknown Worker" }
-    val initials = if (displayName != "Unknown Worker") {
+
+    val unknownWorkerText = stringResource(R.string.unknown_worker)
+    val displayName = application.workerName.ifBlank { unknownWorkerText }
+    val initials = if (displayName != unknownWorkerText) {
         displayName.split(" ")
             .take(2)
             .mapNotNull { it.firstOrNull()?.uppercaseChar() }
@@ -2701,7 +2446,7 @@ private fun SelectedWorkerCard(
                         )
                     }
                 }
-                
+
                 ApplicationStatusBadge(status = application.status)
             }
 
@@ -2718,9 +2463,9 @@ private fun SelectedWorkerCard(
                         .border(1.5.dp, EmployerColors.Success, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (!application.workerProfileImageUrl.isNullOrBlank()) {
+                    if (!application.workerPhoto.isBlank()) {
                         com.example.dutype.components.OptimizedProfileImage(
-                            imageUrl = application.workerProfileImageUrl,
+                            imageUrl = application.workerPhoto,
                             contentDescription = "Worker Profile",
                             modifier = Modifier
                                 .fillMaxSize()
@@ -2750,17 +2495,8 @@ private fun SelectedWorkerCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    
-                    if (workerEmail.isNotBlank() && isContactUnlocked) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = workerEmail,
-                            style = AppTypography.caption.copy(color = EmployerColors.TextSecondary),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    
+
+
                     Spacer(modifier = Modifier.height(4.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -2773,20 +2509,11 @@ private fun SelectedWorkerCard(
                             modifier = Modifier.size(12.dp)
                         )
                         Text(
-                            text = "Hired on ${DateTimeUtils.formatRelativeTime(application.createdAt)}",
+                            text = stringResource(R.string.hired_on_date, DateTimeUtils.formatRelativeTime(application.createdAt)),
                             style = AppTypography.caption.copy(color = EmployerColors.TextTertiary, fontSize = 11.sp)
                         )
                     }
                 }
-            }
-
-            if (!application.audioIntroUrl.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                CandidateVoiceIntroPlayer(
-                    audioUrl = application.audioIntroUrl,
-                    audioDurationSec = application.audioDurationSec ?: 15,
-                    playbackHelper = playbackHelper
-                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -2821,12 +2548,12 @@ private fun SelectedWorkerCard(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-                        
+
                         TextButton(
                             onClick = onUnlockContact,
                             colors = ButtonDefaults.textButtonColors(contentColor = EmployerColors.Warning)
                         ) {
-                            Text("Unlock", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text(stringResource(R.string.unlock), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                     }
                 }
@@ -2851,13 +2578,13 @@ private fun SelectedWorkerCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Call Hired Worker", style = AppTypography.labelLarge, color = Color.White)
+                    Text(stringResource(R.string.call_hired_worker), style = AppTypography.labelLarge, color = Color.White)
                 }
             }
 
             if (canMarkWorkDone || canRateCompletedWork) {
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
@@ -2870,11 +2597,11 @@ private fun SelectedWorkerCard(
                     ) {
                         Text(
                             text = if (canMarkWorkDone) {
-                                "Did the worker finish the job?"
+                                stringResource(R.string.did_worker_finish_job)
                             } else if (hasAlreadyRated) {
-                                "Rating & feedback submitted successfully!"
+                                stringResource(R.string.rating_submitted_success)
                             } else {
-                                "Help others by rating this worker's service"
+                                stringResource(R.string.rate_worker_help_others)
                             },
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.Bold,
@@ -2883,7 +2610,7 @@ private fun SelectedWorkerCard(
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(10.dp))
-                        
+
                         Button(
                             onClick = onRateWorker,
                             enabled = canMarkWorkDone || !hasAlreadyRated,
@@ -2901,88 +2628,13 @@ private fun SelectedWorkerCard(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (canMarkWorkDone) "Mark Work Done" else if (hasAlreadyRated) "Feedback Submitted" else "Rate & Review",
+                                text = if (canMarkWorkDone) stringResource(R.string.mark_work_done) else if (hasAlreadyRated) stringResource(R.string.feedback_submitted) else stringResource(R.string.rate_and_review),
                                 style = AppTypography.labelLarge,
                                 color = if (hasAlreadyRated) EmployerColors.Success else Color.White
                             )
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-fun CandidateVoiceIntroPlayer(
-    audioUrl: String,
-    audioDurationSec: Int,
-    playbackHelper: com.example.dutype.utils.AudioPlaybackHelper?,
-    modifier: Modifier = Modifier
-) {
-    if (playbackHelper == null) return
-    val isPlaying by playbackHelper.isPlaying.collectAsStateWithLifecycle()
-    val progress by playbackHelper.progress.collectAsStateWithLifecycle()
-    val currentPositionSec by playbackHelper.currentPositionSec.collectAsStateWithLifecycle()
-    val isPlayingThis = isPlaying && playbackHelper.currentSource == audioUrl
-    val duration = audioDurationSec.coerceAtLeast(1)
-
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = Color(0xFFF8FAFC),
-        border = BorderStroke(1.dp, Color(0xFFCBD5E1))
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            IconButton(
-                onClick = { playbackHelper.play(audioUrl) },
-                modifier = Modifier
-                    .size(36.dp)
-                    .background(Color(0xFF2563EB), CircleShape)
-            ) {
-                Icon(
-                    imageVector = if (isPlayingThis) Icons.Default.Pause else Icons.Default.PlayArrow,
-                    contentDescription = if (isPlayingThis) "Pause" else "Play Intro",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "🎙️ 15-Sec Audio Intro",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF1E293B)
-                    )
-                    Text(
-                        text = if (isPlayingThis) {
-                            "${currentPositionSec}s / ${duration}s"
-                        } else {
-                            "${duration}s"
-                        },
-                        fontSize = 11.sp,
-                        color = Color(0xFF64748B)
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                LinearProgressIndicator(
-                    progress = { if (isPlayingThis) progress else 0f },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp)),
-                    color = Color(0xFF2563EB),
-                    trackColor = Color(0xFFE2E8F0),
-                )
             }
         }
     }
@@ -3034,13 +2686,13 @@ fun IncomingCallsStatusBanner(
                 }
                 Column {
                     Text(
-                        text = if (isCallsPaused) "Incoming Calls STOPPED" else "Accepting Worker Calls",
+                        text = if (isCallsPaused) stringResource(R.string.incoming_calls_stopped) else stringResource(R.string.accepting_worker_calls),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isCallsPaused) Color(0xFF991B1B) else Color(0xFF166534)
                     )
                     Text(
-                        text = if (isCallsPaused) "Job filled — workers cannot call you" else "Workers can see your number and call",
+                        text = if (isCallsPaused) stringResource(R.string.job_filled_cannot_call) else stringResource(R.string.workers_can_call_desc),
                         fontSize = 11.sp,
                         color = if (isCallsPaused) Color(0xFFB91C1C) else Color(0xFF15803D)
                     )

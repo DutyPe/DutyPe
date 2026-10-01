@@ -41,14 +41,14 @@ import com.example.dutype.components.RatingBottomSheet
 import com.example.dutype.data.JobDraftDataStore
 import com.example.dutype.employer.models.JobCategory
 import com.example.dutype.employer.models.PayType
-import com.example.dutype.employer.models.ShiftTiming
+import com.example.dutype.employer.models.JobShift
 import com.example.dutype.models.InstantRequest
 import com.example.dutype.models.InstantResponse
 import com.example.dutype.models.JobListing
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.ui.theme.EmployerColors
-import com.example.dutype.viewmodels.FirestoreEmployerJobViewModel
+import com.example.dutype.viewmodels.EmployerJobsViewModel
 import com.example.dutype.viewmodels.InstantHelpViewModel
 import java.text.SimpleDateFormat
 import java.util.*
@@ -63,18 +63,13 @@ fun EmployerHistoryScreen(
     onStatusBarColorChange: (Color) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val employerJobViewModel: FirestoreEmployerJobViewModel = hiltViewModel()
+    val employerJobViewModel: EmployerJobsViewModel = hiltViewModel()
     val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
     val uiState by employerJobViewModel.uiState.collectAsStateWithLifecycle()
     val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    val ratingService = remember {
-        com.example.dutype.services.RatingService(
-            com.example.dutype.di.firestoreFromHilt(context),
-            com.example.dutype.di.authFromHilt(context)
-        )
-    }
-    
+    val ratingService = remember { com.example.dutype.di.ratingServiceFromHilt(context) }
+
     val urgentTabIndex = 3
     val tabs = listOf(
         stringResource(R.string.tab_all_jobs),
@@ -98,7 +93,7 @@ fun EmployerHistoryScreen(
     var repostingJobId by remember { mutableStateOf<String?>(null) }
     var showDeleteUrgentConfirm by remember { mutableStateOf(false) }
     var urgentRequestToDelete by remember { mutableStateOf<InstantRequest?>(null) }
-    
+
     LaunchedEffect(Unit) {
         onStatusBarColorChange(Color.White)
         try {
@@ -121,7 +116,7 @@ fun EmployerHistoryScreen(
     if (showRatingSheet && pendingRatingResponse != null) {
         RatingBottomSheet(
             isVisible = showRatingSheet,
-            targetName = pendingRatingResponse!!.workerName.ifBlank { "this worker" },
+            targetName = pendingRatingResponse!!.workerName.ifBlank { context.getString(R.string.this_worker) },
             targetRole = "WORKER",
             onDismiss = {
                 showRatingSheet = false
@@ -136,7 +131,8 @@ fun EmployerHistoryScreen(
                             rating = rating,
                             review = review,
                             tags = tags,
-                            targetRole = "WORKER"
+                            targetRole = "WORKER",
+                            source = com.example.dutype.services.RatingService.SOURCE_INSTANT
                         ).fold(
                             onSuccess = { result ->
                                 Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
@@ -147,7 +143,7 @@ fun EmployerHistoryScreen(
                                 }
                             },
                             onFailure = { error ->
-                                Toast.makeText(context, error.message ?: "Failed to submit rating", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, error.message ?: context.getString(R.string.failed_to_submit_rating), Toast.LENGTH_LONG).show()
                             }
                         )
                     }
@@ -159,8 +155,8 @@ fun EmployerHistoryScreen(
     if (showDeleteUrgentConfirm && urgentRequestToDelete != null) {
         AlertDialog(
             onDismissRequest = { showDeleteUrgentConfirm = false },
-            title = { Text("Delete Urgent Post") },
-            text = { Text("Are you sure you want to delete this urgent post? This action cannot be undone.") },
+            title = { Text(stringResource(R.string.delete_urgent_post_title)) },
+            text = { Text(stringResource(R.string.delete_urgent_post_body)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -169,14 +165,14 @@ fun EmployerHistoryScreen(
                         showDeleteUrgentConfirm = false
                         instantHelpViewModel.deleteEmployerInstantRequest(req.requestId) { success ->
                             if (success) {
-                                Toast.makeText(context, "Post deleted successfully", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.post_deleted_success), Toast.LENGTH_SHORT).show()
                             } else {
-                                Toast.makeText(context, "Failed to delete post", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.failed_delete_post), Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
                 ) {
-                    Text("Delete", color = EmployerColors.Error)
+                    Text(stringResource(R.string.delete), color = EmployerColors.Error)
                 }
             },
             dismissButton = {
@@ -217,17 +213,17 @@ fun EmployerHistoryScreen(
             repostingJobId = null
         }
     }
-    
+
     // Filter jobs based on selected tab - with null safety
     val filteredJobs = remember(uiState.myJobs, selectedTab) {
         try {
             when (selectedTab) {
                 0 -> uiState.myJobs.sortedByDescending { it.createdAt } // Timeline - all sorted by date
-                1 -> uiState.myJobs.filter { 
+                1 -> uiState.myJobs.filter {
                     // Active jobs that haven't expired (using calculated expiry)
                     it.status == "open" && !it.isExpired()
                 }
-                2 -> uiState.myJobs.filter { 
+                2 -> uiState.myJobs.filter {
                     // Expired jobs (using calculated expiry)
                     it.isExpired()
                 }
@@ -238,7 +234,7 @@ fun EmployerHistoryScreen(
             emptyList()
         }
     }
-    
+
     // Group jobs by month for timeline view - with null safety
     val groupedJobs = remember(filteredJobs) {
         try {
@@ -251,7 +247,7 @@ fun EmployerHistoryScreen(
             emptyMap()
         }
     }
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -262,7 +258,7 @@ fun EmployerHistoryScreen(
             title = stringResource(R.string.job_posting_history),
             navController = navController
         )
-        
+
         // Tab Row
         ScrollableTabRow(
             selectedTabIndex = selectedTab,
@@ -290,7 +286,7 @@ fun EmployerHistoryScreen(
                 )
             }
         }
-        
+
         // Content
         if (selectedTab == urgentTabIndex) {
             EmployerUrgentNeedHistoryContent(
@@ -302,8 +298,8 @@ fun EmployerHistoryScreen(
                 ratedResponseIds = ratedResponseIds,
                 onOpenRequest = { request -> navController.navigate(Routes.employerUrgentNeedDetailRoute(request.requestId)) },
                 onOpenWorkerProfile = { response -> navController.navigate(Routes.workerProfileViewRoute(response.workerId)) },
-                onCallWorker = { phone ->
-                    if (phone.isNotBlank()) {
+                onCallWorker = { response ->
+                    instantHelpViewModel.callWorker(response) { phone ->
                         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
                     }
                 },
@@ -343,7 +339,7 @@ fun EmployerHistoryScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Error,
-                            contentDescription = "Error",
+                            contentDescription = null,
                             tint = EmployerColors.Error,
                             modifier = Modifier.size(64.dp)
                         )
@@ -427,7 +423,7 @@ private fun TimelineView(
             item(key = "header_$monthYear") {
                 MonthHeader(monthYear = monthYear)
             }
-            
+
             // Timeline items for this month
             itemsIndexed(
                 items = jobs,
@@ -444,7 +440,7 @@ private fun TimelineView(
                     onRepostExpiredJob = { onRepostExpiredJob(job) }
                 )
             }
-            
+
             // Spacer between months
             item(key = "spacer_$monthYear") {
                 Spacer(modifier = Modifier.height(8.dp))
@@ -475,9 +471,9 @@ private fun MonthHeader(monthYear: String) {
                 modifier = Modifier.size(20.dp)
             )
         }
-        
+
         Spacer(modifier = Modifier.width(12.dp))
-        
+
         Text(
             text = monthYear,
             style = MaterialTheme.typography.titleMedium.copy(
@@ -501,7 +497,7 @@ private fun TimelineJobCard(
     val lineColor = EmployerColors.Border
     val isExpired = job.isExpired() // Use calculated expiry
     val isClosed = job.status != "open"
-    
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -547,9 +543,9 @@ private fun TimelineJobCard(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.width(12.dp))
-        
+
         // Job Card
         Card(
             modifier = Modifier
@@ -576,7 +572,7 @@ private fun TimelineJobCard(
                         isClosed = isClosed,
                         isExpired = isExpired
                     )
-                    
+
                     Text(
                         text = formatTimelineDate(job.createdAt),
                         style = MaterialTheme.typography.bodySmall.copy(
@@ -584,9 +580,9 @@ private fun TimelineJobCard(
                         )
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 // Job title
                 Text(
                     text = job.title,
@@ -597,19 +593,19 @@ private fun TimelineJobCard(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                
+
                 Spacer(modifier = Modifier.height(4.dp))
-                
+
                 // Category - auto-detected
                 Text(
-                    text = job.getCategory(),
+                    text = JobCategory.fromKey(job.category).displayName,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = EmployerColors.TextSecondary
                     )
                 )
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                 // Job details row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -617,21 +613,21 @@ private fun TimelineJobCard(
                 ) {
                     InfoChip(
                         icon = Icons.Default.CurrencyRupee,
-                        text = "₹${job.salary.ifBlank { "-" }}",
+                        text = job.payText,
                         backgroundColor = EmployerColors.SuccessLight,
                         iconColor = EmployerColors.Success
                     )
-                    
+
                     InfoChip(
                         icon = Icons.Default.LocationOn,
-                        text = job.addressText.ifBlank { job.location }.take(15),
+                        text = job.area.take(15),
                         backgroundColor = EmployerColors.ChipBackground,
                         iconColor = EmployerColors.TextSecondary
                     )
                 }
-                
+
                 Spacer(modifier = Modifier.height(12.dp))
-                
+
                     // Stats row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -657,7 +653,7 @@ private fun TimelineJobCard(
                             )
                         )
                     }
-                    
+
                     // Expiry info - using calculated expiry (30 days from postedAt)
                     val expiresAt = job.expiresAt
                     val daysLeft = ((expiresAt - currentTime) / (24 * 60 * 60 * 1000)).toInt()
@@ -669,7 +665,7 @@ private fun TimelineJobCard(
                             else -> stringResource(R.string.history_days_left, daysLeft)
                         },
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = if (isExpired) EmployerColors.Error 
+                            color = if (isExpired) EmployerColors.Error
                                    else if (daysLeft <= 2) EmployerColors.Warning
                                    else EmployerColors.TextSecondary,
                             fontWeight = FontWeight.Medium
@@ -687,7 +683,7 @@ private fun TimelineJobCard(
                     ) {
                         Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (isReposting) "Reposting..." else "Repost same job")
+                        Text(if (isReposting) stringResource(R.string.reposting_ellipsis) else stringResource(R.string.repost_same_job))
                     }
                 }
             }
@@ -704,7 +700,7 @@ private fun EmptyHistoryState(selectedTab: Int) {
         3 -> Triple(stringResource(R.string.history_no_jobs_posted), stringResource(R.string.history_start_posting_here), Icons.Default.WorkHistory)
         else -> Triple(stringResource(R.string.history_no_jobs), stringResource(R.string.history_postings_appear_here), Icons.Default.WorkHistory)
     }
-    
+
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -728,9 +724,9 @@ private fun EmptyHistoryState(selectedTab: Int) {
                     modifier = Modifier.size(48.dp)
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 text = message,
                 style = MaterialTheme.typography.titleLarge.copy(
@@ -760,7 +756,7 @@ private fun HistoryJobCard(
 ) {
     val isExpired = job.isExpired() // Use calculated expiry
     val isClosed = job.status != "open"
-    
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -791,41 +787,41 @@ private fun HistoryJobCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = job.getCategory(), // Use auto-detected category
+                        text = JobCategory.fromKey(job.category).displayName,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = EmployerColors.TextSecondary
                         )
                     )
                 }
-                
+
                 JobStatusBadge(
                     isClosed = isClosed,
                     isExpired = isExpired
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 InfoChip(
                     icon = Icons.Default.LocationOn,
-                    text = job.addressText.ifBlank { job.location }.take(20),
+                    text = job.area.take(20),
                     backgroundColor = EmployerColors.ChipBackground,
                     iconColor = EmployerColors.TextSecondary
                 )
                 InfoChip(
                     icon = Icons.Default.CurrencyRupee,
-                    text = "₹${job.salary.ifBlank { "-" }}",
+                    text = job.payText,
                     backgroundColor = EmployerColors.SuccessLight,
                     iconColor = EmployerColors.Success
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             // Stats Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -849,7 +845,7 @@ private fun HistoryJobCard(
                         )
                     )
                 }
-                
+
                 // Expiry info - using calculated expiry (30 days from postedAt)
                 val expiresAt = job.expiresAt
                 val daysLeft = ((expiresAt - currentTime) / (24 * 60 * 60 * 1000)).toInt()
@@ -861,16 +857,16 @@ private fun HistoryJobCard(
                         else -> stringResource(R.string.history_days_left, daysLeft)
                     },
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = if (isExpired) EmployerColors.Error 
+                        color = if (isExpired) EmployerColors.Error
                                else if (daysLeft <= 2) EmployerColors.Warning
                                else EmployerColors.TextSecondary,
                         fontWeight = FontWeight.Medium
                     )
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 text = stringResource(R.string.history_posted_date, formatDate(job.createdAt)),
                 style = MaterialTheme.typography.bodySmall.copy(
@@ -888,7 +884,7 @@ private fun HistoryJobCard(
                 ) {
                     Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(if (isReposting) "Reposting..." else "Repost same job")
+                    Text(if (isReposting) stringResource(R.string.reposting_ellipsis) else stringResource(R.string.repost_same_job))
                 }
             }
         }
@@ -898,61 +894,32 @@ private fun HistoryJobCard(
 private fun JobListing.missingRepostFields(): List<String> {
     return buildList {
         if (title.isBlank()) add("title")
-        if (salary.isBlank()) add("pay")
-        if (addressText.ifBlank { location }.isBlank() || !com.example.dutype.utils.GeoUtils.hasValidCoordinates(lat, lng)) add("location")
+        if (payAmount <= 0L && payType != com.example.dutype.firestore.FirestoreSchema.Values.PayType.NEGOTIABLE) add("pay")
+        if (addressText.isBlank() || !com.example.dutype.utils.GeoUtils.hasValidCoordinates(lat, lng)) add("location")
         if (contactNumber.isBlank()) add("contact")
     }
 }
 
-private fun JobListing.toRepostDraft(): JobDraftDataStore.JobDraft {
-    val descriptionText = description.ifBlank {
-        buildString {
-            append(title)
-            if (salary.isNotBlank()) append(". Pay: ").append(salary)
-            append('.')
-        }
-    }
-    val inferredCategory = com.example.dutype.utils.JobCategoryResolver.inferCategory(title, descriptionText) ?: JobCategory.OTHER
-    val customCategoryValue = when {
-        inferredCategory != JobCategory.OTHER -> ""
-        title.isNotBlank() -> title
-        else -> com.example.dutype.utils.CategoryDetector.detectCategory(title, descriptionText)
-            .takeUnless { it.equals("Other", ignoreCase = true) }
-            .orEmpty()
-    }
-
-    return JobDraftDataStore.JobDraft(
-        title = title,
-        description = descriptionText,
-        payAmount = salary,
-        payType = salaryType.toDraftPayType(),
-        location = addressText.ifBlank { location },
-        locationLatitude = lat,
-        locationLongitude = lng,
-        category = inferredCategory,
-        customCategory = customCategoryValue,
-        vacancies = vacancies.coerceAtLeast(1).toString(),
-        contactNumber = contactNumber,
-        shiftTiming = shiftTiming.toDraftShiftTiming(),
-        workType = jobType.ifBlank { "Part-time" },
-        experienceLevel = experienceRequired.ifBlank { "No Experience Required" },
-        educationRequired = educationRequired.ifBlank { "No qualification required" },
-        gender = gender.ifBlank { "Any" },
-        repostOfJobId = id,
-    )
-}
-
-private fun String.toDraftPayType(): PayType {
-    return PayType.entries.firstOrNull {
-        it.name.equals(this, ignoreCase = true) || it.displayName.equals(this, ignoreCase = true)
-    } ?: PayType.HOURLY
-}
-
-private fun String.toDraftShiftTiming(): ShiftTiming {
-    return ShiftTiming.entries.firstOrNull {
-        it.name.equals(this, ignoreCase = true) || it.displayName.equals(this, ignoreCase = true)
-    } ?: ShiftTiming.FLEXIBLE
-}
+/** Repost = a new job pre-filled from this one (a fresh post, charged like any post). */
+private fun JobListing.toRepostDraft(): JobDraftDataStore.JobDraft = JobDraftDataStore.JobDraft(
+    title = title,
+    description = description,
+    payAmount = if (payAmount > 0) payAmount.toString() else "",
+    payType = PayType.fromKey(payType),
+    location = addressText,
+    locationLatitude = lat,
+    locationLongitude = lng,
+    category = JobCategory.fromKey(category),
+    vacancies = vacancies.coerceAtLeast(1).toString(),
+    contactNumber = contactNumber,
+    shift = JobShift.fromKey(shift),
+    employmentType = com.example.dutype.employer.models.EmploymentType.fromKey(employmentType),
+    experienceLevel = experienceRequired.ifBlank { "No Experience Required" },
+    educationRequired = educationRequired.ifBlank { "No qualification required" },
+    gender = when (gender) { "MALE" -> "Male"; "FEMALE" -> "Female"; else -> "Both" },
+    benefits = benefits,
+    repostOfJobId = id,
+)
 
 @Composable
 private fun JobStatusBadge(
@@ -961,10 +928,10 @@ private fun JobStatusBadge(
 ) {
     val (color, text, icon) = when {
         isExpired -> Triple(EmployerColors.Error, stringResource(R.string.history_expired), Icons.Default.EventBusy)
-        isClosed -> Triple(EmployerColors.TextSecondary, "Closed", Icons.Default.Cancel)
-        else -> Triple(EmployerColors.Success, "Open", Icons.Default.CheckCircle)
+        isClosed -> Triple(EmployerColors.TextSecondary, stringResource(R.string.closed), Icons.Default.Cancel)
+        else -> Triple(EmployerColors.Success, stringResource(R.string.open_status), Icons.Default.CheckCircle)
     }
-    
+
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = color.copy(alpha = 0.1f)
