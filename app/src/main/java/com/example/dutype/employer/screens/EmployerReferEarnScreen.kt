@@ -1,5 +1,7 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.models.formatPaise
+import com.example.dutype.firestore.FirestoreSchema.Values
 import com.dutype.app.R
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -61,15 +63,18 @@ fun EmployerReferEarnScreen(
     val reviewTriggerService = rememberInAppReviewTriggerService()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val referralConfig by viewModel.referralConfig.collectAsStateWithLifecycle()
-    val referrerInfo by viewModel.referrerInfo.collectAsStateWithLifecycle()
-    
+    val joinBonusPaise = uiState.ledger
+        .filter { it.type == Values.LedgerType.SIGNUP_BONUS || it.type == Values.LedgerType.WELCOME_BONUS }
+        .sumOf { it.amountPaise }
+    val balanceRupees = (uiState.wallet?.balancePaise ?: 0L) / 100.0
+
     var isVisible by remember { mutableStateOf(false) }
     var showCopySuccess by remember { mutableStateOf(false) }
     var showWithdrawDialog by remember { mutableStateOf(false) }
     var isCheckingProfileStatus by remember { mutableStateOf(true) }
     var isProfileCompleted by remember { mutableStateOf(false) }
     // Removed: showQRCode state
-    
+
     val context = LocalContext.current
     val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
 
@@ -116,7 +121,7 @@ fun EmployerReferEarnScreen(
             backgroundColor = com.example.dutype.ui.theme.EmployerColors.ScreenBackground
             // Removed: QR Code icon button from actions
         )
-        
+
         when {
             uiState.isLoading -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -195,36 +200,36 @@ fun EmployerReferEarnScreen(
                     item {
                         AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(300)) + slideInVertically(tween(300))) {
                             EmployerTierBadgeCard(
-                                tier = uiState.stats?.currentTier ?: ReferralTier.BRONZE,
-                                successfulReferrals = uiState.stats?.successfulReferrals ?: 0
+                                tier = uiState.wallet?.tier ?: ReferralTier.BRONZE,
+                                successfulReferrals = uiState.wallet?.successfulReferrals ?: 0
                             )
                         }
                     }
-                    
+
                     // Removed: QR Code section
-                    
+
                     // Referral Code Card
                     item {
                         AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(400)) + slideInVertically(tween(400))) {
                             EmployerReferralCodeCard(
-                                referralCode = uiState.stats?.referralCode ?: "",
+                                referralCode = uiState.wallet?.referralCode.orEmpty(),
                                 onCopyClick = {
                                     copyTextToClipboard(
                                         context = context,
                                         label = context.getString(R.string.refer_code_clipboard_label),
-                                        text = uiState.stats?.referralCode.orEmpty()
+                                        text = uiState.wallet?.referralCode.orEmpty()
                                     )
                                     showCopySuccess = true
                                 },
                                 onShareClick = {
-                                    val code = uiState.stats?.referralCode ?: ""
+                                    val code = uiState.wallet?.referralCode.orEmpty()
                                     val shareText = context.getString(
                                         R.string.refer_employer_share_text,
                                         code,
                                         playStoreUrl,
                                         referralConfig.signupBonus.toInt()
                                     )
-                                    
+
                                     val intent = Intent(Intent.ACTION_SEND).apply {
                                         type = "text/plain"
                                         putExtra(Intent.EXTRA_TEXT, shareText)
@@ -243,7 +248,7 @@ fun EmployerReferEarnScreen(
                     // Who referred you
                     item {
                         AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(450, 100)) + slideInVertically(tween(450, 100))) {
-                            EmployerReferrerInfoCard(referrerInfo = referrerInfo)
+                            EmployerReferrerInfoCard(referrer = uiState.myReferrer)
                         }
                     }
 
@@ -251,24 +256,22 @@ fun EmployerReferEarnScreen(
                     item {
                         AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(500, 100)) + slideInVertically(tween(500, 100))) {
                             EmployerStatsCard(
-                                totalReferrals = uiState.stats?.totalReferrals ?: 0,
-                                successfulReferrals = uiState.stats?.successfulReferrals ?: 0,
-                                totalEarnings = uiState.stats?.totalEarnings ?: 0.0,
-                                availableBalance = uiState.stats?.availableBalance ?: 0.0,
-                                signupBonusReceived = uiState.stats?.signupBonusReceived == true || uiState.stats?.welcomeBonusReceived == true,
-                                signupBonusAmount = uiState.stats?.signupBonusAmount
-                                    ?.takeIf { it > 0.0 }
-                                    ?: (uiState.stats?.welcomeBonusAmount ?: 0.0)
+                                totalReferrals = uiState.referralHistory.size,
+                                successfulReferrals = uiState.wallet?.successfulReferrals ?: 0,
+                                totalEarnings = (uiState.wallet?.lifetimeEarnedPaise ?: 0L) / 100.0,
+                                availableBalance = balanceRupees,
+                                signupBonusReceived = joinBonusPaise > 0L,
+                                signupBonusAmount = joinBonusPaise / 100.0
                             )
                         }
                     }
-                    
+
                     // Withdraw Button
-                    if ((uiState.stats?.availableBalance ?: 0.0) >= referralConfig.minWithdrawal) {
+                    if (balanceRupees >= referralConfig.minWithdrawal) {
                         item {
                             AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(600, 200)) + slideInVertically(tween(600, 200))) {
                                 EmployerWithdrawCard(
-                                    availableBalance = uiState.stats?.availableBalance ?: 0.0,
+                                    availableBalance = balanceRupees,
                                     onWithdrawClick = { showWithdrawDialog = true }
                                 )
                             }
@@ -281,7 +284,7 @@ fun EmployerReferEarnScreen(
                             EmployerWithdrawalHistoryCard(withdrawals = uiState.withdrawalHistory)
                         }
                     }
-                    
+
                     // Referral History
                     item {
                         AnimatedVisibility(visible = isVisible, enter = fadeIn(tween(900, 500)) + slideInVertically(tween(900, 500))) {
@@ -301,7 +304,7 @@ fun EmployerReferEarnScreen(
             delay(2000)
             showCopySuccess = false
         }
-        
+
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
             Card(
                 modifier = Modifier.padding(16.dp).padding(bottom = 32.dp),
@@ -317,11 +320,11 @@ fun EmployerReferEarnScreen(
             }
         }
     }
-    
+
     // Withdraw Dialog
     if (showWithdrawDialog) {
         EmployerWithdrawDialog(
-            availableBalance = uiState.stats?.availableBalance ?: 0.0,
+            availableBalance = minOf(balanceRupees, referralConfig.maxWithdrawalPerDay),
             minWithdrawal = referralConfig.minWithdrawal,
             onDismiss = { showWithdrawDialog = false },
             onWithdraw = { upiId ->
@@ -335,7 +338,13 @@ fun EmployerReferEarnScreen(
 
 @Composable
 private fun EmployerTierBadgeCard(tier: ReferralTier, successfulReferrals: Int) {
-    val tierName = ReferralRewards.getTierDisplayName(tier)
+    val tierName = when (tier) {
+        ReferralTier.BRONZE -> stringResource(R.string.tier_bronze)
+        ReferralTier.SILVER -> stringResource(R.string.tier_silver)
+        ReferralTier.GOLD -> stringResource(R.string.tier_gold)
+        ReferralTier.PLATINUM -> stringResource(R.string.tier_platinum)
+        ReferralTier.DIAMOND -> stringResource(R.string.tier_diamond)
+    }
     val tierColor = when (tier) {
         ReferralTier.BRONZE -> Color(0xFFCD7F32)
         ReferralTier.SILVER -> Color(0xFF94A3B8)
@@ -381,14 +390,14 @@ private fun EmployerTierBadgeCard(tier: ReferralTier, successfulReferrals: Int) 
 @Composable
 private fun EmployerReferralCodeCard(referralCode: String, onCopyClick: () -> Unit, onShareClick: () -> Unit) {
     var showLinkCopied by remember { mutableStateOf(false) }
-    
+
     LaunchedEffect(showLinkCopied) {
         if (showLinkCopied) {
             delay(2000)
             showLinkCopied = false
         }
     }
-    
+
     Surface(modifier = Modifier.fillMaxWidth().border(1.dp, EmployerColors.Border, RoundedCornerShape(16.dp)), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(
@@ -453,7 +462,7 @@ private fun EmployerStatsCard(
         Column(modifier = Modifier.padding(20.dp)) {
             Text(stringResource(R.string.your_stats), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             Spacer(Modifier.height(16.dp))
-            
+
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
                     Text(stringResource(R.string.total_referrals), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
@@ -464,11 +473,11 @@ private fun EmployerStatsCard(
                     Text(successfulReferrals.toString(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
                 }
             }
-            
+
             Spacer(Modifier.height(16.dp))
             HorizontalDivider(color = EmployerColors.Border)
             Spacer(Modifier.height(16.dp))
-            
+
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
                     Text(stringResource(R.string.total_earned), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
@@ -513,38 +522,6 @@ private fun EmployerWithdrawCard(availableBalance: Double, onWithdrawClick: () -
             }
             Button(onClick = onWithdrawClick, colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary), shape = RoundedCornerShape(12.dp)) {
                 Text(stringResource(R.string.withdraw_button))
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmployerMilestoneProgressCard(successfulReferrals: Int, nextMilestone: Int) {
-    val progress = if (nextMilestone > 0) successfulReferrals.toFloat() / nextMilestone.toFloat() else 0f
-    val bonus = ReferralRewards.getMilestoneBonus(nextMilestone)
-    val freePostings = ReferralRewards.getEmployerFreePostings(nextMilestone)
-    
-    Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
-        Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
-            Text(stringResource(R.string.next_milestone), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
-            Spacer(Modifier.height(12.dp))
-            LinearProgressIndicator(
-                progress = { progress.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                color = com.example.dutype.ui.theme.EmployerColors.TextPrimary,
-                trackColor = EmployerColors.Border
-            )
-            Spacer(Modifier.height(12.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(stringResource(R.string.refer_milestone_progress, successfulReferrals, nextMilestone), style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF4B5563)))
-                Column(horizontalAlignment = Alignment.End) {
-                    if (bonus > 0) {
-                        Text(stringResource(R.string.refer_bonus_amount, bonus.toInt()), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
-                    }
-                    if (freePostings > 0) {
-                        Text(stringResource(R.string.refer_free_posts_count, freePostings), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
-                    }
-                }
             }
         }
     }
@@ -615,30 +592,10 @@ private fun EmployerReferralHistoryItem(referral: Referral) {
     val dateStr = remember(referral.createdAt) {
         SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(referral.createdAt))
     }
-    val rewardBreakdown = remember(
-        referral.status,
-        referral.profileCompleted,
-        referral.rewardAmount,
-        referral.bonusAmount,
-        referral.referredUserReward
-    ) {
-        if (referral.status != ReferralStatus.COMPLETED) {
-            if (referral.status == ReferralStatus.PENDING && !referral.profileCompleted) {
-                context.getString(R.string.refer_status_profile_pending)
-            } else {
-                ""
-            }
-        } else {
-            buildList {
-                add(context.getString(R.string.refer_you_earned, String.format("%.0f", referral.rewardAmount)))
-                if (referral.bonusAmount > 0) {
-                    add(context.getString(R.string.refer_milestone_earned, String.format("%.0f", referral.bonusAmount)))
-                }
-                if (referral.referredUserReward > 0) {
-                    add(context.getString(R.string.refer_signup_bonus_earned, String.format("%.0f", referral.referredUserReward)))
-                }
-            }.joinToString(" | ")
-        }
+    val rewardBreakdown = when (referral.status) {
+        ReferralStatus.PENDING -> context.getString(R.string.refer_status_profile_pending)
+        ReferralStatus.COMPLETED -> context.getString(R.string.refer_you_earned, (referral.rewardPaise / 100).toString())
+        else -> ""
     }
 
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -658,14 +615,14 @@ private fun EmployerReferralHistoryItem(referral: Referral) {
         )
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(referral.referredUserName.ifBlank { stringResource(R.string.employer_label) }, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
+            Text(stringResource(R.string.refer_default_user_name), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary))
             if (rewardBreakdown.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = rewardBreakdown,
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = if (referral.status == ReferralStatus.PENDING && !referral.profileCompleted)
+                        color = if (referral.status == ReferralStatus.PENDING)
                             EmployerColors.Warning
                         else
                             EmployerColors.TextSecondary
@@ -676,7 +633,7 @@ private fun EmployerReferralHistoryItem(referral: Referral) {
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 when (referral.status) {
-                    ReferralStatus.COMPLETED -> "Rs.${String.format("%.0f", referral.getTotalReferrerReward())}"
+                    ReferralStatus.COMPLETED -> formatPaise(referral.rewardPaise)
                     ReferralStatus.PENDING -> context.getString(R.string.refer_status_pending)
                     ReferralStatus.EXPIRED -> context.getString(R.string.refer_status_expired)
                     else -> context.getString(R.string.refer_status_cancelled)
@@ -724,23 +681,29 @@ private fun EmployerWithdrawalHistoryItem(withdrawal: WithdrawalRequest) {
         Icon(Icons.Default.AccountBalanceWallet, null, tint = EmployerColors.TextPrimary, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(stringResource(R.string.rupees_amount, String.format("%.0f", withdrawal.amount)), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
+            Text(formatPaise(withdrawal.amountPaise), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary))
         }
         val statusColor = when (withdrawal.status) {
             WithdrawalStatus.COMPLETED -> Color(0xFF10B981)
             WithdrawalStatus.PROCESSING -> Color(0xFF3B82F6)
-            WithdrawalStatus.FAILED, WithdrawalStatus.CANCELLED -> Color(0xFFEF4444)
+            WithdrawalStatus.FAILED -> Color(0xFFEF4444)
             WithdrawalStatus.PENDING -> Color(0xFFF59E0B)
+        }
+        val statusText = when (withdrawal.status) {
+            WithdrawalStatus.COMPLETED -> stringResource(R.string.status_completed)
+            WithdrawalStatus.PROCESSING -> stringResource(R.string.status_processing)
+            WithdrawalStatus.FAILED -> stringResource(R.string.status_failed)
+            WithdrawalStatus.PENDING -> stringResource(R.string.status_pending)
         }
         Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = withdrawal.status.name.lowercase().replaceFirstChar { char -> char.titlecase(Locale.getDefault()) },
+                text = statusText,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = statusColor)
             )
-            if (!withdrawal.transactionId.isNullOrBlank()) {
+            if (withdrawal.txnRef.isNotBlank()) {
                 Text(
-                    text = "Ref: ${withdrawal.transactionId}",
+                    text = stringResource(R.string.refer_txn_ref_format, withdrawal.txnRef),
                     style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
                 )
             }
@@ -749,17 +712,17 @@ private fun EmployerWithdrawalHistoryItem(withdrawal: WithdrawalRequest) {
 }
 
 @Composable
-private fun EmployerReferrerInfoCard(referrerInfo: ReferrerInfo) {
-    if (referrerInfo.referredByCode.isBlank() && referrerInfo.referredByUserId.isBlank()) return
+private fun EmployerReferrerInfoCard(referrer: Referral?) {
+    if (referrer == null || referrer.code.isBlank()) return
 
     Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(stringResource(R.string.who_referred_you), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             Spacer(Modifier.height(8.dp))
-            Text(referrerInfo.referrerName.ifBlank { stringResource(R.string.referred_by_unknown) }, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
-            if (referrerInfo.referredByCode.isNotBlank()) {
+            Text(stringResource(R.string.referred_by_unknown), style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
+            run {
                 Spacer(Modifier.height(4.dp))
-                Text(stringResource(R.string.referral_code_format, referrerInfo.referredByCode), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
+                Text(stringResource(R.string.referral_code_format, referrer.code), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
             }
         }
     }
@@ -770,7 +733,7 @@ private fun EmployerWithdrawDialog(availableBalance: Double, minWithdrawal: Doub
     val context = LocalContext.current
     var upiId by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-    
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.withdraw_earnings), fontWeight = FontWeight.Bold) },
@@ -817,117 +780,3 @@ data class EmployerReferralItem(
 // V2.0 PROFESSIONAL FEATURES
 // ============================================
 
-@SuppressLint("DefaultLocale")
-@Composable
-private fun EmployerAnalyticsDashboardCard(analytics: ReferralAnalytics) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = com.example.dutype.ui.theme.EmployerColors.CardBackground, shape = RoundedCornerShape(16.dp), shadowElevation = 0.dp) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = EmployerColors.Success, modifier = Modifier.size(24.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.performance_analytics), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
-            }
-            
-            Spacer(Modifier.height(16.dp))
-            
-            // Conversion Rate
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
-                    Text(stringResource(R.string.conversion_rate), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
-                    Text("${String.format("%.1f", analytics.conversionRate)}%", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = EmployerColors.Success))
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(stringResource(R.string.total_clicks), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
-                    Text(analytics.totalClicks.toString(), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
-                }
-            }
-            
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider(color = EmployerColors.Border)
-            Spacer(Modifier.height(16.dp))
-            
-            // Rankings
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
-                    Text(stringResource(R.string.your_rank), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
-                    Text("#${analytics.rankOverall}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(stringResource(R.string.top_percentile), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
-                    Text(stringResource(R.string.top_percent_format, analytics.percentile), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = EmployerColors.Warning))
-                }
-            }
-
-            if (analytics.projectedMonthlyEarnings > 0) {
-                Spacer(Modifier.height(16.dp))
-                HorizontalDivider(color = EmployerColors.Border)
-                Spacer(Modifier.height(16.dp))
-                
-                // Projected Earnings
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column {
-                        Text(stringResource(R.string.projected_monthly), style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.TextSecondary))
-                        Text(stringResource(R.string.rupees_amount, analytics.projectedMonthlyEarnings.toString()), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = EmployerColors.Success))
-                    }
-                    Icon(Icons.AutoMirrored.Filled.TrendingUp, contentDescription = null, tint = EmployerColors.Success, modifier = Modifier.size(32.dp))
-                }
-            }
-            
-        }
-    }
-}
-
-@Composable
-private fun EmployerSuccessStoriesCard(stories: List<ReferralSuccessStory>) {
-    Surface(modifier = Modifier.fillMaxWidth(), color = EmployerColors.WarningLight, shape = RoundedCornerShape(16.dp)) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = EmployerColors.Warning, modifier = Modifier.size(24.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.top_performers), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = EmployerColors.Warning))
-            }
-            
-            Spacer(Modifier.height(12.dp))
-            
-            stories.take(3).forEach { story ->
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Star, contentDescription = null, tint = EmployerColors.Warning, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.refer_performer_from_city, story.userName, story.city), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = EmployerColors.Warning), modifier = Modifier.weight(1f))
-                    Text(stringResource(R.string.rupees_amount, story.totalEarnings.toInt().toString()), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = EmployerColors.Warning))
-                }
-            }
-            
-            if (stories.size > 3) {
-                Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.refer_more_top_performers, stories.size - 3), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA16207), fontStyle = androidx.compose.ui.text.font.FontStyle.Italic))
-            }
-        }
-    }
-}
-
-
-@Composable
-private fun EmployerLegalDisclaimerCard() {
-    Surface(modifier = Modifier.fillMaxWidth(), color = EmployerColors.WarningLight, shape = RoundedCornerShape(16.dp)) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Info, contentDescription = null, tint = EmployerColors.Warning, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.important_information), style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = EmployerColors.Warning))
-            }
-            
-            Spacer(Modifier.height(12.dp))
-            
-            Text(stringResource(R.string.refer_legal_not_pyramid), style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Warning), modifier = Modifier.padding(vertical = 4.dp))
-            Text(stringResource(R.string.refer_legal_taxable), style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Warning), modifier = Modifier.padding(vertical = 4.dp))
-            Text(stringResource(R.string.refer_legal_kyc), style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Warning), modifier = Modifier.padding(vertical = 4.dp))
-            Text(stringResource(R.string.refer_legal_pan), style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Warning), modifier = Modifier.padding(vertical = 4.dp))
-            Text(stringResource(R.string.refer_legal_fraud), style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.Warning), modifier = Modifier.padding(vertical = 4.dp))
-            
-            Spacer(Modifier.height(8.dp))
-            
-            Text(stringResource(R.string.terms_rbi_consent), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFA16207), fontStyle = androidx.compose.ui.text.font.FontStyle.Italic))
-        }
-    }
-}

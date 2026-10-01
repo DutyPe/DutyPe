@@ -1,4 +1,4 @@
-﻿package com.example.dutype.employer.screens
+package com.example.dutype.employer.screens
 
 import com.dutype.app.R
 import android.content.Context
@@ -83,21 +83,6 @@ private data class SupportItem(
     val content: String
 )
 
-private val SupportFaqItems = listOf(
-    SupportItem(
-        "Why can't I see applicants?",
-        "Make sure your job is Open and visible. Applicants only appear on active jobs, so check the job status first. Also complete your company profile, and give it a little time for workers nearby to find and apply."
-    ),
-    SupportItem(
-        "How do credits work?",
-        "Credits are consumed based on your plan, for example when you post a job or unlock a worker's contact details. You can see your remaining balance and upgrade anytime from the Subscription screen."
-    ),
-    SupportItem(
-        "How to mark job as filled?",
-        "Open the job from your dashboard or job history and tap Mark as Filled. The job will stop receiving new applications."
-    )
-)
-
 @Composable
 fun EmployerSupportScreen(
     navController: NavController,
@@ -114,13 +99,27 @@ fun EmployerSupportScreen(
 
     val guideItems = listOf(
         SupportItem(
-            "How to Post Your First Job",
+            stringResource(R.string.employer_guide_post_first_job_title),
             stringResource(R.string.employer_guide_posting_job_content)
+        )
+    )
+    val faqItems = listOf(
+        SupportItem(
+            stringResource(R.string.employer_faq_cant_see_applicants_title),
+            stringResource(R.string.employer_faq_cant_see_applicants_content)
+        ),
+        SupportItem(
+            stringResource(R.string.employer_faq_credits_work_title),
+            stringResource(R.string.employer_faq_credits_work_content)
+        ),
+        SupportItem(
+            stringResource(R.string.employer_faq_mark_filled_title),
+            stringResource(R.string.employer_faq_mark_filled_content)
         )
     )
     val q = searchQuery.trim().lowercase()
     val filteredGuides = filterSupportItems(guideItems, q)
-    val filteredFaqs = filterSupportItems(SupportFaqItems, q)
+    val filteredFaqs = filterSupportItems(faqItems, q)
 
     Box(
         modifier = Modifier
@@ -195,7 +194,7 @@ private fun openSupportDialer(context: Context) {
 private fun openSupportEmail(context: Context) {
     val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$SUPPORT_EMAIL"))
     intent.putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.email_subject_employer_support))
-    context.startActivity(Intent.createChooser(intent, "Send Email"))
+    context.startActivity(Intent.createChooser(intent, context.getString(R.string.send_email)))
 }
 
 @Composable
@@ -215,7 +214,7 @@ private fun SupportBackRow(onBack: () -> Unit) {
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(R.string.back),
                 tint = SupportInk,
                 modifier = Modifier.size(20.dp)
             )
@@ -256,7 +255,7 @@ private fun SupportSearchBar(
                 Box(contentAlignment = Alignment.CenterStart) {
                     if (query.isEmpty()) {
                         Text(
-                            text = "Search help articles…",
+                            text = stringResource(R.string.search_help_articles),
                             fontSize = 14.sp,
                             color = SupportHint
                         )
@@ -296,14 +295,14 @@ private fun SupportHeroCard(
         }
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Talk to your DutyPe Account Manager",
+            text = stringResource(R.string.employer_support_hero_title),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = SupportInk
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "Avg response: 3 minutes",
+            text = stringResource(R.string.employer_support_hero_subtitle),
             fontSize = 13.sp,
             color = SupportMuted
         )
@@ -340,7 +339,7 @@ private fun SupportHeroButtons(
         ) {
             SupportButtonContent(
                 icon = Icons.Default.ChatBubble,
-                label = "WhatsApp Support",
+                label = stringResource(R.string.employer_support_whatsapp),
                 color = Color.White,
                 weight = FontWeight.Bold
             )
@@ -361,7 +360,7 @@ private fun SupportHeroButtons(
         ) {
             SupportButtonContent(
                 icon = Icons.Default.Phone,
-                label = "Call Helpline",
+                label = stringResource(R.string.contact_helpline_title),
                 color = SupportInk,
                 weight = FontWeight.SemiBold
             )

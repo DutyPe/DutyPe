@@ -1,5 +1,7 @@
 package com.example.dutype.employer.screens
 
+import androidx.compose.runtime.LaunchedEffect
+import com.example.dutype.models.formatPaise
 import com.dutype.app.R
 import android.net.Uri
 import android.widget.Toast
@@ -55,7 +57,7 @@ import androidx.navigation.NavController
 import androidx.compose.ui.res.stringResource
 import coil.compose.AsyncImage
 import com.example.dutype.models.EmployerSubscription
-import com.example.dutype.models.PaymentRequest
+import com.example.dutype.repositories.PaymentRequest
 import com.example.dutype.models.Plan
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.EmployerColors
@@ -90,7 +92,6 @@ private val BlueAccent = Color(0xFF2563EB)
 private val BlueSoft = Color(0xFFEFF6FF)
 private val RingTrack = Color(0xFF1E293B)
 private val PlanTitleInk = Color(0xFF0F0F0F)
-private const val TRIAL_JOB_LIMIT = 2
 
 private fun getPlanColor(planId: String): Color = when {
     planId.contains("starter") -> IndicatorGreen
@@ -134,7 +135,7 @@ private fun planBenefits(plan: com.example.dutype.models.Plan): List<AnnotatedSt
             add(buildAnnotatedString { append(stringResource(R.string.sub_dynamic_instant_unlocks, plan.instantUnlocks.toString())) })
         }
     }
-    
+
     // Additional Universal Features
     add(buildAnnotatedString { append(stringResource(R.string.sub_30_days_validity)) })
 }
@@ -155,6 +156,7 @@ fun EmployerSubscriptionScreen(
     val paymentRequests by viewModel.paymentRequests.collectAsState()
     val subState by viewModel.activeSubscription.collectAsState()
     val plans by viewModel.plans.collectAsState()
+    LaunchedEffect(Unit) { viewModel.loadPurchaseData() }
 
     val dateTimeFormatter = remember { SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()) }
     val dateFormatter = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
@@ -184,7 +186,7 @@ fun EmployerSubscriptionScreen(
         }
     }
 
-    val hasActiveSub = subState.status == "ACTIVE" || subState.status == "TRIAL"
+    val hasActiveSub = subState.isActive
     val currentPlanObj = plans.find { it.id == subState.planId }
 
     Scaffold(
@@ -207,13 +209,11 @@ fun EmployerSubscriptionScreen(
 
             if (hasActiveSub) {
                 CurrentPlanCard(
-                    planName = currentPlanObj?.name ?: "Trial (2 Free Posts)",
+                    planName = currentPlanObj?.name ?: if (subState.isUnlimitedCampaign) stringResource(R.string.unlimited_campaign) else stringResource(R.string.sub_current_plan_default),
                     plan = currentPlanObj,
-                    status = subState.status,
                     remainingJobs = subState.normalCredits,
                     remainingContacts = subState.instantCredits,
-                    trialJobsUsed = subState.trialJobsUsed,
-                    expiryDate = subState.expiryDate
+                    expiryDate = subState.expiresAt
                 )
             } else {
                 NoPlanCard()
@@ -242,7 +242,7 @@ fun EmployerSubscriptionScreen(
                         .padding(start = 20.dp, top = 24.dp, end = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    SectionHeader(title = "Recent Transactions")
+                    SectionHeader(title = stringResource(R.string.recent_transactions))
                     paymentRequests.forEach { req ->
                         TransactionCard(
                             req = req,
@@ -276,17 +276,17 @@ fun EmployerSubscriptionScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Checkout: ${plan.name}",
+                        text = stringResource(R.string.checkout_title, plan.name),
                         style = AppTypography.cardTitle.copy(fontWeight = FontWeight.Bold, fontSize = 18.sp),
                         fontFamily = MeeshoFontFamily
                     )
                     IconButton(onClick = { showPaymentSheet = false }) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Ink700)
+                        Icon(Icons.Default.Close, contentDescription = stringResource(R.string.close), tint = Ink700)
                     }
                 }
 
                 Text(
-                    text = "Amount Payable: ₹${plan.price.toInt()}",
+                    text = stringResource(R.string.amount_payable, plan.priceRupees.toString()),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Black,
                     color = Brand
@@ -314,13 +314,13 @@ fun EmployerSubscriptionScreen(
                         IconButton(
                             onClick = {
                                 clipboardManager.setText(AnnotatedString("dutypein@ybl"))
-                                Toast.makeText(context, "UPI ID copied!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.upi_id_copied), Toast.LENGTH_SHORT).show()
                             },
                             modifier = Modifier.size(24.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ContentCopy,
-                                contentDescription = "Copy",
+                                contentDescription = stringResource(R.string.copy_button),
                                 tint = Ink500
                             )
                         }
@@ -367,7 +367,7 @@ fun EmployerSubscriptionScreen(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(
                             imageVector = Icons.Default.Info,
-                            contentDescription = "Info",
+                            contentDescription = stringResource(R.string.cd_info),
                             tint = Ink500
                         )
                         Text(
@@ -385,7 +385,7 @@ fun EmployerSubscriptionScreen(
                     OutlinedTextField(
                         value = utrNumber,
                         onValueChange = { if (it.length <= 12 && it.all { char -> char.isDigit() }) utrNumber = it },
-                        placeholder = { Text("e.g. 630987123456") },
+                        placeholder = { Text(stringResource(R.string.utr_placeholder)) },
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         singleLine = true,
@@ -418,7 +418,7 @@ fun EmployerSubscriptionScreen(
                             if (selectedImageUri != null) {
                                 AsyncImage(
                                     model = selectedImageUri,
-                                    contentDescription = "Selected Screenshot",
+                                    contentDescription = stringResource(R.string.selected_screenshot),
                                     modifier = Modifier
                                         .size(60.dp)
                                         .clip(RoundedCornerShape(8.dp)),
@@ -434,7 +434,7 @@ fun EmployerSubscriptionScreen(
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.PhotoCamera,
-                                    contentDescription = "Camera",
+                                    contentDescription = stringResource(R.string.camera),
                                     tint = Ink500
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -453,7 +453,7 @@ fun EmployerSubscriptionScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
-                                    contentDescription = "Remove screenshot",
+                                    contentDescription = stringResource(R.string.remove_screenshot),
                                     tint = Danger
                                 )
                             }
@@ -474,16 +474,16 @@ fun EmployerSubscriptionScreen(
                                 isUploadingScreenshot = false
                                 when (uploadResult) {
                                     is ImageUploadUtils.UploadResult.Success -> {
-                                        viewModel.submitPayment(plan.id, plan.price, utrNumber, uploadResult.downloadUrl)
+                                        viewModel.submitPayment(plan, utrNumber, uploadResult.downloadUrl)
                                     }
                                     is ImageUploadUtils.UploadResult.Failure -> {
-                                        Toast.makeText(context, "Image upload failed: ${uploadResult.error}", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(context, context.getString(R.string.image_upload_failed_msg, uploadResult.error.orEmpty()), Toast.LENGTH_LONG).show()
                                     }
                                     is ImageUploadUtils.UploadResult.Progress -> { /* progress handled locally if needed */ }
                                 }
                             }
                         } else {
-                            viewModel.submitPayment(plan.id, plan.price, utrNumber, "")
+                            viewModel.submitPayment(plan, utrNumber, "")
                         }
                     },
                     enabled = isSubmitEnabled,
@@ -533,7 +533,7 @@ fun EmployerSubscriptionScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Success",
+                        contentDescription = stringResource(R.string.cd_success),
                         tint = Success,
                         modifier = Modifier.size(64.dp)
                     )
@@ -556,7 +556,7 @@ fun EmployerSubscriptionScreen(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = Brand)
                     ) {
-                        Text("Go to Dashboard", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.go_to_dashboard), fontWeight = FontWeight.Bold)
                     }
                     OutlinedButton(
                         onClick = {
@@ -568,14 +568,14 @@ fun EmployerSubscriptionScreen(
                             try {
                                 context.startActivity(intent)
                             } catch (e: Exception) {
-                                Toast.makeText(context, "WhatsApp not installed", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.whatsapp_not_installed), Toast.LENGTH_SHORT).show()
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Success),
                         border = BorderStroke(1.dp, Success)
                     ) {
-                        Text("Contact Admin on WhatsApp", fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.contact_admin_whatsapp), fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -678,14 +678,14 @@ private fun PlansHeader(onBack: () -> Unit) {
         IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(R.string.back),
                 tint = Ink900,
                 modifier = Modifier.size(20.dp)
             )
         }
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "Plans & Credits",
+            text = stringResource(R.string.plans_and_credits),
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = Ink900
@@ -740,22 +740,17 @@ private fun ProgressRing(used: Int, limit: Int, color: Color, label: String) {
 private fun CurrentPlanCard(
     planName: String,
     plan: Plan?,
-    status: String,
     remainingJobs: Int,
     remainingContacts: Int,
-    trialJobsUsed: Int,
     expiryDate: Long
 ) {
-    val isTrial = status == "TRIAL"
     val days = daysRemaining(expiryDate)
     val displayName = if (planName.contains("plan", ignoreCase = true) || planName.contains("trial", ignoreCase = true)) planName else "$planName Plan"
 
-    val jobLimitBase = if (isTrial) TRIAL_JOB_LIMIT else (plan?.jobs ?: 0)
-    val jobLimit = if (isTrial) jobLimitBase else maxOf(jobLimitBase, remainingJobs)
-    val jobUsed = if (isTrial) trialJobsUsed.coerceIn(0, jobLimit) else (jobLimit - remainingJobs).coerceAtLeast(0)
+    val jobLimit = maxOf(plan?.jobs ?: 0, remainingJobs)
+    val jobUsed = (jobLimit - remainingJobs).coerceAtLeast(0)
 
-    val contactLimitBase = if (isTrial) 0 else (plan?.instantUnlocks ?: 0)
-    val contactLimit = maxOf(contactLimitBase, if (isTrial) 0 else remainingContacts)
+    val contactLimit = maxOf(plan?.instantUnlocks ?: 0, remainingContacts)
     val contactUsed = (contactLimit - remainingContacts).coerceAtLeast(0)
 
     Column(
@@ -770,10 +765,10 @@ private fun CurrentPlanCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "Current: $displayName", fontSize = 13.sp, color = Ink400)
+            Text(text = stringResource(R.string.sub_current_plan, displayName), fontSize = 13.sp, color = Ink400)
             if (days >= 0) {
                 Text(
-                    text = if (days == 1) "1 day remaining" else "$days days remaining",
+                    text = if (days == 1) stringResource(R.string.day_remaining_single) else stringResource(R.string.days_remaining_plural, days),
                     fontSize = 13.sp,
                     color = IndicatorYellow
                 )
@@ -787,10 +782,10 @@ private fun CurrentPlanCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (jobLimit > 0) {
-                    ProgressRing(used = jobUsed, limit = jobLimit, color = BlueAccent, label = "Job Posts")
+                    ProgressRing(used = jobUsed, limit = jobLimit, color = BlueAccent, label = stringResource(R.string.job_posts_label))
                 }
                 if (contactLimit > 0) {
-                    ProgressRing(used = contactUsed, limit = contactLimit, color = Success, label = "Contacts")
+                    ProgressRing(used = contactUsed, limit = contactLimit, color = Success, label = stringResource(R.string.contacts_label))
                 }
             }
         }
@@ -900,7 +895,7 @@ private fun PopularPill() {
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
         Text(
-            text = "MOST POPULAR",
+            text = stringResource(R.string.most_popular),
             fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold,
             color = BlueAccent
@@ -933,7 +928,7 @@ private fun PlanPageCard(
     isRecommended: Boolean,
     onProceed: () -> Unit
 ) {
-    val isFree = plan.price <= 0.0
+    val isFree = plan.pricePaise <= 0L
     val benefits = planBenefits(plan)
     val cardShape = RoundedCornerShape(16.dp)
     Column(
@@ -961,14 +956,14 @@ private fun PlanPageCard(
         Spacer(modifier = Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
-                text = if (isFree) "Free" else "\u20B9${plan.price.toInt()}",
+                text = if (isFree) stringResource(R.string.free_cost) else "\u20B9${plan.priceRupees}",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = PlanTitleInk
             )
             if (!isFree) {
                 Text(
-                    text = " / month",
+                    text = " ${stringResource(R.string.sub_per_month)}",
                     fontSize = 14.sp,
                     color = Ink500,
                     modifier = Modifier.padding(bottom = 4.dp)
@@ -994,7 +989,7 @@ private fun PlanPageCard(
                 )
             ) {
                 Text(
-                    text = if (isCurrent) stringResource(R.string.sub_renew_now) else "Upgrade with UPI \u2192",
+                    text = if (isCurrent) stringResource(R.string.sub_renew_now) else stringResource(R.string.upgrade_with_upi),
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -1015,14 +1010,14 @@ private fun EnterprisePageCard(onTalkToSales: () -> Unit) {
             .padding(20.dp)
     ) {
         Text(
-            text = "Enterprise",
+            text = stringResource(R.string.enterprise_plan_title),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             color = PlanTitleInk
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Custom Pricing",
+            text = stringResource(R.string.custom_pricing),
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = PlanTitleInk
@@ -1038,7 +1033,7 @@ private fun EnterprisePageCard(onTalkToSales: () -> Unit) {
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink900)
         ) {
             Text(
-                text = "Talk to Sales \u2192",
+                text = stringResource(R.string.talk_to_sales),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Ink900
@@ -1059,15 +1054,15 @@ private fun TransactionCard(
         else -> Color(0xFFF59E0B)
     }
     val statusText = when (req.status) {
-        "VERIFIED" -> "Approved"
-        "REJECTED" -> "Rejected"
-        else -> "Pending Verification"
+        "VERIFIED" -> stringResource(R.string.status_approved)
+        "REJECTED" -> stringResource(R.string.status_rejected)
+        else -> stringResource(R.string.status_pending_verification)
     }
     val planName = when (req.planId) {
-        "starter_99" -> "Starter Plan"
-        "growth_149" -> "Growth Plan"
-        "premium_299" -> "Premium Plan"
-        else -> "Subscription Plan"
+        "starter_99" -> stringResource(R.string.starter_plan)
+        "growth_149" -> stringResource(R.string.growth_plan)
+        "premium_299" -> stringResource(R.string.premium_plan)
+        else -> stringResource(R.string.subscription_plan)
     }
 
     Card(
@@ -1100,34 +1095,34 @@ private fun TransactionCard(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "UTR: ${req.utrNumber}",
+                    text = stringResource(R.string.utr_format, req.utrNumber),
                     fontSize = 12.sp,
                     color = Ink700,
                     fontFamily = MeeshoFontFamily
                 )
                 Text(
-                    text = "₹${req.amount.toInt()}",
+                    text = formatPaise(req.amountPaise),
                     fontWeight = FontWeight.Black,
                     fontSize = 14.sp,
                     color = Brand
                 )
             }
             Text(
-                text = "Requested: ${dateTimeFormatter.format(Date(req.requestTimestamp))}",
+                text = stringResource(R.string.requested_date_format, dateTimeFormatter.format(Date(req.createdAt))),
                 fontSize = 11.sp,
                 color = Ink400
             )
-            if (req.status == "VERIFIED" && req.expiryTimestamp != null) {
+            if (req.status == "VERIFIED" && req.verifiedAt > 0L) {
                 Text(
-                    text = "Expiry Date: ${dateFormatter.format(Date(req.expiryTimestamp))}",
+                    text = stringResource(R.string.verified_date_format, dateFormatter.format(Date(req.verifiedAt))),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Success
                 )
             }
-            if (req.status == "REJECTED" && !req.rejectionReason.isNullOrBlank()) {
+            if (req.status == "REJECTED" && req.rejectionReason.isNotBlank()) {
                 Text(
-                    text = "Reason: ${req.rejectionReason}",
+                    text = stringResource(R.string.reason_format, req.rejectionReason),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = Danger

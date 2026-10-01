@@ -81,21 +81,17 @@ fun EmployerAddressManagementScreen(
     LaunchedEffect(screenBg) {
         onStatusBarColorChange(screenBg)
     }
-    
+
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    // LocationService accessed via FirestoreJobViewModel (proper DI pattern)
-    val jobViewModel: com.example.dutype.viewmodels.FirestoreJobViewModel = hiltViewModel()
-    val locationService = jobViewModel.locationService
-    
-    // Saved work locations (process-scoped, in-memory)
-    val workerViewModel: com.example.dutype.viewmodels.WorkerHomeViewModel = hiltViewModel()
-    val savedWorkLocationsStore = workerViewModel.savedWorkLocationsStore
+    val employerJobsViewModel: com.example.dutype.viewmodels.EmployerJobsViewModel = hiltViewModel()
+    val locationService = employerJobsViewModel.locationService
+    val savedWorkLocationsStore = employerJobsViewModel.savedWorkLocationsStore
     val savedWorkLocations by savedWorkLocationsStore.locations.collectAsState()
-    
+
     // Employer theme color
     val employerBlue = EmployerColors.Primary
-    
+
     // Office addresses derived from SavedWorkLocationsStore
     val officeAddresses = remember(savedWorkLocations) {
         savedWorkLocations.mapIndexed { index, workLocation ->
@@ -111,7 +107,7 @@ fun EmployerAddressManagementScreen(
         }
     }
     val isLoadingAddresses = false
-    
+
     // Add address form state
     var officeName by remember { mutableStateOf("") }
     var searchQuery by remember { mutableStateOf("") }
@@ -121,10 +117,10 @@ fun EmployerAddressManagementScreen(
     var isLoadingLocation by remember { mutableStateOf(false) }
     var locationError by remember { mutableStateOf<String?>(null) }
     var isAddingAddress by remember { mutableStateOf(false) }
-    
+
     // Edit state
     var editingAddressId by remember { mutableStateOf<String?>(null) }
-    
+
     // Location permission launcher
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -147,16 +143,16 @@ fun EmployerAddressManagementScreen(
                         locationLongitude = locationInfo.longitude
                         timber.log.Timber.d("📍 AddressManagement: Got location - lat: $locationLatitude, lon: $locationLongitude")
                     } else {
-                        locationError = "Unable to get current location"
+                        locationError = context.getString(R.string.unable_get_location)
                     }
                 } catch (e: Exception) {
-                    locationError = "Error getting location: ${e.message}"
+                    locationError = e.message ?: context.getString(R.string.unable_get_location)
                 } finally {
                     isLoadingLocation = false
                 }
             }
         } else {
-            locationError = "Location permission denied"
+            locationError = context.getString(R.string.location_permission_denied)
         }
     }
 
@@ -170,7 +166,7 @@ fun EmployerAddressManagementScreen(
             title = stringResource(R.string.manage_addresses),
             navController = navController
         )
-        
+
         // Content
         Column(
             modifier = Modifier
@@ -194,9 +190,9 @@ fun EmployerAddressManagementScreen(
                             color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                         )
                     )
-                    
+
                     Spacer(modifier = Modifier.height(12.dp))
-                    
+
                     // Office Name Field
                     OutlinedTextField(
                         value = officeName,
@@ -210,9 +206,9 @@ fun EmployerAddressManagementScreen(
                             focusedLabelColor = employerBlue
                         )
                     )
-                    
+
                     Spacer(modifier = Modifier.height(12.dp))
-                    
+
                     // Search/Address Field with location button and autocomplete
                     Column(modifier = Modifier.fillMaxWidth()) {
                         com.example.dutype.components.LocationAutocompleteField(
@@ -243,7 +239,7 @@ fun EmployerAddressManagementScreen(
                             )
                         )
                     }
-                    
+
                     // Location error
                     locationError?.let { error ->
                         Spacer(modifier = Modifier.height(4.dp))
@@ -253,9 +249,9 @@ fun EmployerAddressManagementScreen(
                             fontSize = 12.sp
                         )
                     }
-                    
+
                     Spacer(modifier = Modifier.height(16.dp))
-                    
+
                     // Add Button
                     Button(
                         onClick = {
@@ -278,7 +274,7 @@ fun EmployerAddressManagementScreen(
 
                                     android.widget.Toast.makeText(
                                         context,
-                                        "Address saved for this session",
+                                        context.getString(R.string.address_saved_session),
                                         android.widget.Toast.LENGTH_SHORT
                                     ).show()
 
@@ -286,7 +282,7 @@ fun EmployerAddressManagementScreen(
                                 }.onFailure { error ->
                                     android.widget.Toast.makeText(
                                         context,
-                                        "Failed to save address: ${error.message}",
+                                        context.getString(R.string.failed_save_address, error.message.orEmpty()),
                                         android.widget.Toast.LENGTH_SHORT
                                     ).show()
                                     timber.log.Timber.e(error, "❌ AddressManagement: Failed to save address")
@@ -321,9 +317,9 @@ fun EmployerAddressManagementScreen(
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
-            
+
             // Saved Addresses Section
             if (officeAddresses.isNotEmpty()) {
                 Text(
@@ -333,7 +329,7 @@ fun EmployerAddressManagementScreen(
                     ),
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
-                
+
                 officeAddresses.forEach { address ->
                     AddressCard(
                         address = address,
@@ -350,7 +346,7 @@ fun EmployerAddressManagementScreen(
                             savedWorkLocationsStore.remove(address.id)
                             android.widget.Toast.makeText(
                                 context,
-                                "Address deleted",
+                                context.getString(R.string.address_deleted),
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                         },
@@ -359,7 +355,7 @@ fun EmployerAddressManagementScreen(
                             // persistent backing store. No-op for now (session-only store).
                             android.widget.Toast.makeText(
                                 context,
-                                "Default address selection is not persisted in this session",
+                                context.getString(R.string.default_address_not_persisted),
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                         },
@@ -367,7 +363,7 @@ fun EmployerAddressManagementScreen(
                             // Active flag has no backing field in the in-memory store yet.
                             android.widget.Toast.makeText(
                                 context,
-                                "Address activation is not persisted in this session",
+                                context.getString(R.string.address_activation_not_persisted),
                                 android.widget.Toast.LENGTH_SHORT
                             ).show()
                         }
@@ -385,7 +381,7 @@ fun EmployerAddressManagementScreen(
                     subtitle = stringResource(R.string.add_office_locations)
                 )
             }
-            
+
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
@@ -400,7 +396,7 @@ private fun AddressCard(
     onToggleActive: () -> Unit
 ) {
     val employerBlue = EmployerColors.Primary
-    
+
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
@@ -458,12 +454,12 @@ private fun AddressCard(
                         }
                     }
                 }
-                
+
                 Row {
                     IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
                         Icon(
                             imageVector = Icons.Default.Edit,
-                            contentDescription = "Edit",
+                            contentDescription = stringResource(R.string.edit_button),
                             tint = EmployerColors.TextSecondary,
                             modifier = Modifier.size(18.dp)
                         )
@@ -471,16 +467,16 @@ private fun AddressCard(
                     IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
                         Icon(
                             imageVector = Icons.Default.Delete,
-                            contentDescription = "Delete",
+                            contentDescription = stringResource(R.string.delete),
                             tint = EmployerColors.Error,
                             modifier = Modifier.size(18.dp)
                         )
                     }
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
-            
+
             Text(
                 text = address.address,
                 fontSize = 13.sp,
@@ -489,9 +485,9 @@ private fun AddressCard(
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            
+
             Spacer(modifier = Modifier.height(12.dp))
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -512,12 +508,12 @@ private fun AddressCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (address.isActive) "Active" else "Inactive",
+                        text = if (address.isActive) stringResource(R.string.active_status) else stringResource(R.string.inactive_status),
                         fontSize = 12.sp,
                         color = if (address.isActive) EmployerColors.Success else EmployerColors.TextSecondary
                     )
                 }
-                
+
                 if (!address.isDefault) {
                     TextButton(onClick = onSetDefault) {
                         Text(

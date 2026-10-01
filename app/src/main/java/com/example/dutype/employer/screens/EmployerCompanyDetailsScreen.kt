@@ -1,5 +1,7 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.firestore.FirestoreSchema.Values
+import com.example.dutype.firestore.FirestoreSchema.EmployerProfiles
 import com.dutype.app.R
 import android.net.Uri
 import android.widget.Toast
@@ -45,6 +47,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
+import androidx.compose.ui.res.stringResource
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -62,13 +65,15 @@ private val CdGreen = Color(0xFF16A34A)
 private val CdGreenBg = Color(0xFFF0FDF4)
 private val CdGstGreen = Color(0xFF10B981)
 
+private data class CdCategoryItem(val key: String, val labelRes: Int)
+
 private val CdCategories = listOf(
-    "Retail Shop",
-    "Construction",
-    "Logistics",
-    "Hotel/Restaurant",
-    "Manufacturing",
-    "Individual"
+    CdCategoryItem("Retail Shop", R.string.company_category_retail),
+    CdCategoryItem("Construction", R.string.company_category_construction),
+    CdCategoryItem("Logistics", R.string.company_category_logistics),
+    CdCategoryItem("Hotel/Restaurant", R.string.company_category_hotel),
+    CdCategoryItem("Manufacturing", R.string.company_category_manufacturing),
+    CdCategoryItem("Individual", R.string.company_category_individual)
 )
 
 // Local format check only. Server-side GST verification is NOT implemented.
@@ -89,10 +94,8 @@ fun EmployerCompanyDetailsScreen(
     // Form state
     var employerType by remember { mutableStateOf("COMPANY") }
     var companyName by remember { mutableStateOf("") }
-    var tradeName by remember { mutableStateOf("") }
     var contactPerson by remember { mutableStateOf("") }
     var contactPhone by remember { mutableStateOf("") }
-    var contactEmail by remember { mutableStateOf("") }
     var businessAddress by remember { mutableStateOf("") }
     var industry by remember { mutableStateOf("") }
     var gstin by remember { mutableStateOf("") }
@@ -122,9 +125,6 @@ fun EmployerCompanyDetailsScreen(
                         uploadResult.fold(
                             onSuccess = { imageUrl ->
                                 profileImageUrl = imageUrl
-                                profileCompletionViewModel.saveEmployerProfileData(
-                                    mapOf("profileImageUrl" to imageUrl)
-                                )
                                 Toast.makeText(
                                     context,
                                     context.getString(R.string.company_logo_updated),
@@ -161,28 +161,21 @@ fun EmployerCompanyDetailsScreen(
         val currentUser = FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
             try {
-                val employerProfileData =
-                    profileCompletionViewModel.getEmployerProfileData(currentUser.uid)
-                employerProfileData.fold(
-                    onSuccess = { data ->
-                        employerType = data["employerType"] as? String ?: "COMPANY"
-                        companyName = data["companyName"] as? String ?: ""
-                        tradeName = data["tradeName"] as? String ?: ""
-                        contactPerson = data["contactPerson"] as? String ?: ""
-                        contactPhone = data["contactPhone"] as? String
-                            ?: data["phone"] as? String ?: ""
-                        contactEmail = data["contactEmail"] as? String ?: ""
-                        businessAddress = data["businessAddress"] as? String ?: ""
-                        industry = data["industry"] as? String ?: ""
-                        gstin = data["gstin"] as? String ?: ""
-                        gstVerified = (data["gstVerified"] as? Boolean == true) &&
-                            CdGstinRegex.matches(gstin)
-                        profileImageUrl = data["profileImageUrl"] as? String
-                    },
-                    onFailure = { exception ->
-                        Timber.e(exception, "Error loading employer profile data")
+                profileCompletionViewModel.getEmployer(currentUser.uid)
+                    .onSuccess { saved ->
+                        if (saved != null) {
+                            employerType = saved.employerType
+                            companyName = if (saved.isCompany) saved.businessName else saved.ownerName
+                            contactPerson = saved.ownerName
+                            contactPhone = saved.phone
+                            businessAddress = saved.address
+                            industry = saved.businessType
+                            gstin = saved.gstin
+                            gstVerified = CdGstinRegex.matches(gstin)
+                            profileImageUrl = saved.photoUrl.ifBlank { null }
+                        }
                     }
-                )
+                    .onFailure { Timber.e(it, "Error loading employer profile data") }
             } catch (e: Exception) {
                 Timber.e(e, "Error loading employer profile data")
             }
@@ -192,32 +185,27 @@ fun EmployerCompanyDetailsScreen(
     val doSave: () -> Unit = {
         if (!isSaving) {
             if (gstin.isNotBlank() && !CdGstinRegex.matches(gstin)) {
-                Toast.makeText(context, "Enter a valid 15-character GSTIN", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.valid_gstin_required), Toast.LENGTH_SHORT).show()
             } else {
                 isSaving = true
                 scope.launch {
                     try {
                         val currentUser = FirebaseAuth.getInstance().currentUser
                         if (currentUser != null) {
-                            val data = mutableMapOf<String, Any>(
-                                "companyName" to companyName,
-                                "fullName" to companyName,
-                                "tradeName" to tradeName,
-                                "contactPerson" to contactPerson,
-                                "contactEmail" to contactEmail,
-                                "businessAddress" to businessAddress,
-                                "industry" to industry,
-                                "gstin" to gstin,
-                                "gstVerified" to (gstVerified && gstin.isNotBlank()),
-                                "employerType" to employerType
-                            )
-                            profileImageUrl?.takeIf { it.isNotBlank() }?.let {
-                                data["profileImageUrl"] = it
-                            }
-                            profileCompletionViewModel.saveEmployerProfileData(data)
+                            val isCompany = employerType == Values.EmployerType.COMPANY
+                            profileCompletionViewModel.saveEmployer(
+                                mapOf(
+                                    EmployerProfiles.EMPLOYER_TYPE to employerType,
+                                    EmployerProfiles.OWNER_NAME to (if (isCompany) contactPerson.ifBlank { companyName } else companyName).trim(),
+                                    EmployerProfiles.BUSINESS_NAME to if (isCompany) companyName.trim() else "",
+                                    EmployerProfiles.BUSINESS_TYPE to industry.trim(),
+                                    EmployerProfiles.GSTIN to gstin,
+                                    EmployerProfiles.ADDRESS to businessAddress.trim()
+                                )
+                            ).getOrThrow()
                             Toast.makeText(
                                 context,
-                                "Profile details saved successfully!",
+                                context.getString(R.string.profile_saved_success),
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
@@ -225,7 +213,7 @@ fun EmployerCompanyDetailsScreen(
                         Timber.e(e, "Error saving company details")
                         Toast.makeText(
                             context,
-                            "Failed to save profile details",
+                            context.getString(R.string.profile_saved_failed),
                             Toast.LENGTH_SHORT
                         ).show()
                     } finally {
@@ -268,13 +256,9 @@ fun EmployerCompanyDetailsScreen(
                 CdBasicsCard(
                     companyName = companyName,
                     onCompanyName = { companyName = it },
-                    tradeName = tradeName,
-                    onTradeName = { tradeName = it },
                     contactPerson = contactPerson,
                     onContactPerson = { contactPerson = it },
-                    contactPhone = contactPhone,
-                    contactEmail = contactEmail,
-                    onContactEmail = { contactEmail = it }
+                    contactPhone = contactPhone
                 )
                 CdCategoryTaxCard(
                     industry = industry,
@@ -293,7 +277,7 @@ fun EmployerCompanyDetailsScreen(
                             gstVerified = false
                             Toast.makeText(
                                 context,
-                                "Enter a valid 15-character GSTIN",
+                                context.getString(R.string.valid_gstin_required),
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
@@ -331,7 +315,7 @@ private fun CdTopBar(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
+                contentDescription = stringResource(R.string.back),
                 tint = CdNavy,
                 modifier = Modifier
                     .size(24.dp)
@@ -339,14 +323,14 @@ private fun CdTopBar(
             )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = "Company Details",
+                text = stringResource(R.string.company_details_section),
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = CdNavy
             )
         }
         Text(
-            text = "Save",
+            text = stringResource(R.string.save),
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             color = CdCobalt,
@@ -406,7 +390,7 @@ private fun CdPhotoCard(
                 ) {
                     com.example.dutype.components.OptimizedProfileImage(
                         imageUrl = profileImageUri?.toString() ?: profileImageUrl.orEmpty(),
-                        contentDescription = "Company photo",
+                        contentDescription = stringResource(R.string.company_photo),
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -421,7 +405,7 @@ private fun CdPhotoCard(
             }
         }
         Text(
-            text = "Upload Shop Front or Office Photo",
+            text = stringResource(R.string.upload_workplace_photo_title),
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
             color = CdNavy,
@@ -429,7 +413,7 @@ private fun CdPhotoCard(
             modifier = Modifier.padding(top = 8.dp)
         )
         Text(
-            text = "Candidates are 3x more likely to accept offers when they see your verified workplace.",
+            text = stringResource(R.string.upload_workplace_photo_desc),
             fontSize = 12.sp,
             lineHeight = 17.sp,
             color = CdMuted,
@@ -447,7 +431,7 @@ private fun CdPhotoCard(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Choose Photo",
+                text = stringResource(R.string.choose_photo),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = CdNavy
@@ -471,17 +455,13 @@ private fun CdCard(content: @Composable ColumnScope.() -> Unit) {
 private fun CdBasicsCard(
     companyName: String,
     onCompanyName: (String) -> Unit,
-    tradeName: String,
-    onTradeName: (String) -> Unit,
     contactPerson: String,
     onContactPerson: (String) -> Unit,
-    contactPhone: String,
-    contactEmail: String,
-    onContactEmail: (String) -> Unit
+    contactPhone: String
 ) {
     CdCard {
         Text(
-            text = "BUSINESS BASICS",
+            text = stringResource(R.string.business_basics),
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
             color = CdHint,
@@ -489,25 +469,19 @@ private fun CdBasicsCard(
         )
         Spacer(modifier = Modifier.height(10.dp))
         CdField(
-            label = "Legal Business Name",
+            label = stringResource(R.string.business_name),
             value = companyName,
             onValueChange = onCompanyName
         )
         Spacer(modifier = Modifier.height(10.dp))
         CdField(
-            label = "Trade / Display Name",
-            value = tradeName,
-            onValueChange = onTradeName
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        CdField(
-            label = "Contact Person Name & Role",
+            label = stringResource(R.string.owner_contact_name),
             value = contactPerson,
             onValueChange = onContactPerson
         )
         Spacer(modifier = Modifier.height(10.dp))
         CdField(
-            label = "Contact Phone Number (+91)",
+            label = stringResource(R.string.contact_phone_number_label),
             value = contactPhone,
             onValueChange = {},
             enabled = false,
@@ -515,14 +489,6 @@ private fun CdBasicsCard(
             trailing = if (contactPhone.isNotBlank()) {
                 { CdVerifiedBadge() }
             } else null
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        CdField(
-            label = "Contact Email (Optional)",
-            value = contactEmail,
-            onValueChange = onContactEmail,
-            placeholder = "name@business.com",
-            keyboardType = KeyboardType.Email
         )
     }
 }
@@ -538,7 +504,7 @@ private fun CdCategoryTaxCard(
 ) {
     CdCard {
         Text(
-            text = "Business Category",
+            text = stringResource(R.string.business_category),
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             color = CdNavy
@@ -550,17 +516,17 @@ private fun CdCategoryTaxCard(
                 .horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            CdCategories.forEach { name ->
+            CdCategories.forEach { category ->
                 CdChip(
-                    text = name,
-                    selected = industry == name,
-                    onClick = { onIndustry(name) }
+                    text = stringResource(category.labelRes),
+                    selected = industry == category.key,
+                    onClick = { onIndustry(category.key) }
                 )
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
         CdField(
-            label = "GSTIN (Optional)",
+            label = stringResource(R.string.gstin_optional),
             value = gstin,
             onValueChange = onGstin,
             capitalization = KeyboardCapitalization.Characters,
@@ -575,7 +541,7 @@ private fun CdCategoryTaxCard(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Verify",
+                        text = stringResource(R.string.verify),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White
@@ -585,7 +551,7 @@ private fun CdCategoryTaxCard(
         )
         if (gstVerified && gstin.isNotBlank()) {
             Text(
-                text = "✓ GST Active: $gstin",
+                text = stringResource(R.string.gst_active, gstin),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = CdGstGreen,
@@ -632,7 +598,7 @@ private fun CdBottomBar(
                     )
                 } else {
                     Text(
-                        text = "Save Company Details →",
+                        text = stringResource(R.string.save_company_details_action),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color.White
@@ -691,7 +657,7 @@ private fun CdVerifiedBadge() {
         )
         Spacer(modifier = Modifier.width(4.dp))
         Text(
-            text = "Verified",
+            text = stringResource(R.string.verified_label),
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
             color = CdGreen,

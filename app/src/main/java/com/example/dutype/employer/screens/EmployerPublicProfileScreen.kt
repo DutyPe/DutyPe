@@ -1,5 +1,7 @@
 package com.example.dutype.employer.screens
 
+import com.example.dutype.utils.epochMillis
+import com.example.dutype.firestore.FirestoreSchema.Jobs
 import com.dutype.app.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -69,7 +71,7 @@ fun EmployerPublicProfileScreen(
 ) {
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var employerDisplayName by remember { mutableStateOf("Employer") }
+    var employerDisplayName by remember { mutableStateOf("") }
     var jobs by remember { mutableStateOf<List<EmployerPublicJobPreview>>(emptyList()) }
     val context = LocalContext.current
 
@@ -83,42 +85,31 @@ fun EmployerPublicProfileScreen(
 
         try {
             val snapshot = com.example.dutype.di.firestoreFromHilt(context)
-                .collection(com.example.dutype.firestore.FirestoreCollections.JOBS)
-                .whereEqualTo("employerId", employerId)
-                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .collection(Jobs.COLLECTION)
+                .whereEqualTo(Jobs.EMPLOYER_ID, employerId)
+                .orderBy(Jobs.CREATED_AT, com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .limit(20)
                 .get()
                 .await()
 
             val loadedJobs = snapshot.documents.map { doc ->
                 val data = doc.data.orEmpty()
-                employerDisplayName = employerDisplayName.takeUnless { it == "Employer" }
-                    ?: sequenceOf(
-                        data["companyName"]?.toString(),
-                        data["employerName"]?.toString(),
-                        data["company"]?.toString()
-                    ).firstOrNull { !it.isNullOrBlank() }
-                    ?: "Employer"
-
+                (data[Jobs.COMPANY_NAME] as? String)?.takeIf { it.isNotBlank() }?.let { employerDisplayName = it }
                 EmployerPublicJobPreview(
                     id = doc.id,
-                    title = data["title"]?.toString()?.ifBlank { "Job Opening" } ?: "Job Opening",
-                    status = data["status"]?.toString()?.uppercase() ?: "OPEN",
-                    createdAt = when (val createdAt = data["createdAt"]) {
-                        is Timestamp -> createdAt.toDate().time
-                        is Number -> createdAt.toLong()
-                        else -> 0L
-                    }
+                    title = (data[Jobs.TITLE] as? String)?.ifBlank { null } ?: context.getString(R.string.default_job_opening),
+                    status = (data[Jobs.STATUS] as? String)?.uppercase() ?: "OPEN",
+                    createdAt = data[Jobs.CREATED_AT].epochMillis()
                 )
             }
 
             jobs = loadedJobs
             if (loadedJobs.isEmpty()) {
-                errorMessage = "No public jobs found for this employer right now."
+                errorMessage = context.getString(R.string.no_public_jobs_found)
             }
         } catch (e: Exception) {
             Timber.e(e, "Failed to load public employer profile for $employerId")
-            errorMessage = e.message ?: "Could not load this employer profile."
+            errorMessage = e.message ?: context.getString(R.string.unable_load_employer_profile)
         } finally {
             isLoading = false
         }
@@ -153,7 +144,7 @@ fun EmployerPublicProfileScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = errorMessage ?: "Unable to load employer profile.",
+                        text = errorMessage ?: stringResource(R.string.unable_load_employer_profile),
                         style = AppTypography.bodyLarge,
                         color = EmployerColors.TextSecondary
                     )
@@ -199,7 +190,7 @@ fun EmployerPublicProfileScreen(
                                 Spacer(modifier = Modifier.height(12.dp))
 
                                 Text(
-                                    text = employerDisplayName,
+                                    text = employerDisplayName.ifBlank { stringResource(R.string.employer) },
                                     style = AppTypography.cardTitle.copy(fontWeight = FontWeight.Bold),
                                     color = EmployerColors.TextPrimary
                                 )
@@ -325,6 +316,12 @@ private fun EmployerJobStatusPill(status: String) {
         "EXPIRED" -> EmployerColors.TextSecondary
         else -> EmployerColors.Primary
     }
+    val statusText = when (normalizedStatus) {
+        "OPEN" -> stringResource(R.string.open_status)
+        "CLOSED" -> stringResource(R.string.closed)
+        "EXPIRED" -> stringResource(R.string.history_expired)
+        else -> normalizedStatus.lowercase().replaceFirstChar { it.titlecase(Locale.ROOT) }
+    }
 
     Box(
         modifier = Modifier
@@ -333,14 +330,15 @@ private fun EmployerJobStatusPill(status: String) {
             .padding(horizontal = 10.dp, vertical = 6.dp)
     ) {
         Text(
-            text = normalizedStatus.lowercase().replaceFirstChar { it.titlecase(Locale.ROOT) },
+            text = statusText,
             style = AppTypography.caption.copy(fontWeight = FontWeight.SemiBold),
             color = foreground
         )
     }
 }
 
+@Composable
 private fun formatEmployerJobTimestamp(timestamp: Long): String {
-    if (timestamp <= 0L) return "Recently posted"
+    if (timestamp <= 0L) return stringResource(R.string.recently_posted)
     return SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(Date(timestamp))
 }
