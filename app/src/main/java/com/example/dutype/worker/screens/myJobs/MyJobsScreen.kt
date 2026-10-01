@@ -109,7 +109,7 @@ fun MyJobsScreen(
     var applicationToRate by remember { mutableStateOf<JobApplication?>(null) }
     var ratedApplicationIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     val cardContext = androidx.compose.ui.platform.LocalContext.current
-    val ratingService = remember { com.example.dutype.services.RatingService(com.example.dutype.di.firestoreFromHilt(cardContext), com.example.dutype.di.authFromHilt(cardContext)) }
+    val ratingService = remember { com.example.dutype.di.ratingServiceFromHilt(cardContext) }
     val ratingScope = rememberCoroutineScope()
 
     val currentUser = FirebaseAuth.getInstance().currentUser
@@ -141,9 +141,7 @@ fun MyJobsScreen(
         applications.filter {
             it.status == ApplicationStatus.COMPLETED ||
                 it.status == ApplicationStatus.REJECTED ||
-                it.status == ApplicationStatus.WITHDRAWN ||
-                it.status == ApplicationStatus.DELETED ||
-                it.status == ApplicationStatus.FILLED
+                it.status == ApplicationStatus.WITHDRAWN
         }.sortedByDescending { it.createdAt }
     }
 
@@ -198,22 +196,22 @@ fun MyJobsScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     MyJobsPillTab(
-                        label = "Applied (${appliedApplications.size})",
+                        label = stringResource(R.string.my_jobs_applied_count, appliedApplications.size),
                         selected = selectedTabIndex == 0,
                         onClick = { selectedTabIndex = 0 }
                     )
                     MyJobsPillTab(
-                        label = "Active (${activeApplications.size})",
+                        label = stringResource(R.string.my_jobs_active_count, activeApplications.size),
                         selected = selectedTabIndex == 1,
                         onClick = { selectedTabIndex = 1 }
                     )
                     MyJobsPillTab(
-                        label = "History (${historyApplications.size})",
+                        label = stringResource(R.string.my_jobs_history_count, historyApplications.size),
                         selected = selectedTabIndex == 2,
                         onClick = { selectedTabIndex = 2 }
                     )
                     MyJobsPillTab(
-                        label = stringResource(R.string.saved_jobs) + " (${savedJobs.size})",
+                        label = stringResource(R.string.my_jobs_saved_count, savedJobs.size),
                         selected = selectedTabIndex == 3,
                         onClick = { selectedTabIndex = 3 }
                     )
@@ -228,7 +226,7 @@ fun MyJobsScreen(
                         items = appliedApplications,
                         scrollStateManager = scrollStateManager,
                         emptyIcon = Icons.Outlined.Inbox,
-                        emptyMessage = "No applied jobs yet",
+                        emptyMessage = stringResource(R.string.my_jobs_no_applied_jobs),
                         navController = navController
                     ) { application ->
                         AppliedJobCard(
@@ -253,7 +251,7 @@ fun MyJobsScreen(
                         items = activeApplications,
                         scrollStateManager = scrollStateManager,
                         emptyIcon = Icons.Outlined.WorkOutline,
-                        emptyMessage = "No active jobs yet",
+                        emptyMessage = stringResource(R.string.my_jobs_no_active_jobs),
                         navController = navController
                     ) { application ->
                         ActiveJobCard(
@@ -274,7 +272,7 @@ fun MyJobsScreen(
                         items = historyApplications,
                         scrollStateManager = scrollStateManager,
                         emptyIcon = Icons.Outlined.History,
-                        emptyMessage = "No job history yet",
+                        emptyMessage = stringResource(R.string.my_jobs_no_history_jobs),
                         navController = navController
                     ) { application ->
                         HistoryJobCard(
@@ -336,15 +334,15 @@ fun MyJobsScreen(
                 TextButton(
                     onClick = {
                         applicationToWithdraw?.let { app ->
-                            jobApplicationViewModel.withdrawApplication(app.id) { success, error ->
+                            jobApplicationViewModel.withdrawApplication(app) { success, error ->
                                 if (success) {
                                     Timber.d("Application withdrawn successfully")
-                                    android.widget.Toast.makeText(cardContext, "Application withdrawn", android.widget.Toast.LENGTH_SHORT).show()
+                                    android.widget.Toast.makeText(cardContext, cardContext.getString(R.string.my_jobs_application_withdrawn), android.widget.Toast.LENGTH_SHORT).show()
                                 } else {
                                     Timber.e("Failed to withdraw application: $error")
                                     android.widget.Toast.makeText(
                                         cardContext,
-                                        error ?: "Couldn't withdraw. Please try again.",
+                                        error ?: cardContext.getString(R.string.my_jobs_withdraw_failed),
                                         android.widget.Toast.LENGTH_SHORT
                                     ).show()
                                 }
@@ -411,7 +409,7 @@ fun MyJobsScreen(
                     }.onFailure { error ->
                         android.widget.Toast.makeText(
                             cardContext,
-                            error.message ?: "Unable to submit rating right now",
+                            error.message ?: cardContext.getString(R.string.my_jobs_rating_submit_failed),
                             android.widget.Toast.LENGTH_SHORT
                         ).show()
                     }
@@ -519,6 +517,7 @@ private fun MyJobsPillTab(label: String, selected: Boolean, onClick: () -> Unit)
 // ─── Applied tab card ───────────────────────────────────────────────────────
 @Composable
 private fun AppliedJobCard(application: JobApplication, onClick: () -> Unit, onWithdrawClick: () -> Unit) {
+    val dialEmployer = rememberEmployerDialer()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -542,32 +541,46 @@ private fun AppliedJobCard(application: JobApplication, onClick: () -> Unit, onW
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = postedAgoLabel(application.createdAt),
+            text = appliedAgoLabel(application.createdAt),
             fontSize = 11.sp,
             color = MyJobsFaint
         )
         Spacer(modifier = Modifier.height(18.dp))
         JobProgressTracker(
-            steps = listOf("Applied", "Hired", "Completed"),
+            steps = listOf(stringResource(R.string.applied), stringResource(R.string.hired), stringResource(R.string.completed)),
             currentIndex = applicationStepIndex(application.status)
         )
         Spacer(modifier = Modifier.height(14.dp))
-        // Worker can take back an application until the employer hires.
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(40.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .border(1.dp, Color(0xFFFECACA), RoundedCornerShape(20.dp))
-                .clickable(onClick = onWithdrawClick),
-            contentAlignment = Alignment.Center
+        val context = androidx.compose.ui.platform.LocalContext.current
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = stringResource(R.string.withdraw),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color(0xFFDC2626)
+            // Same dial behaviour as the Active card; falls back to the job page
+            // (which shows the contact) when the number isn't loaded yet.
+            MyJobsActionButton(
+                label = stringResource(R.string.my_jobs_call_employer),
+                filled = true,
+                modifier = Modifier.weight(1f),
+                onClick = { dialEmployer(application, onClick) }
             )
+            // Worker can take back an application until the employer hires.
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(44.dp)
+                    .clip(RoundedCornerShape(22.dp))
+                    .border(1.dp, Color(0xFFFECACA), RoundedCornerShape(22.dp))
+                    .clickable(onClick = onWithdrawClick),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = stringResource(R.string.withdraw),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFFDC2626)
+                )
+            }
         }
     }
 }
@@ -575,6 +588,7 @@ private fun AppliedJobCard(application: JobApplication, onClick: () -> Unit, onW
 // ─── Active tab card ────────────────────────────────────────────────────────
 @Composable
 private fun ActiveJobCard(application: JobApplication, onClick: () -> Unit) {
+    val dialEmployer = rememberEmployerDialer()
     val context = androidx.compose.ui.platform.LocalContext.current
 
     Column(
@@ -593,7 +607,7 @@ private fun ActiveJobCard(application: JobApplication, onClick: () -> Unit) {
                 .padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Text(
-                text = "ACTIVE NOW",
+                text = stringResource(R.string.my_jobs_active_now),
                 fontSize = 10.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = MyJobsEmerald
@@ -619,23 +633,10 @@ private fun ActiveJobCard(application: JobApplication, onClick: () -> Unit) {
             // (see JobApplicationCard.kt) against the denormalized
             // application.employerPhone field.
             MyJobsActionButton(
-                label = "📞 Call Employer",
+                label = stringResource(R.string.my_jobs_call_employer),
                 filled = false,
                 modifier = Modifier.weight(1f),
-                onClick = {
-                    val phone = application.employerPhone.orEmpty()
-                    if (phone.isNotBlank()) {
-                        runCatching {
-                            val intent = android.content.Intent(
-                                android.content.Intent.ACTION_DIAL,
-                                android.net.Uri.parse("tel:$phone")
-                            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                            context.startActivity(intent)
-                        }
-                    } else {
-                        onClick()
-                    }
-                }
+                onClick = { dialEmployer(application, onClick) }
             )
 
             // Get Directions — mirrors JobDescriptionScreen's Google Maps
@@ -643,15 +644,18 @@ private fun ActiveJobCard(application: JobApplication, onClick: () -> Unit) {
             // no lat/lng snapshot, so the real job address text is used as
             // the map query instead of coordinates.
             MyJobsActionButton(
-                label = "📍 Get Directions",
+                label = stringResource(R.string.my_jobs_get_directions),
                 filled = true,
                 modifier = Modifier.weight(1f),
                 onClick = {
-                    val query = android.net.Uri.encode(
-                        application.jobLocation.ifBlank { application.companyName }
-                    )
+                    val job = application.job
+                    val query = android.net.Uri.encode(application.jobArea.ifBlank { application.companyName })
                     runCatching {
-                        val uri = android.net.Uri.parse("geo:0,0?q=$query")
+                        val uri = if (job != null && (job.lat != 0.0 || job.lng != 0.0)) {
+                            android.net.Uri.parse("geo:${job.lat},${job.lng}?q=${job.lat},${job.lng}($query)")
+                        } else {
+                            android.net.Uri.parse("geo:0,0?q=$query")
+                        }
                         val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri).apply {
                             setPackage("com.google.android.apps.maps")
                         }
@@ -741,7 +745,7 @@ private fun HistoryJobCard(
 
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = postedAgoLabel(application.createdAt),
+            text = appliedAgoLabel(application.createdAt),
             fontSize = 11.sp,
             color = MyJobsFaint
         )
@@ -749,7 +753,7 @@ private fun HistoryJobCard(
         if (application.status == ApplicationStatus.COMPLETED && !hasAlreadyRated) {
             Spacer(modifier = Modifier.height(12.dp))
             MyJobsActionButton(
-                label = "Rate Employer",
+                label = stringResource(R.string.rate_employer),
                 filled = true,
                 modifier = Modifier.fillMaxWidth(),
                 onClick = { onRateClick(application) }
@@ -929,7 +933,7 @@ private fun MyJobsEmptyState(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Browse Jobs →",
+                text = stringResource(R.string.my_jobs_browse_jobs),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White
@@ -939,15 +943,46 @@ private fun MyJobsEmptyState(
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-private fun postedAgoLabel(timestamp: Long): String {
+/** `application.createdAt` is when the worker applied, so the label says "Applied". */
+@Composable
+private fun appliedAgoLabel(timestamp: Long): String {
     if (timestamp <= 0L) return ""
     val diffMs = System.currentTimeMillis() - timestamp
     val diffMinutes = diffMs / 60_000
     val diffHours = diffMinutes / 60
     val diffDays = diffHours / 24
     return when {
-        diffMinutes < 60 -> "Posted just now"
-        diffHours < 24 -> "Posted ${diffHours}h ago"
-        else -> "Posted ${diffDays}d ago"
+        diffMinutes < 60 -> stringResource(R.string.my_jobs_applied_just_now)
+        diffHours < 24 -> stringResource(R.string.my_jobs_applied_hours_ago, diffHours)
+        else -> stringResource(R.string.my_jobs_applied_days_ago, diffDays)
+    }
+}
+
+/**
+ * Dials the employer of an application. The number comes from applyToJob(viaCall), which also
+ * counts the call;
+ * [fallback] (open the job page) runs when it is not available.
+ */
+@Composable
+private fun rememberEmployerDialer(): (com.example.dutype.models.JobApplication, () -> Unit) -> Unit {
+    val viewModel: com.example.dutype.viewmodels.SmartJobApplicationViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    return remember(viewModel) {
+        { application, fallback ->
+            scope.launch {
+                val phone = viewModel.callEmployer(application.jobId)
+                if (phone == null) {
+                    fallback()
+                } else {
+                    runCatching {
+                        context.startActivity(
+                            android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse("tel:$phone"))
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
