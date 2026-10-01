@@ -276,11 +276,11 @@ private fun OtpLoginScreen(
                     .padding(bottom = 132.dp)
             ) {
                 // Pushes the form comfortably lower down toward the middle of the screen.
-                Spacer(modifier = Modifier.height(authTopGap(0.22f) + 24.dp))
+                Spacer(modifier = Modifier.height(authTopGap(0.25f) + 36.dp))
 
                 // Title & Subtitle Hero Block
                 Text(
-                    text = stringResource(R.string.auth_enter_mobile_number),
+                    text = stringResource(R.string.auth_welcome_back),
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold,
@@ -291,14 +291,14 @@ private fun OtpLoginScreen(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = stringResource(R.string.auth_we_will_send_otp),
+                    text = stringResource(R.string.auth_enter_mobile_number),
                     style = MaterialTheme.typography.bodyLarge.copy(
                         color = Ink600,
                         fontSize = 15.sp
                     )
                 )
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(32.dp))
 
                 // Outlined Phone Number Box: 🇮🇳 flag | +91 | divider | number
                 Surface(
@@ -531,7 +531,7 @@ private fun OtpLoginScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp)
+                    .padding(top = 28.dp, bottom = 12.dp)
             ) {
                 val termsPrefix = stringResource(R.string.auth_by_continuing_agree)
                 val termsTitle = stringResource(R.string.auth_terms)

@@ -117,20 +117,12 @@ fun SelectRoleScreen(
         ) {
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Top row: wordmark + compact language switcher
+            // Top row: compact language switcher (end aligned)
             Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "DutyPe",
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = InkColor
-                    )
-                )
                 // Same language chip + bottom sheet as the onboarding screen.
                 LanguageSelectorChip(onClick = { showLanguageSheet = true })
             }

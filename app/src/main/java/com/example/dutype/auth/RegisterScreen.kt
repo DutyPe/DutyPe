@@ -326,7 +326,7 @@ private fun RegisterContent(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(44.dp))
 
             Text(
                 text = stringResource(R.string.auth_create_your_account),
@@ -337,7 +337,7 @@ private fun RegisterContent(
                 )
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             RegisterInputSection(
                 fullName = fullName,
                 onFullNameChange = { fullName = it },
@@ -408,7 +408,7 @@ private fun RegisterContent(
                 role = role
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(36.dp))
 
             val termsPrefix = stringResource(R.string.auth_by_continuing_agree)
             val termsTitle = stringResource(R.string.auth_terms)
