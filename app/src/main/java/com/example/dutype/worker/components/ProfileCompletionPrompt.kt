@@ -80,7 +80,7 @@ fun ProfileCompletionPrompt(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Person,
-                            contentDescription = "Profile",
+                            contentDescription = null,
                             tint = WorkerColors.Warning,
                             modifier = Modifier.size(20.dp)
                         )
@@ -98,7 +98,7 @@ fun ProfileCompletionPrompt(
                             )
                         )
                         Text(
-                            text = "$completionPercentage% complete • ${missingFields.size} fields missing",
+                            text = stringResource(R.string.profile_prompt_summary, completionPercentage, missingFields.size),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = WorkerColors.Warning.copy(alpha = 0.8f)
                             )
@@ -135,7 +135,7 @@ fun ProfileCompletionPrompt(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Dismiss",
+                            contentDescription = stringResource(R.string.close),
                             tint = WorkerColors.Warning.copy(alpha = 0.6f),
                             modifier = Modifier.size(18.dp)
                         )

@@ -1,5 +1,7 @@
 package com.example.dutype.worker.screens.profile
 
+import com.example.dutype.employer.models.JobCategory
+import com.example.dutype.firestore.FirestoreSchema.WorkerProfiles
 import com.dutype.app.R
 import android.net.Uri
 import android.widget.Toast
@@ -60,10 +62,10 @@ fun WorkerProfileDetailsScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
-    
+
     // Current user ID
     var currentUserId by remember { mutableStateOf("") }
-    
+
     // Form state
     var fullName by remember { mutableStateOf("") }
     var phoneNumber by remember { mutableStateOf("") }
@@ -74,7 +76,7 @@ fun WorkerProfileDetailsScreen(
     var profileImageUrl by remember { mutableStateOf<String?>(null) }
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
     var isUploadingImage by remember { mutableStateOf(false) }
-    
+
     // Edit mode state
     var isEditMode by remember { mutableStateOf(false) }
     var isSaving by remember { mutableStateOf(false) }
@@ -86,13 +88,8 @@ fun WorkerProfileDetailsScreen(
     var workerGivenReviews by remember { mutableStateOf<List<com.example.dutype.services.Rating>>(emptyList()) }
     var showReviewsSheet by remember { mutableStateOf(false) }
     var isReviewsLoading by remember { mutableStateOf(false) }
-    val ratingService = remember {
-        com.example.dutype.services.RatingService(
-            com.example.dutype.di.firestoreFromHilt(context),
-            com.example.dutype.di.authFromHilt(context)
-        )
-    }
-    
+    val ratingService = remember { com.example.dutype.di.ratingServiceFromHilt(context) }
+
     // Image picker launcher with toast notification
     val imagePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
@@ -101,7 +98,7 @@ fun WorkerProfileDetailsScreen(
         uri?.let { selectedUri ->
             profileImageUri = selectedUri
             isUploadingImage = true
-            
+
             scope.launch {
                 try {
                     val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
@@ -113,13 +110,7 @@ fun WorkerProfileDetailsScreen(
                             onSuccess = { imageUrl ->
                                 profileImageUrl = imageUrl
                                 Timber.i("📸 WORKER PROFILE DETAILS: ✅ Profile image uploaded: $imageUrl")
-                                
-                                // Update profile data with new image URL
-                                val updatedProfileData = mapOf(
-                                    "profileImageUrl" to imageUrl
-                                )
-                                profileCompletionViewModel.saveWorkerProfileData(updatedProfileData)
-                                
+
                                 // Show success toast
                                 Toast.makeText(context, context.getString(R.string.profile_photo_updated), Toast.LENGTH_SHORT).show()
                             },
@@ -144,65 +135,54 @@ fun WorkerProfileDetailsScreen(
             }
         }
     }
-    
+
     // Load existing profile data
     LaunchedEffect(Unit) {
         val personalInfo = dataStore.getPersonalInfo()
-        
+
         fullName = personalInfo.fullName
         phoneNumber = personalInfo.phone
         dateOfBirth = personalInfo.dateOfBirth
         gender = personalInfo.gender
-        
+
         // Load profile data from Firebase (including profile image)
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         if (currentUser != null) {
             currentUserId = currentUser.uid
             try {
-                val workerProfileData = profileCompletionViewModel.getWorkerProfileData(currentUser.uid)
-                workerProfileData.fold(
-                    onSuccess = { data ->
-                        fullName = data["fullName"] as? String ?: fullName
-                        phoneNumber = data["phone"] as? String ?: phoneNumber
-                        dateOfBirth = data["dateOfBirth"] as? String ?: dateOfBirth
-                        gender = data["gender"] as? String ?: gender
-                        experience = data["experience"] as? String ?: experience
-                        profileImageUrl = data["profileImageUrl"] as? String
-
-                        // skills from worker_profiles — displayed as comma-separated skills
-                        val rawSkills = data["skills"]
-                        skills = when (rawSkills) {
-                            is List<*> -> rawSkills.filterIsInstance<String>().joinToString(", ")
-                            is String -> rawSkills
-                            else -> skills
+                profileCompletionViewModel.getWorker(currentUser.uid)
+                    .onSuccess { saved ->
+                        if (saved != null) {
+                            fullName = saved.name.ifBlank { fullName }
+                            phoneNumber = saved.phone.ifBlank { phoneNumber }
+                            dateOfBirth = saved.dateOfBirth.ifBlank { dateOfBirth }
+                            gender = saved.gender.ifBlank { gender }
+                            experience = if (saved.skills.isEmpty()) "" else saved.experienceYears.toString()
+                            skills = saved.skills.joinToString(", ") { JobCategory.fromKey(it).displayName }
+                            profileImageUrl = saved.photoUrl.ifBlank { null }
                         }
-
-                        Timber.d("📸 WORKER PROFILE DETAILS: Loaded profile image URL: $profileImageUrl")
-                    },
-                    onFailure = { exception ->
-                        Timber.e(exception, "Error loading worker profile data")
                     }
-                )
+                    .onFailure { Timber.e(it, "Error loading worker profile data") }
             } catch (e: Exception) {
                 Timber.e(e, "Error loading worker profile data")
             }
         }
     }
-    
+
     var isVisible by remember { mutableStateOf(false) }
-    
+
     LaunchedEffect(Unit) {
         isVisible = true
     }
 
-    // Load worker ratings from worker_profiles (target schema)
+    // Rating summary lives on the public worker card
     LaunchedEffect(currentUserId) {
         if (currentUserId.isNotEmpty()) {
             try {
-                val workerDoc = com.example.dutype.di.firestoreFromHilt(context)
-                    .collection(com.example.dutype.firestore.FirestoreCollections.WORKER_PROFILES).document(currentUserId).get().await()
-                workerRating = (workerDoc.getDouble("rating") ?: 0.0).toFloat()
-                workerTotalRatings = (workerDoc.getLong("totalRatings") ?: 0L).toInt()
+                profileCompletionViewModel.profileCompletionService.workerCard(currentUserId)?.let { card ->
+                    workerRating = card.rating.toFloat()
+                    workerTotalRatings = card.ratingCount
+                }
             } catch (e: Exception) {
                 Timber.e(e, "Error loading worker rating summary")
             }
@@ -220,7 +200,7 @@ fun WorkerProfileDetailsScreen(
                 Column {
                     // Status bar spacer
                     Spacer(modifier = Modifier.windowInsetsPadding(WindowInsets.statusBars))
-                    
+
                     // Header content
                     Row(
                         modifier = Modifier
@@ -231,30 +211,30 @@ fun WorkerProfileDetailsScreen(
                         IconButton(onClick = { navController.popBackStack() }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
+                                contentDescription = stringResource(R.string.back),
                                 tint = WorkerColors.TextPrimary
                             )
                         }
-                        
+
                         Text(
                             text = stringResource(R.string.profile_details_title),
                             style = AppTypography.screenTitle,
                             color = WorkerColors.TextPrimary,
                             modifier = Modifier.weight(1f)
                         )
-                        
+
                         // Edit button in header
                         if (!isEditMode) {
                             IconButton(onClick = { isEditMode = true }) {
                                 Icon(
                                     imageVector = Icons.Default.Edit,
-                                    contentDescription = "Edit Profile",
+                                    contentDescription = stringResource(R.string.edit_profile),
                                     tint = WorkerColors.TextPrimary
                                 )
                             }
                         }
                     }
-                    
+
                     HorizontalDivider(color = WorkerColors.Divider, thickness = 1.dp)
                 }
             }
@@ -288,7 +268,7 @@ fun WorkerProfileDetailsScreen(
                         )
                     }
                 }
-                
+
                 // Ratings & Reviews Section - Only show if user is logged in
                 if (currentUserId.isNotEmpty()) {
                     item {
@@ -330,14 +310,20 @@ fun WorkerProfileDetailsScreen(
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
                                         Text(
-                                            text = if (workerTotalRatings > 0) "★ ${"%.1f".format(workerRating)}  •  $workerTotalRatings review${if (workerTotalRatings != 1) "s" else ""}"
-                                            else stringResource(R.string.profile_no_ratings),
+                                            text = if (workerTotalRatings > 0) {
+                                                val reviewText = if (workerTotalRatings == 1) {
+                                                    stringResource(R.string.worker_stat_review_single)
+                                                } else {
+                                                    stringResource(R.string.worker_stat_reviews_count, workerTotalRatings)
+                                                }
+                                                "★ ${"%.1f".format(workerRating)}  •  $reviewText"
+                                            } else stringResource(R.string.profile_no_ratings),
                                             style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary)
                                         )
                                     }
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.ArrowForwardIos,
-                                        contentDescription = "View reviews",
+                                        contentDescription = null,
                                         tint = WorkerColors.TextSecondary,
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -346,7 +332,7 @@ fun WorkerProfileDetailsScreen(
                         }
                     }
                 }
-                
+
                 // Personal Information Section
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
@@ -378,7 +364,7 @@ fun WorkerProfileDetailsScreen(
                         }
                     }
                 }
-                
+
                 // Professional Information Section
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
@@ -405,7 +391,7 @@ fun WorkerProfileDetailsScreen(
                     }
                 }
             }
-            
+
             // Save/Cancel buttons when in edit mode
             if (isEditMode) {
                 EditModeButtons(
@@ -430,18 +416,22 @@ fun WorkerProfileDetailsScreen(
                                     gender = gender
                                 )
                                 dataStore.savePersonalInfo(personalInfo)
-                                
+
                                 val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                                 if (currentUser != null) {
-                                    val workerProfileData = mapOf(
-                                        "fullName" to fullName,
-                                        "phone" to phoneNumber,
-                                        "dateOfBirth" to dateOfBirth,
-                                        "gender" to gender,
-                                        "skills" to skills,
-                                        "experience" to experience
-                                    )
-                                    profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
+                                    // Skills are job categories (they drive matching): unknown names are ignored.
+                                    val skillKeys = skills.split(",").mapNotNull { name ->
+                                        JobCategory.entries.firstOrNull { it.displayName.equals(name.trim(), ignoreCase = true) }?.name
+                                    }.distinct()
+                                    val workerProfileData = buildMap<String, Any?> {
+                                        put(WorkerProfiles.NAME, fullName.trim())
+                                        put(WorkerProfiles.DATE_OF_BIRTH, dateOfBirth)
+                                        put(WorkerProfiles.GENDER, gender)
+                                        if (skillKeys.isNotEmpty()) put(WorkerProfiles.SKILLS, skillKeys)
+                                        experience.filter { it.isDigit() }.take(2).toIntOrNull()
+                                            ?.let { put(WorkerProfiles.EXPERIENCE_YEARS, it) }
+                                    }
+                                    profileCompletionViewModel.saveWorker(workerProfileData).getOrThrow()
                                     Toast.makeText(context, context.getString(R.string.profile_saved), Toast.LENGTH_SHORT).show()
                                 }
                                 isEditMode = false
@@ -486,7 +476,7 @@ private fun ProfileImageSection(
     onImageClick: () -> Unit
 ) {
     val context = LocalContext.current
-    
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -520,7 +510,7 @@ private fun ProfileImageSection(
                     ) {
                         com.example.dutype.components.OptimizedProfileImage(
                             imageUrl = profileImageUri.toString(),
-                            contentDescription = "Profile Picture",
+                            contentDescription = null,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -534,7 +524,7 @@ private fun ProfileImageSection(
                     ) {
                         com.example.dutype.components.OptimizedProfileImage(
                             imageUrl = profileImageUrl,
-                            contentDescription = "Profile Picture",
+                            contentDescription = null,
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -543,7 +533,7 @@ private fun ProfileImageSection(
                     DefaultProfileIcon(fullName = fullName, onClick = onImageClick)
                 }
             }
-            
+
             // Camera icon overlay
             Box(
                 modifier = Modifier
@@ -556,21 +546,21 @@ private fun ProfileImageSection(
             ) {
                 Icon(
                     imageVector = Icons.Default.CameraAlt,
-                    contentDescription = "Change Photo",
+                    contentDescription = stringResource(R.string.change_photo),
                     tint = Color.White,
                     modifier = Modifier.size(18.dp)
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(12.dp))
-        
+
         Text(
             text = if (fullName.isNotBlank()) fullName else stringResource(R.string.profile_add_your_name),
             style = AppTypography.pageTitle,
             color = if (fullName.isNotBlank()) WorkerColors.TextPrimary else WorkerColors.TextSecondary
         )
-        
+
         Text(
             text = stringResource(R.string.profile_tap_photo_change),
             style = AppTypography.caption,
@@ -601,7 +591,7 @@ private fun DefaultProfileIcon(
         } else {
             Icon(
                 imageVector = Icons.Default.Person,
-                contentDescription = "Default Profile",
+                contentDescription = null,
                 tint = WorkerColors.TextTertiary,
                 modifier = Modifier.size(56.dp)
             )
@@ -632,7 +622,7 @@ private fun ProfileInfoCard(
                 color = WorkerColors.TextPrimary,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
-            
+
             items.forEachIndexed { index, (label, value) ->
                 ProfileFieldDisplay(label = label, value = value)
                 if (index < items.size - 1) {
@@ -713,14 +703,14 @@ private fun EditablePersonalInfoCard(
                 color = WorkerColors.TextPrimary,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
-            
+
             ProfileTextField(
                 label = stringResource(R.string.full_name),
                 value = fullName,
                 onValueChange = onFullNameChange,
                 placeholder = stringResource(R.string.enter_full_name)
             )
-            
+
             ProfileTextField(
                 label = stringResource(R.string.phone_number),
                 value = phoneNumber,
@@ -729,7 +719,7 @@ private fun EditablePersonalInfoCard(
                 keyboardType = KeyboardType.Phone,
                 enabled = false
             )
-            
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -766,7 +756,7 @@ private fun EditablePersonalInfoCard(
                     shape = RoundedCornerShape(8.dp)
                 )
             }
-            
+
             ProfileTextField(
                 label = stringResource(R.string.gender),
                 value = gender,
@@ -802,7 +792,7 @@ private fun EditableProfessionalInfoCard(
                 color = WorkerColors.TextPrimary,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
-            
+
             ProfileTextField(
                 label = stringResource(R.string.skills),
                 value = skills,
@@ -811,7 +801,7 @@ private fun EditableProfessionalInfoCard(
                 singleLine = false,
                 minLines = 2
             )
-            
+
             ProfileTextField(
                 label = stringResource(R.string.experience),
                 value = experience,
@@ -850,14 +840,14 @@ private fun ProfileTextField(
             } else {
                 android.widget.Toast.makeText(
                     context,
-                    "Unable to fetch location. Please check permissions.",
+                    R.string.worker_setup_could_not_get_location,
                     android.widget.Toast.LENGTH_SHORT
                 ).show()
             }
         } catch (e: Exception) {
             android.widget.Toast.makeText(
                 context,
-                "Error fetching location: ${e.message}",
+                R.string.worker_setup_could_not_get_location,
                 android.widget.Toast.LENGTH_SHORT
             ).show()
         } finally {
@@ -878,15 +868,16 @@ private fun ProfileTextField(
             isFetchingLocation = false
             android.widget.Toast.makeText(
                 context,
-                "Location permission required to use this button.",
+                R.string.location_permission_required_current,
                 android.widget.Toast.LENGTH_SHORT
             ).show()
         }
     }
 
     // Check if this is the address field
-    val isAddressField = label == "Address"
-    
+    val addressLabel = stringResource(R.string.address)
+    val isAddressField = label == "Address" || label == addressLabel
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -898,7 +889,7 @@ private fun ProfileTextField(
             color = WorkerColors.TextSecondary,
             modifier = Modifier.padding(bottom = 4.dp)
         )
-        
+
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
@@ -949,7 +940,7 @@ private fun ProfileTextField(
                     ) {
                         Icon(
                             imageVector = Icons.Default.MyLocation,
-                            contentDescription = "Fetch current location",
+                            contentDescription = stringResource(R.string.worker_setup_detect),
                             tint = WorkerColors.Primary
                         )
                     }
@@ -964,7 +955,7 @@ private fun ProfileTextField(
                 }
             } else null
         )
-        
+
         // Helper text for disabled phone field
         if (!enabled && label == stringResource(R.string.phone_number)) {
             Spacer(modifier = Modifier.height(4.dp))
@@ -1010,7 +1001,7 @@ private fun EditModeButtons(
                     style = AppTypography.buttonMedium
                 )
             }
-            
+
             Button(
                 onClick = onSave,
                 modifier = Modifier.weight(1f),

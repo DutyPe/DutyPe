@@ -118,7 +118,6 @@ import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.ScrollStateManager
 import com.example.dutype.utils.findActivity
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
-import com.example.dutype.viewmodels.ProfileViewModel
 import com.example.dutype.worker.models.PersonalInfo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -136,13 +135,12 @@ fun WorkerProfileScreen(
     val navController = rememberNavController()
     val context = androidx.compose.ui.platform.LocalContext.current
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
-    val profileViewModel: ProfileViewModel = hiltViewModel()
-    val profileUiState by profileViewModel.uiState.collectAsState()
+    val workerProfile by profileCompletionViewModel.profileStore.worker.collectAsState()
     // Services accessed via ProfileCompletionViewModel (proper DI pattern)
     val authManager = profileCompletionViewModel.authManager
     val profileCompletionService = profileCompletionViewModel.profileCompletionService
     var currentUserId by remember { mutableStateOf("") }
-    
+
     // Auth validation - ensure unauthenticated users cannot access profile actions
     LaunchedEffect(Unit) {
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
@@ -152,11 +150,11 @@ fun WorkerProfileScreen(
             Timber.i("Worker Profile - User authenticated: ${currentUser.uid}")
         }
     }
-    
+
     // Profile completion state
     var profileCompletionPercentage by remember { mutableStateOf(0) }
     var isProfileCompleted by remember { mutableStateOf(false) }
-    
+
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
     var profileImageUrl by remember { mutableStateOf<String?>(null) }
     var isUploadingImage by remember { mutableStateOf(false) }
@@ -167,22 +165,21 @@ fun WorkerProfileScreen(
     // var showThemeBottomSheet by remember { mutableStateOf(false) }
     var isVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    
+
     // Guest mode - Login bottom sheet state
     var showLoginBottomSheet by remember { mutableStateOf(false) }
     var pendingMenuAction by remember { mutableStateOf<String?>(null) }
 
     // LIGHTWEIGHT PROFILE: Use metadata for basic profile info (name, phone, image)
     // Full profile data loads only in profile details screen
-    val userStats by profileCompletionViewModel.metadataManager.userMetadata.userStats.collectAsState()
-    
+
     // Get profile data from dataStore - using state with LaunchedEffect for suspend functions
     var personalInfo by remember { mutableStateOf(com.example.dutype.worker.models.PersonalInfo()) }
     var experience by remember { mutableStateOf<List<com.example.dutype.models.WorkExperience>>(emptyList()) }
     var skills by remember { mutableStateOf<List<String>>(emptyList()) }
     var coverLetter by remember { mutableStateOf("") }
     var isFormCompleted by remember { mutableStateOf(false) }
-    
+
     // Load dataStore data in coroutine (lightweight - local storage only)
     LaunchedEffect(Unit) {
         personalInfo = dataStore.getPersonalInfo()
@@ -190,18 +187,16 @@ fun WorkerProfileScreen(
         // NOTE: experience, skills, coverLetter removed from main profile screen
         // These load only in profile details screen for performance
     }
-    
+
     // DON'T load full profile from Firebase on main profile screen
     // Use metadata instead for lightweight display
-    // LaunchedEffect(Unit) { profileViewModel.loadProfile() } // REMOVED for performance
-    
+
     // Use backend profile data if available, otherwise fallback to dataStore
-    val backendUser = profileUiState.user
     var userName by remember { mutableStateOf("") }
     var userEmail by remember { mutableStateOf("") }
     var profileSetupStatus by remember { mutableStateOf<com.example.dutype.state.ProfileSetupStatus?>(null) }
     var profileCompletion by remember { mutableStateOf(0) }
-    
+
     // Firebase profile data state for reactive updates
     var firebaseProfileData by remember { mutableStateOf<Map<String, Any?>?>(null) }
 
@@ -213,89 +208,42 @@ fun WorkerProfileScreen(
     var memberSinceMillis by remember { mutableStateOf(0L) }
     var completionPercent by remember { mutableStateOf<Int?>(null) }
 
+    // Hero data from the live own profile (shared listener, no extra reads)
+    LaunchedEffect(workerProfile) {
+        workerProfile?.let { p ->
+            profileSkills = p.skills.map { com.example.dutype.employer.models.JobCategory.fromKey(it).displayName }
+            profileCity = p.area
+            memberSinceMillis = p.createdAt
+            completionPercent = p.completionPercent
+            if (p.photoUrl.isNotBlank() && profileImageUri == null) profileImageUrl = p.photoUrl
+        }
+    }
+
+    // Rating lives on the public worker card (one read)
     LaunchedEffect(currentUserId) {
         if (currentUserId.isNotEmpty()) {
-            try {
-                profileCompletionViewModel.getWorkerProfileData(currentUserId).fold(
-                    onSuccess = { data ->
-                        val rawSkills = data["skills"]
-                        profileSkills = when (rawSkills) {
-                            is List<*> -> rawSkills.filterIsInstance<String>()
-                            is String -> rawSkills.split(",")
-                            else -> emptyList()
-                        }.map { it.trim() }.filter { it.isNotEmpty() }
-                        profileCity = ((data["city"] as? String)
-                            ?: ((data["location"] as? Map<*, *>)?.get("city") as? String)
-                            ?: "").trim()
-                        // Two aggregators exist (aggregates.ts -> rating/totalRatings,
-                        // ratings.ts -> workerAverageRating/workerTotalRatings); read either.
-                        profileRating = listOf("rating", "workerAverageRating", "averageRating")
-                            .firstNotNullOfOrNull { (data[it] as? Number)?.toDouble()?.takeIf { v -> v > 0.0 } } ?: 0.0
-                        profileReviewCount = listOf("totalRatings", "workerTotalRatings", "ratingCount")
-                            .firstNotNullOfOrNull { (data[it] as? Number)?.toInt()?.takeIf { v -> v > 0 } } ?: 0
-                        memberSinceMillis = when (val created = data["createdAt"]) {
-                            is Number -> created.toLong()
-                            is com.google.firebase.Timestamp -> created.toDate().time
-                            else -> 0L
-                        }
-                    },
-                    onFailure = { e -> Timber.w(e, "Worker profile hero data unavailable") }
-                )
-            } catch (e: Exception) {
-                Timber.w(e, "Worker profile hero data load failed")
+            profileCompletionService.workerCard(currentUserId)?.let { card ->
+                profileRating = card.rating
+                profileReviewCount = card.ratingCount
             }
         }
     }
 
-    LaunchedEffect(currentUserId, profileImageUrl, isUploadingImage) {
-        if (currentUserId.isNotEmpty() && !isUploadingImage) {
-            completionPercent = try {
-                profileCompletionService.calculateWorkerProfileCompletion(currentUserId)
-            } catch (e: Exception) {
-                null
-            }
-        }
-    }
-    
-    // REMOVED: Heavy profile completion calculation from main screen
-    // This now happens only in profile details screen
-    
-    // LIGHTWEIGHT: Load only basic profile info using metadata
     LaunchedEffect(Unit) {
-        isLoadingProfile = true
-        try {
-            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-            if (currentUser != null) {
-                currentUserId = currentUser.uid
-                
-                // LIGHTWEIGHT: Only load basic profile (name, phone, image) - no heavy stats
-                profileCompletionViewModel.metadataManager.userMetadata.loadBasicProfile()
-
-                // Read the latest StateFlow value directly to avoid stale Compose snapshot reads
-                val latestStats = profileCompletionViewModel.metadataManager.userMetadata.userStats.value
-                
-                // Use metadata for profile image URL
-                profileImageUrl = latestStats.profileImageUrl.ifEmpty { null }
-                
-                Timber.i("Worker profile (lightweight) - Name: ${latestStats.fullName}, Phone: ${latestStats.phone}")
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Error loading lightweight profile")
-        } finally {
-            isLoadingProfile = false
+        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+        if (currentUser != null && !currentUser.isAnonymous) {
+            currentUserId = currentUser.uid
+            profileCompletionViewModel.profileStore.start(com.example.dutype.firestore.FirestoreSchema.Values.Role.WORKER)
         }
+        isLoadingProfile = false
     }
-    
+
     // Update userName from metadata (lightweight)
-    LaunchedEffect(userStats, personalInfo) {
+    LaunchedEffect(workerProfile, personalInfo) {
         userName = when {
-            userStats.fullName.isNotBlank() -> userStats.fullName
+            !workerProfile?.name.isNullOrBlank() -> workerProfile!!.name
             personalInfo.fullName.isNotBlank() -> personalInfo.fullName
             else -> "User"
-        }
-        // Update profile image from metadata
-        if (userStats.profileImageUrl.isNotBlank() && profileImageUrl == null) {
-            profileImageUrl = userStats.profileImageUrl
         }
     }
 
@@ -313,7 +261,7 @@ fun WorkerProfileScreen(
                 Timber.d(" WORKER PROFILE: Selected image URI: $selectedUri")
                 profileImageUri = selectedUri
                 isUploadingImage = true
-                
+
                 // Upload image to Firebase Storage and update profile
                 scope.launch {
                     try {
@@ -328,12 +276,7 @@ fun WorkerProfileScreen(
                                     profileImageUrl = imageUrl
                                     Timber.i(" WORKER PROFILE: ✅ Profile image uploaded: $imageUrl")
                                     android.widget.Toast.makeText(context, context.getString(R.string.profile_photo_updated), android.widget.Toast.LENGTH_SHORT).show()
-                                    
-                                    // Update worker profile data with image URL
-                                    val updatedProfileData = mapOf(
-                                        "profileImageUrl" to imageUrl
-                                    )
-                                    profileCompletionViewModel.saveWorkerProfileData(updatedProfileData)
+
                                 },
                                 onFailure = { exception ->
                                     Timber.e(exception, "Failed to upload profile image")
@@ -365,11 +308,11 @@ fun WorkerProfileScreen(
 
     // Play Store URL constant
     val playStoreUrl = "https://play.google.com/store/apps/details?id=com.dutype.app"
-    
+
     // WhatsApp sharing function
     val shareToWhatsApp = {
         val packageManager = context.packageManager
-        
+
         try {
             // Try to open WhatsApp directly
             val whatsappIntent = packageManager.getLaunchIntentForPackage("com.whatsapp")
@@ -378,7 +321,7 @@ fun WorkerProfileScreen(
                 val shareIntent = android.content.Intent().apply {
                     action = android.content.Intent.ACTION_SEND
                     type = "text/plain"
-                    putExtra(android.content.Intent.EXTRA_TEXT, 
+                    putExtra(android.content.Intent.EXTRA_TEXT,
                         "Check out this amazing job app! Download DutyPe and find your dream job.\n\n" +
                         "Download link: $playStoreUrl"
                     )
@@ -402,11 +345,11 @@ fun WorkerProfileScreen(
             context.startActivity(browserIntent)
         }
     }
-    
+
     // Instagram sharing function
     val shareToInstagram = {
         val packageManager = context.packageManager
-        
+
         try {
             // Try to open Instagram Stories or Feed
             val instagramIntent = packageManager.getLaunchIntentForPackage("com.instagram.android")
@@ -415,7 +358,7 @@ fun WorkerProfileScreen(
                 val shareIntent = android.content.Intent().apply {
                     action = android.content.Intent.ACTION_SEND
                     type = "text/plain"
-                    putExtra(android.content.Intent.EXTRA_TEXT, 
+                    putExtra(android.content.Intent.EXTRA_TEXT,
                         " Found an amazing job app! DutyPe helps you find your dream job easily.\n\n" +
                         " Download now: $playStoreUrl\n\n" +
                         "#DutyPe #Jobs #Career #Hiring"
@@ -443,7 +386,7 @@ fun WorkerProfileScreen(
 
     // Settings-style layout with Meesho-style background
     // Show shimmer while loading, then show actual content
-    if (isLoadingProfile || profileUiState.isLoading) {
+    if (isLoadingProfile) {
         ProfileShimmer()
     } else {
         Column(
@@ -458,7 +401,6 @@ fun WorkerProfileScreen(
             val isOnline by connectivityViewModel.isOnline.collectAsState()
             com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
 
-            val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
             val isLoggedIn = currentUserId.isNotEmpty()
             val hasPhoto = profileImageUri != null || !profileImageUrl.isNullOrBlank()
             val openProfileDetails: () -> Unit = {
@@ -513,7 +455,7 @@ fun WorkerProfileScreen(
                     ) {
                         if (isLoggedIn) {
                             val authPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber ?: ""
-                            val userPhone = userStats.phone.ifBlank { personalInfo.phone }.ifBlank { authPhone }
+                            val userPhone = workerProfile?.phone.orEmpty().ifBlank { personalInfo.phone }.ifBlank { authPhone }
                             val hasName = userName.isNotBlank() && userName != "User"
 
                             // Avatar with 3dp green ring
@@ -598,7 +540,7 @@ fun WorkerProfileScreen(
                                 )
                             }
 
-                            val joinMillis = if (memberSinceMillis > 0L) memberSinceMillis else userStats.createdAt
+                            val joinMillis = memberSinceMillis
                             val hasRating = profileReviewCount > 0 && profileRating > 0.0
                             // Rating always sits left of "Member since" (shows "No reviews yet" until rated).
                             run {
@@ -609,10 +551,14 @@ fun WorkerProfileScreen(
                                 ) {
                                     Text(
                                         text = if (hasRating) {
-                                            "★ " + String.format(java.util.Locale.US, "%.1f", profileRating) +
-                                                " ($profileReviewCount " + (if (profileReviewCount == 1) "review" else "reviews") + ")"
+                                            val reviewText = if (profileReviewCount == 1) {
+                                                stringResource(R.string.worker_stat_review_single)
+                                            } else {
+                                                stringResource(R.string.worker_stat_reviews_count, profileReviewCount)
+                                            }
+                                            "★ " + String.format(java.util.Locale.US, "%.1f", profileRating) + " ($reviewText)"
                                         } else {
-                                            "★ No reviews yet"
+                                            stringResource(R.string.emp_profile_no_reviews_yet)
                                         },
                                         style = profileTextStyle(13.sp, FontWeight.Normal, Color(0xFF64748B))
                                     )
@@ -625,10 +571,10 @@ fun WorkerProfileScreen(
                                         )
                                     }
                                     if (joinMillis > 0L) {
-                                        val joinLabel = java.text.SimpleDateFormat("MMM yyyy", java.util.Locale.ENGLISH)
+                                        val joinLabel = java.text.SimpleDateFormat("MMM yyyy", java.util.Locale.getDefault())
                                             .format(java.util.Date(joinMillis))
                                         Text(
-                                            text = "Member since $joinLabel",
+                                            text = stringResource(R.string.emp_profile_member_since, joinLabel),
                                             style = profileTextStyle(11.sp, FontWeight.Normal, Color(0xFF94A3B8))
                                         )
                                     }
@@ -688,10 +634,10 @@ fun WorkerProfileScreen(
                         ProfileCompletenessCard(
                             percent = pct.coerceIn(0, 100),
                             hint = when {
-                                !hasPhoto -> "Add profile photo to reach 100%"
-                                profileSkills.isEmpty() -> "Add your skills to reach 100%"
-                                profileCity.isBlank() -> "Add your city to reach 100%"
-                                else -> "Complete your profile to reach 100%"
+                                !hasPhoto -> stringResource(R.string.worker_profile_hint_photo)
+                                profileSkills.isEmpty() -> stringResource(R.string.worker_profile_hint_skills)
+                                profileCity.isBlank() -> stringResource(R.string.worker_profile_hint_city)
+                                else -> stringResource(R.string.worker_profile_hint_complete)
                             },
                             onAdd = openProfileDetails
                         )
@@ -729,8 +675,7 @@ fun WorkerProfileScreen(
                         onRateApp = { openPlayStoreListing(context) },
                         onJoinCommunity = { openWhatsAppCommunity(context) },
                         onHelp = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) },
-                        onSettings = { rootNavController.navigate(Routes.SETTINGS) },
-                        isTelugu = isTelugu
+                        onSettings = { rootNavController.navigate(Routes.SETTINGS) }
                     )
                 }
 
@@ -755,49 +700,18 @@ fun WorkerProfileScreen(
                         userName = newName
                         userEmail = newEmail
                         personalInfo = updatedPersonalInfo
-                        
+
                         // Save to DataStore
                         dataStore.savePersonalInfo(updatedPersonalInfo)
-                        
+
                         // Save to Firebase
                         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                         if (currentUser != null) {
-                            val workerProfileData = mapOf(
-                                "fullName" to newName,
-                                "phone" to updatedPersonalInfo.phone,
-                                "skills" to skills  // mapped to jobTypes[] in worker_profiles by service
-                            )
-                            
-                            profileCompletionViewModel.saveWorkerProfileData(workerProfileData)
-                            Timber.i("Worker profile updated successfully in Firebase")
-                            
-                            // Refresh the profile data from Firebase to show updated values
-                            try {
-                                val refreshedData = profileCompletionViewModel.getWorkerProfileData(currentUser.uid)
-                                refreshedData.fold(
-                                    onSuccess = { data ->
-                                    val refreshedPersonalInfo = personalInfo.copy(
-                                        fullName = data["fullName"] as? String ?: personalInfo.fullName,
-                                        email = data["email"] as? String ?: personalInfo.email,
-                                        phone = data["phone"] as? String ?: personalInfo.phone
-                                    )
-                                    
-                                    // Update local state with refreshed data
-                                    personalInfo = refreshedPersonalInfo
-                                    userName = refreshedPersonalInfo.fullName
-                                    userEmail = refreshedPersonalInfo.email
-                                    
-                                    Timber.i("Worker profile refreshed with updated data")
-                                    },
-                                    onFailure = { exception ->
-                                        Timber.e(exception, "Error refreshing worker profile data")
-                                    }
-                                )
-                            } catch (refreshError: Exception) {
-                                Timber.w(refreshError, "Could not refresh profile data")
-                            }
+                            profileCompletionViewModel.saveWorker(
+                                mapOf(com.example.dutype.firestore.FirestoreSchema.WorkerProfiles.NAME to newName.trim())
+                            ).onFailure { Timber.e(it, "Worker name update failed") }
                         }
-                        
+
                         showEditDialog = false
                     } catch (e: Exception) {
                         Timber.e(e, "Error updating worker profile")
@@ -820,14 +734,14 @@ fun WorkerProfileScreen(
             scope = scope
         )
     }
-    
+
     // Feedback Bottom Sheet
     com.example.dutype.components.FeedbackBottomSheet(
         isVisible = showFeedbackSheet,
         onDismiss = { showFeedbackSheet = false },
         userRole = "worker"
     )
-    
+
     // if (showThemeBottomSheet) {
     //     val themeSheetState = androidx.compose.material3.rememberModalBottomSheetState(
     //         skipPartiallyExpanded = true
@@ -837,11 +751,11 @@ fun WorkerProfileScreen(
     //         onDismiss = { showThemeBottomSheet = false },
     //     )
     // }
-    
+
     // Guest Mode - Login Bottom Sheet
     com.example.dutype.components.LoginBottomSheet(
         isVisible = showLoginBottomSheet,
-        onDismiss = { 
+        onDismiss = {
             showLoginBottomSheet = false
             pendingMenuAction = null
         },
@@ -907,7 +821,7 @@ private fun ModernEditDialog(
         Card(
             modifier = Modifier
                 .fillMaxWidth(0.95f)
-                .fillMaxHeight(0.8f)    
+                .fillMaxHeight(0.8f)
                 .padding(16.dp),
             shape = RoundedCornerShape(0.dp),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -933,14 +847,14 @@ private fun ModernEditDialog(
                     IconButton(onClick = onDismiss) {
                         Icon(
                             Icons.Default.Close,
-                            contentDescription = "Close",
+                            contentDescription = stringResource(R.string.close),
                             tint = com.example.dutype.ui.theme.WorkerColors.IconSecondary
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(24.dp))
-                
+
                 // Scrollable content
                 LazyColumn(
                     modifier = Modifier.weight(1f),
@@ -965,7 +879,7 @@ private fun ModernEditDialog(
                             )
                         )
                     }
-                    
+
                     item {
                         OutlinedTextField(
                             value = newPhone,
@@ -986,14 +900,14 @@ private fun ModernEditDialog(
                             trailingIcon = {
                                 Icon(
                                     Icons.Default.Lock,
-                                    contentDescription = "Phone number locked",
+                                    contentDescription = null,
                                     tint = Color(0xFFEF4444),
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
                         )
                     }
-                    
+
                     item {
                         OutlinedTextField(
                             value = newAddress,
@@ -1013,7 +927,7 @@ private fun ModernEditDialog(
                             )
                         )
                     }
-                    
+
                     item {
                         OutlinedTextField(
                             value = dobInput,
@@ -1038,7 +952,7 @@ private fun ModernEditDialog(
                             )
                         )
                     }
-                    
+
                     item {
                         OutlinedTextField(
                             value = newGender,
@@ -1059,9 +973,9 @@ private fun ModernEditDialog(
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(24.dp))
-                
+
                 // Action buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1074,9 +988,9 @@ private fun ModernEditDialog(
                     ) {
                         Text(stringResource(R.string.cancel), color = com.example.dutype.ui.theme.WorkerColors.TextSecondary)
                     }
-                    
+
                     Button(
-                        onClick = { 
+                        onClick = {
                             val updatedPersonalInfo = personalInfo.copy(
                                 fullName = newName,
                                 email = newEmail,
@@ -1175,7 +1089,7 @@ private fun ProfileCompletenessCard(percent: Int, hint: String, onAdd: () -> Uni
             .padding(start = 24.dp, top = 4.dp, end = 24.dp, bottom = 8.dp)
     ) {
         Text(
-            text = "Profile $percent% complete",
+            text = stringResource(R.string.emp_profile_complete_pct, percent),
             style = profileTextStyle(14.sp, FontWeight.Medium, Color(0xFF0F0F0F))
         )
         Spacer(modifier = Modifier.height(10.dp))
@@ -1204,7 +1118,7 @@ private fun ProfileCompletenessCard(percent: Int, hint: String, onAdd: () -> Uni
                 modifier = Modifier.weight(1f)
             )
             Text(
-                text = "Add \u2192",
+                text = stringResource(R.string.emp_profile_add_action),
                 style = profileTextStyle(12.sp, FontWeight.SemiBold, Color(0xFF10B981)),
                 modifier = Modifier.clickable(onClick = onAdd)
             )
@@ -1221,8 +1135,7 @@ private fun ProfileSettingsCard(
     onRateApp: () -> Unit,
     onJoinCommunity: () -> Unit,
     onHelp: () -> Unit,
-    onSettings: () -> Unit,
-    isTelugu: Boolean
+    onSettings: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -1232,19 +1145,19 @@ private fun ProfileSettingsCard(
     ) {
         ProfileListRow(title = stringResource(R.string.edit_profile), onClick = onEditProfile, iconRes = R.drawable.ic_profile_person)
         ProfileRowDivider()
-        ProfileListRow(title = "Work History", onClick = onWorkHistory, iconRes = R.drawable.ic_profile_history)
+        ProfileListRow(title = stringResource(R.string.work_history), onClick = onWorkHistory, iconRes = R.drawable.ic_profile_history)
         ProfileRowDivider()
-        ProfileListRow(title = "My Earnings", onClick = onEarnings, iconRes = R.drawable.ic_profile_wallet)
+        ProfileListRow(title = stringResource(R.string.my_earnings), onClick = onEarnings, iconRes = R.drawable.ic_profile_wallet)
         ProfileRowDivider()
         ProfileListRow(title = stringResource(R.string.refer_earn), onClick = onReferEarn, iconRes = R.drawable.ic_profile_gift)
         ProfileRowDivider()
-        ProfileListRow(title = "Rate DutyPe on Play Store", onClick = onRateApp, iconRes = R.drawable.ic_profile_star, showStars = true)
+        ProfileListRow(title = stringResource(R.string.about_nav_rate_playstore), onClick = onRateApp, iconRes = R.drawable.ic_profile_star, showStars = true)
         ProfileRowDivider()
-        ProfileListRow(title = "Join WhatsApp Community", onClick = onJoinCommunity, iconRes = R.drawable.ic_profile_message)
+        ProfileListRow(title = stringResource(R.string.about_nav_whatsapp_community), onClick = onJoinCommunity, iconRes = R.drawable.ic_profile_message)
         ProfileRowDivider()
-        ProfileListRow(title = "Help & FAQ", onClick = onHelp, iconRes = R.drawable.ic_profile_help)
+        ProfileListRow(title = stringResource(R.string.help_faqs), onClick = onHelp, iconRes = R.drawable.ic_profile_help)
         ProfileRowDivider()
-        ProfileListRow(title = if (isTelugu) "సెట్టింగ్‌లు" else "Settings", onClick = onSettings, iconRes = R.drawable.ic_profile_settings)
+        ProfileListRow(title = stringResource(R.string.settings), onClick = onSettings, iconRes = R.drawable.ic_profile_settings)
     }
 }
 
@@ -1377,7 +1290,7 @@ private fun QuickActionButtonDrawable(
         shape = RoundedCornerShape(0.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = androidx.compose.foundation.BorderStroke(
-            1.dp, 
+            1.dp,
             com.example.dutype.ui.theme.WorkerColors.Border
         )
     ) {
@@ -1428,7 +1341,7 @@ private fun FollowUsSection() {
     val context = androidx.compose.ui.platform.LocalContext.current
     val whatsAppChannelUrl = "https://chat.whatsapp.com/ITnhw0jk2G0I9TNlDCaNQI?s=cl&p=a&ilr=4"
     val instagramUrl = "https://www.instagram.com/dutype.in"
-    
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1451,7 +1364,7 @@ private fun FollowUsSection() {
                 fontSize = 16.sp,
                 color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
             )
-            
+
             Row(
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -1461,7 +1374,7 @@ private fun FollowUsSection() {
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        
+
                         .border(1.dp, Color(0xFFE5E7EB), CircleShape)
                         .clickable {
                             val intent = android.content.Intent(
@@ -1479,13 +1392,13 @@ private fun FollowUsSection() {
                         modifier = Modifier.size(20.dp)
                     )
                 }
-                
+
                 // WhatsApp
                 Box(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        
+
                         .border(1.dp, Color(0xFFE5E7EB), CircleShape)
                         .clickable {
                             val intent = android.content.Intent(
@@ -1524,13 +1437,13 @@ private fun RoleManagementMenuItem(
         com.example.dutype.models.UserRole.EMPLOYER -> Icons.Default.Business
         else -> Icons.Outlined.Person
     }
-    
+
     val roleColor = when (currentRole) {
         com.example.dutype.models.UserRole.WORKER -> Color(0xFF10B981) // Green
         com.example.dutype.models.UserRole.EMPLOYER -> Color(0xFF3B82F6) // Blue
         else -> Color(0xFF6B7280)
     }
-    
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1545,13 +1458,13 @@ private fun RoleManagementMenuItem(
         ) {
             Icon(
                 imageVector = roleIcon,
-                contentDescription = "Role",
+                contentDescription = null,
                 tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
                 modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
             )
-            
+
             Spacer(modifier = Modifier.width(16.dp))
-            
+
             Column {
                 Text(
                     text = stringResource(R.string.auto_switch_role),
@@ -1568,7 +1481,11 @@ private fun RoleManagementMenuItem(
                         )
                     )
                     Text(
-                        text = currentRole.name.lowercase().replaceFirstChar { it.uppercase() },
+                        text = when (currentRole) {
+                            com.example.dutype.models.UserRole.WORKER -> stringResource(R.string.worker)
+                            com.example.dutype.models.UserRole.EMPLOYER -> stringResource(R.string.employer)
+                            else -> currentRole.name.lowercase().replaceFirstChar { it.uppercase() }
+                        },
                         style = com.example.dutype.ui.theme.AppTypography.menuItemSubtitle.copy(
                             color = roleColor,
                             fontWeight = FontWeight.SemiBold
@@ -1577,11 +1494,11 @@ private fun RoleManagementMenuItem(
                 }
             }
         }
-        
+
         // Chevron icon (matching other menu items)
         Icon(
             imageVector = Icons.Filled.ChevronRight,
-            contentDescription = "Switch",
+            contentDescription = null,
             tint = Color(0xFF9CA3AF),
             modifier = Modifier.size(24.dp)
         )

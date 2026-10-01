@@ -127,7 +127,7 @@ fun SavedJobsList(
                 uiState.savedJobs.isEmpty() && searchQuery.isEmpty() -> {
                     Timber.d("SavedJobsList: Showing empty state")
                     EmptySavedItemsState(
-                        itemType = "jobs",
+                        itemType = stringResource(R.string.jobs_plural),
                         containerColor = Color.Transparent,
                         onBrowse = {
                             // Navigate to home tab to browse jobs
@@ -319,7 +319,7 @@ private fun SavedJobsHeader(
                 ) {
                     Icon(
                         imageVector = Icons.Default.DeleteSweep,
-                        contentDescription = "Clear all",
+                        contentDescription = stringResource(R.string.clear_all),
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))

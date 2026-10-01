@@ -2171,4 +2171,9 @@
     <string name="worker_setup_detect">Detect</string>
     <string name="worker_setup_detecting">Detecting…</string>
     <string name="worker_setup_could_not_get_location">Could not get location. Please enter address manually or try again.</string>
+    <string name="worker_profile_hint_photo">Add profile photo to reach 100%%</string>
+    <string name="worker_profile_hint_skills">Add your skills to reach 100%%</string>
+    <string name="worker_profile_hint_city">Add your city to reach 100%%</string>
+    <string name="worker_profile_hint_complete">Complete your profile to reach 100%%</string>
+    <string name="profile_prompt_summary">%1$d%% complete • %2$d fields missing</string>
 </resources>

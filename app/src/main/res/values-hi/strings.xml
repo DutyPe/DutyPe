@@ -2121,4 +2121,9 @@
     <string name="worker_setup_detect">पता लगाएं</string>
     <string name="worker_setup_detecting">पता लग रहा है…</string>
     <string name="worker_setup_could_not_get_location">स्थान प्राप्त नहीं हो सका। कृपया पता मैन्युअल रूप से दर्ज करें या पुनः प्रयास करें।</string>
+    <string name="worker_profile_hint_photo">100%% तक पहुँचने के लिए प्रोफ़ाइल फ़ोटो जोड़ें</string>
+    <string name="worker_profile_hint_skills">100%% तक पहुँचने के लिए अपने कौशल जोड़ें</string>
+    <string name="worker_profile_hint_city">100%% तक पहुँचने के लिए अपना शहर जोड़ें</string>
+    <string name="worker_profile_hint_complete">100%% तक पहुँचने के लिए अपनी प्रोफ़ाइल पूरी करें</string>
+    <string name="profile_prompt_summary">%1$d%% पूरा हुआ • %2$d विवरण बाकी हैं</string>
 </resources>
