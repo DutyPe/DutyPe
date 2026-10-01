@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.components.home
+package com.example.dutype.worker.components.home
 
 import com.dutype.app.R
 import androidx.compose.foundation.background
@@ -154,7 +154,7 @@ private fun NotificationButton(
         ) {
             Icon(
                 imageVector = Icons.Default.Notifications,
-                contentDescription = "Notifications",
+                contentDescription = stringResource(R.string.notifications),
                 tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
                 modifier = Modifier.size(26.dp)
             )

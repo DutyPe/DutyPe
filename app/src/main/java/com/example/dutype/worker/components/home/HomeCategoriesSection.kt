@@ -1,4 +1,4 @@
-﻿package com.example.dutype.worker.components.home
+package com.example.dutype.worker.components.home
 
 import com.dutype.app.R
 import androidx.compose.foundation.BorderStroke
@@ -35,7 +35,8 @@ import com.example.dutype.ui.theme.WorkerColors
 
 data class CategoryItem(
     val name: String,
-    val icon: ImageVector
+    val icon: ImageVector,
+    val nameRes: Int
 )
 
 @Composable
@@ -45,16 +46,16 @@ fun HomeCategoriesSection(
     modifier: Modifier = Modifier
 ) {
     val categories = listOf(
-        CategoryItem("Delivery", CategoryIcon.forDisplayName("Delivery")),
-        CategoryItem("Shop Helper", CategoryIcon.forDisplayName("Shop Helper")),
-        CategoryItem("Housekeeping", CategoryIcon.forDisplayName("Housekeeping")),
-        CategoryItem("Construction", CategoryIcon.forDisplayName("Construction")),
-        CategoryItem("Events", CategoryIcon.forDisplayName("Events")),
-        CategoryItem("Kitchen", CategoryIcon.forDisplayName("Kitchen")),
-        CategoryItem("Driver", CategoryIcon.forDisplayName("Driver")),
-        CategoryItem("Security", CategoryIcon.forDisplayName("Security")),
-        CategoryItem("Electrician", CategoryIcon.forDisplayName("Electrician")),
-        CategoryItem("Plumber", CategoryIcon.forDisplayName("Plumber"))
+        CategoryItem("Delivery", CategoryIcon.forDisplayName("Delivery"), R.string.category_delivery),
+        CategoryItem("Shop Helper", CategoryIcon.forDisplayName("Shop Helper"), R.string.category_shop_helper),
+        CategoryItem("Housekeeping", CategoryIcon.forDisplayName("Housekeeping"), R.string.category_housekeeping),
+        CategoryItem("Construction", CategoryIcon.forDisplayName("Construction"), R.string.category_construction),
+        CategoryItem("Events", CategoryIcon.forDisplayName("Events"), R.string.category_events),
+        CategoryItem("Kitchen", CategoryIcon.forDisplayName("Kitchen"), R.string.category_kitchen),
+        CategoryItem("Driver", CategoryIcon.forDisplayName("Driver"), R.string.category_driver),
+        CategoryItem("Security", CategoryIcon.forDisplayName("Security"), R.string.category_security),
+        CategoryItem("Electrician", CategoryIcon.forDisplayName("Electrician"), R.string.category_electrician),
+        CategoryItem("Plumber", CategoryIcon.forDisplayName("Plumber"), R.string.category_plumber)
     )
     
     Column(modifier = modifier.fillMaxWidth()) {
@@ -126,6 +127,7 @@ private fun CategoryChip(
     category: CategoryItem,
     onClick: () -> Unit
 ) {
+    val categoryName = stringResource(category.nameRes)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -148,7 +150,7 @@ private fun CategoryChip(
             ) {
                 Icon(
                     imageVector = category.icon,
-                    contentDescription = category.name,
+                    contentDescription = categoryName,
                     tint = WorkerColors.IconAccent,
                     modifier = Modifier.size(26.dp)
                 )
@@ -159,7 +161,7 @@ private fun CategoryChip(
         
         // Category name
         Text(
-            text = category.name,
+            text = categoryName,
             style = AppTypography.labelSmall.copy(
                 color = WorkerColors.TextPrimary,
                 fontWeight = FontWeight.Medium,

@@ -1,5 +1,7 @@
 package com.example.dutype.worker.screens.map
 
+import com.dutype.app.R
+import androidx.compose.ui.res.stringResource
 import android.Manifest
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -158,7 +160,7 @@ fun JobMapScreen(
         )
 
         MapTopBar(
-            areaLabel = currentLocation?.getShortAddress() ?: "Jobs near you",
+            areaLabel = currentLocation?.getShortAddress() ?: stringResource(R.string.jobs_near_you),
             isLoading = state.isLoading,
             colors = colors,
             category = category,

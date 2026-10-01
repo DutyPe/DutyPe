@@ -1,5 +1,7 @@
 package com.example.dutype.worker.screens.map
 
+import com.dutype.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -125,25 +127,24 @@ private fun MapJobCard(
     }
 }
 
+/** Same category icon tile as the job cards and the Find Jobs rail. */
 @Composable
 private fun CompanyTile(job: JobListingSummary, colors: MapColors) {
-    val initial = job.companyName.trim().ifEmpty { job.title.trim() }.take(1).uppercase().ifEmpty { "J" }
-    Box(
-        modifier = Modifier
-            .size(48.dp)
-            .background(colors.tile, RoundedCornerShape(12.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(initial, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = colors.ink)
-    }
+    com.example.dutype.worker.components.JobCategoryIconTile(
+        category = job.category,
+        title = job.title,
+        size = 48.dp,
+        cornerRadius = 12.dp
+    )
 }
 
 @Composable
 private fun JobCardInfo(job: JobListingSummary, colors: MapColors, modifier: Modifier = Modifier) {
     val distance = mapDistanceLabel(job.distance)
-    val company = job.companyName.ifBlank { job.jobType.ifBlank { "Hiring now" } }
+    val fallbackCompany = stringResource(R.string.hiring_now)
+    val company = job.companyName.ifBlank { fallbackCompany }
     val subtitle = if (distance != null) "$company · $distance" else company
-    val urgent = job.urgency.equals("HIGH", ignoreCase = true)
+    val urgent = job.isUrgent
     Column(modifier = modifier) {
         Text(
             text = job.title,
@@ -173,7 +174,7 @@ private fun JobCardInfo(job: JobListingSummary, colors: MapColors, modifier: Mod
                 modifier = Modifier.weight(1f, fill = false)
             )
             if (urgent) {
-                Text("Urgent", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MapUrgentRed)
+                Text(stringResource(R.string.urgent), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MapUrgentRed)
             }
         }
     }
@@ -188,7 +189,7 @@ private fun ViewButton(colors: MapColors, onClick: () -> Unit) {
         color = colors.ink
     ) {
         Box(modifier = Modifier.padding(start = 14.dp, end = 14.dp), contentAlignment = Alignment.Center) {
-            Text("View", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = colors.onInk)
+            Text(stringResource(R.string.view_action), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = colors.onInk)
         }
     }
 }
@@ -215,14 +216,14 @@ internal fun MapJobsListSheet(
         containerColor = colors.surface
     ) {
         Text(
-            text = if (jobs.size == 1) "1 job in this area" else "${jobs.size} jobs in this area",
+            text = if (jobs.size == 1) stringResource(R.string.map_job_count_single) else stringResource(R.string.map_job_count_plural, jobs.size),
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold,
             color = colors.ink,
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 4.dp)
         )
         Text(
-            text = "Nearest first",
+            text = stringResource(R.string.nearest_first),
             fontSize = 12.sp,
             color = colors.muted,
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp)

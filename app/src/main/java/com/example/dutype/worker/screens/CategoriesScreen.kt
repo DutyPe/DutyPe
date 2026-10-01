@@ -226,6 +226,12 @@ private fun CategoryItemView(
         label = "textColor"
     )
     
+    val displayName = if (category.name == "All") {
+        stringResource(R.string.all)
+    } else {
+        JobCategory.entries.firstOrNull { it.displayName == category.name }?.let { stringResource(it.titleRes) } ?: category.name
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -236,7 +242,7 @@ private fun CategoryItemView(
     ) {
         Icon(
             imageVector = category.icon,
-            contentDescription = category.name,
+            contentDescription = displayName,
             tint = if (isSelected) WorkerColors.Primary else WorkerColors.IconSecondary,
             modifier = Modifier.size(24.dp)
         )
@@ -245,7 +251,7 @@ private fun CategoryItemView(
         
         // Category name
         Text(
-            text = category.name,
+            text = displayName,
             style = AppTypography.labelSmall.copy(
                 color = textColor,
                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,

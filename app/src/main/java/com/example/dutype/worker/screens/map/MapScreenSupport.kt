@@ -93,14 +93,15 @@ internal val MapQuickCategories = listOf("Electrician", "Plumber", "Driver", "Co
 
 internal fun matchesMapCategory(job: JobListingSummary, category: String?): Boolean {
     if (category == null) return true
-    return job.jobType.contains(category, ignoreCase = true) ||
-        job.title.contains(category, ignoreCase = true)
+    val key = com.example.dutype.employer.models.JobCategory.entries
+        .firstOrNull { it.displayName.equals(category, true) || it.name.equals(category, true) }?.name
+    return job.category == key || job.title.contains(category, ignoreCase = true)
 }
 
 /** Most common job types in the loaded jobs (excluding the quick chips), for the "More" row. */
 internal fun extraMapCategories(jobs: List<JobListingSummary>): List<String> {
     return jobs.asSequence()
-        .map { it.jobType.trim() }
+        .map { com.example.dutype.employer.models.JobCategory.fromKey(it.category).displayName }
         .filter { it.isNotEmpty() && MapQuickCategories.none { q -> q.equals(it, ignoreCase = true) } }
         .groupingBy { it }
         .eachCount()

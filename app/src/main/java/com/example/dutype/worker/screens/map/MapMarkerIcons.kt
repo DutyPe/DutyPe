@@ -130,16 +130,11 @@ internal object MapMarkerIcons {
     }
 }
 
-private val NUMBER_REGEX = Regex("\\d[\\d,]*(\\.\\d+)?")
-
-private fun firstAmount(salary: String): Double? {
-    val match = NUMBER_REGEX.find(salary) ?: return null
-    return match.value.replace(",", "").toDoubleOrNull()
-}
 
 /** Short pay for marker pills, e.g. "₹900", "₹18k", "₹1.2L". */
 internal fun mapPayShort(job: JobListingSummary): String {
-    val amount = firstAmount(job.salary) ?: return "Job"
+    val amount = job.payAmount.toDouble()
+    if (amount <= 0.0) return "Job"
     return when {
         amount < 1000.0 -> "₹${amount.toLong()}"
         amount < 100000.0 -> {
@@ -151,18 +146,7 @@ internal fun mapPayShort(job: JobListingSummary): String {
 }
 
 /** Full pay for cards, e.g. "₹900/day". */
-internal fun mapPayFull(job: JobListingSummary): String {
-    val salary = job.salary.trim()
-    if (salary.isEmpty() || salary.equals("Negotiable", ignoreCase = true) || firstAmount(salary) == null) {
-        return if (salary.isEmpty()) "Pay not disclosed" else salary
-    }
-    val suffix = when (job.salaryType.uppercase()) {
-        "HOURLY" -> "/hour"
-        "MONTHLY" -> "/month"
-        else -> "/day"
-    }
-    return "₹$salary$suffix"
-}
+internal fun mapPayFull(job: JobListingSummary): String = job.payText
 
 internal fun mapDistanceLabel(distanceKm: Double?): String? {
     if (distanceKm == null || distanceKm.isNaN() || distanceKm.isInfinite()) return null

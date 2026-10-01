@@ -371,17 +371,8 @@ private fun JobPriceTagMarker(job: JobListing, isSelected: Boolean) {
     }
 }
 
-// Real daily-wage marker label, e.g. "₹850/d" — driven by the job's own salary fields.
-private fun jobMarkerWageLabel(job: JobListing): String {
-    val amount = job.salary.ifBlank { "--" }
-    if (amount.equals("Negotiable", ignoreCase = true)) return "₹Neg"
-    val suffix = when (job.salaryType.uppercase()) {
-        "HOURLY" -> "/hr"
-        "MONTHLY" -> "/mo"
-        else -> "/d"
-    }
-    return "₹$amount$suffix"
-}
+// Marker label, e.g. "₹850/day" or "Negotiable".
+private fun jobMarkerWageLabel(job: JobListing): String = job.payText
 
 /**
  * Create custom user location marker (blue dot)
@@ -454,7 +445,8 @@ private fun createJobMarkerChip(
     
     // Measure text
     val titleWidth = titlePaint.measureText(jobTitle)
-    val vacancyText = "$vacancy vacancy"
+    val vacancyWord = if (vacancy == 1) context.getString(R.string.vacancy) else context.getString(R.string.vacancies).lowercase()
+    val vacancyText = "$vacancy $vacancyWord"
     val vacancyWidth = vacancyPaint.measureText(vacancyText)
     
     val chipWidth = (maxOf(titleWidth, vacancyWidth) + padding * 2).toInt()

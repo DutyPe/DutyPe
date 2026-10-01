@@ -1,5 +1,7 @@
 package com.example.dutype.worker.screens.map
 
+import com.dutype.app.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -101,8 +103,11 @@ private fun MapCategoryRow(
     onCategory: (String?) -> Unit,
     onToggleMore: () -> Unit
 ) {
+    val allLabel = stringResource(R.string.all)
+    val moreLabel = stringResource(R.string.map_more)
+    val lessLabel = stringResource(R.string.map_less)
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        item(key = "all") { MapChip("All", category == null, colors) { onCategory(null) } }
+        item(key = "all") { MapChip(allLabel, category == null, colors) { onCategory(null) } }
         items(MapQuickCategories, key = { "q$it" }) { name ->
             MapChip(name, category.equals(name, ignoreCase = true), colors) {
                 onCategory(if (category.equals(name, ignoreCase = true)) null else name)
@@ -116,7 +121,7 @@ private fun MapCategoryRow(
             }
         }
         if (extraCategories.isNotEmpty()) {
-            item(key = "more") { MapChip(if (showMore) "Less" else "More…", false, colors, onToggleMore) }
+            item(key = "more") { MapChip(if (showMore) lessLabel else moreLabel, false, colors, onToggleMore) }
         }
     }
 }
@@ -165,7 +170,7 @@ internal fun SearchThisAreaChip(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Icon(Icons.Default.Search, null, tint = colors.onInk, modifier = Modifier.size(16.dp))
-                Text("Search this area", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = colors.onInk)
+                Text(stringResource(R.string.map_search_this_area), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = colors.onInk)
             }
         }
     }
@@ -175,7 +180,7 @@ internal fun SearchThisAreaChip(
 @Composable
 internal fun MyLocationButton(colors: MapColors, onClick: () -> Unit, modifier: Modifier = Modifier) {
     MapRoundButton(onClick = onClick, colors = colors, size = 48, modifier = modifier) {
-        Icon(Icons.Default.MyLocation, "My location", tint = colors.ink, modifier = Modifier.size(22.dp))
+        Icon(Icons.Default.MyLocation, stringResource(R.string.my_location), tint = colors.ink, modifier = Modifier.size(22.dp))
     }
 }
 
@@ -216,7 +221,7 @@ internal fun JobsCountPill(count: Int, colors: MapColors, onViewList: () -> Unit
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = if (count == 1) "1 job in this area" else "$count jobs in this area",
+                text = if (count == 1) stringResource(R.string.map_job_count_single) else stringResource(R.string.map_job_count_plural, count),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = colors.ink
@@ -228,7 +233,7 @@ internal fun JobsCountPill(count: Int, colors: MapColors, onViewList: () -> Unit
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Icon(Icons.AutoMirrored.Filled.List, null, tint = colors.onInk, modifier = Modifier.size(14.dp))
-                    Text("List", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = colors.onInk)
+                    Text(stringResource(R.string.list_label), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = colors.onInk)
                 }
             }
         }
@@ -245,10 +250,10 @@ internal fun EmptyAreaCard(colors: MapColors, modifier: Modifier = Modifier) {
         border = BorderStroke(1.dp, colors.border)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("No jobs in this area", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colors.ink)
+            Text(stringResource(R.string.map_no_jobs_in_area), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colors.ink)
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                "Zoom out or move the map to explore more jobs.",
+                stringResource(R.string.map_no_jobs_hint),
                 fontSize = 12.sp,
                 color = colors.muted
             )

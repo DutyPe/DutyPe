@@ -37,8 +37,8 @@ private fun JobPillMarker(
     onClick: (JobListingSummary) -> Unit
 ) {
     val context = LocalContext.current
-    val urgent = job.urgency.equals("HIGH", ignoreCase = true)
-    val icon = remember(job.id, job.salary, job.salaryType, selected, urgent) {
+    val urgent = job.isUrgent
+    val icon = remember(job.id, job.payAmount, job.payType, selected, urgent) {
         MapMarkerIcons.pill(context, mapPayShort(job), selected, urgent)
     }
     val state = remember(job.id, job.lat, job.lng) { MarkerState(LatLng(job.lat, job.lng)) }

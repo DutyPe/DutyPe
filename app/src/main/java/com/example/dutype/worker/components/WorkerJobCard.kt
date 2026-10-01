@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.dutype.components.OptimizedJobImage
 import com.example.dutype.models.JobListing
+import com.example.dutype.employer.models.EmploymentType
 import com.example.dutype.models.JobListingSummary
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
@@ -38,7 +39,7 @@ import com.example.dutype.utils.ValidationUtils
 
 /**
  * JobCard that accepts JobListing directly - PREFERRED
- * Uses only card fields: title, companyName, salary, salaryType, urgency, status, distance, isSaved
+ * Uses only card fields: title, companyName, payText, area, urgency, status, distance, isSaved
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,19 +50,19 @@ fun JobCard(
     onCardClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     onViewTrack: (String) -> Unit = {},
-    applyButtonLabel: String = "Quick Apply"
+    applyButtonLabel: String? = null
 ) {
+    val context = LocalContext.current
     var localIsSaved by remember { mutableStateOf(isSaved) }
     LaunchedEffect(isSaved) { localIsSaved = isSaved }
 
-    val payDisplay = remember(job.salary, job.salaryType) {
-        formatPayDisplay(job.salary, job.salaryType)
-    }
-    val locationDisplay = remember(job.addressText, job.location, job.distance) {
-        formatLocationWithDistance(job.addressText.ifBlank { job.location }, job.distance)
+    val effectiveApplyLabel = applyButtonLabel ?: stringResource(R.string.quick_apply)
+    val payDisplay = job.payText
+    val locationDisplay = remember(job.area, job.distance, job.feedSection) {
+        formatLocationWithDistance(context, job.area, job.distance, job.distanceApprox, job.district, job.feedSection)
     }
     val normalizedStatus = job.status.trim().lowercase()
-    val isFilled = normalizedStatus == "closed"
+    val isFilled = normalizedStatus == "filled"
     val isExpired = normalizedStatus == "expired"
     val statusLabel = when {
         isFilled -> stringResource(R.string.filled)
@@ -76,20 +77,15 @@ fun JobCard(
         payDisplay = payDisplay,
         locationDisplay = locationDisplay,
         vacancies = job.vacancies,
-        workTypeLabel = extractWorkTypeLabel(
-            job.jobType,
-            job.title,
-            job.description
-        ),
+        workTypeLabel = stringResource(EmploymentType.fromKey(job.employmentType).titleRes),
         isClosed = isFilled || isExpired,
         statusLabel = statusLabel,
         isFilled = isFilled,
         isExpired = isExpired,
-        isUrgent = job.urgency.equals("HIGH", ignoreCase = true),
-        isVerified = job.isVerified,
-        applyButtonLabel = applyButtonLabel,
+        isUrgent = job.isUrgent,
+        applyButtonLabel = effectiveApplyLabel,
         isSaved = localIsSaved,
-        jobImageUrl = job.jobImageUrl,
+        jobImageUrl = job.photoUrl,
         onSaveClick = {
             localIsSaved = !localIsSaved
             onSaveClick(job.id)
@@ -104,7 +100,7 @@ fun JobCard(
 
 /**
  * PERFORMANCE OPTIMIZED: JobCard that accepts JobListingSummary.....
- * Uses only card fields: title, companyName, salary, salaryType, urgency, status, distance, isSaved
+ * Uses only card fields: title, companyName, payText, area, urgency, status, distance, isSaved
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -115,22 +111,19 @@ fun JobCard(
     onCardClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     onViewTrack: (String) -> Unit = {},
-    applyButtonLabel: String = "Quick Apply"
+    applyButtonLabel: String? = null
 ) {
+    val context = LocalContext.current
     var localIsSaved by remember { mutableStateOf(isSaved) }
     LaunchedEffect(isSaved) { localIsSaved = isSaved }
 
-    val payDisplay = remember(job.salary, job.salaryType) {
-        formatPayDisplay(job.salary, job.salaryType)
-    }
-    val locationDisplay = remember(job.locationText, job.companyCity, job.distance) {
-        formatLocationWithDistance(
-            job.locationText.ifBlank { job.companyCity },
-            job.distance
-        )
+    val effectiveApplyLabel = applyButtonLabel ?: stringResource(R.string.quick_apply)
+    val payDisplay = job.payText
+    val locationDisplay = remember(job.area, job.distance, job.feedSection) {
+        formatLocationWithDistance(context, job.area, job.distance, job.distanceApprox, job.district, job.feedSection)
     }
     val normalizedStatus = job.status.trim().lowercase()
-    val isFilled = normalizedStatus == "closed"
+    val isFilled = normalizedStatus == "filled"
     val isExpired = normalizedStatus == "expired"
     val statusLabel = when {
         isFilled -> stringResource(R.string.filled)
@@ -145,22 +138,15 @@ fun JobCard(
         payDisplay = payDisplay,
         locationDisplay = locationDisplay,
         vacancies = job.vacancies,
-        workTypeLabel = extractWorkTypeLabel(
-            job.jobType,
-            job.title,
-            ""
-        ),
+        workTypeLabel = stringResource(EmploymentType.fromKey(job.employmentType).titleRes),
         isClosed = isFilled || isExpired,
         statusLabel = statusLabel,
         isFilled = isFilled,
         isExpired = isExpired,
-        // JobListingSummary has no isVerified field (card-list projection only
-        // carries jobmetadata fields) — verified badge is not shown here.
-        isUrgent = job.urgency.equals("HIGH", ignoreCase = true),
-        isVerified = false,
-        applyButtonLabel = applyButtonLabel,
+        isUrgent = job.isUrgent,
+        applyButtonLabel = effectiveApplyLabel,
         isSaved = localIsSaved,
-        jobImageUrl = job.jobImageUrl,
+        jobImageUrl = job.photoUrl,
         onSaveClick = {
             localIsSaved = !localIsSaved
             onSaveClick(job.id)
@@ -192,7 +178,6 @@ private fun JobCardInternal(
     isExpired: Boolean,
     isSaved: Boolean,
     isUrgent: Boolean = false,
-    isVerified: Boolean = false,
     applyButtonLabel: String = "Quick Apply",
     jobImageUrl: String? = null,
     onSaveClick: () -> Unit,
@@ -262,22 +247,6 @@ private fun JobCardInternal(
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    if (isVerified) {
-                        Icon(
-                            imageVector = Icons.Default.Verified,
-                            contentDescription = null,
-                            tint = WorkerColors.Success,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Text(
-                            text = "Verified",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = WorkerColors.Success,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        )
-                    }
                 }
             }
 
@@ -380,7 +349,7 @@ private fun UrgentBadge() {
             .padding(horizontal = 10.dp, vertical = 4.dp)
     ) {
         Text(
-            text = "URGENT",
+            text = stringResource(R.string.urgent_caps),
             style = MaterialTheme.typography.labelSmall.copy(
                 color = WorkerColors.Error,
                 fontWeight = FontWeight.Bold,
@@ -480,19 +449,30 @@ private enum class ChipType {
 // HELPER FUNCTIONS — schema-only, no legacy fields
 // =============================================================================
 
-/**
- * Bug #6: salary is now a free-form String. Delegate to SalaryFormatter
- * which handles "Negotiable", ranges ("1000-2000"), "2000+" and plain
- * numbers, appending the period suffix when appropriate.
- */
-private fun formatPayDisplay(salary: String, salaryType: String): String =
-    com.example.dutype.utils.SalaryFormatter.display(salary, salaryType)
 
 /**
  * Format location with distance.
  * addressText comes from job_details (runtime only), distance is computed client-side.
  */
-private fun formatLocationWithDistance(addressText: String, distance: Double?): String {
+/** "Kothagudem, Bhadradri Kothagudem" for jobs shown in the district / state sections (outside 20 km). */
+private fun farPlace(area: String, district: String, section: com.example.dutype.models.FeedSection?): String {
+    if (section == null || section.isNearby || section == com.example.dutype.models.FeedSection.ANYWHERE) return ""
+    val town = area.split(",").firstOrNull()?.trim().orEmpty()
+    return listOf(town, district).filter { it.isNotBlank() }.distinctBy { it.lowercase() }.joinToString(", ")
+}
+
+private fun formatLocationWithDistance(
+    context: android.content.Context,
+    addressText: String,
+    distance: Double?,
+    approximate: Boolean = false,
+    district: String = "",
+    section: com.example.dutype.models.FeedSection? = null
+): String {
+    val far = farPlace(addressText, district, section)
+    if (far.isNotEmpty()) {
+        return listOf(formatShortDistance(distance, approximate), far).filter { it.isNotBlank() }.joinToString(" - ")
+    }
     val parts = addressText
         .split(",")
         .map { it.trim() }
@@ -507,29 +487,14 @@ private fun formatLocationWithDistance(addressText: String, distance: Double?): 
 
     if (distance == null) return shortLocation
     val distStr = when {
-        distance < 1.0 -> "${(distance * 1000).toInt()}m away"
-        distance < 2.0 -> "${"%.1f".format(distance)} km walkable"
-        else -> "${"%.1f".format(distance)} km away"
+        approximate -> context.getString(R.string.distance_away, "~${formatShortDistance(distance, false).removePrefix("~")}")
+        distance < 1.0 -> context.getString(R.string.distance_away, "${(distance * 1000).toInt()}m")
+        distance < 2.0 -> context.getString(R.string.distance_walkable, "${"%.1f".format(distance)} km")
+        else -> context.getString(R.string.distance_away, "${"%.1f".format(distance)} km")
     }
     return if (shortLocation.isNotEmpty()) "$distStr - $shortLocation" else distStr
 }
 
-private fun extractWorkTypeLabel(vararg candidates: String?): String? {
-    val text = candidates
-        .filterNotNull()
-        .joinToString(" ")
-        .lowercase()
-
-    if (text.isBlank()) return null
-
-    return when {
-        listOf("part-time", "part time", "parttime", "weekend", "student").any(text::contains) -> "Part-time"
-        listOf("full-time", "full time", "fulltime").any(text::contains) -> "Full-time"
-        text.contains("contract") -> "Contract"
-        text.contains("temporary") || text.contains("temp") -> "Temporary"
-        else -> null
-    }
-}
 
 /**
  * Get emoji for job category - lightweight alternative to Lottie animations.
@@ -647,7 +612,7 @@ private fun JobImageOrAnimation(
     if (!jobImageUrl.isNullOrBlank()) {
         OptimizedJobImage(
             imageUrl = jobImageUrl,
-            contentDescription = "Job image",
+            contentDescription = stringResource(R.string.job_image_desc),
             modifier = modifier.clip(CircleShape)
         )
     } else {
@@ -713,19 +678,19 @@ fun WorkerHomeJobCard(
     onCardClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     onViewTrack: (String) -> Unit = {},
-    applyButtonLabel: String = "Quick Apply",
+    applyButtonLabel: String? = null,
     isApplied: Boolean = false
 ) {
-    val payDisplay = remember(job.salary, job.salaryType) {
-        formatPayDisplay(job.salary, job.salaryType)
-    }
-    val subtitle = remember(job.companyName, job.distance) {
-        listOf(job.companyName.trim(), formatShortDistance(job.distance))
+    val effectiveApplyLabel = applyButtonLabel ?: stringResource(R.string.quick_apply)
+    val payDisplay = job.payText
+    val subtitle = remember(job.companyName, job.distance, job.feedSection) {
+        listOf(job.companyName.trim(), farPlace(job.area, job.district, job.feedSection),
+            formatShortDistance(job.distance, job.distanceApprox))
             .filter { it.isNotBlank() }
             .joinToString(" · ")
     }
     val normalizedStatus = job.status.trim().lowercase()
-    val isFilled = normalizedStatus == "closed"
+    val isFilled = normalizedStatus == "filled"
     val isExpired = normalizedStatus == "expired"
     val isClosed = isFilled || isExpired
     val statusLabel = when {
@@ -733,7 +698,7 @@ fun WorkerHomeJobCard(
         isExpired -> stringResource(R.string.tab_expired)
         else -> null
     }
-    val isUrgent = job.urgency.equals("HIGH", ignoreCase = true) && !isClosed
+    val isUrgent = job.isUrgent && !isClosed
     val openJob = {
         onViewTrack(job.id)
         onCardClick(job.id)
@@ -751,8 +716,10 @@ fun WorkerHomeJobCard(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         HomeJobTile(
-            imageUrl = job.jobImageUrl,
-            initialSource = job.companyName.ifBlank { job.title }
+            imageUrl = job.photoUrl,
+            category = job.category,
+            title = job.title,
+            description = job.description
         )
         Column(modifier = Modifier.weight(1f)) {
             HomeJobTitleRow(
@@ -776,7 +743,7 @@ fun WorkerHomeJobCard(
             HomeJobPayRow(
                 payDisplay = payDisplay,
                 showApply = !isClosed,
-                applyButtonLabel = applyButtonLabel,
+                applyButtonLabel = effectiveApplyLabel,
                 isApplied = isApplied,
                 onApplyClick = openJob
             )
@@ -784,33 +751,26 @@ fun WorkerHomeJobCard(
     }
 }
 
+/** Job photo when the employer uploaded one, else the same category icon as the Find Jobs rail. */
 @Composable
-private fun HomeJobTile(imageUrl: String?, initialSource: String) {
+private fun HomeJobTile(imageUrl: String?, category: String, title: String, description: String) {
     val tileShape = RoundedCornerShape(14.dp)
-    val initial = remember(initialSource) {
-        initialSource.trim().take(1).uppercase().ifBlank { "J" }
-    }
-    Box(
-        modifier = Modifier
-            .size(48.dp)
-            .clip(tileShape)
-            .background(HomeCardTile),
-        contentAlignment = Alignment.Center
-    ) {
-        if (!imageUrl.isNullOrBlank()) {
+    if (!imageUrl.isNullOrBlank()) {
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(tileShape)
+                .background(HomeCardTile),
+            contentAlignment = Alignment.Center
+        ) {
             OptimizedJobImage(
                 imageUrl = imageUrl,
                 contentDescription = "Job image",
                 modifier = Modifier.fillMaxSize()
             )
-        } else {
-            Text(
-                text = initial,
-                color = HomeCardNavy,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
-            )
         }
+    } else {
+        JobCategoryIconTile(category = category, title = title, description = description, size = 48.dp)
     }
 }
 
@@ -843,7 +803,7 @@ private fun HomeJobTitleRow(
                     .padding(horizontal = 8.dp, vertical = 3.dp)
             ) {
                 Text(
-                    text = "URGENT",
+                    text = stringResource(R.string.urgent_caps),
                     color = HomeCardRed,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold
@@ -946,7 +906,7 @@ private fun HomeAppliedButton() {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "Applied",
+            text = stringResource(R.string.applied),
             color = HomeCardSlate,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
@@ -955,7 +915,9 @@ private fun HomeAppliedButton() {
     }
 }
 
-private fun formatShortDistance(distance: Double?): String {
+/** "3.4 km" — or "~3 km" when the worker allowed only approximate location (±1–3 km). */
+private fun formatShortDistance(distance: Double?, approximate: Boolean = false): String {
     if (distance == null) return ""
+    if (approximate) return if (distance < 2.0) "~1 km" else "~${distance.toInt()} km"
     return if (distance < 1.0) "${(distance * 1000).toInt()} m" else "${"%.1f".format(distance)} km"
 }

@@ -61,9 +61,9 @@ private object MapJobsMemoryCache {
  *
  * Load strategy:
  *  1. Last-known location + cached markers are used instantly.
- *  2. [loadInitial]: nearest ~200 jobs via widening rings around the user.
- *  3. [onCameraIdle]: 600 ms debounce, then jobs inside the visible viewport are fetched with
- *     geohash range queries and merged by id (cap [MAX_MARKERS], far-away ones dropped).
+ *  2. [loadInitial]: the nearest jobs around the user (nearest-first pager).
+ *  3. [onCameraIdle]: 600 ms debounce, then viewport cells that have jobs and were not loaded
+ *     yet are fetched and merged by id (cap [MAX_MARKERS], far-away ones dropped).
  *  4. Every request is guarded by a generation counter, stale ones are cancelled and ignored.
  *  Applied / expired / closed jobs are hidden.
  */
@@ -75,10 +75,10 @@ class WorkerMapViewModel @Inject constructor(
 ) : ViewModel() {
 
     companion object {
-        private const val MAX_MARKERS = 500
-        private const val PRUNE_THRESHOLD = 300
+        private const val MAX_MARKERS = 300
+        private const val PRUNE_THRESHOLD = 150
         private const val PRUNE_MARGIN = 2.0
-        private const val INITIAL_TARGET = 200
+        private const val INITIAL_TARGET = 100
         private const val DEBOUNCE_MS = 600L
         private const val RELOAD_KM = 1.0
     }
@@ -146,9 +146,8 @@ class WorkerMapViewModel @Inject constructor(
         initJob = viewModelScope.launch {
             setActive(1)
             try {
-                source.nearbyStream(lat, lng, INITIAL_TARGET).collect { batch ->
-                    if (generation == initGeneration) merge(batch, null)
-                }
+                val batch = source.nearby(lat, lng, INITIAL_TARGET)
+                if (generation == initGeneration) merge(batch, null)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -195,9 +194,7 @@ class WorkerMapViewModel @Inject constructor(
             setActive(1)
             try {
                 val result = source.fetchBounds(viewport.south, viewport.west, viewport.north, viewport.east)
-                if (generation == viewGeneration) {
-                    if (result != null) merge(result, viewport) else lastFetchViewport = null
-                }
+                if (generation == viewGeneration) merge(result, viewport)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
