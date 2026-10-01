@@ -416,13 +416,13 @@ private fun RegisterContent(
             val termsAnnotated = buildAnnotatedString {
                 append(termsPrefix)
                 pushStringAnnotation(tag = "TERMS", annotation = "terms")
-                withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
+                withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold)) {
                     append(termsTitle)
                 }
                 pop()
                 append(" & ")
                 pushStringAnnotation(tag = "PRIVACY", annotation = "privacy")
-                withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
+                withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold)) {
                     append(privacyTitle)
                 }
                 pop()

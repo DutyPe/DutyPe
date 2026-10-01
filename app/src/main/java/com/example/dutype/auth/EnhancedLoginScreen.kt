@@ -273,7 +273,7 @@ private fun OtpLoginScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(bottom = 132.dp)
+                    .padding(bottom = 24.dp)
             ) {
                 // Pushes the form comfortably lower down toward the middle of the screen.
                 Spacer(modifier = Modifier.height(authTopGap(0.25f) + 36.dp))
@@ -522,30 +522,22 @@ private fun OtpLoginScreen(
                     }
                 }
 
-            }
+                // Terms & Privacy footer + Register link placed close below the login section
+                Spacer(modifier = Modifier.height(28.dp))
 
-            // Terms & Privacy footer + Register link, pinned to the bottom of the
-            // screen (not inside the scrollable column — a scrollable Column can't
-            // also use weight()/fill-to-bottom, so this is a sibling anchored here).
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(top = 28.dp, bottom = 12.dp)
-            ) {
                 val termsPrefix = stringResource(R.string.auth_by_continuing_agree)
                 val termsTitle = stringResource(R.string.auth_terms)
                 val privacyTitle = stringResource(R.string.auth_privacy_policy_short)
                 val termsAnnotated = buildAnnotatedString {
                     append(termsPrefix)
                     pushStringAnnotation(tag = "TERMS", annotation = "terms")
-                    withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
+                    withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold)) {
                         append(termsTitle)
                     }
                     pop()
                     append(" & ")
                     pushStringAnnotation(tag = "PRIVACY", annotation = "privacy")
-                    withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
+                    withStyle(SpanStyle(color = Ink900, fontWeight = FontWeight.SemiBold)) {
                         append(privacyTitle)
                     }
                     pop()
@@ -570,11 +562,9 @@ private fun OtpLoginScreen(
                     }
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Footer Registration Navigation — kept off the main mockup but
-                // necessary so a phone number that comes back "not registered"
-                // (see the toast above) still has somewhere to go.
+                // Footer Registration Navigation
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Center,
