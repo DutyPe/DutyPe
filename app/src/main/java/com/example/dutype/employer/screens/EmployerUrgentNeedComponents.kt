@@ -191,9 +191,10 @@ internal fun EmployerUrgentNeedHistoryContent(
 ) {
     when {
         isLoading -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = EmployerColors.Primary.fg())
-            }
+            com.example.dutype.components.DutyPeLoadingList(rows = 3)
+        }
+        requests.isEmpty() && !com.example.dutype.components.rememberOnline().value -> {
+            com.example.dutype.components.DutyPeIssueState(com.example.dutype.components.LoadIssue.OFFLINE, onRetry = null)
         }
         requests.isEmpty() -> {
             com.example.dutype.components.DutyPeEmptyScreen(
@@ -263,35 +264,24 @@ internal fun EmployerUrgentNeedDetailContent(
 ) {
     when {
         isLoading -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = EmployerColors.Primary.fg())
-            }
+            com.example.dutype.components.DutyPeLoadingList(rows = 4)
+        }
+        request == null && !com.example.dutype.components.rememberOnline().value -> {
+            com.example.dutype.components.DutyPeIssueState(com.example.dutype.components.LoadIssue.OFFLINE, onRetry = null)
         }
         request == null -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.padding(32.dp)
-                ) {
-                    UrgentIcon(Icons.Default.Schedule, size = 64)
-                    Text(
-                        text = stringResource(R.string.urgent_request_not_found),
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            color = EmployerColors.TextPrimary,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        textAlign = TextAlign.Center
-                    )
-                    Button(
-                        onClick = onPostUrgentNeed,
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
-                    ) {
-                        Text(stringResource(R.string.post_urgent_need_title))
-                    }
-                }
-            }
+            com.example.dutype.components.DutyPeEmptyScreen(
+                icon = Icons.Default.Schedule,
+                tone = com.example.dutype.components.EmptyTone.ORANGE,
+                art = com.example.dutype.components.EmptyArt.SEARCH,
+                title = stringResource(R.string.urgent_request_not_found),
+                message = stringResource(R.string.state_notfound_body),
+                primary = com.example.dutype.components.EmptyStateAction(
+                    label = stringResource(R.string.post_urgent_need_title),
+                    icon = Icons.Filled.Bolt,
+                    onClick = onPostUrgentNeed
+                )
+            )
         }
         else -> {
             var selectedTab by remember { mutableIntStateOf(if (responses.isNotEmpty()) 1 else 0) }
@@ -389,10 +379,16 @@ internal fun EmployerUrgentNeedDetailContent(
                     }
 
                     if (matchedWorkersState.isLoading) {
-                        item(key = "nearby_loading") {
-                            Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(color = EmployerColors.Primary.fg(), modifier = Modifier.size(32.dp))
-                            }
+                        items(3, key = { "nearby_loading_$it" }) {
+                            com.example.dutype.components.ApplicationListItemShimmer()
+                        }
+                    } else if (matchedWorkersState.hasError) {
+                        item(key = "nearby_error") {
+                            com.example.dutype.components.DutyPeErrorState(
+                                message = matchedWorkersState.error,
+                                onRetry = onRefreshMatchedWorkers,
+                                compact = true
+                            )
                         }
                     } else if (matchedWorkersState.workers.isEmpty()) {
                         item(key = "nearby_empty") {

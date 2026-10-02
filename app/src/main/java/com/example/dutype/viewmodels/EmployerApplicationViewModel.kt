@@ -84,12 +84,14 @@ class EmployerApplicationViewModel @Inject constructor(
 
     /** Every applicant across the employer's jobs (live). */
     fun loadEmployerApplications() {
+        lastLoad = { loadEmployerApplications() }
         val uid = auth.currentUser?.uid ?: return fail("Employer not authenticated")
         listenTo("all", repository.employerApplications(uid))
     }
 
     /** Applicants for one job (live). */
     fun loadJobApplications(jobId: String) {
+        lastLoad = { loadJobApplications(jobId) }
         val uid = auth.currentUser?.uid ?: return fail("Employer not authenticated")
         listenTo("job:$jobId", repository.jobApplicants(uid, jobId))
     }
@@ -98,6 +100,15 @@ class EmployerApplicationViewModel @Inject constructor(
         listening = null
         loadEmployerApplications()
     }
+
+    /** Re-subscribes to whatever list was open (all applicants or one job's). */
+    fun retry() {
+        listening = null
+        _uiState.update { it.copy(isLoading = true, hasError = false, error = null) }
+        (lastLoad ?: { loadEmployerApplications() }).invoke()
+    }
+
+    private var lastLoad: (() -> Unit)? = null
 
     fun loadMatchedWorkers(jobId: String, force: Boolean = false) {
         val current = _matchedWorkersState.value

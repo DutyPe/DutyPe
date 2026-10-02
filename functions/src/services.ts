@@ -109,6 +109,17 @@ export const getServiceCatalog = onCallSecured({ requireAuth: false, enforceAppC
     upiId: c.upiId,
     upiName: c.upiName,
     minTopup: c.minTopup,
+    partnerFee: c.partnerFee,
+    partnerFirstJobFree: c.partnerFirstJobFree,
+    firstBookingFeeFree: c.firstBookingFeeFree,
+    // Offers the app may advertise (codes marked hidden are shared only through posters / WhatsApp).
+    offers: c.coupons
+      .filter((x) => x.visible !== false && x.active !== false && (!x.validTo || x.validTo > Date.now()) &&
+        (!x.validFrom || x.validFrom <= Date.now()))
+      .map((x) => ({
+        code: x.code, title: x.title, type: x.type, value: x.value, maxOff: x.maxOff ?? 0, minOrder: x.minOrder ?? 0,
+        validTo: x.validTo ?? 0, firstBookingOnly: x.firstBookingOnly === true, categories: x.categories ?? [],
+      })),
     categories: c.categories,
     services: all ? c.services : c.services.filter((x) => x.active !== false),
     // Only when the app sent a location: is it inside the service area?
@@ -625,6 +636,9 @@ export const getServiceOffer = onCallSecured({ timeoutSeconds: 10 }, async (raw:
     price: d[BK.PRICE],
     bookingFee: d[BK.BOOKING_FEE],
     earning: partnerEarning(d, fee),
+    partnerFee: fee,
+    discount: Number(d[BK.DISCOUNT] || 0),
+    customerTotal: Number(d[BK.TOTAL] || 0),
     requiredCreditsPaise: requiredCredits(d, fee),
     creditsPaise: Number(p.get(SP.CREDITS_PAISE) || 0),
     inspection: d[BK.INSPECTION] === true,

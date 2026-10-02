@@ -158,7 +158,7 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
 
     SvcScaffold(title = stringResource(R.string.svc_partner_title), onBack = { navController.popBackStack() }) { padding ->
         if (!ui.loaded) {
-            Centered { CircularProgressIndicator() }
+            Box(Modifier.fillMaxSize().padding(padding)) { com.example.dutype.components.DutyPeLoadingList(rows = 3) }
             return@SvcScaffold
         }
         val p = ui.profile
@@ -223,7 +223,7 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
                             }
                             if (low) Text(stringResource(R.string.svc_partner_low_credits), color = SvcRed, fontSize = 13.sp)
                             Text(
-                                stringResource(R.string.svc_partner_credits_info, catalog?.commissionPct ?: 10),
+                                stringResource(R.string.svc_partner_credits_info, catalog?.partnerFee ?: 19),
                                 color = SvcMuted, fontSize = 12.sp
                             )
                             Spacer(Modifier.height(8.dp))
@@ -340,7 +340,7 @@ fun PartnerTopupScreen(navController: NavController, viewModel: HomeServicesView
     SvcScaffold(title = stringResource(R.string.svc_topup_title), onBack = { navController.popBackStack() }) { padding ->
         val c = catalog
         if (c == null) {
-            Centered { CircularProgressIndicator() }
+            Box(Modifier.fillMaxSize().padding(padding)) { com.example.dutype.components.DutyPeLoadingList(rows = 3) }
             return@SvcScaffold
         }
         Column(
@@ -455,8 +455,9 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
     SvcScaffold(title = stringResource(R.string.svc_offer_title), onBack = { navController.popBackStack() }) { padding ->
         val o = offer
         if (o == null) {
-            Centered {
-                if (error != null) Text(error.orEmpty(), textAlign = TextAlign.Center) else CircularProgressIndicator()
+            Box(Modifier.fillMaxSize().padding(padding)) {
+                if (error != null) com.example.dutype.components.DutyPeErrorState(error, onRetry = null)
+                else com.example.dutype.components.DutyPeLoadingList(rows = 2)
             }
             return@SvcScaffold
         }
@@ -467,7 +468,7 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
         ) {
             Text(o.serviceName, fontWeight = FontWeight.Bold, fontSize = 22.sp, textAlign = TextAlign.Center)
             Text(stringResource(R.string.svc_offer_you_earn, o.earning), fontWeight = FontWeight.Bold, fontSize = 30.sp, color = SvcGreen)
-            Text(stringResource(R.string.svc_offer_customer_pays, o.price + o.bookingFee, o.bookingFee), color = SvcMuted, textAlign = TextAlign.Center)
+            Text(stringResource(R.string.svc_offer_customer_pays, o.customerTotal, (o.requiredCreditsPaise / 100).toInt()), color = SvcMuted, textAlign = TextAlign.Center)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.LocationOn, contentDescription = null, tint = SvcBlue)
                 Spacer(Modifier.width(4.dp))
@@ -554,7 +555,7 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
     SvcScaffold(title = stringResource(R.string.svc_partner_active_job), onBack = { navController.popBackStack() }) { padding ->
         val b = booking
         if (b == null) {
-            Centered { CircularProgressIndicator() }
+            Box(Modifier.fillMaxSize().padding(padding)) { com.example.dutype.components.DutyPeLoadingList(rows = 3) }
             return@SvcScaffold
         }
         Column(
@@ -591,6 +592,7 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
             HorizontalDivider()
             PriceLine(stringResource(R.string.svc_price_service), b.price)
             PriceLine(stringResource(R.string.svc_price_fee), b.bookingFee)
+            if (b.discount > 0) DiscountLine(b.discountLabel, b.discount)
             if (b.extras > 0) Text(stringResource(R.string.svc_extras, b.extras, b.extrasNote), fontSize = 13.sp)
             PriceLine(stringResource(R.string.svc_price_total), b.total, bold = true)
 
@@ -635,13 +637,13 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    Text(stringResource(R.string.svc_job_collect, b.price + b.bookingFee + extraValue), fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.svc_job_collect, b.total + extraValue), fontWeight = FontWeight.Bold)
                     Button(
                         onClick = {
                             act("complete", extra = extraValue, note = extrasNote.trim()) {
                                 Toast.makeText(
                                     context,
-                                    context.getString(R.string.svc_job_done, b.price + b.bookingFee + extraValue),
+                                    context.getString(R.string.svc_job_done, b.total + extraValue),
                                     Toast.LENGTH_LONG
                                 ).show()
                             }

@@ -546,6 +546,8 @@ fun EmployerApplicationManagementScreen(
             HiringApplicantsSection(
                 modifier = Modifier.weight(1f),
                 isLoading = uiState.isLoading,
+                loadError = if (uiState.hasError && uiState.allApplications.isEmpty()) uiState.error ?: "" else null,
+                onRetry = { viewModel.retry() },
                 allApplications = uiState.applications,
                 visibleApplications = visibleApplications,
                 isJobSpecific = jobId != null,
@@ -675,33 +677,10 @@ private fun MatchedWorkersContent(
 ) {
     when {
         state.isLoading -> {
-            LazyColumn(
-                modifier = modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(5) { ApplicationListItemShimmer() }
-            }
+            com.example.dutype.components.DutyPeLoadingList(modifier = modifier.fillMaxSize())
         }
         state.hasError -> {
-            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.padding(24.dp)
-                ) {
-                    Text(
-                        text = state.error ?: stringResource(R.string.failed_load_matched_workers),
-                        style = AppTypography.bodyMedium.copy(color = EmployerColors.Error),
-                        textAlign = TextAlign.Center
-                    )
-                    Button(onClick = onRefresh, shape = RoundedCornerShape(12.dp)) {
-                        Icon(Icons.Default.Refresh, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.retry))
-                    }
-                }
-            }
+            com.example.dutype.components.DutyPeErrorState(message = state.error, onRetry = onRefresh, modifier = modifier)
         }
         state.workers.isEmpty() -> {
             Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1572,6 +1551,8 @@ private fun HiringFilterRow(
 private fun HiringApplicantsSection(
     modifier: Modifier,
     isLoading: Boolean,
+    loadError: String?,
+    onRetry: () -> Unit,
     allApplications: List<JobApplication>,
     visibleApplications: List<JobApplication>,
     isJobSpecific: Boolean,
@@ -1600,8 +1581,11 @@ private fun HiringApplicantsSection(
         visibleApplications.filter { it.matchesHiringFilter(filter, contacted) }
     }
     val showList = !isLoading && allApplications.isNotEmpty() && displayed.isNotEmpty()
+    val online by com.example.dutype.components.rememberOnline()
 
     Column(modifier = modifier) {
+        // Applicants already on screen stay visible offline, with a note that they are saved data.
+        if (showList) com.example.dutype.components.OfflineCachedNote()
         if (!showList && leadingContent != null) {
             leadingContent()
         }
@@ -1611,15 +1595,21 @@ private fun HiringApplicantsSection(
             onSelect = { activeFilter = it }
         )
         when {
+            loadError != null -> {
+                Box(modifier = Modifier.weight(1f)) {
+                    com.example.dutype.components.DutyPeErrorState(message = loadError, onRetry = onRetry)
+                }
+            }
             isLoading -> {
-                LazyColumn(
+                com.example.dutype.components.DutyPeLoadingList(
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(5) {
-                        ApplicationListItemShimmer()
-                    }
+                    contentPadding = PaddingValues(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 24.dp)
+                )
+            }
+            // An empty list while offline is "no internet", not "no applicants yet".
+            allApplications.isEmpty() && !online -> {
+                Box(modifier = Modifier.weight(1f)) {
+                    com.example.dutype.components.DutyPeIssueState(com.example.dutype.components.LoadIssue.OFFLINE, onRetry = onRetry)
                 }
             }
             allApplications.isEmpty() -> {

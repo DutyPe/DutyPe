@@ -7,7 +7,7 @@ import { getFirebaseServices } from "@/lib/firebase/client";
 
 /**
  * DutyPe Services admin: approve partners, verify partner credit top-ups (UPI UTR), watch
- * bookings, and set fees / commission / UPI ID / prices (app_config/services).
+ * bookings, and set fees / partner fee / coupons / UPI ID / prices (app_config/services).
  * Server logic: functions/src/services.ts (reviewServicePartner, verifyPartnerTopup).
  */
 
@@ -195,7 +195,7 @@ export function AdminServicesClient() {
           <h2 className="admin-section-title">Bookings</h2>
           <div className="admin-table-container">
             <table className="admin-table">
-              <thead><tr><th>When</th><th>Service</th><th>Customer</th><th>Partner</th><th>Status</th><th>Total</th><th>DutyPe got</th><th>Rating</th></tr></thead>
+              <thead><tr><th>When</th><th>Service</th><th>Customer</th><th>Partner</th><th>Status</th><th>Total</th><th>Offer</th><th>DutyPe got</th><th>Rating</th></tr></thead>
               <tbody>
                 {bookings.map((b) => (
                   <tr key={b.id}>
@@ -205,6 +205,7 @@ export function AdminServicesClient() {
                     <td>{String(b.partnerName || "–")}<div><a href={`tel:${String(b.partnerPhone || "")}`}>{String(b.partnerPhone || "")}</a></div></td>
                     <td>{String(b.status)}</td>
                     <td>₹{String(b.total ?? "")}</td>
+                    <td>{Number(b.discount || 0) > 0 ? `−₹${String(b.discount)} ${String(b.couponCode || "first booking")}` : ""}</td>
                     <td>{b.platformTakePaise ? rupees(Number(b.platformTakePaise)) : "–"}</td>
                     <td>{b.rating ? `${String(b.rating)}★` : ""}</td>
                   </tr>
@@ -220,19 +221,52 @@ export function AdminServicesClient() {
   );
 }
 
+type Coupon = {
+  code: string;
+  title: string;
+  type: "FLAT" | "PCT";
+  value: number;
+  maxOff?: number;
+  minOrder?: number;
+  validFrom?: number;
+  validTo?: number;
+  firstBookingOnly?: boolean;
+  visible?: boolean;
+  active?: boolean;
+};
+
 type Settings = {
   upiId: string;
   upiName: string;
   bookingFee: number;
   inspectionFee: number;
   commissionPct: number;
+  partnerFee: number;
+  partnerFirstJobFree: boolean;
+  firstBookingFeeFree: boolean;
   minTopup: number;
+  coupons: Coupon[];
   services: Array<{ id: string; price?: number; active?: boolean }>;
 };
+
+const DAY = 24 * 60 * 60 * 1000;
+const toDate = (ms?: number) => (ms ? new Date(ms + 330 * 60 * 1000).toISOString().slice(0, 10) : "");
+/** Date input (IST day) → epoch ms at 00:00 IST, or 23:59:59 IST for an end date. */
+const fromDate = (v: string, end = false) => (v ? Date.parse(`${v}T00:00:00+05:30`) + (end ? DAY - 1000 : 0) : undefined);
+
+/** Ready-made festive offers (dates are this year's; edit before saving). */
+const PRESETS: Array<{ label: string; coupon: Coupon }> = [
+  { label: "Dasara ₹30 off", coupon: { code: "DASARA30", title: "Dasara offer ₹30 off", type: "FLAT", value: 30, minOrder: 300 } },
+  { label: "Diwali 10% (max ₹35)", coupon: { code: "DIWALI10", title: "Diwali 10% off", type: "PCT", value: 10, maxOff: 35, minOrder: 250 } },
+  { label: "Sankranti ₹25 off", coupon: { code: "SANKRANTI25", title: "Sankranti offer ₹25 off", type: "FLAT", value: 25 } },
+  { label: "Weekend ₹20 off", coupon: { code: "WEEKEND20", title: "Weekend ₹20 off", type: "FLAT", value: 20, minOrder: 200 } },
+  { label: "Welcome (first booking) ₹35", coupon: { code: "WELCOME35", title: "Welcome ₹35 off", type: "FLAT", value: 35, firstBookingOnly: true } },
+];
 
 function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; onError: (m: string) => void }) {
   const services = useMemo(() => getFirebaseServices(), []);
   const [s, setS] = useState<Settings | null>(null);
+  const [raw, setRaw] = useState<Record<string, unknown>>({});
   const [catalog, setCatalog] = useState<Array<{ id: string; category: string; name: string; price: number }>>([]);
 
   useEffect(() => {
@@ -240,13 +274,18 @@ function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; 
     void (async () => {
       const snap = await getDoc(doc(services.db, "app_config", "services"));
       const d = (snap.data() || {}) as Partial<Settings>;
+      setRaw((snap.data() || {}) as Record<string, unknown>);
       setS({
         upiId: d.upiId || "",
         upiName: d.upiName || "DutyPe",
         bookingFee: d.bookingFee ?? 19,
         inspectionFee: d.inspectionFee ?? 49,
-        commissionPct: d.commissionPct ?? 10,
+        commissionPct: d.commissionPct ?? 0,
+        partnerFee: d.partnerFee ?? 19,
+        partnerFirstJobFree: d.partnerFirstJobFree !== false,
+        firstBookingFeeFree: d.firstBookingFeeFree !== false,
         minTopup: d.minTopup ?? 200,
+        coupons: d.coupons || [],
         services: d.services || [],
       });
       try {
@@ -272,39 +311,127 @@ function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; 
     const rest = s.services.filter((x) => x.id !== id);
     setS({ ...s, services: [...rest, { ...(override(id) || { id }), active }] });
   };
+  const setCoupon = (i: number, patch: Partial<Coupon>) =>
+    setS({ ...s, coupons: s.coupons.map((c, j) => (j === i ? { ...c, ...patch } : c)) });
+  const addCoupon = (c: Coupon) => {
+    if (s.coupons.some((x) => x.code === c.code)) return onError(`Coupon ${c.code} already exists`);
+    setS({ ...s, coupons: [...s.coupons, { visible: true, active: true, ...c }] });
+  };
+  // A customer never gets more off than DutyPe takes on the booking, so offers never cost DutyPe money.
+  const maxOff = s.bookingFee + s.partnerFee;
 
   async function save() {
     if (!services || !s) return;
+    const codes = s.coupons.map((c) => c.code.trim().toUpperCase());
+    const bad = codes.find((c) => !/^[A-Z0-9]{3,20}$/.test(c));
+    if (bad !== undefined) return onError(`Coupon code "${bad}" must be 3–20 letters or digits`);
+    if (new Set(codes).size !== codes.length) return onError("Coupon codes must be different");
     try {
       const clean = s.services
         .map((x) => ({ id: x.id, ...(x.price !== undefined ? { price: x.price } : {}), ...(x.active === false ? { active: false } : {}) }))
         .filter((x) => Object.keys(x).length > 1);
-      await setDoc(doc(services.db, "app_config", "services"), { ...s, services: clean }, { merge: false });
-      onSaved("Saved. The app picks up new prices within ~10 minutes.");
+      const coupons = s.coupons.map((c) => {
+        const out: Record<string, unknown> = {
+          code: c.code.trim().toUpperCase(), title: c.title.trim() || c.code, type: c.type, value: Number(c.value) || 0,
+          visible: c.visible !== false, active: c.active !== false,
+        };
+        if (c.maxOff) out.maxOff = Number(c.maxOff);
+        if (c.minOrder) out.minOrder = Number(c.minOrder);
+        if (c.validFrom) out.validFrom = c.validFrom;
+        if (c.validTo) out.validTo = c.validTo;
+        if (c.firstBookingOnly) out.firstBookingOnly = true;
+        return out;
+      });
+      // Keep fields this screen does not edit (city, districtIds, ...).
+      await setDoc(doc(services.db, "app_config", "services"), { ...raw, ...s, coupons, services: clean }, { merge: false });
+      onSaved("Saved. The app picks up new prices and offers within ~10 minutes.");
     } catch (e: unknown) {
       onError(e instanceof Error ? e.message : "Save failed");
     }
   }
 
-  const num = (k: keyof Settings) => (
+  const num = (k: "bookingFee" | "inspectionFee" | "commissionPct" | "partnerFee" | "minTopup") => (
     <input type="number" value={String(s[k])} onChange={(e) => setS({ ...s, [k]: Number(e.target.value) })} style={{ width: 100 }} />
+  );
+  const check = (k: "partnerFirstJobFree" | "firstBookingFeeFree") => (
+    <input type="checkbox" checked={s[k]} onChange={(e) => setS({ ...s, [k]: e.target.checked })} />
   );
 
   return (
     <section className="admin-section">
       <h2 className="admin-section-title">Prices &amp; settings</h2>
-      <p>Partners pay their credit top-ups to this UPI ID. Fees and commission apply to new bookings.</p>
-      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 10, alignItems: "center", maxWidth: 560 }}>
+      <p>Partners pay their credit top-ups to this UPI ID. Fees apply to new bookings.</p>
+      <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 10, alignItems: "center", maxWidth: 640 }}>
         <label>UPI ID for top-ups</label>
         <input value={s.upiId} onChange={(e) => setS({ ...s, upiId: e.target.value.trim() })} placeholder="yourname@okaxis" />
         <label>UPI name</label>
         <input value={s.upiName} onChange={(e) => setS({ ...s, upiName: e.target.value })} />
-        <label>Booking fee (₹)</label>{num("bookingFee")}
+        <label>Customer booking fee (₹)</label>{num("bookingFee")}
         <label>Inspection visit fee (₹)</label>{num("inspectionFee")}
-        <label>Commission (%)</label>{num("commissionPct")}
+        <label>Partner fee per job (₹, e.g. 9 or 19)</label>{num("partnerFee")}
+        <label>Partner&apos;s first job free</label>{check("partnerFirstJobFree")}
+        <label>Customer&apos;s first booking: no booking fee</label>{check("firstBookingFeeFree")}
+        <label>Commission on price (%)</label>{num("commissionPct")}
         <label>Minimum top-up (₹)</label>{num("minTopup")}
       </div>
-      <h3 style={{ marginTop: 20 }}>Service prices</h3>
+
+      <h3 style={{ marginTop: 24 }}>Coupons &amp; festive offers</h3>
+      <p style={{ maxWidth: 760 }}>
+        Offers never stack: a customer gets the first-booking offer or the best coupon. A discount is capped at
+        DutyPe&apos;s own take on the booking (booking fee + partner fee{s.commissionPct ? " + commission" : ""}, now up to ₹{maxOff}),
+        so an offer never costs DutyPe money and the partner still earns the full service price minus the ₹{s.partnerFee} fee.
+        Each customer can use a coupon once. Hidden coupons are not shown in the app; share them on posters and WhatsApp.
+      </p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+        {PRESETS.map((p) => (
+          <button key={p.coupon.code} className="btn" onClick={() => addCoupon(p.coupon)}>+ {p.label}</button>
+        ))}
+        <button className="btn" onClick={() => addCoupon({ code: `OFFER${s.coupons.length + 1}`, title: "Special offer", type: "FLAT", value: 20 })}>+ Blank coupon</button>
+      </div>
+      <div className="admin-table-container">
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Code</th><th>Title (shown to customers)</th><th>Type</th><th>Value</th><th>Max off ₹</th><th>Min order ₹</th>
+              <th>From</th><th>To</th><th>First booking only</th><th>Show in app</th><th>Active</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {s.coupons.length === 0 && (
+              <tr><td colSpan={12}>No coupons yet. Add a festive offer above.</td></tr>
+            )}
+            {s.coupons.map((c, i) => {
+              const worth = c.type === "PCT" ? (c.maxOff || 0) : c.value;
+              return (
+                <tr key={i}>
+                  <td><input value={c.code} onChange={(e) => setCoupon(i, { code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") })} style={{ width: 120 }} /></td>
+                  <td><input value={c.title} onChange={(e) => setCoupon(i, { title: e.target.value })} style={{ width: 200 }} /></td>
+                  <td>
+                    <select value={c.type} onChange={(e) => setCoupon(i, { type: e.target.value as Coupon["type"] })}>
+                      <option value="FLAT">₹ off</option>
+                      <option value="PCT">% off</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input type="number" value={String(c.value)} onChange={(e) => setCoupon(i, { value: Number(e.target.value) })} style={{ width: 70 }} />
+                    {worth > maxOff && <div style={{ color: "#b45309", fontSize: 12 }}>Capped at ₹{maxOff}</div>}
+                  </td>
+                  <td><input type="number" value={c.maxOff ? String(c.maxOff) : ""} onChange={(e) => setCoupon(i, { maxOff: Number(e.target.value) || undefined })} style={{ width: 70 }} /></td>
+                  <td><input type="number" value={c.minOrder ? String(c.minOrder) : ""} onChange={(e) => setCoupon(i, { minOrder: Number(e.target.value) || undefined })} style={{ width: 80 }} /></td>
+                  <td><input type="date" value={toDate(c.validFrom)} onChange={(e) => setCoupon(i, { validFrom: fromDate(e.target.value) })} /></td>
+                  <td><input type="date" value={toDate(c.validTo ? c.validTo - DAY + 1000 : undefined)} onChange={(e) => setCoupon(i, { validTo: fromDate(e.target.value, true) })} /></td>
+                  <td><input type="checkbox" checked={!!c.firstBookingOnly} onChange={(e) => setCoupon(i, { firstBookingOnly: e.target.checked })} /></td>
+                  <td><input type="checkbox" checked={c.visible !== false} onChange={(e) => setCoupon(i, { visible: e.target.checked })} /></td>
+                  <td><input type="checkbox" checked={c.active !== false} onChange={(e) => setCoupon(i, { active: e.target.checked })} /></td>
+                  <td><button className="btn" onClick={() => setS({ ...s, coupons: s.coupons.filter((_, j) => j !== i) })}>Remove</button></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <h3 style={{ marginTop: 24 }}>Service prices</h3>
       <div className="admin-table-container">
         <table className="admin-table">
           <thead><tr><th>Category</th><th>Service</th><th>Price (₹)</th><th>Offered</th></tr></thead>

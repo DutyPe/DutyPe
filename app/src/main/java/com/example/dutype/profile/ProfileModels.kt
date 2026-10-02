@@ -93,6 +93,9 @@ data class EmployerProfile(
     val lng: Double = 0.0,
     val subscription: EmployerSubscription = EmployerSubscription(),
     val freeUrgentPostsUsed: Int = 0,
+    /** Free posts (normal or urgent) earned by referring friends, usable until [referralFreePostsUntil]. */
+    val referralFreePosts: Int = 0,
+    val referralFreePostsUntil: Long = 0L,
     /** Free DutyPe AI actions used (10 free for employers without an AI plan). */
     val aiTrialUsed: Int = 0,
     val verified: Boolean = false,
@@ -102,6 +105,10 @@ data class EmployerProfile(
     val createdAt: Long = 0L
 ) {
     val isCompany: Boolean get() = employerType == Values.EmployerType.COMPANY
+
+    /** Referral free posts that can be used right now. */
+    val referralPostsLeft: Int get() =
+        if (referralFreePostsUntil > System.currentTimeMillis()) referralFreePosts.coerceAtLeast(0) else 0
 
     /** Name shown on job cards: business name for companies, the owner's name otherwise. */
     val displayName: String get() = if (isCompany && businessName.isNotBlank()) businessName else ownerName
@@ -144,6 +151,8 @@ data class EmployerProfile(
                 (d[EmployerProfiles.SUBSCRIPTION] as? Map<*, *>)?.entries?.associate { it.key.toString() to it.value }
             ),
             freeUrgentPostsUsed = (d[EmployerProfiles.FREE_URGENT_POSTS_USED] as? Number)?.toInt() ?: 0,
+            referralFreePosts = (d[EmployerProfiles.REFERRAL_FREE_POSTS] as? Number)?.toInt() ?: 0,
+            referralFreePostsUntil = d[EmployerProfiles.REFERRAL_FREE_POSTS_UNTIL].epochMillis(),
             aiTrialUsed = (d[EmployerProfiles.AI_TRIAL_USED] as? Number)?.toInt() ?: 0,
             verified = d[EmployerProfiles.VERIFIED] as? Boolean ?: false,
             rating = (d[EmployerProfiles.RATING] as? Number)?.toDouble() ?: 0.0,

@@ -32,6 +32,15 @@ class HomeServicesViewModel @Inject constructor(
     val myBookings: StateFlow<List<ServiceBooking>> =
         repo.observeMyBookings().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /** My bookings with load / error state (history screen). */
+    val bookingsLoad: StateFlow<BookingsLoad> =
+        repo.observeMyBookingsLoad().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookingsLoad(false, emptyList(), null))
+
+    fun bookingLoad(bookingId: String): Flow<BookingLoad> = repo.observeBookingLoad(bookingId)
+
+    suspend fun quote(serviceId: String, couponCode: String): Result<ServiceQuote> =
+        runCatching { repo.previewQuote(serviceId, couponCode) }.mapError()
+
     /** [loaded] is false until the first answer, so the screen does not flash the apply form. */
     data class PartnerUi(val loaded: Boolean, val profile: PartnerProfile?)
 
@@ -71,9 +80,10 @@ class HomeServicesViewModel @Inject constructor(
     data class Place(val lat: Double, val lng: Double, val area: String, val address: String)
 
     suspend fun book(
-        service: ServiceItem, addressText: String, area: String, lat: Double, lng: Double, note: String, scheduledAt: Long?
+        service: ServiceItem, addressText: String, area: String, lat: Double, lng: Double, note: String, scheduledAt: Long?,
+        couponCode: String = ""
     ): Result<String> = runCatching {
-        repo.createBooking(service.id, addressText, area, lat, lng, note, scheduledAt)
+        repo.createBooking(service.id, addressText, area, lat, lng, note, scheduledAt, couponCode)
     }.mapError()
 
     suspend fun startCode(bookingId: String): String = runCatching { repo.startCode(bookingId) }.getOrDefault("")

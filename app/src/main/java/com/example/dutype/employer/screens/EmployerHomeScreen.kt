@@ -181,6 +181,7 @@ fun EmployerHomeScreen(
     val hiltAuth = remember(context) { com.example.dutype.di.authFromHilt(context) }
     val viewModel: EmployerJobsViewModel = hiltViewModel()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
+    val ownEmployerProfile by profileCompletionViewModel.profileStore.employer.collectAsStateWithLifecycle()
     val applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
     val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
     val appConfigViewModel: AppConfigViewModel = hiltViewModel()
@@ -482,6 +483,9 @@ fun EmployerHomeScreen(
         ) {
             DashboardContent(
                 onOpenHomeServices = { rootNavController.navigate(com.example.dutype.navigation.Routes.SERVICES) },
+                referralPostsLeft = ownEmployerProfile?.referralPostsLeft ?: 0,
+                onBookService = { id -> rootNavController.navigate(com.example.dutype.navigation.Routes.servicesBookRoute(id)) },
+                onOpenServiceBooking = { id -> rootNavController.navigate(com.example.dutype.navigation.Routes.servicesBookingRoute(id)) },
                 recentJobs = recentJobs,
                 jobStats = jobStats,
                 isLoading = isLoading,
@@ -724,6 +728,9 @@ fun DashboardContent(
     onNotificationClick: () -> Unit = {},
     onVoiceJobClick: () -> Unit = {},
     onOpenHomeServices: () -> Unit = {},
+    referralPostsLeft: Int = 0,
+    onBookService: (String) -> Unit = {},
+    onOpenServiceBooking: (String) -> Unit = {},
     applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
 ) {
     // Move view model & state collection to composable scope (not inside LazyListScope)
@@ -821,14 +828,6 @@ fun DashboardContent(
                 verticalArrangement = Arrangement.spacedBy(0.dp),
                 scrollStateManager = scrollStateManager
             ) {
-                // DutyPe Services: book AC, cleaning, electrician, plumber and repair at home.
-                item(key = "home_services_entry") {
-                    com.example.dutype.homeservices.HomeServicesEntryCard(
-                        onClick = onOpenHomeServices,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                }
-
                 // A new employer (no jobs, no urgent requests yet) gets one welcome section: how to
                 // start, in a clean layout, instead of zero counters and three unrelated cards.
                 val isFirstTime = recentJobs.isEmpty() && urgentRequests.isEmpty() && !isLoadingUrgentRequests
@@ -843,16 +842,24 @@ fun DashboardContent(
                     )
                 }
 
-                if (!isFirstTime) item {
-                    EmployerHeroActionCards(
-                        onPostRegularClick = {
-                            navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)
+                // Referral reward: free posts earned by inviting friends (24 h), or a nudge to earn one.
+                item(key = "referral_post") {
+                    ReferralFreePostCard(
+                        postsLeft = referralPostsLeft,
+                        onPost = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) },
+                        onRefer = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_REFER_EARN) },
+                        modifier = Modifier.padding(bottom = 14.dp)
+                    )
+                }
+
+                // Pick by need: hire staff, someone right now, or fix something at home.
+                if (!isFirstTime) item(key = "need_chooser") {
+                    com.example.dutype.homeservices.EmployerNeedChooser(
+                        onPostJob = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) },
+                        onPostUrgent = {
+                            navController.navigate(com.example.dutype.navigation.Routes.employerPostUrgentNeedRoute(null))
                         },
-                        onPostUrgentClick = {
-                            navController.navigate(
-                                com.example.dutype.navigation.Routes.employerPostUrgentNeedRoute(null)
-                            )
-                        }
+                        onHomeServices = onOpenHomeServices
                     )
                 }
 
@@ -860,6 +867,16 @@ fun DashboardContent(
                     com.example.dutype.employer.components.VoiceJobTriggerCard(
                         onClick = onVoiceJobClick,
                         modifier = Modifier.padding(top = 10.dp)
+                    )
+                }
+
+                // DutyPe Services showcase: offers, categories and popular services, one tap to book.
+                item(key = "home_services_showcase") {
+                    com.example.dutype.homeservices.HomeServicesShowcase(
+                        onOpenServices = onOpenHomeServices,
+                        onBookService = onBookService,
+                        onOpenBooking = onOpenServiceBooking,
+                        modifier = Modifier.padding(top = 20.dp)
                     )
                 }
 
@@ -1431,3 +1448,42 @@ Download DutyPe app for instant job alerts
 // Import from there: com.example.dutype.employer.screens.AnalyticsItem
 // Import from there: com.example.dutype.employer.screens.ActivityItem
 
+
+/** "🎁 1 free job post from your referral" (with Post), or "Refer a friend, get a free post today". */
+@Composable
+private fun ReferralFreePostCard(postsLeft: Int, onPost: () -> Unit, onRefer: () -> Unit, modifier: Modifier = Modifier) {
+    val has = postsLeft > 0
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                androidx.compose.ui.graphics.Brush.horizontalGradient(
+                    if (has) listOf(Color(0xFF16A34A), Color(0xFF22C55E)) else listOf(Color(0xFF7C3AED), Color(0xFFA855F7))
+                )
+            )
+            .clickable(onClick = if (has) onPost else onRefer)
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("🎁", fontSize = 26.sp)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                if (has) stringResource(R.string.referral_free_posts_title, postsLeft)
+                else stringResource(R.string.referral_free_post_nudge_title),
+                color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp
+            )
+            Text(
+                stringResource(if (has) R.string.referral_free_post_body else R.string.referral_free_post_nudge_body),
+                color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(
+            stringResource(if (has) R.string.referral_free_post_cta else R.string.referral_free_post_nudge_cta),
+            color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp,
+            modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Color.White.copy(alpha = 0.2f)).padding(horizontal = 10.dp, vertical = 6.dp)
+        )
+    }
+}

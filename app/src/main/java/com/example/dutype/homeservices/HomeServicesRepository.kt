@@ -18,7 +18,8 @@ import javax.inject.Singleton
  * DutyPe Services (Urban Company style home services). Server: functions/src/services.ts.
  *
  * Customers (employer accounts) book fixed-price services; verified partners (worker accounts)
- * get offers, do the job and pay DutyPe's booking fee + commission from prepaid credits.
+ * get offers, do the job and pay DutyPe's booking fee + ₹19 partner fee from prepaid credits.
+ * Offers: the first booking has no booking fee; admin coupons (festive offers) can replace that.
  * All writes go through Cloud Functions; the app only reads its own bookings and partner data.
  */
 
@@ -76,10 +77,53 @@ data class ServicesCatalog(
     val upiName: String,
     val minTopup: Int,
     val categories: List<ServiceCategory>,
-    val services: List<ServiceItem>
+    val services: List<ServiceItem>,
+    val partnerFee: Int = 19,
+    val partnerFirstJobFree: Boolean = true,
+    val firstBookingFeeFree: Boolean = false,
+    val offers: List<PromoOffer> = emptyList()
 ) {
     fun feeFor(service: ServiceItem): Int = if (service.inspection) inspectionFee else bookingFee
 }
+
+/** A coupon / festive offer the app can show. [type] FLAT (₹[value]) or PCT ([value]%, up to ₹[maxOff]). */
+data class PromoOffer(
+    val code: String,
+    val title: String,
+    val type: String = "FLAT",
+    val value: Int = 0,
+    val maxOff: Int = 0,
+    val minOrder: Int = 0,
+    val validTo: Long = 0,
+    val firstBookingOnly: Boolean = false,
+    val categories: List<String> = emptyList()
+) {
+    /** "₹50 OFF" / "20% OFF" (empty when the server sent only a title). */
+    val headline: String get() = when {
+        value <= 0 -> ""
+        type == "PCT" -> "$value% OFF"
+        else -> "₹$value OFF"
+    }
+}
+
+/** The price the customer will pay, from previewServiceQuote. */
+data class ServiceQuote(
+    val price: Int,
+    val bookingFee: Int,
+    val discount: Int,
+    val discountLabel: String,
+    val couponCode: String,
+    val total: Int,
+    val couponError: String,
+    val couponNote: String,
+    val firstBooking: Boolean,
+    val offers: List<PromoOffer>
+)
+
+/** A live list with its load state, so screens can tell "loading", "empty" and "failed" apart. */
+data class BookingsLoad(val loaded: Boolean, val list: List<ServiceBooking>, val error: String?)
+
+data class BookingLoad(val loaded: Boolean, val booking: ServiceBooking?, val error: String?)
 
 data class ServiceBooking(
     val id: String,
@@ -106,7 +150,14 @@ data class ServiceBooking(
     val partnerPhone: String,
     val partnerRating: Double,
     val rating: Int,
-    val createdAt: Long
+    val createdAt: Long,
+    val discount: Int = 0,
+    val discountLabel: String = "",
+    val couponCode: String = "",
+    val partnerFee: Int = -1,
+    val assignedAt: Long = 0,
+    val startedAt: Long = 0,
+    val completedAt: Long = 0
 ) {
     val isOpen: Boolean get() = status in BookingStatus.OPEN
 }
@@ -141,7 +192,10 @@ data class ServiceOffer(
     val note: String,
     val whenType: String,
     val scheduledAt: Long,
-    val distanceKm: Double?
+    val distanceKm: Double?,
+    /** What the customer pays the partner (after any offer). */
+    val customerTotal: Int = 0,
+    val discount: Int = 0
 )
 
 /** accepted | taken | closed | busy | low_credits | not_partner */
@@ -198,10 +252,46 @@ class HomeServicesRepository @Inject constructor(
             upiName = d.str("upiName").ifBlank { "DutyPe" },
             minTopup = d.int("minTopup").coerceAtLeast(1),
             categories = categories,
-            services = services
+            services = services,
+            partnerFee = if (d.containsKey("partnerFee")) d.int("partnerFee") else 19,
+            partnerFirstJobFree = d["partnerFirstJobFree"] != false,
+            firstBookingFeeFree = d["firstBookingFeeFree"] == true,
+            offers = offersOf(d["offers"])
         )
         cachedCatalog = System.currentTimeMillis() to catalog
         return catalog
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun offersOf(raw: Any?): List<PromoOffer> = (raw as? List<Any?>).orEmpty().map { it.asMap() }.map {
+        PromoOffer(
+            code = it.str("code"),
+            title = it.str("title"),
+            type = it.str("type").ifBlank { "FLAT" },
+            value = it.int("value"),
+            maxOff = it.int("maxOff"),
+            minOrder = it.int("minOrder"),
+            validTo = it.long("validTo"),
+            firstBookingOnly = it["firstBookingOnly"] == true,
+            categories = (it["categories"] as? List<Any?>).orEmpty().map { c -> c.toString() }
+        )
+    }.filter { it.code.isNotBlank() }
+
+    /** What the customer pays for [serviceId] with an optional coupon (nothing is booked). */
+    suspend fun previewQuote(serviceId: String, couponCode: String): ServiceQuote {
+        val d = call("previewServiceQuote", mapOf("serviceId" to serviceId, "couponCode" to couponCode))
+        return ServiceQuote(
+            price = d.int("price"),
+            bookingFee = d.int("bookingFee"),
+            discount = d.int("discount"),
+            discountLabel = d.str("discountLabel"),
+            couponCode = d.str("couponCode"),
+            total = d.int("total"),
+            couponError = d.str("couponError"),
+            couponNote = d.str("couponNote"),
+            firstBooking = d["firstBooking"] == true,
+            offers = offersOf(d["offers"])
+        )
     }
 
     private val areaCache = mutableMapOf<String, Boolean>()
@@ -225,7 +315,8 @@ class HomeServicesRepository @Inject constructor(
         lat: Double,
         lng: Double,
         note: String,
-        scheduledAt: Long?
+        scheduledAt: Long?,
+        couponCode: String = ""
     ): String {
         val d = call(
             "createServiceBooking",
@@ -237,7 +328,8 @@ class HomeServicesRepository @Inject constructor(
                 "lng" to lng,
                 "note" to note,
                 "when" to if (scheduledAt != null) "scheduled" else "now",
-                "scheduledAt" to scheduledAt
+                "scheduledAt" to scheduledAt,
+                "couponCode" to couponCode
             )
         )
         return d.str("bookingId")
@@ -249,6 +341,39 @@ class HomeServicesRepository @Inject constructor(
             firestore.collection(BOOKINGS).whereEqualTo("customerId", me)
                 .orderBy("createdAt", Query.Direction.DESCENDING).limit(30)
         )
+    }
+
+    /** [observeMyBookings] with loading / error state. */
+    fun observeMyBookingsLoad(): Flow<BookingsLoad> = callbackFlow {
+        val me = uid
+        if (me == null) {
+            trySend(BookingsLoad(true, emptyList(), "Please sign in again"))
+            close()
+            return@callbackFlow
+        }
+        val reg = firestore.collection(BOOKINGS).whereEqualTo("customerId", me)
+            .orderBy("createdAt", Query.Direction.DESCENDING).limit(50)
+            .addSnapshotListener { snap, err ->
+                if (err != null) {
+                    Timber.w(err, "bookings listener failed")
+                    trySend(BookingsLoad(true, emptyList(), err.message ?: "error"))
+                } else {
+                    trySend(BookingsLoad(true, snap?.documents.orEmpty().map(::toBooking), null))
+                }
+            }
+        awaitClose { reg.remove() }
+    }
+
+    fun observeBookingLoad(bookingId: String): Flow<BookingLoad> = callbackFlow {
+        val reg = firestore.collection(BOOKINGS).document(bookingId).addSnapshotListener { snap, err ->
+            if (err != null) {
+                Timber.w(err, "booking listener failed")
+                trySend(BookingLoad(true, null, err.message ?: "error"))
+            } else {
+                trySend(BookingLoad(true, snap?.takeIf { it.exists() }?.let(::toBooking), null))
+            }
+        }
+        awaitClose { reg.remove() }
     }
 
     fun observeBooking(bookingId: String): Flow<ServiceBooking?> = callbackFlow {
@@ -381,7 +506,9 @@ class HomeServicesRepository @Inject constructor(
             note = d.str("note"),
             whenType = d.str("when"),
             scheduledAt = d.long("scheduledAt"),
-            distanceKm = (d["distanceKm"] as? Number)?.toDouble()
+            distanceKm = (d["distanceKm"] as? Number)?.toDouble(),
+            customerTotal = d.int("customerTotal").takeIf { it > 0 } ?: (d.int("price") + d.int("bookingFee")),
+            discount = d.int("discount")
         )
     }
 
@@ -435,7 +562,14 @@ class HomeServicesRepository @Inject constructor(
         partnerPhone = d.getString("partnerPhone").orEmpty(),
         partnerRating = d.getDouble("partnerRating") ?: 0.0,
         rating = (d.getLong("rating") ?: 0L).toInt(),
-        createdAt = d.getTimestamp("createdAt")?.toDate()?.time ?: 0L
+        createdAt = d.getTimestamp("createdAt")?.toDate()?.time ?: 0L,
+        discount = (d.getLong("discount") ?: 0L).toInt(),
+        discountLabel = d.getString("discountLabel").orEmpty(),
+        couponCode = d.getString("couponCode").orEmpty(),
+        partnerFee = d.getLong("partnerFee")?.toInt() ?: -1,
+        assignedAt = d.getTimestamp("assignedAt")?.toDate()?.time ?: 0L,
+        startedAt = d.getTimestamp("startedAt")?.toDate()?.time ?: 0L,
+        completedAt = d.getTimestamp("completedAt")?.toDate()?.time ?: 0L
     )
 
     private companion object {

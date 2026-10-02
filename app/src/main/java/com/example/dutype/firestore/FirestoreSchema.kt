@@ -120,6 +120,8 @@ object FirestoreSchema {
         const val LNG = "lng"
         const val GEOHASH = "geohash"
         const val SUBSCRIPTION = "subscription"       // map, keys in [Subscription] (server)
+        const val REFERRAL_FREE_POSTS = "referralFreePosts"  // (server) free posts earned by referring
+        const val REFERRAL_FREE_POSTS_UNTIL = "referralFreePostsUntil"
         const val FREE_URGENT_POSTS_USED = "freeUrgentPostsUsed"  // (server) first 3 urgent posts are free
         const val AI_TRIAL_USED = "aiTrialUsed"     // (server) free DutyPe AI actions used
         const val VERIFIED = "verified"               // (server)
