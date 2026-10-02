@@ -357,6 +357,125 @@ export const AppConfig = {
   DOC_APP_UPDATE: "app_update",
   DOC_DYNAMIC_FEATURES: "dynamic_features",
   DOC_SUBSCRIPTION_PLANS: "subscription_plans",
+  /** DutyPe Services settings: fees, commission, UPI for partner top-ups, price overrides. */
+  DOC_SERVICES: "services",
+} as const;
+
+/**
+ * service_bookings/{id} — DutyPe Services (Urban Company style home services). Created and changed
+ * only by Cloud Functions (services.ts); the customer and the assigned partner can read it.
+ */
+export const ServiceBookings = {
+  COLLECTION: "service_bookings",
+  CUSTOMER_ID: "customerId",
+  CUSTOMER_NAME: "customerName",
+  CUSTOMER_PHONE: "customerPhone",
+  CATEGORY: "category",
+  SERVICE_ID: "serviceId",
+  SERVICE_NAME: "serviceName",
+  /** Rupees, fixed catalog price at booking time. */
+  PRICE: "price",
+  /** Rupees, DutyPe booking fee the customer pays (collected by the partner, debited from credits). */
+  BOOKING_FEE: "bookingFee",
+  COMMISSION_PCT: "commissionPct",
+  INSPECTION: "inspection",
+  ADDRESS_TEXT: "addressText",
+  AREA: "area",
+  LAT: "lat",
+  LNG: "lng",
+  NOTE: "note",
+  /** "now" or "scheduled". */
+  WHEN: "when",
+  SCHEDULED_AT: "scheduledAt",
+  STATUS: "status",
+  PARTNER_ID: "partnerId",
+  PARTNER_NAME: "partnerName",
+  PARTNER_PHONE: "partnerPhone",
+  PARTNER_PHOTO_URL: "partnerPhotoUrl",
+  PARTNER_RATING: "partnerRating",
+  /** Partners who cancelled this booking; never offered it again. */
+  EXCLUDED_PARTNER_IDS: "excludedPartnerIds",
+  DISPATCH_RADIUS_KM: "dispatchRadiusKm",
+  NEXT_WAVE_AT: "nextWaveAt",
+  EXPIRES_AT: "expiresAt",
+  /** Rupees added at completion for extra work / parts the customer approved. */
+  EXTRAS: "extras",
+  EXTRAS_NOTE: "extrasNote",
+  /** Rupees the customer pays the partner: price + bookingFee + extras. */
+  TOTAL: "total",
+  /** Paise DutyPe took from the partner's credits (fee + commission). */
+  PLATFORM_TAKE_PAISE: "platformTakePaise",
+  RATING: "rating",
+  REVIEW: "review",
+  CANCELLED_BY: "cancelledBy",
+  CANCEL_REASON: "cancelReason",
+  CREATED_AT: "createdAt",
+  ASSIGNED_AT: "assignedAt",
+  STARTED_AT: "startedAt",
+  COMPLETED_AT: "completedAt",
+  UPDATED_AT: "updatedAt",
+} as const;
+
+/** service_booking_secrets/{bookingId} — the start code only the customer can read. */
+export const ServiceBookingSecrets = {
+  COLLECTION: "service_booking_secrets",
+  CUSTOMER_ID: "customerId",
+  START_OTP: "startOtp",
+} as const;
+
+/** service_partners/{uid} — verified service partners (workers). Server-written; the partner reads own. */
+export const ServicePartners = {
+  COLLECTION: "service_partners",
+  /** PENDING | APPROVED | REJECTED | SUSPENDED */
+  STATUS: "status",
+  NAME: "name",
+  PHONE: "phone",
+  PHOTO_URL: "photoUrl",
+  CATEGORIES: "categories",
+  EXPERIENCE_YEARS: "experienceYears",
+  AREA: "area",
+  NOTE: "note",
+  ONLINE: "online",
+  LAT: "lat",
+  LNG: "lng",
+  LAST_SEEN_AT: "lastSeenAt",
+  /** Paise of prepaid credits (fees and commission are taken from here; can go below 0 after extras). */
+  CREDITS_PAISE: "creditsPaise",
+  ACTIVE_BOOKING_ID: "activeBookingId",
+  RATING_SUM: "ratingSum",
+  RATING_COUNT: "ratingCount",
+  JOBS_COMPLETED: "jobsCompleted",
+  CANCELLATIONS: "cancellations",
+  REJECTION_REASON: "rejectionReason",
+  APPLIED_AT: "appliedAt",
+  APPROVED_AT: "approvedAt",
+  UPDATED_AT: "updatedAt",
+} as const;
+
+/** partner_topups/{id} — a partner paid DutyPe by UPI to add credits; an admin verifies the UTR. */
+export const PartnerTopups = {
+  COLLECTION: "partner_topups",
+  PARTNER_ID: "partnerId",
+  PARTNER_NAME: "partnerName",
+  AMOUNT_PAISE: "amountPaise",
+  UTR_NUMBER: "utrNumber",
+  /** PENDING | VERIFIED | REJECTED */
+  STATUS: "status",
+  REJECTION_REASON: "rejectionReason",
+  CREATED_AT: "createdAt",
+  VERIFIED_AT: "verifiedAt",
+} as const;
+
+/** service_partners/{uid}/ledger/{id} — every credit change (top-up, job, adjustment). */
+export const PartnerLedger = {
+  SUBCOLLECTION: "ledger",
+  AMOUNT_PAISE: "amountPaise",
+  BALANCE_PAISE: "balancePaise",
+  KIND: "kind",
+  BOOKING_ID: "bookingId",
+  TOPUP_ID: "topupId",
+  NOTE: "note",
+  CREATED_AT: "createdAt",
 } as const;
 
 export const Announcements = {

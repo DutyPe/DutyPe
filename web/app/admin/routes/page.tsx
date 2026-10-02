@@ -32,6 +32,7 @@ const adminRoutes = [
   { href: "/admin/feedback", label: "Feedback", description: "In-app feedback from workers and employers (Azure Cosmos DB)." },
   { href: "/admin/ai-logs", label: "DutyPe AI Logs", description: "Employer questions to DutyPe AI and its replies (Azure Cosmos DB)." },
   { href: "/admin/admin-activity", label: "Admin Activity", description: "Log of every admin write: who, what and when (Azure Cosmos DB)." },
+  { href: "/admin/services", label: "DutyPe Services", description: "Home services: approve partners, verify credit top-ups, bookings and prices." },
   { href: "/admin/payments", label: "Subscription Payments", description: "Verify employer UTRs, manage active QR codes, and extend job postings." },
   { href: "/admin/check-and-create-code", label: "Check/Create Code", description: "Referral utility tools." },
   { href: "/admin/create-test-referral", label: "Create Test Referral", description: "Generate test referral entries." },

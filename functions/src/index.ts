@@ -22,3 +22,4 @@ export * from "./ai-hiring";
 export * from "./dutype-ai";
 export * from "./feedback";
 export * from "./phone-login";
+export * from "./services";

@@ -481,6 +481,7 @@ fun EmployerHomeScreen(
             }
         ) {
             DashboardContent(
+                onOpenHomeServices = { rootNavController.navigate(com.example.dutype.navigation.Routes.SERVICES) },
                 recentJobs = recentJobs,
                 jobStats = jobStats,
                 isLoading = isLoading,
@@ -722,6 +723,7 @@ fun DashboardContent(
     headerLottieUrl: String = "",
     onNotificationClick: () -> Unit = {},
     onVoiceJobClick: () -> Unit = {},
+    onOpenHomeServices: () -> Unit = {},
     applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
 ) {
     // Move view model & state collection to composable scope (not inside LazyListScope)
@@ -819,6 +821,14 @@ fun DashboardContent(
                 verticalArrangement = Arrangement.spacedBy(0.dp),
                 scrollStateManager = scrollStateManager
             ) {
+                // DutyPe Services: book AC, cleaning, electrician, plumber and repair at home.
+                item(key = "home_services_entry") {
+                    com.example.dutype.homeservices.HomeServicesEntryCard(
+                        onClick = onOpenHomeServices,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
+
                 // A new employer (no jobs, no urgent requests yet) gets one welcome section: how to
                 // start, in a clean layout, instead of zero counters and three unrelated cards.
                 val isFirstTime = recentJobs.isEmpty() && urgentRequests.isEmpty() && !isLoadingUrgentRequests

@@ -136,4 +136,24 @@ object Routes {
     fun employerProfileSetupWithReturnRoute(returnRoute: String): String {
         return "employer_profile_setup?returnRoute=${java.net.URLEncoder.encode(returnRoute, "UTF-8")}"
     }
+
+    // ── DutyPe Services (homeservices package) ──
+    /** Customer: categories and fixed-price services. Deep link: dutype://services */
+    const val SERVICES = "services"
+    const val SERVICES_BOOK = "services/book/{serviceId}"
+    const val SERVICES_BOOKINGS = "services/bookings"
+    /** Deep link: dutype://services/booking/{bookingId} */
+    const val SERVICES_BOOKING = "services/booking/{bookingId}"
+    /** Partner dashboard (apply, online, credits, jobs). Deep link: dutype://partner */
+    const val PARTNER = "partner"
+    const val PARTNER_TOPUP = "partner/topup"
+    /** Deep link: dutype://partner/offer/{bookingId} */
+    const val PARTNER_OFFER = "partner/offer/{bookingId}"
+    /** Deep link: dutype://partner/job/{bookingId} */
+    const val PARTNER_JOB = "partner/job/{bookingId}"
+
+    fun servicesBookRoute(serviceId: String): String = "services/book/$serviceId"
+    fun servicesBookingRoute(bookingId: String): String = "services/booking/$bookingId"
+    fun partnerOfferRoute(bookingId: String): String = "partner/offer/$bookingId"
+    fun partnerJobRoute(bookingId: String): String = "partner/job/$bookingId"
 }

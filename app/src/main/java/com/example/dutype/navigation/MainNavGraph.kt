@@ -455,6 +455,65 @@ fun MainNavGraph(
             )
         }
 
+        // ── DutyPe Services (root level so notification deep links open them from anywhere) ──
+        composable(
+            route = Routes.SERVICES,
+            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://services" })
+        ) {
+            com.example.dutype.homeservices.ServicesHomeScreen(navController = navController)
+        }
+        composable(
+            route = Routes.SERVICES_BOOK,
+            arguments = listOf(navArgument("serviceId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            com.example.dutype.homeservices.BookServiceScreen(
+                serviceId = backStackEntry.arguments?.getString("serviceId").orEmpty(),
+                navController = navController
+            )
+        }
+        composable(Routes.SERVICES_BOOKINGS) {
+            com.example.dutype.homeservices.MyBookingsScreen(navController = navController)
+        }
+        composable(
+            route = Routes.SERVICES_BOOKING,
+            arguments = listOf(navArgument("bookingId") { type = NavType.StringType }),
+            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://services/booking/{bookingId}" })
+        ) { backStackEntry ->
+            com.example.dutype.homeservices.BookingDetailScreen(
+                bookingId = backStackEntry.arguments?.getString("bookingId").orEmpty(),
+                navController = navController
+            )
+        }
+        composable(
+            route = Routes.PARTNER,
+            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://partner" })
+        ) {
+            com.example.dutype.homeservices.PartnerHomeScreen(navController = navController)
+        }
+        composable(Routes.PARTNER_TOPUP) {
+            com.example.dutype.homeservices.PartnerTopupScreen(navController = navController)
+        }
+        composable(
+            route = Routes.PARTNER_OFFER,
+            arguments = listOf(navArgument("bookingId") { type = NavType.StringType }),
+            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://partner/offer/{bookingId}" })
+        ) { backStackEntry ->
+            com.example.dutype.homeservices.PartnerOfferScreen(
+                bookingId = backStackEntry.arguments?.getString("bookingId").orEmpty(),
+                navController = navController
+            )
+        }
+        composable(
+            route = Routes.PARTNER_JOB,
+            arguments = listOf(navArgument("bookingId") { type = NavType.StringType }),
+            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://partner/job/{bookingId}" })
+        ) { backStackEntry ->
+            com.example.dutype.homeservices.PartnerJobScreen(
+                bookingId = backStackEntry.arguments?.getString("bookingId").orEmpty(),
+                navController = navController
+            )
+        }
+
         // Root-level job detail destination for app-link/deep-link handling.
         // Deep links are processed on MainNavGraph's navController, so this route
         // must exist here in addition to WorkerNavGraph.

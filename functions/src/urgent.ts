@@ -21,6 +21,7 @@ import { coveringCells } from "./lib/geo";
 import { notify } from "./lib/notify";
 import { SUPPORTED_LOCALES, tBody, tTitle } from "./notification-i18n";
 import { InstantRequests, Values, WorkerProfiles } from "./schema";
+import { dispatchServiceWaves } from "./services";
 
 const db = admin.firestore();
 const { FieldValue, Timestamp } = admin.firestore;
@@ -173,6 +174,8 @@ export const dispatchUrgentWaves = functions
       .get();
     await Promise.all(due.docs.map((d) => advanceWave(d.id, now).catch((e) =>
       functions.logger.warn(`urgent ${d.id}: wave failed`, e))));
+    // DutyPe Services bookings share this minute job (no extra Cloud Scheduler job to pay for).
+    await dispatchServiceWaves(now).catch((e) => functions.logger.warn("service waves failed", e));
     return null;
   });
 

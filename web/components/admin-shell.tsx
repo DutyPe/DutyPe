@@ -25,6 +25,7 @@ import {
   Ticket,
   Sliders,
   Sparkles,
+  Wrench,
   History,
   Rocket,
   CreditCard,
@@ -94,7 +95,8 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
   {
     label: "Payments & Revenue",
     links: [
-      { href: "/admin/payments", label: "Payments Panel", icon: CreditCard, summary: "Verify employer UTRs, manage QR codes & extend jobs." }
+      { href: "/admin/payments", label: "Payments Panel", icon: CreditCard, summary: "Verify employer UTRs, manage QR codes & extend jobs." },
+      { href: "/admin/services", label: "DutyPe Services", icon: Wrench, summary: "Partners, credit top-ups, bookings & prices." }
     ]
   },
   {

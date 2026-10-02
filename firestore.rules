@@ -245,6 +245,27 @@ service cloud.firestore {
       allow get, list: if true;
     }
 
+    // ───────────────────────── DutyPe Services (services.ts writes everything) ─────────────────────────
+
+    match /service_bookings/{bookingId} {
+      allow get, list: if signedIn() && (resource.data.customerId == me() || resource.data.partnerId == me());
+    }
+
+    match /service_booking_secrets/{bookingId} {
+      allow get: if signedIn() && resource.data.customerId == me();
+    }
+
+    match /service_partners/{uid} {
+      allow get: if isSelf(uid);
+      match /ledger/{entryId} {
+        allow get, list: if isSelf(uid);
+      }
+    }
+
+    match /partner_topups/{topupId} {
+      allow get, list: if signedIn() && resource.data.partnerId == me();
+    }
+
     match /location_demand/{leadId} {
       allow create: if request.resource.data.keys().hasOnly(['uid', 'area', 'lat', 'lng', 'category', 'createdAt']) &&
         (request.resource.data.uid == '' || (signedIn() && request.resource.data.uid == me())) &&

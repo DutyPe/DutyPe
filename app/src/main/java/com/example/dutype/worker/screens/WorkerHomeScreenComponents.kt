@@ -626,6 +626,14 @@ fun HomeSectionsContent(
             item(key = "worker_home_header_item") {
                 headerContent()
             }
+            if (FirebaseAuth.getInstance().currentUser != null) {
+                item(key = "worker_home_partner_entry") {
+                    com.example.dutype.homeservices.PartnerEntryCard(
+                        onClick = { rootNavController.navigate(com.example.dutype.navigation.Routes.PARTNER) },
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                }
+            }
             if (showOnlineToggle) {
                 item(key = "worker_home_online_toggle") {
                     com.example.dutype.worker.components.OnlineToggleCard(

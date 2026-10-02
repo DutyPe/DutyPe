@@ -134,6 +134,21 @@ object DeepLinkHandler {
         Timber.d("🔗 DEEP LINK: Path segments: ${data.pathSegments}")
         
         return when {
+            // DutyPe Services: dutype://services, dutype://services/booking/{id},
+            // dutype://partner, dutype://partner/offer/{id}, dutype://partner/job/{id}
+            data.scheme == SCHEME && (data.host == "services" || data.host == "partner") -> {
+                val segments = data.pathSegments
+                val route = when {
+                    data.host == "services" && segments.size >= 2 && segments[0] == "booking" ->
+                        com.example.dutype.navigation.Routes.servicesBookingRoute(segments[1])
+                    data.host == "services" -> com.example.dutype.navigation.Routes.SERVICES
+                    segments.size >= 2 && segments[0] == "offer" -> com.example.dutype.navigation.Routes.partnerOfferRoute(segments[1])
+                    segments.size >= 2 && segments[0] == "job" -> com.example.dutype.navigation.Routes.partnerJobRoute(segments[1])
+                    else -> com.example.dutype.navigation.Routes.PARTNER
+                }
+                runCatching { navController.navigate(route) { launchSingleTop = true } }.isSuccess
+            }
+
             // App scheme: dutype://job/123
             data.scheme == SCHEME && data.host == HOST_JOB -> {
                 val jobId = data.lastPathSegment
