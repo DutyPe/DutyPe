@@ -1,4 +1,5 @@
 import { AdminAuthGate } from "@/components/admin/admin-auth-gate";
+import { AdminMarketingKit } from "@/components/admin/admin-marketing-kit";
 import { AdminPostersClient } from "@/components/admin/admin-posters-client";
 import { AdminShell } from "@/components/admin-shell";
 
@@ -15,10 +16,11 @@ export default function AdminPostersPage({
   return (
     <AdminShell
       title="Posters"
-      description="Print-ready posters for live jobs, worker acquisition, and employer acquisition."
+      description="Print-ready posters, Instagram posts & stories and WhatsApp templates for customers, partners, employers and workers."
     >
       <AdminAuthGate>
         <AdminPostersClient initialJobId={searchParams?.jobId} />
+        <AdminMarketingKit />
       </AdminAuthGate>
     </AdminShell>
   );
