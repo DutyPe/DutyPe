@@ -15,6 +15,7 @@
  */
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import { busyWith } from "./lib/busy";
 import { onCallSecured } from "./secure-callable";
 import { fail, obj, str } from "./lib/input";
 import { coveringCells } from "./lib/geo";
@@ -231,6 +232,8 @@ export const acceptUrgentOffer = onCallSecured({}, async (raw: unknown, context)
         ((active.get(InstantRequests.SELECTED_WORKER_IDS) || []) as string[]).includes(uid);
       if (stillOn) return { result: "busy" as const };
     }
+    // A DutyPe Services job or a fresh hire also keeps the worker busy.
+    if (await busyWith(uid, worker, tx, id)) return { result: "busy" as const };
 
     const needed = Number(r[InstantRequests.WORKERS_NEEDED] || 1);
     const selected = new Set<string>((r[InstantRequests.SELECTED_WORKER_IDS] || []) as string[]);

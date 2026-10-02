@@ -229,6 +229,20 @@ export const NOTIFICATION_TEMPLATES: Translations = {
       body: "{name} आपके कोड से जुड़े। आपने ₹{amount} कमाए।",
     },
   },
+  REFERRAL_FREE_POST: {
+    en: {
+      title: "🎁 Free job post unlocked",
+      body: "Your friend joined DutyPe. Post one job or urgent requirement free in the next 24 hours.",
+    },
+    te: {
+      title: "🎁 ఉచిత జాబ్ పోస్ట్",
+      body: "మీ స్నేహితుడు DutyPeలో చేరారు. రాబోయే 24 గంటల్లో ఒక జాబ్ లేదా అర్జెంట్ పోస్ట్ ఉచితంగా చేయండి.",
+    },
+    hi: {
+      title: "🎁 मुफ़्त जॉब पोस्ट",
+      body: "आपका दोस्त DutyPe से जुड़ा। अगले 24 घंटों में एक जॉब या अर्जेंट पोस्ट मुफ़्त करें।",
+    },
+  },
   REFERRAL_REWARD_WITH_BONUS: {
     en: {
       title: "🎉 Referral Successful!",

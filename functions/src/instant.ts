@@ -14,6 +14,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { createHash } from "crypto";
+import { referralPostsLeft, refundReferralPost, useReferralPost } from "./lib/referral-posts";
 import { onCallSecured } from "./secure-callable";
 import { fail, obj, str, int, oneOf, latLng, mobile, requestId } from "./lib/input";
 import { encodeGeohash } from "./lib/geo";
@@ -40,7 +41,7 @@ const WINDOWS: Record<string, number> = {
   tomorrow: 48 * HOUR_MS,
 };
 
-type Charge = "campaign" | "free" | "instant" | "normal";
+type Charge = "campaign" | "free" | "instant" | "normal" | "referral";
 
 function requestRef(id: string) {
   return db.collection(InstantRequests.COLLECTION).doc(id);
@@ -107,6 +108,9 @@ export const postInstantRequest = onCallSecured({}, async (raw: unknown, context
     } else if (freeUsed < FREE_URGENT_POSTS) {
       paid = "free";
       tx.update(employerRef, EmployerProfiles.FREE_URGENT_POSTS_USED, FieldValue.increment(1));
+    } else if (referralPostsLeft(employer.data(), nowMs) > 0) {
+      paid = "referral";
+      useReferralPost(tx, employerRef);
     } else if (active && Number(credits[S.CREDITS_INSTANT] || 0) > 0) {
       paid = "instant";
       tx.update(employerRef, `${EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_INSTANT}`, FieldValue.increment(-1));
@@ -261,6 +265,7 @@ export const setInstantRequestStatus = onCallSecured({}, async (raw: unknown, co
       const employerRef = db.collection(EmployerProfiles.COLLECTION).doc(uid);
       const paid = String(charge.get(Idempotency.RESULT));
       if (paid === "free") tx.update(employerRef, EmployerProfiles.FREE_URGENT_POSTS_USED, FieldValue.increment(-1));
+      if (paid === "referral") refundReferralPost(tx, employerRef);
       if (paid === "instant") tx.update(employerRef, `${EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_INSTANT}`, FieldValue.increment(1));
       if (paid === "normal") tx.update(employerRef, `${EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_NORMAL}`, FieldValue.increment(1));
       tx.delete(charge.ref);

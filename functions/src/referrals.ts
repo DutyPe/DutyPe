@@ -23,6 +23,7 @@ import { onCallSecured } from "./secure-callable";
 import { fail, obj, str } from "./lib/input";
 import { notify } from "./lib/notify";
 import { getReferralConfig, isCallerAdmin } from "./app-config";
+import { REFERRAL_POST_VALID_MS, referralPostsLeft } from "./lib/referral-posts";
 import {
   EmployerProfiles, ReferralCodes, Referrals, Values, WalletLedger, Wallets, WithdrawalDaily, Withdrawals,
   WorkerProfiles,
@@ -222,6 +223,7 @@ export async function completeReferral(refereeUid: string, refereeRole: string):
       readWallet(tx, referrerUid), readWallet(tx, refereeUid), tx.get(ledgerRef(rewardId)), tx.get(ledgerRef(bonusId)),
     ]);
     const employerRef = db.collection(EmployerProfiles.COLLECTION).doc(referrerUid);
+    const employerSnap = referrerRole === Values.Role.EMPLOYER ? await tx.get(employerRef) : null;
 
     if (expiresAt > 0 && Date.now() > expiresAt) {
       tx.update(refDoc, { [Referrals.STATUS]: Values.ReferralStatus.EXPIRED });
@@ -259,12 +261,23 @@ export async function completeReferral(refereeUid: string, refereeRole: string):
       }, { merge: true });
     }
 
+    // Every successful referral: one free post (normal or urgent) for the next 24 hours.
+    let freePost = false;
+    if (employerSnap?.exists) {
+      const nowMs = Date.now();
+      tx.update(employerRef, {
+        [EmployerProfiles.REFERRAL_FREE_POSTS]: referralPostsLeft(employerSnap.data(), nowMs) + 1,
+        [EmployerProfiles.REFERRAL_FREE_POSTS_UNTIL]: Timestamp.fromMillis(nowMs + REFERRAL_POST_VALID_MS),
+      });
+      freePost = true;
+    }
+
     let refereePaise = 0;
     if (refereeRole === Values.Role.WORKER && !bonusEntry.exists && config.signupBonus > 0) {
       refereePaise = Math.round(config.signupBonus * 100);
       postEntry(tx, refereeUid, referee, bonusId, Values.LedgerType.SIGNUP_BONUS, refereePaise, referrerUid);
     }
-    return { referrerUid, referrerRole, referrerPaise, refereePaise };
+    return { referrerUid, referrerRole, referrerPaise, refereePaise, freePost };
   });
 
   if (!paid) return;
@@ -272,6 +285,12 @@ export async function completeReferral(refereeUid: string, refereeRole: string):
     await notify(paid.referrerUid, {
       type: "PAYMENT", templateId: "REFERRAL_REWARD_BASIC", role: paid.referrerRole,
       params: { amount: paid.referrerPaise / 100 }, data: { refId: refereeUid },
+    });
+  }
+  if (paid.freePost) {
+    await notify(paid.referrerUid, {
+      type: "PAYMENT", templateId: "REFERRAL_FREE_POST", role: Values.Role.EMPLOYER,
+      params: {}, data: { action: "post_job" },
     });
   }
   if (paid.refereePaise > 0) {

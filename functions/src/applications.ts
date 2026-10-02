@@ -19,6 +19,7 @@ import { fail, obj, str, oneOf } from "./lib/input";
 import { notify } from "./lib/notify";
 import { AUTO_COMPLETE_RULES } from "./auto-complete-rules";
 import { completeReferral } from "./referrals";
+import { BUSY_MESSAGE, busyWith } from "./lib/busy";
 import {
   Applications, EmployerProfiles, JobContacts, Jobs, Values, WorkerCards, WorkerProfiles,
 } from "./schema";
@@ -89,6 +90,9 @@ export const applyToJob = onCallSecured({}, async (raw: unknown, context) => {
     }
     if (!worker.exists) fail("failed-precondition", "Complete your profile to apply");
     if (worker.get(WorkerProfiles.BLOCKED) === true) fail("permission-denied", "Your account is blocked");
+    // One job at a time: finish the current urgent / service / hired job before applying again.
+    const busy = await busyWith(uid, worker, tx);
+    if (busy) fail("failed-precondition", BUSY_MESSAGE[busy]);
     const workerName = String(worker.get(WorkerProfiles.NAME) || "").trim();
     if (!workerName) fail("failed-precondition", "Add your name to your profile to apply");
     const skills = worker.get(WorkerProfiles.SKILLS);

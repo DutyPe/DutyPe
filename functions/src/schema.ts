@@ -91,6 +91,9 @@ export const EmployerProfiles = {
   GEOHASH: "geohash",
   SUBSCRIPTION: "subscription",
   FREE_URGENT_POSTS_USED: "freeUrgentPostsUsed",
+  /** Free posts (normal or urgent) earned by referring; usable until [REFERRAL_FREE_POSTS_UNTIL]. */
+  REFERRAL_FREE_POSTS: "referralFreePosts",
+  REFERRAL_FREE_POSTS_UNTIL: "referralFreePostsUntil",
   /** (server) DutyPe AI actions used from the free trial (employers without an AI plan). */
   AI_TRIAL_USED: "aiTrialUsed",
   VERIFIED: "verified",
@@ -398,6 +401,12 @@ export const ServiceBookings = {
   DISPATCH_RADIUS_KM: "dispatchRadiusKm",
   NEXT_WAVE_AT: "nextWaveAt",
   EXPIRES_AT: "expiresAt",
+  /** Rupees off for the customer (first-booking offer or coupon); capped at DutyPe's take. */
+  DISCOUNT: "discount",
+  DISCOUNT_LABEL: "discountLabel",
+  COUPON_CODE: "couponCode",
+  /** Rupees charged to the partner who accepted (flat fee; first job free). */
+  PARTNER_FEE: "partnerFee",
   /** Rupees added at completion for extra work / parts the customer approved. */
   EXTRAS: "extras",
   EXTRAS_NOTE: "extrasNote",
@@ -414,6 +423,13 @@ export const ServiceBookings = {
   STARTED_AT: "startedAt",
   COMPLETED_AT: "completedAt",
   UPDATED_AT: "updatedAt",
+} as const;
+
+/** coupon_uses/{uid}_{CODE} — one use of a coupon per customer (deleted if the booking is cancelled). */
+export const CouponUses = {
+  COLLECTION: "coupon_uses",
+  BOOKING_ID: "bookingId",
+  CREATED_AT: "createdAt",
 } as const;
 
 /** service_booking_secrets/{bookingId} — the start code only the customer can read. */

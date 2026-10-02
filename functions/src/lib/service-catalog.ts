@@ -53,8 +53,38 @@ export interface ServicesConfig {
   cityLat: number;
   cityLng: number;
   serviceRadiusKm: number;
+  /** Rupees DutyPe takes from the partner per completed job (flat). */
+  partnerFee: number;
+  /** A partner's first completed job is free of the partner fee. */
+  partnerFirstJobFree: boolean;
+  /** A customer's first booking has no booking fee. */
+  firstBookingFeeFree: boolean;
+  /** Admin-defined offers (festivals etc.); always capped so DutyPe never pays out. */
+  coupons: Coupon[];
   categories: ServiceCategory[];
   services: ServiceItem[];
+}
+
+export interface Coupon {
+  code: string;
+  /** Shown to customers, e.g. "Dasara offer: ₹30 off". */
+  title: string;
+  type: "FLAT" | "PCT";
+  /** Rupees (FLAT) or percent of the service price (PCT). */
+  value: number;
+  /** Rupees cap for PCT coupons. */
+  maxOff?: number;
+  /** Rupees: the service price must be at least this. */
+  minOrder?: number;
+  /** Epoch ms; 0/absent = no limit. */
+  validFrom?: number;
+  validTo?: number;
+  firstBookingOnly?: boolean;
+  /** Category ids it applies to; empty = all. */
+  categories?: string[];
+  /** Shown in the app's offers list. */
+  visible?: boolean;
+  active?: boolean;
 }
 
 export const CATEGORIES: ServiceCategory[] = [
@@ -132,7 +162,7 @@ export const DEFAULT_SERVICES: ServiceItem[] = [
 export const DEFAULT_CONFIG: ServicesConfig = {
   bookingFee: 19,
   inspectionFee: 49,
-  commissionPct: 10,
+  commissionPct: 0,
   upiId: "",
   upiName: "DutyPe",
   minTopup: 200,
@@ -141,6 +171,10 @@ export const DEFAULT_CONFIG: ServicesConfig = {
   cityLat: 17.2473,
   cityLng: 80.1514,
   serviceRadiusKm: 25,
+  partnerFee: 19,
+  partnerFirstJobFree: true,
+  firstBookingFeeFree: true,
+  coupons: [],
   categories: CATEGORIES,
   services: DEFAULT_SERVICES,
 };
@@ -194,8 +228,36 @@ export function mergeConfig(raw: unknown): ServicesConfig {
     cityLat: num("cityLat", -90, 90),
     cityLng: num("cityLng", -180, 180),
     serviceRadiusKm: num("serviceRadiusKm", 1, 200),
+    partnerFee: num("partnerFee", 0, 500),
+    partnerFirstJobFree: typeof o.partnerFirstJobFree === "boolean" ? o.partnerFirstJobFree : DEFAULT_CONFIG.partnerFirstJobFree,
+    firstBookingFeeFree: typeof o.firstBookingFeeFree === "boolean" ? o.firstBookingFeeFree : DEFAULT_CONFIG.firstBookingFeeFree,
+    coupons: Array.isArray(o.coupons) ? (o.coupons as unknown[]).map(cleanCoupon).filter((c): c is Coupon => c !== null) : [],
     categories: CATEGORIES,
     services,
+  };
+}
+
+function cleanCoupon(raw: unknown): Coupon | null {
+  const c = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const code = String(c.code || "").trim().toUpperCase();
+  const value = Number(c.value);
+  if (!/^[A-Z0-9]{3,20}$/.test(code) || !Number.isFinite(value) || value <= 0) return null;
+  const type = c.type === "PCT" ? "PCT" : "FLAT";
+  if (type === "PCT" && value > 100) return null;
+  const n = (v: unknown) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : undefined);
+  return {
+    code,
+    title: String(c.title || code).slice(0, 80),
+    type,
+    value,
+    ...(n(c.maxOff) ? { maxOff: n(c.maxOff) } : {}),
+    ...(n(c.minOrder) ? { minOrder: n(c.minOrder) } : {}),
+    ...(n(c.validFrom) ? { validFrom: n(c.validFrom) } : {}),
+    ...(n(c.validTo) ? { validTo: n(c.validTo) } : {}),
+    ...(c.firstBookingOnly === true ? { firstBookingOnly: true } : {}),
+    ...(Array.isArray(c.categories) && c.categories.length ? { categories: (c.categories as unknown[]).map(String) } : {}),
+    visible: c.visible !== false,
+    active: c.active !== false,
   };
 }
 
@@ -216,4 +278,105 @@ export function platformTakePaise(price: number, extras: number, bookingFee: num
 /** 4-digit start code the customer tells the partner on arrival. */
 export function newStartOtp(): string {
   return String(randomInt(0, 10_000)).padStart(4, "0");
+}
+
+// ─────────────────────────────── offers & money ───────────────────────────────
+
+export interface Quote {
+  price: number;
+  /** The listed booking fee (before any discount). */
+  bookingFee: number;
+  /** Rupees off for the customer (never more than DutyPe's take on the booking). */
+  discount: number;
+  discountLabel: string;
+  couponCode: string;
+  /** What the customer pays the partner (before extras). */
+  total: number;
+  /** Set when the coupon the customer typed cannot be used. */
+  couponError?: string;
+  /** Set when the coupon is valid but the first-booking offer is worth more (the better one is kept). */
+  couponNote?: string;
+}
+
+/** Most DutyPe can give away on a booking: booking fee + the partner fee + commission on the price. */
+export function maxDiscount(config: ServicesConfig, service: ServiceItem): number {
+  return bookingFeeFor(config, service) + config.partnerFee + Math.floor((service.price * config.commissionPct) / 100);
+}
+
+/** Why a coupon cannot be used here, or null when it can. */
+export function couponProblem(c: Coupon, service: ServiceItem, firstBooking: boolean, nowMs: number): string | null {
+  if (c.active === false) return "This coupon is not active";
+  if (c.validFrom && nowMs < c.validFrom) return "This offer has not started yet";
+  if (c.validTo && nowMs > c.validTo) return "This offer has ended";
+  if (c.firstBookingOnly && !firstBooking) return "This coupon is for your first booking only";
+  if (c.minOrder && service.price < c.minOrder) return `This coupon needs a service of ₹${c.minOrder} or more`;
+  if (c.categories?.length && !c.categories.includes(service.category)) return "This coupon is not for this service";
+  return null;
+}
+
+function couponValue(c: Coupon, service: ServiceItem): number {
+  const raw = c.type === "PCT" ? Math.floor((service.price * c.value) / 100) : c.value;
+  return Math.max(0, Math.min(raw, c.maxOff ?? raw));
+}
+
+/**
+ * The customer's price. First booking: the booking fee is free. A coupon replaces that if it is
+ * worth more (offers never stack). Every discount is capped at [maxDiscount].
+ */
+export function quote(config: ServicesConfig, service: ServiceItem, firstBooking: boolean, couponCode: string, nowMs: number): Quote {
+  const bookingFee = bookingFeeFor(config, service);
+  const cap = maxDiscount(config, service);
+  let discount = 0;
+  let discountLabel = "";
+  let code = "";
+  let couponError: string | undefined;
+  let couponNote: string | undefined;
+  if (firstBooking && config.firstBookingFeeFree && bookingFee > 0) {
+    discount = bookingFee;
+    discountLabel = "First booking: no booking fee";
+  }
+  const typed = couponCode.trim().toUpperCase();
+  if (typed) {
+    const c = config.coupons.find((x) => x.code === typed);
+    const problem = c ? couponProblem(c, service, firstBooking, nowMs) : "This coupon code is not valid";
+    if (problem || !c) {
+      couponError = problem || "This coupon code is not valid";
+    } else {
+      const value = Math.min(couponValue(c, service), cap);
+      if (value > discount) {
+        discount = value;
+        discountLabel = c.title;
+        code = c.code;
+      } else {
+        couponNote = "Your first-booking offer is already better";
+      }
+    }
+  }
+  discount = Math.min(discount, cap);
+  return {
+    price: service.price, bookingFee, discount, discountLabel, couponCode: code,
+    total: service.price + bookingFee - discount, ...(couponError ? { couponError } : {}),
+    ...(couponNote ? { couponNote } : {}),
+  };
+}
+
+/**
+ * Partner fee charged to the partner who accepts. Their first job is free, except for the part of a
+ * customer discount that the booking fee + commission cannot cover (so DutyPe never pays out).
+ */
+export function partnerFeeFor(
+  config: ServicesConfig, jobsCompleted: number, price: number, bookingFee: number, discount: number, commissionPct: number,
+): number {
+  const full = config.partnerFee;
+  if (!(config.partnerFirstJobFree && jobsCompleted === 0)) return full;
+  const covered = bookingFee + Math.floor((price * commissionPct) / 100);
+  return Math.min(full, Math.max(0, discount - covered));
+}
+
+/** Paise DutyPe takes from the partner's credits for a job. Never negative. */
+export function takePaise(
+  price: number, extras: number, bookingFee: number, discount: number, partnerFee: number, commissionPct: number,
+): number {
+  const commission = Math.round(((price + extras) * 100 * commissionPct) / 100);
+  return Math.max(0, (bookingFee - discount + partnerFee) * 100 + commission);
 }

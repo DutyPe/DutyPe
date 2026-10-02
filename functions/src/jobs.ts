@@ -14,6 +14,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { createHash } from "crypto";
+import { referralPostsLeft, refundReferralPost, useReferralPost } from "./lib/referral-posts";
 import { onCallSecured } from "./secure-callable";
 import {
   fail, obj, str, text, int, oneOf, stringList, latLng, mobile, storageUrl, requestId,
@@ -37,7 +38,7 @@ const IST_OFFSET_MS = 330 * 60 * 1000;
 /** A retried trigger event older than this is dropped. */
 const EVENT_MAX_AGE_MS = 60 * 60 * 1000;
 
-type Charge = "campaign" | "credit" | "free";
+type Charge = "campaign" | "credit" | "free" | "referral";
 
 const EMPLOYMENT_TYPES = Object.values(Values.EmploymentType);
 const PAY_TYPES = Object.values(Values.PayType);
@@ -161,6 +162,10 @@ function chargeForPost(
     return "credit";
   }
   const used = Number(quota.get(Idempotency.RESULT) || 0);
+  if (used >= FREE_POSTS_PER_DAY && referralPostsLeft(employer.data, nowMs) > 0) {
+    useReferralPost(tx, employer.ref);
+    return "referral";
+  }
   if (used >= FREE_POSTS_PER_DAY) {
     fail("resource-exhausted",
       `You have used today's ${FREE_POSTS_PER_DAY} free job posts. Buy a plan to post more today.`);
@@ -336,6 +341,7 @@ export const deleteJob = onCallSecured({}, async (raw: unknown, context) => {
       tx.update(db.collection(EmployerProfiles.COLLECTION).doc(uid),
         `${EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_NORMAL}`, FieldValue.increment(1));
     }
+    if (paid.charge === "referral") refundReferralPost(tx, db.collection(EmployerProfiles.COLLECTION).doc(uid));
     if (paid.charge === "free") {
       tx.set(quotaRef(uid, createdAtMs), { [Idempotency.RESULT]: FieldValue.increment(-1) }, { merge: true });
     }

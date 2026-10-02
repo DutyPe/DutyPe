@@ -27,6 +27,7 @@
  */
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import { busyWith } from "./lib/busy";
 import { onCallSecured } from "./secure-callable";
 import { fail, int, latLng, obj, str, stringList, text } from "./lib/input";
 import { distanceKm } from "./lib/geo";
@@ -35,10 +36,10 @@ import { notify } from "./lib/notify";
 import { normalizeLocale, tBody, tTitle } from "./notification-i18n";
 import { isCallerAdmin } from "./app-config";
 import {
-  bookingFeeFor, CATEGORIES, findService, mergeConfig, newStartOtp, platformTakePaise, type ServicesConfig,
+  CATEGORIES, findService, mergeConfig, newStartOtp, partnerFeeFor, quote, takePaise, type ServicesConfig,
 } from "./lib/service-catalog";
 import {
-  AppConfig, EmployerProfiles, PartnerLedger, PartnerTopups, ServiceBookingSecrets, ServiceBookings, ServicePartners,
+  AppConfig, CouponUses, EmployerProfiles, PartnerLedger, PartnerTopups, ServiceBookingSecrets, ServiceBookings, ServicePartners,
   UserTokens, Values, WorkerProfiles,
 } from "./schema";
 
@@ -170,13 +171,49 @@ async function tellPartner(uid: string, templateId: string, params: Record<strin
 }
 
 /** Paise a partner must hold to accept: booking fee + commission on the catalog price. */
-function requiredCredits(b: admin.firestore.DocumentData): number {
-  return platformTakePaise(Number(b[BK.PRICE] || 0), 0, Number(b[BK.BOOKING_FEE] || 0), Number(b[BK.COMMISSION_PCT] || 0));
+/** Partner fee for this booking: the one fixed at accept, else the full configured fee (worst case). */
+function feeOf(b: admin.firestore.DocumentData, fallbackPartnerFee: number): number {
+  return b[BK.PARTNER_FEE] !== undefined ? Number(b[BK.PARTNER_FEE]) : fallbackPartnerFee;
 }
 
-function partnerEarning(b: admin.firestore.DocumentData): number {
+/** The ₹ fee this partner pays DutyPe for booking [b] (first job free, see partnerFeeFor). */
+function partnerFeeOf(config: ServicesConfig, jobsCompleted: number, b: FirebaseFirestore.DocumentData): number {
+  return partnerFeeFor(config, jobsCompleted, Number(b[BK.PRICE] || 0), Number(b[BK.BOOKING_FEE] || 0),
+    Number(b[BK.DISCOUNT] || 0), Number(b[BK.COMMISSION_PCT] || 0));
+}
+
+/** Per-partner credit need for [b] (depends on whether it would be their free first job). */
+async function creditsNeededFor(b: admin.firestore.DocumentData): Promise<(jobsCompleted: number) => number> {
+  const config = await loadConfig();
+  return (jobs) => requiredCredits(b, partnerFeeOf(config, jobs, b));
+}
+
+/** Paise a partner must hold to accept (before extras). */
+function requiredCredits(b: admin.firestore.DocumentData, partnerFee: number): number {
+  return takePaise(Number(b[BK.PRICE] || 0), 0, Number(b[BK.BOOKING_FEE] || 0), Number(b[BK.DISCOUNT] || 0),
+    feeOf(b, partnerFee), Number(b[BK.COMMISSION_PCT] || 0));
+}
+
+/** What the partner keeps from the service price (the booking fee they collect goes to DutyPe). */
+function partnerEarning(b: admin.firestore.DocumentData, partnerFee: number): number {
   const price = Number(b[BK.PRICE] || 0);
-  return price - Math.round((price * Number(b[BK.COMMISSION_PCT] || 0)) / 100);
+  return price - feeOf(b, partnerFee) - Math.round((price * Number(b[BK.COMMISSION_PCT] || 0)) / 100);
+}
+
+/** True when the customer has never had a booking that was not cancelled. */
+async function isFirstBooking(uid: string): Promise<boolean> {
+  const prev = await db.collection(BK.COLLECTION)
+    .where(BK.CUSTOMER_ID, "==", uid)
+    .where(BK.STATUS, "in", [...OPEN_STATUSES, BS.COMPLETED])
+    .limit(1).get();
+  return prev.empty;
+}
+
+/** A cancelled / unassigned booking gives the coupon back. */
+async function releaseCoupon(b: admin.firestore.DocumentData): Promise<void> {
+  const code = String(b[BK.COUPON_CODE] || "");
+  if (!code) return;
+  await db.collection(CouponUses.COLLECTION).doc(`${b[BK.CUSTOMER_ID]}_${code}`).delete().catch(() => undefined);
 }
 
 /** Test seam: the function that actually pushes an offer. */
@@ -195,7 +232,7 @@ async function sendOffer(partnerId: string, bookingId: string, b: admin.firestor
       service: String(b[BK.SERVICE_NAME] || ""),
       area: String(b[BK.AREA] || ""),
       km: Math.max(1, Math.round(km)),
-      earning: partnerEarning(b),
+      earning: partnerEarning(b, (await loadConfig()).partnerFee),
     };
     await offerSender.send({
       token,
@@ -219,7 +256,7 @@ async function sendOffer(partnerId: string, bookingId: string, b: admin.firestor
 
 /** Online approved partners for [category] between fromKm (exclusive) and toKm of the point. */
 export async function partnersInRing(
-  category: string, lat: number, lng: number, fromKm: number, toKm: number, excluded: string[], needPaise: number, nowMs: number,
+  category: string, lat: number, lng: number, fromKm: number, toKm: number, excluded: string[], needPaise: number | ((jobsCompleted: number) => number), nowMs: number,
 ): Promise<Array<{ id: string; km: number }>> {
   const config = await loadConfig();
   const snap = await db.collection(SP.COLLECTION)
@@ -233,7 +270,8 @@ export async function partnersInRing(
     if (excluded.includes(d.id)) continue;
     if (d.get(SP.ACTIVE_BOOKING_ID)) continue;
     if (nowMs - ms(d.get(SP.LAST_SEEN_AT)) > PARTNER_STALE_MS) continue;
-    if (Number(d.get(SP.CREDITS_PAISE) || 0) < needPaise) continue;
+    const need = typeof needPaise === "number" ? needPaise : needPaise(Number(d.get(SP.JOBS_COMPLETED) || 0));
+    if (Number(d.get(SP.CREDITS_PAISE) || 0) < need) continue;
     const pLat = Number(d.get(SP.LAT));
     const pLng = Number(d.get(SP.LNG));
     if (!Number.isFinite(pLat) || !Number.isFinite(pLng)) continue;
@@ -268,7 +306,7 @@ export async function advanceServiceWave(bookingId: string, nowMs: number): Prom
   if (!claimed) return null;
   const { b, fromKm, toKm } = claimed;
   const partners = await partnersInRing(String(b[BK.CATEGORY]), Number(b[BK.LAT]), Number(b[BK.LNG]), fromKm, toKm,
-    (b[BK.EXCLUDED_PARTNER_IDS] || []) as string[], requiredCredits(b), nowMs);
+    (b[BK.EXCLUDED_PARTNER_IDS] || []) as string[], await creditsNeededFor(b), nowMs);
   const results = await Promise.all(partners.map((p) => sendOffer(p.id, bookingId, b, p.km)));
   functions.logger.info(`service ${bookingId}: wave ${fromKm}-${toKm} km, ${partners.length} partners, ` +
     `${results.filter(Boolean).length} offers sent`);
@@ -296,6 +334,7 @@ export async function expireServiceBookings(nowMs: number): Promise<number> {
     });
     if (done) {
       expired++;
+      await releaseCoupon(d.data());
       await tellCustomer(String(d.get(BK.CUSTOMER_ID)), d.id, "SERVICE_NO_PARTNER", { service: String(d.get(BK.SERVICE_NAME) || "") });
     }
   }
@@ -354,7 +393,9 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30 }, async 
 
   const profile = await db.collection(EmployerProfiles.COLLECTION).doc(uid).get();
   const customerName = String(profile.get(EmployerProfiles.OWNER_NAME) || profile.get(EmployerProfiles.BUSINESS_NAME) || "Customer");
-  const bookingFee = bookingFeeFor(config, service);
+  const q = quote(config, service, await isFirstBooking(uid), str(data, "couponCode", { max: 20, optional: true }), now);
+  if (q.couponError) fail("failed-precondition", q.couponError);
+  const bookingFee = q.bookingFee;
   const ref = db.collection(BK.COLLECTION).doc();
   const startOtp = newStartOtp();
   const firstWaveAt = scheduled ? Math.max(now, scheduledAt - SCHEDULE_LEAD_MS) : now;
@@ -381,7 +422,10 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30 }, async 
     [BK.DISPATCH_RADIUS_KM]: 0,
     [BK.NEXT_WAVE_AT]: Timestamp.fromMillis(firstWaveAt),
     [BK.EXPIRES_AT]: Timestamp.fromMillis(scheduled ? scheduledAt + HOUR_MS : now + SEARCH_TIMEOUT_MS),
-    [BK.TOTAL]: service.price + bookingFee,
+    [BK.DISCOUNT]: q.discount,
+    [BK.DISCOUNT_LABEL]: q.discountLabel,
+    [BK.COUPON_CODE]: q.couponCode,
+    [BK.TOTAL]: q.total,
     [BK.CREATED_AT]: Timestamp.fromMillis(now),
     [BK.UPDATED_AT]: Timestamp.fromMillis(now),
   };
@@ -391,9 +435,45 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30 }, async 
     [ServiceBookingSecrets.CUSTOMER_ID]: uid,
     [ServiceBookingSecrets.START_OTP]: startOtp,
   });
-  await batch.commit();
+  // One use per customer: creating this document fails if the coupon was used before.
+  if (q.couponCode) {
+    batch.create(db.collection(CouponUses.COLLECTION).doc(`${uid}_${q.couponCode}`), {
+      [CouponUses.BOOKING_ID]: ref.id,
+      [CouponUses.CREATED_AT]: Timestamp.fromMillis(now),
+    });
+  }
+  try {
+    await batch.commit();
+  } catch (e) {
+    if ((e as { code?: number }).code === 6) fail("already-exists", "You have already used this coupon");
+    throw e;
+  }
   if (!scheduled) await advanceServiceWave(ref.id, now);
-  return { bookingId: ref.id, startOtp, price: service.price, bookingFee, total: service.price + bookingFee };
+  return {
+    bookingId: ref.id, startOtp, price: service.price, bookingFee, discount: q.discount, discountLabel: q.discountLabel,
+    total: q.total,
+  };
+});
+
+/** Price breakdown before booking: first-booking offer, the coupon typed, and the visible offers. */
+export const previewServiceQuote = onCallSecured({ timeoutSeconds: 10 }, async (raw: unknown, context) => {
+  const data = obj(raw);
+  const config = await loadConfig();
+  const service = findService(config, str(data, "serviceId", { max: 60 }));
+  if (!service) fail("not-found", "This service is not available");
+  const now = Date.now();
+  const first = await isFirstBooking(context.auth!.uid);
+  const q = quote(config, service, first, str(data, "couponCode", { max: 20, optional: true }), now);
+  let couponError = q.couponError;
+  if (!couponError && q.couponCode) {
+    const used = await db.collection(CouponUses.COLLECTION).doc(`${context.auth!.uid}_${q.couponCode}`).get();
+    if (used.exists) couponError = "You have already used this coupon";
+  }
+  const offers = config.coupons
+    .filter((c) => c.visible !== false && c.active !== false && (!c.validTo || c.validTo > now) && (!c.validFrom || c.validFrom <= now))
+    .filter((c) => !c.firstBookingOnly || first)
+    .map((c) => ({ code: c.code, title: c.title, minOrder: c.minOrder ?? 0 }));
+  return { ...q, ...(couponError ? { couponError } : {}), firstBooking: first, offers };
 });
 
 export const cancelServiceBooking = onCallSecured({}, async (raw: unknown, context) => {
@@ -422,8 +502,9 @@ export const cancelServiceBooking = onCallSecured({}, async (raw: unknown, conte
     if (partnerRef && partner?.get(SP.ACTIVE_BOOKING_ID) === bookingId) {
       tx.update(partnerRef, { [SP.ACTIVE_BOOKING_ID]: FieldValue.delete() });
     }
-    return { partnerId, service: String(b.get(BK.SERVICE_NAME) || "") };
+    return { partnerId, service: String(b.get(BK.SERVICE_NAME) || ""), d: b.data() || {} };
   });
+  await releaseCoupon(out.d);
   if (out.partnerId) {
     await tellPartner(out.partnerId, "SERVICE_CANCELLED_BY_CUSTOMER", { service: out.service },
       { bookingId, deepLink: "dutype://partner" });
@@ -533,6 +614,8 @@ export const getServiceOffer = onCallSecured({ timeoutSeconds: 10 }, async (raw:
     !((d[BK.EXCLUDED_PARTNER_IDS] || []) as string[]).includes(uid);
   const pLat = Number(p.get(SP.LAT));
   const pLng = Number(p.get(SP.LNG));
+  const fee = mine && d[BK.PARTNER_FEE] !== undefined ? Number(d[BK.PARTNER_FEE]) :
+    partnerFeeOf(await loadConfig(), Number(p.get(SP.JOBS_COMPLETED) || 0), d);
   return {
     available,
     mine,
@@ -541,8 +624,8 @@ export const getServiceOffer = onCallSecured({ timeoutSeconds: 10 }, async (raw:
     category: d[BK.CATEGORY],
     price: d[BK.PRICE],
     bookingFee: d[BK.BOOKING_FEE],
-    earning: partnerEarning(d),
-    requiredCreditsPaise: requiredCredits(d),
+    earning: partnerEarning(d, fee),
+    requiredCreditsPaise: requiredCredits(d, fee),
     creditsPaise: Number(p.get(SP.CREDITS_PAISE) || 0),
     inspection: d[BK.INSPECTION] === true,
     area: d[BK.AREA],
@@ -556,6 +639,7 @@ export const getServiceOffer = onCallSecured({ timeoutSeconds: 10 }, async (raw:
 
 export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20 }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
+  const config = await loadConfig();
   const bookingId = str(obj(raw), "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
   const ref = db.collection(BK.COLLECTION).doc(bookingId);
   const partnerRef = db.collection(SP.COLLECTION).doc(uid);
@@ -576,7 +660,11 @@ export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20 }, async 
         return { result: "busy" as const };
       }
     }
-    if (Number(p.get(SP.CREDITS_PAISE) || 0) < requiredCredits(d)) return { result: "low_credits" as const };
+    // Also busy while on an urgent job or a fresh regular hire.
+    const busy = await busyWith(uid, await tx.get(db.collection(WorkerProfiles.COLLECTION).doc(uid)), tx);
+    if (busy && busy !== "service") return { result: "busy" as const };
+    const fee = partnerFeeOf(config, Number(p.get(SP.JOBS_COMPLETED) || 0), d);
+    if (Number(p.get(SP.CREDITS_PAISE) || 0) < requiredCredits(d, fee)) return { result: "low_credits" as const };
     const now = Timestamp.now();
     const ratingCount = Number(p.get(SP.RATING_COUNT) || 0);
     const rating = ratingCount ? Math.round((Number(p.get(SP.RATING_SUM) || 0) / ratingCount) * 10) / 10 : 0;
@@ -587,6 +675,7 @@ export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20 }, async 
       [BK.PARTNER_PHONE]: String(p.get(SP.PHONE) || ""),
       [BK.PARTNER_PHOTO_URL]: String(p.get(SP.PHOTO_URL) || ""),
       [BK.PARTNER_RATING]: rating,
+      [BK.PARTNER_FEE]: fee,
       [BK.NEXT_WAVE_AT]: FieldValue.delete(),
       [BK.ASSIGNED_AT]: now,
       [BK.UPDATED_AT]: now,
@@ -626,6 +715,7 @@ export const updateServiceBooking = onCallSecured({ timeoutSeconds: 20 }, async 
   const extras = action === "complete" ? int(data, "extras", { min: 0, max: 50_000, optional: true }) : 0;
   const extrasNote = action === "complete" ? text(data, "extrasNote", { max: 200, optional: true }) : "";
   if (extras > 0 && !extrasNote) fail("invalid-argument", "Write what the extra amount is for");
+  const config = await loadConfig();
 
   const out = await db.runTransaction(async (tx) => {
     const [b, p, secret] = await Promise.all([tx.get(ref), tx.get(partnerRef), tx.get(secretRef)]);
@@ -651,13 +741,15 @@ export const updateServiceBooking = onCallSecured({ timeoutSeconds: 20 }, async 
       if (status !== BS.STARTED) fail("failed-precondition", "Start the job with the customer's code first");
       const price = Number(d[BK.PRICE] || 0);
       const fee = Number(d[BK.BOOKING_FEE] || 0);
-      const take = platformTakePaise(price, extras, fee, Number(d[BK.COMMISSION_PCT] || 0));
+      const discount = Number(d[BK.DISCOUNT] || 0);
+      const take = takePaise(price, extras, fee, discount, feeOf(d, config.partnerFee), Number(d[BK.COMMISSION_PCT] || 0));
+      const total = Math.max(0, price + fee - discount) + extras;
       const balance = Number(p.get(SP.CREDITS_PAISE) || 0) - take;
       tx.update(ref, {
         [BK.STATUS]: BS.COMPLETED,
         [BK.EXTRAS]: extras,
         [BK.EXTRAS_NOTE]: extrasNote,
-        [BK.TOTAL]: price + fee + extras,
+        [BK.TOTAL]: total,
         [BK.PLATFORM_TAKE_PAISE]: take,
         [BK.COMPLETED_AT]: now,
         [BK.UPDATED_AT]: now,
@@ -676,7 +768,7 @@ export const updateServiceBooking = onCallSecured({ timeoutSeconds: 20 }, async 
         [PartnerLedger.NOTE]: String(d[BK.SERVICE_NAME] || ""),
         [PartnerLedger.CREATED_AT]: now,
       });
-      return { d, notice: "SERVICE_COMPLETED", total: price + fee + extras, take, balance };
+      return { d, notice: "SERVICE_COMPLETED", total, take, balance };
     }
     default: { // cancel by partner → back to searching, never offered to them again
       if (status !== BS.ASSIGNED && status !== BS.ON_THE_WAY) fail("failed-precondition", "A started job cannot be cancelled");
