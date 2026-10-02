@@ -2652,4 +2652,12 @@
     <string name="urgent_job_title_label">काम का नाम</string>
     <string name="urgent_job_title_hint">जैसे: गोदाम के लिए 2 लोडर</string>
     <string name="urgent_pick_work_type">या काम का प्रकार चुनें</string>
+    <string name="auth_code_sent_whatsapp">हमने कोड WhatsApp पर भेजा है। देखने के लिए WhatsApp खोलें।</string>
+    <string name="auth_get_sms_instead">नहीं मिला? SMS से कोड पाएं</string>
+    <string name="auth_get_sms_in">%1$d:%2$02d में SMS से कोड पाएं</string>
+    <string name="auth_continue_with_truecaller">Truecaller से जारी रखें</string>
+    <string name="auth_or">या</string>
+    <string name="auth_truecaller_failed">Truecaller से सत्यापन नहीं हुआ। कृपया OTP का उपयोग करें।</string>
+    <string name="auth_enter_name_first">कृपया पहले अपना नाम लिखें।</string>
+    <string name="auth_get_sms_short">SMS पाएं</string>
 </resources>

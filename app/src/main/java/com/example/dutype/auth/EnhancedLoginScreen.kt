@@ -127,6 +127,7 @@ private fun OtpLoginScreen(
     var otpValue by remember { mutableStateOf("") }
     var isCheckingPhone by remember { mutableStateOf(false) }
     var showLanguageBottomSheet by remember { mutableStateOf(false) }
+    var truecallerBusy by remember { mutableStateOf(false) }
 
     val selectedCountryCode = "+91"
     val context = LocalContext.current
@@ -542,6 +543,46 @@ private fun OtpLoginScreen(
                     }
                 }
 
+                // Truecaller one-tap (free, no SMS); only shown when Truecaller is on the phone.
+                TruecallerLoginButton(
+                    busy = truecallerBusy || otpState.isLoading || isCheckingPhone,
+                    onAuthorized = { code, verifier ->
+                        truecallerBusy = true
+                        scope.launch {
+                            otpViewModel.truecallerExchange(code, verifier, mode = "login").fold(
+                                onSuccess = { tc ->
+                                    truecallerBusy = false
+                                    when {
+                                        tc.allowed -> {
+                                            profileCompletionViewModel.saveAuthMethod("TRUECALLER")
+                                            profileCompletionViewModel.savePhoneNumber(tc.phone)
+                                            otpViewModel.signInWithTruecaller(tc)
+                                        }
+                                        tc.existingRole == null -> Toast.makeText(
+                                            context, context.getString(R.string.auth_no_account_found), Toast.LENGTH_LONG
+                                        ).show()
+                                        else -> {
+                                            val label = context.getString(
+                                                if (tc.existingRole == "EMPLOYER") R.string.employer else R.string.worker
+                                            )
+                                            Toast.makeText(
+                                                context, context.getString(R.string.auth_phone_registered_as_role, label, label), Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                    }
+                                },
+                                onFailure = {
+                                    truecallerBusy = false
+                                    Toast.makeText(context, context.getString(R.string.auth_truecaller_failed), Toast.LENGTH_LONG).show()
+                                }
+                            )
+                        }
+                    },
+                    onFailed = {
+                        Toast.makeText(context, context.getString(R.string.auth_truecaller_failed), Toast.LENGTH_LONG).show()
+                    }
+                )
+
                 // DEV-ONLY: Skip OTP and jump straight to the role's home screen.
                 // Only rendered in debuggable builds (never shows in a release/Play build).
                 // This bypasses real Firebase Auth, so anything reading FirebaseAuth's
@@ -735,11 +776,43 @@ private fun OtpInputSection(
         Spacer(modifier = Modifier.height(32.dp))
 
         // Clean 6-Digit OTP Box Layout
+        if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_whatsapp),
+                    contentDescription = null,
+                    tint = Color(0xFF25D366).fg(),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.auth_code_sent_whatsapp),
+                    style = MaterialTheme.typography.bodyMedium.copy(color = Ink600.fg(), fontSize = 14.sp)
+                )
+            }
+        }
+
         AuthOtpBoxes(
             otpValue = otpValue,
             onOtpChange = onOtpChange,
             digitCount = 6
         )
+
+        // Wrong / expired code etc. (this screen showed no OTP errors before WhatsApp codes).
+        otpState.error?.takeIf { !it.startsWith("phone-already-registered-as:") }?.let { error ->
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626).fg(), fontSize = 13.sp),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -754,7 +827,10 @@ private fun OtpInputSection(
                 val minutes = resendCooldownSeconds / 60
                 val seconds = resendCooldownSeconds % 60
                 Text(
-                    text = stringResource(R.string.auth_resend_otp_in, minutes, seconds),
+                    text = stringResource(
+                        if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) R.string.auth_get_sms_in else R.string.auth_resend_otp_in,
+                        minutes, seconds
+                    ),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = Ink600.fg(),
                         fontSize = 14.sp
@@ -766,7 +842,9 @@ private fun OtpInputSection(
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
                 ) {
                     Text(
-                        text = stringResource(R.string.auth_resend_otp),
+                        text = stringResource(
+                            if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) R.string.auth_get_sms_instead else R.string.auth_resend_otp
+                        ),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,

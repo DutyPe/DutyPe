@@ -178,3 +178,7 @@
 -keep class com.google.firebase.** { *; }
 -keep interface com.google.firebase.** { *; }
 -dontwarn com.google.firebase.**
+
+# Truecaller OAuth SDK (one-tap login)
+-keep class com.truecaller.android.sdk.** { *; }
+-dontwarn com.truecaller.android.sdk.**

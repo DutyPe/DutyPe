@@ -14,7 +14,7 @@
     "gcp-build": "npm install && npm run build",
     "test": "npx tsx --test test/*.test.ts",
     "check:azure": "node scripts/check-azure.js",
-    "test:integration": "cd .. && npx firebase emulators:exec --only firestore --project demo-dutype \"cd functions && npx tsx --test --test-concurrency=1 test/integration/*.test.ts\""
+    "test:integration": "cd .. && npx firebase emulators:exec --only firestore,auth --project demo-dutype \"cd functions && npx tsx --test --test-concurrency=1 test/integration/*.test.ts\""
   },
   "engines": {
     "node": "20"

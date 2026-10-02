@@ -19,7 +19,8 @@ import { fail, obj, str, oneOf } from "./lib/input";
 import { getReferralConfig } from "./app-config";
 import { ensureWallet, registerReferral } from "./referrals";
 import {
-  Applications, EmployerCards, EmployerProfiles, Jobs, PhoneRoles, ReferralCodes, SavedJobs, UserTokens, Values, Wallets, WorkerProfiles,
+  Applications, EmployerCards, EmployerProfiles, Jobs, OtpCodes, PhoneRoles, ReferralCodes, SavedJobs, TruecallerProfiles, UserTokens, Values,
+  Wallets, WorkerProfiles,
 } from "./schema";
 
 const db = admin.firestore();
@@ -50,7 +51,11 @@ export const completeRegistration = onCallSecured({}, async (raw: unknown, conte
   const config = role === Values.Role.EMPLOYER ? await getReferralConfig() : null;
 
   const created = await db.runTransaction(async (tx) => {
-    const [phoneDoc, profile] = await Promise.all([tx.get(phoneRef), tx.get(profileRef)]);
+    const [phoneDoc, profile, truecaller] = await Promise.all([
+      tx.get(phoneRef), tx.get(profileRef), tx.get(db.collection(TruecallerProfiles.COLLECTION).doc(uid)),
+    ]);
+    // Email shared through Truecaller one-tap sign-up (same number only).
+    const tcEmail = truecaller.get(TruecallerProfiles.PHONE) === phone ? String(truecaller.get(TruecallerProfiles.EMAIL) || "") : "";
     if (phoneDoc.exists) {
       if (phoneDoc.get(PhoneRoles.UID) !== uid) fail("already-exists", "This number is linked to another account");
       if (phoneDoc.get(PhoneRoles.ROLE) !== role) {
@@ -66,6 +71,7 @@ export const completeRegistration = onCallSecured({}, async (raw: unknown, conte
       tx.create(profileRef, {
         [WorkerProfiles.NAME]: name,
         [WorkerProfiles.PHONE]: phone,
+        ...(tcEmail ? { [WorkerProfiles.EMAIL]: tcEmail } : {}),
         [WorkerProfiles.SKILLS]: [],
         [WorkerProfiles.AVAILABLE]: false,
         [WorkerProfiles.BLOCKED]: false,
@@ -81,6 +87,7 @@ export const completeRegistration = onCallSecured({}, async (raw: unknown, conte
           { [EmployerProfiles.BUSINESS_NAME]: name, [EmployerProfiles.OWNER_NAME]: "" } :
           { [EmployerProfiles.OWNER_NAME]: name }),
         [EmployerProfiles.PHONE]: phone,
+        ...(tcEmail ? { [EmployerProfiles.EMAIL]: tcEmail } : {}),
         [EmployerProfiles.SUBSCRIPTION]: {
           [S.PLAN_ID]: campaign ? "UNLIMITED_CAMPAIGN" : "",
           [S.STATUS]: campaign ? "ACTIVE" : "NONE",
@@ -193,11 +200,13 @@ export const deleteAccount = onCallSecured({}, async (_raw: unknown, context) =>
   batch.delete(db.collection(WorkerProfiles.COLLECTION).doc(uid));
   batch.delete(db.collection(EmployerProfiles.COLLECTION).doc(uid));
   batch.delete(db.collection(UserTokens.COLLECTION).doc(uid));
+  batch.delete(db.collection(TruecallerProfiles.COLLECTION).doc(uid));
   if (wallet.exists) batch.update(wallet.ref, { [Wallets.BLOCKED]: true });
   if (code) batch.set(db.collection(ReferralCodes.COLLECTION).doc(code), { [ReferralCodes.ACTIVE]: false }, { merge: true });
   if (phone) {
     const phoneDoc = await db.collection(PhoneRoles.COLLECTION).doc(phone).get();
     if (phoneDoc.get(PhoneRoles.UID) === uid) batch.delete(phoneDoc.ref);
+    batch.delete(db.collection(OtpCodes.COLLECTION).doc(phone));
   }
   await batch.commit();
   await admin.auth().deleteUser(uid);

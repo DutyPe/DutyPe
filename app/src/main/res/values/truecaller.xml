@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Truecaller one-tap login. Paste the Client ID from https://sdk-verification.truecaller.com
+        (your app: package com.dutype.app + SHA-1 of the signing key). Empty = the Truecaller
+        button stays hidden and login works exactly as before. Not a secret (it ships in the app).
+        The same ID goes in functions/.env.dutype-860ac as TRUECALLER_CLIENT_ID.
+    -->
+    <string name="truecaller_client_id" translatable="false"></string>
+</resources>

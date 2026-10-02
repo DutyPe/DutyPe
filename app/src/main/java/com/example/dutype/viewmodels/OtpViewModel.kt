@@ -14,6 +14,9 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.PhoneAuthCredential
 import com.google.firebase.auth.PhoneAuthOptions
 import com.google.firebase.auth.PhoneAuthProvider
+import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.functions.FirebaseFunctionsException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,8 +32,30 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import android.content.Context
 
+/** Callable results are JSON objects: read them as String-keyed maps. */
+@Suppress("UNCHECKED_CAST")
+private fun Any?.asStringMap(): Map<String, Any?>? = this as? Map<String, Any?>
+
+/** How the current login code was sent. */
+enum class OtpChannel { SMS, WHATSAPP }
+
+/** What Truecaller one-tap returned for this number (the server checked the role). */
+data class TruecallerSignInResult(
+    val allowed: Boolean,
+    val phone: String,
+    val name: String,
+    val email: String,
+    val existingRole: String?,
+    val token: String?
+)
+
 /**
- * OtpViewModel - Handles phone authentication via SMS OTP.
+ * OtpViewModel - Handles phone authentication.
+ *
+ * Codes go on WhatsApp first (sendWhatsappOtp, ~₹0.12 each); Firebase SMS (~₹6.7 each) is used
+ * when WhatsApp is not available and as the "Get code by SMS" backup. WhatsApp codes and Truecaller
+ * sign in with a Firebase custom token for the same phone account, so everything after login is
+ * the same as SMS login.
  *
  * - Injects AuthManager singleton instead of creating a new instance.
  * - Uses FirestoreUtils.getUserByUid() for profile checks (canonical implementation).
@@ -41,12 +66,19 @@ class OtpViewModel @Inject constructor(
     private val authManager: AuthManager,
     private val authFlowService: AuthFlowService,
     private val performanceTracker: com.example.dutype.performance.PerformanceTracker,
-    private val errorHandler: com.example.dutype.core.error.ErrorHandler
+    private val errorHandler: com.example.dutype.core.error.ErrorHandler,
+    private val functions: FirebaseFunctions
 ) : ViewModel() {
 
     private companion object {
         /** Bound for the pre-OTP phone/role check so it can never stall the SMS request. */
         const val PRECHECK_TIMEOUT_MS = 3_000L
+
+        /** Bound for the WhatsApp send; past it the SMS is sent instead. */
+        const val WHATSAPP_SEND_TIMEOUT_MS = 8_000L
+
+        /** How long the user waits on WhatsApp before "Get code by SMS" is offered. */
+        const val SMS_FALLBACK_AFTER_SECONDS = 30
 
         /**
          * Process-level scope for post-login housekeeping (FCM token registration etc.).
@@ -94,6 +126,9 @@ class OtpViewModel @Inject constructor(
     private val auth = FirebaseAuth.getInstance()
     private var storedVerificationId: String? = null
     private var resendToken: PhoneAuthProvider.ForceResendingToken? = null
+    /** The number a WhatsApp code was sent to (verifyWhatsappOtp needs it). */
+    private var whatsappPhone: String? = null
+    private var cooldownJob: Job? = null
 
     // Role context for FCM registration - set by LoginBottomSheet before OTP flow
     private var pendingRole: UserRole = UserRole.WORKER
@@ -169,6 +204,9 @@ class OtpViewModel @Inject constructor(
                 Timber.w(err, "📱 OTP pre-send role check failed; continuing to PhoneAuth for $phoneNumber")
                 errorHandler.logEvent("otp_send_precheck_failed_continuing", true)
             }
+
+            // WhatsApp first; SMS only when WhatsApp is not available.
+            if (trySendWhatsapp(phoneNumber)) return@launch
 
             // Start 60-second cooldown timer for initial OTP send
             startResendCooldown()
@@ -304,6 +342,10 @@ class OtpViewModel @Inject constructor(
             errorHandler.logBreadcrumb("OTP verification started - Code: ${otp.take(1)}***")
 
             try {
+                if (_otpState.value.channel == OtpChannel.WHATSAPP) {
+                    verifyWhatsappCode(otp)
+                    return@launch
+                }
                 val verificationId = storedVerificationId
                        if (verificationId != null) {
                            errorHandler.logBreadcrumb("OTP verification ID available - proceeding")
@@ -335,52 +377,7 @@ class OtpViewModel @Inject constructor(
             errorHandler.logBreadcrumb("Phone credential sign-in started")
             try {
                 val result = auth.signInWithCredential(credential).await()
-                val firebaseUser = result.user
-
-                if (firebaseUser != null) {
-                    val phoneNumber = firebaseUser.phoneNumber ?: ""
-                    val userId = firebaseUser.uid
-                    errorHandler.logBreadcrumb("Firebase sign-in successful: $phoneNumber")
-
-                    // PERF: do NOT read the profile docs here. completeLogin()/completeRegistration()
-                    // (called immediately after otpVerified) resolve role + profile with one
-                    // concurrent read and re-cache the user, so an extra round trip here only
-                    // delayed the UI. Cache a minimal user now; it is refined right after.
-                    val user = User(
-                        id = userId,
-                        fullName = "",
-                        phone = phoneNumber,
-                        role = pendingRole,
-                        profileImageUrl = null
-                    )
-
-                    authManager.saveUser(user)
-                    authManager.setLoggedIn(true)
-
-                    Timber.i("User authenticated successfully: $userId")
-                    errorHandler.logBreadcrumb("User saved to AuthManager - Authentication complete")
-                    errorHandler.setUserInfo(userId, phoneNumber)
-                    // FCM registration happens (in the background) from completeLogin /
-                    // completeRegistration once the role is resolved.
-
-                    // Keep the spinner on: the screen still resolves the account
-                    // (completeLogin / completeRegistration) before navigating, and a
-                    // spinner-less gap made verification look stuck. resetState() clears it.
-                    _otpState.value = _otpState.value.copy(
-                        isLoading = true,
-                        otpVerified = true,
-                        message = "Phone authentication successful",
-                        phoneNumber = firebaseUser.phoneNumber  // Store phone number
-                    )
-                } else {
-                    Timber.e("❌ Authentication succeeded but no user returned")
-                    errorHandler.logBreadcrumb("Sign-in failed: No Firebase user returned")
-                    errorHandler.logEvent("sign_in_no_user", true)
-                    _otpState.value = _otpState.value.copy(
-                        isLoading = false,
-                        error = "Authentication failed - no user data"
-                    )
-                }
+                onFirebaseSignedIn(result.user)
             } catch (e: Exception) {
                 Timber.e("❌ Phone auth credential sign-in failed: ${e.message}")
                 errorHandler.logBreadcrumb("Phone credential sign-in error: ${e::class.simpleName}")
@@ -389,6 +386,186 @@ class OtpViewModel @Inject constructor(
                     isLoading = false,
                     error = mapPhoneAuthError(e)
                 )
+            }
+        }
+    }
+
+    /** After any successful Firebase sign-in (SMS credential, WhatsApp code or Truecaller). */
+    private fun onFirebaseSignedIn(firebaseUser: com.google.firebase.auth.FirebaseUser?) {
+        if (firebaseUser != null) {
+            val phoneNumber = firebaseUser.phoneNumber ?: whatsappPhone.orEmpty()
+            val userId = firebaseUser.uid
+            errorHandler.logBreadcrumb("Firebase sign-in successful: $phoneNumber")
+
+            // PERF: do NOT read the profile docs here. completeLogin()/completeRegistration()
+            // (called immediately after otpVerified) resolve role + profile with one
+            // concurrent read and re-cache the user, so an extra round trip here only
+            // delayed the UI. Cache a minimal user now; it is refined right after.
+            val user = User(
+                id = userId,
+                fullName = "",
+                phone = phoneNumber,
+                role = pendingRole,
+                profileImageUrl = null
+            )
+
+            authManager.saveUser(user)
+            authManager.setLoggedIn(true)
+
+            Timber.i("User authenticated successfully: $userId")
+            errorHandler.logBreadcrumb("User saved to AuthManager - Authentication complete")
+            errorHandler.setUserInfo(userId, phoneNumber)
+            // FCM registration happens (in the background) from completeLogin /
+            // completeRegistration once the role is resolved.
+
+            // Keep the spinner on: the screen still resolves the account
+            // (completeLogin / completeRegistration) before navigating, and a
+            // spinner-less gap made verification look stuck. resetState() clears it.
+            _otpState.value = _otpState.value.copy(
+                isLoading = true,
+                otpVerified = true,
+                message = "Phone authentication successful",
+                phoneNumber = firebaseUser.phoneNumber ?: whatsappPhone  // Store phone number
+            )
+        } else {
+            Timber.e("❌ Authentication succeeded but no user returned")
+            errorHandler.logBreadcrumb("Sign-in failed: No Firebase user returned")
+            errorHandler.logEvent("sign_in_no_user", true)
+            _otpState.value = _otpState.value.copy(
+                isLoading = false,
+                error = "Authentication failed - no user data"
+            )
+        }
+    }
+
+    /**
+     * Sends the code on WhatsApp. True when handled (sent, or the user must wait for a code already
+     * sent / is refused); false means "send an SMS instead".
+     */
+    private suspend fun trySendWhatsapp(phoneNumber: String): Boolean {
+        val response = try {
+            withTimeoutOrNull(WHATSAPP_SEND_TIMEOUT_MS) {
+                functions.getHttpsCallable("sendWhatsappOtp")
+                    .call(mapOf("phone" to phoneNumber, "role" to pendingRole.name))
+                    .await().data.asStringMap()
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            val msg = e.message.orEmpty()
+            val code = (e as? FirebaseFunctionsException)?.code
+            when {
+                msg.startsWith("phone-already-registered-as:") -> {
+                    val existingRole = msg.substringAfter(":").lowercase()
+                    _otpState.value = _otpState.value.copy(
+                        isLoading = false,
+                        otpSent = false,
+                        error = "phone-already-registered-as:$existingRole",
+                        message = "This number is already registered as a $existingRole. Please log in as a $existingRole."
+                    )
+                    return true
+                }
+                code == FirebaseFunctionsException.Code.RESOURCE_EXHAUSTED -> {
+                    _otpState.value = _otpState.value.copy(isLoading = false, otpSent = false, error = msg)
+                    return true
+                }
+                else -> {
+                    // Not deployed yet, App Check, network: SMS still works.
+                    Timber.w(e, "WhatsApp OTP unavailable; using SMS")
+                    errorHandler.logEvent("whatsapp_otp_unavailable", true)
+                    return false
+                }
+            }
+        }
+        if (response == null) return false
+
+        val sent = response["sent"] == true
+        val waitSeconds = (response["retryAfterSec"] as? Number)?.toInt()
+        if (!sent && (response["channel"] != "whatsapp" || waitSeconds == null)) return false
+
+        whatsappPhone = phoneNumber
+        storedVerificationId = null
+        errorHandler.logEvent(if (sent) "whatsapp_otp_sent" else "whatsapp_otp_wait", true)
+        warmUpFirestore()
+        _otpState.value = _otpState.value.copy(
+            isLoading = false,
+            otpSent = true,
+            channel = OtpChannel.WHATSAPP,
+            message = "Code sent on WhatsApp to $phoneNumber"
+        )
+        startResendCooldown(if (sent) SMS_FALLBACK_AFTER_SECONDS else maxOf(1, waitSeconds ?: SMS_FALLBACK_AFTER_SECONDS))
+        return true
+    }
+
+    private suspend fun verifyWhatsappCode(otp: String) {
+        val phone = whatsappPhone
+        if (phone == null) {
+            _otpState.value = _otpState.value.copy(isLoading = false, error = "Please request a new code.")
+            return
+        }
+        try {
+            val data = functions.getHttpsCallable("verifyWhatsappOtp")
+                .call(mapOf("phone" to phone, "code" to otp))
+                .await().data.asStringMap()
+            val token = data?.get("token") as? String ?: error("No sign-in token")
+            val result = auth.signInWithCustomToken(token).await()
+            errorHandler.logEvent("whatsapp_otp_verified", true)
+            onFirebaseSignedIn(result.user)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Timber.w(e, "WhatsApp code verification failed")
+            errorHandler.logEvent("whatsapp_otp_verify_failed", e.message ?: "unknown")
+            val message = (e as? FirebaseFunctionsException)?.message
+                ?: "Verification failed. Please try again."
+            _otpState.value = _otpState.value.copy(isLoading = false, error = message)
+        }
+    }
+
+    /**
+     * Truecaller one-tap: the server exchanges the authorization code for the verified number,
+     * name and email, and returns a sign-in token only when [mode] ("login" / "register") is
+     * allowed for this number and the current role.
+     */
+    suspend fun truecallerExchange(authorizationCode: String, codeVerifier: String, mode: String): Result<TruecallerSignInResult> =
+        runCatching {
+            val data = functions.getHttpsCallable("truecallerSignIn")
+                .call(
+                    mapOf(
+                        "authorizationCode" to authorizationCode,
+                        "codeVerifier" to codeVerifier,
+                        "role" to pendingRole.name,
+                        "mode" to mode
+                    )
+                ).await().data.asStringMap() ?: error("Empty response")
+            TruecallerSignInResult(
+                allowed = data["allowed"] == true,
+                phone = data["phone"] as? String ?: "",
+                name = data["name"] as? String ?: "",
+                email = data["email"] as? String ?: "",
+                existingRole = (data["existingRole"] as? String)?.uppercase(),
+                token = data["token"] as? String
+            )
+        }.onFailure {
+            Timber.w(it, "Truecaller sign-in failed")
+            errorHandler.logEvent("truecaller_signin_failed", it.message ?: "unknown")
+        }
+
+    /** Signs in with the token from [truecallerExchange]; the screen then resolves login / sign-up as after OTP. */
+    fun signInWithTruecaller(result: TruecallerSignInResult) {
+        val token = result.token ?: return
+        viewModelScope.launch {
+            _otpState.value = _otpState.value.copy(isLoading = true, error = null)
+            try {
+                whatsappPhone = result.phone
+                val signedIn = auth.signInWithCustomToken(token).await()
+                errorHandler.logEvent("truecaller_signin_ok", true)
+                onFirebaseSignedIn(signedIn.user)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Timber.w(e, "Truecaller custom-token sign-in failed")
+                _otpState.value = _otpState.value.copy(isLoading = false, error = "Truecaller sign-in failed. Please use OTP.")
             }
         }
     }
@@ -491,6 +668,11 @@ class OtpViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            // From WhatsApp, "resend" is the SMS backup ("Didn't get it? Get code by SMS").
+            if (_otpState.value.channel == OtpChannel.WHATSAPP) {
+                _otpState.value = _otpState.value.copy(channel = OtpChannel.SMS)
+                errorHandler.logEvent("whatsapp_otp_sms_fallback", true)
+            }
             _otpState.value = _otpState.value.copy(isLoading = true, error = null)
 
             // Track OTP resend attempt for crash investigation
@@ -639,9 +821,10 @@ class OtpViewModel @Inject constructor(
      * Start 60-second cooldown timer for resend button
      * Prevents spam and reduces Firebase rate limiting
      */
-    private fun startResendCooldown() {
-        viewModelScope.launch {
-            _resendCooldownSeconds.value = 60
+    private fun startResendCooldown(seconds: Int = 60) {
+        cooldownJob?.cancel()
+        cooldownJob = viewModelScope.launch {
+            _resendCooldownSeconds.value = seconds
             while (_resendCooldownSeconds.value > 0) {
                 kotlinx.coroutines.delay(1000)
                 _resendCooldownSeconds.value -= 1
@@ -718,6 +901,7 @@ class OtpViewModel @Inject constructor(
         _otpState.value = OtpState()
         storedVerificationId = null
         resendToken = null
+        whatsappPhone = null
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -774,5 +958,6 @@ data class OtpState(
     // SMS Auto-Retriever state
     val smsRetrieverActive: Boolean = false,      // true while listening for SMS
     val autoRetrievedOtp: String? = null,          // non-null once auto-filled
-    val isAutoVerifying: Boolean = false           // true while auto-sign-in is in progress
+    val isAutoVerifying: Boolean = false,          // true while auto-sign-in is in progress
+    val channel: OtpChannel = OtpChannel.SMS       // where the current code was sent
 )

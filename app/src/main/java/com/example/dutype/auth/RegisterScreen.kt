@@ -141,6 +141,9 @@ private fun RegisterContent(
     var otpValue by remember { mutableStateOf("") }
     var isCheckingPhone by remember { mutableStateOf(false) }
     var showLanguageBottomSheet by remember { mutableStateOf(false) }
+    var truecallerBusy by remember { mutableStateOf(false) }
+    /** Email shared through Truecaller sign-up (kept locally; the server saves it on the profile). */
+    var truecallerEmail by remember { mutableStateOf("") }
 
     val selectedCountryCode = "+91"
     val context = LocalContext.current
@@ -174,7 +177,7 @@ private fun RegisterContent(
                     if (registrationResult.isSuccess) {
                         val resolvedName = fullName.trim()
                         profileCompletionViewModel.saveUserInfoToLocalStorage(
-                            email = "",
+                            email = truecallerEmail,
                             name = resolvedName,
                             role = role
                         )
@@ -409,6 +412,51 @@ private fun RegisterContent(
                     }
                 },
                 role = role
+            )
+
+            // Truecaller one-tap sign-up: verified number + name (+ email) without an SMS.
+            TruecallerLoginButton(
+                busy = truecallerBusy || otpState.isLoading || isCheckingPhone,
+                onAuthorized = { code, verifier ->
+                    truecallerBusy = true
+                    scope.launch {
+                        otpViewModel.truecallerExchange(code, verifier, mode = "register").fold(
+                            onSuccess = { tc ->
+                                truecallerBusy = false
+                                phoneNumber = tc.phone.removePrefix("+91")
+                                if (fullName.isBlank()) fullName = tc.name
+                                when {
+                                    tc.existingRole != null -> {
+                                        val label = context.getString(
+                                            if (tc.existingRole == "EMPLOYER") R.string.employer else R.string.worker
+                                        )
+                                        Toast.makeText(
+                                            context, context.getString(R.string.auth_phone_registered_as_role, label, label), Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                    fullName.trim().length < 2 -> Toast.makeText(
+                                        context, context.getString(R.string.auth_enter_name_first), Toast.LENGTH_LONG
+                                    ).show()
+                                    tc.allowed -> {
+                                        truecallerEmail = tc.email
+                                        profileCompletionViewModel.saveAuthMethod("TRUECALLER")
+                                        profileCompletionViewModel.savePhoneNumber(tc.phone)
+                                        profileCompletionViewModel.saveUserInfoToLocalStorage(email = tc.email, name = fullName.trim(), role = role)
+                                        otpViewModel.signInWithTruecaller(tc)
+                                    }
+                                    else -> Toast.makeText(context, context.getString(R.string.auth_truecaller_failed), Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            onFailure = {
+                                truecallerBusy = false
+                                Toast.makeText(context, context.getString(R.string.auth_truecaller_failed), Toast.LENGTH_LONG).show()
+                            }
+                        )
+                    }
+                },
+                onFailed = {
+                    Toast.makeText(context, context.getString(R.string.auth_truecaller_failed), Toast.LENGTH_LONG).show()
+                }
             )
 
             Spacer(modifier = Modifier.height(36.dp))
@@ -1201,6 +1249,27 @@ private fun RegisterOtpSection(
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_whatsapp),
+                    contentDescription = null,
+                    tint = Color(0xFF25D366).fg(),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.auth_code_sent_whatsapp),
+                    style = MaterialTheme.typography.bodyMedium.copy(color = Ink600.fg(), fontSize = 14.sp)
+                )
+            }
+        }
+
         AuthOtpBoxes(otpValue = otpValue, onOtpChange = onOtpChange, digitCount = 6)
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -1214,7 +1283,10 @@ private fun RegisterOtpSection(
                 val minutes = resendCooldownSeconds / 60
                 val seconds = resendCooldownSeconds % 60
                 Text(
-                    text = stringResource(R.string.auth_resend_otp_in, minutes, seconds),
+                    text = stringResource(
+                        if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) R.string.auth_get_sms_in else R.string.auth_resend_otp_in,
+                        minutes, seconds
+                    ),
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = Ink600.fg(),
                         fontSize = 14.sp
@@ -1226,7 +1298,9 @@ private fun RegisterOtpSection(
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
                 ) {
                     Text(
-                        text = stringResource(R.string.auth_resend_otp),
+                        text = stringResource(
+                            if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) R.string.auth_get_sms_instead else R.string.auth_resend_otp
+                        ),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,

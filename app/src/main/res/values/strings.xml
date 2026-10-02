@@ -2701,4 +2701,12 @@
     <string name="urgent_job_title_label">Job title</string>
     <string name="urgent_job_title_hint">e.g. 2 loaders for godown work</string>
     <string name="urgent_pick_work_type">Or tap a work type</string>
+    <string name="auth_code_sent_whatsapp">We sent the code on WhatsApp. Open WhatsApp to see it.</string>
+    <string name="auth_get_sms_instead">Didn\'t get it? Get code by SMS</string>
+    <string name="auth_get_sms_in">Get code by SMS in %1$d:%2$02d</string>
+    <string name="auth_continue_with_truecaller">Continue with Truecaller</string>
+    <string name="auth_or">or</string>
+    <string name="auth_truecaller_failed">Truecaller verification did not work. Please use OTP.</string>
+    <string name="auth_enter_name_first">Please enter your name first.</string>
+    <string name="auth_get_sms_short">Get SMS</string>
 </resources>

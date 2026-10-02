@@ -22,6 +22,8 @@ export const WorkerProfiles = {
   COLLECTION: "worker_profiles",
   NAME: "name",
   PHONE: "phone",
+  /** Optional; filled from Truecaller when the user shares it. */
+  EMAIL: "email",
   PHOTO_URL: "photoUrl",
   GENDER: "gender",
   DATE_OF_BIRTH: "dateOfBirth",
@@ -79,6 +81,8 @@ export const EmployerProfiles = {
   BUSINESS_TYPE: "businessType",
   GSTIN: "gstin",
   PHONE: "phone",
+  /** Optional; filled from Truecaller when the user shares it. */
+  EMAIL: "email",
   PHOTO_URL: "photoUrl",
   ADDRESS: "address",
   AREA: "area",
@@ -376,6 +380,36 @@ export const LocationDemand = {
   LNG: "lng",
   CATEGORY: "category",
   CREATED_AT: "createdAt",
+} as const;
+
+/** otp_codes/{+91…} — WhatsApp login codes (server only; hashed; TTL on expireAt). */
+export const OtpCodes = {
+  COLLECTION: "otp_codes",
+  HASH: "hash",
+  EXPIRES_AT: "expiresAt",
+  ATTEMPTS: "attempts",
+  LAST_SENT_AT: "lastSentAt",
+  HOUR_START: "hourStart",
+  HOUR_COUNT: "hourCount",
+  DAY_KEY: "dayKey",
+  DAY_COUNT: "dayCount",
+  EXPIRE_AT: "expireAt",
+} as const;
+
+/** otp_daily/{YYYY-MM-DD} — WhatsApp codes sent per day across all users (spend cap). */
+export const OtpDaily = {
+  COLLECTION: "otp_daily",
+  COUNT: "count",
+  EXPIRE_AT: "expireAt",
+} as const;
+
+/** truecaller_profiles/{uid} — what the user shared through Truecaller (server only). */
+export const TruecallerProfiles = {
+  COLLECTION: "truecaller_profiles",
+  PHONE: "phone",
+  NAME: "name",
+  EMAIL: "email",
+  UPDATED_AT: "updatedAt",
 } as const;
 
 export const Idempotency = {

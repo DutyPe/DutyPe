@@ -76,6 +76,11 @@
         android:enableOnBackInvokedCallback="true"
         tools:targetApi="31">
         
+        <!-- Truecaller one-tap login: client ID from res/values/truecaller.xml (empty = off) -->
+        <meta-data
+            android:name="com.truecaller.android.sdk.ClientId"
+            android:value="@string/truecaller_client_id" />
+
         <!-- Google Play Services version metadata (required for Google Sign-In) -->
         <meta-data
             android:name="com.google.android.gms.version"
@@ -241,6 +246,12 @@
                 android:name="com.google.firebase.components:com.example.dutype.di.FirebaseIidRegistrar"
                 android:value="com.google.firebase.components.ComponentRegistrar" />
         </service>
-    </application>
+            <!-- Truecaller one-tap login: hosts the SDK consent sheet, transparent, closes itself -->
+        <activity
+            android:name="com.example.dutype.auth.TruecallerActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+</application>
 
 </manifest>

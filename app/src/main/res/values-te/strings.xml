@@ -2654,4 +2654,12 @@
     <string name="urgent_job_title_label">పని పేరు</string>
     <string name="urgent_job_title_hint">ఉదా: గోడౌన్ పనికి 2 లోడర్లు</string>
     <string name="urgent_pick_work_type">లేదా పని రకాన్ని ఎంచుకోండి</string>
+    <string name="auth_code_sent_whatsapp">మేము కోడ్‌ను WhatsAppలో పంపాము. చూడటానికి WhatsApp తెరవండి.</string>
+    <string name="auth_get_sms_instead">రాలేదా? SMS ద్వారా కోడ్ పొందండి</string>
+    <string name="auth_get_sms_in">%1$d:%2$02d తర్వాత SMS ద్వారా కోడ్ పొందండి</string>
+    <string name="auth_continue_with_truecaller">Truecallerతో కొనసాగండి</string>
+    <string name="auth_or">లేదా</string>
+    <string name="auth_truecaller_failed">Truecaller ధృవీకరణ పని చేయలేదు. దయచేసి OTP ఉపయోగించండి.</string>
+    <string name="auth_enter_name_first">దయచేసి ముందుగా మీ పేరు నమోదు చేయండి.</string>
+    <string name="auth_get_sms_short">SMS పొందండి</string>
 </resources>

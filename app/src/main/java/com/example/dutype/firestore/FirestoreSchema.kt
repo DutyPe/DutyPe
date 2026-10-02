@@ -46,6 +46,7 @@ object FirestoreSchema {
         const val COLLECTION = "worker_profiles"
         const val NAME = "name"
         const val PHONE = "phone"
+        const val EMAIL = "email"                 // optional, from Truecaller (server-written)
         const val PHOTO_URL = "photoUrl"
         const val GENDER = "gender"
         const val DATE_OF_BIRTH = "dateOfBirth"
@@ -111,6 +112,7 @@ object FirestoreSchema {
         const val BUSINESS_TYPE = "businessType"      // COMPANY only: shop | hotel | pg | office | warehouse | factory | other
         const val GSTIN = "gstin"                     // COMPANY only, optional
         const val PHONE = "phone"
+        const val EMAIL = "email"                 // optional, from Truecaller (server-written)
         const val PHOTO_URL = "photoUrl"
         const val ADDRESS = "address"
         const val AREA = "area"

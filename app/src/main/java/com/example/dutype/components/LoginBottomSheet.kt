@@ -1222,6 +1222,15 @@ private fun OtpInputContent(
         Spacer(modifier = Modifier.height(12.dp))
 
         // OTP Input boxes
+        if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) {
+            Text(
+                text = androidx.compose.ui.res.stringResource(com.dutype.app.R.string.auth_code_sent_whatsapp),
+                style = AppTypography.bodySmall.copy(color = WorkerColors.TextSecondary),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 10.dp)
+            )
+        }
         OtpInputBoxes(
             otpValue = otpValue,
             onOtpChange = { if (it.all { c -> c.isDigit() } && it.length <= 6) onOtpChange(it) },
@@ -1280,9 +1289,11 @@ private fun OtpInputContent(
                     }
                 }
 
-                // Resend hint text
+                // Resend hint text (from WhatsApp, resend is the SMS backup)
                 Text(
-                    text = if (isTelugu) "OTP మళ్లీ పంపండి" else "Resend OTP",
+                    text = if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) {
+                        androidx.compose.ui.res.stringResource(com.dutype.app.R.string.auth_get_sms_short)
+                    } else if (isTelugu) "OTP మళ్లీ పంపండి" else "Resend OTP",
                     style = AppTypography.labelSmall.copy(
                         color = if (timerActive && remainingSeconds > 0) WorkerColors.TextDisabled else WorkerColors.TextSecondary
                     )
