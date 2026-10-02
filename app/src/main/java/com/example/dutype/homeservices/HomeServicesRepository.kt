@@ -204,6 +204,17 @@ class HomeServicesRepository @Inject constructor(
         return catalog
     }
 
+    private val areaCache = mutableMapOf<String, Boolean>()
+
+    /** Is this point inside the DutyPe Services area (Khammam district at launch)? Cached per ~1 km. */
+    suspend fun isInServiceArea(lat: Double, lng: Double): Boolean {
+        val key = "%.2f,%.2f".format(java.util.Locale.US, lat, lng)
+        areaCache[key]?.let { return it }
+        val inArea = call("getServiceCatalog", mapOf("lat" to lat, "lng" to lng))["inArea"] == true
+        areaCache[key] = inArea
+        return inArea
+    }
+
     // ─────────────────────────── customer ───────────────────────────
 
     /** Returns the new booking id. [scheduledAt] null = "now". */
@@ -334,10 +345,13 @@ class HomeServicesRepository @Inject constructor(
         awaitClose { reg.remove() }
     }
 
-    suspend fun apply(categories: List<String>, experienceYears: Int, area: String, note: String) {
+    suspend fun apply(categories: List<String>, experienceYears: Int, area: String, note: String, lat: Double, lng: Double) {
         call(
             "applyServicePartner",
-            mapOf("categories" to categories, "experienceYears" to experienceYears, "area" to area, "note" to note)
+            mapOf(
+                "categories" to categories, "experienceYears" to experienceYears, "area" to area, "note" to note,
+                "lat" to lat, "lng" to lng
+            )
         )
     }
 

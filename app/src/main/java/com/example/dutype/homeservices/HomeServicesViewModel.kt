@@ -85,8 +85,14 @@ class HomeServicesViewModel @Inject constructor(
 
     // ─────────────────────────── partner ───────────────────────────
 
-    suspend fun apply(categories: List<String>, experienceYears: Int, area: String, note: String): Result<Unit> =
-        runCatching { repo.apply(categories, experienceYears, area, note) }.mapError()
+    /** Applying sends where the worker is: partners must be inside the service district. */
+    suspend fun apply(categories: List<String>, experienceYears: Int, area: String, note: String): Result<Unit> = runCatching {
+        val place = currentPlace() ?: error("Turn on location to apply")
+        repo.apply(categories, experienceYears, area, note, place.lat, place.lng)
+    }.mapError()
+
+    suspend fun inServiceArea(lat: Double, lng: Double): Boolean =
+        runCatching { repo.isInServiceArea(lat, lng) }.getOrDefault(false)
 
     /** Going online sends the current location (offers come for jobs near it). */
     suspend fun setOnline(online: Boolean): Result<Unit> = runCatching {

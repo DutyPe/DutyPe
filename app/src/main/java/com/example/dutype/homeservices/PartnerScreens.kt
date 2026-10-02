@@ -92,6 +92,25 @@ private fun openMaps(context: Context, lat: Double, lng: Double) {
         .onFailure { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng"))) } }
 }
 
+/**
+ * The partner card, only for workers whose current location is inside the DutyPe Services area
+ * (Khammam district at launch). Nothing is shown elsewhere or while the check runs.
+ */
+@Composable
+fun PartnerEntryIfInArea(
+    lat: Double?,
+    lng: Double?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: HomeServicesViewModel = hiltViewModel()
+) {
+    var inArea by remember { mutableStateOf(false) }
+    LaunchedEffect(lat, lng) {
+        inArea = lat != null && lng != null && viewModel.inServiceArea(lat, lng)
+    }
+    if (inArea) PartnerEntryCard(onClick = onClick, modifier = modifier)
+}
+
 /** Card on the worker home that opens the partner dashboard. */
 @Composable
 fun PartnerEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) {

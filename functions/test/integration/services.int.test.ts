@@ -21,6 +21,8 @@ const adminCtx = { auth: { uid: "admin1", token: { admin: true } }, ...app };
 const HOME = { lat: 17.2473, lng: 80.1514 };
 const NEAR = { lat: 17.2653, lng: 80.1514 };
 const FAR = { lat: 17.3193, lng: 80.1514 };
+// Bhadradri Kothagudem district (next to Khammam): outside the service area.
+const KOTHAGUDEM = { lat: 17.55, lng: 80.62 };
 
 let offers: Array<{ token: string; bookingId: string }> = [];
 svc.offerSender.send = async (m: any) => {
@@ -61,6 +63,9 @@ describe("DutyPe Services (emulator)", () => {
   it("returns the catalog with the 5 categories and fees", async () => {
     const c = await call(svc.getServiceCatalog)({}, app);
     assert.equal(c.categories.length, 5);
+    assert.equal(c.inArea, undefined, "no location sent");
+    assert.equal((await call(svc.getServiceCatalog)({ ...HOME }, app)).inArea, true);
+    assert.equal((await call(svc.getServiceCatalog)({ ...KOTHAGUDEM }, app)).inArea, false);
     assert.equal(c.bookingFee, 19);
     assert.equal(c.commissionPct, 10);
     assert.ok(c.services.some((s: any) => s.id === "ac_service"));
@@ -159,6 +164,7 @@ describe("DutyPe Services (emulator)", () => {
     await assert.rejects(call(svc.createServiceBooking)({ serviceId: "ac_service", addressText: "xxxxx", ...HOME }, partnerCtx("w")),
       (e) => code(e) === "permission-denied");
     await assert.rejects(book("ac_service", { lat: 17.385, lng: 78.4867 }), (e) => code(e) === "failed-precondition", "Hyderabad is out of range");
+    await assert.rejects(book("ac_service", KOTHAGUDEM), (e) => code(e) === "failed-precondition", "next district is out of range");
     await assert.rejects(book("nope"), (e) => code(e) === "not-found");
     await book(); await book(); await book();
     await assert.rejects(book(), (e) => code(e) === "resource-exhausted");
@@ -181,7 +187,9 @@ describe("DutyPe Services (emulator)", () => {
 
   it("partner applies, admin approves, top-up is verified into credits", async () => {
     await db.doc("worker_profiles/w1").set({ name: "Ravi", phone: "+919000000003" });
-    await call(svc.applyServicePartner)({ categories: ["ac", "PLUMBER", "bogus"], experienceYears: 5 }, partnerCtx("w1"));
+    await assert.rejects(call(svc.applyServicePartner)({ categories: ["AC"], ...KOTHAGUDEM }, partnerCtx("w1")),
+      (e) => code(e) === "failed-precondition", "partners must be in Khammam district");
+    await call(svc.applyServicePartner)({ categories: ["ac", "PLUMBER", "bogus"], experienceYears: 5, ...NEAR }, partnerCtx("w1"));
     let p = await db.doc("service_partners/w1").get();
     assert.equal(p.get("status"), "PENDING");
     assert.deepEqual(p.get("categories"), ["AC", "PLUMBER"]);
@@ -189,6 +197,8 @@ describe("DutyPe Services (emulator)", () => {
     await assert.rejects(call(svc.reviewServicePartner)({ partnerId: "w1", action: "approve" }, partnerCtx("w1")),
       (e) => code(e) === "permission-denied");
     await call(svc.reviewServicePartner)({ partnerId: "w1", action: "approve" }, adminCtx);
+    await assert.rejects(call(svc.setPartnerOnline)({ online: true, ...KOTHAGUDEM }, partnerCtx("w1")),
+      (e) => code(e) === "failed-precondition", "cannot go online outside the district");
     await call(svc.setPartnerOnline)({ online: true, ...NEAR }, partnerCtx("w1"));
     p = await db.doc("service_partners/w1").get();
     assert.equal(p.get("status"), "APPROVED");

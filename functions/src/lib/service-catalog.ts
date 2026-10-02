@@ -46,8 +46,10 @@ export interface ServicesConfig {
   upiName: string;
   /** Smallest top-up, rupees. */
   minTopup: number;
-  /** City shown in the app; bookings are accepted only this far (km) from its centre. */
+  /** Area name shown in the app. */
   city: string;
+  /** LGD district ids where DutyPe Services runs (lib/places.ts). Khammam = 509. */
+  districtIds: number[];
   cityLat: number;
   cityLng: number;
   serviceRadiusKm: number;
@@ -135,6 +137,7 @@ export const DEFAULT_CONFIG: ServicesConfig = {
   upiName: "DutyPe",
   minTopup: 200,
   city: "Khammam",
+  districtIds: [509],
   cityLat: 17.2473,
   cityLng: 80.1514,
   serviceRadiusKm: 25,
@@ -186,6 +189,8 @@ export function mergeConfig(raw: unknown): ServicesConfig {
     upiName: str("upiName") || "DutyPe",
     minTopup: num("minTopup", 1, 100_000),
     city: str("city") || DEFAULT_CONFIG.city,
+    districtIds: Array.isArray(o.districtIds) && o.districtIds.length && o.districtIds.every((d) => Number.isInteger(d)) ?
+      (o.districtIds as number[]) : DEFAULT_CONFIG.districtIds,
     cityLat: num("cityLat", -90, 90),
     cityLng: num("cityLng", -180, 180),
     serviceRadiusKm: num("serviceRadiusKm", 1, 200),

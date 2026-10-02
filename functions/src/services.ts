@@ -30,6 +30,7 @@ import * as admin from "firebase-admin";
 import { onCallSecured } from "./secure-callable";
 import { fail, int, latLng, obj, str, stringList, text } from "./lib/input";
 import { distanceKm } from "./lib/geo";
+import { placeOf } from "./lib/places";
 import { notify } from "./lib/notify";
 import { normalizeLocale, tBody, tTitle } from "./notification-i18n";
 import { isCallerAdmin } from "./app-config";
@@ -94,7 +95,11 @@ export function clearConfigCache(): void {
 export const getServiceCatalog = onCallSecured({ requireAuth: false, enforceAppCheck: false, timeoutSeconds: 10 }, async (raw: unknown, context) => {
   const c = await loadConfig();
   // The admin panel also needs services that are switched off, to switch them back on.
-  const all = obj(raw).all === true && await isCallerAdmin(context);
+  const data = obj(raw);
+  const all = data.all === true && await isCallerAdmin(context);
+  const lat = Number(data.lat);
+  const lng = Number(data.lng);
+  const hasPoint = data.lat !== undefined && data.lng !== undefined && Number.isFinite(lat) && Number.isFinite(lng);
   return {
     city: c.city,
     bookingFee: c.bookingFee,
@@ -105,8 +110,27 @@ export const getServiceCatalog = onCallSecured({ requireAuth: false, enforceAppC
     minTopup: c.minTopup,
     categories: c.categories,
     services: all ? c.services : c.services.filter((x) => x.active !== false),
+    // Only when the app sent a location: is it inside the service area?
+    ...(hasPoint ? { inArea: inServiceArea(c, lat, lng) } : {}),
   };
 });
+
+// ─────────────────────────────── service area ───────────────────────────────
+
+/** True when the point is inside a district where DutyPe Services runs (Khammam district at launch). */
+export function inServiceArea(config: ServicesConfig, lat: number, lng: number): boolean {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  const place = placeOf(lat, lng);
+  return !!place && config.districtIds.includes(place.districtId);
+}
+
+function requireServiceArea(config: ServicesConfig, lat: number, lng: number, who: "customer" | "partner"): void {
+  if (!inServiceArea(config, lat, lng)) {
+    fail("failed-precondition", who === "customer" ?
+      `DutyPe Services is available only in ${config.city} district for now` :
+      `DutyPe Services partners must be in ${config.city} district for now`);
+  }
+}
 
 // ─────────────────────────────── helpers ───────────────────────────────
 
@@ -197,6 +221,7 @@ async function sendOffer(partnerId: string, bookingId: string, b: admin.firestor
 export async function partnersInRing(
   category: string, lat: number, lng: number, fromKm: number, toKm: number, excluded: string[], needPaise: number, nowMs: number,
 ): Promise<Array<{ id: string; km: number }>> {
+  const config = await loadConfig();
   const snap = await db.collection(SP.COLLECTION)
     .where(SP.STATUS, "==", PartnerStatus.APPROVED)
     .where(SP.ONLINE, "==", true)
@@ -213,7 +238,7 @@ export async function partnersInRing(
     const pLng = Number(d.get(SP.LNG));
     if (!Number.isFinite(pLat) || !Number.isFinite(pLng)) continue;
     const km = distanceKm(lat, lng, pLat, pLng);
-    if (km > fromKm && km <= toKm) out.push({ id: d.id, km });
+    if (km > fromKm && km <= toKm && inServiceArea(config, pLat, pLng)) out.push({ id: d.id, km });
   }
   return out;
 }
@@ -303,9 +328,7 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30 }, async 
   const service = findService(config, str(data, "serviceId", { max: 60 }));
   if (!service) fail("not-found", "This service is not available");
   const { lat, lng } = latLng(data);
-  if (distanceKm(lat, lng, config.cityLat, config.cityLng) > config.serviceRadiusKm) {
-    fail("failed-precondition", `DutyPe Services is available only in ${config.city} for now`);
-  }
+  requireServiceArea(config, lat, lng, "customer");
   const addressText = text(data, "addressText", { min: 5, max: 300 });
   const area = str(data, "area", { max: 80, optional: true });
   const note = text(data, "note", { max: 300, optional: true });
@@ -443,6 +466,8 @@ export const applyServicePartner = onCallSecured({}, async (raw: unknown, contex
   const experienceYears = int(data, "experienceYears", { min: 0, max: 50, optional: true });
   const area = str(data, "area", { max: 80, optional: true });
   const note = text(data, "note", { max: 300, optional: true });
+  const { lat, lng } = latLng(data);
+  requireServiceArea(await loadConfig(), lat, lng, "partner");
   const worker = await db.collection(WorkerProfiles.COLLECTION).doc(uid).get();
   if (!worker.exists) fail("failed-precondition", "Complete your worker profile first");
   const ref = db.collection(SP.COLLECTION).doc(uid);
@@ -462,6 +487,8 @@ export const applyServicePartner = onCallSecured({}, async (raw: unknown, contex
       [SP.AREA]: area,
       [SP.NOTE]: note,
       [SP.ONLINE]: false,
+      [SP.LAT]: lat,
+      [SP.LNG]: lng,
       [SP.CREDITS_PAISE]: cur.exists ? Number(cur.get(SP.CREDITS_PAISE) || 0) : 0,
       [SP.RATING_SUM]: cur.exists ? Number(cur.get(SP.RATING_SUM) || 0) : 0,
       [SP.RATING_COUNT]: cur.exists ? Number(cur.get(SP.RATING_COUNT) || 0) : 0,
@@ -484,6 +511,7 @@ export const setPartnerOnline = onCallSecured({}, async (raw: unknown, context) 
   const update: Record<string, unknown> = { [SP.ONLINE]: online, [SP.UPDATED_AT]: Timestamp.now() };
   if (online || data.lat !== undefined) {
     const { lat, lng } = latLng(data);
+    if (online) requireServiceArea(await loadConfig(), lat, lng, "partner");
     Object.assign(update, { [SP.LAT]: lat, [SP.LNG]: lng, [SP.LAST_SEEN_AT]: Timestamp.now() });
   }
   await ref.update(update);

@@ -626,9 +626,12 @@ fun HomeSectionsContent(
             item(key = "worker_home_header_item") {
                 headerContent()
             }
-            if (FirebaseAuth.getInstance().currentUser != null) {
+            // DutyPe Services runs in Khammam district only: the card shows only for workers there.
+            if (FirebaseAuth.getInstance().currentUser != null && currentLocation != null) {
                 item(key = "worker_home_partner_entry") {
-                    com.example.dutype.homeservices.PartnerEntryCard(
+                    com.example.dutype.homeservices.PartnerEntryIfInArea(
+                        lat = currentLocation.latitude,
+                        lng = currentLocation.longitude,
                         onClick = { rootNavController.navigate(com.example.dutype.navigation.Routes.PARTNER) },
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
