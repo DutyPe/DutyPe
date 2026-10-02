@@ -2838,4 +2838,11 @@
     <string name="referral_free_post_nudge_title">స్నేహితుడిని రిఫర్ చేయండి, ఈరోజు ఉచితంగా పోస్ట్ చేయండి</string>
     <string name="referral_free_post_nudge_body">DutyPeలో చేరే ప్రతి స్నేహితుడికి ఒక ఉచిత జాబ్ లేదా అర్జెంట్ పోస్ట్</string>
     <string name="referral_free_post_nudge_cta">రిఫర్</string>
+    <string name="dutype_ai_voice_hello_name">నమస్తే %1$s గారు, ఈరోజు మీకు ఎలా సహాయం చేయగలను?</string>
+    <string name="dutype_ai_voice_hello">నమస్తే, ఈరోజు మీకు ఎలా సహాయం చేయగలను?</string>
+    <string name="dutype_ai_done_service">బుకింగ్ తెరుస్తున్నాను. మీ చిరునామా, సమయం చూసి కన్ఫర్మ్ చేయండి.</string>
+    <string name="dutype_ai_chip_service">ఇంటికి AC సర్వీస్ బుక్ చేయి</string>
+    <string name="dutype_ai_card_service">ఇంటి సేవలు · ఫిక్స్‌డ్ ధర</string>
+    <string name="dutype_ai_chip_plan">నాకు ఎన్ని ఉచిత పోస్ట్‌లు ఉన్నాయి?</string>
+    <string name="dutype_ai_card_plan">ప్లాన్, క్రెడిట్స్ &amp; ఆఫర్లు</string>
 </resources>

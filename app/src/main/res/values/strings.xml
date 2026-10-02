@@ -2886,4 +2886,11 @@
     <string name="referral_free_post_nudge_title">Refer a friend, post free today</string>
     <string name="referral_free_post_nudge_body">Every friend who joins DutyPe gives you one free job or urgent post</string>
     <string name="referral_free_post_nudge_cta">Refer</string>
+    <string name="dutype_ai_voice_hello_name">Hello %1$s, how can I help you today?</string>
+    <string name="dutype_ai_voice_hello">Hello, how can I help you today?</string>
+    <string name="dutype_ai_done_service">Opening the booking. Check your address and time, then confirm.</string>
+    <string name="dutype_ai_chip_service">Book AC service at home</string>
+    <string name="dutype_ai_card_service">Home services · fixed price</string>
+    <string name="dutype_ai_chip_plan">How many free posts do I have?</string>
+    <string name="dutype_ai_card_plan">Plan, credits &amp; offers</string>
 </resources>

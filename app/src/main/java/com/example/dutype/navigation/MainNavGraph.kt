@@ -438,6 +438,7 @@ fun MainNavGraph(
             deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://ai?listen={listen}" })
         ) { backStackEntry ->
             com.example.dutype.employer.ai.DutyPeAiScreen(
+                rootNavController = navController,
                 navController = navController,
                 startListening = backStackEntry.arguments?.getBoolean("listen") == true
             )

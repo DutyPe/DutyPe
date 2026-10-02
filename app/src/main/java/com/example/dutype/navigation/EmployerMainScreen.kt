@@ -232,6 +232,7 @@ fun EmployerMainScreen(
                     ) { backStackEntry ->
                         com.example.dutype.employer.ai.DutyPeAiScreen(
                             navController = navController,
+                            rootNavController = rootNavController,
                             startListening = backStackEntry.arguments?.getBoolean("listen") == true
                         )
                     }

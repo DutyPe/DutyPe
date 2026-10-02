@@ -64,6 +64,28 @@ describe("DutyPe AI (emulator)", () => {
     assert.equal(f.stats.waiting, 2);
     assert.deepEqual(f.stats.hiredNames, ["Lakshmi"]);
     assert.ok(!f.applicants.some((a) => a.name === "Stranger"));
+    assert.equal(f.firstName, "Sita");
+    assert.equal(f.plan.active, true);
+    assert.equal(f.plan.freeJobPostsLeftToday, 3);
+    assert.equal(f.plan.freeUrgentPostsLeft, 3);
+    assert.equal(f.plan.referralFreePosts, 0);
+    assert.ok(f.homeServices.catalog.some((x) => x.id === "ac_service"));
+    assert.deepEqual(f.homeServices.bookings, []);
+  });
+
+  it("knows home-service bookings and can propose booking one", async () => {
+    await seed("ai");
+    await db.doc("service_bookings/bk1").set({
+      customerId: "emp1", serviceName: "AC service", status: "ON_THE_WAY", total: 449, partnerName: "Kiran", createdAt: T.now(),
+    });
+    await db.doc("service_bookings/bk2").set({ customerId: "emp2", serviceName: "Tap repair", status: "SEARCHING", createdAt: T.now() });
+    const f = await dutypeAi.employerFacts("emp1");
+    assert.deepEqual(f.homeServices.bookings.map((b) => b.id), ["bk1"]);
+    assert.equal(dutypeAi.validateAction({ type: "book_service", args: { serviceId: "ac_service" } }, f)?.args.serviceId, "ac_service");
+    assert.equal(dutypeAi.validateAction({ type: "book_service", args: { serviceId: "nope" } }, f), null);
+    assert.equal(dutypeAi.validateAction({ type: "open_service_booking", args: { bookingId: "bk2" } }, f), null, "not their booking");
+    assert.match(dutypeAi.quickAnswer("what about my AC service booking?", f, "en")!, /AC service.*on the way.*Kiran/);
+    assert.match(dutypeAi.quickAnswer("how many free posts do I have?", f, "en")!, /3 more jobs free today/);
   });
 
   it("answers from the data and proposes a validated action", async () => {

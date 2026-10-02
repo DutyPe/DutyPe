@@ -2836,4 +2836,11 @@
     <string name="referral_free_post_nudge_title">दोस्त को रेफ़र करें, आज मुफ़्त पोस्ट करें</string>
     <string name="referral_free_post_nudge_body">DutyPe से जुड़ने वाले हर दोस्त पर एक मुफ़्त जॉब या अर्जेंट पोस्ट</string>
     <string name="referral_free_post_nudge_cta">रेफ़र</string>
+    <string name="dutype_ai_voice_hello_name">नमस्ते %1$s जी, आज मैं आपकी क्या मदद कर सकता हूँ?</string>
+    <string name="dutype_ai_voice_hello">नमस्ते, आज मैं आपकी क्या मदद कर सकता हूँ?</string>
+    <string name="dutype_ai_done_service">बुकिंग खोल रहा हूँ। अपना पता और समय देखकर कन्फ़र्म करें।</string>
+    <string name="dutype_ai_chip_service">घर पर AC सर्विस बुक करो</string>
+    <string name="dutype_ai_card_service">घरेलू सेवाएँ · तय दाम</string>
+    <string name="dutype_ai_chip_plan">मेरे पास कितनी मुफ़्त पोस्ट हैं?</string>
+    <string name="dutype_ai_card_plan">प्लान, क्रेडिट और ऑफ़र</string>
 </resources>

@@ -6,6 +6,8 @@ import com.example.dutype.ui.theme.fg
 import kotlinx.coroutines.tasks.await
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.material.icons.filled.HowToReg
+import androidx.compose.material.icons.filled.HomeRepairService
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Work
@@ -114,6 +116,8 @@ data class DutyPeAiUiState(
     val locked: String? = null,
     /** Set after a confirmed "open job": the screen navigates and clears it. */
     val openJobId: String? = null,
+    /** Set after a confirmed "book a home service" / "open booking": a root route to open. */
+    val openRoute: String? = null,
     val stats: AiStats? = null,
     /** Not signed in: the screen shows the log-in card instead of the chat. */
     val needsLogin: Boolean = false
@@ -207,6 +211,8 @@ class DutyPeAiViewModel @Inject constructor(
 
     fun openedJob() = _state.update { it.copy(openJobId = null) }
 
+    fun openedRoute() = _state.update { it.copy(openRoute = null) }
+
     /** The employer said yes: run the action through the normal secured calls. */
     fun confirm(speak: (String) -> Unit) {
         val action = _state.value.pending ?: return
@@ -291,6 +297,14 @@ class DutyPeAiViewModel @Inject constructor(
             _state.update { it.copy(openJobId = arg(a, "jobId")) }
             context.getString(R.string.dutype_ai_done_opening)
         }
+        "book_service" -> {
+            _state.update { it.copy(openRoute = com.example.dutype.navigation.Routes.servicesBookRoute(arg(a, "serviceId"))) }
+            context.getString(R.string.dutype_ai_done_service)
+        }
+        "open_service_booking" -> {
+            _state.update { it.copy(openRoute = com.example.dutype.navigation.Routes.servicesBookingRoute(arg(a, "bookingId"))) }
+            context.getString(R.string.dutype_ai_done_opening)
+        }
         else -> error(context.getString(R.string.dutype_ai_error))
     }
 }
@@ -331,7 +345,7 @@ private val AiGradient = Brush.linearGradient(listOf(Color(0xFF7C3AED), Color(0x
  * jobs. Replies are spoken in the app language; every action waits for the employer's "Yes".
  */
 @Composable
-fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false) {
+fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false, rootNavController: NavController? = null) {
     val context = LocalContext.current
     val viewModel: DutyPeAiViewModel = hiltViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -345,17 +359,35 @@ fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false
     val greeting = stringResource(R.string.dutype_ai_greeting)
 
     var tts by remember { mutableStateOf<TextToSpeech?>(null) }
+    var voiceOk by remember { mutableStateOf(false) }
     DisposableEffect(Unit) {
         var engine: TextToSpeech? = null
         engine = TextToSpeech(context.applicationContext) { status ->
             if (status == TextToSpeech.SUCCESS) {
-                engine?.language = Locale(lang, "IN")
-                tts = engine
+                // Telugu / Hindi voices are not on every phone: try xx-IN, then xx; else stay silent
+                // rather than reading Telugu text with an English voice.
+                engine?.let { e ->
+                    voiceOk = listOf(Locale(lang, "IN"), Locale(lang)).any { loc ->
+                        e.setLanguage(loc) >= TextToSpeech.LANG_AVAILABLE
+                    }
+                    tts = e
+                }
             }
         }
         onDispose { engine?.stop(); engine?.shutdown() }
     }
-    val speak: (String) -> Unit = { text -> if (!muted && text.isNotBlank()) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "dutype_ai") }
+    val speak: (String) -> Unit = { text -> if (!muted && voiceOk && text.isNotBlank()) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "dutype_ai") }
+    // Spoken welcome once per open, in the app language: "Hello Sita, how can I help you today?"
+    var spokeHello by rememberSaveable { mutableStateOf(false) }
+    val helloPlain = stringResource(R.string.dutype_ai_voice_hello)
+    LaunchedEffect(tts, startListening) {
+        if (tts == null || spokeHello || startListening) return@LaunchedEffect
+        spokeHello = true
+        // Give the profile a moment to load so the greeting can use the name.
+        kotlinx.coroutines.delay(300)
+        val first = viewModel.employer.value?.ownerName?.trim()?.substringBefore(' ').orEmpty()
+        speak(if (first.isNotBlank()) context.getString(R.string.dutype_ai_voice_hello_name, first) else helloPlain)
+    }
     LaunchedEffect(Unit) {
         viewModel.greet(greeting)
         DutyPeAiShortcut.register(context)
@@ -379,6 +411,12 @@ fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false
         if (startListening && !autoListened && !state.needsLogin) {
             autoListened = true
             startMic()
+        }
+    }
+    LaunchedEffect(state.openRoute) {
+        state.openRoute?.let { route ->
+            viewModel.openedRoute()
+            runCatching { (rootNavController ?: navController).navigate(route) }
         }
     }
     LaunchedEffect(state.openJobId) {
@@ -540,7 +578,9 @@ private fun Welcome(name: String, modifier: Modifier, onAsk: (String) -> Unit) {
         Triple(Icons.Filled.Work, stringResource(R.string.dutype_ai_chip_post), stringResource(R.string.dutype_ai_card_post)),
         Triple(Icons.Filled.Bolt, stringResource(R.string.dutype_ai_chip_urgent), stringResource(R.string.dutype_ai_card_urgent)),
         Triple(Icons.Filled.Groups, stringResource(R.string.dutype_ai_chip_applied), stringResource(R.string.dutype_ai_card_applied)),
-        Triple(Icons.Filled.HowToReg, stringResource(R.string.dutype_ai_chip_hired), stringResource(R.string.dutype_ai_card_hired))
+        Triple(Icons.Filled.HowToReg, stringResource(R.string.dutype_ai_chip_hired), stringResource(R.string.dutype_ai_card_hired)),
+        Triple(Icons.Filled.HomeRepairService, stringResource(R.string.dutype_ai_chip_service), stringResource(R.string.dutype_ai_card_service)),
+        Triple(Icons.Filled.CardGiftcard, stringResource(R.string.dutype_ai_chip_plan), stringResource(R.string.dutype_ai_card_plan))
     )
     LazyColumn(
         modifier = modifier.fillMaxWidth(),
