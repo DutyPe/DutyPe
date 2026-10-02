@@ -421,12 +421,12 @@ private fun RegisterContent(
                                     otpViewModel.sendOtp(fullPhoneNumber, context)
                                 }
                                 FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
+                                    Timber.w("Phone check returned UNKNOWN; proceeding with OTP registration for $fullPhoneNumber")
                                     isCheckingPhone = false
-                                    Toast.makeText(
-                                        context,
-                                        FirestoreUtils.unknownMessage(context, phoneCheck),
-                                        Toast.LENGTH_LONG
-                                    ).show()
+                                    profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
+                                    profileCompletionViewModel.savePhoneNumber(fullPhoneNumber)
+                                    profileCompletionViewModel.saveUserInfoToLocalStorage(email = "", name = fullName.trim(), role = role)
+                                    otpViewModel.sendOtp(fullPhoneNumber, context)
                                 }
                             }
                         } catch (e: Exception) {
@@ -787,15 +787,7 @@ private fun RegisterEntrySection(
                     onValueChange = { newValue ->
                         onPhoneNumberChange(newValue.filter { it.isDigit() }.take(10))
                     },
-                    modifier = Modifier
-                        .weight(1f)
-                        .onFocusChanged { focusState ->
-                            if (focusState.isFocused) {
-                                runCatching { autofill?.requestAutofillForNode(autofillNode) }
-                            } else {
-                                runCatching { autofill?.cancelAutofillForNode(autofillNode) }
-                            }
-                        },
+                    modifier = Modifier.weight(1f),
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodyLarge.copy(
                         fontSize = 16.sp,

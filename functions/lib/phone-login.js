@@ -103,7 +103,7 @@ async function sendOnWhatsapp(phone, code) {
         clearTimeout(timer);
     }
 }
-exports.sendWhatsappOtp = (0, secure_callable_1.onCallSecured)({ requireAuth: false, timeoutSeconds: 20, secrets: [exports.WHATSAPP_SECRET] }, async (raw) => {
+exports.sendWhatsappOtp = (0, secure_callable_1.onCallSecured)({ requireAuth: false, enforceAppCheck: false, timeoutSeconds: 20, secrets: [exports.WHATSAPP_SECRET] }, async (raw) => {
     const data = (0, input_1.obj)(raw);
     const phone = (0, phone_otp_1.indianE164)(data.phone);
     if (!phone)
@@ -162,7 +162,7 @@ exports.sendWhatsappOtp = (0, secure_callable_1.onCallSecured)({ requireAuth: fa
     }
     return { sent: true, channel: "whatsapp", expiresInSec: phone_otp_1.CODE_TTL_MS / 1000 };
 });
-exports.verifyWhatsappOtp = (0, secure_callable_1.onCallSecured)({ requireAuth: false, timeoutSeconds: 20 }, async (raw) => {
+exports.verifyWhatsappOtp = (0, secure_callable_1.onCallSecured)({ requireAuth: false, enforceAppCheck: false, timeoutSeconds: 20 }, async (raw) => {
     const data = (0, input_1.obj)(raw);
     const phone = (0, phone_otp_1.indianE164)(data.phone);
     if (!phone)
@@ -224,7 +224,7 @@ async function truecallerProfile(authorizationCode, codeVerifier) {
     }
     return (0, phone_otp_1.parseTruecallerUserInfo)(await infoRes.json());
 }
-exports.truecallerSignIn = (0, secure_callable_1.onCallSecured)({ requireAuth: false, timeoutSeconds: 20 }, async (raw) => {
+exports.truecallerSignIn = (0, secure_callable_1.onCallSecured)({ requireAuth: false, enforceAppCheck: false, timeoutSeconds: 20 }, async (raw) => {
     try {
         const data = (0, input_1.obj)(raw);
         const authorizationCode = (0, input_1.str)(data, "authorizationCode", { max: 2000 });

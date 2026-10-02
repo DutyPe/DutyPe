@@ -226,7 +226,7 @@ function templateReason(c, l) {
     };
     return parts[l].filter(Boolean).join(" · ");
 }
-exports.aiShortlist = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, memory: "512MB", secrets: [azure_1.AZURE_OPENAI_SECRET] }, async (raw, context) => {
+exports.aiShortlist = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, memory: "512MB", enforceAppCheck: false, secrets: [azure_1.AZURE_OPENAI_SECRET] }, async (raw, context) => {
     var _a, _b;
     const uid = context.auth.uid;
     const data = (0, input_1.obj)(raw);
@@ -429,7 +429,7 @@ function summaryOf(d, l) {
     const payText = d.payType === "NEGOTIABLE" ? per.NEGOTIABLE[l] : `₹${d.payAmount} ${per[d.payType][l]}`;
     return `${d.vacancies} × ${d.title || "?"} · ${payText}`;
 }
-exports.aiJobAssistant = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, secrets: [azure_1.AZURE_OPENAI_SECRET] }, async (raw, context) => {
+exports.aiJobAssistant = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, enforceAppCheck: false, secrets: [azure_1.AZURE_OPENAI_SECRET] }, async (raw, context) => {
     var _a;
     const uid = context.auth.uid;
     const data = (0, input_1.obj)(raw);

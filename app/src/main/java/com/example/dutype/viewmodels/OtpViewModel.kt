@@ -80,7 +80,7 @@ class OtpViewModel @Inject constructor(
         const val WHATSAPP_SEND_TIMEOUT_MS = 8_000L
 
         /** How long the user waits on WhatsApp before "Get code by SMS" is offered. */
-        const val SMS_FALLBACK_AFTER_SECONDS = 30
+        const val SMS_FALLBACK_AFTER_SECONDS = 60
 
         /**
          * Process-level scope for post-login housekeeping (FCM token registration etc.).

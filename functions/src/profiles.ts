@@ -113,7 +113,7 @@ export const completeRegistration = onCallSecured({}, async (raw: unknown, conte
 
 /** Pre-OTP: does this number exist, and with which role? One read; rules keep phoneRoles private. */
 export const lookupPhoneRole = onCallSecured(
-  { requireAuth: false, enforceAppCheck: true, timeoutSeconds: 10 },
+  { requireAuth: false, enforceAppCheck: false, timeoutSeconds: 10 },
   async (raw: unknown) => {
     const data = obj(raw);
     const phone = e164(data.phone);

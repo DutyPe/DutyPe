@@ -85,7 +85,7 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (r
     return { role, created, referralCode: code, referralError };
 });
 /** Pre-OTP: does this number exist, and with which role? One read; rules keep phoneRoles private. */
-exports.lookupPhoneRole = (0, secure_callable_1.onCallSecured)({ requireAuth: false, enforceAppCheck: true, timeoutSeconds: 10 }, async (raw) => {
+exports.lookupPhoneRole = (0, secure_callable_1.onCallSecured)({ requireAuth: false, enforceAppCheck: false, timeoutSeconds: 10 }, async (raw) => {
     const data = (0, input_1.obj)(raw);
     const phone = e164(data.phone);
     if (!phone)

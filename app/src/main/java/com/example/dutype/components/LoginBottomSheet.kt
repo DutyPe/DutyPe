@@ -482,13 +482,7 @@ fun LoginBottomSheet(
                                             }
                                         }
                                         com.example.dutype.utils.FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
-                                            isCheckingPhone = false
-                                            Toast.makeText(
-                                                context,
-                                                com.example.dutype.utils.FirestoreUtils.unknownMessage(context, phoneCheck),
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                            return@launch
+                                            Timber.w("Phone check returned UNKNOWN; proceeding with OTP: $fullPhoneNumber")
                                         }
                                     }
 

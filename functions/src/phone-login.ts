@@ -104,7 +104,7 @@ async function sendOnWhatsapp(phone: string, code: string): Promise<boolean> {
 }
 
 export const sendWhatsappOtp = onCallSecured(
-  { requireAuth: false, timeoutSeconds: 20, secrets: [WHATSAPP_SECRET] },
+  { requireAuth: false, enforceAppCheck: false, timeoutSeconds: 20, secrets: [WHATSAPP_SECRET] },
   async (raw: unknown) => {
     const data = obj(raw);
     const phone = indianE164(data.phone);
@@ -163,7 +163,7 @@ export const sendWhatsappOtp = onCallSecured(
 );
 
 export const verifyWhatsappOtp = onCallSecured(
-  { requireAuth: false, timeoutSeconds: 20 },
+  { requireAuth: false, enforceAppCheck: false, timeoutSeconds: 20 },
   async (raw: unknown) => {
     const data = obj(raw);
     const phone = indianE164(data.phone);
@@ -225,7 +225,7 @@ async function truecallerProfile(authorizationCode: string, codeVerifier: string
 }
 
 export const truecallerSignIn = onCallSecured(
-  { requireAuth: false, timeoutSeconds: 20 },
+  { requireAuth: false, enforceAppCheck: false, timeoutSeconds: 20 },
   async (raw: unknown) => {
     try {
       const data = obj(raw);

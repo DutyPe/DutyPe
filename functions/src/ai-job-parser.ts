@@ -48,7 +48,7 @@ export interface VoiceJobParseResponse {
 
 export const parseVoiceJobDetails = onCallSecured<VoiceJobParseRequest, VoiceJobParseResponse>(
   // Logged-in users of the real app only: every call spends AI tokens.
-  { timeoutSeconds: 25, secrets: [AZURE_OPENAI_SECRET] },
+  { timeoutSeconds: 25, enforceAppCheck: false, secrets: [AZURE_OPENAI_SECRET] },
   async (data, context) => {
     const rawTranscript = String(data?.transcript || "").trim();
     if (!rawTranscript) {

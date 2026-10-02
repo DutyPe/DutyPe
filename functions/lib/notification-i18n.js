@@ -114,6 +114,66 @@ exports.NOTIFICATION_TEMPLATES = {
         te: { title: "అత్యవసర పని రద్దయింది", body: "యజమాని {title}ను రద్దు చేశారు. మీరు ఇప్పుడు ఇతర పనులు తీసుకోవచ్చు." },
         hi: { title: "तुरंत काम रद्द हुआ", body: "नियोक्ता ने {title} रद्द कर दिया। अब आप दूसरे काम ले सकते हैं।" },
     },
+    SERVICE_OFFER: {
+        en: { title: "New job: {service}", body: "{area} · {km} km away · you earn ₹{earning}. Tap to accept." },
+        te: { title: "కొత్త పని: {service}", body: "{area} · {km} కి.మీ · మీకు ₹{earning}. అంగీకరించడానికి నొక్కండి." },
+        hi: { title: "नया काम: {service}", body: "{area} · {km} किमी · आपकी कमाई ₹{earning}। स्वीकार करने के लिए टैप करें।" },
+    },
+    SERVICE_ASSIGNED: {
+        en: { title: "{partner} is your DutyPe partner", body: "{service}: your partner accepted. Share your start code only when they arrive." },
+        te: { title: "{partner} మీ DutyPe పార్ట్‌నర్", body: "{service}: పార్ట్‌నర్ అంగీకరించారు. వారు వచ్చినప్పుడే స్టార్ట్ కోడ్ చెప్పండి." },
+        hi: { title: "{partner} आपके DutyPe पार्टनर हैं", body: "{service}: पार्टनर ने स्वीकार किया। उनके आने पर ही स्टार्ट कोड बताएं।" },
+    },
+    SERVICE_ON_THE_WAY: {
+        en: { title: "{partner} is on the way", body: "Your {service} partner is coming. Keep your start code ready." },
+        te: { title: "{partner} వస్తున్నారు", body: "మీ {service} పార్ట్‌నర్ వస్తున్నారు. స్టార్ట్ కోడ్ సిద్ధంగా ఉంచండి." },
+        hi: { title: "{partner} रास्ते में हैं", body: "आपके {service} पार्टनर आ रहे हैं। स्टार्ट कोड तैयार रखें।" },
+    },
+    SERVICE_STARTED: {
+        en: { title: "Work started", body: "{partner} started your {service}." },
+        te: { title: "పని మొదలైంది", body: "{partner} మీ {service} మొదలుపెట్టారు." },
+        hi: { title: "काम शुरू हुआ", body: "{partner} ने आपका {service} शुरू किया।" },
+    },
+    SERVICE_COMPLETED: {
+        en: { title: "Job done! Pay ₹{total} to your partner", body: "{service} is complete. Pay {partner} by cash or UPI and rate the work." },
+        te: { title: "పని పూర్తయింది! పార్ట్‌నర్‌కు ₹{total} చెల్లించండి", body: "{service} పూర్తయింది. {partner}కు నగదు లేదా UPIతో చెల్లించి రేటింగ్ ఇవ్వండి." },
+        hi: { title: "काम पूरा! पार्टनर को ₹{total} दें", body: "{service} पूरा हुआ। {partner} को नकद या UPI से भुगतान करें और रेटिंग दें।" },
+    },
+    SERVICE_PARTNER_CANCELLED: {
+        en: { title: "Finding you another partner", body: "Your partner could not come for {service}. We are finding another one now." },
+        te: { title: "మరో పార్ట్‌నర్‌ను వెతుకుతున్నాం", body: "{service}కు మీ పార్ట్‌నర్ రాలేకపోయారు. ఇప్పుడు మరొకరిని వెతుకుతున్నాం." },
+        hi: { title: "आपके लिए दूसरा पार्टनर ढूंढ रहे हैं", body: "{service} के लिए आपके पार्टनर नहीं आ सके। हम दूसरा पार्टनर ढूंढ रहे हैं।" },
+    },
+    SERVICE_NO_PARTNER: {
+        en: { title: "No partner available right now", body: "Sorry, no partner could take {service}. Please book again or choose a later time." },
+        te: { title: "ఇప్పుడు పార్ట్‌నర్ అందుబాటులో లేరు", body: "క్షమించండి, {service}కు పార్ట్‌నర్ దొరకలేదు. మళ్లీ బుక్ చేయండి లేదా తర్వాతి సమయం ఎంచుకోండి." },
+        hi: { title: "अभी कोई पार्टनर उपलब्ध नहीं", body: "माफ़ कीजिए, {service} के लिए पार्टनर नहीं मिला। फिर से बुक करें या बाद का समय चुनें।" },
+    },
+    SERVICE_CANCELLED_BY_CUSTOMER: {
+        en: { title: "Booking cancelled", body: "The customer cancelled {service}. You can take new jobs now." },
+        te: { title: "బుకింగ్ రద్దయింది", body: "కస్టమర్ {service}ను రద్దు చేశారు. మీరు ఇప్పుడు కొత్త పనులు తీసుకోవచ్చు." },
+        hi: { title: "बुकिंग रद्द", body: "ग्राहक ने {service} रद्द किया। अब आप नए काम ले सकते हैं।" },
+    },
+    PARTNER_APPROVED: {
+        en: { title: "You are a DutyPe partner now!", body: "Add credits and go Online to start getting home service jobs." },
+        te: { title: "మీరు ఇప్పుడు DutyPe పార్ట్‌నర్!", body: "క్రెడిట్స్ జోడించి ఆన్‌లైన్‌కి వెళ్లండి, ఇంటి సర్వీస్ పనులు రావడం మొదలవుతుంది." },
+        hi: { title: "अब आप DutyPe पार्टनर हैं!", body: "क्रेडिट जोड़ें और ऑनलाइन जाएं, घर की सर्विस के काम मिलने लगेंगे।" },
+    },
+    PARTNER_REJECTED: {
+        en: { title: "Partner application update", body: "Your partner application was not approved. {reason}" },
+        te: { title: "పార్ట్‌నర్ దరఖాస్తు అప్‌డేట్", body: "మీ పార్ట్‌నర్ దరఖాస్తు ఆమోదం పొందలేదు. {reason}" },
+        hi: { title: "पार्टनर आवेदन अपडेट", body: "आपका पार्टनर आवेदन स्वीकृत नहीं हुआ। {reason}" },
+    },
+    PARTNER_TOPUP_VERIFIED: {
+        en: { title: "₹{amount} credits added", body: "Your UPI payment is verified. Go Online to get jobs." },
+        te: { title: "₹{amount} క్రెడిట్స్ జోడించబడ్డాయి", body: "మీ UPI చెల్లింపు ధృవీకరించబడింది. పనుల కోసం ఆన్‌లైన్‌కి వెళ్లండి." },
+        hi: { title: "₹{amount} क्रेडिट जोड़े गए", body: "आपका UPI भुगतान सत्यापित हुआ। काम पाने के लिए ऑनलाइन जाएं।" },
+    },
+    PARTNER_TOPUP_REJECTED: {
+        en: { title: "Top-up not verified", body: "We could not verify your ₹{amount} payment. {reason}" },
+        te: { title: "టాప్-అప్ ధృవీకరించబడలేదు", body: "మీ ₹{amount} చెల్లింపును ధృవీకరించలేకపోయాం. {reason}" },
+        hi: { title: "टॉप-अप सत्यापित नहीं", body: "हम आपके ₹{amount} भुगतान को सत्यापित नहीं कर सके। {reason}" },
+    },
     URGENT_REMOVED: {
         en: { title: "You were removed from an urgent job", body: "The employer removed you from {title}. You can accept other jobs now." },
         te: { title: "అత్యవసర పని నుండి మిమ్మల్ని తొలగించారు", body: "యజమాని మిమ్మల్ని {title} నుండి తొలగించారు. మీరు ఇతర పనులు తీసుకోవచ్చు." },

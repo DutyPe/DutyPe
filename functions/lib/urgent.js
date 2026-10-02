@@ -32,6 +32,7 @@ const geo_1 = require("./lib/geo");
 const notify_1 = require("./lib/notify");
 const notification_i18n_1 = require("./notification-i18n");
 const schema_1 = require("./schema");
+const services_1 = require("./services");
 const db = admin.firestore();
 const { FieldValue, Timestamp } = admin.firestore;
 const R = schema_1.InstantRequests.Responses;
@@ -174,6 +175,8 @@ exports.dispatchUrgentWaves = functions
         .limit(200)
         .get();
     await Promise.all(due.docs.map((d) => advanceWave(d.id, now).catch((e) => functions.logger.warn(`urgent ${d.id}: wave failed`, e))));
+    // DutyPe Services bookings share this minute job (no extra Cloud Scheduler job to pay for).
+    await (0, services_1.dispatchServiceWaves)(now).catch((e) => functions.logger.warn("service waves failed", e));
     return null;
 });
 /**

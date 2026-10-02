@@ -15,7 +15,7 @@ const db = admin.firestore();
 const INBOX_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const HIGH_PRIORITY = new Set([
     "NEW_APPLICATION", "APPLICATION_STATUS", "WORKER_HIRED", "REJECTED", "JOB_EXPIRY_REMINDER",
-    "NEW_JOB_ALERT", "PAYMENT", "BIRTHDAY", "WELCOME",
+    "NEW_JOB_ALERT", "PAYMENT", "BIRTHDAY", "WELCOME", "SERVICE_BOOKING",
 ]);
 async function recipientName(uid, role) {
     const ref = role === schema_1.Values.Role.EMPLOYER ?

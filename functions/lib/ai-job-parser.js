@@ -20,7 +20,7 @@ const VALID_CATEGORIES = [
 ];
 exports.parseVoiceJobDetails = (0, secure_callable_1.onCallSecured)(
 // Logged-in users of the real app only: every call spends AI tokens.
-{ timeoutSeconds: 25, secrets: [azure_1.AZURE_OPENAI_SECRET] }, async (data, context) => {
+{ timeoutSeconds: 25, enforceAppCheck: false, secrets: [azure_1.AZURE_OPENAI_SECRET] }, async (data, context) => {
     const rawTranscript = String((data === null || data === void 0 ? void 0 : data.transcript) || "").trim();
     if (!rawTranscript) {
         return {

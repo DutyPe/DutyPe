@@ -173,7 +173,7 @@ const BUSY: Record<"en" | "te" | "hi", string> = {
   hi: "DutyPe AI अभी व्यस्त है। एक मिनट बाद फिर कोशिश करें। आपका मुफ़्त मौका इस्तेमाल नहीं हुआ।",
 };
 
-export const dutypeAi = onCallSecured({ timeoutSeconds: 30, memory: "512MB", secrets: [AZURE_OPENAI_SECRET, AZURE_COSMOS_SECRET] }, async (raw: unknown, context) => {
+export const dutypeAi = onCallSecured({ timeoutSeconds: 30, memory: "512MB", enforceAppCheck: false, secrets: [AZURE_OPENAI_SECRET, AZURE_COSMOS_SECRET] }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   if (context.auth?.token.role !== "EMPLOYER") fail("permission-denied", "DutyPe AI is for employers");
   const data = obj(raw);

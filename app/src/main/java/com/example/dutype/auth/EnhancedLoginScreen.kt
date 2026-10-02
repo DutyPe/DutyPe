@@ -424,15 +424,7 @@ private fun OtpLoginScreen(
                             onValueChange = { newValue ->
                                 phoneNumber = newValue.filter { it.isDigit() }.take(10)
                             },
-                            modifier = Modifier
-                                .weight(1f)
-                                .onFocusChanged { focusState ->
-                                    if (focusState.isFocused) {
-                                        runCatching { autofill?.requestAutofillForNode(autofillNode) }
-                                    } else {
-                                        runCatching { autofill?.cancelAutofillForNode(autofillNode) }
-                                    }
-                                },
+                            modifier = Modifier.weight(1f),
                             singleLine = true,
                             textStyle = MaterialTheme.typography.bodyLarge.copy(
                                 fontSize = 16.sp,
@@ -499,13 +491,7 @@ private fun OtpLoginScreen(
                                         }
                                     }
                                     FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
-                                        isCheckingPhone = false
-                                        Toast.makeText(
-                                            context,
-                                            FirestoreUtils.unknownMessage(context, phoneCheck),
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        return@launch
+                                        Timber.w("Phone check returned UNKNOWN; proceeding with OTP for $fullPhoneNumber")
                                     }
                                 }
                                 isCheckingPhone = false

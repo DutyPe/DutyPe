@@ -229,7 +229,7 @@ function templateReason(c: Candidate, l: Lang): string {
   return parts[l].filter(Boolean).join(" · ");
 }
 
-export const aiShortlist = onCallSecured({ timeoutSeconds: 30, memory: "512MB", secrets: [AZURE_OPENAI_SECRET] }, async (raw: unknown, context) => {
+export const aiShortlist = onCallSecured({ timeoutSeconds: 30, memory: "512MB", enforceAppCheck: false, secrets: [AZURE_OPENAI_SECRET] }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   const data = obj(raw);
   const jobId = str(data, "jobId", { max: 64, pattern: /^[A-Za-z0-9_-]+$/ });
@@ -447,7 +447,7 @@ export function summaryOf(d: JobDraft, l: Lang): string {
   return `${d.vacancies} × ${d.title || "?"} · ${payText}`;
 }
 
-export const aiJobAssistant = onCallSecured({ timeoutSeconds: 30, secrets: [AZURE_OPENAI_SECRET] }, async (raw: unknown, context) => {
+export const aiJobAssistant = onCallSecured({ timeoutSeconds: 30, enforceAppCheck: false, secrets: [AZURE_OPENAI_SECRET] }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   const data = obj(raw);
   const transcript = str(data, "transcript", { max: 1500, optional: true });

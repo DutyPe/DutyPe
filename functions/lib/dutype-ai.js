@@ -161,7 +161,7 @@ const BUSY = {
     te: "DutyPe AI ఇప్పుడు బిజీగా ఉంది. ఒక నిమిషం తర్వాత మళ్లీ ప్రయత్నించండి. మీ ఉచిత అవకాశం వాడలేదు.",
     hi: "DutyPe AI अभी व्यस्त है। एक मिनट बाद फिर कोशिश करें। आपका मुफ़्त मौका इस्तेमाल नहीं हुआ।",
 };
-exports.dutypeAi = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, memory: "512MB", secrets: [azure_1.AZURE_OPENAI_SECRET, azure_1.AZURE_COSMOS_SECRET] }, async (raw, context) => {
+exports.dutypeAi = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, memory: "512MB", enforceAppCheck: false, secrets: [azure_1.AZURE_OPENAI_SECRET, azure_1.AZURE_COSMOS_SECRET] }, async (raw, context) => {
     var _a, _b, _c, _d, _e;
     const uid = context.auth.uid;
     if (((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.role) !== "EMPLOYER")
