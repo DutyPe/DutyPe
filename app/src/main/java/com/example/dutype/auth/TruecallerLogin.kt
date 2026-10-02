@@ -37,6 +37,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.widget.Toast
 import com.dutype.app.R
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.fg
@@ -110,7 +111,11 @@ object TruecallerAuth {
     /** Starts the SDK once; harmless to call again. Does nothing without a client ID. */
     fun init(context: Context) {
         if (started) return
-        if (context.getString(R.string.truecaller_client_id).isBlank()) return
+        val clientId = context.getString(R.string.truecaller_client_id)
+        if (clientId.isBlank()) {
+            Timber.w("Truecaller client ID is blank; button will remain hidden")
+            return
+        }
         started = true
         runCatching {
             val options = TcSdkOptions.Builder(context.applicationContext, callback)
@@ -124,7 +129,9 @@ object TruecallerAuth {
                 .sdkOptions(TcSdkOptions.OPTION_VERIFY_ONLY_TC_USERS)
                 .build()
             TcSdk.init(options)
-            _usable.value = TcSdk.getInstance().isOAuthFlowUsable
+            val usable = TcSdk.getInstance().isOAuthFlowUsable
+            _usable.value = usable
+            Timber.i("Truecaller SDK initialized. clientId=$clientId, isOAuthFlowUsable=$usable")
         }.onFailure {
             started = false
             _usable.value = false
@@ -218,12 +225,24 @@ fun TruecallerLoginButton(
         }
     }
 
-    if (!usable) return
+    val clientId = remember(context) { context.getString(R.string.truecaller_client_id) }
+    if (clientId.isBlank()) return
 
     // Sits under the "Send OTP" / "Continue" button of a Column.
     Spacer(modifier = Modifier.height(14.dp))
     OutlinedButton(
         onClick = {
+            if (!usable) {
+                val isInstalled = runCatching {
+                    context.packageManager.getPackageInfo("com.truecaller", 0) != null
+                }.getOrDefault(false)
+                if (!isInstalled) {
+                    Toast.makeText(context, "Truecaller app is not installed on this device. Please install Truecaller or use Mobile OTP.", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(context, "Please ensure you are signed in to the Truecaller app, or use Mobile OTP.", Toast.LENGTH_LONG).show()
+                }
+                return@OutlinedButton
+            }
             val started = TruecallerAuth.begin()
             pending = started
             if (started == null) {

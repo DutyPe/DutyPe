@@ -1,6 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.aiJobAssistant = exports.summaryOf = exports.LOCKED = exports.missingFields = exports.cleanDraft = exports.FORM = exports.nearbyWorkerCount = exports.aiShortlist = exports.scoreCandidate = exports.requiredYears = exports.useAi = exports.ai = exports.FREE_AI_TRIAL = void 0;
+exports.aiJobAssistant = exports.LOCKED = exports.FORM = exports.nearbyWorkerCount = exports.aiShortlist = exports.ai = exports.FREE_AI_TRIAL = void 0;
+exports.aiConfigured = aiConfigured;
+exports.useAi = useAi;
+exports.refundAi = refundAi;
+exports.requiredYears = requiredYears;
+exports.scoreCandidate = scoreCandidate;
+exports.cleanDraft = cleanDraft;
+exports.missingFields = missingFields;
+exports.summaryOf = summaryOf;
 /**
  * AI for employers (hiring made easy).
  *
@@ -15,12 +23,13 @@ exports.aiJobAssistant = exports.summaryOf = exports.LOCKED = exports.missingFie
  * [FREE_AI_TRIAL] free actions; without access the features fall back to the fixed score / rules.
  * Fairness: the AI never sees names, phone numbers, photos, gender, religion, caste or age — only
  * job-relevant facts — and every pick is shown with the facts behind it. Cost control: per-user
- * hourly caps and caching; without GEMINI_API_KEY (or on any AI error) everything still works from
+ * hourly caps and caching; without an AI key (or on any AI error) everything still works from
  * the fixed score / rules.
  */
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const secure_callable_1 = require("./secure-callable");
+const azure_1 = require("./lib/azure");
 const input_1 = require("./lib/input");
 const geo_1 = require("./lib/geo");
 const schema_1 = require("./schema");
@@ -36,42 +45,52 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const IST_OFFSET_MS = 330 * 60 * 1000;
 const LANGS = ["en", "te", "hi"];
 const LANG_NAME = { en: "simple English", te: "simple Telugu (Telugu script)", hi: "simple Hindi (Devanagari)" };
-// ─────────────────────────────── Gemini ───────────────────────────────
+// ─────────────────────────────── AI provider ───────────────────────────────
+/** True when any AI provider is set up (Azure OpenAI first, Gemini as the fallback). */
+function aiConfigured() {
+    return (0, azure_1.azureOpenAiConfigured)() || Boolean(process.env.GEMINI_API_KEY);
+}
 /** Test seam: replaced in tests so no network call is made. */
 exports.ai = {
+    /** Azure OpenAI when configured (paid from the Azure credits), otherwise Gemini. */
     async json(prompt) {
-        var _a, _b, _c, _d;
-        const key = process.env.GEMINI_API_KEY || "";
-        if (!key)
-            return null;
-        const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 12000);
-        try {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    contents: [{ role: "user", parts: [{ text: prompt }] }],
-                    generationConfig: { temperature: 0.2, responseMimeType: "application/json", maxOutputTokens: 1024 },
-                }),
-                signal: controller.signal,
-            });
-            if (!res.ok)
-                throw new Error(`Gemini ${res.status}`);
-            const body = await res.json();
-            const text = ((_d = (_c = (_b = (_a = body.candidates) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.content) === null || _c === void 0 ? void 0 : _c.parts) === null || _d === void 0 ? void 0 : _d.map((p) => p.text || "").join("")) || "";
-            return JSON.parse(text);
-        }
-        catch (e) {
-            functions.logger.warn("Gemini call failed", e);
-            return null;
-        }
-        finally {
-            clearTimeout(timer);
-        }
+        if ((0, azure_1.azureOpenAiConfigured)())
+            return (0, azure_1.chatJson)(prompt);
+        return geminiJson(prompt);
     },
 };
+async function geminiJson(prompt) {
+    var _a, _b, _c, _d;
+    const key = process.env.GEMINI_API_KEY || "";
+    if (!key)
+        return null;
+    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: { temperature: 0.2, responseMimeType: "application/json", maxOutputTokens: 1024 },
+            }),
+            signal: controller.signal,
+        });
+        if (!res.ok)
+            throw new Error(`Gemini ${res.status}`);
+        const body = await res.json();
+        const text = ((_d = (_c = (_b = (_a = body.candidates) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.content) === null || _c === void 0 ? void 0 : _c.parts) === null || _d === void 0 ? void 0 : _d.map((p) => p.text || "").join("")) || "";
+        return JSON.parse(text);
+    }
+    catch (e) {
+        functions.logger.warn("Gemini call failed", e);
+        return null;
+    }
+    finally {
+        clearTimeout(timer);
+    }
+}
 /**
  * Spends one DutyPe AI action if the employer may: an active AI plan (or the launch campaign) within
  * its daily allowance, else one of the free trial actions. "upgrade" / "limit" mean no AI this time.
@@ -105,8 +124,24 @@ async function useAi(uid) {
         return "trial";
     });
 }
-exports.useAi = useAi;
 const canUseAi = (a) => a === "plan" || a === "trial";
+/** Gives back the action [useAi] spent when the AI then did not answer (key, quota or network). */
+async function refundAi(uid, access) {
+    try {
+        if (access === "trial") {
+            await db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid)
+                .update({ [schema_1.EmployerProfiles.AI_TRIAL_USED]: admin.firestore.FieldValue.increment(-1) });
+        }
+        else if (access === "plan") {
+            const day = Math.floor((Date.now() + IST_OFFSET_MS) / DAY_MS);
+            await db.collection(schema_1.Idempotency.COLLECTION).doc(`aiDay_${uid}_${day}`)
+                .set({ [schema_1.Idempotency.RESULT]: admin.firestore.FieldValue.increment(-1) }, { merge: true });
+        }
+    }
+    catch (e) {
+        functions.logger.warn("AI refund failed", e);
+    }
+}
 function lang(value) {
     return LANGS.includes(String(value)) ? value : "en";
 }
@@ -119,7 +154,6 @@ function requiredYears(text) {
     const n = s.match(/\d+/);
     return n ? Math.min(20, Number(n[0])) : 0;
 }
-exports.requiredYears = requiredYears;
 /**
  * The fixed, explainable score (0–100-ish). Skill 35 · distance up to 20 · experience up to 15 ·
  * rating up to 10 · completed jobs up to 10 · recently active up to 8 · available 3 · no-shows −8 each.
@@ -183,7 +217,6 @@ function scoreCandidate(job, card, nowMs) {
         },
     };
 }
-exports.scoreCandidate = scoreCandidate;
 function templateReason(c, l) {
     const f = c.profile;
     const parts = {
@@ -193,7 +226,7 @@ function templateReason(c, l) {
     };
     return parts[l].filter(Boolean).join(" · ");
 }
-exports.aiShortlist = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, memory: "512MB" }, async (raw, context) => {
+exports.aiShortlist = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, memory: "512MB", secrets: [azure_1.AZURE_OPENAI_SECRET] }, async (raw, context) => {
     var _a, _b;
     const uid = context.auth.uid;
     const data = (0, input_1.obj)(raw);
@@ -261,6 +294,8 @@ Return JSON: {"picks":[{"id":"C1","reason":"..."}]}`;
                 break;
         }
         byAi = chosen.length > 0;
+        if (out === null)
+            await refundAi(uid, access);
     }
     if (!chosen.length)
         chosen = ranked.slice(0, PICKS).map((c) => ({ c, reason: templateReason(c, l) }));
@@ -343,7 +378,6 @@ function cleanDraft(d) {
         description: String(d.description || "").trim().slice(0, 1500),
     };
 }
-exports.cleanDraft = cleanDraft;
 /** What still has to be asked before the job can be posted. */
 function missingFields(d) {
     const out = [];
@@ -356,7 +390,6 @@ function missingFields(d) {
         out.push("about");
     return out;
 }
-exports.missingFields = missingFields;
 exports.LOCKED = {
     upgrade: {
         en: "Your free DutyPe AI tries are used up. DutyPe AI comes with the ₹199 and ₹299 plans.",
@@ -396,8 +429,7 @@ function summaryOf(d, l) {
     const payText = d.payType === "NEGOTIABLE" ? per.NEGOTIABLE[l] : `₹${d.payAmount} ${per[d.payType][l]}`;
     return `${d.vacancies} × ${d.title || "?"} · ${payText}`;
 }
-exports.summaryOf = summaryOf;
-exports.aiJobAssistant = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30 }, async (raw, context) => {
+exports.aiJobAssistant = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, secrets: [azure_1.AZURE_OPENAI_SECRET] }, async (raw, context) => {
     var _a;
     const uid = context.auth.uid;
     const data = (0, input_1.obj)(raw);
@@ -424,6 +456,8 @@ Return JSON with exactly the draft keys.`;
         const out = await exports.ai.json(prompt);
         if (out && typeof out === "object")
             draft = cleanDraft(Object.assign(Object.assign({}, draft), out));
+        else
+            await refundAi(uid, access);
     }
     const missing = missingFields(draft);
     return {

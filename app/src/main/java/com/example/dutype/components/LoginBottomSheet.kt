@@ -249,7 +249,7 @@ fun LoginBottomSheet(
                         return@LaunchedEffect
                     }
 
-                    val loginResult = otpViewModel.completeLogin(role)
+                    val loginResult = otpViewModel.resolveUnifiedAuth(role, fullName = registerName.trim().takeIf { it.isNotBlank() })
                     loginResult.fold(
                         onSuccess = { outcome ->
                             // Persist the name captured in the bottom-sheet registration form

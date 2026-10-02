@@ -227,38 +227,48 @@ async function truecallerProfile(authorizationCode: string, codeVerifier: string
 export const truecallerSignIn = onCallSecured(
   { requireAuth: false, timeoutSeconds: 20 },
   async (raw: unknown) => {
-    const data = obj(raw);
-    const authorizationCode = str(data, "authorizationCode", { max: 2000 });
-    const codeVerifier = str(data, "codeVerifier", { min: 43, max: 128 });
-    const role = requestedRole(data);
-    if (!role) fail("invalid-argument", "role is required");
-    const mode = data.mode === "register" ? "register" : "login";
+    try {
+      const data = obj(raw);
+      const authorizationCode = str(data, "authorizationCode", { max: 2000 });
+      const codeVerifier = str(data, "codeVerifier", { min: 43, max: 128 });
+      const role = requestedRole(data);
+      if (!role) fail("invalid-argument", "role is required");
+      const mode = data.mode === "register" ? "register" : data.mode === "login" ? "login" : "unified";
 
-    const tc = await truecallerProfile(authorizationCode, codeVerifier);
-    if (!tc.phone) fail("failed-precondition", "DutyPe works with Indian mobile numbers only. Please use OTP.");
-    const phone = tc.phone;
-    const existingRole = await registeredRole(phone);
-    const profile = { phone, name: tc.name, email: tc.email, existingRole };
+      const tc = await truecallerProfile(authorizationCode, codeVerifier);
+      if (!tc.phone) fail("failed-precondition", "DutyPe works with Indian mobile numbers only. Please use OTP.");
+      const phone = tc.phone;
+      const existingRole = await registeredRole(phone);
+      const profile = { phone, name: tc.name, email: tc.email, existingRole };
 
-    // Same rules as the OTP screens: login needs this role's account, sign-up a new number.
-    if (mode === "login" && existingRole !== role) return { ...profile, allowed: false };
-    if (mode === "register" && existingRole) return { ...profile, allowed: false };
+      // Prevent cross-role collisions (a number cannot be both a Worker and an Employer)
+      if (existingRole && existingRole !== role) return { ...profile, allowed: false, roleConflict: true };
 
-    const uid = await uidForPhone(phone);
-    await db.collection(TruecallerProfiles.COLLECTION).doc(uid).set({
-      [TruecallerProfiles.PHONE]: phone,
-      [TruecallerProfiles.NAME]: tc.name,
-      [TruecallerProfiles.EMAIL]: tc.email,
-      [TruecallerProfiles.UPDATED_AT]: Timestamp.now(),
-    });
-    // Existing accounts: keep the email Truecaller shared if the profile has none yet.
-    if (existingRole && tc.email) {
-      const ref = db.collection(existingRole === Values.Role.EMPLOYER ? EmployerProfiles.COLLECTION : WorkerProfiles.COLLECTION).doc(uid);
-      await db.runTransaction(async (tx) => {
-        const doc = await tx.get(ref);
-        if (doc.exists && !doc.get(WorkerProfiles.EMAIL)) tx.update(ref, { [WorkerProfiles.EMAIL]: tc.email });
+      // Legacy strict mode checks (if explicitly requested)
+      if (mode === "login" && !existingRole) return { ...profile, allowed: false };
+      if (mode === "register" && existingRole) return { ...profile, allowed: false };
+
+      const isNewUser = !existingRole;
+      const uid = await uidForPhone(phone);
+      await db.collection(TruecallerProfiles.COLLECTION).doc(uid).set({
+        [TruecallerProfiles.PHONE]: phone,
+        [TruecallerProfiles.NAME]: tc.name,
+        [TruecallerProfiles.EMAIL]: tc.email,
+        [TruecallerProfiles.UPDATED_AT]: Timestamp.now(),
       });
+      // Existing accounts: keep the email Truecaller shared if the profile has none yet.
+      if (existingRole && tc.email) {
+        const ref = db.collection(existingRole === Values.Role.EMPLOYER ? EmployerProfiles.COLLECTION : WorkerProfiles.COLLECTION).doc(uid);
+        await db.runTransaction(async (tx) => {
+          const doc = await tx.get(ref);
+          if (doc.exists && !doc.get(WorkerProfiles.EMAIL)) tx.update(ref, { [WorkerProfiles.EMAIL]: tc.email });
+        });
+      }
+      return { ...profile, allowed: true, isNewUser, token: await admin.auth().createCustomToken(uid) };
+    } catch (e) {
+      functions.logger.error("truecallerSignIn error:", e);
+      if (e instanceof functions.https.HttpsError) throw e;
+      throw new functions.https.HttpsError("internal", (e as Error)?.message || "Truecaller sign-in failed");
     }
-    return { ...profile, allowed: true, token: await admin.auth().createCustomToken(uid) };
   },
 );

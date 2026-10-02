@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.placeOf = void 0;
+exports.placeOf = placeOf;
 /**
  * District and state for a point in India, from current LGD boundaries bundled in
  * data/districts.json (built by scripts/build-places.py, ~100 m simplification). No network call,
@@ -88,5 +88,4 @@ function placeOf(lat, lng) {
     }
     return best ? toPlace(best) : null;
 }
-exports.placeOf = placeOf;
 //# sourceMappingURL=places.js.map

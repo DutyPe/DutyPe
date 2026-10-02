@@ -26,13 +26,28 @@ for (const key of ["AZURE_OPENAI_KEY", "AZURE_COSMOS_KEY"]) {
   }
 }
 
+const localEnvPath = path.join(__dirname, "..", ".env");
+const localEnv = fs.existsSync(localEnvPath)
+  ? Object.fromEntries(
+      fs.readFileSync(localEnvPath, "utf8")
+        .split(/\r?\n/)
+        .filter((line) => /^[A-Z_]+=/.test(line))
+        .map((line) => [
+          line.slice(0, line.indexOf("=")),
+          line.slice(line.indexOf("=") + 1).replace(/^["']|["']$/g, "").trim(),
+        ]),
+    )
+  : {};
+
 function secret(name) {
+  if (process.env[name]) return process.env[name];
+  if (localEnv[name]) return localEnv[name];
   try {
     return execSync(`firebase functions:secrets:access ${name} --project dutype-860ac`, {
       encoding: "utf8", stdio: ["ignore", "pipe", "pipe"],
     }).trim();
   } catch {
-    console.error(`✗ Could not read secret ${name}. Run: firebase functions:secrets:set ${name}`);
+    console.error(`✗ Could not read secret ${name}. Run: firebase functions:secrets:set ${name} or add to functions/.env`);
     process.exit(1);
   }
 }

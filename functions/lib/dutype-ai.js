@@ -1,6 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.dutypeAi = exports.validateAction = exports.quickAnswer = exports.employerFacts = void 0;
+exports.dutypeAi = void 0;
+exports.employerFacts = employerFacts;
+exports.quickAnswer = quickAnswer;
+exports.validateAction = validateAction;
 /**
  * DutyPe AI — the employer's voice assistant. One conversation endpoint:
  *
@@ -18,6 +21,7 @@ const secure_callable_1 = require("./secure-callable");
 const input_1 = require("./lib/input");
 const ai_hiring_1 = require("./ai-hiring");
 const schema_1 = require("./schema");
+const azure_1 = require("./lib/azure");
 const db = admin.firestore();
 const LANGS = ["en", "te", "hi"];
 const LANG_NAME = { en: "simple English", te: "simple Telugu (Telugu script)", hi: "simple Hindi (Devanagari)" };
@@ -82,7 +86,6 @@ async function employerFacts(uid) {
         },
     };
 }
-exports.employerFacts = employerFacts;
 /** Answers from the data without AI: today's applications and hires. Null when not that kind of question. */
 function quickAnswer(message, f, l) {
     const m = message.toLowerCase();
@@ -103,7 +106,6 @@ function quickAnswer(message, f, l) {
     }
     return null;
 }
-exports.quickAnswer = quickAnswer;
 /** Keeps only actions that make sense for this employer's own data. */
 function validateAction(raw, f) {
     const a = (0, input_1.obj)(raw);
@@ -151,12 +153,16 @@ function validateAction(raw, f) {
             return null;
     }
 }
-exports.validateAction = validateAction;
 function lang(value) {
     return LANGS.includes(String(value)) ? value : "en";
 }
-exports.dutypeAi = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, memory: "512MB" }, async (raw, context) => {
-    var _a, _b, _c;
+const BUSY = {
+    en: "DutyPe AI is busy right now. Please try again in a minute. Your free try was not used.",
+    te: "DutyPe AI ఇప్పుడు బిజీగా ఉంది. ఒక నిమిషం తర్వాత మళ్లీ ప్రయత్నించండి. మీ ఉచిత అవకాశం వాడలేదు.",
+    hi: "DutyPe AI अभी व्यस्त है। एक मिनट बाद फिर कोशिश करें। आपका मुफ़्त मौका इस्तेमाल नहीं हुआ।",
+};
+exports.dutypeAi = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, memory: "512MB", secrets: [azure_1.AZURE_OPENAI_SECRET, azure_1.AZURE_COSMOS_SECRET] }, async (raw, context) => {
+    var _a, _b, _c, _d, _e;
     const uid = context.auth.uid;
     if (((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.role) !== "EMPLOYER")
         (0, input_1.fail)("permission-denied", "DutyPe AI is for employers");
@@ -185,13 +191,26 @@ You may propose ONE action; the employer will confirm before anything happens:
 - close_job / renew_job / open_job: args {jobId} (from the facts)
 If they want to post but the work, the pay, or what the work involves (duties, timings, place) is missing, ask for it (no action yet). Pay is at most ₹50,000. When you propose an action, end the reply by asking them to confirm.
 Return JSON: {"reply": "...", "action": null or {"type": "...", "args": {...}}}`;
-    const out = (0, input_1.obj)(await ai_hiring_1.ai.json(prompt));
+    const reply0 = await ai_hiring_1.ai.json(prompt);
+    if (reply0 === null) {
+        // The AI did not answer: give the action back and still answer counts / hires from the data.
+        await (0, ai_hiring_1.refundAi)(uid, access);
+        const fallback = (_c = quickAnswer(message, facts, l)) !== null && _c !== void 0 ? _c : BUSY[l];
+        await logConversation(uid, l, message, fallback, null, true);
+        return { reply: fallback, action: null, stats: facts.stats, aiDown: true };
+    }
+    const out = (0, input_1.obj)(reply0);
     const action = validateAction(out.action, facts);
-    const reply = String(out.reply || "").trim().slice(0, 600) || ((_c = quickAnswer(message, facts, l)) !== null && _c !== void 0 ? _c : {
+    const reply = String(out.reply || "").trim().slice(0, 600) || ((_d = quickAnswer(message, facts, l)) !== null && _d !== void 0 ? _d : {
         en: "Sorry, I did not get that. You can say: post a job, how many applied, or who is hired.",
         te: "క్షమించండి, అర్థం కాలేదు. మీరు: పని పోస్ట్ చేయి, ఎంత మంది దరఖాస్తు చేశారు, ఎవరిని తీసుకున్నాను అని అడగవచ్చు.",
         hi: "माफ़ कीजिए, समझ नहीं आया। आप कह सकते हैं: नौकरी पोस्ट करो, कितने लोगों ने आवेदन किया, किसे रखा है।",
     }[l]);
+    await logConversation(uid, l, message, reply, (_e = action === null || action === void 0 ? void 0 : action.type) !== null && _e !== void 0 ? _e : null, false);
     return { reply, action, stats: facts.stats };
 });
+/** What employers ask DutyPe AI, kept in Azure Cosmos DB (container "ai_logs") to improve the AI. */
+async function logConversation(uid, l, message, reply, action, aiDown) {
+    await (0, azure_1.cosmosAdd)(azure_1.CosmosContainers.AI_LOGS, { uid, lang: l, message, reply, action, aiDown });
+}
 //# sourceMappingURL=dutype-ai.js.map

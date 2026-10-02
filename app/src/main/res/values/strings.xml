@@ -2709,4 +2709,5 @@
     <string name="auth_truecaller_failed">Truecaller verification did not work. Please use OTP.</string>
     <string name="auth_enter_name_first">Please enter your name first.</string>
     <string name="auth_get_sms_short">Get SMS</string>
+    <string name="auth_code_sent_sms">Verification code sent via SMS.</string>
 </resources>

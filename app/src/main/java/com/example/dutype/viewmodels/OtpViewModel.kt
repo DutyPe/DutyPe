@@ -46,7 +46,9 @@ data class TruecallerSignInResult(
     val name: String,
     val email: String,
     val existingRole: String?,
-    val token: String?
+    val token: String?,
+    val isNewUser: Boolean = false,
+    val roleConflict: Boolean = false
 )
 
 /**
@@ -522,12 +524,15 @@ class OtpViewModel @Inject constructor(
         }
     }
 
+    var lastTruecallerResult: TruecallerSignInResult? = null
+        private set
+
     /**
      * Truecaller one-tap: the server exchanges the authorization code for the verified number,
-     * name and email, and returns a sign-in token only when [mode] ("login" / "register") is
-     * allowed for this number and the current role.
+     * name and email, and returns a sign-in token only when [mode] ("unified", "login", "register")
+     * is allowed for this number and the current role.
      */
-    suspend fun truecallerExchange(authorizationCode: String, codeVerifier: String, mode: String): Result<TruecallerSignInResult> =
+    suspend fun truecallerExchange(authorizationCode: String, codeVerifier: String, mode: String = "unified"): Result<TruecallerSignInResult> =
         runCatching {
             val data = functions.getHttpsCallable("truecallerSignIn")
                 .call(
@@ -544,7 +549,9 @@ class OtpViewModel @Inject constructor(
                 name = data["name"] as? String ?: "",
                 email = data["email"] as? String ?: "",
                 existingRole = (data["existingRole"] as? String)?.uppercase(),
-                token = data["token"] as? String
+                token = data["token"] as? String,
+                isNewUser = data["isNewUser"] == true,
+                roleConflict = data["roleConflict"] == true
             )
         }.onFailure {
             Timber.w(it, "Truecaller sign-in failed")
@@ -554,6 +561,7 @@ class OtpViewModel @Inject constructor(
     /** Signs in with the token from [truecallerExchange]; the screen then resolves login / sign-up as after OTP. */
     fun signInWithTruecaller(result: TruecallerSignInResult) {
         val token = result.token ?: return
+        lastTruecallerResult = result
         viewModelScope.launch {
             _otpState.value = _otpState.value.copy(isLoading = true, error = null)
             try {
@@ -619,6 +627,60 @@ class OtpViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Unified auth resolver (modern 1-tap login + registration):
+     * - If account exists for [role]: logs in and routes to HOME (or PROFILE_SETUP if profile is incomplete).
+     * - If new user (account does not exist): auto-creates account under [role] using [fullName] and routes to PROFILE_SETUP.
+     * - If registered under a different role: signs out and surfaces role conflict.
+     */
+    suspend fun resolveUnifiedAuth(
+        role: UserRole,
+        fullName: String? = null,
+        referralCode: String? = null,
+        employerType: String? = null
+    ): Result<PostOtpNavigation> {
+        return try {
+            authFlowService.resolveLogin(role.name).fold(
+                onSuccess = { resolution ->
+                    cacheResolvedUser(resolution.user, role)
+                    registerFcmInBackground(resolution.user.role)
+                    Result.success(
+                        PostOtpNavigation(
+                            destination = if (resolution.shouldRouteToProfileSetup) {
+                                PostOtpDestination.PROFILE_SETUP
+                            } else {
+                                PostOtpDestination.HOME
+                            },
+                            role = runCatching {
+                                UserRole.valueOf(resolution.user.role)
+                            }.getOrDefault(role)
+                        )
+                    )
+                },
+                onFailure = { error ->
+                    val msg = error.message.orEmpty()
+                    if (msg == "account-not-found") {
+                        // Brand-new user: auto-register them seamlessly so user is never rejected
+                        val nameToUse = fullName?.trim()?.takeIf { it.isNotBlank() } ?: "User"
+                        completeRegistration(
+                            role = role,
+                            fullName = nameToUse,
+                            referralCode = referralCode,
+                            employerType = employerType
+                        )
+                    } else {
+                        if (msg.startsWith("phone-already-registered-as:")) {
+                            runCatching { authManager.logout() }
+                        }
+                        Result.failure(error)
+                    }
+                }
+            )
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun completeLogin(role: UserRole): Result<PostOtpNavigation> {
         return try {
             authFlowService.resolveLogin(role.name).fold(
@@ -646,7 +708,7 @@ class OtpViewModel @Inject constructor(
                 },
                 onFailure = { error ->
                     val msg = error.message.orEmpty()
-                    if (msg == "account-not-found" || msg.startsWith("phone-already-registered-as:")) {
+                    if (msg.startsWith("phone-already-registered-as:")) {
                         runCatching { authManager.logout() }
                     }
                     Result.failure(error)
@@ -902,6 +964,7 @@ class OtpViewModel @Inject constructor(
         storedVerificationId = null
         resendToken = null
         whatsappPhone = null
+        lastTruecallerResult = null
     }
 
     // ─────────────────────────────────────────────────────────────────────

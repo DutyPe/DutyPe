@@ -7,7 +7,12 @@
  * the timings can be unit tested.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.autoCompleteFloorMs = exports.autoCompleteCutoffMs = exports.shouldAutoComplete = exports.isActiveWorkStatus = exports.graceMsFor = exports.AUTO_COMPLETE_RULES = void 0;
+exports.AUTO_COMPLETE_RULES = void 0;
+exports.graceMsFor = graceMsFor;
+exports.isActiveWorkStatus = isActiveWorkStatus;
+exports.shouldAutoComplete = shouldAutoComplete;
+exports.autoCompleteCutoffMs = autoCompleteCutoffMs;
+exports.autoCompleteFloorMs = autoCompleteFloorMs;
 exports.AUTO_COMPLETE_RULES = {
     /** Regular vacancy jobs settle 6 hours after the worker is hired. */
     STANDARD_GRACE_MS: 6 * 60 * 60 * 1000,
@@ -21,7 +26,6 @@ function graceMsFor(kind) {
         ? exports.AUTO_COMPLETE_RULES.INSTANT_GRACE_MS
         : exports.AUTO_COMPLETE_RULES.STANDARD_GRACE_MS;
 }
-exports.graceMsFor = graceMsFor;
 /** Statuses that mean "worker is on the job" for each kind of work. */
 function isActiveWorkStatus(status, kind) {
     const normalized = String(status !== null && status !== void 0 ? status : "").toLowerCase().trim();
@@ -29,7 +33,6 @@ function isActiveWorkStatus(status, kind) {
         ? normalized === "accepted"
         : normalized === "hired" || normalized === "accepted" || normalized === "in_progress";
 }
-exports.isActiveWorkStatus = isActiveWorkStatus;
 function shouldAutoComplete(input) {
     const { status, startedAtMs, nowMs, kind } = input;
     if (!isActiveWorkStatus(status, kind)) {
@@ -52,14 +55,11 @@ function shouldAutoComplete(input) {
     }
     return { complete: true, graceMs };
 }
-exports.shouldAutoComplete = shouldAutoComplete;
 /** The cutoff to use in a Firestore range query, so the scan stays bounded. */
 function autoCompleteCutoffMs(nowMs, kind) {
     return nowMs - graceMsFor(kind);
 }
-exports.autoCompleteCutoffMs = autoCompleteCutoffMs;
 function autoCompleteFloorMs(nowMs) {
     return nowMs - exports.AUTO_COMPLETE_RULES.MAX_LOOKBACK_MS;
 }
-exports.autoCompleteFloorMs = autoCompleteFloorMs;
 //# sourceMappingURL=auto-complete-rules.js.map

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onCallSecured = void 0;
+exports.onCallSecured = onCallSecured;
 /**
  * Hardened wrapper around functions.https.onCall:
  *   • runtime options pinned (region asia-south1, memory, timeout)
@@ -19,8 +19,8 @@ const DEFAULT_RUNTIME = {
     consumeAppCheckToken: false,
 };
 function onCallSecured(opts, handler) {
-    var _a, _b, _c;
-    const runtime = Object.assign(Object.assign(Object.assign({}, DEFAULT_RUNTIME), { memory: (_a = opts.memory) !== null && _a !== void 0 ? _a : DEFAULT_RUNTIME.memory, timeoutSeconds: (_b = opts.timeoutSeconds) !== null && _b !== void 0 ? _b : DEFAULT_RUNTIME.timeoutSeconds, enforceAppCheck: (_c = opts.enforceAppCheck) !== null && _c !== void 0 ? _c : DEFAULT_RUNTIME.enforceAppCheck, consumeAppCheckToken: false }), (opts.minInstances !== undefined ? { minInstances: opts.minInstances } : {}));
+    var _a, _b, _c, _d;
+    const runtime = Object.assign(Object.assign(Object.assign(Object.assign({}, DEFAULT_RUNTIME), { memory: (_a = opts.memory) !== null && _a !== void 0 ? _a : DEFAULT_RUNTIME.memory, timeoutSeconds: (_b = opts.timeoutSeconds) !== null && _b !== void 0 ? _b : DEFAULT_RUNTIME.timeoutSeconds, enforceAppCheck: (_c = opts.enforceAppCheck) !== null && _c !== void 0 ? _c : DEFAULT_RUNTIME.enforceAppCheck, consumeAppCheckToken: false }), (opts.minInstances !== undefined ? { minInstances: opts.minInstances } : {})), (((_d = opts.secrets) === null || _d === void 0 ? void 0 : _d.length) ? { secrets: opts.secrets } : {}));
     return functions
         .region("asia-south1")
         .runWith(runtime)
@@ -37,5 +37,4 @@ function onCallSecured(opts, handler) {
         return handler(data, context);
     });
 }
-exports.onCallSecured = onCallSecured;
 //# sourceMappingURL=secure-callable.js.map

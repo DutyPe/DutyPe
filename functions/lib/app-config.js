@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReferralConfigCallable = exports.updateReferralConfig = exports.isCallerAdmin = exports.getReferralConfig = exports.DEFAULT_REFERRAL_CONFIG = void 0;
+exports.getReferralConfigCallable = exports.updateReferralConfig = exports.DEFAULT_REFERRAL_CONFIG = void 0;
+exports.getReferralConfig = getReferralConfig;
+exports.isCallerAdmin = isCallerAdmin;
 /**
  * Dynamic referral configuration — source of truth is
  * /app_config/referral. Cached in-process for 60s to keep Firestore reads
@@ -67,7 +69,6 @@ async function getReferralConfig() {
         return exports.DEFAULT_REFERRAL_CONFIG;
     }
 }
-exports.getReferralConfig = getReferralConfig;
 function num(v, d) {
     const n = Number(v);
     return Number.isFinite(n) && n >= 0 ? n : d;
@@ -138,7 +139,6 @@ async function isCallerAdmin(context) {
     }
     return false;
 }
-exports.isCallerAdmin = isCallerAdmin;
 /**
  * Admin-only callable to update /app_config/referral.
  * Authorised via admin claim, ADMIN role, or allowlisted admin email.

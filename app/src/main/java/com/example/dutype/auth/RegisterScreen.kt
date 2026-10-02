@@ -159,44 +159,63 @@ private fun RegisterContent(
         }
     }
 
-    // Handle OTP verification success — new user registration flow
+    // Handle OTP verification success — unified registration / login flow
     LaunchedEffect(otpState.otpVerified) {
         if (otpState.otpVerified) {
-            Timber.d("📱 REGISTER - OTP verified, creating new user profile")
+            Timber.d("📱 REGISTER - OTP verified, resolving user profile")
             try {
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 if (currentUser != null) {
                     val pendingReferralCode = profileCompletionViewModel.getReferralCode()
-                    val registrationResult = otpViewModel.completeRegistration(
+                    val resolvedName = fullName.trim().ifBlank { otpViewModel.lastTruecallerResult?.name.orEmpty() }.ifBlank { "User" }
+                    val authResult = otpViewModel.resolveUnifiedAuth(
                         role = role,
-                        fullName = fullName.trim(),
+                        fullName = resolvedName,
                         referralCode = pendingReferralCode,
                         employerType = employerType.takeIf { role == UserRole.EMPLOYER }
                     )
 
-                    if (registrationResult.isSuccess) {
-                        val resolvedName = fullName.trim()
-                        profileCompletionViewModel.saveUserInfoToLocalStorage(
-                            email = truecallerEmail,
-                            name = resolvedName,
-                            role = role
-                        )
+                    authResult.fold(
+                        onSuccess = { outcome ->
+                            profileCompletionViewModel.saveUserInfoToLocalStorage(
+                                email = truecallerEmail.ifBlank { otpViewModel.lastTruecallerResult?.email.orEmpty() },
+                                name = resolvedName,
+                                role = role
+                            )
 
-                        // completeRegistration already applied the referral code server-side.
-                        if (!pendingReferralCode.isNullOrBlank()) profileCompletionViewModel.clearReferralCode()
+                            // completeRegistration already applied the referral code server-side.
+                            if (!pendingReferralCode.isNullOrBlank()) profileCompletionViewModel.clearReferralCode()
 
-                        otpViewModel.resetState()
-                        navigateToProfileSetup(role, navController)
-                    } else {
-                        val error = registrationResult.exceptionOrNull()
-                        Timber.e(error, "REGISTER - Registration finalization failed")
-                        Toast.makeText(
-                            context,
-                            error?.message ?: context.getString(R.string.auth_verification_failed),
-                            Toast.LENGTH_LONG
-                        ).show()
-                        otpViewModel.resetState()
-                    }
+                            otpViewModel.resetState()
+                            if (outcome.destination == OtpViewModel.PostOtpDestination.HOME) {
+                                profileCompletionViewModel.markProfileComplete(outcome.role)
+                                profileCompletionViewModel.markProfileSetupAsShown(outcome.role)
+                                val homeRoute = when (role) {
+                                    UserRole.WORKER -> Routes.WORKER_HOME
+                                    UserRole.EMPLOYER -> Routes.EMPLOYER_HOME
+                                    else -> Routes.SELECT_ROLE
+                                }
+                                navController.navigate(homeRoute) {
+                                    popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                                }
+                            } else {
+                                navigateToProfileSetup(role, navController)
+                            }
+                        },
+                        onFailure = { error ->
+                            val msg = error.message.orEmpty()
+                            val toastText = if (msg.startsWith("phone-already-registered-as:")) {
+                                val existingRole = msg.substringAfter(":").lowercase()
+                                val existingRoleLabel = if (existingRole == "employer") context.getString(R.string.employer) else context.getString(R.string.worker)
+                                context.getString(R.string.auth_phone_registered_as_role, existingRoleLabel, existingRoleLabel)
+                            } else {
+                                error.message ?: context.getString(R.string.auth_verification_failed)
+                            }
+                            Timber.e(error, "REGISTER - Auth resolution failed")
+                            Toast.makeText(context, toastText, Toast.LENGTH_LONG).show()
+                            otpViewModel.resetState()
+                        }
+                    )
                 } else {
                     navController.navigate(Routes.SELECT_ROLE) {
                         popUpTo(navController.graph.startDestinationId) { inclusive = true }
@@ -205,6 +224,17 @@ private fun RegisterContent(
             } catch (e: Exception) {
                 otpViewModel.resetState()
             }
+        }
+    }
+
+    LaunchedEffect(otpState.otpSent) {
+        if (otpState.otpSent) {
+            val toastMessage = if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) {
+                context.getString(R.string.auth_code_sent_whatsapp)
+            } else {
+                context.getString(R.string.auth_code_sent_sms)
+            }
+            Toast.makeText(context, toastMessage, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -414,19 +444,19 @@ private fun RegisterContent(
                 role = role
             )
 
-            // Truecaller one-tap sign-up: verified number + name (+ email) without an SMS.
+            // Truecaller one-tap sign-up / login: verified number + name (+ email) without an SMS.
             TruecallerLoginButton(
                 busy = truecallerBusy || otpState.isLoading || isCheckingPhone,
                 onAuthorized = { code, verifier ->
                     truecallerBusy = true
                     scope.launch {
-                        otpViewModel.truecallerExchange(code, verifier, mode = "register").fold(
+                        otpViewModel.truecallerExchange(code, verifier, mode = "unified").fold(
                             onSuccess = { tc ->
                                 truecallerBusy = false
                                 phoneNumber = tc.phone.removePrefix("+91")
                                 if (fullName.isBlank()) fullName = tc.name
                                 when {
-                                    tc.existingRole != null -> {
+                                    tc.roleConflict || (tc.existingRole != null && tc.existingRole != role.name) -> {
                                         val label = context.getString(
                                             if (tc.existingRole == "EMPLOYER") R.string.employer else R.string.worker
                                         )
@@ -434,14 +464,15 @@ private fun RegisterContent(
                                             context, context.getString(R.string.auth_phone_registered_as_role, label, label), Toast.LENGTH_LONG
                                         ).show()
                                     }
-                                    fullName.trim().length < 2 -> Toast.makeText(
-                                        context, context.getString(R.string.auth_enter_name_first), Toast.LENGTH_LONG
-                                    ).show()
                                     tc.allowed -> {
                                         truecallerEmail = tc.email
                                         profileCompletionViewModel.saveAuthMethod("TRUECALLER")
                                         profileCompletionViewModel.savePhoneNumber(tc.phone)
-                                        profileCompletionViewModel.saveUserInfoToLocalStorage(email = tc.email, name = fullName.trim(), role = role)
+                                        profileCompletionViewModel.saveUserInfoToLocalStorage(
+                                            email = tc.email,
+                                            name = fullName.trim().ifBlank { tc.name }.ifBlank { "User" },
+                                            role = role
+                                        )
                                         otpViewModel.signInWithTruecaller(tc)
                                     }
                                     else -> Toast.makeText(context, context.getString(R.string.auth_truecaller_failed), Toast.LENGTH_LONG).show()

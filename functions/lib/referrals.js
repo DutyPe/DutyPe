@@ -1,6 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.expirePendingReferrals = exports.getReferralLeaderboard = exports.settleWithdrawal = exports.requestWithdrawal = exports.completeReferral = exports.applyReferralCode = exports.registerReferral = exports.ensureWalletCallable = exports.ensureWallet = void 0;
+exports.expirePendingReferrals = exports.getReferralLeaderboard = exports.settleWithdrawal = exports.requestWithdrawal = exports.applyReferralCode = exports.ensureWalletCallable = void 0;
+exports.ensureWallet = ensureWallet;
+exports.registerReferral = registerReferral;
+exports.completeReferral = completeReferral;
 /**
  * Referrals and the wallet — money works like a ledger.
  *
@@ -118,7 +121,6 @@ async function ensureWallet(uid, role) {
     }
     throw new functions.https.HttpsError("internal", "Could not create a referral code");
 }
-exports.ensureWallet = ensureWallet;
 /** The app asks for its own code (older accounts get one on first call). */
 exports.ensureWalletCallable = (0, secure_callable_1.onCallSecured)({}, async (_raw, context) => {
     const uid = context.auth.uid;
@@ -176,7 +178,6 @@ async function registerReferral(uid, rawCode) {
         return "Referral could not be applied";
     }
 }
-exports.registerReferral = registerReferral;
 /** A code entered after sign-up (profile setup). Allowed for 7 days after the account was created. */
 exports.applyReferralCode = (0, secure_callable_1.onCallSecured)({}, async (raw, context) => {
     const uid = context.auth.uid;
@@ -275,7 +276,6 @@ async function completeReferral(refereeUid, refereeRole) {
         });
     }
 }
-exports.completeReferral = completeReferral;
 // ───────────────────────────── withdrawals ─────────────────────────────
 const UPI_PATTERN = /^[a-zA-Z0-9._-]{2,256}@[a-zA-Z][a-zA-Z0-9.-]{1,64}$/;
 /** Cash out the wallet to UPI (whole balance, capped per day). requestId makes a retry harmless. */

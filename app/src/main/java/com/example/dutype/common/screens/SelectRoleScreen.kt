@@ -68,6 +68,8 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 
 
+import com.example.dutype.utils.LocaleHelper
+
 // ── Palette ───────────────────────────────────────────────────────────────
 private val ScreenBg = Color(0xFFFFFFFF)
 private val InkColor = Color(0xFF0F0F0F)

@@ -6,5 +6,5 @@
         button stays hidden and login works exactly as before. Not a secret (it ships in the app).
         The same ID goes in functions/.env.dutype-860ac as TRUECALLER_CLIENT_ID.
     -->
-    <string name="truecaller_client_id" translatable="false"></string>
+    <string name="truecaller_client_id" translatable="false">-kqtniuuyzghbxcn_q52rjxhipc_8tuttzryunaupwu</string>
 </resources>

@@ -1,6 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.localizedTopic = exports.getUserLanguagesBulk = exports.getUserDisplayName = exports.getUserLanguage = exports.tBody = exports.tTitle = exports.normalizeLocale = exports.SE_GUEST_POOL = exports.SE_EMPLOYER_POOL = exports.SE_WORKER_POOL = exports.NOTIFICATION_TEMPLATES = exports.DEFAULT_LOCALE = exports.SUPPORTED_LOCALES = void 0;
+exports.SE_GUEST_POOL = exports.SE_EMPLOYER_POOL = exports.SE_WORKER_POOL = exports.NOTIFICATION_TEMPLATES = exports.DEFAULT_LOCALE = exports.SUPPORTED_LOCALES = void 0;
+exports.normalizeLocale = normalizeLocale;
+exports.tTitle = tTitle;
+exports.tBody = tBody;
+exports.getUserLanguage = getUserLanguage;
+exports.getUserDisplayName = getUserDisplayName;
+exports.getUserLanguagesBulk = getUserLanguagesBulk;
+exports.localizedTopic = localizedTopic;
 exports.SUPPORTED_LOCALES = ["en", "te", "hi"];
 exports.DEFAULT_LOCALE = "en";
 exports.NOTIFICATION_TEMPLATES = {
@@ -503,33 +510,6 @@ exports.NOTIFICATION_TEMPLATES = {
             body: "डुप्लिकेट संकेतों के कारण आपकी नौकरी \"{title}\" की मैन्युअल समीक्षा आवश्यक है।",
         },
     },
-    JOB_HIDDEN_REPORTS: {
-        en: {
-            title: "Hi {recipient}, your job was hidden for review",
-            body: "Your job \"{title}\" has been hidden due to community reports.",
-        },
-        te: {
-            title: "హాయ్ {recipient}, మీ ఉద్యోగం సమీక్ష కోసం దాచబడింది",
-            body: "కమ్యూనిటీ నివేదికల కారణంగా మీ ఉద్యోగం \"{title}\" దాచబడింది.",
-        },
-        hi: {
-            title: "नमस्ते {recipient}, आपकी नौकरी समीक्षा के लिए छिपाई गई",
-            body: "सामुदायिक रिपोर्ट के कारण आपकी नौकरी \"{title}\" छिपा दी गई है।",
-        },
-    },
-    NON_PAYMENT_REPORTED: { en: {
-            title: "Hi {recipient}, a payment complaint was raised",
-            body: "A worker reported not being paid for \"{title}\". Please settle it or reply to support.",
-        },
-        te: {
-            title: "హాయ్ {recipient}, చెల్లింపు ఫిర్యాదు వచ్చింది",
-            body: "\"{title}\" కోసం చెల్లింపు అందలేదని ఒక కార్మికుడు నివేదించారు. దయచేసి చెల్లించండి లేదా సపోర్ట్‌కు సమాధానం ఇవ్వండి.",
-        },
-        hi: {
-            title: "नमस्ते {recipient}, भुगतान की शिकायत मिली है",
-            body: "एक कर्मचारी ने \"{title}\" के लिए भुगतान न मिलने की शिकायत की है। कृपया भुगतान करें या सहायता को जवाब दें।",
-        },
-    },
     WORK_AUTO_COMPLETED: {
         en: {
             title: "Hi {recipient}, \"{title}\" is marked complete",
@@ -587,7 +567,6 @@ function normalizeLocale(value) {
         return "hi";
     return exports.DEFAULT_LOCALE;
 }
-exports.normalizeLocale = normalizeLocale;
 function applyParams(template, params) {
     const replaced = template.replace(/\{(\w+)\}/g, (_, key) => {
         if (!params)
@@ -617,14 +596,12 @@ function tTitle(templateId, locale, params) {
         return templateId;
     return applyParams(localized.title, params);
 }
-exports.tTitle = tTitle;
 function tBody(templateId, locale, params) {
     const localized = pickLocalized(templateId, locale);
     if (!localized)
         return templateId;
     return applyParams(localized.body, params);
 }
-exports.tBody = tBody;
 /**
  * Resolves the recipient's preferred locale from `user_tokens/{uid}.language`.
  * Returns "en" when the field is absent, malformed, or the token doc is missing.
@@ -643,7 +620,6 @@ async function getUserLanguage(db, userId) {
         return exports.DEFAULT_LOCALE;
     }
 }
-exports.getUserLanguage = getUserLanguage;
 /**
  * Returns the recipient's display name for use in notification bodies.
  * Prefers the first word of `fullName` (e.g. "Rahul" from "Rahul Kumar")
@@ -674,7 +650,6 @@ async function getUserDisplayName(db, userId, fallback = "") {
         return fallback;
     }
 }
-exports.getUserDisplayName = getUserDisplayName;
 /**
  * Bulk-resolve languages for many users in a single round-trip.
  * Returns a map { userId -> locale }; missing token docs default to "en".
@@ -698,7 +673,6 @@ async function getUserLanguagesBulk(db, userIds) {
     });
     return out;
 }
-exports.getUserLanguagesBulk = getUserLanguagesBulk;
 /**
  * Topic naming for language-specific FCM broadcasts. Android subscribes to
  * `${baseTopic}_${language}` so admin broadcasts can deliver the right copy.
@@ -706,5 +680,4 @@ exports.getUserLanguagesBulk = getUserLanguagesBulk;
 function localizedTopic(baseTopic, locale) {
     return `${baseTopic}_${locale}`;
 }
-exports.localizedTopic = localizedTopic;
 //# sourceMappingURL=notification-i18n.js.map

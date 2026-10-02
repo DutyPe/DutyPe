@@ -7,10 +7,11 @@
     <!-- Audio permission for Voice Job Posting ("Bol kar post karein") -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
-    <!-- Package Visibility Queries for Google Play Services & Play Store (Android 11+) -->
+    <!-- Package Visibility Queries for Google Play Services, Play Store, and Truecaller (Android 11+) -->
     <queries>
         <package android:name="com.google.android.gms" />
         <package android:name="com.android.vending" />
+        <package android:name="com.truecaller" />
     </queries>
     
     <!-- Location Permissions - Runtime request with clear explanation -->

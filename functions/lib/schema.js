@@ -6,7 +6,7 @@
  * Also imported by the web admin (web/lib/firebase/schema.ts re-exports this file's shape).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CATEGORY_KEYS = exports.MAX_PAY_RUPEES = exports.Values = exports.Idempotency = exports.LocationDemand = exports.Feedback = exports.Announcements = exports.AppConfig = exports.PaymentQrCodes = exports.SubscriptionPayments = exports.WithdrawalDaily = exports.Withdrawals = exports.WalletLedger = exports.Wallets = exports.Referrals = exports.ReferralCodes = exports.InstantRequests = exports.JobReports = exports.Ratings = exports.Notifications = exports.SavedJobs = exports.Applications = exports.JobDetails = exports.Jobs = exports.JobContacts = exports.EmployerCards = exports.EmployerProfiles = exports.WorkerCards = exports.WorkerProfiles = exports.UserTokens = exports.PhoneRoles = void 0;
+exports.CATEGORY_KEYS = exports.MAX_PAY_RUPEES = exports.Values = exports.Idempotency = exports.TruecallerProfiles = exports.OtpDaily = exports.OtpCodes = exports.LocationDemand = exports.Announcements = exports.AppConfig = exports.PaymentQrCodes = exports.SubscriptionPayments = exports.WithdrawalDaily = exports.Withdrawals = exports.WalletLedger = exports.Wallets = exports.Referrals = exports.ReferralCodes = exports.InstantRequests = exports.Ratings = exports.Notifications = exports.SavedJobs = exports.Applications = exports.JobDetails = exports.Jobs = exports.JobContacts = exports.EmployerCards = exports.EmployerProfiles = exports.WorkerCards = exports.WorkerProfiles = exports.UserTokens = exports.PhoneRoles = void 0;
 exports.PhoneRoles = {
     COLLECTION: "phoneRoles",
     UID: "uid",
@@ -22,6 +22,8 @@ exports.WorkerProfiles = {
     COLLECTION: "worker_profiles",
     NAME: "name",
     PHONE: "phone",
+    /** Optional; filled from Truecaller when the user shares it. */
+    EMAIL: "email",
     PHOTO_URL: "photoUrl",
     GENDER: "gender",
     DATE_OF_BIRTH: "dateOfBirth",
@@ -77,6 +79,8 @@ exports.EmployerProfiles = {
     BUSINESS_TYPE: "businessType",
     GSTIN: "gstin",
     PHONE: "phone",
+    /** Optional; filled from Truecaller when the user shares it. */
+    EMAIL: "email",
     PHOTO_URL: "photoUrl",
     ADDRESS: "address",
     AREA: "area",
@@ -219,15 +223,6 @@ exports.Ratings = {
     TAGS: "tags",
     CREATED_AT: "createdAt",
 };
-exports.JobReports = {
-    COLLECTION: "job_reports",
-    JOB_ID: "jobId",
-    REPORTER_ID: "reporterId",
-    REASON: "reason",
-    NOTE: "note",
-    STATUS: "status",
-    CREATED_AT: "createdAt",
-};
 exports.InstantRequests = {
     COLLECTION: "instant_requests",
     EMPLOYER_ID: "employerId",
@@ -355,16 +350,6 @@ exports.Announcements = {
     CREATED_AT: "createdAt",
     EXPIRES_AT: "expiresAt",
 };
-exports.Feedback = {
-    COLLECTION: "feedback",
-    UID: "uid",
-    ROLE: "role",
-    RATING: "rating",
-    CATEGORY: "category",
-    TEXT: "text",
-    APP_VERSION: "appVersion",
-    CREATED_AT: "createdAt",
-};
 exports.LocationDemand = {
     COLLECTION: "location_demand",
     UID: "uid",
@@ -373,6 +358,33 @@ exports.LocationDemand = {
     LNG: "lng",
     CATEGORY: "category",
     CREATED_AT: "createdAt",
+};
+/** otp_codes/{+91…} — WhatsApp login codes (server only; hashed; TTL on expireAt). */
+exports.OtpCodes = {
+    COLLECTION: "otp_codes",
+    HASH: "hash",
+    EXPIRES_AT: "expiresAt",
+    ATTEMPTS: "attempts",
+    LAST_SENT_AT: "lastSentAt",
+    HOUR_START: "hourStart",
+    HOUR_COUNT: "hourCount",
+    DAY_KEY: "dayKey",
+    DAY_COUNT: "dayCount",
+    EXPIRE_AT: "expireAt",
+};
+/** otp_daily/{YYYY-MM-DD} — WhatsApp codes sent per day across all users (spend cap). */
+exports.OtpDaily = {
+    COLLECTION: "otp_daily",
+    COUNT: "count",
+    EXPIRE_AT: "expireAt",
+};
+/** truecaller_profiles/{uid} — what the user shared through Truecaller (server only). */
+exports.TruecallerProfiles = {
+    COLLECTION: "truecaller_profiles",
+    PHONE: "phone",
+    NAME: "name",
+    EMAIL: "email",
+    UPDATED_AT: "updatedAt",
 };
 exports.Idempotency = {
     COLLECTION: "idempotency",

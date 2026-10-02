@@ -1,6 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.releaseWorkers = exports.readActiveWorkers = exports.acceptUrgentOffer = exports.dispatchUrgentWaves = exports.onInstantRequestCreated = exports.advanceWave = exports.sendWave = exports.sender = exports.waveConditions = exports.waveCells = exports.nextWaveKm = exports.urgentTopic = exports.WAVE_INTERVAL_MS = exports.WAVES_KM = void 0;
+exports.acceptUrgentOffer = exports.dispatchUrgentWaves = exports.onInstantRequestCreated = exports.sender = exports.WAVE_INTERVAL_MS = exports.WAVES_KM = void 0;
+exports.urgentTopic = urgentTopic;
+exports.nextWaveKm = nextWaveKm;
+exports.waveCells = waveCells;
+exports.waveConditions = waveConditions;
+exports.sendWave = sendWave;
+exports.advanceWave = advanceWave;
+exports.readActiveWorkers = readActiveWorkers;
+exports.releaseWorkers = releaseWorkers;
 /**
  * Urgent job dispatch — like a ride request: offers go out to online workers nearby in widening
  * waves, and the first workers to accept get the job until every vacancy is filled.
@@ -40,19 +48,16 @@ const CELL_PRECISION = 5;
 function urgentTopic(cell, locale) {
     return `urgent_${cell}_${locale}`;
 }
-exports.urgentTopic = urgentTopic;
 /** The wave after one that reached [fromKm] (0 = none yet), or null after the last. */
 function nextWaveKm(fromKm) {
     var _a;
     return (_a = exports.WAVES_KM.find((km) => km > fromKm)) !== null && _a !== void 0 ? _a : null;
 }
-exports.nextWaveKm = nextWaveKm;
 /** Cells the wave to [toKm] must reach: those touching the new circle but not the previous one. */
 function waveCells(lat, lng, fromKm, toKm) {
     const reached = new Set(fromKm > 0 ? (0, geo_1.coveringCells)(lat, lng, fromKm, CELL_PRECISION) : []);
     return (0, geo_1.coveringCells)(lat, lng, toKm, CELL_PRECISION).filter((c) => !reached.has(c));
 }
-exports.waveCells = waveCells;
 /** FCM conditions ("'a' in topics || 'b' in topics …") covering [cells] for one language. */
 function waveConditions(cells, locale) {
     const out = [];
@@ -61,7 +66,6 @@ function waveConditions(cells, locale) {
     }
     return out;
 }
-exports.waveConditions = waveConditions;
 /** Test seam: the function that actually sends. */
 exports.sender = {
     send: (message) => admin.messaging().send(message),
@@ -109,7 +113,6 @@ async function sendWave(requestId, request, fromKm, toKm) {
     const failed = results.filter((r) => r.status === "rejected").length;
     return { cells: cells.length, sent: results.length - failed, failed };
 }
-exports.sendWave = sendWave;
 /**
  * Sends the next wave for one open need, if it is due. The wave is claimed in a transaction first,
  * so two scheduler runs (or a retry) never send the same wave twice.
@@ -146,7 +149,6 @@ async function advanceWave(requestId, nowMs) {
         `${result.sent} sent, ${result.failed} failed`);
     return claimed.toKm;
 }
-exports.advanceWave = advanceWave;
 /** Wave 1 goes out as soon as the need is posted. */
 exports.onInstantRequestCreated = functions
     .region("asia-south1")
@@ -275,9 +277,7 @@ async function readActiveWorkers(tx, requestId, workerIds) {
     const snaps = await tx.getAll(...refs);
     return snaps.filter((s) => s.exists && s.get(schema_1.WorkerProfiles.ACTIVE_URGENT_ID) === requestId).map((s) => s.ref);
 }
-exports.readActiveWorkers = readActiveWorkers;
 function releaseWorkers(tx, refs) {
     refs.forEach((ref) => tx.update(ref, { [schema_1.WorkerProfiles.ACTIVE_URGENT_ID]: FieldValue.delete() }));
 }
-exports.releaseWorkers = releaseWorkers;
 //# sourceMappingURL=urgent.js.map

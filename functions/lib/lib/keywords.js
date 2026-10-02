@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.keywordsOf = void 0;
+exports.keywordsOf = keywordsOf;
 /**
  * Search words for a job: lower-case words (any script — English, Telugu, Hindi) of its title,
  * company, area, district and category. The app searches with `keywords array-contains <word>`,
@@ -20,5 +20,4 @@ function keywordsOf(...parts) {
     }
     return Array.from(out);
 }
-exports.keywordsOf = keywordsOf;
 //# sourceMappingURL=keywords.js.map

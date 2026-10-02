@@ -4,6 +4,7 @@ exports.parseVoiceJobDetails = void 0;
 const functions = require("firebase-functions");
 const secure_callable_1 = require("./secure-callable");
 const ai_hiring_1 = require("./ai-hiring");
+const azure_1 = require("./lib/azure");
 const VALID_CATEGORIES = [
     "Cook",
     "Electrician",
@@ -18,8 +19,8 @@ const VALID_CATEGORIES = [
     "Other Work",
 ];
 exports.parseVoiceJobDetails = (0, secure_callable_1.onCallSecured)(
-// Logged-in users of the real app only: every call spends Gemini tokens.
-{ timeoutSeconds: 25 }, async (data, context) => {
+// Logged-in users of the real app only: every call spends AI tokens.
+{ timeoutSeconds: 25, secrets: [azure_1.AZURE_OPENAI_SECRET] }, async (data, context) => {
     const rawTranscript = String((data === null || data === void 0 ? void 0 : data.transcript) || "").trim();
     if (!rawTranscript) {
         return {
@@ -38,25 +39,24 @@ exports.parseVoiceJobDetails = (0, secure_callable_1.onCallSecured)(
         };
     }
     const current = data.currentInput || {};
-    const apiKey = process.env.GEMINI_API_KEY || "";
-    // Gemini only with DutyPe AI (plan or free trial); otherwise the built-in rules below.
-    const access = apiKey ? await (0, ai_hiring_1.useAi)(context.auth.uid) : "upgrade";
-    if (apiKey && (access === "plan" || access === "trial")) {
+    const configured = (0, ai_hiring_1.aiConfigured)();
+    // AI (Azure OpenAI, else Gemini) only with DutyPe AI (plan or free trial); otherwise the built-in rules below.
+    const access = configured ? await (0, ai_hiring_1.useAi)(context.auth.uid) : "upgrade";
+    if (configured && (access === "plan" || access === "trial")) {
         try {
-            const aiResult = await callGeminiForJobExtraction(rawTranscript, current, apiKey);
+            const aiResult = await aiJobExtraction(rawTranscript, current);
             if (aiResult) {
                 return aiResult;
             }
         }
         catch (err) {
-            functions.logger.warn("Gemini voice parse failed, using rule-based fallback", err);
+            functions.logger.warn("AI voice parse failed, using rule-based fallback", err);
         }
     }
     // Deterministic rule-based fallback (offline / zero-token fallback)
     return parseRuleBasedJobDetails(rawTranscript, current);
 });
-async function callGeminiForJobExtraction(transcript, current, apiKey) {
-    var _a, _b, _c, _d, _e;
+async function aiJobExtraction(transcript, current) {
     const prompt = `You are an Indian hyperlocal recruitment assistant for the DutyPe app.
 Extract blue-collar job posting details from an employer's spoken voice transcript.
 The transcript may be in colloquial Hindi, Telugu, Hinglish, Teluglish, or Indian English.
@@ -99,28 +99,11 @@ Extract the following fields into JSON:
 - "summaryText": A 1-sentence natural summary in user's language e.g. "2 Helpers kal subah, ₹700 per day".
 
 Respond with pure JSON only without markdown or code fences.`;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-    const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-                responseMimeType: "application/json",
-                temperature: 0.1,
-            },
-        }),
-    });
-    if (!response.ok) {
-        functions.logger.warn(`Gemini API returned status ${response.status}`);
-        return null;
-    }
-    const json = await response.json();
-    const textContent = (_e = (_d = (_c = (_b = (_a = json === null || json === void 0 ? void 0 : json.candidates) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.content) === null || _c === void 0 ? void 0 : _c.parts) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.text;
-    if (!textContent)
+    const result = await ai_hiring_1.ai.json(prompt);
+    if (!result || typeof result !== "object")
         return null;
     try {
-        const parsed = JSON.parse(textContent);
+        const parsed = result; // eslint-disable-line @typescript-eslint/no-explicit-any
         const category = VALID_CATEGORIES.includes(parsed.category) ? parsed.category : "Other Work";
         const payment = Number(parsed.perPersonPayment) || 0;
         const workers = Math.max(1, Math.min(20, Number(parsed.workersNeeded) || 1));
@@ -141,7 +124,7 @@ Respond with pure JSON only without markdown or code fences.`;
         };
     }
     catch (err) {
-        functions.logger.warn("Failed to parse Gemini JSON response", err);
+        functions.logger.warn("Failed to read AI JSON response", err);
         return null;
     }
 }

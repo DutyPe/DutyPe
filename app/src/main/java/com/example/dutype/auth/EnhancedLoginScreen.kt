@@ -145,18 +145,25 @@ private fun OtpLoginScreen(
 
     LaunchedEffect(otpState.otpVerified) {
         if (otpState.otpVerified) {
-            Timber.d("📱 OTP VERIFICATION SUCCESS - Starting user check flow")
+            Timber.d("📱 OTP VERIFICATION SUCCESS - Starting unified auth resolution")
 
             try {
                 val currentUser = FirebaseAuth.getInstance().currentUser
 
                 if (currentUser != null) {
-                    val loginResult = otpViewModel.completeLogin(role)
-                    loginResult.fold(
+                    val tcInfo = otpViewModel.lastTruecallerResult
+                    val tcName = tcInfo?.name?.takeIf { it.isNotBlank() }
+                    val tcEmail = tcInfo?.email?.orEmpty() ?: ""
+
+                    val authResult = otpViewModel.resolveUnifiedAuth(
+                        role = role,
+                        fullName = tcName
+                    )
+                    authResult.fold(
                         onSuccess = { outcome ->
                             profileCompletionViewModel.saveUserInfoToLocalStorage(
-                                email = "",
-                                name = "",
+                                email = tcEmail,
+                                name = tcName ?: "",
                                 role = outcome.role
                             )
                             if (outcome.destination == OtpViewModel.PostOtpDestination.HOME) {
@@ -168,14 +175,12 @@ private fun OtpLoginScreen(
                             }
                         },
                         onFailure = { error ->
-                            Timber.e(error, "OTP VERIFICATION SUCCESS - Login resolution failed")
+                            Timber.e(error, "OTP VERIFICATION SUCCESS - Auth resolution failed")
                             val msg = error.message.orEmpty()
                             val toastText = if (msg.startsWith("phone-already-registered-as:")) {
                                 val existingRole = msg.substringAfter(":").lowercase()
                                 val existingRoleLabel = if (existingRole == "employer") context.getString(R.string.employer) else context.getString(R.string.worker)
                                 context.getString(R.string.auth_phone_registered_as_role, existingRoleLabel, existingRoleLabel)
-                            } else if (msg == "account-not-found") {
-                                context.getString(R.string.auth_no_account_found)
                             } else {
                                 error.message ?: context.getString(R.string.auth_verification_failed)
                             }
@@ -195,6 +200,17 @@ private fun OtpLoginScreen(
             }
 
             otpViewModel.resetState()
+        }
+    }
+
+    LaunchedEffect(otpState.otpSent) {
+        if (otpState.otpSent) {
+            val toastMessage = if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) {
+                context.getString(R.string.auth_code_sent_whatsapp)
+            } else {
+                context.getString(R.string.auth_code_sent_sms)
+            }
+            Toast.makeText(context, toastMessage, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -549,25 +565,32 @@ private fun OtpLoginScreen(
                     onAuthorized = { code, verifier ->
                         truecallerBusy = true
                         scope.launch {
-                            otpViewModel.truecallerExchange(code, verifier, mode = "login").fold(
+                            otpViewModel.truecallerExchange(code, verifier, mode = "unified").fold(
                                 onSuccess = { tc ->
                                     truecallerBusy = false
                                     when {
                                         tc.allowed -> {
                                             profileCompletionViewModel.saveAuthMethod("TRUECALLER")
                                             profileCompletionViewModel.savePhoneNumber(tc.phone)
+                                            if (tc.name.isNotBlank()) {
+                                                profileCompletionViewModel.saveUserInfoToLocalStorage(
+                                                    email = tc.email,
+                                                    name = tc.name,
+                                                    role = role
+                                                )
+                                            }
                                             otpViewModel.signInWithTruecaller(tc)
                                         }
-                                        tc.existingRole == null -> Toast.makeText(
-                                            context, context.getString(R.string.auth_no_account_found), Toast.LENGTH_LONG
-                                        ).show()
-                                        else -> {
+                                        tc.roleConflict || (tc.existingRole != null && tc.existingRole != role.name) -> {
                                             val label = context.getString(
                                                 if (tc.existingRole == "EMPLOYER") R.string.employer else R.string.worker
                                             )
                                             Toast.makeText(
                                                 context, context.getString(R.string.auth_phone_registered_as_role, label, label), Toast.LENGTH_LONG
                                             ).show()
+                                        }
+                                        else -> {
+                                            Toast.makeText(context, context.getString(R.string.auth_truecaller_failed), Toast.LENGTH_LONG).show()
                                         }
                                     }
                                 },

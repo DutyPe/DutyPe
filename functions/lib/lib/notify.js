@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.notify = void 0;
+exports.notify = notify;
 /**
  * The one way the server tells a user something: an inbox document (notifications, TTL on
  * expireAt) plus an FCM data push, written/sent directly — no trigger, no lock, no duplicate
@@ -78,5 +78,4 @@ async function notify(uid, notice) {
         functions.logger.warn(`notify(${uid}, ${notice.type}) failed`, error);
     }
 }
-exports.notify = notify;
 //# sourceMappingURL=notify.js.map
