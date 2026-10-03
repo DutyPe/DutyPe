@@ -9,8 +9,14 @@ import * as admin from "firebase-admin";
 export const whatsappWebhook = functions
   .region("us-central1")
   .https.onRequest(async (req, res) => {
-    // 1. Meta Webhook Verification Challenge (GET)
+    // 1. Meta Webhook Verification Challenge (GET) or View Logs
     if (req.method === "GET") {
+      if (req.query["view_logs"] === "true") {
+        const snap = await admin.firestore().collection("whatsapp_delivery_logs").orderBy("receivedAt", "desc").limit(10).get();
+        const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        res.status(200).json(logs);
+        return;
+      }
       const mode = req.query["hub.mode"];
       const token = req.query["hub.verify_token"];
       const challenge = req.query["hub.challenge"];

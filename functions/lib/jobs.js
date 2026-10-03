@@ -17,6 +17,7 @@ exports.expireJobs = exports.onJobWritten = exports.deleteJob = exports.renewJob
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto_1 = require("crypto");
+const referral_posts_1 = require("./lib/referral-posts");
 const secure_callable_1 = require("./secure-callable");
 const input_1 = require("./lib/input");
 const geo_1 = require("./lib/geo");
@@ -133,6 +134,10 @@ function chargeForPost(tx, employer, quota, nowMs) {
         return "credit";
     }
     const used = Number(quota.get(schema_1.Idempotency.RESULT) || 0);
+    if (used >= FREE_POSTS_PER_DAY && (0, referral_posts_1.referralPostsLeft)(employer.data, nowMs) > 0) {
+        (0, referral_posts_1.useReferralPost)(tx, employer.ref);
+        return "referral";
+    }
     if (used >= FREE_POSTS_PER_DAY) {
         (0, input_1.fail)("resource-exhausted", `You have used today's ${FREE_POSTS_PER_DAY} free job posts. Buy a plan to post more today.`);
     }
@@ -291,6 +296,8 @@ exports.deleteJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context
             const S = schema_1.EmployerProfiles.Subscription;
             tx.update(db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid), `${schema_1.EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_NORMAL}`, FieldValue.increment(1));
         }
+        if (paid.charge === "referral")
+            (0, referral_posts_1.refundReferralPost)(tx, db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid));
         if (paid.charge === "free") {
             tx.set(quotaRef(uid, createdAtMs), { [schema_1.Idempotency.RESULT]: FieldValue.increment(-1) }, { merge: true });
         }

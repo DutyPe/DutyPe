@@ -21,6 +21,8 @@ const secure_callable_1 = require("./secure-callable");
 const input_1 = require("./lib/input");
 const ai_hiring_1 = require("./ai-hiring");
 const schema_1 = require("./schema");
+const referral_posts_1 = require("./lib/referral-posts");
+const services_1 = require("./services");
 const azure_1 = require("./lib/azure");
 const db = admin.firestore();
 const LANGS = ["en", "te", "hi"];
@@ -28,15 +30,24 @@ const LANG_NAME = { en: "simple English", te: "simple Telugu (Telugu script)", h
 const DAY_MS = 24 * 60 * 60 * 1000;
 const IST_OFFSET_MS = 330 * 60 * 1000;
 const URGENT_WINDOWS = ["right_now", "within_1_hour", "today", "tomorrow"];
+/** Same limits as jobs.ts / instant.ts (free posts per day, free urgent posts in total). */
+const FREE_JOB_POSTS_PER_DAY = 3;
+const FREE_URGENT_POSTS = 3;
 const ms = (v) => { var _a, _b; return (_b = (_a = v === null || v === void 0 ? void 0 : v.toMillis) === null || _a === void 0 ? void 0 : _a.call(v)) !== null && _b !== void 0 ? _b : 0; };
 /** The employer's own data, compact (about 130 document reads). */
 async function employerFacts(uid) {
     const S = schema_1.EmployerProfiles.Subscription;
-    const [profile, jobsSnap, appsSnap, urgentSnap] = await Promise.all([
+    const nowMs = Date.now();
+    const day = new Date(nowMs + IST_OFFSET_MS).toISOString().slice(0, 10);
+    const [profile, jobsSnap, appsSnap, urgentSnap, quota, bookingsSnap, servicesConfig] = await Promise.all([
         db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid).get(),
         db.collection(schema_1.Jobs.COLLECTION).where(schema_1.Jobs.EMPLOYER_ID, "==", uid).orderBy(schema_1.Jobs.CREATED_AT, "desc").limit(20).get(),
         db.collection(schema_1.Applications.COLLECTION).where(schema_1.Applications.EMPLOYER_ID, "==", uid).orderBy(schema_1.Applications.CREATED_AT, "desc").limit(100).get(),
         db.collection(schema_1.InstantRequests.COLLECTION).where(schema_1.InstantRequests.EMPLOYER_ID, "==", uid).orderBy(schema_1.InstantRequests.CREATED_AT, "desc").limit(10).get(),
+        db.collection(schema_1.Idempotency.COLLECTION).doc(`postQuota_${uid}_${day}`).get(),
+        db.collection(schema_1.ServiceBookings.COLLECTION).where(schema_1.ServiceBookings.CUSTOMER_ID, "==", uid)
+            .orderBy(schema_1.ServiceBookings.CREATED_AT, "desc").limit(5).get().catch(() => null),
+        (0, services_1.loadConfig)().catch(() => null),
     ]);
     const now = Date.now();
     const todayStart = Math.floor((now + IST_OFFSET_MS) / DAY_MS) * DAY_MS - IST_OFFSET_MS;
@@ -52,13 +63,24 @@ async function employerFacts(uid) {
         appliedToday: ms(a.get(schema_1.Applications.CREATED_AT)) >= todayStart,
     }));
     const hired = applicants.filter((a) => a.status === "hired" || a.status === "completed");
+    const expiresAt = ms(sub[S.EXPIRES_AT]);
+    const active = sub[S.STATUS] === "ACTIVE" && (expiresAt === 0 || expiresAt > nowMs);
+    const owner = String(profile.get(schema_1.EmployerProfiles.OWNER_NAME) || "").trim();
     return {
-        employerName: String(profile.get(schema_1.EmployerProfiles.BUSINESS_NAME) || profile.get(schema_1.EmployerProfiles.OWNER_NAME) || ""),
+        employerName: String(profile.get(schema_1.EmployerProfiles.BUSINESS_NAME) || owner || ""),
+        firstName: owner.split(/\s+/)[0] || "",
+        area: String(profile.get(schema_1.EmployerProfiles.AREA) || ""),
         plan: {
             aiIncluded: sub[S.AI] === true || sub[S.PLAN_ID] === "UNLIMITED_CAMPAIGN",
             freeAiLeft: Math.max(0, ai_hiring_1.FREE_AI_TRIAL - Number(profile.get(schema_1.EmployerProfiles.AI_TRIAL_USED) || 0)),
             jobCredits: Number(credits[S.CREDITS_NORMAL] || 0),
             urgentCredits: Number(credits[S.CREDITS_INSTANT] || 0),
+            planId: String(sub[S.PLAN_ID] || "NONE"),
+            active,
+            expiresInDays: active && expiresAt ? Math.max(0, Math.ceil((expiresAt - nowMs) / DAY_MS)) : null,
+            freeJobPostsLeftToday: Math.max(0, FREE_JOB_POSTS_PER_DAY - Number(quota.get(schema_1.Idempotency.RESULT) || 0)),
+            freeUrgentPostsLeft: Math.max(0, FREE_URGENT_POSTS - Number(profile.get(schema_1.EmployerProfiles.FREE_URGENT_POSTS_USED) || 0)),
+            referralFreePosts: (0, referral_posts_1.referralPostsLeft)(profile.data(), nowMs),
         },
         jobs: jobsSnap.docs.map((d) => ({
             id: d.id,
@@ -77,6 +99,19 @@ async function employerFacts(uid) {
             needed: Number(d.get(schema_1.InstantRequests.WORKERS_NEEDED) || 1),
             accepted: (d.get(schema_1.InstantRequests.SELECTED_WORKER_IDS) || []).length,
         })),
+        homeServices: {
+            bookings: ((bookingsSnap === null || bookingsSnap === void 0 ? void 0 : bookingsSnap.docs) || []).map((d) => ({
+                id: d.id,
+                service: String(d.get(schema_1.ServiceBookings.SERVICE_NAME) || ""),
+                status: String(d.get(schema_1.ServiceBookings.STATUS) || ""),
+                total: Number(d.get(schema_1.ServiceBookings.TOTAL) || 0),
+                partner: String(d.get(schema_1.ServiceBookings.PARTNER_NAME) || ""),
+                when: new Date(ms(d.get(schema_1.ServiceBookings.CREATED_AT)) + IST_OFFSET_MS).toISOString().slice(0, 16).replace("T", " "),
+            })),
+            catalog: ((servicesConfig === null || servicesConfig === void 0 ? void 0 : servicesConfig.services) || []).filter((x) => x.active !== false)
+                .map((x) => ({ id: x.id, name: x.name, category: x.category, price: x.price })),
+            city: (servicesConfig === null || servicesConfig === void 0 ? void 0 : servicesConfig.city) || "Khammam",
+        },
         stats: {
             openJobs: jobsSnap.docs.filter((d) => d.get(schema_1.Jobs.STATUS) === "open").length,
             appliedToday: applicants.filter((a) => a.appliedToday).length,
@@ -95,6 +130,24 @@ function quickAnswer(message, f, l) {
             en: f.stats.hired ? `You have hired ${f.stats.hired}: ${names}.` : "You have not hired anyone yet.",
             te: f.stats.hired ? `మీరు ${f.stats.hired} మందిని తీసుకున్నారు: ${names}.` : "మీరు ఇంకా ఎవరినీ తీసుకోలేదు.",
             hi: f.stats.hired ? `आपने ${f.stats.hired} लोगों को रखा है: ${names}.` : "आपने अभी किसी को नहीं रखा है।",
+        }[l];
+    }
+    if (/credit|plan|free post|ఉచిత|క్రెడిట్|ప్లాన్|मुफ़्त|क्रेडिट|प्लान/.test(m)) {
+        const p = f.plan;
+        const posts = p.freeJobPostsLeftToday + p.referralFreePosts;
+        return {
+            en: `You can post ${posts} more job${posts === 1 ? "" : "s"} free today and ${p.freeUrgentPostsLeft} free urgent post${p.freeUrgentPostsLeft === 1 ? "" : "s"}. ` +
+                `Plan credits: ${p.jobCredits} job, ${p.urgentCredits} urgent.`,
+            te: `ఈరోజు ఇంకా ${posts} జాబ్‌లు, ${p.freeUrgentPostsLeft} అర్జెంట్ పోస్ట్‌లు ఉచితంగా చేయవచ్చు. ప్లాన్ క్రెడిట్స్: ${p.jobCredits} జాబ్, ${p.urgentCredits} అర్జెంట్.`,
+            hi: `आज आप ${posts} और जॉब और ${p.freeUrgentPostsLeft} अर्जेंट पोस्ट मुफ़्त कर सकते हैं। प्लान क्रेडिट: ${p.jobCredits} जॉब, ${p.urgentCredits} अर्जेंट।`,
+        }[l];
+    }
+    if (/service|booking|ac |plumber|electrician|cleaning|సర్వీస్|బుకింగ్|सर्विस|बुकिंग/.test(m) && f.homeServices.bookings.length) {
+        const b = f.homeServices.bookings[0];
+        return {
+            en: `Your latest home service: ${b.service}, status ${b.status.toLowerCase().replace(/_/g, " ")}${b.partner ? `, partner ${b.partner}` : ""}.`,
+            te: `మీ తాజా ఇంటి సేవ: ${b.service}, స్థితి ${b.status.toLowerCase().replace(/_/g, " ")}${b.partner ? `, పార్ట్నర్ ${b.partner}` : ""}.`,
+            hi: `आपकी आख़िरी घरेलू सेवा: ${b.service}, स्थिति ${b.status.toLowerCase().replace(/_/g, " ")}${b.partner ? `, पार्टनर ${b.partner}` : ""}.`,
         }[l];
     }
     if (/appl|apply|దరఖాస్తు|అప్లై|आवेदन|अप्लाई|how many|ఎంత మంది|कितने/.test(m)) {
@@ -149,6 +202,14 @@ function validateAction(raw, f) {
             return job && (job.status === "expired" || job.status === "closed") ? { type, args: { jobId: job.id }, summary: `Renew: ${job.title}` } : null;
         case "open_job":
             return job ? { type, args: { jobId: job.id }, summary: `Open: ${job.title}` } : null;
+        case "book_service": {
+            const svc = f.homeServices.catalog.find((x) => x.id === args.serviceId);
+            return svc ? { type, args: { serviceId: svc.id }, summary: `Book ${svc.name} (₹${svc.price}) at home` } : null;
+        }
+        case "open_service_booking": {
+            const b = f.homeServices.bookings.find((x) => x.id === args.bookingId);
+            return b ? { type, args: { bookingId: b.id }, summary: `Open booking: ${b.service}` } : null;
+        }
         default:
             return null;
     }
@@ -189,7 +250,11 @@ You may propose ONE action; the employer will confirm before anything happens:
 - post_urgent: same-day / short work, workers come quickly. args: {title, category, workersNeeded (1-20), payPerPerson (rupees), window ${JSON.stringify(URGENT_WINDOWS)}, durationText}
 - hire / reject: args {applicationId} (from the facts)
 - close_job / renew_job / open_job: args {jobId} (from the facts)
-If they want to post but the work, the pay, or what the work involves (duties, timings, place) is missing, ask for it (no action yet). Pay is at most ₹50,000. When you propose an action, end the reply by asking them to confirm.
+- book_service: a home service (AC repair, cleaning, electrician, plumber, appliance repair) at their home in ${facts.homeServices.city}, from homeServices.catalog. args {serviceId}. The booking screen opens; they confirm the address and time there.
+- open_service_booking: args {bookingId} (from homeServices.bookings)
+Posting a job by talking: collect the details in a natural conversation, ONE short question at a time, in this order — what work / role, how many people, pay (amount and per day / month), timings or shift, and what the work involves. Use what they already said; never ask again for something they told you. When you have enough, read back a one-line summary and propose post_job (or post_urgent if they need people today / right now). Pay is at most ₹50,000.
+Answer questions about their jobs, applicants, hires, urgent posts, plan, credits, free posts left and home-service bookings exactly from the facts (use the real numbers and names). If something is not in the facts, say you don't have it.
+Address them by first name now and then (${JSON.stringify(facts.firstName)}). When you propose an action, end the reply by asking them to confirm.
 Return JSON: {"reply": "...", "action": null or {"type": "...", "args": {...}}}`;
     const reply0 = await ai_hiring_1.ai.json(prompt);
     if (reply0 === null) {

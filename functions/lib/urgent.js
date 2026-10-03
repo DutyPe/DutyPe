@@ -26,6 +26,7 @@ exports.releaseWorkers = releaseWorkers;
  */
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const busy_1 = require("./lib/busy");
 const secure_callable_1 = require("./secure-callable");
 const input_1 = require("./lib/input");
 const geo_1 = require("./lib/geo");
@@ -232,6 +233,9 @@ exports.acceptUrgentOffer = (0, secure_callable_1.onCallSecured)({}, async (raw,
             if (stillOn)
                 return { result: "busy" };
         }
+        // A DutyPe Services job or a fresh hire also keeps the worker busy.
+        if (await (0, busy_1.busyWith)(uid, worker, tx, id))
+            return { result: "busy" };
         const needed = Number(r[schema_1.InstantRequests.WORKERS_NEEDED] || 1);
         const selected = new Set((r[schema_1.InstantRequests.SELECTED_WORKER_IDS] || []));
         if (selected.size >= needed)

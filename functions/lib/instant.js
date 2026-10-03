@@ -17,6 +17,7 @@ exports.expireInstantRequests = exports.respondInstantRequest = exports.getInsta
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto_1 = require("crypto");
+const referral_posts_1 = require("./lib/referral-posts");
 const secure_callable_1 = require("./secure-callable");
 const input_1 = require("./lib/input");
 const geo_1 = require("./lib/geo");
@@ -101,6 +102,10 @@ exports.postInstantRequest = (0, secure_callable_1.onCallSecured)({}, async (raw
         else if (freeUsed < FREE_URGENT_POSTS) {
             paid = "free";
             tx.update(employerRef, schema_1.EmployerProfiles.FREE_URGENT_POSTS_USED, FieldValue.increment(1));
+        }
+        else if ((0, referral_posts_1.referralPostsLeft)(employer.data(), nowMs) > 0) {
+            paid = "referral";
+            (0, referral_posts_1.useReferralPost)(tx, employerRef);
         }
         else if (active && Number(credits[S.CREDITS_INSTANT] || 0) > 0) {
             paid = "instant";
@@ -227,6 +232,8 @@ exports.setInstantRequestStatus = (0, secure_callable_1.onCallSecured)({}, async
             const paid = String(charge.get(schema_1.Idempotency.RESULT));
             if (paid === "free")
                 tx.update(employerRef, schema_1.EmployerProfiles.FREE_URGENT_POSTS_USED, FieldValue.increment(-1));
+            if (paid === "referral")
+                (0, referral_posts_1.refundReferralPost)(tx, employerRef);
             if (paid === "instant")
                 tx.update(employerRef, `${schema_1.EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_INSTANT}`, FieldValue.increment(1));
             if (paid === "normal")

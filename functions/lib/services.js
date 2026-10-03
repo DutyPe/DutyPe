@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifyPartnerTopup = exports.reviewServicePartner = exports.requestPartnerTopup = exports.updateServiceBooking = exports.acceptServiceBooking = exports.getServiceOffer = exports.setPartnerOnline = exports.applyServicePartner = exports.rateServiceBooking = exports.cancelServiceBooking = exports.createServiceBooking = exports.offerSender = exports.getServiceCatalog = exports.SEARCH_TIMEOUT_MS = exports.SERVICE_WAVE_INTERVAL_MS = exports.SERVICE_WAVES_KM = exports.PartnerStatus = exports.BookingStatus = void 0;
+exports.verifyPartnerTopup = exports.reviewServicePartner = exports.requestPartnerTopup = exports.updateServiceBooking = exports.acceptServiceBooking = exports.getServiceOffer = exports.setPartnerOnline = exports.applyServicePartner = exports.rateServiceBooking = exports.cancelServiceBooking = exports.previewServiceQuote = exports.createServiceBooking = exports.offerSender = exports.getServiceCatalog = exports.SEARCH_TIMEOUT_MS = exports.SERVICE_WAVE_INTERVAL_MS = exports.SERVICE_WAVES_KM = exports.PartnerStatus = exports.BookingStatus = void 0;
 exports.loadConfig = loadConfig;
 exports.clearConfigCache = clearConfigCache;
 exports.inServiceArea = inServiceArea;
@@ -37,6 +37,7 @@ exports.dispatchServiceWaves = dispatchServiceWaves;
  */
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const busy_1 = require("./lib/busy");
 const secure_callable_1 = require("./secure-callable");
 const input_1 = require("./lib/input");
 const geo_1 = require("./lib/geo");
@@ -97,7 +98,18 @@ exports.getServiceCatalog = (0, secure_callable_1.onCallSecured)({ requireAuth: 
     const lat = Number(data.lat);
     const lng = Number(data.lng);
     const hasPoint = data.lat !== undefined && data.lng !== undefined && Number.isFinite(lat) && Number.isFinite(lng);
-    return Object.assign({ city: c.city, bookingFee: c.bookingFee, inspectionFee: c.inspectionFee, commissionPct: c.commissionPct, upiId: c.upiId, upiName: c.upiName, minTopup: c.minTopup, categories: c.categories, services: all ? c.services : c.services.filter((x) => x.active !== false) }, (hasPoint ? { inArea: inServiceArea(c, lat, lng) } : {}));
+    return Object.assign({ city: c.city, bookingFee: c.bookingFee, inspectionFee: c.inspectionFee, commissionPct: c.commissionPct, upiId: c.upiId, upiName: c.upiName, minTopup: c.minTopup, partnerFee: c.partnerFee, partnerFirstJobFree: c.partnerFirstJobFree, firstBookingFeeFree: c.firstBookingFeeFree, 
+        // Offers the app may advertise (codes marked hidden are shared only through posters / WhatsApp).
+        offers: c.coupons
+            .filter((x) => x.visible !== false && x.active !== false && (!x.validTo || x.validTo > Date.now()) &&
+            (!x.validFrom || x.validFrom <= Date.now()))
+            .map((x) => {
+            var _a, _b, _c, _d;
+            return ({
+                code: x.code, title: x.title, type: x.type, value: x.value, maxOff: (_a = x.maxOff) !== null && _a !== void 0 ? _a : 0, minOrder: (_b = x.minOrder) !== null && _b !== void 0 ? _b : 0,
+                validTo: (_c = x.validTo) !== null && _c !== void 0 ? _c : 0, firstBookingOnly: x.firstBookingOnly === true, categories: (_d = x.categories) !== null && _d !== void 0 ? _d : [],
+            });
+        }), categories: c.categories, services: all ? c.services : c.services.filter((x) => x.active !== false) }, (hasPoint ? { inArea: inServiceArea(c, lat, lng) } : {}));
 });
 // ─────────────────────────────── service area ───────────────────────────────
 /** True when the point is inside a district where DutyPe Services runs (Khammam district at launch). */
@@ -146,12 +158,42 @@ async function tellPartner(uid, templateId, params, data) {
     await (0, notify_1.notify)(uid, { type: "SERVICE_BOOKING", templateId: templateId, params, data, role: schema_1.Values.Role.WORKER });
 }
 /** Paise a partner must hold to accept: booking fee + commission on the catalog price. */
-function requiredCredits(b) {
-    return (0, service_catalog_1.platformTakePaise)(Number(b[BK.PRICE] || 0), 0, Number(b[BK.BOOKING_FEE] || 0), Number(b[BK.COMMISSION_PCT] || 0));
+/** Partner fee for this booking: the one fixed at accept, else the full configured fee (worst case). */
+function feeOf(b, fallbackPartnerFee) {
+    return b[BK.PARTNER_FEE] !== undefined ? Number(b[BK.PARTNER_FEE]) : fallbackPartnerFee;
 }
-function partnerEarning(b) {
+/** The ₹ fee this partner pays DutyPe for booking [b] (first job free, see partnerFeeFor). */
+function partnerFeeOf(config, jobsCompleted, b) {
+    return (0, service_catalog_1.partnerFeeFor)(config, jobsCompleted, Number(b[BK.PRICE] || 0), Number(b[BK.BOOKING_FEE] || 0), Number(b[BK.DISCOUNT] || 0), Number(b[BK.COMMISSION_PCT] || 0));
+}
+/** Per-partner credit need for [b] (depends on whether it would be their free first job). */
+async function creditsNeededFor(b) {
+    const config = await loadConfig();
+    return (jobs) => requiredCredits(b, partnerFeeOf(config, jobs, b));
+}
+/** Paise a partner must hold to accept (before extras). */
+function requiredCredits(b, partnerFee) {
+    return (0, service_catalog_1.takePaise)(Number(b[BK.PRICE] || 0), 0, Number(b[BK.BOOKING_FEE] || 0), Number(b[BK.DISCOUNT] || 0), feeOf(b, partnerFee), Number(b[BK.COMMISSION_PCT] || 0));
+}
+/** What the partner keeps from the service price (the booking fee they collect goes to DutyPe). */
+function partnerEarning(b, partnerFee) {
     const price = Number(b[BK.PRICE] || 0);
-    return price - Math.round((price * Number(b[BK.COMMISSION_PCT] || 0)) / 100);
+    return price - feeOf(b, partnerFee) - Math.round((price * Number(b[BK.COMMISSION_PCT] || 0)) / 100);
+}
+/** True when the customer has never had a booking that was not cancelled. */
+async function isFirstBooking(uid) {
+    const prev = await db.collection(BK.COLLECTION)
+        .where(BK.CUSTOMER_ID, "==", uid)
+        .where(BK.STATUS, "in", [...OPEN_STATUSES, BS.COMPLETED])
+        .limit(1).get();
+    return prev.empty;
+}
+/** A cancelled / unassigned booking gives the coupon back. */
+async function releaseCoupon(b) {
+    const code = String(b[BK.COUPON_CODE] || "");
+    if (!code)
+        return;
+    await db.collection(schema_1.CouponUses.COLLECTION).doc(`${b[BK.CUSTOMER_ID]}_${code}`).delete().catch(() => undefined);
 }
 /** Test seam: the function that actually pushes an offer. */
 exports.offerSender = {
@@ -169,7 +211,7 @@ async function sendOffer(partnerId, bookingId, b, km) {
             service: String(b[BK.SERVICE_NAME] || ""),
             area: String(b[BK.AREA] || ""),
             km: Math.max(1, Math.round(km)),
-            earning: partnerEarning(b),
+            earning: partnerEarning(b, (await loadConfig()).partnerFee),
         };
         await exports.offerSender.send({
             token,
@@ -208,7 +250,8 @@ async function partnersInRing(category, lat, lng, fromKm, toKm, excluded, needPa
             continue;
         if (nowMs - ms(d.get(SP.LAST_SEEN_AT)) > PARTNER_STALE_MS)
             continue;
-        if (Number(d.get(SP.CREDITS_PAISE) || 0) < needPaise)
+        const need = typeof needPaise === "number" ? needPaise : needPaise(Number(d.get(SP.JOBS_COMPLETED) || 0));
+        if (Number(d.get(SP.CREDITS_PAISE) || 0) < need)
             continue;
         const pLat = Number(d.get(SP.LAT));
         const pLng = Number(d.get(SP.LNG));
@@ -248,7 +291,7 @@ async function advanceServiceWave(bookingId, nowMs) {
     if (!claimed)
         return null;
     const { b, fromKm, toKm } = claimed;
-    const partners = await partnersInRing(String(b[BK.CATEGORY]), Number(b[BK.LAT]), Number(b[BK.LNG]), fromKm, toKm, (b[BK.EXCLUDED_PARTNER_IDS] || []), requiredCredits(b), nowMs);
+    const partners = await partnersInRing(String(b[BK.CATEGORY]), Number(b[BK.LAT]), Number(b[BK.LNG]), fromKm, toKm, (b[BK.EXCLUDED_PARTNER_IDS] || []), await creditsNeededFor(b), nowMs);
     const results = await Promise.all(partners.map((p) => sendOffer(p.id, bookingId, b, p.km)));
     functions.logger.info(`service ${bookingId}: wave ${fromKm}-${toKm} km, ${partners.length} partners, ` +
         `${results.filter(Boolean).length} offers sent`);
@@ -276,6 +319,7 @@ async function expireServiceBookings(nowMs) {
         });
         if (done) {
             expired++;
+            await releaseCoupon(d.data());
             await tellCustomer(String(d.get(BK.CUSTOMER_ID)), d.id, "SERVICE_NO_PARTNER", { service: String(d.get(BK.SERVICE_NAME) || "") });
         }
     }
@@ -332,21 +376,63 @@ exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
     }
     const profile = await db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid).get();
     const customerName = String(profile.get(schema_1.EmployerProfiles.OWNER_NAME) || profile.get(schema_1.EmployerProfiles.BUSINESS_NAME) || "Customer");
-    const bookingFee = (0, service_catalog_1.bookingFeeFor)(config, service);
+    const q = (0, service_catalog_1.quote)(config, service, await isFirstBooking(uid), (0, input_1.str)(data, "couponCode", { max: 20, optional: true }), now);
+    if (q.couponError)
+        (0, input_1.fail)("failed-precondition", q.couponError);
+    const bookingFee = q.bookingFee;
     const ref = db.collection(BK.COLLECTION).doc();
     const startOtp = (0, service_catalog_1.newStartOtp)();
     const firstWaveAt = scheduled ? Math.max(now, scheduledAt - SCHEDULE_LEAD_MS) : now;
-    const booking = Object.assign(Object.assign({ [BK.CUSTOMER_ID]: uid, [BK.CUSTOMER_NAME]: customerName, [BK.CUSTOMER_PHONE]: phone, [BK.CATEGORY]: service.category, [BK.SERVICE_ID]: service.id, [BK.SERVICE_NAME]: service.name, [BK.PRICE]: service.price, [BK.BOOKING_FEE]: bookingFee, [BK.COMMISSION_PCT]: config.commissionPct, [BK.INSPECTION]: service.inspection === true, [BK.ADDRESS_TEXT]: addressText, [BK.AREA]: area, [BK.LAT]: lat, [BK.LNG]: lng, [BK.NOTE]: note, [BK.WHEN]: scheduled ? "scheduled" : "now" }, (scheduled ? { [BK.SCHEDULED_AT]: Timestamp.fromMillis(scheduledAt) } : {})), { [BK.STATUS]: BS.SEARCHING, [BK.EXCLUDED_PARTNER_IDS]: [], [BK.DISPATCH_RADIUS_KM]: 0, [BK.NEXT_WAVE_AT]: Timestamp.fromMillis(firstWaveAt), [BK.EXPIRES_AT]: Timestamp.fromMillis(scheduled ? scheduledAt + HOUR_MS : now + exports.SEARCH_TIMEOUT_MS), [BK.TOTAL]: service.price + bookingFee, [BK.CREATED_AT]: Timestamp.fromMillis(now), [BK.UPDATED_AT]: Timestamp.fromMillis(now) });
+    const booking = Object.assign(Object.assign({ [BK.CUSTOMER_ID]: uid, [BK.CUSTOMER_NAME]: customerName, [BK.CUSTOMER_PHONE]: phone, [BK.CATEGORY]: service.category, [BK.SERVICE_ID]: service.id, [BK.SERVICE_NAME]: service.name, [BK.PRICE]: service.price, [BK.BOOKING_FEE]: bookingFee, [BK.COMMISSION_PCT]: config.commissionPct, [BK.INSPECTION]: service.inspection === true, [BK.ADDRESS_TEXT]: addressText, [BK.AREA]: area, [BK.LAT]: lat, [BK.LNG]: lng, [BK.NOTE]: note, [BK.WHEN]: scheduled ? "scheduled" : "now" }, (scheduled ? { [BK.SCHEDULED_AT]: Timestamp.fromMillis(scheduledAt) } : {})), { [BK.STATUS]: BS.SEARCHING, [BK.EXCLUDED_PARTNER_IDS]: [], [BK.DISPATCH_RADIUS_KM]: 0, [BK.NEXT_WAVE_AT]: Timestamp.fromMillis(firstWaveAt), [BK.EXPIRES_AT]: Timestamp.fromMillis(scheduled ? scheduledAt + HOUR_MS : now + exports.SEARCH_TIMEOUT_MS), [BK.DISCOUNT]: q.discount, [BK.DISCOUNT_LABEL]: q.discountLabel, [BK.COUPON_CODE]: q.couponCode, [BK.TOTAL]: q.total, [BK.CREATED_AT]: Timestamp.fromMillis(now), [BK.UPDATED_AT]: Timestamp.fromMillis(now) });
     const batch = db.batch();
     batch.create(ref, booking);
     batch.create(db.collection(schema_1.ServiceBookingSecrets.COLLECTION).doc(ref.id), {
         [schema_1.ServiceBookingSecrets.CUSTOMER_ID]: uid,
         [schema_1.ServiceBookingSecrets.START_OTP]: startOtp,
     });
-    await batch.commit();
+    // One use per customer: creating this document fails if the coupon was used before.
+    if (q.couponCode) {
+        batch.create(db.collection(schema_1.CouponUses.COLLECTION).doc(`${uid}_${q.couponCode}`), {
+            [schema_1.CouponUses.BOOKING_ID]: ref.id,
+            [schema_1.CouponUses.CREATED_AT]: Timestamp.fromMillis(now),
+        });
+    }
+    try {
+        await batch.commit();
+    }
+    catch (e) {
+        if (e.code === 6)
+            (0, input_1.fail)("already-exists", "You have already used this coupon");
+        throw e;
+    }
     if (!scheduled)
         await advanceServiceWave(ref.id, now);
-    return { bookingId: ref.id, startOtp, price: service.price, bookingFee, total: service.price + bookingFee };
+    return {
+        bookingId: ref.id, startOtp, price: service.price, bookingFee, discount: q.discount, discountLabel: q.discountLabel,
+        total: q.total,
+    };
+});
+/** Price breakdown before booking: first-booking offer, the coupon typed, and the visible offers. */
+exports.previewServiceQuote = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 10 }, async (raw, context) => {
+    const data = (0, input_1.obj)(raw);
+    const config = await loadConfig();
+    const service = (0, service_catalog_1.findService)(config, (0, input_1.str)(data, "serviceId", { max: 60 }));
+    if (!service)
+        (0, input_1.fail)("not-found", "This service is not available");
+    const now = Date.now();
+    const first = await isFirstBooking(context.auth.uid);
+    const q = (0, service_catalog_1.quote)(config, service, first, (0, input_1.str)(data, "couponCode", { max: 20, optional: true }), now);
+    let couponError = q.couponError;
+    if (!couponError && q.couponCode) {
+        const used = await db.collection(schema_1.CouponUses.COLLECTION).doc(`${context.auth.uid}_${q.couponCode}`).get();
+        if (used.exists)
+            couponError = "You have already used this coupon";
+    }
+    const offers = config.coupons
+        .filter((c) => c.visible !== false && c.active !== false && (!c.validTo || c.validTo > now) && (!c.validFrom || c.validFrom <= now))
+        .filter((c) => !c.firstBookingOnly || first)
+        .map((c) => { var _a; return ({ code: c.code, title: c.title, minOrder: (_a = c.minOrder) !== null && _a !== void 0 ? _a : 0 }); });
+    return Object.assign(Object.assign(Object.assign({}, q), (couponError ? { couponError } : {})), { firstBooking: first, offers });
 });
 exports.cancelServiceBooking = (0, secure_callable_1.onCallSecured)({}, async (raw, context) => {
     const uid = context.auth.uid;
@@ -369,8 +455,9 @@ exports.cancelServiceBooking = (0, secure_callable_1.onCallSecured)({}, async (r
         if (partnerRef && (partner === null || partner === void 0 ? void 0 : partner.get(SP.ACTIVE_BOOKING_ID)) === bookingId) {
             tx.update(partnerRef, { [SP.ACTIVE_BOOKING_ID]: FieldValue.delete() });
         }
-        return { partnerId, service: String(b.get(BK.SERVICE_NAME) || "") };
+        return { partnerId, service: String(b.get(BK.SERVICE_NAME) || ""), d: b.data() || {} };
     });
+    await releaseCoupon(out.d);
     if (out.partnerId) {
         await tellPartner(out.partnerId, "SERVICE_CANCELLED_BY_CUSTOMER", { service: out.service }, { bookingId, deepLink: "dutype://partner" });
     }
@@ -487,6 +574,8 @@ exports.getServiceOffer = (0, secure_callable_1.onCallSecured)({ timeoutSeconds:
         !(d[BK.EXCLUDED_PARTNER_IDS] || []).includes(uid);
     const pLat = Number(p.get(SP.LAT));
     const pLng = Number(p.get(SP.LNG));
+    const fee = mine && d[BK.PARTNER_FEE] !== undefined ? Number(d[BK.PARTNER_FEE]) :
+        partnerFeeOf(await loadConfig(), Number(p.get(SP.JOBS_COMPLETED) || 0), d);
     return {
         available,
         mine,
@@ -495,8 +584,11 @@ exports.getServiceOffer = (0, secure_callable_1.onCallSecured)({ timeoutSeconds:
         category: d[BK.CATEGORY],
         price: d[BK.PRICE],
         bookingFee: d[BK.BOOKING_FEE],
-        earning: partnerEarning(d),
-        requiredCreditsPaise: requiredCredits(d),
+        earning: partnerEarning(d, fee),
+        partnerFee: fee,
+        discount: Number(d[BK.DISCOUNT] || 0),
+        customerTotal: Number(d[BK.TOTAL] || 0),
+        requiredCreditsPaise: requiredCredits(d, fee),
         creditsPaise: Number(p.get(SP.CREDITS_PAISE) || 0),
         inspection: d[BK.INSPECTION] === true,
         area: d[BK.AREA],
@@ -509,6 +601,7 @@ exports.getServiceOffer = (0, secure_callable_1.onCallSecured)({ timeoutSeconds:
 });
 exports.acceptServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 20 }, async (raw, context) => {
     const uid = context.auth.uid;
+    const config = await loadConfig();
     const bookingId = (0, input_1.str)((0, input_1.obj)(raw), "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
     const ref = db.collection(BK.COLLECTION).doc(bookingId);
     const partnerRef = db.collection(SP.COLLECTION).doc(uid);
@@ -536,7 +629,12 @@ exports.acceptServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
                 return { result: "busy" };
             }
         }
-        if (Number(p.get(SP.CREDITS_PAISE) || 0) < requiredCredits(d))
+        // Also busy while on an urgent job or a fresh regular hire.
+        const busy = await (0, busy_1.busyWith)(uid, await tx.get(db.collection(schema_1.WorkerProfiles.COLLECTION).doc(uid)), tx);
+        if (busy && busy !== "service")
+            return { result: "busy" };
+        const fee = partnerFeeOf(config, Number(p.get(SP.JOBS_COMPLETED) || 0), d);
+        if (Number(p.get(SP.CREDITS_PAISE) || 0) < requiredCredits(d, fee))
             return { result: "low_credits" };
         const now = Timestamp.now();
         const ratingCount = Number(p.get(SP.RATING_COUNT) || 0);
@@ -548,6 +646,7 @@ exports.acceptServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
             [BK.PARTNER_PHONE]: String(p.get(SP.PHONE) || ""),
             [BK.PARTNER_PHOTO_URL]: String(p.get(SP.PHOTO_URL) || ""),
             [BK.PARTNER_RATING]: rating,
+            [BK.PARTNER_FEE]: fee,
             [BK.NEXT_WAVE_AT]: FieldValue.delete(),
             [BK.ASSIGNED_AT]: now,
             [BK.UPDATED_AT]: now,
@@ -589,6 +688,7 @@ exports.updateServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
     const extrasNote = action === "complete" ? (0, input_1.text)(data, "extrasNote", { max: 200, optional: true }) : "";
     if (extras > 0 && !extrasNote)
         (0, input_1.fail)("invalid-argument", "Write what the extra amount is for");
+    const config = await loadConfig();
     const out = await db.runTransaction(async (tx) => {
         const [b, p, secret] = await Promise.all([tx.get(ref), tx.get(partnerRef), tx.get(secretRef)]);
         if (!b.exists || b.get(BK.PARTNER_ID) !== uid)
@@ -617,13 +717,15 @@ exports.updateServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
                     (0, input_1.fail)("failed-precondition", "Start the job with the customer's code first");
                 const price = Number(d[BK.PRICE] || 0);
                 const fee = Number(d[BK.BOOKING_FEE] || 0);
-                const take = (0, service_catalog_1.platformTakePaise)(price, extras, fee, Number(d[BK.COMMISSION_PCT] || 0));
+                const discount = Number(d[BK.DISCOUNT] || 0);
+                const take = (0, service_catalog_1.takePaise)(price, extras, fee, discount, feeOf(d, config.partnerFee), Number(d[BK.COMMISSION_PCT] || 0));
+                const total = Math.max(0, price + fee - discount) + extras;
                 const balance = Number(p.get(SP.CREDITS_PAISE) || 0) - take;
                 tx.update(ref, {
                     [BK.STATUS]: BS.COMPLETED,
                     [BK.EXTRAS]: extras,
                     [BK.EXTRAS_NOTE]: extrasNote,
-                    [BK.TOTAL]: price + fee + extras,
+                    [BK.TOTAL]: total,
                     [BK.PLATFORM_TAKE_PAISE]: take,
                     [BK.COMPLETED_AT]: now,
                     [BK.UPDATED_AT]: now,
@@ -642,7 +744,7 @@ exports.updateServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
                     [schema_1.PartnerLedger.NOTE]: String(d[BK.SERVICE_NAME] || ""),
                     [schema_1.PartnerLedger.CREATED_AT]: now,
                 });
-                return { d, notice: "SERVICE_COMPLETED", total: price + fee + extras, take, balance };
+                return { d, notice: "SERVICE_COMPLETED", total, take, balance };
             }
             default: { // cancel by partner → back to searching, never offered to them again
                 if (status !== BS.ASSIGNED && status !== BS.ON_THE_WAY)

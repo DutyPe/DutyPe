@@ -22,6 +22,7 @@ const input_1 = require("./lib/input");
 const notify_1 = require("./lib/notify");
 const auto_complete_rules_1 = require("./auto-complete-rules");
 const referrals_1 = require("./referrals");
+const busy_1 = require("./lib/busy");
 const schema_1 = require("./schema");
 const db = admin.firestore();
 const { FieldValue, Timestamp } = admin.firestore;
@@ -85,6 +86,10 @@ exports.applyToJob = (0, secure_callable_1.onCallSecured)({}, async (raw, contex
             (0, input_1.fail)("failed-precondition", "Complete your profile to apply");
         if (worker.get(schema_1.WorkerProfiles.BLOCKED) === true)
             (0, input_1.fail)("permission-denied", "Your account is blocked");
+        // One job at a time: finish the current urgent / service / hired job before applying again.
+        const busy = await (0, busy_1.busyWith)(uid, worker, tx);
+        if (busy)
+            (0, input_1.fail)("failed-precondition", busy_1.BUSY_MESSAGE[busy]);
         const workerName = String(worker.get(schema_1.WorkerProfiles.NAME) || "").trim();
         if (!workerName)
             (0, input_1.fail)("failed-precondition", "Add your name to your profile to apply");
