@@ -938,13 +938,28 @@ fun MandatoryWorkerProfileSetupScreen(
                                                     WorkerProfiles.BIO to workerBio.trim(),
                                                     WorkerProfiles.AVAILABLE to true
                                                 )
-                                                profileCompletionViewModel.locationPreferences
-                                                    .getSavedLocationIfFresh()
-                                                    ?.takeIf { it.hasValidCoordinates() }
-                                                    ?.let { savedLocation ->
-                                                        workerProfileData[WorkerProfiles.LAT] = savedLocation.latitude
-                                                        workerProfileData[WorkerProfiles.LNG] = savedLocation.longitude
+                                                val savedLocation = profileCompletionViewModel.locationPreferences.getSavedLocation()
+                                                    ?: profileCompletionViewModel.locationPreferences.currentLocation.value
+                                                var finalLat = savedLocation?.latitude ?: 0.0
+                                                var finalLng = savedLocation?.longitude ?: 0.0
+
+                                                if (!com.example.dutype.utils.GeoUtils.hasValidCoordinates(finalLat, finalLng) && address.isNotBlank()) {
+                                                    try {
+                                                        val geocoded = locationService.getCoordinatesFromAddress(address.trim())
+                                                        if (geocoded != null && com.example.dutype.utils.GeoUtils.hasValidCoordinates(geocoded.latitude, geocoded.longitude)) {
+                                                            finalLat = geocoded.latitude
+                                                            finalLng = geocoded.longitude
+                                                            profileCompletionViewModel.locationPreferences.saveLocation(locationService.toLocationData(geocoded))
+                                                        }
+                                                    } catch (e: Exception) {
+                                                        Timber.w(e, "Could not geocode worker address: $address")
                                                     }
+                                                }
+
+                                                if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(finalLat, finalLng)) {
+                                                    workerProfileData[WorkerProfiles.LAT] = finalLat
+                                                    workerProfileData[WorkerProfiles.LNG] = finalLng
+                                                }
                                                 // The photo URL was saved by uploadProfileImage itself.
                                                 if (uploadedSelfieUrl != null) Timber.d("Worker photo saved")
                                                 profileCompletionViewModel.saveWorker(workerProfileData).getOrThrow()

@@ -481,9 +481,25 @@ fun MandatoryEmployerProfileSetupScreen(
                     if (businessAddress.isNotBlank()) {
                         employerProfileData[EmployerProfiles.ADDRESS] = businessAddress.trim()
                     }
-                    if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(businessLatitude, businessLongitude)) {
-                        employerProfileData[EmployerProfiles.LAT] = businessLatitude
-                        employerProfileData[EmployerProfiles.LNG] = businessLongitude
+                    var finalLat = businessLatitude
+                    var finalLng = businessLongitude
+                    if (!com.example.dutype.utils.GeoUtils.hasValidCoordinates(finalLat, finalLng) && businessAddress.isNotBlank()) {
+                        try {
+                            val geocoded = locationService.getCoordinatesFromAddress(businessAddress.trim())
+                            if (geocoded != null && com.example.dutype.utils.GeoUtils.hasValidCoordinates(geocoded.latitude, geocoded.longitude)) {
+                                finalLat = geocoded.latitude
+                                finalLng = geocoded.longitude
+                                businessLatitude = finalLat
+                                businessLongitude = finalLng
+                                profileCompletionViewModel.locationPreferences.saveLocation(locationService.toLocationData(geocoded))
+                            }
+                        } catch (e: Exception) {
+                            Timber.w(e, "Could not geocode employer address: $businessAddress")
+                        }
+                    }
+                    if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(finalLat, finalLng)) {
+                        employerProfileData[EmployerProfiles.LAT] = finalLat
+                        employerProfileData[EmployerProfiles.LNG] = finalLng
                     }
 
                     profileCompletionViewModel.saveEmployer(employerProfileData).getOrThrow()
