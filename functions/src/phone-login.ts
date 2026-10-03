@@ -1,9 +1,10 @@
 /**
  * Cheaper ways to log in with a phone number than Firebase SMS (~₹6.7 per SMS):
  *
- *   sendWhatsappOtp({ phone, role })       sends a 6-digit code on WhatsApp (Meta Cloud API,
- *                                          authentication template). { sent: false } means "use SMS":
- *                                          WhatsApp not set up, a send error, or the daily cap reached.
+ *   sendWhatsappOtp({ phone, role, channel? }) sends a 6-digit code on WhatsApp (Meta Cloud API,
+ *                                          authentication template), or by our SMS gateway when WhatsApp
+ *                                          fails or channel = "sms" (~₹0.2). { sent: false } means "use
+ *                                          Firebase SMS": nothing set up, send errors, or daily caps.
  *   verifyWhatsappOtp({ phone, code })     checks the code; returns a Firebase custom token for the
  *                                          phone's account (same uid as SMS login, created if new).
  *   truecallerSignIn({ authorizationCode, codeVerifier, role, mode })
@@ -25,7 +26,7 @@ import { onCallSecured } from "./secure-callable";
 import { fail, obj, str } from "./lib/input";
 import {
   CODE_TTL_MS, MAX_VERIFY_ATTEMPTS, codeMatches, decideSend, hashCode, indianE164, istDayKey, newCode,
-  parseTruecallerUserInfo, whatsappConfigured, whatsappTemplateBody,
+  parseTruecallerUserInfo, smsGatewayConfigured, smsGatewayRequest, whatsappConfigured, whatsappTemplateBody,
 } from "./lib/phone-otp";
 import { EmployerProfiles, OtpCodes, OtpDaily, PhoneRoles, TruecallerProfiles, Values, WorkerProfiles } from "./schema";
 
@@ -103,13 +104,43 @@ async function sendOnWhatsapp(phone: string, code: string): Promise<boolean> {
   }
 }
 
+/** Sends [code] through our SMS gateway. True when the gateway accepted it. */
+async function sendOnSmsGateway(phone: string, code: string): Promise<boolean> {
+  const { url, init } = smsGatewayRequest(phone, code);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await net.fetch(url, { ...init, signal: controller.signal });
+    const text = (await res.text()).slice(0, 300);
+    // 2Factor: {"Status":"Success"}; MSG91: {"type":"success"}.
+    const ok = res.ok && /"(Status|type)"\s*:\s*"success"/i.test(text);
+    if (!ok) functions.logger.warn(`SMS gateway send failed ${res.status}`, text);
+    return ok;
+  } catch (e) {
+    functions.logger.warn("SMS gateway error", e);
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Login code, cheapest channel first:
+ *   1. WhatsApp (unless the app asks for SMS: "Didn't get it? Send by SMS"),
+ *   2. our SMS gateway (same code, verified by verifyWhatsappOtp),
+ *   3. { sent: false, channel: "sms" } → the app falls back to Firebase SMS.
+ * Both server channels share one stored code and the per-number rate limits.
+ */
 export const sendWhatsappOtp = onCallSecured(
-  { requireAuth: false, enforceAppCheck: false, timeoutSeconds: 20, secrets: [WHATSAPP_SECRET] },
+  { requireAuth: false, enforceAppCheck: false, timeoutSeconds: 25, secrets: [WHATSAPP_SECRET] },
   async (raw: unknown) => {
     const data = obj(raw);
     const phone = indianE164(data.phone);
     if (!phone) fail("invalid-argument", "Enter a valid 10-digit mobile number");
-    if (!whatsappConfigured()) return { sent: false, channel: "sms" };
+    const wantSms = data.channel === "sms";
+    const useWhatsapp = !wantSms && whatsappConfigured();
+    const useSms = smsGatewayConfigured();
+    if (!useWhatsapp && !useSms) return { sent: false, channel: "sms" };
 
     // Never spend on a number registered with the other role (the app checks too).
     const role = requestedRole(data);
@@ -117,25 +148,31 @@ export const sendWhatsappOtp = onCallSecured(
     if (role && existing && existing !== role) fail("failed-precondition", `phone-already-registered-as:${existing}`);
 
     const now = Date.now();
-    const cap = Number(process.env.WHATSAPP_DAILY_CAP || 3000);
+    const waCap = Number(process.env.WHATSAPP_DAILY_CAP || 3000);
+    const smsCap = Number(process.env.SMS_DAILY_CAP || 2000);
     const code = newCode();
     const codeRef = db.collection(OtpCodes.COLLECTION).doc(phone);
     const dayRef = db.collection(OtpDaily.COLLECTION).doc(istDayKey(now));
     const decision = await db.runTransaction(async (tx) => {
       const [prev, day] = await Promise.all([tx.get(codeRef), tx.get(dayRef)]);
-      if (Number(day.get(OtpDaily.COUNT) || 0) >= cap) return { ok: false as const, reason: "cap" as const, retryAfterSec: 0 };
+      const waLeft = useWhatsapp && Number(day.get(OtpDaily.COUNT) || 0) < waCap;
+      const smsLeft = useSms && Number(day.get(OtpDaily.SMS_COUNT) || 0) < smsCap;
+      if (!waLeft && !smsLeft) return { ok: false as const, reason: "cap" as const, retryAfterSec: 0 };
+      // From WhatsApp the app may ask for SMS right after: let that through the "wait" limit once.
       const d = decideSend(prev.exists ? {
-        lastSentAt: Number(prev.get(OtpCodes.LAST_SENT_AT) || 0),
+        lastSentAt: wantSms && prev.get(OtpCodes.CHANNEL) === "whatsapp" ? 0 : Number(prev.get(OtpCodes.LAST_SENT_AT) || 0),
         hourStart: Number(prev.get(OtpCodes.HOUR_START) || 0),
         hourCount: Number(prev.get(OtpCodes.HOUR_COUNT) || 0),
         dayKey: String(prev.get(OtpCodes.DAY_KEY) || ""),
         dayCount: Number(prev.get(OtpCodes.DAY_COUNT) || 0),
       } : null, now);
       if (!d.ok) return d;
+      const channel = waLeft ? "whatsapp" : "sms";
       tx.set(codeRef, {
         [OtpCodes.HASH]: hashCode(phone, code),
         [OtpCodes.EXPIRES_AT]: now + CODE_TTL_MS,
         [OtpCodes.ATTEMPTS]: 0,
+        [OtpCodes.CHANNEL]: channel,
         [OtpCodes.LAST_SENT_AT]: d.next.lastSentAt,
         [OtpCodes.HOUR_START]: d.next.hourStart,
         [OtpCodes.HOUR_COUNT]: d.next.hourCount,
@@ -143,22 +180,35 @@ export const sendWhatsappOtp = onCallSecured(
         [OtpCodes.DAY_COUNT]: d.next.dayCount,
         [OtpCodes.EXPIRE_AT]: Timestamp.fromMillis(now + DAY_MS),
       });
-      tx.set(dayRef, { [OtpDaily.COUNT]: admin.firestore.FieldValue.increment(1),
-        [OtpDaily.EXPIRE_AT]: Timestamp.fromMillis(now + 7 * DAY_MS) }, { merge: true });
-      return d;
+      tx.set(dayRef, {
+        [channel === "whatsapp" ? OtpDaily.COUNT : OtpDaily.SMS_COUNT]: admin.firestore.FieldValue.increment(1),
+        [OtpDaily.EXPIRE_AT]: Timestamp.fromMillis(now + 7 * DAY_MS),
+      }, { merge: true });
+      return { ...d, channel, smsLeft };
     });
 
     if (!decision.ok) {
-      // The cap only switches people to SMS; the per-number limits stop the request.
+      // The caps only switch people to Firebase SMS; the per-number limits stop the request.
       if (decision.reason === "cap") return { sent: false, channel: "sms" };
-      if (decision.reason === "wait") return { sent: false, channel: "whatsapp", retryAfterSec: decision.retryAfterSec };
+      if (decision.reason === "wait") {
+        return { sent: false, channel: wantSms ? "sms_gateway" : "whatsapp", retryAfterSec: decision.retryAfterSec };
+      }
       fail("resource-exhausted", "Too many codes for this number. Please try again later.");
     }
-    if (!(await sendOnWhatsapp(phone, code))) {
-      await codeRef.update({ [OtpCodes.HASH]: "" }).catch(() => undefined);
-      return { sent: false, channel: "sms" };
+    if (decision.channel === "whatsapp" && await sendOnWhatsapp(phone, code)) {
+      return { sent: true, channel: "whatsapp", expiresInSec: CODE_TTL_MS / 1000 };
     }
-    return { sent: true, channel: "whatsapp", expiresInSec: CODE_TTL_MS / 1000 };
+    // WhatsApp failed (or SMS was asked for): same code by our SMS gateway.
+    if ((decision.channel === "sms" || decision.smsLeft) && await sendOnSmsGateway(phone, code)) {
+      if (decision.channel === "whatsapp") {
+        await db.collection(OtpDaily.COLLECTION).doc(istDayKey(now))
+          .set({ [OtpDaily.SMS_COUNT]: admin.firestore.FieldValue.increment(1) }, { merge: true }).catch(() => undefined);
+      }
+      await codeRef.update({ [OtpCodes.CHANNEL]: "sms" }).catch(() => undefined);
+      return { sent: true, channel: "sms_gateway", expiresInSec: CODE_TTL_MS / 1000 };
+    }
+    await codeRef.update({ [OtpCodes.HASH]: "" }).catch(() => undefined);
+    return { sent: false, channel: "sms" };
   },
 );
 

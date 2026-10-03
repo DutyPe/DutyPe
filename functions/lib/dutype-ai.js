@@ -93,12 +93,23 @@ async function employerFacts(uid) {
             postedDaysAgo: Math.floor((now - ms(d.get(schema_1.Jobs.CREATED_AT))) / DAY_MS),
         })),
         applicants,
-        urgent: urgentSnap.docs.map((d) => ({
-            id: d.id,
-            title: String(d.get(schema_1.InstantRequests.TITLE) || ""),
-            status: String(d.get(schema_1.InstantRequests.STATUS) || ""),
-            needed: Number(d.get(schema_1.InstantRequests.WORKERS_NEEDED) || 1),
-            accepted: (d.get(schema_1.InstantRequests.SELECTED_WORKER_IDS) || []).length,
+        urgent: await Promise.all(urgentSnap.docs.map(async (d) => {
+            const status = String(d.get(schema_1.InstantRequests.STATUS) || "");
+            // Responders only for live posts (open / filled): what the employer can still act on.
+            const responses = status === "open" || status === "filled" ?
+                await d.ref.collection(schema_1.InstantRequests.Responses.COLLECTION).limit(20).get() : null;
+            return {
+                id: d.id,
+                title: String(d.get(schema_1.InstantRequests.TITLE) || ""),
+                status,
+                needed: Number(d.get(schema_1.InstantRequests.WORKERS_NEEDED) || 1),
+                accepted: (d.get(schema_1.InstantRequests.SELECTED_WORKER_IDS) || []).length,
+                workers: ((responses === null || responses === void 0 ? void 0 : responses.docs) || []).map((r) => ({
+                    workerId: r.id,
+                    name: String(r.get(schema_1.InstantRequests.Responses.WORKER_NAME) || "Worker"),
+                    status: String(r.get(schema_1.InstantRequests.Responses.STATUS) || ""),
+                })),
+            };
         })),
         homeServices: {
             bookings: ((bookingsSnap === null || bookingsSnap === void 0 ? void 0 : bookingsSnap.docs) || []).map((d) => ({
@@ -205,6 +216,24 @@ function validateAction(raw, f) {
             return job && (job.status === "expired" || job.status === "closed") ? { type, args: { jobId: job.id }, summary: `Renew: ${job.title}` } : null;
         case "open_job":
             return job ? { type, args: { jobId: job.id }, summary: `Open: ${job.title}` } : null;
+        case "urgent_mark_filled": {
+            const u = f.urgent.find((x) => x.id === args.requestId);
+            return u && u.status === "open" ? { type, args: { requestId: u.id }, summary: `Mark "${u.title}" as filled (no more workers)` } : null;
+        }
+        case "urgent_select_worker":
+        case "urgent_remove_worker": {
+            const u = f.urgent.find((x) => x.id === args.requestId);
+            const w = u === null || u === void 0 ? void 0 : u.workers.find((x) => x.workerId === args.workerId);
+            if (!u || !w || (u.status !== "open" && u.status !== "filled"))
+                return null;
+            if (type === "urgent_select_worker") {
+                return w.status !== "accepted" && u.accepted < u.needed ?
+                    { type, args: { requestId: u.id, workerId: w.workerId }, summary: `Select ${w.name} for ${u.title}` } : null;
+            }
+            const reason = String(args.reason || "").trim().slice(0, 200);
+            return w.status === "accepted" && reason ?
+                { type, args: { requestId: u.id, workerId: w.workerId, reason }, summary: `Remove ${w.name} from ${u.title}: ${reason}` } : null;
+        }
         case "book_service": {
             const svc = f.homeServices.catalog.find((x) => x.id === args.serviceId);
             return svc ? { type, args: { serviceId: svc.id }, summary: `Book ${svc.name} (₹${svc.price}) at home` } : null;
@@ -254,6 +283,9 @@ You may propose ONE action; the employer will confirm before anything happens:
 Regular jobs (post_job) are only weekly or monthly paid: monthly ₹3,000-40,000 (full-time at least ₹8,000), weekly ₹1,000-10,000. Daily or hourly work is post_urgent. If the pay they say is outside these limits, explain kindly and ask again.
 - hire / reject: args {applicationId} (from the facts)
 - close_job / renew_job / open_job: args {jobId} (from the facts)
+- urgent_mark_filled: args {requestId} — stop the urgent post (e.g. one worker is bringing a friend, so no one else is needed)
+- urgent_select_worker: args {requestId, workerId} — select a worker who responded (from urgent[].workers)
+- urgent_remove_worker: args {requestId, workerId, reason} — take an accepted worker off the job; ask the reason first, it is shown to the worker
 - book_service: a home service (AC repair, cleaning, electrician, plumber, appliance repair) at their home in ${facts.homeServices.city}, from homeServices.catalog. args {serviceId}. The booking screen opens; they confirm the address and time there.
 - open_service_booking: args {bookingId} (from homeServices.bookings)
 Posting a job by talking: collect the details in a natural conversation, ONE short question at a time, in this order — what work / role, how many people, pay (amount and per day / month), timings or shift, and what the work involves. Use what they already said; never ask again for something they told you. When you have enough, read back a one-line summary and propose post_job (or post_urgent if they need people today / right now). Pay is at most ₹50,000.

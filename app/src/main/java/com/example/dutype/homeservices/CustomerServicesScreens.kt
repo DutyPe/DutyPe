@@ -492,6 +492,30 @@ internal fun ActiveBookingStrip(b: ServiceBooking, onClick: () -> Unit, modifier
     }
 }
 
+/** "How was the AC service? Rate Kiran" — for the latest completed booking not rated yet. */
+@Composable
+internal fun RateLastServiceCard(bookings: List<ServiceBooking>, onOpen: (String) -> Unit, modifier: Modifier = Modifier) {
+    val b = bookings.firstOrNull { it.status == BookingStatus.COMPLETED && it.rating == 0 } ?: return
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFFFFFBEB).bg())
+            .border(1.dp, Color(0xFFFDE68A), RoundedCornerShape(16.dp))
+            .clickable { onOpen(b.id) }
+            .padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(28.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.svc_rate_nudge_title, b.serviceName), fontWeight = FontWeight.Bold, color = SvcInk.fg(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(stringResource(R.string.svc_rate_nudge_body, b.partnerName.ifBlank { "the partner" }), fontSize = 12.sp, color = SvcMuted.fg())
+        }
+        Text(stringResource(R.string.svc_rate), color = Color(0xFFB45309), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+    }
+}
+
 // ─────────────────────────── Services home ───────────────────────────
 
 @Composable
@@ -536,6 +560,9 @@ fun ServicesHomeScreen(navController: NavController, viewModel: HomeServicesView
                 item(key = "active") {
                     ActiveBookingStrip(active, onClick = { navController.navigate(Routes.servicesBookingRoute(active.id)) })
                 }
+            }
+            if (bookings.any { it.status == BookingStatus.COMPLETED && it.rating == 0 }) {
+                item(key = "rate") { RateLastServiceCard(bookings, onOpen = { navController.navigate(Routes.servicesBookingRoute(it)) }) }
             }
             item(key = "hero") { ServicesHero(c.city, c.firstBookingFeeFree) }
             if (c.offers.isNotEmpty()) {
@@ -1353,6 +1380,7 @@ fun HomeServicesShowcase(
             }
         }
         if (active != null) ActiveBookingStrip(active, onClick = { onOpenBooking(active.id) })
+        RateLastServiceCard(bookings, onOpen = onOpenBooking)
         Column(
             Modifier
                 .fillMaxWidth()

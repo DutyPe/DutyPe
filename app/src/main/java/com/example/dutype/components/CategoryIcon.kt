@@ -55,6 +55,11 @@ object CategoryIcon {
         JobCategory.BEAUTICIAN, JobCategory.TAILOR -> Icons.Default.ContentCut
         JobCategory.DATA_ENTRY -> Icons.Default.Keyboard
         JobCategory.LEGAL -> Icons.Default.Gavel
+        JobCategory.TUTOR -> Icons.Default.School
+        JobCategory.EVENT_STAFF -> Icons.Default.Event
+        JobCategory.PROMOTER -> Icons.Default.Campaign
+        JobCategory.PHARMACY -> Icons.Default.LocalHospital
+        JobCategory.CONSTRUCTION -> Icons.Default.Construction
         JobCategory.OTHER -> Icons.Default.Category
     }
 

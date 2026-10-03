@@ -124,6 +124,8 @@ export interface ServicesConfig {
   partnerFirstJobFree: boolean;
   /** A customer's first booking has no booking fee. */
   firstBookingFeeFree: boolean;
+  /** Employers on a paid plan never pay the booking fee (plan benefit). */
+  planMembersFeeFree: boolean;
   /** Admin-defined offers (festivals etc.); always capped so DutyPe never pays out. */
   coupons: Coupon[];
   categories: ServiceCategory[];
@@ -318,6 +320,7 @@ export const DEFAULT_CONFIG: ServicesConfig = {
   partnerFee: 19,
   partnerFirstJobFree: true,
   firstBookingFeeFree: true,
+  planMembersFeeFree: true,
   coupons: [],
   categories: CATEGORIES,
   services: DEFAULT_SERVICES,
@@ -375,6 +378,7 @@ export function mergeConfig(raw: unknown): ServicesConfig {
     partnerFee: num("partnerFee", 0, 500),
     partnerFirstJobFree: typeof o.partnerFirstJobFree === "boolean" ? o.partnerFirstJobFree : DEFAULT_CONFIG.partnerFirstJobFree,
     firstBookingFeeFree: typeof o.firstBookingFeeFree === "boolean" ? o.firstBookingFeeFree : DEFAULT_CONFIG.firstBookingFeeFree,
+    planMembersFeeFree: typeof o.planMembersFeeFree === "boolean" ? o.planMembersFeeFree : DEFAULT_CONFIG.planMembersFeeFree,
     coupons: Array.isArray(o.coupons) ? (o.coupons as unknown[]).map(cleanCoupon).filter((c): c is Coupon => c !== null) : [],
     categories: CATEGORIES,
     services,
@@ -467,7 +471,9 @@ function couponValue(c: Coupon, service: ServiceItem): number {
  * The customer's price. First booking: the booking fee is free. A coupon replaces that if it is
  * worth more (offers never stack). Every discount is capped at [maxDiscount].
  */
-export function quote(config: ServicesConfig, service: ServiceItem, firstBooking: boolean, couponCode: string, nowMs: number): Quote {
+export function quote(
+  config: ServicesConfig, service: ServiceItem, firstBooking: boolean, couponCode: string, nowMs: number, planMember = false,
+): Quote {
   const bookingFee = bookingFeeFor(config, service);
   const cap = maxDiscount(config, service);
   let discount = 0;
@@ -478,6 +484,9 @@ export function quote(config: ServicesConfig, service: ServiceItem, firstBooking
   if (firstBooking && config.firstBookingFeeFree && bookingFee > 0) {
     discount = bookingFee;
     discountLabel = "First booking: no booking fee";
+  } else if (planMember && config.planMembersFeeFree && bookingFee > 0) {
+    discount = bookingFee;
+    discountLabel = "DutyPe plan: no booking fee";
   }
   const typed = couponCode.trim().toUpperCase();
   if (typed) {

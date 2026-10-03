@@ -19,6 +19,49 @@ partner for a fixed-price job at home, with a start code, rating and free re-wor
 service). Same people can earn on both, but customers should never be confused about which one
 they are booking.
 
+### Who is who (one person can be several of these)
+
+| Name in the app | Who it is | What they do in DutyPe |
+|---|---|---|
+| **Worker** | Anyone looking for work | Applies to jobs, accepts urgent work |
+| **Employer** | Shop, mall, office, hospital, home that needs staff | Posts jobs and urgent needs, hires |
+| **Customer** | Anyone (employer *or* worker) who needs a repair/cleaning at home | Books DutyPe Services |
+| **Service partner** | A worker DutyPe has approved for home services (cleaner, electrician, plumber, AC tech…) | Gets service bookings, does the job, keeps the money minus ₹19 |
+| **DutyPe** | Us | Runs the app, verifies people, sets fair prices, takes a small fee |
+
+A worker becomes a partner by tapping *Earn more with DutyPe Services* on the worker home and
+passing the check. The same worker can still apply to normal jobs and urgent work (only one
+unfinished job at a time).
+
+### How money reaches DutyPe (no payment gateway needed)
+
+Example: AC service ₹449, customer's first booking (booking fee ₹19 waived), partner's 2nd job.
+
+1. Customer pays the partner **₹449** (cash/UPI) — the amount shown in the app.
+2. The partner keeps prepaid **credits** with DutyPe (topped up by UPI to DutyPe's UPI ID,
+   approved by the admin after checking the UTR).
+3. When the partner taps *Complete*, the app deducts DutyPe's share from credits automatically:
+   booking fee ₹19 − ₹19 first-booking offer + ₹19 partner fee = **₹19**.
+4. Partner keeps ₹449 − ₹19 = **₹430**. DutyPe already has ₹19 in its bank from the top-up.
+
+With a coupon the partner's earning never changes — the coupon comes out of DutyPe's fee, and it
+is capped at DutyPe's fee so DutyPe never pays from its pocket. Credits are non-refundable and
+stay in the wallet for future jobs.
+
+### Students (part-time) — pitch and places
+
+* **Pitch (Telugu first):** "చదువుతూనే సంపాదించండి — కాలేజ్ దగ్గర్లో పార్ట్-టైమ్ పనులు, వారం జీతం, ఏజెంట్ ఫీజు లేదు."
+  (Earn while you study — part-time work near your college, weekly pay, no agent fee.)
+* **Jobs that fit students:** home tutor (new *Home Tutor* category), events & catering (*Event
+  Staff*), store promoter (*Store Promoter*), sales/billing at supermarkets, delivery, data
+  entry, telecaller, pharmacy assistant. Employers can tick **"Student friendly (flexible hours)"**.
+* **Where:** degree / junior / engineering / ITI college gates (3–6 pm), hostels, coaching
+  centres; student WhatsApp groups and college Instagram pages; a "campus ambassador" per college
+  (₹20 per student who joins + certificate).
+* **For employers:** tell supermarkets, event managers and tuition parents "post a part-time job,
+  get students near you in a day".
+* Marketing kit → *Students (part-time)* has the poster, Instagram post/story and WhatsApp text.
+
 ## 2. Supply first (the rule every marketplace learns)
 
 A customer who books and gets "No partner available" is lost for months. Before any customer

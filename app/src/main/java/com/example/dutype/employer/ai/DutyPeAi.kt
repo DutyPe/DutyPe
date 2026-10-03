@@ -297,6 +297,18 @@ class DutyPeAiViewModel @Inject constructor(
             _state.update { it.copy(openJobId = arg(a, "jobId")) }
             context.getString(R.string.dutype_ai_done_opening)
         }
+        "urgent_mark_filled" -> {
+            urgent.markFilledById(arg(a, "requestId")).getOrThrow()
+            context.getString(R.string.dutype_ai_done_urgent_filled)
+        }
+        "urgent_select_worker" -> {
+            urgent.setResponseStatusById(arg(a, "requestId"), arg(a, "workerId"), "accepted").getOrThrow()
+            context.getString(R.string.dutype_ai_done_hired)
+        }
+        "urgent_remove_worker" -> {
+            urgent.setResponseStatusById(arg(a, "requestId"), arg(a, "workerId"), "rejected", arg(a, "reason")).getOrThrow()
+            context.getString(R.string.dutype_ai_done_urgent_removed)
+        }
         "book_service" -> {
             _state.update { it.copy(openRoute = com.example.dutype.navigation.Routes.servicesBookRoute(arg(a, "serviceId"))) }
             context.getString(R.string.dutype_ai_done_service)

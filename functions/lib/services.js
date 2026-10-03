@@ -183,6 +183,24 @@ function partnerEarning(b, partnerFee) {
     const price = Number(b[BK.PRICE] || 0);
     return price - feeOf(b, partnerFee) - Math.round((price * Number(b[BK.COMMISSION_PCT] || 0)) / 100);
 }
+/** The booker's name, and whether they are on a paid DutyPe plan (no booking fee). */
+async function customerOf(uid, role) {
+    if (role === schema_1.Values.Role.WORKER) {
+        const w = await db.collection(schema_1.WorkerProfiles.COLLECTION).doc(uid).get();
+        return { name: String(w.get(schema_1.WorkerProfiles.NAME) || "Customer"), planMember: false };
+    }
+    const p = await db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid).get();
+    const S = schema_1.EmployerProfiles.Subscription;
+    const sub = (p.get(schema_1.EmployerProfiles.SUBSCRIPTION) || {});
+    const exp = ms(sub[S.EXPIRES_AT]);
+    // A paid plan only (the launch campaign gives everyone free posts, not free bookings).
+    const planMember = sub[S.STATUS] === "ACTIVE" && (exp === 0 || exp > Date.now()) &&
+        Boolean(sub[S.PLAN_ID]) && sub[S.PLAN_ID] !== "UNLIMITED_CAMPAIGN";
+    return {
+        name: String(p.get(schema_1.EmployerProfiles.OWNER_NAME) || p.get(schema_1.EmployerProfiles.BUSINESS_NAME) || "Customer"),
+        planMember,
+    };
+}
 /** True when the customer has never had a booking that was not cancelled. */
 async function isFirstBooking(uid) {
     const prev = await db.collection(BK.COLLECTION)
@@ -342,8 +360,10 @@ async function dispatchServiceWaves(nowMs) {
 exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30 }, async (raw, context) => {
     var _a, _b;
     const uid = context.auth.uid;
-    if (((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.role) !== schema_1.Values.Role.EMPLOYER) {
-        (0, input_1.fail)("permission-denied", "Log in with a customer (Hire / Book) account to book services");
+    // Anyone with a DutyPe account can book for their home: an employer, or a worker too.
+    const role = String(((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.role) || "");
+    if (role !== schema_1.Values.Role.EMPLOYER && role !== schema_1.Values.Role.WORKER) {
+        (0, input_1.fail)("permission-denied", "Finish registration to book services");
     }
     const phone = e164((_b = context.auth) === null || _b === void 0 ? void 0 : _b.token.phone_number);
     if (!phone)
@@ -377,16 +397,18 @@ exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
     if (open.data().count >= MAX_OPEN_PER_CUSTOMER) {
         (0, input_1.fail)("resource-exhausted", "You already have 3 open bookings. Finish or cancel one first.");
     }
-    const profile = await db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid).get();
-    const customerName = String(profile.get(schema_1.EmployerProfiles.OWNER_NAME) || profile.get(schema_1.EmployerProfiles.BUSINESS_NAME) || "Customer");
-    const q = (0, service_catalog_1.quote)(config, service, await isFirstBooking(uid), (0, input_1.str)(data, "couponCode", { max: 20, optional: true }), now);
+    const who = await customerOf(uid, role);
+    const customerName = who.name;
+    const q = (0, service_catalog_1.quote)(config, service, await isFirstBooking(uid), (0, input_1.str)(data, "couponCode", { max: 20, optional: true }), now, who.planMember);
     if (q.couponError)
         (0, input_1.fail)("failed-precondition", q.couponError);
     const bookingFee = q.bookingFee;
     const ref = db.collection(BK.COLLECTION).doc();
     const startOtp = (0, service_catalog_1.newStartOtp)();
     const firstWaveAt = scheduled ? Math.max(now, scheduledAt - SCHEDULE_LEAD_MS) : now;
-    const booking = Object.assign(Object.assign({ [BK.CUSTOMER_ID]: uid, [BK.CUSTOMER_NAME]: customerName, [BK.CUSTOMER_PHONE]: phone, [BK.CATEGORY]: service.category, [BK.SERVICE_ID]: service.id, [BK.SERVICE_NAME]: service.name, [BK.PRICE]: service.price, [BK.BOOKING_FEE]: bookingFee, [BK.COMMISSION_PCT]: config.commissionPct, [BK.INSPECTION]: service.inspection === true, [BK.ADDRESS_TEXT]: addressText, [BK.AREA]: area, [BK.LAT]: lat, [BK.LNG]: lng, [BK.NOTE]: note, [BK.WHEN]: scheduled ? "scheduled" : "now" }, (scheduled ? { [BK.SCHEDULED_AT]: Timestamp.fromMillis(scheduledAt) } : {})), { [BK.STATUS]: BS.SEARCHING, [BK.EXCLUDED_PARTNER_IDS]: [], [BK.DISPATCH_RADIUS_KM]: 0, [BK.NEXT_WAVE_AT]: Timestamp.fromMillis(firstWaveAt), [BK.EXPIRES_AT]: Timestamp.fromMillis(scheduled ? scheduledAt + HOUR_MS : now + exports.SEARCH_TIMEOUT_MS), [BK.DISCOUNT]: q.discount, [BK.DISCOUNT_LABEL]: q.discountLabel, [BK.COUPON_CODE]: q.couponCode, [BK.TOTAL]: q.total, [BK.CREATED_AT]: Timestamp.fromMillis(now), [BK.UPDATED_AT]: Timestamp.fromMillis(now) });
+    const booking = Object.assign(Object.assign({ [BK.CUSTOMER_ID]: uid, [BK.CUSTOMER_NAME]: customerName, [BK.CUSTOMER_PHONE]: phone, [BK.CATEGORY]: service.category, [BK.SERVICE_ID]: service.id, [BK.SERVICE_NAME]: service.name, [BK.PRICE]: service.price, [BK.BOOKING_FEE]: bookingFee, [BK.COMMISSION_PCT]: config.commissionPct, [BK.INSPECTION]: service.inspection === true, [BK.ADDRESS_TEXT]: addressText, [BK.AREA]: area, [BK.LAT]: lat, [BK.LNG]: lng, [BK.NOTE]: note, [BK.WHEN]: scheduled ? "scheduled" : "now" }, (scheduled ? { [BK.SCHEDULED_AT]: Timestamp.fromMillis(scheduledAt) } : {})), { [BK.STATUS]: BS.SEARCHING, 
+        // A partner booking for their own home never gets their own job.
+        [BK.EXCLUDED_PARTNER_IDS]: [uid], [BK.DISPATCH_RADIUS_KM]: 0, [BK.NEXT_WAVE_AT]: Timestamp.fromMillis(firstWaveAt), [BK.EXPIRES_AT]: Timestamp.fromMillis(scheduled ? scheduledAt + HOUR_MS : now + exports.SEARCH_TIMEOUT_MS), [BK.DISCOUNT]: q.discount, [BK.DISCOUNT_LABEL]: q.discountLabel, [BK.COUPON_CODE]: q.couponCode, [BK.TOTAL]: q.total, [BK.CREATED_AT]: Timestamp.fromMillis(now), [BK.UPDATED_AT]: Timestamp.fromMillis(now) });
     const batch = db.batch();
     batch.create(ref, booking);
     batch.create(db.collection(schema_1.ServiceBookingSecrets.COLLECTION).doc(ref.id), {
@@ -417,6 +439,7 @@ exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
 });
 /** Price breakdown before booking: first-booking offer, the coupon typed, and the visible offers. */
 exports.previewServiceQuote = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 10 }, async (raw, context) => {
+    var _a;
     const data = (0, input_1.obj)(raw);
     const config = await loadConfig();
     const service = (0, service_catalog_1.findService)(config, (0, input_1.str)(data, "serviceId", { max: 60 }));
@@ -424,7 +447,8 @@ exports.previewServiceQuote = (0, secure_callable_1.onCallSecured)({ timeoutSeco
         (0, input_1.fail)("not-found", "This service is not available");
     const now = Date.now();
     const first = await isFirstBooking(context.auth.uid);
-    const q = (0, service_catalog_1.quote)(config, service, first, (0, input_1.str)(data, "couponCode", { max: 20, optional: true }), now);
+    const who = await customerOf(context.auth.uid, String(((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.role) || ""));
+    const q = (0, service_catalog_1.quote)(config, service, first, (0, input_1.str)(data, "couponCode", { max: 20, optional: true }), now, who.planMember);
     let couponError = q.couponError;
     if (!couponError && q.couponCode) {
         const used = await db.collection(schema_1.CouponUses.COLLECTION).doc(`${context.auth.uid}_${q.couponCode}`).get();

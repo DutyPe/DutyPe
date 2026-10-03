@@ -258,6 +258,8 @@ exports.InstantRequests = {
         WORKER_ID: "workerId",
         STATUS: "status",
         WORKER_NAME: "workerName",
+        /** Why the employer removed the worker (shown to the worker). */
+        REASON: "reason",
         CREATED_AT: "createdAt",
     },
 };
@@ -500,6 +502,8 @@ exports.OtpCodes = {
     HASH: "hash",
     EXPIRES_AT: "expiresAt",
     ATTEMPTS: "attempts",
+    /** "whatsapp" | "sms": where the current code went. */
+    CHANNEL: "channel",
     LAST_SENT_AT: "lastSentAt",
     HOUR_START: "hourStart",
     HOUR_COUNT: "hourCount",
@@ -511,6 +515,8 @@ exports.OtpCodes = {
 exports.OtpDaily = {
     COLLECTION: "otp_daily",
     COUNT: "count",
+    /** Codes sent by our SMS gateway that day (separate cap). */
+    SMS_COUNT: "smsCount",
     EXPIRE_AT: "expireAt",
 };
 /** truecaller_profiles/{uid} — what the user shared through Truecaller (server only). */
@@ -560,6 +566,8 @@ exports.CATEGORY_KEYS = [
     "COOK", "MAID", "DRIVER", "HELPER", "SECURITY", "GARDENER", "CARETAKER", "DELIVERY", "WAITER",
     "ELECTRICIAN", "PLUMBER", "PAINTER", "CARPENTER", "RECEPTIONIST", "CASHIER", "PACKER", "SALES",
     "TELECALLER", "TEACHER", "OFFICE_STAFF", "CUSTOMER_SUPPORT", "FIELD_EXECUTIVE", "MARKETING", "FINANCE",
-    "HEALTHCARE", "BEAUTICIAN", "TAILOR", "MECHANIC", "DATA_ENTRY", "LEGAL", "OTHER",
+    "HEALTHCARE", "BEAUTICIAN", "TAILOR", "MECHANIC", "DATA_ENTRY", "LEGAL",
+    // Student-friendly and hyper-local work (home tuition, events, in-store promoters, pharmacies, sites).
+    "TUTOR", "EVENT_STAFF", "PROMOTER", "PHARMACY", "CONSTRUCTION", "OTHER",
 ];
 //# sourceMappingURL=schema.js.map

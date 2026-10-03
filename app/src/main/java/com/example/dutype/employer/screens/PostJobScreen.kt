@@ -201,7 +201,7 @@ private val PostJobBaseCategoryChips = listOf(
     JobCategory.OTHER
 )
 private val PostJobStartDateOptions = listOf("Immediately", "Tomorrow", "Next Week")
-private val PostJobPerkOptions = listOf("Food Provided", "Transport", "Overtime Bonus", "Accommodation")
+private val PostJobPerkOptions = listOf("Food Provided", "Transport", "Overtime Bonus", "Accommodation", "Student friendly (flexible hours)")
 private val PostJobExtraPayTypes = listOf(PayType.HOURLY, PayType.NEGOTIABLE)
 private const val MIN_DESCRIPTION_CHARS = 10
 
@@ -658,7 +658,8 @@ private class PostJobController(
             gender = when (gender) { "Male" -> "MALE"; "Female" -> "FEMALE"; else -> "ANY" },
             experienceRequired = experienceLevel,
             educationRequired = educationRequired,
-            benefits = selectedPerks.toList()
+            benefits = selectedPerks.toList(),
+            businessName = companyName.trim().takeIf { it.isNotBlank() && !it.equals(employerName.trim(), ignoreCase = true) }.orEmpty()
         )
     }
 
@@ -1876,6 +1877,14 @@ private fun PostJobStep3(c: PostJobController) {
         onValueChange = { c.employerName = it },
         label = stringResource(R.string.your_name),
         placeholder = stringResource(R.string.enter_your_name)
+    )
+    // Asked only here, when hiring: saved to the employer profile so it is never asked again.
+    Spacer(modifier = Modifier.height(10.dp))
+    PjField(
+        value = c.companyName,
+        onValueChange = { c.companyName = it.take(80) },
+        label = stringResource(R.string.post_job_business_name),
+        placeholder = stringResource(R.string.post_job_business_name_hint)
     )
 }
 

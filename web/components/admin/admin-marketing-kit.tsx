@@ -26,7 +26,7 @@ const telugu = Noto_Sans_Telugu({ subsets: ["telugu", "latin"], weight: ["400", 
 const deva = Noto_Sans_Devanagari({ subsets: ["devanagari", "latin"], weight: ["400", "700", "800"], display: "swap" });
 
 type Lang = "en" | "te" | "hi";
-type Audience = "customers" | "employers" | "workers" | "partners" | "festive";
+type Audience = "customers" | "employers" | "workers" | "students" | "partners" | "festive";
 type Format = "a4" | "feed" | "square" | "story";
 type ThemeKey = "blue" | "green" | "orange" | "purple";
 
@@ -45,7 +45,7 @@ const THEMES: Record<ThemeKey, { name: string; from: string; to: string; accent:
 };
 
 const AUDIENCE_THEME: Record<Audience, ThemeKey> = {
-  customers: "blue", employers: "purple", workers: "green", partners: "orange", festive: "orange",
+  customers: "blue", employers: "purple", workers: "green", students: "blue", partners: "orange", festive: "orange",
 };
 
 type Copy = { badge: string; headline: string; sub: string; points: string[]; offer: string; cta: string };
@@ -158,6 +158,29 @@ function copyFor(a: Audience, lang: Lang, x: Ctx): Copy {
         sub: `${x.city} में अपने पास घरेलू सर्विस का काम पाएँ`,
         points: [`🧾 हर काम पर सिर्फ़ ₹${x.partnerFee} · पहला काम मुफ़्त`, "📲 काम सीधे आपके फ़ोन पर", "💵 ग्राहक सीधे आपको भुगतान करता है"],
         offer: "मुफ़्त जुड़ें · वेरिफ़ाइड बैज", cta: "स्कैन करें · पार्टनर बनें",
+      },
+    },
+    students: {
+      en: {
+        badge: "For college students",
+        headline: "Earn while you study. Part-time jobs near your college.",
+        sub: "Evenings, weekends and holidays · paid weekly or monthly · no fees",
+        points: ["📖 Home tuition & coaching", "🎉 Event, catering & store promoter work", "🛍️ Sales, billing, delivery & data entry"],
+        offer: "100% free · no agents · call the employer directly", cta: "Scan · Find a part-time job",
+      },
+      te: {
+        badge: "కాలేజ్ విద్యార్థుల కోసం",
+        headline: "చదువుతూనే సంపాదించండి. కాలేజ్ దగ్గర్లో పార్ట్-టైమ్ ఉద్యోగాలు.",
+        sub: "సాయంత్రాలు, వీకెండ్స్, సెలవుల్లో · వారం లేదా నెల జీతం · ఫీజు లేదు",
+        points: ["📖 హోమ్ ట్యూషన్ & కోచింగ్", "🎉 ఈవెంట్, కేటరింగ్ & స్టోర్ ప్రమోటర్", "🛍️ సేల్స్, బిల్లింగ్, డెలివరీ & డేటా ఎంట్రీ"],
+        offer: "పూర్తిగా ఉచితం · ఏజెంట్లు లేరు · యజమానికి నేరుగా కాల్", cta: "స్కాన్ · పార్ట్-టైమ్ ఉద్యోగం వెతకండి",
+      },
+      hi: {
+        badge: "कॉलेज छात्रों के लिए",
+        headline: "पढ़ाई के साथ कमाई। कॉलेज के पास पार्ट-टाइम नौकरी।",
+        sub: "शाम, वीकेंड और छुट्टियों में · साप्ताहिक या मासिक वेतन · कोई फ़ीस नहीं",
+        points: ["📖 होम ट्यूशन और कोचिंग", "🎉 इवेंट, कैटरिंग और स्टोर प्रमोटर", "🛍️ सेल्स, बिलिंग, डिलीवरी और डेटा एंट्री"],
+        offer: "100% मुफ़्त · कोई एजेंट नहीं · मालिक को सीधे कॉल", cta: "स्कैन करें · पार्ट-टाइम नौकरी पाएँ",
       },
     },
     festive: {
@@ -360,6 +383,7 @@ function whatsappTemplates(lang: Lang, x: Ctx, link: string, code: string): Arra
       { title: "Employers – hire staff", text: `Hi {{name}}, need staff for your shop or office?\nPost a job free on DutyPe and get workers near you today. Need someone right now? Use Urgent and workers respond in minutes.${ref}\nStart: ${link}` },
       { title: "Workers – find jobs", text: `Looking for work? 💼\nDutyPe shows jobs near you – driver, cook, helper, sales, delivery and more. Call the employer directly. 100% free, no agents.${ref}\nDownload: ${link}` },
       { title: "Partners – electricians, plumbers, AC techs", text: `Electrician / plumber / AC technician in ${x.city}? 🔧\nGet home-service jobs on your phone with DutyPe. The customer pays you directly; DutyPe takes only ₹${x.partnerFee} per job and your first job is free.\nJoin free: ${link}` },
+      { title: "Students – part-time jobs", text: `Student in ${x.city}? 🎓\nEarn while you study: home tuition, events and catering, store promoter, sales, billing, delivery, data entry. Evenings and weekends, paid weekly or monthly. Free, no agents – call the employer directly.${ref}\nDownload DutyPe: ${link}` },
       { title: "Referral (share with friends)", text: `I use DutyPe for staff and home services in ${x.city}. Join with my link and we both benefit 🎁${ref}\n${link}` },
     ],
     te: [
@@ -368,6 +392,7 @@ function whatsappTemplates(lang: Lang, x: Ctx, link: string, code: string): Arra
       { title: "యజమానులు – సిబ్బంది కావాలా", text: `నమస్తే {{name}} గారు, మీ షాప్ / ఆఫీస్‌కి సిబ్బంది కావాలా?\nDutyPeలో ఉచితంగా జాబ్ పోస్ట్ చేయండి, ఈరోజే దగ్గర్లో కార్మికులు. ఇప్పుడే మనిషి కావాలంటే అర్జెంట్ పోస్ట్ – నిమిషాల్లో స్పందన.${ref}\nమొదలుపెట్టండి: ${link}` },
       { title: "కార్మికులు – ఉద్యోగాలు", text: `పని కోసం చూస్తున్నారా? 💼\nDutyPeలో మీ దగ్గర్లోని ఉద్యోగాలు – డ్రైవర్, వంట, హెల్పర్, సేల్స్, డెలివరీ & మరిన్ని. యజమానికి నేరుగా కాల్. పూర్తిగా ఉచితం, ఏజెంట్లు లేరు.${ref}\nడౌన్‌లోడ్: ${link}` },
       { title: "పార్ట్నర్లు – ఎలక్ట్రీషియన్, ప్లంబర్, AC", text: `${x.city}లో ఎలక్ట్రీషియన్ / ప్లంబర్ / AC టెక్నీషియనా? 🔧\nDutyPeతో ఇంటి సర్వీస్ పనులు మీ ఫోన్‌కే. కస్టమర్ నేరుగా మీకే చెల్లిస్తారు; ఒక్కో పనికి DutyPe ₹${x.partnerFee} మాత్రమే, మొదటి పని ఉచితం.\nఉచితంగా చేరండి: ${link}` },
+      { title: "విద్యార్థులు – పార్ట్-టైమ్", text: `${x.city}లో విద్యార్థా? 🎓\nచదువుతూనే సంపాదించండి: హోమ్ ట్యూషన్, ఈవెంట్స్ & కేటరింగ్, స్టోర్ ప్రమోటర్, సేల్స్, బిల్లింగ్, డెలివరీ, డేటా ఎంట్రీ. సాయంత్రాలు, వీకెండ్స్ – వారం లేదా నెల జీతం. ఉచితం, ఏజెంట్లు లేరు.${ref}\nDutyPe డౌన్‌లోడ్: ${link}` },
       { title: "రిఫరల్ (స్నేహితులకు)", text: `${x.city}లో సిబ్బంది, ఇంటి సేవల కోసం నేను DutyPe వాడుతున్నాను. నా లింక్‌తో చేరండి 🎁${ref}\n${link}` },
     ],
     hi: [
@@ -376,6 +401,7 @@ function whatsappTemplates(lang: Lang, x: Ctx, link: string, code: string): Arra
       { title: "मालिक – स्टाफ़ चाहिए", text: `नमस्ते {{name}} जी, दुकान या ऑफ़िस के लिए स्टाफ़ चाहिए?\nDutyPe पर मुफ़्त जॉब पोस्ट करें और आज ही पास के कामगार पाएँ. अभी किसी की ज़रूरत? अर्जेंट पोस्ट करें, मिनटों में जवाब.${ref}\nशुरू करें: ${link}` },
       { title: "कामगार – नौकरी", text: `काम ढूँढ रहे हैं? 💼\nDutyPe पर आपके पास की नौकरियाँ – ड्राइवर, कुक, हेल्पर, सेल्स, डिलीवरी और भी. मालिक को सीधे कॉल. 100% मुफ़्त, कोई एजेंट नहीं.${ref}\nडाउनलोड: ${link}` },
       { title: "पार्टनर – इलेक्ट्रीशियन, प्लंबर, AC", text: `${x.city} में इलेक्ट्रीशियन / प्लंबर / AC टेक्नीशियन हैं? 🔧\nDutyPe से घरेलू सर्विस का काम सीधे फ़ोन पर. ग्राहक सीधे आपको भुगतान करता है; DutyPe हर काम पर सिर्फ़ ₹${x.partnerFee} लेता है और पहला काम मुफ़्त.\nमुफ़्त जुड़ें: ${link}` },
+      { title: "छात्र – पार्ट-टाइम", text: `${x.city} में छात्र हैं? 🎓\nपढ़ाई के साथ कमाई: होम ट्यूशन, इवेंट और कैटरिंग, स्टोर प्रमोटर, सेल्स, बिलिंग, डिलीवरी, डेटा एंट्री। शाम और वीकेंड – साप्ताहिक या मासिक वेतन। मुफ़्त, कोई एजेंट नहीं।${ref}\nDutyPe डाउनलोड करें: ${link}` },
       { title: "रेफ़रल (दोस्तों के लिए)", text: `${x.city} में स्टाफ़ और घरेलू सेवाओं के लिए मैं DutyPe इस्तेमाल करता हूँ. मेरे लिंक से जुड़ें 🎁${ref}\n${link}` },
     ],
   };
@@ -503,7 +529,7 @@ export function AdminMarketingKit() {
       <div style={{ display: "grid", gap: 10, marginBottom: 16 }}>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <b style={{ width: 90 }}>For</b>
-          {([["customers", "Home-service customers"], ["employers", "Employers"], ["workers", "Workers"], ["partners", "Service partners"], ["festive", "Festive offer"]] as Array<[Audience, string]>).map(([k, l]) => (
+          {([["customers", "Home-service customers"], ["employers", "Employers"], ["workers", "Workers"], ["students", "Students (part-time)"], ["partners", "Service partners"], ["festive", "Festive offer"]] as Array<[Audience, string]>).map(([k, l]) => (
             <button key={k} style={btn(audience === k)} onClick={() => setAudience(k)}>{l}</button>
           ))}
         </div>

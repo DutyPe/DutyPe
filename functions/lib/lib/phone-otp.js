@@ -9,6 +9,8 @@ exports.istDayKey = istDayKey;
 exports.decideSend = decideSend;
 exports.parseTruecallerUserInfo = parseTruecallerUserInfo;
 exports.whatsappConfigured = whatsappConfigured;
+exports.smsGatewayConfigured = smsGatewayConfigured;
+exports.smsGatewayRequest = smsGatewayRequest;
 exports.whatsappTemplateBody = whatsappTemplateBody;
 /**
  * Pure helpers for WhatsApp login codes and Truecaller profiles (no Firebase, unit tested).
@@ -82,6 +84,30 @@ function parseTruecallerUserInfo(raw) {
 function whatsappConfigured(env = process.env) {
     const token = (env.WHATSAPP_TOKEN || "").trim();
     return Boolean(token && token.toLowerCase() !== "unset" && env.WHATSAPP_PHONE_NUMBER_ID && env.WHATSAPP_TEMPLATE);
+}
+/**
+ * Our own SMS gateway (DLT-registered OTP template), ~₹0.15–0.25 per SMS instead of Firebase's
+ * ~₹6.7. SMS_PROVIDER = "2factor" (SMS_API_KEY, SMS_TEMPLATE = the 2Factor template name) or
+ * "msg91" (SMS_API_KEY = authkey, SMS_TEMPLATE = MSG91 template id).
+ */
+function smsGatewayConfigured(env = process.env) {
+    const provider = (env.SMS_PROVIDER || "").toLowerCase();
+    return (provider === "2factor" || provider === "msg91") && Boolean((env.SMS_API_KEY || "").trim()) &&
+        Boolean((env.SMS_TEMPLATE || "").trim());
+}
+/** The HTTP request for the configured gateway (pure, so it can be tested). */
+function smsGatewayRequest(toE164, code, env = process.env) {
+    const ten = toE164.replace(/^\+91/, "");
+    const key = (env.SMS_API_KEY || "").trim();
+    const template = (env.SMS_TEMPLATE || "").trim();
+    if ((env.SMS_PROVIDER || "").toLowerCase() === "msg91") {
+        const q = new URLSearchParams({ template_id: template, mobile: `91${ten}`, otp: code });
+        return { url: `https://control.msg91.com/api/v5/otp?${q}`, init: { method: "POST", headers: { authkey: key, "Content-Type": "application/json" } } };
+    }
+    return {
+        url: `https://2factor.in/API/V1/${encodeURIComponent(key)}/SMS/${ten}/${code}/${encodeURIComponent(template)}`,
+        init: { method: "GET" },
+    };
 }
 /** Meta Cloud API body for an authentication template (body code + copy-code button). */
 function whatsappTemplateBody(toE164, code, template, lang) {

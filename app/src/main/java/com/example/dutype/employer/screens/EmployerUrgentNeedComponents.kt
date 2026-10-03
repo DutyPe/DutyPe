@@ -38,6 +38,9 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -65,6 +68,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.dutype.models.MatchedWorker
 import com.example.dutype.viewmodels.MatchedWorkersUiState
@@ -1089,6 +1093,14 @@ private fun InstantResponseRow(
                             Text(stringResource(R.string.no_show))
                         }
                     }
+                }
+            }
+            // Accepted but not needed any more (e.g. the other worker is bringing a friend): remove with a reason.
+            if (canComplete && !isUpdating) {
+                RemoveUrgentWorkerButton(response)
+            }
+            Row(modifier = Modifier.fillMaxWidth()) {
+                when {
                     canRate -> {
                         Button(
                             onClick = { onRateResponse(response) },
@@ -1107,6 +1119,51 @@ private fun InstantResponseRow(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RemoveUrgentWorkerButton(response: InstantResponse) {
+    val viewModel: com.example.dutype.viewmodels.InstantHelpViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+    var open by remember { mutableStateOf(false) }
+    var reason by remember { mutableStateOf("") }
+    val presets = listOf(
+        stringResource(R.string.urgent_remove_reason_friend),
+        stringResource(R.string.urgent_remove_reason_not_needed),
+        stringResource(R.string.urgent_remove_reason_late)
+    )
+    TextButton(onClick = { open = true }) {
+        Text(stringResource(R.string.urgent_remove_worker), color = Color(0xFFDC2626).fg(), fontSize = 13.sp)
+    }
+    if (open) {
+        AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text(stringResource(R.string.urgent_remove_title, response.workerName)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.urgent_remove_body), fontSize = 13.sp)
+                    presets.forEach { p ->
+                        FilterChip(selected = reason == p, onClick = { reason = p }, label = { Text(p, fontSize = 12.sp) })
+                    }
+                    OutlinedTextField(
+                        value = reason,
+                        onValueChange = { reason = it.take(200) },
+                        label = { Text(stringResource(R.string.urgent_remove_reason_hint)) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.removeEmployerUrgentWorker(response, reason)
+                        open = false
+                    },
+                    enabled = reason.isNotBlank()
+                ) { Text(stringResource(R.string.urgent_remove_confirm), color = Color(0xFFDC2626).fg()) }
+            },
+            dismissButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.cancel)) } }
+        )
     }
 }
 

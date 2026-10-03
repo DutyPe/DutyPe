@@ -209,7 +209,23 @@ exports.postJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context) 
         const quota = await tx.get(quotaRef(uid, nowMs));
         const charge = chargeForPost(tx, employer, quota, nowMs);
         const createdAt = Timestamp.fromMillis(nowMs);
-        tx.create(jobRef, withoutDeletes(Object.assign(Object.assign({}, input.card), { [schema_1.Jobs.EMPLOYER_ID]: uid, [schema_1.Jobs.COMPANY_NAME]: companyNameOf(employer.data), [schema_1.Jobs.URGENCY]: urgency, [schema_1.Jobs.STATUS]: schema_1.Values.JobStatus.OPEN, [schema_1.Jobs.APPLICATION_COUNT]: 0, [schema_1.Jobs.CREATED_AT]: createdAt, [schema_1.Jobs.EXPIRES_AT]: Timestamp.fromMillis(nowMs + JOB_LIFETIME_MS) })));
+        // Simple setup: the shop / business name and place typed while posting the first job fill in an
+        // empty employer profile (no separate company-setup step).
+        const businessName = (0, input_1.str)(data, "businessName", { max: 80, optional: true });
+        const profileFill = {};
+        if (businessName && !String(employer.data[schema_1.EmployerProfiles.BUSINESS_NAME] || "").trim()) {
+            profileFill[schema_1.EmployerProfiles.BUSINESS_NAME] = businessName;
+            profileFill[schema_1.EmployerProfiles.EMPLOYER_TYPE] = schema_1.Values.EmployerType.COMPANY;
+        }
+        if (!String(employer.data[schema_1.EmployerProfiles.ADDRESS] || "").trim() && input.details[schema_1.JobDetails.ADDRESS_TEXT]) {
+            profileFill[schema_1.EmployerProfiles.ADDRESS] = input.details[schema_1.JobDetails.ADDRESS_TEXT];
+            profileFill[schema_1.EmployerProfiles.AREA] = input.card[schema_1.Jobs.AREA];
+            profileFill[schema_1.EmployerProfiles.LAT] = input.card[schema_1.Jobs.LAT];
+            profileFill[schema_1.EmployerProfiles.LNG] = input.card[schema_1.Jobs.LNG];
+        }
+        if (Object.keys(profileFill).length)
+            tx.update(employer.ref, profileFill);
+        tx.create(jobRef, withoutDeletes(Object.assign(Object.assign({}, input.card), { [schema_1.Jobs.EMPLOYER_ID]: uid, [schema_1.Jobs.COMPANY_NAME]: businessName || companyNameOf(employer.data), [schema_1.Jobs.URGENCY]: urgency, [schema_1.Jobs.STATUS]: schema_1.Values.JobStatus.OPEN, [schema_1.Jobs.APPLICATION_COUNT]: 0, [schema_1.Jobs.CREATED_AT]: createdAt, [schema_1.Jobs.EXPIRES_AT]: Timestamp.fromMillis(nowMs + JOB_LIFETIME_MS) })));
         tx.create(db.collection(schema_1.JobDetails.COLLECTION).doc(jobId), Object.assign(Object.assign({}, input.details), { [schema_1.JobDetails.EMPLOYER_ID]: uid }));
         tx.create(contactRef(jobId), {
             [schema_1.JobContacts.EMPLOYER_ID]: uid,

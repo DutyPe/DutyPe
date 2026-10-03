@@ -143,6 +143,8 @@ exports.setInstantResponseStatus = (0, secure_callable_1.onCallSecured)({}, asyn
     const id = validRequestId(data);
     const workerId = (0, input_1.str)(data, "workerId", { max: 128, pattern: /^[A-Za-z0-9_-]+$/ });
     const status = (0, input_1.oneOf)(data, "status", [RS.ACCEPTED, RS.REJECTED, RS.COMPLETED, RS.NO_SHOW]);
+    // e.g. "Another worker's friend is coming instead" – told to the removed worker.
+    const reason = (0, input_1.str)(data, "reason", { max: 200, optional: true });
     const outcome = await db.runTransaction(async (tx) => {
         const request = await ownedRequest(tx, id, uid);
         const responseRef = request.ref.collection(R.COLLECTION).doc(workerId);
@@ -175,7 +177,7 @@ exports.setInstantResponseStatus = (0, secure_callable_1.onCallSecured)({}, asyn
         // A place opened up again: offers restart from 5 km.
         const reopened = finalStatus === ST.OPEN && (status === RS.REJECTED || status === RS.NO_SHOW) &&
             (previous === RS.ACCEPTED || requestStatus === ST.FILLED);
-        tx.update(responseRef, { [R.STATUS]: status });
+        tx.update(responseRef, Object.assign({ [R.STATUS]: status }, (reason ? { [R.REASON]: reason } : {})));
         tx.update(request.ref, Object.assign(Object.assign({ [schema_1.InstantRequests.SELECTED_WORKER_IDS]: Array.from(selected), [schema_1.InstantRequests.STATUS]: finalStatus }, (reopened ? {
             [schema_1.InstantRequests.DISPATCH_RADIUS_KM]: 0,
             [schema_1.InstantRequests.NEXT_WAVE_AT]: Timestamp.now(),
@@ -204,8 +206,8 @@ exports.setInstantResponseStatus = (0, secure_callable_1.onCallSecured)({}, asyn
     if ((status === RS.REJECTED || status === RS.NO_SHOW) && outcome.previous === RS.ACCEPTED) {
         await (0, notify_1.notify)(workerId, {
             type: "REJECTED",
-            templateId: "URGENT_REMOVED",
-            params: { title: outcome.title },
+            templateId: reason ? "URGENT_REMOVED_REASON" : "URGENT_REMOVED",
+            params: { title: outcome.title, reason },
             data: { requestId: id, action: "view_urgent_work" },
             role: schema_1.Values.Role.WORKER,
         });

@@ -633,6 +633,7 @@ fun HomeSectionsContent(
                         lat = currentLocation.latitude,
                         lng = currentLocation.longitude,
                         onClick = { rootNavController.navigate(com.example.dutype.navigation.Routes.PARTNER) },
+                        onBookServices = { rootNavController.navigate(com.example.dutype.navigation.Routes.SERVICES) },
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                 }

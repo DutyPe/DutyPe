@@ -241,10 +241,26 @@ export const postJob = onCallSecured({}, async (raw: unknown, context) => {
     const charge = chargeForPost(tx, employer, quota, nowMs);
     const createdAt = Timestamp.fromMillis(nowMs);
 
+    // Simple setup: the shop / business name and place typed while posting the first job fill in an
+    // empty employer profile (no separate company-setup step).
+    const businessName = str(data, "businessName", { max: 80, optional: true });
+    const profileFill: Record<string, unknown> = {};
+    if (businessName && !String(employer.data[EmployerProfiles.BUSINESS_NAME] || "").trim()) {
+      profileFill[EmployerProfiles.BUSINESS_NAME] = businessName;
+      profileFill[EmployerProfiles.EMPLOYER_TYPE] = Values.EmployerType.COMPANY;
+    }
+    if (!String(employer.data[EmployerProfiles.ADDRESS] || "").trim() && input.details[JobDetails.ADDRESS_TEXT]) {
+      profileFill[EmployerProfiles.ADDRESS] = input.details[JobDetails.ADDRESS_TEXT];
+      profileFill[EmployerProfiles.AREA] = input.card[Jobs.AREA];
+      profileFill[EmployerProfiles.LAT] = input.card[Jobs.LAT];
+      profileFill[EmployerProfiles.LNG] = input.card[Jobs.LNG];
+    }
+    if (Object.keys(profileFill).length) tx.update(employer.ref, profileFill);
+
     tx.create(jobRef, withoutDeletes({
       ...input.card,
       [Jobs.EMPLOYER_ID]: uid,
-      [Jobs.COMPANY_NAME]: companyNameOf(employer.data),
+      [Jobs.COMPANY_NAME]: businessName || companyNameOf(employer.data),
       [Jobs.URGENCY]: urgency,
       [Jobs.STATUS]: Values.JobStatus.OPEN,
       [Jobs.APPLICATION_COUNT]: 0,

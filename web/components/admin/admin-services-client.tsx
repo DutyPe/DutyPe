@@ -279,6 +279,7 @@ type Settings = {
   partnerFee: number;
   partnerFirstJobFree: boolean;
   firstBookingFeeFree: boolean;
+  planMembersFeeFree: boolean;
   minTopup: number;
   coupons: Coupon[];
   services: Array<{ id: string; price?: number; active?: boolean }>;
@@ -319,6 +320,7 @@ function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; 
         partnerFee: d.partnerFee ?? 19,
         partnerFirstJobFree: d.partnerFirstJobFree !== false,
         firstBookingFeeFree: d.firstBookingFeeFree !== false,
+        planMembersFeeFree: d.planMembersFeeFree !== false,
         minTopup: d.minTopup ?? 200,
         coupons: d.coupons || [],
         services: d.services || [],
@@ -388,7 +390,7 @@ function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; 
   const num = (k: "bookingFee" | "inspectionFee" | "commissionPct" | "partnerFee" | "minTopup") => (
     <input type="number" value={String(s[k])} onChange={(e) => setS({ ...s, [k]: Number(e.target.value) })} style={{ width: 100 }} />
   );
-  const check = (k: "partnerFirstJobFree" | "firstBookingFeeFree") => (
+  const check = (k: "partnerFirstJobFree" | "firstBookingFeeFree" | "planMembersFeeFree") => (
     <input type="checkbox" checked={s[k]} onChange={(e) => setS({ ...s, [k]: e.target.checked })} />
   );
 
@@ -406,6 +408,7 @@ function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; 
         <label>Partner fee per job (₹, e.g. 9 or 19)</label>{num("partnerFee")}
         <label>Partner&apos;s first job free</label>{check("partnerFirstJobFree")}
         <label>Customer&apos;s first booking: no booking fee</label>{check("firstBookingFeeFree")}
+        <label>Employers on a paid plan: no booking fee</label>{check("planMembersFeeFree")}
         <label>Commission on price (%)</label>{num("commissionPct")}
         <label>Minimum top-up (₹)</label>{num("minTopup")}
       </div>

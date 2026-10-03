@@ -637,7 +637,7 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
           "Accept only jobs you can reach on time and are trained for. Skilled categories (electrical, AC, plumbing, appliances, carpentry, painting) are given only after DutyPe checks your skill.",
           "Carry the tools listed for the job, start work only with the customer's start code, and tell the price before any extra work or parts.",
           "Collect only the amount shown in the app (cash or UPI). Parts are charged at the bill price. No tips, travel charges or side deals.",
-          "DutyPe's fee (the customer's booking fee you collect, plus the partner fee per job, currently ₹19; first job free) is taken from your prepaid credits after each job. Unused credits are refunded on request when you close your partner account, after any dues.",
+          "DutyPe's fee (the customer's booking fee you collect, plus the partner fee per job, currently ₹19; first job free) is taken from your prepaid credits after each job. Credits are prepaid for future jobs: they do not expire, stay in your partner wallet for later jobs, and are not refundable or transferable.",
           "Respect the home, family, women, children and elders. No alcohol, tobacco, photos of the family, or entering rooms not needed for the work."
         ]
       },

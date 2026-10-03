@@ -73,6 +73,24 @@ describe("DutyPe AI (emulator)", () => {
     assert.deepEqual(f.homeServices.bookings, []);
   });
 
+  it("handles urgent posts: mark filled, select and remove a worker (with a reason)", async () => {
+    await seed("ai");
+    await db.doc("instant_requests/u1").set({ employerId: "emp1", title: "Loaders", status: "open", workersNeeded: 2,
+      selectedWorkerIds: ["w1"], createdAt: T.now() });
+    await db.doc("instant_requests/u1/responses/w1").set({ workerId: "w1", workerName: "Ravi", status: "accepted" });
+    await db.doc("instant_requests/u1/responses/w2").set({ workerId: "w2", workerName: "Mohan", status: "applied" });
+    const f = await dutypeAi.employerFacts("emp1");
+    assert.deepEqual(f.urgent[0].workers.map((w) => w.name).sort(), ["Mohan", "Ravi"]);
+    assert.equal(dutypeAi.validateAction({ type: "urgent_mark_filled", args: { requestId: "u1" } }, f)?.type, "urgent_mark_filled");
+    assert.equal(dutypeAi.validateAction({ type: "urgent_select_worker", args: { requestId: "u1", workerId: "w2" } }, f)?.summary,
+      "Select Mohan for Loaders");
+    assert.equal(dutypeAi.validateAction({ type: "urgent_remove_worker", args: { requestId: "u1", workerId: "w1" } }, f), null,
+      "a reason is required");
+    assert.match(dutypeAi.validateAction({ type: "urgent_remove_worker", args: { requestId: "u1", workerId: "w1",
+      reason: "Mohan's friend is coming" } }, f)!.summary, /Remove Ravi from Loaders/);
+    assert.equal(dutypeAi.validateAction({ type: "urgent_remove_worker", args: { requestId: "nope", workerId: "w1", reason: "x" } }, f), null);
+  });
+
   it("knows home-service bookings and can propose booking one", async () => {
     await seed("ai");
     await db.doc("service_bookings/bk1").set({

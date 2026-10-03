@@ -41,6 +41,11 @@ const JOB_CATEGORIES: { value: string; label: string; icon: string }[] = [
   { value: "MECHANIC", label: "Mechanic", icon: "🔩" },
   { value: "DATA_ENTRY", label: "Data Entry", icon: "⌨️" },
   { value: "LEGAL", label: "Legal", icon: "⚖️" },
+  { value: "TUTOR", label: "Home Tutor", icon: "📖" },
+  { value: "EVENT_STAFF", label: "Event Staff", icon: "🎉" },
+  { value: "PROMOTER", label: "Store Promoter", icon: "🏷️" },
+  { value: "PHARMACY", label: "Pharmacy Assistant", icon: "💊" },
+  { value: "CONSTRUCTION", label: "Construction", icon: "🏗️" },
   { value: "OTHER", label: "Other", icon: "📋" }
 ];
 

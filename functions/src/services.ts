@@ -215,6 +215,25 @@ function partnerEarning(b: admin.firestore.DocumentData, partnerFee: number): nu
   return price - feeOf(b, partnerFee) - Math.round((price * Number(b[BK.COMMISSION_PCT] || 0)) / 100);
 }
 
+/** The booker's name, and whether they are on a paid DutyPe plan (no booking fee). */
+async function customerOf(uid: string, role: string): Promise<{ name: string; planMember: boolean }> {
+  if (role === Values.Role.WORKER) {
+    const w = await db.collection(WorkerProfiles.COLLECTION).doc(uid).get();
+    return { name: String(w.get(WorkerProfiles.NAME) || "Customer"), planMember: false };
+  }
+  const p = await db.collection(EmployerProfiles.COLLECTION).doc(uid).get();
+  const S = EmployerProfiles.Subscription;
+  const sub = (p.get(EmployerProfiles.SUBSCRIPTION) || {}) as Record<string, unknown>;
+  const exp = ms(sub[S.EXPIRES_AT]);
+  // A paid plan only (the launch campaign gives everyone free posts, not free bookings).
+  const planMember = sub[S.STATUS] === "ACTIVE" && (exp === 0 || exp > Date.now()) &&
+    Boolean(sub[S.PLAN_ID]) && sub[S.PLAN_ID] !== "UNLIMITED_CAMPAIGN";
+  return {
+    name: String(p.get(EmployerProfiles.OWNER_NAME) || p.get(EmployerProfiles.BUSINESS_NAME) || "Customer"),
+    planMember,
+  };
+}
+
 /** True when the customer has never had a booking that was not cancelled. */
 async function isFirstBooking(uid: string): Promise<boolean> {
   const prev = await db.collection(BK.COLLECTION)
@@ -372,8 +391,10 @@ export async function dispatchServiceWaves(nowMs: number): Promise<void> {
 
 export const createServiceBooking = onCallSecured({ timeoutSeconds: 30 }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
-  if (context.auth?.token.role !== Values.Role.EMPLOYER) {
-    fail("permission-denied", "Log in with a customer (Hire / Book) account to book services");
+  // Anyone with a DutyPe account can book for their home: an employer, or a worker too.
+  const role = String(context.auth?.token.role || "");
+  if (role !== Values.Role.EMPLOYER && role !== Values.Role.WORKER) {
+    fail("permission-denied", "Finish registration to book services");
   }
   const phone = e164(context.auth?.token.phone_number);
   if (!phone) fail("failed-precondition", "Log in with your mobile number first");
@@ -406,9 +427,9 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30 }, async 
     fail("resource-exhausted", "You already have 3 open bookings. Finish or cancel one first.");
   }
 
-  const profile = await db.collection(EmployerProfiles.COLLECTION).doc(uid).get();
-  const customerName = String(profile.get(EmployerProfiles.OWNER_NAME) || profile.get(EmployerProfiles.BUSINESS_NAME) || "Customer");
-  const q = quote(config, service, await isFirstBooking(uid), str(data, "couponCode", { max: 20, optional: true }), now);
+  const who = await customerOf(uid, role);
+  const customerName = who.name;
+  const q = quote(config, service, await isFirstBooking(uid), str(data, "couponCode", { max: 20, optional: true }), now, who.planMember);
   if (q.couponError) fail("failed-precondition", q.couponError);
   const bookingFee = q.bookingFee;
   const ref = db.collection(BK.COLLECTION).doc();
@@ -433,7 +454,8 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30 }, async 
     [BK.WHEN]: scheduled ? "scheduled" : "now",
     ...(scheduled ? { [BK.SCHEDULED_AT]: Timestamp.fromMillis(scheduledAt) } : {}),
     [BK.STATUS]: BS.SEARCHING,
-    [BK.EXCLUDED_PARTNER_IDS]: [],
+    // A partner booking for their own home never gets their own job.
+    [BK.EXCLUDED_PARTNER_IDS]: [uid],
     [BK.DISPATCH_RADIUS_KM]: 0,
     [BK.NEXT_WAVE_AT]: Timestamp.fromMillis(firstWaveAt),
     [BK.EXPIRES_AT]: Timestamp.fromMillis(scheduled ? scheduledAt + HOUR_MS : now + SEARCH_TIMEOUT_MS),
@@ -478,7 +500,8 @@ export const previewServiceQuote = onCallSecured({ timeoutSeconds: 10 }, async (
   if (!service) fail("not-found", "This service is not available");
   const now = Date.now();
   const first = await isFirstBooking(context.auth!.uid);
-  const q = quote(config, service, first, str(data, "couponCode", { max: 20, optional: true }), now);
+  const who = await customerOf(context.auth!.uid, String(context.auth?.token.role || ""));
+  const q = quote(config, service, first, str(data, "couponCode", { max: 20, optional: true }), now, who.planMember);
   let couponError = q.couponError;
   if (!couponError && q.couponCode) {
     const used = await db.collection(CouponUses.COLLECTION).doc(`${context.auth!.uid}_${q.couponCode}`).get();

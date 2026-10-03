@@ -2863,4 +2863,27 @@
     <string name="pay_rule_min_wage_hint">సూచన: తెలంగాణలో ఫుల్-టైమ్ పనికి కనీస వేతనం నెలకు సుమారు ₹12,750. మంచి జీతానికి ఎక్కువ, మంచి దరఖాస్తులు వస్తాయి.</string>
     <string name="pay_rule_vacancy_info">రెగ్యులర్ ఉద్యోగాలకు వారం లేదా నెల జీతం. కొన్ని గంటలు లేదా ఈరోజు మాత్రమే మనిషి కావాలా? అర్జెంట్ పోస్ట్ చేయండి.</string>
     <string name="pay_rule_urgent_range">అర్జెంట్ పని అదే రోజు చెల్లించే కొద్ది పని: ఒక్కొక్కరికి ₹%1$d నుండి ₹%2$d. రెగ్యులర్ జీతానికి జాబ్ పోస్ట్ చేయండి.</string>
+    <string name="category_tutor">హోమ్ ట్యూటర్</string>
+    <string name="category_event_staff">ఈవెంట్ సిబ్బంది</string>
+    <string name="category_promoter">స్టోర్ ప్రమోటర్</string>
+    <string name="category_pharmacy">ఫార్మసీ అసిస్టెంట్</string>
+    <string name="post_job_business_name">షాప్ / వ్యాపారం పేరు (ఐచ్ఛికం)</string>
+    <string name="post_job_business_name_hint">ఉదా: శ్రీ సాయి సూపర్ మార్కెట్</string>
+    <string name="svc_rate_nudge_title">%1$s ఎలా ఉంది?</string>
+    <string name="svc_rate_nudge_body">%1$sకి రేటింగ్ ఇవ్వండి – ఇతర కుటుంబాలకు సహాయపడుతుంది</string>
+    <string name="urgent_remove_worker">ఈ పని నుండి తొలగించండి</string>
+    <string name="urgent_remove_title">%1$sని తొలగించాలా?</string>
+    <string name="urgent_remove_body">కార్మికుడికి కారణం తెలుస్తుంది, వారు ఇతర పనులు తీసుకోవచ్చు. మీరు ఫిల్డ్ అని మార్క్ చేయకపోతే ఆ స్థానం మళ్లీ ఇతరులకు తెరుచుకుంటుంది.</string>
+    <string name="urgent_remove_reason_friend">మరో కార్మికుడు తన స్నేహితుడిని తీసుకువస్తున్నారు</string>
+    <string name="urgent_remove_reason_not_needed">పని అయిపోయింది / ఇక అవసరం లేదు</string>
+    <string name="urgent_remove_reason_late">సమయానికి రాలేకపోయారు</string>
+    <string name="urgent_remove_reason_hint">కారణం (కార్మికుడికి కనిపిస్తుంది)</string>
+    <string name="urgent_remove_confirm">తొలగించు</string>
+    <string name="dutype_ai_done_urgent_filled">అయింది. అర్జెంట్ పోస్ట్ ఫిల్డ్‌గా మార్క్ చేశాను; ఇక కార్మికులు రారు.</string>
+    <string name="dutype_ai_done_urgent_removed">అయింది. కార్మికుడిని తొలగించి కారణం తెలియజేశాను.</string>
+    <string name="svc_offer_price">సర్వీస్ ధర</string>
+    <string name="svc_offer_collect">కస్టమర్ నుండి తీసుకోండి (క్యాష్ / UPI)</string>
+    <string name="svc_offer_fee_from_credits">DutyPe ఫీజు (మీ క్రెడిట్స్ నుండి)</string>
+    <string name="svc_offer_you_keep">మీకు మిగిలేది</string>
+    <string name="svc_offer_discount_note">కస్టమర్‌కి ఇచ్చిన ₹%1$d ఆఫర్ DutyPe ఫీజు నుండే – మీ సంపాదన మారదు.</string>
 </resources>

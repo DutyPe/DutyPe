@@ -233,8 +233,22 @@ class InstantHelpService @Inject constructor(
         }
 
     /** accepted | rejected | completed | no_show */
-    suspend fun updateEmployerInstantResponseStatus(response: InstantResponse, status: String): Result<Unit> = runCatching {
-        call("setInstantResponseStatus", mapOf("requestId" to response.requestId, "workerId" to response.workerId, "status" to status))
+    suspend fun updateEmployerInstantResponseStatus(response: InstantResponse, status: String, reason: String = ""): Result<Unit> = runCatching {
+        call(
+            "setInstantResponseStatus",
+            mapOf("requestId" to response.requestId, "workerId" to response.workerId, "status" to status, "reason" to reason)
+        )
+        Unit
+    }
+
+    /** By ids (DutyPe AI): accepted | rejected | completed | no_show, with an optional reason. */
+    suspend fun setResponseStatusById(requestId: String, workerId: String, status: String, reason: String = ""): Result<Unit> = runCatching {
+        call("setInstantResponseStatus", mapOf("requestId" to requestId, "workerId" to workerId, "status" to status, "reason" to reason))
+        Unit
+    }
+
+    suspend fun markFilledById(requestId: String): Result<Unit> = runCatching {
+        call("setInstantRequestStatus", mapOf("requestId" to requestId, "status" to "filled"))
         Unit
     }
 

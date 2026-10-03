@@ -37,7 +37,8 @@ import android.content.Context
 private fun Any?.asStringMap(): Map<String, Any?>? = this as? Map<String, Any?>
 
 /** How the current login code was sent. */
-enum class OtpChannel { SMS, WHATSAPP }
+/** SMS = Firebase SMS; WHATSAPP and SERVER_SMS are codes from our server (verifyWhatsappOtp). */
+enum class OtpChannel { SMS, WHATSAPP, SERVER_SMS }
 
 /** What Truecaller one-tap returned for this number (the server checked the role). */
 data class TruecallerSignInResult(
@@ -344,7 +345,7 @@ class OtpViewModel @Inject constructor(
             errorHandler.logBreadcrumb("OTP verification started - Code: ${otp.take(1)}***")
 
             try {
-                if (_otpState.value.channel == OtpChannel.WHATSAPP) {
+                if (_otpState.value.channel == OtpChannel.WHATSAPP || _otpState.value.channel == OtpChannel.SERVER_SMS) {
                     verifyWhatsappCode(otp)
                     return@launch
                 }
@@ -444,11 +445,14 @@ class OtpViewModel @Inject constructor(
      * Sends the code on WhatsApp. True when handled (sent, or the user must wait for a code already
      * sent / is refused); false means "send an SMS instead".
      */
-    private suspend fun trySendWhatsapp(phoneNumber: String): Boolean {
+    private suspend fun trySendWhatsapp(phoneNumber: String, preferSms: Boolean = false): Boolean {
         val response = try {
             withTimeoutOrNull(WHATSAPP_SEND_TIMEOUT_MS) {
                 functions.getHttpsCallable("sendWhatsappOtp")
-                    .call(mapOf("phone" to phoneNumber, "role" to pendingRole.name))
+                    .call(
+                        mapOf("phone" to phoneNumber, "role" to pendingRole.name) +
+                            (if (preferSms) mapOf("channel" to "sms") else emptyMap())
+                    )
                     .await().data.asStringMap()
             }
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -483,17 +487,20 @@ class OtpViewModel @Inject constructor(
 
         val sent = response["sent"] == true
         val waitSeconds = (response["retryAfterSec"] as? Number)?.toInt()
-        if (!sent && (response["channel"] != "whatsapp" || waitSeconds == null)) return false
+        val serverChannel = response["channel"] as? String
+        // "sms_gateway": the same server code went by our cheap SMS gateway (not Firebase SMS).
+        val bySms = serverChannel == "sms_gateway"
+        if (!sent && ((serverChannel != "whatsapp" && !bySms) || waitSeconds == null)) return false
 
         whatsappPhone = phoneNumber
         storedVerificationId = null
-        errorHandler.logEvent(if (sent) "whatsapp_otp_sent" else "whatsapp_otp_wait", true)
+        errorHandler.logEvent(if (sent) (if (bySms) "server_sms_otp_sent" else "whatsapp_otp_sent") else "whatsapp_otp_wait", true)
         warmUpFirestore()
         _otpState.value = _otpState.value.copy(
             isLoading = false,
             otpSent = true,
-            channel = OtpChannel.WHATSAPP,
-            message = "Code sent on WhatsApp to $phoneNumber"
+            channel = if (bySms) OtpChannel.SERVER_SMS else OtpChannel.WHATSAPP,
+            message = if (bySms) "Code sent by SMS to $phoneNumber" else "Code sent on WhatsApp to $phoneNumber"
         )
         startResendCooldown(if (sent) SMS_FALLBACK_AFTER_SECONDS else maxOf(1, waitSeconds ?: SMS_FALLBACK_AFTER_SECONDS))
         return true
@@ -730,8 +737,11 @@ class OtpViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            // From WhatsApp, "resend" is the SMS backup ("Didn't get it? Get code by SMS").
-            if (_otpState.value.channel == OtpChannel.WHATSAPP) {
+            // From WhatsApp, "resend" is the SMS backup ("Didn't get it? Get code by SMS"): our own
+            // SMS gateway first (same server code, ~₹0.2), Firebase SMS (~₹6.7) only if that is off.
+            if (_otpState.value.channel == OtpChannel.WHATSAPP || _otpState.value.channel == OtpChannel.SERVER_SMS) {
+                _otpState.value = _otpState.value.copy(isLoading = true, error = null)
+                if (trySendWhatsapp(phoneNumber, preferSms = true)) return@launch
                 _otpState.value = _otpState.value.copy(channel = OtpChannel.SMS)
                 errorHandler.logEvent("whatsapp_otp_sms_fallback", true)
             }

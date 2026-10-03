@@ -153,7 +153,7 @@ describe("DutyPe Services (emulator)", () => {
     await call(svc.updateServiceBooking)({ bookingId: r.bookingId, action: "cancel" }, partnerCtx("p1"));
     const b = await db.doc(`service_bookings/${r.bookingId}`).get();
     assert.equal(b.get("status"), "SEARCHING");
-    assert.deepEqual(b.get("excludedPartnerIds"), ["p1"]);
+    assert.deepEqual(b.get("excludedPartnerIds"), ["cust1", "p1"]);
     assert.equal(offers.length, 0);
     assert.equal((await call(svc.acceptServiceBooking)({ bookingId: r.bookingId }, partnerCtx("p1"))).result, "closed");
     assert.equal((await db.doc("service_partners/p1").get()).get("cancellations"), 1);
@@ -178,8 +178,16 @@ describe("DutyPe Services (emulator)", () => {
   });
 
   it("checks role, city, open-booking limit and schedule hours", async () => {
-    await assert.rejects(call(svc.createServiceBooking)({ serviceId: "ac_service", addressText: "xxxxx", ...HOME }, partnerCtx("w")),
-      (e) => code(e) === "permission-denied");
+    const unregistered = { auth: { uid: "nobody", token: { phone_number: "+919000000009" } }, ...app };
+    await assert.rejects(call(svc.createServiceBooking)({ serviceId: "ac_service", addressText: "xxxxx", ...HOME }, unregistered),
+      (e) => code(e) === "permission-denied", "finish registration first");
+    // A worker (or a partner) can book for their own home, and never gets their own job.
+    await db.doc("worker_profiles/wk1").set({ name: "Ramu" });
+    const own = await call(svc.createServiceBooking)({ serviceId: "ac_service", addressText: "H.No 9, Gandhi Chowk", ...HOME }, partnerCtx("wk1"));
+    const ownDoc = await db.doc(`service_bookings/${own.bookingId}`).get();
+    assert.equal(ownDoc.get("customerName"), "Ramu");
+    assert.deepEqual(ownDoc.get("excludedPartnerIds"), ["wk1"]);
+    await db.recursiveDelete(db.collection("service_bookings"));
     await assert.rejects(book("ac_service", { lat: 17.385, lng: 78.4867 }), (e) => code(e) === "failed-precondition", "Hyderabad is out of range");
     await assert.rejects(book("ac_service", KOTHAGUDEM), (e) => code(e) === "failed-precondition", "next district is out of range");
     await assert.rejects(book("nope"), (e) => code(e) === "not-found");
@@ -261,6 +269,18 @@ describe("DutyPe Services (emulator)", () => {
     offer = await call(svc.getServiceOffer)({ bookingId: next.bookingId }, partnerCtx("rookie"));
     assert.equal(offer.requiredCreditsPaise, 3800);
     assert.equal((await call(svc.acceptServiceBooking)({ bookingId: next.bookingId }, partnerCtx("rookie"))).result, "low_credits");
+  });
+
+  it("employers on a paid plan pay no booking fee; the launch campaign does not count", async () => {
+    await db.doc("service_bookings/old").set({ customerId: "cust1", status: "COMPLETED", createdAt: admin.firestore.Timestamp.now() });
+    const plan = (planId: string) => db.doc("employer_profiles/cust1").set({ ownerName: "Sita", subscription: { planId, status: "ACTIVE" } });
+    await plan("pro_ai_199");
+    let q = await call(svc.previewServiceQuote)({ serviceId: "ac_service" }, customer);
+    assert.equal(q.discount, 19);
+    assert.equal(q.discountLabel, "DutyPe plan: no booking fee");
+    await plan("UNLIMITED_CAMPAIGN");
+    q = await call(svc.previewServiceQuote)({ serviceId: "ac_service" }, customer);
+    assert.equal(q.discount, 0);
   });
 
   it("partner applies, admin approves, top-up is verified into credits", async () => {

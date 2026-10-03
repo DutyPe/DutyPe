@@ -179,6 +179,11 @@ exports.NOTIFICATION_TEMPLATES = {
         te: { title: "అత్యవసర పని నుండి మిమ్మల్ని తొలగించారు", body: "యజమాని మిమ్మల్ని {title} నుండి తొలగించారు. మీరు ఇతర పనులు తీసుకోవచ్చు." },
         hi: { title: "आपको तुरंत काम से हटाया गया", body: "नियोक्ता ने आपको {title} से हटा दिया। आप दूसरे काम ले सकते हैं।" },
     },
+    URGENT_REMOVED_REASON: {
+        en: { title: "You were removed from an urgent job", body: "The employer removed you from {title}: \"{reason}\". You can accept other jobs now." },
+        te: { title: "అత్యవసర పని నుండి మిమ్మల్ని తొలగించారు", body: "యజమాని మిమ్మల్ని {title} నుండి తొలగించారు: \"{reason}\". మీరు ఇతర పనులు తీసుకోవచ్చు." },
+        hi: { title: "आपको तुरंत काम से हटाया गया", body: "नियोक्ता ने आपको {title} से हटा दिया: \"{reason}\"। आप दूसरे काम ले सकते हैं।" },
+    },
     INSTANT_RESPONSE_RECEIVED: {
         en: { title: "{workerName} can help", body: "A worker responded to your urgent need {title}." },
         te: { title: "{workerName} సహాయం చేయగలరు", body: "మీ అత్యవసర అవసరం {title}కి ఒక వర్కర్ స్పందించారు." },

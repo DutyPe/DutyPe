@@ -90,6 +90,11 @@ enum class JobCategory(val displayName: String, val icon: String, val titleRes: 
     MECHANIC("Mechanic", "🔩", com.dutype.app.R.string.category_mechanic),
     DATA_ENTRY("Data Entry", "⌨️", com.dutype.app.R.string.category_data_entry),
     LEGAL("Legal", "⚖️", com.dutype.app.R.string.category_legal),
+    TUTOR("Home Tutor", "📖", com.dutype.app.R.string.category_tutor),
+    EVENT_STAFF("Event Staff", "🎉", com.dutype.app.R.string.category_event_staff),
+    PROMOTER("Store Promoter", "🏷️", com.dutype.app.R.string.category_promoter),
+    PHARMACY("Pharmacy Assistant", "💊", com.dutype.app.R.string.category_pharmacy),
+    CONSTRUCTION("Construction", "🏗️", com.dutype.app.R.string.category_construction),
     OTHER("Other", "📋", com.dutype.app.R.string.category_other);
 
     companion object {

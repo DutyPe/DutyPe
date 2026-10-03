@@ -173,7 +173,9 @@ data class JobForm(
     val gender: String,
     val experienceRequired: String,
     val educationRequired: String,
-    val benefits: List<String>
+    val benefits: List<String>,
+    /** Shop / business name typed while posting; saved to the employer profile if it has none. */
+    val businessName: String = ""
 ) {
     fun toPayload(): Map<String, Any?> = mapOf(
         Jobs.TITLE to title,
@@ -194,6 +196,7 @@ data class JobForm(
         JobDetails.GENDER to gender,
         JobDetails.EXPERIENCE_REQUIRED to experienceRequired,
         JobDetails.EDUCATION_REQUIRED to educationRequired,
-        JobDetails.BENEFITS to benefits
+        JobDetails.BENEFITS to benefits,
+        "businessName" to businessName
     )
 }

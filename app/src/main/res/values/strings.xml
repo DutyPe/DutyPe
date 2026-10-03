@@ -2911,4 +2911,27 @@
     <string name="pay_rule_min_wage_hint">Tip: Telangana minimum wage for full-time work is about ₹12,750 a month. Fair pay gets more and better applicants.</string>
     <string name="pay_rule_vacancy_info">Regular jobs are paid weekly or monthly. Need someone only for a few hours or today? Post an urgent need instead.</string>
     <string name="pay_rule_urgent_range">Urgent work is short work paid the same day: ₹%1$d to ₹%2$d per person. For a regular salary, post a job.</string>
+    <string name="category_tutor">Home Tutor</string>
+    <string name="category_event_staff">Event Staff</string>
+    <string name="category_promoter">Store Promoter</string>
+    <string name="category_pharmacy">Pharmacy Assistant</string>
+    <string name="post_job_business_name">Shop / business name (optional)</string>
+    <string name="post_job_business_name_hint">e.g. Sri Sai Super Market</string>
+    <string name="svc_rate_nudge_title">How was the %1$s?</string>
+    <string name="svc_rate_nudge_body">Rate %1$s – it helps other families choose</string>
+    <string name="urgent_remove_worker">Remove from this job</string>
+    <string name="urgent_remove_title">Remove %1$s?</string>
+    <string name="urgent_remove_body">The worker is told the reason and can take other jobs. The place opens again for others unless you mark the need filled.</string>
+    <string name="urgent_remove_reason_friend">The other worker is bringing a friend</string>
+    <string name="urgent_remove_reason_not_needed">Work is done / not needed any more</string>
+    <string name="urgent_remove_reason_late">Could not reach on time</string>
+    <string name="urgent_remove_reason_hint">Reason (the worker will see it)</string>
+    <string name="urgent_remove_confirm">Remove</string>
+    <string name="dutype_ai_done_urgent_filled">Done. The urgent post is marked filled; no more workers will be sent.</string>
+    <string name="dutype_ai_done_urgent_removed">Done. The worker was removed and told the reason.</string>
+    <string name="svc_offer_price">Service price</string>
+    <string name="svc_offer_collect">Collect from customer (cash / UPI)</string>
+    <string name="svc_offer_fee_from_credits">DutyPe fee (from your credits)</string>
+    <string name="svc_offer_you_keep">You keep</string>
+    <string name="svc_offer_discount_note">The customer\'s ₹%1$d offer is paid from DutyPe\'s fee – your earning stays the same.</string>
 </resources>

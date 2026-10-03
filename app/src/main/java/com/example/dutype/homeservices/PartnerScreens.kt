@@ -102,13 +102,20 @@ fun PartnerEntryIfInArea(
     lng: Double?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Workers can book home services for their own house too. */
+    onBookServices: (() -> Unit)? = null,
     viewModel: HomeServicesViewModel = hiltViewModel()
 ) {
     var inArea by remember { mutableStateOf(false) }
     LaunchedEffect(lat, lng) {
         inArea = lat != null && lng != null && viewModel.inServiceArea(lat, lng)
     }
-    if (inArea) PartnerEntryCard(onClick = onClick, modifier = modifier)
+    if (inArea) {
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            PartnerEntryCard(onClick = onClick)
+            if (onBookServices != null) HomeServicesEntryCard(onClick = onBookServices)
+        }
+    }
 }
 
 /** Card on the worker home that opens the partner dashboard. */
@@ -514,7 +521,16 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
         ) {
             Text(o.serviceName, fontWeight = FontWeight.Bold, fontSize = 22.sp, textAlign = TextAlign.Center)
             Text(stringResource(R.string.svc_offer_you_earn, o.earning), fontWeight = FontWeight.Bold, fontSize = 30.sp, color = SvcGreen)
-            Text(stringResource(R.string.svc_offer_customer_pays, o.customerTotal, (o.requiredCreditsPaise / 100).toInt()), color = SvcMuted, textAlign = TextAlign.Center)
+            // Clear money: what the customer hands over, what DutyPe takes from credits, what is left.
+            // Offers / coupons reduce DutyPe's fee, never the partner's earning.
+            SvcSection {
+                PriceLine(stringResource(R.string.svc_offer_price), o.price)
+                PriceLine(stringResource(R.string.svc_offer_collect), o.customerTotal)
+                PriceLine(stringResource(R.string.svc_offer_fee_from_credits), (o.requiredCreditsPaise / 100).toInt())
+                HorizontalDivider()
+                PriceLine(stringResource(R.string.svc_offer_you_keep), o.earning, bold = true)
+                if (o.discount > 0) Text(stringResource(R.string.svc_offer_discount_note, o.discount), color = SvcGreen, fontSize = 12.sp)
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.LocationOn, contentDescription = null, tint = SvcBlue)
                 Spacer(Modifier.width(4.dp))

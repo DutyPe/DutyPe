@@ -174,6 +174,7 @@ exports.DEFAULT_CONFIG = {
     partnerFee: 19,
     partnerFirstJobFree: true,
     firstBookingFeeFree: true,
+    planMembersFeeFree: true,
     coupons: [],
     categories: exports.CATEGORIES,
     services: exports.DEFAULT_SERVICES,
@@ -225,6 +226,7 @@ function mergeConfig(raw) {
         partnerFee: num("partnerFee", 0, 500),
         partnerFirstJobFree: typeof o.partnerFirstJobFree === "boolean" ? o.partnerFirstJobFree : exports.DEFAULT_CONFIG.partnerFirstJobFree,
         firstBookingFeeFree: typeof o.firstBookingFeeFree === "boolean" ? o.firstBookingFeeFree : exports.DEFAULT_CONFIG.firstBookingFeeFree,
+        planMembersFeeFree: typeof o.planMembersFeeFree === "boolean" ? o.planMembersFeeFree : exports.DEFAULT_CONFIG.planMembersFeeFree,
         coupons: Array.isArray(o.coupons) ? o.coupons.map(cleanCoupon).filter((c) => c !== null) : [],
         categories: exports.CATEGORIES,
         services,
@@ -289,7 +291,7 @@ function couponValue(c, service) {
  * The customer's price. First booking: the booking fee is free. A coupon replaces that if it is
  * worth more (offers never stack). Every discount is capped at [maxDiscount].
  */
-function quote(config, service, firstBooking, couponCode, nowMs) {
+function quote(config, service, firstBooking, couponCode, nowMs, planMember = false) {
     const bookingFee = bookingFeeFor(config, service);
     const cap = maxDiscount(config, service);
     let discount = 0;
@@ -300,6 +302,10 @@ function quote(config, service, firstBooking, couponCode, nowMs) {
     if (firstBooking && config.firstBookingFeeFree && bookingFee > 0) {
         discount = bookingFee;
         discountLabel = "First booking: no booking fee";
+    }
+    else if (planMember && config.planMembersFeeFree && bookingFee > 0) {
+        discount = bookingFee;
+        discountLabel = "DutyPe plan: no booking fee";
     }
     const typed = couponCode.trim().toUpperCase();
     if (typed) {

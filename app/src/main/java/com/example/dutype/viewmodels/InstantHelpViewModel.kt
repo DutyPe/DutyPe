@@ -183,10 +183,14 @@ class InstantHelpViewModel @Inject constructor(
         _uiState.update { it.copy(error = null, message = null) }
     }
 
-    private fun updateResponse(response: InstantResponse, status: String, doneMessage: String) {
+    /** Take an accepted worker off the job (e.g. a friend of the other worker is coming instead). */
+    fun removeEmployerUrgentWorker(response: InstantResponse, reason: String) =
+        updateResponse(response, "rejected", "Worker removed. The place is open again.", reason.trim())
+
+    private fun updateResponse(response: InstantResponse, status: String, doneMessage: String, reason: String = "") {
         viewModelScope.launch {
             _uiState.update { it.copy(updatingEmployerResponseId = response.responseId, error = null) }
-            instantHelpService.updateEmployerInstantResponseStatus(response, status).fold(
+            instantHelpService.updateEmployerInstantResponseStatus(response, status, reason).fold(
                 onSuccess = {
                     _uiState.update { it.copy(updatingEmployerResponseId = null, message = doneMessage) }
                     loadEmployerUrgentNeeds()

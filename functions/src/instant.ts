@@ -167,6 +167,8 @@ export const setInstantResponseStatus = onCallSecured({}, async (raw: unknown, c
   const id = validRequestId(data);
   const workerId = str(data, "workerId", { max: 128, pattern: /^[A-Za-z0-9_-]+$/ });
   const status = oneOf(data, "status", [RS.ACCEPTED, RS.REJECTED, RS.COMPLETED, RS.NO_SHOW] as const);
+  // e.g. "Another worker's friend is coming instead" – told to the removed worker.
+  const reason = str(data, "reason", { max: 200, optional: true });
 
   const outcome = await db.runTransaction(async (tx) => {
     const request = await ownedRequest(tx, id, uid);
@@ -199,7 +201,7 @@ export const setInstantResponseStatus = onCallSecured({}, async (raw: unknown, c
     const reopened = finalStatus === ST.OPEN && (status === RS.REJECTED || status === RS.NO_SHOW) &&
       (previous === RS.ACCEPTED || requestStatus === ST.FILLED);
 
-    tx.update(responseRef, { [R.STATUS]: status });
+    tx.update(responseRef, { [R.STATUS]: status, ...(reason ? { [R.REASON]: reason } : {}) });
     tx.update(request.ref, {
       [InstantRequests.SELECTED_WORKER_IDS]: Array.from(selected),
       [InstantRequests.STATUS]: finalStatus,
@@ -234,8 +236,8 @@ export const setInstantResponseStatus = onCallSecured({}, async (raw: unknown, c
   if ((status === RS.REJECTED || status === RS.NO_SHOW) && outcome.previous === RS.ACCEPTED) {
     await notify(workerId, {
       type: "REJECTED",
-      templateId: "URGENT_REMOVED",
-      params: { title: outcome.title },
+      templateId: reason ? "URGENT_REMOVED_REASON" : "URGENT_REMOVED",
+      params: { title: outcome.title, reason },
       data: { requestId: id, action: "view_urgent_work" },
       role: Values.Role.WORKER,
     });

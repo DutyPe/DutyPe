@@ -2861,4 +2861,27 @@
     <string name="pay_rule_min_wage_hint">सुझाव: तेलंगाना में फुल-टाइम काम का न्यूनतम वेतन लगभग ₹12,750 महीना है। अच्छे वेतन पर ज़्यादा और बेहतर आवेदन आते हैं।</string>
     <string name="pay_rule_vacancy_info">नियमित नौकरी का वेतन साप्ताहिक या मासिक होता है। सिर्फ़ कुछ घंटे या आज के लिए किसी को चाहिए? अर्जेंट पोस्ट करें।</string>
     <string name="pay_rule_urgent_range">अर्जेंट काम उसी दिन भुगतान वाला छोटा काम है: प्रति व्यक्ति ₹%1$d से ₹%2$d। नियमित वेतन के लिए जॉब पोस्ट करें।</string>
+    <string name="category_tutor">होम ट्यूटर</string>
+    <string name="category_event_staff">इवेंट स्टाफ़</string>
+    <string name="category_promoter">स्टोर प्रमोटर</string>
+    <string name="category_pharmacy">फार्मेसी सहायक</string>
+    <string name="post_job_business_name">दुकान / व्यवसाय का नाम (वैकल्पिक)</string>
+    <string name="post_job_business_name_hint">जैसे: श्री साई सुपर मार्केट</string>
+    <string name="svc_rate_nudge_title">%1$s कैसी रही?</string>
+    <string name="svc_rate_nudge_body">%1$s को रेटिंग दें – दूसरे परिवारों को मदद मिलती है</string>
+    <string name="urgent_remove_worker">इस काम से हटाएँ</string>
+    <string name="urgent_remove_title">%1$s को हटाएँ?</string>
+    <string name="urgent_remove_body">कामगार को कारण बताया जाएगा और वह दूसरे काम ले सकता है। अगर आप भरा हुआ मार्क नहीं करते तो जगह फिर दूसरों के लिए खुलेगी।</string>
+    <string name="urgent_remove_reason_friend">दूसरा कामगार अपने दोस्त को ला रहा है</string>
+    <string name="urgent_remove_reason_not_needed">काम हो गया / अब ज़रूरत नहीं</string>
+    <string name="urgent_remove_reason_late">समय पर नहीं पहुँच सके</string>
+    <string name="urgent_remove_reason_hint">कारण (कामगार को दिखेगा)</string>
+    <string name="urgent_remove_confirm">हटाएँ</string>
+    <string name="dutype_ai_done_urgent_filled">हो गया। अर्जेंट पोस्ट भरी हुई मार्क कर दी; अब और कामगार नहीं आएँगे।</string>
+    <string name="dutype_ai_done_urgent_removed">हो गया। कामगार को हटा दिया और कारण बता दिया।</string>
+    <string name="svc_offer_price">सर्विस का दाम</string>
+    <string name="svc_offer_collect">ग्राहक से लें (नकद / UPI)</string>
+    <string name="svc_offer_fee_from_credits">DutyPe फ़ीस (आपके क्रेडिट से)</string>
+    <string name="svc_offer_you_keep">आपके पास बचेगा</string>
+    <string name="svc_offer_discount_note">ग्राहक का ₹%1$d ऑफ़र DutyPe की फ़ीस से जाता है – आपकी कमाई वही रहती है।</string>
 </resources>

@@ -46,8 +46,39 @@ describe("WhatsApp OTP (emulator)", () => {
     respond = () => new Response("{}", { status: 200 });
     Object.assign(process.env, { WHATSAPP_TOKEN: "tok", WHATSAPP_PHONE_NUMBER_ID: "123", WHATSAPP_TEMPLATE: "dutype_login_otp" });
     delete process.env.WHATSAPP_DAILY_CAP;
+    delete process.env.SMS_PROVIDER;
+    delete process.env.SMS_DAILY_CAP;
   });
   after(() => fft.cleanup());
+
+  it("sends the same code by our SMS gateway when asked, or when WhatsApp fails", async () => {
+    Object.assign(process.env, { SMS_PROVIDER: "2factor", SMS_API_KEY: "key1", SMS_TEMPLATE: "DUTYPE_OTP" });
+    const gatewayOk = (url: string) => url.includes("2factor.in") ?
+      new Response('{"Status":"Success","Details":"x"}', { status: 200 }) : new Response("{}", { status: 200 });
+    respond = gatewayOk;
+    // "Didn't get it? Send by SMS" right after the WhatsApp code: allowed at once.
+    await call(login.sendWhatsappOtp)({ phone: "9876543210" }, app);
+    const r = await call(login.sendWhatsappOtp)({ phone: "9876543210", channel: "sms" }, app);
+    assert.deepEqual([r.sent, r.channel], [true, "sms_gateway"]);
+    const m = sent.at(-1)!.url.match(/2factor\.in\/API\/V1\/key1\/SMS\/9876543210\/(\d{6})\/DUTYPE_OTP$/);
+    assert.ok(m, sent.at(-1)!.url);
+    const v = await call(login.verifyWhatsappOtp)({ phone: PHONE, code: m![1] }, app);
+    assert.ok(v.token);
+
+    // WhatsApp down → the gateway is tried with the same request.
+    await clear();
+    sent = [];
+    respond = (url) => url.includes("facebook") ? new Response("down", { status: 500 }) : gatewayOk(url);
+    const r2 = await call(login.sendWhatsappOtp)({ phone: "9876543211" }, app);
+    assert.deepEqual([r2.sent, r2.channel], [true, "sms_gateway"]);
+    assert.equal(sent.length, 2);
+
+    // Gateway also down → Firebase SMS.
+    await clear();
+    respond = () => new Response("down", { status: 500 });
+    const r3 = await call(login.sendWhatsappOtp)({ phone: "9876543212", channel: "sms" }, app);
+    assert.deepEqual(r3, { sent: false, channel: "sms" });
+  });
 
   it("falls back to SMS when WhatsApp is not set up, without sending anything", async () => {
     process.env.WHATSAPP_TOKEN = "unset";
