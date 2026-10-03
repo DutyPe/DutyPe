@@ -2893,4 +2893,22 @@
     <string name="dutype_ai_card_service">Home services · fixed price</string>
     <string name="dutype_ai_chip_plan">How many free posts do I have?</string>
     <string name="dutype_ai_card_plan">Plan, credits &amp; offers</string>
+    <string name="svc_skill_basic_title">Everyday work (no special training)</string>
+    <string name="svc_skill_basic_info">Cleaning, home help, car wash. Any careful, honest worker can do these.</string>
+    <string name="svc_skill_skilled_title">Skilled trades ⚡ (skill check)</string>
+    <string name="svc_skill_skilled_info">Electrician, AC, plumber, appliance, carpentry, painting. Needs at least 1 year of experience. DutyPe checks your skill on a call before you get these jobs.</string>
+    <string name="svc_skill_years_needed">Skilled work needs at least 1 year of experience</string>
+    <string name="svc_skill_proof_hint">How can we check your skill? (ITI, shop you worked at, past customers)</string>
+    <string name="svc_skill_customer_skilled">Skill-checked professionals · ID verified</string>
+    <string name="svc_skill_customer_basic">Trusted helpers · ID verified</string>
+    <string name="svc_keep_ready_short">Keep ready: %1$s</string>
+    <string name="svc_customer_keeps_you">Please keep ready</string>
+    <string name="svc_partner_brings">The partner brings</string>
+    <string name="svc_partner_carry">Carry with you</string>
+    <string name="svc_customer_keeps">Customer keeps ready</string>
+    <string name="pay_rule_too_low">Pay should be at least ₹%1$d %2$s for this job type</string>
+    <string name="pay_rule_too_high">DutyPe jobs are local jobs: pay can be at most ₹%1$d %2$s</string>
+    <string name="pay_rule_min_wage_hint">Tip: Telangana minimum wage for full-time work is about ₹12,750 a month. Fair pay gets more and better applicants.</string>
+    <string name="pay_rule_vacancy_info">Regular jobs are paid weekly or monthly. Need someone only for a few hours or today? Post an urgent need instead.</string>
+    <string name="pay_rule_urgent_range">Urgent work is short work paid the same day: ₹%1$d to ₹%2$d per person. For a regular salary, post a job.</string>
 </resources>

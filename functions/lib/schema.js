@@ -427,6 +427,12 @@ exports.ServicePartners = {
     EXPERIENCE_YEARS: "experienceYears",
     AREA: "area",
     NOTE: "note",
+    /** How the partner can show skill for SKILLED categories (ITI, past shop, photos...). */
+    SKILL_PROOF: "skillProof",
+    /** Requested categories that need a skill check before approval. */
+    SKILLED_CATEGORIES: "skilledCategories",
+    /** When the partner accepted the DutyPe partner code of conduct. */
+    GUIDELINES_ACCEPTED_AT: "guidelinesAcceptedAt",
     ONLINE: "online",
     LAT: "lat",
     LNG: "lng",

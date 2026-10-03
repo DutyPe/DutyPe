@@ -356,8 +356,9 @@ export const nearbyWorkerCount = onCallSecured({ timeoutSeconds: 15 }, async (ra
 
 /** The posting form's exact options (PostJobScreen); the assistant must answer with these. */
 export const FORM = {
-  payTypes: ["DAILY", "WEEKLY", "MONTHLY", "HOURLY", "NEGOTIABLE"],
-  employmentTypes: ["FULL_TIME", "PART_TIME", "DAILY"],
+  // Regular jobs only: weekly or monthly pay, full- or part-time (daily work is an urgent post).
+  payTypes: ["MONTHLY", "WEEKLY"],
+  employmentTypes: ["FULL_TIME", "PART_TIME"],
   shifts: ["DAY", "NIGHT", "ANY"],
   genders: ["Both", "Male", "Female"],
   experience: ["No Experience Required", "Fresher (Educated)", "1-3 years", "3-5 years", "5+ years"],
@@ -466,7 +467,7 @@ category: one of ${JSON.stringify(CATEGORY_KEYS)} (pick the closest; OTHER only 
 employmentType: ${JSON.stringify(FORM.employmentTypes)}; payType: ${JSON.stringify(FORM.payTypes)}; shift: ${JSON.stringify(FORM.shifts)}
 gender: ${JSON.stringify(FORM.genders)} (Both unless they clearly require one); experience: ${JSON.stringify(FORM.experience)}
 education: ${JSON.stringify(FORM.education)}; perks: subset of ${JSON.stringify(FORM.perks)}
-payAmount: rupees as a number (per the payType), at most 50000; vacancies: number of people (1-50)
+payAmount: rupees as a number (per the payType): monthly 3000-40000 (full-time at least 8000), weekly 1000-10000 (full-time at least 2000); vacancies: number of people (1-50)
 title: short English job title (e.g. "Delivery Boy", "Shop Helper"), max 6 words
 description: 2-4 short sentences in ${LANG_NAME[l]} describing the work, timings and place they mentioned. Do not invent facts: if they have said nothing about the work itself beyond the job name, leave it "".
 Return JSON with exactly the draft keys.`;

@@ -22,6 +22,7 @@ const input_1 = require("./lib/input");
 const app_config_1 = require("./app-config");
 const referrals_1 = require("./referrals");
 const schema_1 = require("./schema");
+const field_leads_1 = require("./field-leads");
 const db = admin.firestore();
 const { Timestamp } = admin.firestore;
 const ROLES = [schema_1.Values.Role.WORKER, schema_1.Values.Role.EMPLOYER];
@@ -82,6 +83,9 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (r
     await admin.auth().setCustomUserClaims(uid, Object.assign(Object.assign({}, (context.auth.token.admin ? { admin: true } : {})), { role }));
     const code = await (0, referrals_1.ensureWallet)(uid, role);
     const referralError = created && referralCode ? await (0, referrals_1.registerReferral)(uid, referralCode) : null;
+    // Registered earlier at a DutyPe help desk? Credit that field agent.
+    if (created)
+        await (0, field_leads_1.markFieldLeadJoined)(phone, uid);
     return { role, created, referralCode: code, referralError };
 });
 /** Pre-OTP: does this number exist, and with which role? One read; rules keep phoneRoles private. */

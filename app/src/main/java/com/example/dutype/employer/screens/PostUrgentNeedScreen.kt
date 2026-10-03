@@ -319,8 +319,14 @@ fun PostUrgentNeedContent(
     fun broadcastNeed() {
         val pp = perPersonPaymentText.toDoubleOrNull() ?: 600.0
         val total = pp * workersNeeded
-        if (pp > com.example.dutype.utils.SalaryFormatter.MAX_PAY_RUPEES) {
-            android.widget.Toast.makeText(context, R.string.pay_max_limit, android.widget.Toast.LENGTH_SHORT).show()
+        // Urgent work is short and paid the same day: a regular salary belongs in a job post.
+        val rules = com.example.dutype.utils.PayRules
+        if (pp < rules.URGENT_MIN || pp > rules.URGENT_MAX) {
+            android.widget.Toast.makeText(
+                context,
+                context.getString(R.string.pay_rule_urgent_range, rules.URGENT_MIN.toInt(), rules.URGENT_MAX.toInt()),
+                android.widget.Toast.LENGTH_LONG
+            ).show()
             return
         }
 

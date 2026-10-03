@@ -14,6 +14,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { createHash } from "crypto";
+import { urgentPayProblem } from "./lib/pay-rules";
 import { referralPostsLeft, refundReferralPost, useReferralPost } from "./lib/referral-posts";
 import { onCallSecured } from "./secure-callable";
 import { fail, obj, str, int, oneOf, latLng, mobile, requestId } from "./lib/input";
@@ -72,6 +73,8 @@ export const postInstantRequest = onCallSecured({}, async (raw: unknown, context
   const workersNeeded = int(data, "workersNeeded", { min: 1, max: 20 });
   const payPerPerson = int(data, "payPerPerson", { min: 0, max: 10_000_000 });
   if (payPerPerson > MAX_PAY_RUPEES) fail("invalid-argument", "Pay can be at most ₹50,000");
+  const urgentProblem = urgentPayProblem(payPerPerson);
+  if (urgentProblem) fail("invalid-argument", urgentProblem);
   const durationText = str(data, "durationText", { max: 40, optional: true });
   const addressText = str(data, "addressText", { min: 3, max: 200 });
   const area = str(data, "area", { min: 2, max: 60 });

@@ -36,7 +36,8 @@ import { notify } from "./lib/notify";
 import { normalizeLocale, tBody, tTitle } from "./notification-i18n";
 import { isCallerAdmin } from "./app-config";
 import {
-  CATEGORIES, findService, mergeConfig, newStartOtp, partnerFeeFor, quote, takePaise, type ServicesConfig,
+  CATEGORIES, ITEMS, bringFor, findService, mergeConfig, newStartOtp, partnerFeeFor, provideFor, quote, skillOf, takePaise,
+  type ServicesConfig,
 } from "./lib/service-catalog";
 import {
   AppConfig, CouponUses, EmployerProfiles, PartnerLedger, PartnerTopups, ServiceBookingSecrets, ServiceBookings, ServicePartners,
@@ -121,7 +122,10 @@ export const getServiceCatalog = onCallSecured({ requireAuth: false, enforceAppC
         validTo: x.validTo ?? 0, firstBookingOnly: x.firstBookingOnly === true, categories: x.categories ?? [],
       })),
     categories: c.categories,
-    services: all ? c.services : c.services.filter((x) => x.active !== false),
+    services: (all ? c.services : c.services.filter((x) => x.active !== false))
+      .map((x) => ({ ...x, provide: provideFor(x), bring: bringFor(x) })),
+    // Labels for the provide / bring ids, in en / te / hi.
+    items: ITEMS,
     // Only when the app sent a location: is it inside the service area?
     ...(hasPoint ? { inArea: inServiceArea(c, lat, lng) } : {}),
   };
@@ -558,6 +562,14 @@ export const applyServicePartner = onCallSecured({}, async (raw: unknown, contex
   const experienceYears = int(data, "experienceYears", { min: 0, max: 50, optional: true });
   const area = str(data, "area", { max: 80, optional: true });
   const note = text(data, "note", { max: 300, optional: true });
+  const skillProof = text(data, "skillProof", { max: 300, optional: true });
+  if (data.acceptGuidelines !== true) fail("failed-precondition", "Please read and accept the DutyPe partner code of conduct");
+  // Wiring, gas, plumbing and appliances can hurt people if done wrong: those need experience.
+  const skilled = categories.filter((c) => skillOf(c) === "SKILLED");
+  if (skilled.length && experienceYears < 1) {
+    fail("invalid-argument", "Electrician, AC, plumber, appliance, carpentry and painting work needs at least 1 year of experience. " +
+      "You can still apply for cleaning, home help and car wash.");
+  }
   const { lat, lng } = latLng(data);
   requireServiceArea(await loadConfig(), lat, lng, "partner");
   const worker = await db.collection(WorkerProfiles.COLLECTION).doc(uid).get();
@@ -578,6 +590,9 @@ export const applyServicePartner = onCallSecured({}, async (raw: unknown, contex
       [SP.EXPERIENCE_YEARS]: experienceYears,
       [SP.AREA]: area,
       [SP.NOTE]: note,
+      [SP.SKILL_PROOF]: skillProof,
+      [SP.SKILLED_CATEGORIES]: skilled,
+      [SP.GUIDELINES_ACCEPTED_AT]: now,
       [SP.ONLINE]: false,
       [SP.LAT]: lat,
       [SP.LNG]: lng,
@@ -625,8 +640,10 @@ export const getServiceOffer = onCallSecured({ timeoutSeconds: 10 }, async (raw:
     !((d[BK.EXCLUDED_PARTNER_IDS] || []) as string[]).includes(uid);
   const pLat = Number(p.get(SP.LAT));
   const pLng = Number(p.get(SP.LNG));
+  const config = await loadConfig();
   const fee = mine && d[BK.PARTNER_FEE] !== undefined ? Number(d[BK.PARTNER_FEE]) :
-    partnerFeeOf(await loadConfig(), Number(p.get(SP.JOBS_COMPLETED) || 0), d);
+    partnerFeeOf(config, Number(p.get(SP.JOBS_COMPLETED) || 0), d);
+  const svc = config.services.find((x) => x.id === d[BK.SERVICE_ID]);
   return {
     available,
     mine,
@@ -637,6 +654,9 @@ export const getServiceOffer = onCallSecured({ timeoutSeconds: 10 }, async (raw:
     bookingFee: d[BK.BOOKING_FEE],
     earning: partnerEarning(d, fee),
     partnerFee: fee,
+    // What to carry and what the customer keeps ready (ids; labels in getServiceCatalog.items).
+    bring: svc ? bringFor(svc) : [],
+    provide: svc ? provideFor(svc) : [],
     discount: Number(d[BK.DISCOUNT] || 0),
     customerTotal: Number(d[BK.TOTAL] || 0),
     requiredCreditsPaise: requiredCredits(d, fee),

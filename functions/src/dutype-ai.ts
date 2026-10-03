@@ -16,6 +16,7 @@ import { fail, obj, str } from "./lib/input";
 import { ai, cleanDraft, missingFields, refundAi, useAi, LOCKED, FORM, FREE_AI_TRIAL } from "./ai-hiring";
 import { Applications, CATEGORY_KEYS, EmployerProfiles, Idempotency, InstantRequests, Jobs, ServiceBookings } from "./schema";
 import { referralPostsLeft } from "./lib/referral-posts";
+import { urgentPayProblem, vacancyPayProblem } from "./lib/pay-rules";
 import { loadConfig as loadServicesConfig } from "./services";
 import { AZURE_COSMOS_SECRET, AZURE_OPENAI_SECRET, CosmosContainers, cosmosAdd } from "./lib/azure";
 
@@ -195,6 +196,7 @@ export function validateAction(raw: unknown, f: Facts): AiAction | null {
   case "post_job": {
     const draft = cleanDraft(args);
     if (missingFields(draft).length) return null;
+    if (vacancyPayProblem(draft.payType, draft.employmentType, draft.payAmount)) return null;
     const pay = draft.payType === "NEGOTIABLE" ? "pay to discuss" : `₹${draft.payAmount} ${draft.payType.toLowerCase()}`;
     return { type, args: { ...draft }, summary: `Post: ${draft.vacancies} × ${draft.title}, ${pay}` };
   }
@@ -204,7 +206,7 @@ export function validateAction(raw: unknown, f: Facts): AiAction | null {
     const workersNeeded = Math.round(Number(args.workersNeeded) || 0);
     const payPerPerson = Math.round(Number(args.payPerPerson) || 0);
     const window = URGENT_WINDOWS.includes(String(args.window)) ? String(args.window) : "right_now";
-    if (title.length < 3 || workersNeeded < 1 || workersNeeded > 20 || payPerPerson < 1 || payPerPerson > 50_000) return null;
+    if (title.length < 3 || workersNeeded < 1 || workersNeeded > 20 || urgentPayProblem(payPerPerson)) return null;
     return {
       type,
       args: {
@@ -272,7 +274,8 @@ Employer now says: ${JSON.stringify(message)}
 
 You may propose ONE action; the employer will confirm before anything happens:
 - post_job: a regular job. args: {title (short English), category (one of ${JSON.stringify(CATEGORY_KEYS)}), employmentType ${JSON.stringify(FORM.employmentTypes)}, payAmount (rupees, at most 50000), payType ${JSON.stringify(FORM.payTypes)}, vacancies, shift ${JSON.stringify(FORM.shifts)}, gender ${JSON.stringify(FORM.genders)}, experience ${JSON.stringify(FORM.experience)}, education ${JSON.stringify(FORM.education)}, perks ${JSON.stringify(FORM.perks)}, description (2-3 sentences in ${LANG_NAME[l]} from what they told you about the work)}
-- post_urgent: same-day / short work, workers come quickly. args: {title, category, workersNeeded (1-20), payPerPerson (rupees), window ${JSON.stringify(URGENT_WINDOWS)}, durationText}
+- post_urgent: same-day / short work (hours to 2 days), workers come quickly. args: {title, category, workersNeeded (1-20), payPerPerson (rupees, 200-2000), window ${JSON.stringify(URGENT_WINDOWS)}, durationText}
+Regular jobs (post_job) are only weekly or monthly paid: monthly ₹3,000-40,000 (full-time at least ₹8,000), weekly ₹1,000-10,000. Daily or hourly work is post_urgent. If the pay they say is outside these limits, explain kindly and ask again.
 - hire / reject: args {applicationId} (from the facts)
 - close_job / renew_job / open_job: args {jobId} (from the facts)
 - book_service: a home service (AC repair, cleaning, electrician, plumber, appliance repair) at their home in ${facts.homeServices.city}, from homeServices.catalog. args {serviceId}. The booking screen opens; they confirm the address and time there.

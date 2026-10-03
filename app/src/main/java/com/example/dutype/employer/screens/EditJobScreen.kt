@@ -73,7 +73,7 @@ fun EditJobScreen(
     // Initialize form state with current job data
     var title by remember { mutableStateOf("") }
     var payAmount by remember { mutableStateOf("") }
-    var payType by remember { mutableStateOf(PayType.DAILY) }
+    var payType by remember { mutableStateOf(PayType.MONTHLY) }
     var location by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var contactNumber by remember { mutableStateOf("") }
@@ -188,10 +188,10 @@ fun EditJobScreen(
             contactNumber = job.contactNumber
             locationLatitude = job.lat
             locationLongitude = job.lng
-            payType = PayType.fromKey(job.payType)
+            payType = com.example.dutype.utils.PayRules.vacancyPayType(PayType.fromKey(job.payType))
             vacancies = job.vacancies.toString()
             employerName = job.companyName
-            employmentType = EmploymentType.fromKey(job.employmentType)
+            employmentType = com.example.dutype.utils.PayRules.vacancyEmploymentType(EmploymentType.fromKey(job.employmentType))
             experienceLevel = job.experienceRequired.ifBlank { "No Experience Required" }
             educationRequired = job.educationRequired.ifBlank { "No qualification required" }
             gender = when (job.gender) {
@@ -244,8 +244,7 @@ fun EditJobScreen(
     fun validateForm(): Boolean {
         val vacancyCount = vacancies.toIntOrNull()
         return title.isNotBlank() &&
-                (payType == PayType.NEGOTIABLE ||
-                    (payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L) in 1L..com.example.dutype.utils.SalaryFormatter.MAX_PAY_RUPEES) &&
+                (payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L) in com.example.dutype.utils.PayRules.range(payType, employmentType) &&
                 location.isNotBlank() &&
                 description.trim().length >= 10 &&
                 contactNumber.isNotBlank() &&
@@ -662,7 +661,7 @@ fun EditJobScreen(
                             )
                         )
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            items(PayType.entries) { type ->
+                            items(com.example.dutype.utils.PayRules.VACANCY_PAY_TYPES) { type ->
                                 val selected = payType == type
                                 FilterChip(
                                     selected = selected,
@@ -1046,7 +1045,7 @@ fun EditJobScreen(
                                 )
                             )
                             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                items(EmploymentType.entries) { type ->
+                                items(com.example.dutype.utils.PayRules.VACANCY_EMPLOYMENT_TYPES) { type ->
                                     val selected = employmentType == type
                                     FilterChip(
                                         onClick = { employmentType = type },

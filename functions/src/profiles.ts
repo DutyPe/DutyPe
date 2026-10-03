@@ -23,6 +23,8 @@ import {
   Wallets, WorkerProfiles,
 } from "./schema";
 
+import { markFieldLeadJoined } from "./field-leads";
+
 const db = admin.firestore();
 const { Timestamp } = admin.firestore;
 const ROLES = [Values.Role.WORKER, Values.Role.EMPLOYER] as const;
@@ -108,6 +110,8 @@ export const completeRegistration = onCallSecured({}, async (raw: unknown, conte
   await admin.auth().setCustomUserClaims(uid, { ...(context.auth!.token.admin ? { admin: true } : {}), role });
   const code = await ensureWallet(uid, role);
   const referralError = created && referralCode ? await registerReferral(uid, referralCode) : null;
+  // Registered earlier at a DutyPe help desk? Credit that field agent.
+  if (created) await markFieldLeadJoined(phone, uid);
   return { role, created, referralCode: code, referralError };
 });
 

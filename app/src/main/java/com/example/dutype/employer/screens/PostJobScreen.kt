@@ -271,7 +271,7 @@ private class PostJobController(
     // Form state
     var title by mutableStateOf("")
     var payAmount by mutableStateOf("")
-    var payType by mutableStateOf(PayType.DAILY)
+    var payType by mutableStateOf(PayType.MONTHLY)
     var location by mutableStateOf("")
     var description by mutableStateOf("")
     var contactNumber by mutableStateOf("")
@@ -321,11 +321,11 @@ private class PostJobController(
     fun applyAiDraft(d: com.example.dutype.employer.ai.AiJobDraft) {
         if (d.title.isNotBlank()) title = d.title
         JobCategory.entries.firstOrNull { it.name == d.category }?.let { category = it }
-        payType = PayType.fromKey(d.payType)
+        payType = com.example.dutype.utils.PayRules.vacancyPayType(PayType.fromKey(d.payType))
         payAmount = if (d.payAmount > 0) d.payAmount.toString() else ""
         vacancies = d.vacancies.coerceIn(1, 50).toString()
         shift = JobShift.fromKey(d.shift)
-        employmentType = EmploymentType.fromKey(d.employmentType)
+        employmentType = com.example.dutype.utils.PayRules.vacancyEmploymentType(EmploymentType.fromKey(d.employmentType))
         experienceLevel = d.experience
         educationRequired = d.education
         gender = d.gender
@@ -392,7 +392,7 @@ private class PostJobController(
                 title = savedDraft.title
                 description = savedDraft.description
                 payAmount = savedDraft.payAmount
-                payType = savedDraft.payType
+                payType = com.example.dutype.utils.PayRules.vacancyPayType(savedDraft.payType)
                 location = savedDraft.location
                 if (savedDraft.locationLatitude != 0.0 || savedDraft.locationLongitude != 0.0) {
                     locationLatitude = savedDraft.locationLatitude
@@ -405,7 +405,7 @@ private class PostJobController(
                     contactNumber = savedDraft.contactNumber
                 }
                 shift = savedDraft.shift
-                employmentType = savedDraft.employmentType
+                employmentType = com.example.dutype.utils.PayRules.vacancyEmploymentType(savedDraft.employmentType)
                 selectedPerks = savedDraft.benefits.toSet()
                 experienceLevel = savedDraft.experienceLevel
                 educationRequired = savedDraft.educationRequired
@@ -620,6 +620,7 @@ private class PostJobController(
                 if (payType != PayType.NEGOTIABLE &&
                     (payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L) > com.example.dutype.utils.SalaryFormatter.MAX_PAY_RUPEES
                 ) return false
+                if (com.example.dutype.utils.PayRules.vacancyError(context, payType, employmentType, payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L) != null) return false
                 val payCheck = JobValidationUtils.validatePayRate(category, payType, payAmount)
                 payRateValidationResult = payCheck
                 true
@@ -898,6 +899,10 @@ private class PostJobController(
             (payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L) > com.example.dutype.utils.SalaryFormatter.MAX_PAY_RUPEES
         ) {
             Toast.makeText(context, R.string.pay_max_limit, Toast.LENGTH_SHORT).show()
+            return
+        }
+        com.example.dutype.utils.PayRules.vacancyError(context, payType, employmentType, payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L)?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
             return
         }
         if (contactNumber.isBlank()) {
@@ -1792,7 +1797,7 @@ private fun PostJobStep2(c: PostJobController) {
 
     PjSectionLabel("Job type")
     PjFlow {
-        EmploymentType.entries.forEach { type ->
+        com.example.dutype.utils.PayRules.VACANCY_EMPLOYMENT_TYPES.forEach { type ->
             PjChip(
                 label = type.displayName,
                 selected = c.employmentType == type,
@@ -1820,8 +1825,16 @@ private fun PostJobStep3(c: PostJobController) {
             modifier = Modifier.padding(top = 4.dp)
         )
     }
-    Spacer(modifier = Modifier.height(10.dp))
-    PostJobExtraPayTypeChips(c)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val amountValue = c.payAmount.toLongOrNull() ?: 0L
+    val payError = com.example.dutype.utils.PayRules.vacancyError(context, c.payType, c.employmentType, amountValue)
+    if (payError != null) {
+        Text(text = payError, fontSize = 12.sp, color = EmployerColors.Error, modifier = Modifier.padding(top = 4.dp))
+    } else if (com.example.dutype.utils.PayRules.minimumWageHint(c.payType, c.employmentType, amountValue)) {
+        Text(text = stringResource(R.string.pay_rule_min_wage_hint), fontSize = 12.sp, color = Color(0xFFB45309), modifier = Modifier.padding(top = 4.dp))
+    }
+    Spacer(modifier = Modifier.height(6.dp))
+    Text(text = stringResource(R.string.pay_rule_vacancy_info), fontSize = 12.sp, color = PjSlate400.fg(), lineHeight = 16.sp)
 
     PjSectionLabel("Perks")
     PostJobPerkChips(c)
@@ -2756,7 +2769,6 @@ private fun PjWageField(
                 .background(PjSegmentBg.bg())
                 .padding(3.dp)
         ) {
-            PjSegment(label = stringResource(R.string.per_day), selected = payType == PayType.DAILY, onClick = { onPayTypeChange(PayType.DAILY) })
             PjSegment(label = stringResource(R.string.per_week), selected = payType == PayType.WEEKLY, onClick = { onPayTypeChange(PayType.WEEKLY) })
             PjSegment(label = stringResource(R.string.per_month), selected = payType == PayType.MONTHLY, onClick = { onPayTypeChange(PayType.MONTHLY) })
         }

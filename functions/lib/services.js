@@ -109,7 +109,10 @@ exports.getServiceCatalog = (0, secure_callable_1.onCallSecured)({ requireAuth: 
                 code: x.code, title: x.title, type: x.type, value: x.value, maxOff: (_a = x.maxOff) !== null && _a !== void 0 ? _a : 0, minOrder: (_b = x.minOrder) !== null && _b !== void 0 ? _b : 0,
                 validTo: (_c = x.validTo) !== null && _c !== void 0 ? _c : 0, firstBookingOnly: x.firstBookingOnly === true, categories: (_d = x.categories) !== null && _d !== void 0 ? _d : [],
             });
-        }), categories: c.categories, services: all ? c.services : c.services.filter((x) => x.active !== false) }, (hasPoint ? { inArea: inServiceArea(c, lat, lng) } : {}));
+        }), categories: c.categories, services: (all ? c.services : c.services.filter((x) => x.active !== false))
+            .map((x) => (Object.assign(Object.assign({}, x), { provide: (0, service_catalog_1.provideFor)(x), bring: (0, service_catalog_1.bringFor)(x) }))), 
+        // Labels for the provide / bring ids, in en / te / hi.
+        items: service_catalog_1.ITEMS }, (hasPoint ? { inArea: inServiceArea(c, lat, lng) } : {}));
 });
 // ─────────────────────────────── service area ───────────────────────────────
 /** True when the point is inside a district where DutyPe Services runs (Khammam district at launch). */
@@ -501,6 +504,15 @@ exports.applyServicePartner = (0, secure_callable_1.onCallSecured)({}, async (ra
     const experienceYears = (0, input_1.int)(data, "experienceYears", { min: 0, max: 50, optional: true });
     const area = (0, input_1.str)(data, "area", { max: 80, optional: true });
     const note = (0, input_1.text)(data, "note", { max: 300, optional: true });
+    const skillProof = (0, input_1.text)(data, "skillProof", { max: 300, optional: true });
+    if (data.acceptGuidelines !== true)
+        (0, input_1.fail)("failed-precondition", "Please read and accept the DutyPe partner code of conduct");
+    // Wiring, gas, plumbing and appliances can hurt people if done wrong: those need experience.
+    const skilled = categories.filter((c) => (0, service_catalog_1.skillOf)(c) === "SKILLED");
+    if (skilled.length && experienceYears < 1) {
+        (0, input_1.fail)("invalid-argument", "Electrician, AC, plumber, appliance, carpentry and painting work needs at least 1 year of experience. " +
+            "You can still apply for cleaning, home help and car wash.");
+    }
     const { lat, lng } = (0, input_1.latLng)(data);
     requireServiceArea(await loadConfig(), lat, lng, "partner");
     const worker = await db.collection(schema_1.WorkerProfiles.COLLECTION).doc(uid).get();
@@ -525,6 +537,9 @@ exports.applyServicePartner = (0, secure_callable_1.onCallSecured)({}, async (ra
             [SP.EXPERIENCE_YEARS]: experienceYears,
             [SP.AREA]: area,
             [SP.NOTE]: note,
+            [SP.SKILL_PROOF]: skillProof,
+            [SP.SKILLED_CATEGORIES]: skilled,
+            [SP.GUIDELINES_ACCEPTED_AT]: now,
             [SP.ONLINE]: false,
             [SP.LAT]: lat,
             [SP.LNG]: lng,
@@ -574,8 +589,10 @@ exports.getServiceOffer = (0, secure_callable_1.onCallSecured)({ timeoutSeconds:
         !(d[BK.EXCLUDED_PARTNER_IDS] || []).includes(uid);
     const pLat = Number(p.get(SP.LAT));
     const pLng = Number(p.get(SP.LNG));
+    const config = await loadConfig();
     const fee = mine && d[BK.PARTNER_FEE] !== undefined ? Number(d[BK.PARTNER_FEE]) :
-        partnerFeeOf(await loadConfig(), Number(p.get(SP.JOBS_COMPLETED) || 0), d);
+        partnerFeeOf(config, Number(p.get(SP.JOBS_COMPLETED) || 0), d);
+    const svc = config.services.find((x) => x.id === d[BK.SERVICE_ID]);
     return {
         available,
         mine,
@@ -586,6 +603,9 @@ exports.getServiceOffer = (0, secure_callable_1.onCallSecured)({ timeoutSeconds:
         bookingFee: d[BK.BOOKING_FEE],
         earning: partnerEarning(d, fee),
         partnerFee: fee,
+        // What to carry and what the customer keeps ready (ids; labels in getServiceCatalog.items).
+        bring: svc ? (0, service_catalog_1.bringFor)(svc) : [],
+        provide: svc ? (0, service_catalog_1.provideFor)(svc) : [],
         discount: Number(d[BK.DISCOUNT] || 0),
         customerTotal: Number(d[BK.TOTAL] || 0),
         requiredCreditsPaise: requiredCredits(d, fee),

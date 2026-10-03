@@ -75,7 +75,7 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
     links: [
       { href: "/admin/jobs", label: "Jobs Moderation", icon: Briefcase, summary: "Moderate live job posts and hiring listings." },
       { href: "/admin/post-job", label: "Post a Job", icon: PlusCircle, summary: "Create verified admin job listings." },
-      { href: "/admin/posters", label: "Job Posters", icon: Printer, summary: "Generate high-res printable job posters." },
+      { href: "/admin/posters", label: "Posters & Marketing Kit", icon: Printer, summary: "Job posters, Instagram posts & stories, WhatsApp templates." },
       { href: "/admin/applications", label: "Applications", icon: FileText, summary: "Review worker application records." },
       { href: "/admin/instant-help", label: "Instant Help", icon: Zap, summary: "Urgent request speed and fill rate metrics." },
       { href: "/admin/saved-jobs", label: "Saved Jobs", icon: Bookmark, summary: "Worker saved jobs activity." },
@@ -89,7 +89,8 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
       { href: "/admin/referral-stats", label: "Referral Stats", icon: BarChart3, summary: "Referral analytics and reward audits." },
       { href: "/admin/referral-codes", label: "Referral Codes", icon: Ticket, summary: "Code management and usage." },
       { href: "/admin/referral-config", label: "Referral Config", icon: Sliders, summary: "Set reward amounts and limits." },
-      { href: "/admin/marketing", label: "Marketing Hub", icon: Rocket, summary: "Campaign assets, SEO & playbooks." }
+      { href: "/admin/marketing", label: "Marketing Hub", icon: Rocket, summary: "Campaign assets, SEO & playbooks." },
+      { href: "/admin/field-leads", label: "Field Registrations", icon: Users, summary: "Umbrella-desk agents, leads and joins." }
     ]
   },
   {

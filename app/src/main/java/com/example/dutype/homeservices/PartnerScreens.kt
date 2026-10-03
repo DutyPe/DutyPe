@@ -233,6 +233,10 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
                         }
                     }
 
+                    com.example.dutype.guidelines.GuidelinesEntryRow(onClick = {
+                        navController.navigate(Routes.guidelinesRoute(com.example.dutype.guidelines.GuidelineRole.PARTNER))
+                    })
+
                     // Stats
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Stat(stringResource(R.string.svc_partner_jobs_done), p.jobsCompleted.toString(), Modifier.weight(1f))
@@ -280,6 +284,9 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     val chosen = remember { mutableStateListOf<String>() }
     var years by remember { mutableStateOf("") }
     var area by remember { mutableStateOf("") }
+    var proof by remember { mutableStateOf("") }
+    var accepted by remember { mutableStateOf(false) }
+    var showRules by remember { mutableStateOf(false) }
     var submitting by remember { mutableStateOf(false) }
 
     Text(stringResource(R.string.svc_partner_apply_title), fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -288,40 +295,77 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
         CircularProgressIndicator()
         return
     }
-    catalog.categories.forEach { cat ->
-        FilterChip(
-            selected = cat.id in chosen,
-            onClick = { if (cat.id in chosen) chosen.remove(cat.id) else chosen.add(cat.id) },
-            label = { Text(cat.label(lang)) },
-            leadingIcon = { Icon(categoryIcon(cat.id), contentDescription = null, modifier = Modifier.size(18.dp)) },
-            modifier = Modifier.fillMaxWidth()
+    // Basic work first (anyone careful can do it), then skilled trades (skill check by DutyPe).
+    listOf(false, true).forEach { skilled ->
+        val cats = catalog.categories.filter { it.isSkilled == skilled }
+        if (cats.isEmpty()) return@forEach
+        Text(
+            stringResource(if (skilled) R.string.svc_skill_skilled_title else R.string.svc_skill_basic_title),
+            fontWeight = FontWeight.Bold, fontSize = 15.sp
         )
+        Text(
+            stringResource(if (skilled) R.string.svc_skill_skilled_info else R.string.svc_skill_basic_info),
+            color = SvcMuted, fontSize = 12.sp
+        )
+        cats.forEach { cat ->
+            FilterChip(
+                selected = cat.id in chosen,
+                onClick = { if (cat.id in chosen) chosen.remove(cat.id) else chosen.add(cat.id) },
+                label = { Text(cat.label(lang) + if (skilled) "  ⚡" else "") },
+                leadingIcon = { Icon(categoryIcon(cat.id), contentDescription = null, modifier = Modifier.size(18.dp)) },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
+    val needsSkill = chosen.any { id -> catalog.categories.firstOrNull { it.id == id }?.isSkilled != false }
     OutlinedTextField(
         value = years,
         onValueChange = { v -> years = v.filter { it.isDigit() }.take(2) },
         label = { Text(stringResource(R.string.svc_partner_experience)) },
         keyboardOptions = NumberKeyboard,
+        isError = needsSkill && (years.toIntOrNull() ?: 0) < 1,
+        supportingText = if (needsSkill) {
+            { Text(stringResource(R.string.svc_skill_years_needed)) }
+        } else null,
         modifier = Modifier.fillMaxWidth()
     )
+    if (needsSkill) {
+        OutlinedTextField(
+            value = proof,
+            onValueChange = { proof = it.take(300) },
+            label = { Text(stringResource(R.string.svc_skill_proof_hint)) },
+            minLines = 2,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
     OutlinedTextField(
         value = area,
         onValueChange = { area = it.take(80) },
         label = { Text(stringResource(R.string.svc_partner_area)) },
         modifier = Modifier.fillMaxWidth()
     )
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { accepted = !accepted }) {
+        androidx.compose.material3.Checkbox(checked = accepted, onCheckedChange = { accepted = it })
+        Text(stringResource(R.string.guide_accept), fontSize = 13.sp, modifier = Modifier.weight(1f))
+    }
+    TextButton(onClick = { showRules = true }) { Text(stringResource(R.string.guide_read)) }
     Button(
         onClick = {
             submitting = true
             scope.launch {
-                viewModel.apply(chosen.toList(), years.toIntOrNull() ?: 0, area.trim(), "")
+                viewModel.apply(chosen.toList(), years.toIntOrNull() ?: 0, area.trim(), "", proof.trim(), accepted)
                     .onFailure { Toast.makeText(context, it.message, Toast.LENGTH_LONG).show() }
                 submitting = false
             }
         },
-        enabled = chosen.isNotEmpty() && !submitting,
+        enabled = chosen.isNotEmpty() && accepted && !submitting && (!needsSkill || (years.toIntOrNull() ?: 0) >= 1),
         modifier = Modifier.fillMaxWidth().height(52.dp)
     ) { Text(stringResource(R.string.svc_partner_apply_btn), fontWeight = FontWeight.Bold) }
+    if (showRules) {
+        com.example.dutype.guidelines.GuidelinesDialog(com.example.dutype.guidelines.GuidelineRole.PARTNER, onDismiss = {
+            showRules = false
+        })
+    }
 }
 
 // ─────────────────────────── Top-up ───────────────────────────
@@ -439,6 +483,8 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
     var offer by remember { mutableStateOf<ServiceOffer?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var accepting by remember { mutableStateOf(false) }
+    val catalog by viewModel.catalog.collectAsState()
+    LaunchedEffect(Unit) { viewModel.loadCatalog() }
 
     LaunchedEffect(bookingId) {
         viewModel.offer(bookingId)
@@ -481,6 +527,10 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
             )
             if (o.inspection) Text(stringResource(R.string.svc_inspection_info), color = SvcOrange, fontSize = 13.sp, textAlign = TextAlign.Center)
             if (o.note.isNotBlank()) Text("“${o.note}”", color = SvcMuted, textAlign = TextAlign.Center)
+            val lang = LocaleHelper.getLanguage(context)
+            val cat = catalog
+            if (cat != null && o.bring.isNotEmpty()) ItemsBox(stringResource(R.string.svc_partner_carry), cat.itemLabels(o.bring, lang), SvcBlue)
+            if (cat != null && o.provide.isNotEmpty()) ItemsBox(stringResource(R.string.svc_customer_keeps), cat.itemLabels(o.provide, lang), SvcGreen)
 
             if (!o.available) {
                 Text(stringResource(R.string.svc_offer_gone), color = SvcRed, textAlign = TextAlign.Center)

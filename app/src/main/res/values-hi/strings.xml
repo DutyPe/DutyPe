@@ -2843,4 +2843,22 @@
     <string name="dutype_ai_card_service">घरेलू सेवाएँ · तय दाम</string>
     <string name="dutype_ai_chip_plan">मेरे पास कितनी मुफ़्त पोस्ट हैं?</string>
     <string name="dutype_ai_card_plan">प्लान, क्रेडिट और ऑफ़र</string>
+    <string name="svc_skill_basic_title">रोज़ का काम (ख़ास ट्रेनिंग नहीं)</string>
+    <string name="svc_skill_basic_info">सफ़ाई, घर की मदद, कार वॉश। कोई भी सावधान, ईमानदार कामगार कर सकता है।</string>
+    <string name="svc_skill_skilled_title">हुनर वाले काम ⚡ (स्किल चेक)</string>
+    <string name="svc_skill_skilled_info">इलेक्ट्रीशियन, AC, प्लंबर, अप्लायंस, बढ़ई, पेंटिंग। कम से कम 1 साल का अनुभव चाहिए। ये काम देने से पहले DutyPe कॉल पर आपका हुनर जाँचता है।</string>
+    <string name="svc_skill_years_needed">हुनर वाले काम के लिए कम से कम 1 साल का अनुभव चाहिए</string>
+    <string name="svc_skill_proof_hint">आपका हुनर कैसे जाँचें? (ITI, जिस दुकान में काम किया, पुराने ग्राहक)</string>
+    <string name="svc_skill_customer_skilled">स्किल-चेक्ड प्रोफेशनल · ID सत्यापित</string>
+    <string name="svc_skill_customer_basic">भरोसेमंद हेल्पर · ID सत्यापित</string>
+    <string name="svc_keep_ready_short">तैयार रखें: %1$s</string>
+    <string name="svc_customer_keeps_you">कृपया तैयार रखें</string>
+    <string name="svc_partner_brings">पार्टनर लाएगा</string>
+    <string name="svc_partner_carry">साथ ले जाएँ</string>
+    <string name="svc_customer_keeps">ग्राहक तैयार रखेगा</string>
+    <string name="pay_rule_too_low">इस तरह की नौकरी के लिए वेतन कम से कम ₹%1$d %2$s होना चाहिए</string>
+    <string name="pay_rule_too_high">DutyPe स्थानीय नौकरियों के लिए है: वेतन ज़्यादा से ज़्यादा ₹%1$d %2$s</string>
+    <string name="pay_rule_min_wage_hint">सुझाव: तेलंगाना में फुल-टाइम काम का न्यूनतम वेतन लगभग ₹12,750 महीना है। अच्छे वेतन पर ज़्यादा और बेहतर आवेदन आते हैं।</string>
+    <string name="pay_rule_vacancy_info">नियमित नौकरी का वेतन साप्ताहिक या मासिक होता है। सिर्फ़ कुछ घंटे या आज के लिए किसी को चाहिए? अर्जेंट पोस्ट करें।</string>
+    <string name="pay_rule_urgent_range">अर्जेंट काम उसी दिन भुगतान वाला छोटा काम है: प्रति व्यक्ति ₹%1$d से ₹%2$d। नियमित वेतन के लिए जॉब पोस्ट करें।</string>
 </resources>

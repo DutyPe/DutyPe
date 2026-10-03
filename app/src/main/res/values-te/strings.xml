@@ -2845,4 +2845,22 @@
     <string name="dutype_ai_card_service">ఇంటి సేవలు · ఫిక్స్‌డ్ ధర</string>
     <string name="dutype_ai_chip_plan">నాకు ఎన్ని ఉచిత పోస్ట్‌లు ఉన్నాయి?</string>
     <string name="dutype_ai_card_plan">ప్లాన్, క్రెడిట్స్ &amp; ఆఫర్లు</string>
+    <string name="svc_skill_basic_title">రోజువారీ పని (ప్రత్యేక శిక్షణ అవసరం లేదు)</string>
+    <string name="svc_skill_basic_info">క్లీనింగ్, ఇంటి సహాయం, కార్ వాష్. జాగ్రత్తగా, నిజాయితీగా పనిచేసే ఎవరైనా చేయవచ్చు.</string>
+    <string name="svc_skill_skilled_title">నైపుణ్య పనులు ⚡ (స్కిల్ చెక్)</string>
+    <string name="svc_skill_skilled_info">ఎలక్ట్రీషియన్, AC, ప్లంబర్, అప్లయెన్స్, కార్పెంటరీ, పెయింటింగ్. కనీసం 1 సంవత్సరం అనుభవం కావాలి. ఈ పనులు ఇచ్చే ముందు DutyPe కాల్‌లో మీ నైపుణ్యం చెక్ చేస్తుంది.</string>
+    <string name="svc_skill_years_needed">నైపుణ్య పనికి కనీసం 1 సంవత్సరం అనుభవం కావాలి</string>
+    <string name="svc_skill_proof_hint">మీ నైపుణ్యం ఎలా చెక్ చేయాలి? (ITI, పనిచేసిన షాప్, పాత కస్టమర్లు)</string>
+    <string name="svc_skill_customer_skilled">స్కిల్ చెక్ చేసిన నిపుణులు · ID ధృవీకరణ</string>
+    <string name="svc_skill_customer_basic">నమ్మదగిన సహాయకులు · ID ధృవీకరణ</string>
+    <string name="svc_keep_ready_short">సిద్ధంగా ఉంచండి: %1$s</string>
+    <string name="svc_customer_keeps_you">దయచేసి సిద్ధంగా ఉంచండి</string>
+    <string name="svc_partner_brings">పార్ట్నర్ తెస్తారు</string>
+    <string name="svc_partner_carry">మీతో తీసుకెళ్లండి</string>
+    <string name="svc_customer_keeps">కస్టమర్ సిద్ధంగా ఉంచుతారు</string>
+    <string name="pay_rule_too_low">ఈ రకమైన ఉద్యోగానికి జీతం కనీసం ₹%1$d %2$s ఉండాలి</string>
+    <string name="pay_rule_too_high">DutyPe స్థానిక ఉద్యోగాల కోసం: జీతం గరిష్ఠంగా ₹%1$d %2$s</string>
+    <string name="pay_rule_min_wage_hint">సూచన: తెలంగాణలో ఫుల్-టైమ్ పనికి కనీస వేతనం నెలకు సుమారు ₹12,750. మంచి జీతానికి ఎక్కువ, మంచి దరఖాస్తులు వస్తాయి.</string>
+    <string name="pay_rule_vacancy_info">రెగ్యులర్ ఉద్యోగాలకు వారం లేదా నెల జీతం. కొన్ని గంటలు లేదా ఈరోజు మాత్రమే మనిషి కావాలా? అర్జెంట్ పోస్ట్ చేయండి.</string>
+    <string name="pay_rule_urgent_range">అర్జెంట్ పని అదే రోజు చెల్లించే కొద్ది పని: ఒక్కొక్కరికి ₹%1$d నుండి ₹%2$d. రెగ్యులర్ జీతానికి జాబ్ పోస్ట్ చేయండి.</string>
 </resources>

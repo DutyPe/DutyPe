@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DutyPe safety & code of conduct (generated from one source; keep the three languages in step). -->
+<resources>
+    <string name="guide_title">Safety &amp; code of conduct</string>
+    <string name="guide_partner_title">DutyPe partner code of conduct</string>
+    <string name="guide_worker_title">Rules for workers (jobs &amp; urgent work)</string>
+    <string name="guide_employer_title">Rules for employers &amp; customers</string>
+    <string name="guide_intro">DutyPe works only because people trust each other. Follow these rules every time. Breaking them gets your account blocked, and serious misuse is reported to the police.</string>
+    <string name="guide_sec_before">Before you go</string>
+    <string name="guide_sec_at_work">At the place of work</string>
+    <string name="guide_sec_safety">Your safety</string>
+    <string name="guide_sec_money">Money</string>
+    <string name="guide_sec_after">After the work</string>
+    <string name="guide_sec_posting">Posting jobs</string>
+    <string name="guide_sec_workers">Treating workers</string>
+    <string name="guide_sec_services">Booking home services</string>
+    <string name="guide_sec_never">Never allowed (account blocked + police complaint)</string>
+    <string name="guide_sec_help">Emergency &amp; help</string>
+    <string name="guide_accept">I have read the code of conduct and will follow it</string>
+    <string name="guide_read">Read the rules</string>
+    <string name="guide_ok">I understand</string>
+    <string name="guide_entry">Safety &amp; rules</string>
+    <string name="guide_entry_sub">How to behave, stay safe and get paid</string>
+    <string-array name="guide_partner_before">
+        <item>Accept a job only if you can reach on time. If you can\'t, give it back in the app at once.</item>
+        <item>Carry the tools listed in the job (tool kit, tester, machine) and wear clean clothes.</item>
+        <item>Check what the customer keeps ready. Call them from the app if something is missing.</item>
+        <item>Never go drunk or after taking tobacco / gutka.</item>
+    </string-array>
+    <string-array name="guide_partner_at">
+        <item>Greet politely and show your DutyPe partner screen. Leave footwear outside if asked.</item>
+        <item>Ask for the 4-digit start code only after you reach. Start the work only after entering it.</item>
+        <item>Tell the price before you start. For extra work or parts, tell the price first and start only after the customer agrees.</item>
+        <item>Respect women, children and elders. Enter only the rooms needed for the work. No phone photos of the family or house.</item>
+        <item>Do only the work you are trained for. If it is unsafe or beyond your skill, say so honestly.</item>
+    </string-array>
+    <string-array name="guide_partner_safety">
+        <item>Electrical work: switch off the main / MCB first and check with a tester. Use insulated tools and gloves.</item>
+        <item>Use a steady ladder and ask someone to hold it. Never stand on chairs or buckets.</item>
+        <item>Gas, chemicals and acids: open windows, wear gloves, keep away from children.</item>
+        <item>If you feel unsafe at a home, leave and call DutyPe support or 112.</item>
+    </string-array>
+    <string-array name="guide_partner_money">
+        <item>Collect only the amount shown in the app (cash or UPI). Never ask for tips, travel charges or extra money.</item>
+        <item>Spare parts: show the bill and charge the bill price only.</item>
+        <item>DutyPe takes its small fee from your credits after the job. Keep credits topped up.</item>
+        <item>Do not ask customers to book you outside the app. It removes your insurance of trust and gets the account blocked.</item>
+    </string-array>
+    <string-array name="guide_partner_after">
+        <item>Clean the work area and take your waste with you.</item>
+        <item>Show the finished work to the customer, then mark the job complete in the app.</item>
+        <item>If something goes wrong (damage, injury, dispute), tell DutyPe support the same day.</item>
+    </string-array>
+    <string-array name="guide_partner_never">
+        <item>Theft, damage on purpose, or taking anything from the house.</item>
+        <item>Misbehaving with, touching or harassing anyone, especially women and children.</item>
+        <item>Threats, abuse or violence. Coming drunk.</item>
+        <item>Overcharging, fake parts bills, or using the customer\'s phone number / address for anything else.</item>
+        <item>Sending another person in your place or using someone else\'s account.</item>
+    </string-array>
+    <string-array name="guide_worker_before">
+        <item>Read the job, pay and timings fully before you apply or accept.</item>
+        <item>Apply only for work you can really do. Go only if you will reach on time.</item>
+        <item>If you can\'t come, tell the employer and cancel in the app at once.</item>
+        <item>DutyPe jobs are free. Never pay anyone to get a job. Report anyone who asks for money.</item>
+    </string-array>
+    <string-array name="guide_worker_at">
+        <item>Reach on time, carry an ID card, and be polite.</item>
+        <item>Follow the employer\'s safe instructions. Ask if something is not clear.</item>
+        <item>Do not share OTPs, bank PINs or passwords with anyone.</item>
+        <item>Urgent work is for a short time (a few hours or days). Regular jobs are for weekly or monthly pay.</item>
+    </string-array>
+    <string-array name="guide_worker_safety">
+        <item>Meet at the posted shop / office / site. Do not go to a different, lonely place.</item>
+        <item>For night work or a far place, tell your family where you are going. Women can share live location.</item>
+        <item>Refuse unsafe work: heights without support, chemicals without gloves, electrical work you are not trained for.</item>
+        <item>In danger call 112. Women helpline 181. Child helpline 1098. Online fraud 1930.</item>
+    </string-array>
+    <string-array name="guide_worker_money">
+        <item>Agree the pay before you start. Urgent work is paid the same day; jobs are paid weekly or monthly as posted.</item>
+        <item>If you are not paid, report it in the app with the job name. DutyPe warns and blocks employers who don\'t pay.</item>
+    </string-array>
+    <string-array name="guide_worker_never">
+        <item>Fake name, photo or documents, or sending someone else in your place.</item>
+        <item>Theft, damage, fighting, abuse or misbehaviour with anyone.</item>
+        <item>Coming drunk to work.</item>
+        <item>Taking advance money and not coming.</item>
+    </string-array>
+    <string-array name="guide_employer_posting">
+        <item>Post only real jobs with the true pay, timings and place.</item>
+        <item>Regular jobs: weekly or monthly pay. Urgent posts: short work paid the same day.</item>
+        <item>Never take money from workers for a job, training, uniform or ID.</item>
+        <item>Pay at least the Telangana minimum wage. No child labour: no one below 14, and no one below 18 in risky work.</item>
+    </string-array>
+    <string-array name="guide_employer_workers">
+        <item>Treat workers with respect. No abuse, beating or harassment. Keep women workers safe.</item>
+        <item>Give safe working conditions: drinking water, breaks, safety gear for risky work.</item>
+        <item>Pay on time as agreed. Do not keep a worker\'s ID card, phone or documents.</item>
+        <item>Use a worker\'s phone number only for that job.</item>
+    </string-array>
+    <string-array name="guide_employer_services">
+        <item>Keep ready what the booking says (broom and mop for house cleaning, ladder, water, power).</item>
+        <item>An adult should be at home. Give the 4-digit start code only when the partner reaches.</item>
+        <item>Check the work, then pay the amount in the app (cash or UPI) to the partner.</item>
+        <item>Problem with the work? Report within 7 days for free re-work. Don\'t pay extra outside the app bill.</item>
+    </string-array>
+    <string-array name="guide_employer_never">
+        <item>Fake jobs, collecting money from workers, or posting illegal work.</item>
+        <item>Not paying agreed wages, or holding back wages to force work.</item>
+        <item>Abuse, threats, violence or sexual harassment of workers or partners.</item>
+        <item>Child labour or bonded labour.</item>
+        <item>Using workers\' phone numbers or photos for spam, loans, or anything other than the job.</item>
+    </string-array>
+    <string-array name="guide_help">
+        <item>Emergency: 112 (police, ambulance, fire).</item>
+        <item>Women helpline: 181. Child helpline: 1098. Cyber fraud: 1930.</item>
+        <item>Report a person in the app (Report button) or write to dutypein@gmail.com. Keep screenshots and call details.</item>
+        <item>DutyPe keeps records of jobs, bookings and chats and gives them to the police when the law asks.</item>
+    </string-array>
+</resources>

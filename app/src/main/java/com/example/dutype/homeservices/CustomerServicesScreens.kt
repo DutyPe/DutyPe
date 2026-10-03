@@ -49,6 +49,12 @@ import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.HomeRepairService
 import androidx.compose.material.icons.filled.Kitchen
+import androidx.compose.material.icons.filled.Carpenter
+import androidx.compose.material.icons.filled.FormatPaint
+import androidx.compose.material.icons.filled.Handyman
+import androidx.compose.material.icons.filled.LocalCarWash
+import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Payments
@@ -143,6 +149,10 @@ internal fun categoryIcon(category: String): ImageVector = when (category) {
     "ELECTRICIAN" -> Icons.Filled.ElectricalServices
     "PLUMBER" -> Icons.Filled.Plumbing
     "APPLIANCE" -> Icons.Filled.Kitchen
+    "CARPENTER" -> Icons.Filled.Carpenter
+    "PAINTER" -> Icons.Filled.FormatPaint
+    "HOME_HELP" -> Icons.Filled.Handyman
+    "VEHICLE" -> Icons.Filled.LocalCarWash
     else -> Icons.Filled.HomeRepairService
 }
 
@@ -153,6 +163,10 @@ internal fun categoryTint(category: String): Color = when (category) {
     "ELECTRICIAN" -> Color(0xFFF59E0B)
     "PLUMBER" -> Color(0xFF6366F1)
     "APPLIANCE" -> Color(0xFFEC4899)
+    "CARPENTER" -> Color(0xFFB45309)
+    "PAINTER" -> Color(0xFF8B5CF6)
+    "HOME_HELP" -> Color(0xFF16A34A)
+    "VEHICLE" -> Color(0xFF0284C7)
     else -> SvcBlue
 }
 
@@ -334,7 +348,7 @@ private fun HeroPoint(icon: ImageVector, text: String) {
     }
 }
 
-/** Five category tiles in one row. */
+/** Category tiles, three per row. */
 @Composable
 internal fun CategoryTiles(
     categories: List<ServiceCategory>,
@@ -343,38 +357,64 @@ internal fun CategoryTiles(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        categories.forEach { cat ->
-            val tint = categoryTint(cat.id)
-            val on = cat.id == selected
-            Column(
-                Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(if (on) tint.copy(alpha = 0.12f) else Color.White.bg())
-                    .border(if (on) 1.5.dp else 1.dp, if (on) tint else SvcLine.bg(), RoundedCornerShape(14.dp))
-                    .clickable { onSelect(cat.id) }
-                    .padding(vertical = 10.dp, horizontal = 4.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Box(
-                    Modifier.size(38.dp).clip(CircleShape).background(tint.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(categoryIcon(cat.id), contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        categories.chunked(3).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { cat ->
+                    val tint = categoryTint(cat.id)
+                    val on = cat.id == selected
+                    Row(
+                        Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (on) tint.copy(alpha = 0.12f) else Color.White.bg())
+                            .border(if (on) 1.5.dp else 1.dp, if (on) tint else SvcLine.bg(), RoundedCornerShape(14.dp))
+                            .clickable { onSelect(cat.id) }
+                            .padding(horizontal = 8.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            Modifier.size(32.dp).clip(CircleShape).background(tint.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(categoryIcon(cat.id), contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            cat.label(lang),
+                            fontSize = 11.sp,
+                            lineHeight = 13.sp,
+                            fontWeight = if (on) FontWeight.Bold else FontWeight.Medium,
+                            color = SvcInk.fg(),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    cat.label(lang),
-                    fontSize = 11.sp,
-                    fontWeight = if (on) FontWeight.Bold else FontWeight.Medium,
-                    color = SvcInk.fg(),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
-                )
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
+    }
+}
+
+/** "Keep ready" / "Partner brings" list with an icon header. */
+@Composable
+internal fun ItemsBox(title: String, items: List<String>, color: Color, modifier: Modifier = Modifier) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(color.copy(alpha = 0.07f))
+            .border(1.dp, color.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(if (color == SvcGreen) Icons.Filled.Inventory2 else Icons.Filled.Build, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(title, fontWeight = FontWeight.Bold, color = color, fontSize = 13.sp)
+        }
+        items.forEach { Text("•  $it", fontSize = 13.sp, color = SvcInk.fg()) }
     }
 }
 
@@ -504,8 +544,21 @@ fun ServicesHomeScreen(navController: NavController, viewModel: HomeServicesView
             }
             item(key = "cat_title") { SectionTitle(stringResource(R.string.svc_choose_category)) }
             item(key = "categories") { CategoryTiles(c.categories, lang, category, onSelect = { selected = it }) }
+            val selectedCat = c.categories.firstOrNull { it.id == category }
+            if (selectedCat != null) {
+                item(key = "skill_${selectedCat.id}") {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Verified, contentDescription = null, tint = SvcGreen, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            stringResource(if (selectedCat.isSkilled) R.string.svc_skill_customer_skilled else R.string.svc_skill_customer_basic),
+                            color = SvcMuted.fg(), fontSize = 12.sp
+                        )
+                    }
+                }
+            }
             items(c.services.filter { it.category == category }, key = { it.id }) { service ->
-                ServiceRow(service, lang) { navController.navigate(Routes.servicesBookRoute(service.id)) }
+                ServiceRow(service, lang, c.itemLabels(service.provide, lang)) { navController.navigate(Routes.servicesBookRoute(service.id)) }
             }
             item(key = "how") { HowItWorks() }
         }
@@ -513,7 +566,7 @@ fun ServicesHomeScreen(navController: NavController, viewModel: HomeServicesView
 }
 
 @Composable
-private fun ServiceRow(service: ServiceItem, lang: String, onBook: () -> Unit) {
+private fun ServiceRow(service: ServiceItem, lang: String, keepReady: List<String>, onBook: () -> Unit) {
     val tint = categoryTint(service.category)
     Row(
         Modifier
@@ -542,6 +595,13 @@ private fun ServiceRow(service: ServiceItem, lang: String, onBook: () -> Unit) {
             }
             Spacer(Modifier.height(4.dp))
             Text(service.includes, color = SvcMuted.fg(), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (keepReady.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    stringResource(R.string.svc_keep_ready_short, keepReady.take(3).joinToString(", ")),
+                    color = SvcGreen, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis
+                )
+            }
         }
         Spacer(Modifier.width(8.dp))
         Button(onClick = onBook, shape = RoundedCornerShape(10.dp), contentPadding = PaddingValues(horizontal = 14.dp)) {
@@ -696,6 +756,8 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                 }
                 Text(service.includes, color = SvcMuted.fg(), fontSize = 13.sp)
                 if (service.inspection) Text(stringResource(R.string.svc_inspection_info), color = SvcOrange, fontSize = 13.sp)
+                if (service.provide.isNotEmpty()) ItemsBox(stringResource(R.string.svc_customer_keeps_you), c.itemLabels(service.provide, lang), SvcGreen)
+                if (service.bring.isNotEmpty()) ItemsBox(stringResource(R.string.svc_partner_brings), c.itemLabels(service.bring, lang), SvcBlue)
             }
 
             SvcSection {

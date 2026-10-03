@@ -346,8 +346,9 @@ exports.nearbyWorkerCount = (0, secure_callable_1.onCallSecured)({ timeoutSecond
 // ─────────────────────────────── talk-to-post ───────────────────────────────
 /** The posting form's exact options (PostJobScreen); the assistant must answer with these. */
 exports.FORM = {
-    payTypes: ["DAILY", "WEEKLY", "MONTHLY", "HOURLY", "NEGOTIABLE"],
-    employmentTypes: ["FULL_TIME", "PART_TIME", "DAILY"],
+    // Regular jobs only: weekly or monthly pay, full- or part-time (daily work is an urgent post).
+    payTypes: ["MONTHLY", "WEEKLY"],
+    employmentTypes: ["FULL_TIME", "PART_TIME"],
     shifts: ["DAY", "NIGHT", "ANY"],
     genders: ["Both", "Male", "Female"],
     experience: ["No Experience Required", "Fresher (Educated)", "1-3 years", "3-5 years", "5+ years"],
@@ -449,7 +450,7 @@ category: one of ${JSON.stringify(schema_1.CATEGORY_KEYS)} (pick the closest; OT
 employmentType: ${JSON.stringify(exports.FORM.employmentTypes)}; payType: ${JSON.stringify(exports.FORM.payTypes)}; shift: ${JSON.stringify(exports.FORM.shifts)}
 gender: ${JSON.stringify(exports.FORM.genders)} (Both unless they clearly require one); experience: ${JSON.stringify(exports.FORM.experience)}
 education: ${JSON.stringify(exports.FORM.education)}; perks: subset of ${JSON.stringify(exports.FORM.perks)}
-payAmount: rupees as a number (per the payType), at most 50000; vacancies: number of people (1-50)
+payAmount: rupees as a number (per the payType): monthly 3000-40000 (full-time at least 8000), weekly 1000-10000 (full-time at least 2000); vacancies: number of people (1-50)
 title: short English job title (e.g. "Delivery Boy", "Shop Helper"), max 6 words
 description: 2-4 short sentences in ${LANG_NAME[l]} describing the work, timings and place they mentioned. Do not invent facts: if they have said nothing about the work itself beyond the job name, leave it "".
 Return JSON with exactly the draft keys.`;

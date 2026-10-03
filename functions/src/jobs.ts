@@ -14,6 +14,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { createHash } from "crypto";
+import { vacancyPayProblem } from "./lib/pay-rules";
 import { referralPostsLeft, refundReferralPost, useReferralPost } from "./lib/referral-posts";
 import { onCallSecured } from "./secure-callable";
 import {
@@ -58,15 +59,18 @@ interface JobInput {
 function readJobInput(data: Record<string, unknown>): JobInput {
   const payType = oneOf(data, "payType", PAY_TYPES);
   const payAmount = int(data, "payAmount", { min: 0, max: 10_000_000 });
-  if (payType !== Values.PayType.NEGOTIABLE && payAmount < 1) fail("invalid-argument", "Enter the pay amount");
+  if (payAmount < 1) fail("invalid-argument", "Enter the pay amount");
   if (payAmount > MAX_PAY_RUPEES) fail("invalid-argument", "Pay can be at most ₹50,000");
+  // Regular vacancies: weekly or monthly pay within local limits (urgent posts are for daily work).
+  const payProblem = vacancyPayProblem(payType, String(data.employmentType || ""), payAmount);
+  if (payProblem) fail("invalid-argument", payProblem);
   const { lat, lng } = latLng(data);
   return {
     card: {
       [Jobs.TITLE]: str(data, "title", { min: 3, max: 80 }),
       [Jobs.CATEGORY]: oneOf(data, "category", CATEGORY_KEYS),
       [Jobs.EMPLOYMENT_TYPE]: oneOf(data, "employmentType", EMPLOYMENT_TYPES),
-      [Jobs.PAY_AMOUNT]: payType === Values.PayType.NEGOTIABLE ? 0 : payAmount,
+      [Jobs.PAY_AMOUNT]: payAmount,
       [Jobs.PAY_TYPE]: payType,
       [Jobs.VACANCIES]: int(data, "vacancies", { min: 1, max: 50 }),
       [Jobs.SHIFT]: oneOf(data, "shift", SHIFTS, Values.Shift.ANY),

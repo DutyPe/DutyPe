@@ -113,7 +113,8 @@ fun EmployerMainScreen(
         Routes.EMPLOYER_HELP,
         Routes.EMPLOYER_MANAGE_ADDRESSES,
         Routes.EMPLOYER_HISTORY,
-        // Routes.EMPLOYER_REFER_EARN,
+        Routes.EMPLOYER_REFER_EARN,
+        Routes.GUIDELINES,
     )
     
     // Check if current route should hide bottom bar
@@ -413,14 +414,21 @@ fun EmployerMainScreen(
                         )
                     }
 
-                    /*
+                    composable(
+                        route = Routes.GUIDELINES,
+                        arguments = listOf(androidx.navigation.navArgument("role") { type = androidx.navigation.NavType.StringType })
+                    ) { entry ->
+                        com.example.dutype.guidelines.GuidelinesScreen(
+                            role = entry.arguments?.getString("role").orEmpty(),
+                            navController = navController
+                        )
+                    }
                     composable(Routes.EMPLOYER_REFER_EARN) {
                         EmployerReferEarnScreen(
                             navController = navController,
                             onStatusBarColorChange = { color -> currentStatusBarColor = color }
                         )
                     }
-                    */
 
                     composable(
                         route = Routes.EMPLOYER_HISTORY_WITH_TAB,

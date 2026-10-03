@@ -17,6 +17,7 @@ exports.expireJobs = exports.onJobWritten = exports.deleteJob = exports.renewJob
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto_1 = require("crypto");
+const pay_rules_1 = require("./lib/pay-rules");
 const referral_posts_1 = require("./lib/referral-posts");
 const secure_callable_1 = require("./secure-callable");
 const input_1 = require("./lib/input");
@@ -44,17 +45,21 @@ const GENDERS = ["ANY", "MALE", "FEMALE"];
 function readJobInput(data) {
     const payType = (0, input_1.oneOf)(data, "payType", PAY_TYPES);
     const payAmount = (0, input_1.int)(data, "payAmount", { min: 0, max: 10000000 });
-    if (payType !== schema_1.Values.PayType.NEGOTIABLE && payAmount < 1)
+    if (payAmount < 1)
         (0, input_1.fail)("invalid-argument", "Enter the pay amount");
     if (payAmount > schema_1.MAX_PAY_RUPEES)
         (0, input_1.fail)("invalid-argument", "Pay can be at most ₹50,000");
+    // Regular vacancies: weekly or monthly pay within local limits (urgent posts are for daily work).
+    const payProblem = (0, pay_rules_1.vacancyPayProblem)(payType, String(data.employmentType || ""), payAmount);
+    if (payProblem)
+        (0, input_1.fail)("invalid-argument", payProblem);
     const { lat, lng } = (0, input_1.latLng)(data);
     return {
         card: {
             [schema_1.Jobs.TITLE]: (0, input_1.str)(data, "title", { min: 3, max: 80 }),
             [schema_1.Jobs.CATEGORY]: (0, input_1.oneOf)(data, "category", schema_1.CATEGORY_KEYS),
             [schema_1.Jobs.EMPLOYMENT_TYPE]: (0, input_1.oneOf)(data, "employmentType", EMPLOYMENT_TYPES),
-            [schema_1.Jobs.PAY_AMOUNT]: payType === schema_1.Values.PayType.NEGOTIABLE ? 0 : payAmount,
+            [schema_1.Jobs.PAY_AMOUNT]: payAmount,
             [schema_1.Jobs.PAY_TYPE]: payType,
             [schema_1.Jobs.VACANCIES]: (0, input_1.int)(data, "vacancies", { min: 1, max: 50 }),
             [schema_1.Jobs.SHIFT]: (0, input_1.oneOf)(data, "shift", SHIFTS, schema_1.Values.Shift.ANY),

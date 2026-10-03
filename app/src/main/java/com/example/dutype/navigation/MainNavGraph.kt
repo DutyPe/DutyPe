@@ -456,6 +456,16 @@ fun MainNavGraph(
             )
         }
 
+        composable(
+            route = Routes.GUIDELINES,
+            arguments = listOf(androidx.navigation.navArgument("role") { type = androidx.navigation.NavType.StringType })
+        ) { entry ->
+            com.example.dutype.guidelines.GuidelinesScreen(
+                role = entry.arguments?.getString("role").orEmpty(),
+                navController = navController
+            )
+        }
+
         // ── DutyPe Services (root level so notification deep links open them from anywhere) ──
         composable(
             route = Routes.SERVICES,

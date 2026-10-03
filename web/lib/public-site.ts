@@ -492,10 +492,14 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
         title: "Information we collect",
         intro: "When you use DutyPe, the platform may collect:",
         items: [
-          "Account information such as phone number, name, and optional profile photo.",
-          "Location data to show jobs near you while the app is being used.",
-          "Job application activity and application status updates.",
-          "Basic device information for app quality, security, and optimization."
+          "Account information such as phone number, name, role (worker or employer), and optional profile photo.",
+          "Location data to show jobs near you, find nearby workers for urgent posts, and send the nearest service partner to a booking.",
+          "Job posts, applications, calls you start from the app, hires, ratings and reports.",
+          "DutyPe Services bookings: service, address, location, time, price, start code, and the partner who did the work.",
+          "Service partners: skills, experience, how your skill can be checked, credit top-ups (amount and UPI reference), jobs done and ratings. We check your ID on a call; we do not store copies of Aadhaar.",
+          "Messages you send to DutyPe AI, used to answer you and to improve the assistant.",
+          "Details given to a DutyPe field agent when you register at a DutyPe help desk, with your consent.",
+          "Basic device information for app quality, security, fraud prevention and optimization."
         ]
       },
       {
@@ -513,9 +517,10 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
         kind: "list",
         title: "Sharing and storage",
         items: [
-          "Employers can see worker profile details when a worker applies to a job.",
-          "Service providers such as Firebase, Google Cloud, maps, and analytics support the platform.",
-          "Information may be disclosed if required by law or to protect users from harm.",
+          "Employers see a worker's profile when the worker applies. A worker's phone number is shown to an employer only when the worker applies or calls, and that reveal is recorded.",
+          "For a home-service booking, the customer's name, phone, address and location are shared only with the partner who accepts it; the customer sees the partner's name, phone and rating.",
+          "Service providers that process data for us: Google Firebase and Cloud (accounts, database, notifications), Microsoft Azure (DutyPe AI), Meta WhatsApp (OTP and messages), Truecaller (one-tap login) and maps. They may use it only to provide their service to DutyPe.",
+          "We share records with the police, courts or government when the law requires it, and we may report misuse to the police on our own when someone's safety, money or property is at risk.",
           "Data is transmitted using encrypted connections and stored on secure cloud systems."
         ]
       },
@@ -525,8 +530,9 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
         items: [
           "Request access to your stored data.",
           "Correct inaccurate profile information.",
-          "Delete your account and associated data.",
-          "Disable notifications and location access from your settings."
+          "Delete your account and associated data (we delete within 30 days, except records the law or an open safety, fraud or payment case requires us to keep).",
+          "Disable notifications and location access from your settings.",
+          "These rights are given under the Digital Personal Data Protection Act, 2023. Write to the grievance contact below; we reply within 30 days."
         ]
       },
       {
@@ -548,7 +554,7 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
         kind: "copy",
         title: "Policy updates",
         paragraphs: [
-          "Last updated: January 11, 2026. We may update this privacy policy from time to time. Changes will be reflected on this page with a revised date."
+          "Last updated: October 3, 2026. We may update this privacy policy from time to time. Changes will be reflected on this page with a revised date."
         ],
         tone: "neutral"
       }
@@ -569,6 +575,7 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
     highlights: [
       "Workers should never pay to get a job.",
       "Employers must post genuine openings and pay as promised.",
+      "Misuse gets the account blocked and is reported to the police.",
       "Referral rewards are promotional and subject to verification."
     ],
     blocks: [
@@ -576,9 +583,20 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
         kind: "copy",
         title: "Platform role",
         paragraphs: [
-          "DutyPe connects workers and employers. It is a marketplace platform, not an employer or employment agency."
+          "DutyPe connects workers and employers. It is a marketplace platform, not an employer or employment agency.",
+          "DutyPe Services connects customers with independent service partners (cleaners, electricians, plumbers, AC and appliance technicians and others). Partners are not DutyPe employees; they do the work and are responsible for it. DutyPe sets the listed price, verifies partners, and helps when something goes wrong."
         ],
         tone: "highlight"
+      },
+      {
+        kind: "list",
+        title: "Job types and pay",
+        items: [
+          "Regular jobs (vacancies) are steady jobs paid weekly or monthly: ₹3,000 to ₹40,000 a month or ₹1,000 to ₹10,000 a week; full-time work at least ₹8,000 a month or ₹2,000 a week.",
+          "Urgent posts are short work (hours to a couple of days) paid the same day: ₹200 to ₹2,000 per person.",
+          "Employers must pay at least the minimum wage that applies under Telangana / Indian law for the work.",
+          "DutyPe may change these limits; the app always shows the current ones."
+        ]
       },
       {
         kind: "list",
@@ -593,20 +611,44 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
         kind: "list",
         title: "Worker rules",
         items: [
-          "Apply only to jobs you genuinely want.",
+          "Apply only to jobs you genuinely want and can do.",
+          "Use your own name, photo and phone. Do not send another person in your place.",
           "Provide honest skill and experience details.",
-          "Show up on time and communicate clearly when hired.",
-          "Never pay any fee to get a job."
+          "Show up on time, behave respectfully, and tell the employer early if you cannot come.",
+          "While you are on an urgent job, a DutyPe Services job, or were just hired, you cannot apply for new jobs until it is completed.",
+          "Never pay any fee to get a job, and report anyone who asks."
         ]
       },
       {
         kind: "list",
         title: "Employer rules",
         items: [
-          "Post only genuine job opportunities.",
-          "Provide accurate pay, role, location, and schedule details.",
-          "Do not charge workers any fee.",
-          "Pay workers as promised and communicate professionally."
+          "Post only genuine, legal job opportunities with accurate pay, role, location, and schedule.",
+          "Do not charge workers any fee for a job, training, uniform or ID.",
+          "Pay workers on time as promised. Do not hold back wages or keep a worker's ID, phone or documents.",
+          "Provide safe working conditions and treat workers with respect. No child labour (no one below 14; no one below 18 in hazardous work) and no bonded labour.",
+          "Use workers' phone numbers and details only for the job they applied to."
+        ]
+      },
+      {
+        kind: "list",
+        title: "Service partner rules (DutyPe Services)",
+        items: [
+          "Accept only jobs you can reach on time and are trained for. Skilled categories (electrical, AC, plumbing, appliances, carpentry, painting) are given only after DutyPe checks your skill.",
+          "Carry the tools listed for the job, start work only with the customer's start code, and tell the price before any extra work or parts.",
+          "Collect only the amount shown in the app (cash or UPI). Parts are charged at the bill price. No tips, travel charges or side deals.",
+          "DutyPe's fee (the customer's booking fee you collect, plus the partner fee per job, currently ₹19; first job free) is taken from your prepaid credits after each job. Unused credits are refunded on request when you close your partner account, after any dues.",
+          "Respect the home, family, women, children and elders. No alcohol, tobacco, photos of the family, or entering rooms not needed for the work."
+        ]
+      },
+      {
+        kind: "list",
+        title: "Customer rules (DutyPe Services)",
+        items: [
+          "Keep ready what the booking lists (for example broom and mop for house sweeping, a ladder, water and power) and keep an adult at home.",
+          "Give the start code only when the partner reaches. Pay the partner the amount shown in the app after the work.",
+          "Report a problem within 7 days for free re-work. Booking fees and offers follow the in-app terms; coupons can be used once per customer and cannot be combined.",
+          "Treat partners with respect and keep them safe while working in your home."
         ]
       },
       {
@@ -617,9 +659,33 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
           "Harassment, abuse, or intimidation.",
           "Charging workers for access to jobs.",
           "Spam, bots, or referral fraud.",
-          "Multiple fraudulent accounts or misrepresentation."
+          "Multiple fraudulent accounts or misrepresentation.",
+          "Theft, damage, violence, threats, or sexual harassment of any user.",
+          "Coming to work drunk, overcharging, fake bills, or using another user's phone, address or photos for anything other than the job."
         ],
         tone: "warning"
+      },
+      {
+        kind: "list",
+        title: "Misuse, abuse and police action",
+        intro: "Misuse of DutyPe can be a crime. When it happens:",
+        items: [
+          "We can warn, suspend or permanently block the account at once, without refund of fees or credits linked to the misuse, and block the phone number and device from joining again.",
+          "We report crimes to the police and help the victim file a complaint (FIR). This includes theft, cheating and fraud, fake identity, criminal intimidation, assault, and sexual harassment under the Bharatiya Nyaya Sanhita, 2023, and cyber offences such as identity theft and cheating by personation under the Information Technology Act, 2000.",
+          "Employers who use child labour or bonded labour, or do not pay wages, can be reported to the police and the Labour Department under the Child and Adolescent Labour (Prohibition and Regulation) Act, 1986, the Bonded Labour System (Abolition) Act, 1976, and the Code on Wages, 2019.",
+          "We keep records of accounts, posts, applications, calls started from the app, bookings, payments and chats, and give them to the police or courts when the law asks or when someone's safety is at risk.",
+          "We may recover losses caused by the misuse (for example fees or rewards gained by fraud).",
+          "In an emergency call 112. Women helpline 181. Child helpline 1098. Cyber fraud 1930. Report a user in the app or write to us."
+        ],
+        tone: "warning"
+      },
+      {
+        kind: "list",
+        title: "Limitation of liability",
+        items: [
+          "DutyPe is a platform and is not responsible for the acts of workers, employers, partners or customers, but we verify users, act on reports, and help both sides resolve problems.",
+          "Our total liability for any claim is limited to the fees you paid DutyPe for the job or booking in question, except where the law does not allow this limit."
+        ]
       },
       {
         kind: "list",
@@ -694,7 +760,7 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
         kind: "copy",
         title: "Terms updates",
         paragraphs: [
-          "Last updated: January 11, 2026. These terms may be updated from time to time. Continued use of DutyPe after changes constitutes acceptance."
+          "Last updated: October 3, 2026. These terms may be updated from time to time. Continued use of DutyPe after changes constitutes acceptance."
         ],
         tone: "neutral"
       }

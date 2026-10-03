@@ -42,7 +42,10 @@ object PartnerStatus {
     const val SUSPENDED = "SUSPENDED"
 }
 
-data class ServiceCategory(val id: String, val name: String, val te: String, val hi: String) {
+/** [skill] BASIC (cleaning, help, wash: anyone careful) or SKILLED (wiring, AC, plumbing...: skill-checked). */
+data class ServiceCategory(val id: String, val name: String, val te: String, val hi: String, val skill: String = "SKILLED") {
+    val isSkilled: Boolean get() = skill != "BASIC"
+
     fun label(lang: String): String = when (lang) {
         "te" -> te.ifBlank { name }
         "hi" -> hi.ifBlank { name }
@@ -59,7 +62,11 @@ data class ServiceItem(
     val price: Int,
     val durationMin: Int,
     val inspection: Boolean,
-    val includes: String
+    val includes: String,
+    /** Item ids the customer keeps ready (broom, mop, ladder...). */
+    val provide: List<String> = emptyList(),
+    /** Item ids the partner brings (tool kit, tester...). */
+    val bring: List<String> = emptyList()
 ) {
     fun label(lang: String): String = when (lang) {
         "te" -> te.ifBlank { name }
@@ -81,9 +88,15 @@ data class ServicesCatalog(
     val partnerFee: Int = 19,
     val partnerFirstJobFree: Boolean = true,
     val firstBookingFeeFree: Boolean = false,
-    val offers: List<PromoOffer> = emptyList()
+    val offers: List<PromoOffer> = emptyList(),
+    /** Item id → label per language (en / te / hi). */
+    val items: Map<String, Map<String, String>> = emptyMap()
 ) {
     fun feeFor(service: ServiceItem): Int = if (service.inspection) inspectionFee else bookingFee
+
+    /** Labels for item ids in [lang] (falls back to English, then the id). */
+    fun itemLabels(ids: List<String>, lang: String): List<String> =
+        ids.map { id -> items[id]?.let { it[lang] ?: it["en"] } ?: id.lowercase().replace('_', ' ') }
 }
 
 /** A coupon / festive offer the app can show. [type] FLAT (₹[value]) or PCT ([value]%, up to ₹[maxOff]). */
@@ -195,7 +208,9 @@ data class ServiceOffer(
     val distanceKm: Double?,
     /** What the customer pays the partner (after any offer). */
     val customerTotal: Int = 0,
-    val discount: Int = 0
+    val discount: Int = 0,
+    val bring: List<String> = emptyList(),
+    val provide: List<String> = emptyList()
 )
 
 /** accepted | taken | closed | busy | low_credits | not_partner */
@@ -227,7 +242,7 @@ class HomeServicesRepository @Inject constructor(
         val d = call("getServiceCatalog")
         @Suppress("UNCHECKED_CAST")
         val categories = (d["categories"] as? List<Any?>).orEmpty().map { it.asMap() }.map {
-            ServiceCategory(it.str("id"), it.str("name"), it.str("te"), it.str("hi"))
+            ServiceCategory(it.str("id"), it.str("name"), it.str("te"), it.str("hi"), it.str("skill").ifBlank { "SKILLED" })
         }
         @Suppress("UNCHECKED_CAST")
         val services = (d["services"] as? List<Any?>).orEmpty().map { it.asMap() }.map {
@@ -240,7 +255,9 @@ class HomeServicesRepository @Inject constructor(
                 price = it.int("price"),
                 durationMin = it.int("durationMin"),
                 inspection = it["inspection"] == true,
-                includes = it.str("includes")
+                includes = it.str("includes"),
+                provide = (it["provide"] as? List<Any?>).orEmpty().map { x -> x.toString() },
+                bring = (it["bring"] as? List<Any?>).orEmpty().map { x -> x.toString() }
             )
         }
         val catalog = ServicesCatalog(
@@ -256,7 +273,8 @@ class HomeServicesRepository @Inject constructor(
             partnerFee = if (d.containsKey("partnerFee")) d.int("partnerFee") else 19,
             partnerFirstJobFree = d["partnerFirstJobFree"] != false,
             firstBookingFeeFree = d["firstBookingFeeFree"] == true,
-            offers = offersOf(d["offers"])
+            offers = offersOf(d["offers"]),
+            items = d["items"].asMap().mapValues { (_, v) -> v.asMap().mapValues { (_, t) -> t.toString() } }
         )
         cachedCatalog = System.currentTimeMillis() to catalog
         return catalog
@@ -470,12 +488,15 @@ class HomeServicesRepository @Inject constructor(
         awaitClose { reg.remove() }
     }
 
-    suspend fun apply(categories: List<String>, experienceYears: Int, area: String, note: String, lat: Double, lng: Double) {
+    suspend fun apply(
+        categories: List<String>, experienceYears: Int, area: String, note: String, lat: Double, lng: Double,
+        skillProof: String = "", acceptGuidelines: Boolean = false
+    ) {
         call(
             "applyServicePartner",
             mapOf(
                 "categories" to categories, "experienceYears" to experienceYears, "area" to area, "note" to note,
-                "lat" to lat, "lng" to lng
+                "lat" to lat, "lng" to lng, "skillProof" to skillProof, "acceptGuidelines" to acceptGuidelines
             )
         )
     }
@@ -508,7 +529,9 @@ class HomeServicesRepository @Inject constructor(
             scheduledAt = d.long("scheduledAt"),
             distanceKm = (d["distanceKm"] as? Number)?.toDouble(),
             customerTotal = d.int("customerTotal").takeIf { it > 0 } ?: (d.int("price") + d.int("bookingFee")),
-            discount = d.int("discount")
+            discount = d.int("discount"),
+            bring = (d["bring"] as? List<Any?>).orEmpty().map { it.toString() },
+            provide = (d["provide"] as? List<Any?>).orEmpty().map { it.toString() }
         )
     }
 

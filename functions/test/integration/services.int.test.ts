@@ -64,7 +64,12 @@ describe("DutyPe Services (emulator)", () => {
 
   it("returns the catalog with the 5 categories and fees", async () => {
     const c = await call(svc.getServiceCatalog)({}, app);
-    assert.equal(c.categories.length, 5);
+    assert.equal(c.categories.length, 9);
+    const sweep = c.services.find((s: any) => s.id === "clean_sweep");
+    assert.ok(sweep.provide.includes("BROOM") && sweep.provide.includes("MOP"), "customer keeps broom and mop ready");
+    assert.ok(c.services.find((s: any) => s.id === "elec_fan").bring.includes("TESTER"), "electrician brings tools");
+    assert.equal(c.items.BROOM.te, "చీపురు");
+    assert.equal(c.categories.find((x: any) => x.id === "ELECTRICIAN").skill, "SKILLED");
     assert.equal(c.inArea, undefined, "no location sent");
     assert.equal((await call(svc.getServiceCatalog)({ ...HOME }, app)).inArea, true);
     assert.equal((await call(svc.getServiceCatalog)({ ...KOTHAGUDEM }, app)).inArea, false);
@@ -260,12 +265,21 @@ describe("DutyPe Services (emulator)", () => {
 
   it("partner applies, admin approves, top-up is verified into credits", async () => {
     await db.doc("worker_profiles/w1").set({ name: "Ravi", phone: "+919000000003" });
-    await assert.rejects(call(svc.applyServicePartner)({ categories: ["AC"], ...KOTHAGUDEM }, partnerCtx("w1")),
+    await assert.rejects(call(svc.applyServicePartner)({ categories: ["CLEANING"], ...NEAR }, partnerCtx("w1")),
+      (e) => code(e) === "failed-precondition", "the code of conduct must be accepted");
+    await assert.rejects(call(svc.applyServicePartner)({ categories: ["ELECTRICIAN"], acceptGuidelines: true, ...NEAR }, partnerCtx("w1")),
+      (e) => code(e) === "invalid-argument", "skilled work needs experience");
+    await assert.rejects(call(svc.applyServicePartner)({ categories: ["AC"], experienceYears: 3, acceptGuidelines: true, ...KOTHAGUDEM }, partnerCtx("w1")),
       (e) => code(e) === "failed-precondition", "partners must be in Khammam district");
-    await call(svc.applyServicePartner)({ categories: ["ac", "PLUMBER", "bogus"], experienceYears: 5, ...NEAR }, partnerCtx("w1"));
+    await call(svc.applyServicePartner)({
+      categories: ["ac", "PLUMBER", "CLEANING", "bogus"], experienceYears: 5, skillProof: "ITI electrician, 5 yrs at Sri Sai Electricals",
+      acceptGuidelines: true, ...NEAR,
+    }, partnerCtx("w1"));
     let p = await db.doc("service_partners/w1").get();
     assert.equal(p.get("status"), "PENDING");
-    assert.deepEqual(p.get("categories"), ["AC", "PLUMBER"]);
+    assert.deepEqual(p.get("categories"), ["AC", "PLUMBER", "CLEANING"]);
+    assert.deepEqual(p.get("skilledCategories"), ["AC", "PLUMBER"], "flagged for the skill check");
+    assert.ok(p.get("guidelinesAcceptedAt"));
     await assert.rejects(call(svc.setPartnerOnline)({ online: true, ...NEAR }, partnerCtx("w1")), (e) => code(e) === "permission-denied");
     await assert.rejects(call(svc.reviewServicePartner)({ partnerId: "w1", action: "approve" }, partnerCtx("w1")),
       (e) => code(e) === "permission-denied");

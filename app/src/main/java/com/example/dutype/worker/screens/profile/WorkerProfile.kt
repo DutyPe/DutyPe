@@ -675,6 +675,10 @@ fun WorkerProfileScreen(
                                 showLoginBottomSheet = true
                             }
                         },
+                        onGuidelines = {
+                            val route = Routes.guidelinesRoute(com.example.dutype.guidelines.GuidelineRole.WORKER)
+                            localNavController?.navigate(route) ?: rootNavController.navigate(route)
+                        },
                         onRateApp = { openPlayStoreListing(context) },
                         onJoinCommunity = { openWhatsAppCommunity(context) },
                         onHelp = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) },
@@ -1136,6 +1140,7 @@ private fun ProfileSettingsCard(
     onWorkHistory: () -> Unit,
     onEarnings: () -> Unit,
     onReferEarn: () -> Unit,
+    onGuidelines: () -> Unit = {},
     onRateApp: () -> Unit,
     onJoinCommunity: () -> Unit,
     onHelp: () -> Unit,
@@ -1154,6 +1159,8 @@ private fun ProfileSettingsCard(
         ProfileListRow(title = stringResource(R.string.my_earnings), onClick = onEarnings, iconRes = R.drawable.ic_profile_wallet)
         ProfileRowDivider()
         ProfileListRow(title = stringResource(R.string.refer_earn), onClick = onReferEarn, iconRes = R.drawable.ic_profile_gift)
+        ProfileRowDivider()
+        ProfileListRow(title = stringResource(R.string.guide_entry), onClick = onGuidelines, iconRes = R.drawable.ic_profile_help)
         ProfileRowDivider()
         ProfileListRow(title = stringResource(R.string.about_nav_rate_playstore), onClick = onRateApp, iconRes = R.drawable.ic_profile_star, showStars = true)
         ProfileRowDivider()

@@ -152,6 +152,10 @@ object Routes {
     /** Deep link: dutype://partner/job/{bookingId} */
     const val PARTNER_JOB = "partner/job/{bookingId}"
 
+    /** Safety & code of conduct; role = partner | worker | employer. */
+    const val GUIDELINES = "guidelines/{role}"
+    fun guidelinesRoute(role: String): String = "guidelines/$role"
+
     fun servicesBookRoute(serviceId: String): String = "services/book/$serviceId"
     fun servicesBookingRoute(bookingId: String): String = "services/booking/$bookingId"
     fun partnerOfferRoute(bookingId: String): String = "partner/offer/$bookingId"

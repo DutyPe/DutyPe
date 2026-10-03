@@ -2,13 +2,19 @@ import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
 import {
   CATEGORIES, DEFAULT_CONFIG, DEFAULT_SERVICES, bookingFeeFor, findService, maxDiscount, mergeConfig, newStartOtp,
-  partnerFeeFor, platformTakePaise, quote, takePaise,
+  ITEMS, bringFor, partnerFeeFor, platformTakePaise, provideFor, quote, skillOf, takePaise,
 } from "../src/lib/service-catalog";
 
 describe("service catalog", () => {
-  it("has the 5 launch categories, each with services and unique ids", () => {
-    assert.deepEqual(CATEGORIES.map((c) => c.id), ["AC", "CLEANING", "ELECTRICIAN", "PLUMBER", "APPLIANCE"]);
-    for (const c of CATEGORIES) assert.ok(DEFAULT_SERVICES.filter((s) => s.category === c.id).length >= 4, c.id);
+  it("has the launch categories, each with services, unique ids and known items", () => {
+    assert.deepEqual(CATEGORIES.map((c) => c.id),
+      ["CLEANING", "AC", "ELECTRICIAN", "PLUMBER", "APPLIANCE", "CARPENTER", "PAINTER", "HOME_HELP", "VEHICLE"]);
+    for (const c of CATEGORIES) assert.ok(DEFAULT_SERVICES.filter((s) => s.category === c.id).length >= 2, c.id);
+    for (const s of DEFAULT_SERVICES) {
+      for (const id of [...provideFor(s), ...bringFor(s)]) assert.ok(ITEMS[id], `${s.id}: ${id}`);
+    }
+    assert.equal(skillOf("CLEANING"), "BASIC");
+    assert.equal(skillOf("ELECTRICIAN"), "SKILLED");
     assert.equal(new Set(DEFAULT_SERVICES.map((s) => s.id)).size, DEFAULT_SERVICES.length);
     for (const s of DEFAULT_SERVICES) assert.ok(s.price > 0 && s.te && s.hi && s.includes, s.id);
   });

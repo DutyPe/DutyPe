@@ -252,6 +252,16 @@ fun WorkerNavGraph(
             )
         }
         
+        composable(
+            route = Routes.GUIDELINES,
+            arguments = listOf(androidx.navigation.navArgument("role") { type = androidx.navigation.NavType.StringType })
+        ) { entry ->
+            com.example.dutype.guidelines.GuidelinesScreen(
+                role = entry.arguments?.getString("role").orEmpty(),
+                navController = navController
+            )
+        }
+
         // Worker Refer & Earn
         composable(Routes.WORKER_REFER_EARN) {
             com.example.dutype.worker.screens.WorkerReferEarnScreen(

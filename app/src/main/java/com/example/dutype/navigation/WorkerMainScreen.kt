@@ -118,6 +118,7 @@ fun WorkerMainScreen(
         Routes.WORKER_EARNINGS, // Hide bottom bar on earnings screen
         Routes.WORKER_HISTORY, // Hide bottom bar on work history screen
         Routes.WORKER_REFER_EARN, // Hide bottom bar on refer & earn screen
+        Routes.GUIDELINES,
         Routes.WORKER_CATEGORIES, "worker_categories", // Hide bottom bar on categories screen
         Routes.PROFILE_SETUP, "profile_setup", // Hide bottom bar on profile setup screen
         Routes.JOB_APPLICATION, "job_application" // Hide bottom bar on apply for job screen

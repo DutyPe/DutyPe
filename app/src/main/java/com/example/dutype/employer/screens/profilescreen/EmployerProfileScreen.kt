@@ -93,6 +93,7 @@ private class EmpProfileActions(
     val onSubscription: () -> Unit,
     val onHistory: () -> Unit,
     val onRefer: () -> Unit,
+    val onGuidelines: () -> Unit = {},
     val onRateApp: () -> Unit = {},
     val onSwitch: () -> Unit,
     val onLogout: () -> Unit
@@ -428,6 +429,8 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
         ProfileRowDivider()
         EmpMenuRow(R.drawable.ic_profile_gift, stringResource(R.string.emp_profile_refer_employer, EmpReferAmount), null, actions.onRefer)
         ProfileRowDivider()
+        EmpMenuRow(R.drawable.ic_profile_help, stringResource(R.string.guide_entry), null, actions.onGuidelines)
+        ProfileRowDivider()
         EmpMenuRow(
             iconRes = R.drawable.ic_profile_star,
             title = stringResource(R.string.about_nav_rate_playstore),
@@ -703,6 +706,7 @@ fun EmployerProfileScreen(
             onSubscription = { go(Routes.EMPLOYER_SUBSCRIPTION, null) },
             onHistory = { go(Routes.EMPLOYER_HISTORY, "job_posts") },
             onRefer = { go(Routes.EMPLOYER_REFER_EARN, null) },
+            onGuidelines = { nav.navigate(Routes.guidelinesRoute(com.example.dutype.guidelines.GuidelineRole.EMPLOYER)) },
             onRateApp = { openPlayStoreListing(context) },
             onSwitch = {
                 rootNavController.navigate(Routes.SELECT_ROLE) {

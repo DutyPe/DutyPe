@@ -18,7 +18,7 @@ const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN")}`;
 type Row = Record<string, unknown> & { id: string };
 type Tab = "partners" | "topups" | "bookings" | "settings";
 
-const CATEGORY_IDS = ["AC", "CLEANING", "ELECTRICIAN", "PLUMBER", "APPLIANCE"];
+const CATEGORY_IDS = ["CLEANING", "AC", "ELECTRICIAN", "PLUMBER", "APPLIANCE", "CARPENTER", "PAINTER", "HOME_HELP", "VEHICLE"];
 
 function useLive(path: string, order: string, max = 200): Row[] {
   const services = useMemo(() => getFirebaseServices(), []);
@@ -37,6 +37,8 @@ export function AdminServicesClient() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reasons, setReasons] = useState<Record<string, string>>({});
+  // Categories the admin has verified for each partner (unticked skilled ones are not approved).
+  const [checked, setChecked] = useState<Record<string, string[]>>({});
 
   const partners = useLive("service_partners", "updatedAt");
   const topups = useLive("partner_topups", "createdAt");
@@ -61,8 +63,19 @@ export function AdminServicesClient() {
       alert("Write a reason first (the partner sees it).");
       return;
     }
-    if (!confirm(`${action.toUpperCase()} ${String(p.name)} (${String(p.phone)})?`)) return;
-    void run("Saving...", () => httpsCallable(services.functions, "reviewServicePartner")({ partnerId: p.id, action, reason }));
+    const requested = (p.categories || []) as string[];
+    const skilled = (p.skilledCategories || []) as string[];
+    // By default only BASIC categories are approved; skilled ones need the admin's tick after the skill check.
+    const approved = checked[p.id] ?? requested.filter((c) => !skilled.includes(c));
+    if (action === "approve" && !approved.length) {
+      alert("Tick at least one category you verified.");
+      return;
+    }
+    const what = action === "approve" ? ` for ${approved.join(", ")}` : "";
+    if (!confirm(`${action.toUpperCase()} ${String(p.name)} (${String(p.phone)})${what}?`)) return;
+    void run("Saving...", () => httpsCallable(services.functions, "reviewServicePartner")({
+      partnerId: p.id, action, reason, ...(action === "approve" ? { categories: approved } : {}),
+    }));
   }
 
   function verify(t: Row, approve: boolean) {
@@ -109,7 +122,12 @@ export function AdminServicesClient() {
       {tab === "partners" && (
         <section className="admin-section">
           <h2 className="admin-section-title">Service partners</h2>
-          <p>Call each applicant, check Aadhaar and skills, then approve. Only approved partners get jobs.</p>
+          <p>
+            Call each applicant and check Aadhaar. <b>Basic</b> work (cleaning, home help, car wash) needs only ID and a polite call.
+            <b>Skilled</b> work (⚡ marked) needs a skill check before you tick it: ask 3 practical questions on the phone
+            (e.g. electrician: &quot;MCB keeps tripping – what do you check first?&quot;), ask for photos/videos of past work or an
+            ITI / shop reference, and if unsure give a trial job at your own place. Untick categories you could not verify.
+          </p>
           <div className="admin-table-container">
             <table className="admin-table">
               <thead>
@@ -126,7 +144,24 @@ export function AdminServicesClient() {
                         <div>{String(p.area || "")} · {String(p.experienceYears ?? 0)} yrs</div>
                         <div style={{ fontSize: 12, opacity: 0.7 }}>Applied {when(millis(p.appliedAt))}</div>
                       </td>
-                      <td>{((p.categories || []) as string[]).join(", ")}</td>
+                      <td>
+                        {((p.categories || []) as string[]).map((c) => {
+                          const skilled = ((p.skilledCategories || []) as string[]).includes(c);
+                          const list = checked[p.id] ?? ((p.categories || []) as string[]).filter((x) => !((p.skilledCategories || []) as string[]).includes(x));
+                          return (
+                            <label key={c} style={{ display: "block", whiteSpace: "nowrap" }}>
+                              <input
+                                type="checkbox"
+                                checked={list.includes(c)}
+                                onChange={(e) => setChecked({ ...checked, [p.id]: e.target.checked ? [...list, c] : list.filter((x) => x !== c) })}
+                              />{" "}
+                              {skilled ? "⚡ " : ""}{c}
+                            </label>
+                          );
+                        })}
+                        {p.skillProof ? <div style={{ fontSize: 12, marginTop: 4 }}>Proof: {String(p.skillProof)}</div> : null}
+                        {p.guidelinesAcceptedAt ? <div style={{ fontSize: 12, opacity: 0.7 }}>✓ accepted code of conduct</div> : null}
+                      </td>
                       <td>{String(p.status)}{p.online ? " · 🟢 online" : ""}</td>
                       <td>{rupees(Number(p.creditsPaise || 0))}</td>
                       <td>{String(p.jobsCompleted || 0)} jobs · {count ? (Number(p.ratingSum) / count).toFixed(1) + "★" : "–"} · {String(p.cancellations || 0)} cancels</td>

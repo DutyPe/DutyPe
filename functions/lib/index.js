@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReferralConfigCallable = exports.updateReferralConfig = void 0;
+exports.submitFieldLead = exports.getReferralConfigCallable = exports.updateReferralConfig = void 0;
 /**
  * DutyPe Cloud Functions (asia-south1). Every module owns the collections it writes; see each file's header.
  */
@@ -40,5 +40,7 @@ __exportStar(require("./dutype-ai"), exports);
 __exportStar(require("./feedback"), exports);
 __exportStar(require("./phone-login"), exports);
 __exportStar(require("./services"), exports);
+var field_leads_1 = require("./field-leads");
+Object.defineProperty(exports, "submitFieldLead", { enumerable: true, get: function () { return field_leads_1.submitFieldLead; } });
 __exportStar(require("./whatsapp-webhook"), exports);
 //# sourceMappingURL=index.js.map

@@ -17,6 +17,7 @@ exports.expireInstantRequests = exports.respondInstantRequest = exports.getInsta
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto_1 = require("crypto");
+const pay_rules_1 = require("./lib/pay-rules");
 const referral_posts_1 = require("./lib/referral-posts");
 const secure_callable_1 = require("./secure-callable");
 const input_1 = require("./lib/input");
@@ -64,6 +65,9 @@ exports.postInstantRequest = (0, secure_callable_1.onCallSecured)({}, async (raw
     const payPerPerson = (0, input_1.int)(data, "payPerPerson", { min: 0, max: 10000000 });
     if (payPerPerson > schema_1.MAX_PAY_RUPEES)
         (0, input_1.fail)("invalid-argument", "Pay can be at most ₹50,000");
+    const urgentProblem = (0, pay_rules_1.urgentPayProblem)(payPerPerson);
+    if (urgentProblem)
+        (0, input_1.fail)("invalid-argument", urgentProblem);
     const durationText = (0, input_1.str)(data, "durationText", { max: 40, optional: true });
     const addressText = (0, input_1.str)(data, "addressText", { min: 3, max: 200 });
     const area = (0, input_1.str)(data, "area", { min: 2, max: 60 });

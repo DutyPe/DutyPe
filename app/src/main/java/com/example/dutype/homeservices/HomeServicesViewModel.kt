@@ -96,9 +96,12 @@ class HomeServicesViewModel @Inject constructor(
     // ─────────────────────────── partner ───────────────────────────
 
     /** Applying sends where the worker is: partners must be inside the service district. */
-    suspend fun apply(categories: List<String>, experienceYears: Int, area: String, note: String): Result<Unit> = runCatching {
+    suspend fun apply(
+        categories: List<String>, experienceYears: Int, area: String, note: String,
+        skillProof: String = "", acceptGuidelines: Boolean = false
+    ): Result<Unit> = runCatching {
         val place = currentPlace() ?: error("Turn on location to apply")
-        repo.apply(categories, experienceYears, area, note, place.lat, place.lng)
+        repo.apply(categories, experienceYears, area, note, place.lat, place.lng, skillProof, acceptGuidelines)
     }.mapError()
 
     suspend fun inServiceArea(lat: Double, lng: Double): Boolean =

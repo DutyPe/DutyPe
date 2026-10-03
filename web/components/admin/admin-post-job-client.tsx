@@ -81,11 +81,10 @@ type LocationSuggestion = WebLocationSuggestion;
 
 // PayType enum from Android (JobEnums.kt).
 const SALARY_TYPES: { value: string; label: string }[] = [
+  // Regular jobs are weekly or monthly only (₹3,000–40,000 / month, ₹1,000–10,000 / week;
+  // full-time at least ₹8,000 / ₹2,000). Daily work is an urgent post. Enforced by postJob.
   { value: "MONTHLY", label: "Per month" },
-  { value: "DAILY", label: "Per day" },
-  { value: "WEEKLY", label: "Per week" },
-  { value: "HOURLY", label: "Per hour" },
-  { value: "NEGOTIABLE", label: "Negotiable" }
+  { value: "WEEKLY", label: "Per week" }
 ];
 
 // Shift chips shown in the Android WorkScheduleSection. The persisted value
@@ -129,8 +128,7 @@ const EDUCATION_REQUIREMENTS = [
 // the `jobType` Firestore field as Full-time / Part-time / etc.
 const WORK_TYPES: { value: string; label: string }[] = [
   { value: "FULL_TIME", label: "Full-time" },
-  { value: "PART_TIME", label: "Part-time" },
-  { value: "DAILY", label: "Daily wage" }
+  { value: "PART_TIME", label: "Part-time" }
 ];
 
 const initialForm = {
