@@ -425,6 +425,20 @@ object DeepLinkHandler {
                 true
             }
 
+            // Android App Link: https://dutype.in/services or https://dutype.in/partner
+            data.host == WEB_DOMAIN && (data.pathSegments.firstOrNull() == "services" || data.pathSegments.firstOrNull() == "partner") -> {
+                val segments = data.pathSegments
+                val route = when {
+                    segments.firstOrNull() == "services" && segments.size >= 3 && segments[1] == "booking" ->
+                        com.example.dutype.navigation.Routes.servicesBookingRoute(segments[2])
+                    segments.firstOrNull() == "services" -> com.example.dutype.navigation.Routes.SERVICES
+                    segments.size >= 3 && segments[1] == "offer" -> com.example.dutype.navigation.Routes.partnerOfferRoute(segments[2])
+                    segments.size >= 3 && segments[1] == "job" -> com.example.dutype.navigation.Routes.partnerJobRoute(segments[2])
+                    else -> com.example.dutype.navigation.Routes.PARTNER
+                }
+                runCatching { navController.navigate(route) { launchSingleTop = true } }.isSuccess
+            }
+
             // Android App Link: https://dutype.in/contact
             data.host == WEB_DOMAIN && data.pathSegments.firstOrNull() == "contact" -> {
                 navigateToContact(navController)
