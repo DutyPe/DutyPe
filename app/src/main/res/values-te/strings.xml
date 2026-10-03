@@ -229,9 +229,9 @@
     <string name="select_role_headline">మీరు డ్యూటీపే ని ఎలా ఉపయోగించాలనుకుంటున్నారు?</string>
     <string name="select_role_subheadline">యాప్‌ని ఎలా ఉపయోగించాలో ఎంచుకోండి</string>
     <string name="select_role_looking_for_work">నాకు పని కావాలి</string>
-    <string name="select_role_worker_desc">రోజువారీ పనులు, అర్జంట్ గిగ్స్ కనుగొని వెంటనే సంపాదించండి</string>
-    <string name="select_role_want_to_hire">నేను నియమించాలనుకుంటున్నాను</string>
-    <string name="select_role_employer_desc">ఉద్యోగాలు పోస్ట్ చేయండి, సమీప వర్కర్లను సులభంగా పొందండి</string>
+    <string name="select_role_worker_desc">దగ్గర్లో ఉద్యోగాలు, అర్జెంట్ రోజు పనులు, విద్యార్థులకు పార్ట్-టైమ్. నైపుణ్యం ఉందా? ఇంటి సేవలతో ఎక్కువ సంపాదించండి.</string>
+    <string name="select_role_want_to_hire">నాకు మనిషి / ఇంటి సేవ కావాలి</string>
+    <string name="select_role_employer_desc">షాప్ లేదా ఇంటికి సిబ్బంది, నిమిషాల్లో మనిషి, లేదా AC, క్లీనింగ్, ఎలక్ట్రీషియన్ వంటి ఇంటి సేవలు బుక్ చేయండి.</string>
     <string name="auth_enter_mobile_number">మీ మొబైల్ నంబర్ నమోదు చేయండి</string>
     <string name="auth_we_will_send_otp">మేము 6 అంకెల OTP పంపుతాము</string>
     <string name="auth_or_divider">లేదా</string>

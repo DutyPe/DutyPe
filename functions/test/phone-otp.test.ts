@@ -1,7 +1,8 @@
 import { describe, it } from "node:test";
 import * as assert from "node:assert/strict";
 import {
-  MAX_PER_DAY, MAX_PER_HOUR, RESEND_GAP_MS, codeMatches, decideSend, hashCode, indianE164, istDayKey, newCode,
+  CODE_MAX_LIFE_MS, CODE_TTL_MS, MAX_PER_DAY, MAX_PER_HOUR, RESEND_GAP_MS, codeMatches, decideSend, openCode,
+  resendGapMs, resentExpiry, reuseCode, sealCode, hashCode, indianE164, istDayKey, newCode,
   parseTruecallerUserInfo, whatsappConfigured, whatsappTemplateBody, type SendCounters,
 } from "../src/lib/phone-otp";
 
@@ -53,7 +54,7 @@ describe("decideSend", () => {
       const d = decideSend(c, t);
       assert.ok(d.ok, `send ${i + 1}`);
       if (d.ok) c = d.next;
-      t += RESEND_GAP_MS;
+      t += resendGapMs(i + 1);
     }
     const blocked = decideSend(c, t);
     assert.equal(blocked.ok, false);
@@ -68,6 +69,15 @@ describe("decideSend", () => {
     // Next IST day is allowed again.
     assert.ok(decideSend(c, t0 + 24 * 60 * 60 * 1000).ok);
   });
+  it("makes the wait grow: 30 s, 60 s, 2 min, 4 min, then 5 min", () => {
+    assert.deepEqual([1, 2, 3, 4, 5, 6].map(resendGapMs), [30_000, 60_000, 120_000, 240_000, 300_000, 300_000]);
+    const first = decideSend(null, t0);
+    const second = decideSend(first.ok ? first.next : null, t0 + 30_000);
+    assert.ok(second.ok);
+    const third = decideSend(second.ok ? second.next : null, t0 + 60_000);
+    assert.deepEqual(third, { ok: false, reason: "wait", retryAfterSec: 30 }, "second resend waits 60 s");
+  });
+
   it("uses the Indian calendar day", () => {
     assert.equal(istDayKey(Date.UTC(2026, 9, 1, 19, 0)), "2026-10-02"); // 00:30 IST
     assert.equal(istDayKey(Date.UTC(2026, 9, 1, 18, 0)), "2026-10-01"); // 23:30 IST
@@ -102,5 +112,30 @@ describe("WhatsApp settings", () => {
     assert.equal(b.template.name, "dutype_login_otp");
     assert.deepEqual(b.template.components[0].parameters, [{ type: "text", text: "042137" }]);
     assert.equal(b.template.components[1].sub_type, "url");
+  });
+});
+
+describe("resend keeps the same code", () => {
+  const t0 = Date.UTC(2026, 9, 3, 6, 0, 0);
+  it("reuses a live code, not an expired, locked or too-old one", () => {
+    const live = { hasCode: true, expiresAt: t0 + 7 * 60_000, issuedAt: t0 - 3 * 60_000, attempts: 1 };
+    assert.equal(reuseCode(live, t0), true, "back from the background after 3 minutes");
+    assert.equal(reuseCode({ ...live, expiresAt: t0 - 1 }, t0), false);
+    assert.equal(reuseCode({ ...live, attempts: 5 }, t0), false, "locked by wrong tries");
+    assert.equal(reuseCode({ ...live, issuedAt: t0 - CODE_MAX_LIFE_MS }, t0), false);
+    assert.equal(reuseCode({ ...live, hasCode: false }, t0), false, "already used");
+    assert.equal(reuseCode(null, t0), false);
+  });
+  it("gives a resent code 10 more minutes, at most 30 from the first send", () => {
+    assert.equal(resentExpiry(t0, t0 + 5 * 60_000), t0 + 5 * 60_000 + CODE_TTL_MS);
+    assert.equal(resentExpiry(t0, t0 + 25 * 60_000), t0 + CODE_MAX_LIFE_MS);
+  });
+  it("keeps the code encrypted and opens it only with the same key", () => {
+    const env = { OTP_SECRET: "s1" } as NodeJS.ProcessEnv;
+    const sealed = sealCode("042917", env);
+    assert.ok(!sealed.includes("042917"));
+    assert.equal(openCode(sealed, env), "042917");
+    assert.equal(openCode(sealed, { OTP_SECRET: "other" } as NodeJS.ProcessEnv), null);
+    assert.equal(openCode("garbage", env), null);
   });
 });

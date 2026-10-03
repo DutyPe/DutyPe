@@ -238,6 +238,219 @@ function wrap(c: CanvasRenderingContext2D, text: string, maxW: number): string[]
   return lines;
 }
 
+// ─────────────────────────── Clean style (Pronto-like) ───────────────────────────
+
+/** Few words, big: a kicker, a 2-line headline, one price/benefit anchor, 3 icons, 3 trust ticks. */
+type CleanCopy = { kicker: string; hero: string; anchor: string; icons: string[]; ticks: string[]; cta: string };
+
+function cleanCopyFor(a: Audience, lang: Lang, ctx: Ctx): CleanCopy {
+  // The city in the reader's script: ఖమ్మం / खम्मम.
+  const local: Record<string, Partial<Record<Lang, string>>> = { Khammam: { te: "ఖమ్మం", hi: "खम्मम" } };
+  const x = { ...ctx, city: local[ctx.city]?.[lang] ?? ctx.city };
+  const acFrom = x.from.AC ? `₹${x.from.AC}` : "₹449";
+  const cp = x.coupon;
+  const T: Record<Audience, Record<Lang, CleanCopy>> = {
+    customers: {
+      te: { kicker: `${x.city}లో ఇంటి సేవలు`, hero: "ఇంటి పని ఏదైనా,\nనిమిషాల్లో నిపుణుడు", anchor: cp ? `${off(cp)} తగ్గింపు · ${cp.code}` : x.firstFree ? "మొదటి బుకింగ్ ఫీజు ₹0" : `AC సర్వీస్ ${acFrom} నుండి`,
+        icons: ["❄️", "🧹", "🔌", "🚰"], ticks: ["ధృవీకరించిన నిపుణులు", "ఫిక్స్‌డ్ ధరలు", "పని తర్వాత చెల్లింపు"], cta: "స్కాన్ చేసి బుక్ చేయండి" },
+      en: { kicker: `Home services in ${x.city}`, hero: "Any home job,\na pro in minutes", anchor: cp ? `${off(cp)} OFF · ${cp.code}` : x.firstFree ? "₹0 fee on first booking" : `AC service from ${acFrom}`,
+        icons: ["❄️", "🧹", "🔌", "🚰"], ticks: ["Verified pros", "Fixed prices", "Pay after work"], cta: "Scan to book" },
+      hi: { kicker: `${x.city} में घरेलू सेवाएँ`, hero: "घर का कोई भी काम,\nमिनटों में एक्सपर्ट", anchor: cp ? `${off(cp)} छूट · ${cp.code}` : x.firstFree ? "पहली बुकिंग फ़ीस ₹0" : `AC सर्विस ${acFrom} से`,
+        icons: ["❄️", "🧹", "🔌", "🚰"], ticks: ["सत्यापित एक्सपर्ट", "तय दाम", "काम के बाद भुगतान"], cta: "स्कैन करके बुक करें" },
+    },
+    employers: {
+      te: { kicker: "షాపులు, ఆఫీసులు, ఇళ్లకు", hero: "సిబ్బంది కావాలా?\nఈరోజే దగ్గర్లో", anchor: "రోజుకు 3 జాబ్ పోస్ట్‌లు ఉచితం", icons: ["🏪", "🍽️", "🚚", "🛡️"],
+        ticks: ["ఏజెంట్లు లేరు", "నేరుగా కాల్", "నిమిషాల్లో అర్జెంట్"], cta: "స్కాన్ చేసి జాబ్ పోస్ట్ చేయండి" },
+      en: { kicker: "For shops, offices & homes", hero: "Need staff?\nGet them today", anchor: "3 free job posts every day", icons: ["🏪", "🍽️", "🚚", "🛡️"],
+        ticks: ["No agents", "Call directly", "Urgent in minutes"], cta: "Scan to post a job" },
+      hi: { kicker: "दुकान, ऑफ़िस और घर के लिए", hero: "स्टाफ़ चाहिए?\nआज ही पास में", anchor: "रोज़ 3 जॉब पोस्ट मुफ़्त", icons: ["🏪", "🍽️", "🚚", "🛡️"],
+        ticks: ["कोई एजेंट नहीं", "सीधे कॉल", "मिनटों में अर्जेंट"], cta: "स्कैन करके जॉब पोस्ट करें" },
+    },
+    workers: {
+      te: { kicker: "కార్మికులకు పూర్తిగా ఉచితం", hero: "మీ దగ్గర్లోనే\nఉద్యోగాలు", anchor: "ఫీజు లేదు · ఏజెంట్ లేరు", icons: ["🚗", "🍳", "📦", "🛍️"],
+        ticks: ["మీ ఏరియాలో పని", "యజమానికి నేరుగా కాల్", "అదే రోజు పని"], cta: "స్కాన్ చేసి పని వెతకండి" },
+      en: { kicker: "100% free for workers", hero: "Jobs near\nyour home", anchor: "No fees · no agents", icons: ["🚗", "🍳", "📦", "🛍️"],
+        ticks: ["Work in your area", "Call the employer", "Same-day work"], cta: "Scan to find work" },
+      hi: { kicker: "कामगारों के लिए 100% मुफ़्त", hero: "आपके घर के पास\nनौकरियाँ", anchor: "कोई फ़ीस नहीं · कोई एजेंट नहीं", icons: ["🚗", "🍳", "📦", "🛍️"],
+        ticks: ["अपने इलाक़े में काम", "मालिक को सीधे कॉल", "उसी दिन काम"], cta: "स्कैन करके काम पाएँ" },
+    },
+    students: {
+      te: { kicker: "కాలేజ్ విద్యార్థుల కోసం", hero: "చదువుతూనే\nసంపాదించండి", anchor: "పార్ట్-టైమ్ · వారం జీతం", icons: ["📖", "🎉", "🛍️", "⌨️"],
+        ticks: ["సాయంత్రం / వీకెండ్", "కాలేజ్ దగ్గర్లో", "ఫీజు లేదు"], cta: "స్కాన్ చేసి పార్ట్-టైమ్ వెతకండి" },
+      en: { kicker: "For college students", hero: "Earn while\nyou study", anchor: "Part-time · weekly pay", icons: ["📖", "🎉", "🛍️", "⌨️"],
+        ticks: ["Evenings / weekends", "Near your college", "No fees"], cta: "Scan to find part-time work" },
+      hi: { kicker: "कॉलेज छात्रों के लिए", hero: "पढ़ाई के साथ\nकमाई", anchor: "पार्ट-टाइम · साप्ताहिक वेतन", icons: ["📖", "🎉", "🛍️", "⌨️"],
+        ticks: ["शाम / वीकेंड", "कॉलेज के पास", "कोई फ़ीस नहीं"], cta: "स्कैन करके पार्ट-टाइम काम पाएँ" },
+    },
+    partners: {
+      te: { kicker: `DutyPe పార్ట్నర్ · ${x.city}`, hero: "మీ నైపుణ్యానికి\nరోజూ పనులు", anchor: `ఒక్కో పనికి ₹${x.partnerFee} మాత్రమే · మొదటి పని ఉచితం`, icons: ["🔌", "🚰", "❄️", "🧹"],
+        ticks: ["పనులు ఫోన్‌కే", "కస్టమర్ నేరుగా చెల్లిస్తారు", "వెరిఫైడ్ బ్యాడ్జ్"], cta: "స్కాన్ చేసి పార్ట్నర్‌గా చేరండి" },
+      en: { kicker: `DutyPe partners · ${x.city}`, hero: "Daily jobs for\nyour skill", anchor: `Only ₹${x.partnerFee} per job · first job free`, icons: ["🔌", "🚰", "❄️", "🧹"],
+        ticks: ["Jobs on your phone", "Customer pays you", "Verified badge"], cta: "Scan to join as a partner" },
+      hi: { kicker: `DutyPe पार्टनर · ${x.city}`, hero: "आपके हुनर को\nरोज़ काम", anchor: `हर काम पर सिर्फ़ ₹${x.partnerFee} · पहला काम मुफ़्त`, icons: ["🔌", "🚰", "❄️", "🧹"],
+        ticks: ["काम फ़ोन पर", "ग्राहक सीधे भुगतान करे", "वेरिफ़ाइड बैज"], cta: "स्कैन करके पार्टनर बनें" },
+    },
+    festive: {
+      te: { kicker: cp ? cp.title : "పండుగ ఆఫర్", hero: "పండుగకు ఇల్లు\nరెడీ చేసుకోండి", anchor: cp ? `${off(cp)} తగ్గింపు · కోడ్ ${cp.code}` : "మొదటి బుకింగ్ ఫీజు ₹0", icons: ["🪔", "🧹", "❄️", "💡"],
+        ticks: ["డీప్ క్లీనింగ్", "AC సర్వీస్", "లైట్లు & వైరింగ్"], cta: "స్కాన్ చేసి స్లాట్ బుక్ చేయండి" },
+      en: { kicker: cp ? cp.title : "Festive offer", hero: "Get your home\nfestival-ready", anchor: cp ? `${off(cp)} OFF · code ${cp.code}` : "₹0 fee on first booking", icons: ["🪔", "🧹", "❄️", "💡"],
+        ticks: ["Deep cleaning", "AC service", "Lights & wiring"], cta: "Scan to book a slot" },
+      hi: { kicker: cp ? cp.title : "त्योहार ऑफ़र", hero: "त्योहार के लिए\nघर तैयार करें", anchor: cp ? `${off(cp)} छूट · कोड ${cp.code}` : "पहली बुकिंग फ़ीस ₹0", icons: ["🪔", "🧹", "❄️", "💡"],
+        ticks: ["डीप क्लीनिंग", "AC सर्विस", "लाइट और वायरिंग"], cta: "स्कैन करके स्लॉट बुक करें" },
+    },
+  };
+  return T[a][lang];
+}
+
+const ACCENT: Record<ThemeKey, string> = { blue: "#2563eb", green: "#16a34a", orange: "#ea580c", purple: "#7c3aed" };
+
+/** White page, one accent colour, a huge headline, one anchor, icons, ticks, QR band. */
+function drawClean(canvas: HTMLCanvasElement, o: { copy: CleanCopy; theme: ThemeKey; format: Format; qr: HTMLImageElement | null;
+  area: string; phone: string; code: string; family: string }) {
+  const { w: W, h: H } = FORMATS[o.format];
+  canvas.width = W;
+  canvas.height = H;
+  const c = canvas.getContext("2d");
+  if (!c) return;
+  const u = W / 1080;
+  const accent = ACCENT[o.theme];
+  const F = (weight: number, size: number) => `${weight} ${Math.round(size * u)}px ${o.family}`;
+  const story = o.format === "story";
+  const square = o.format === "square";
+  const pad = (o.format === "feed" ? 96 : 80) * u;
+  const maxW = W - pad * 2;
+
+  c.fillStyle = "#fffdf8";
+  c.fillRect(0, 0, W, H);
+  // Soft accent blob, top right.
+  c.globalAlpha = 0.1;
+  c.fillStyle = accent;
+  c.beginPath(); c.arc(W * 0.92, H * 0.06, 300 * u, 0, Math.PI * 2); c.fill();
+  c.globalAlpha = 1;
+
+  let y = story ? H * 0.13 : 76 * u;
+  c.textBaseline = "top";
+  // Wordmark + area pill
+  c.fillStyle = accent;
+  roundRect(c, pad, y, 64 * u, 64 * u, 18 * u); c.fill();
+  c.fillStyle = "#fff";
+  c.font = F(800, 42); c.textAlign = "center";
+  c.fillText("D", pad + 32 * u, y + 10 * u);
+  c.textAlign = "left";
+  c.fillStyle = "#0f172a";
+  c.font = F(800, 40);
+  c.fillText("DutyPe", pad + 82 * u, y + 10 * u);
+  if (o.area) {
+    c.font = F(700, 28);
+    const t = `📍 ${o.area}`;
+    const tw = c.measureText(t).width;
+    c.fillStyle = "#f1f5f9";
+    roundRect(c, W - pad - tw - 40 * u, y + 6 * u, tw + 40 * u, 52 * u, 26 * u); c.fill();
+    c.fillStyle = "#334155";
+    c.fillText(t, W - pad - tw - 20 * u, y + 16 * u);
+  }
+  y += 64 * u + (square ? 40 : 70) * u;
+
+  // Kicker
+  c.font = F(700, 32);
+  c.fillStyle = accent;
+  c.fillText(o.copy.kicker, pad, y);
+  y += 56 * u;
+
+  // Fit: measure first; drop the icon row, then shrink the headline, until everything fits.
+  const bandH = (square ? 250 : 300) * u;
+  const bottom = story ? H * 0.86 : H - 40 * u;
+  const tickH = (square ? 48 : 58) * u;
+  let heroSize = square ? 92 : story ? 104 : 108;
+  let showIcons = !square;
+  const iconsH = () => Math.min((maxW - 24 * u * 3) / 4, 190 * u) + 44 * u;
+  const need = () => {
+    c.font = F(800, heroSize);
+    const lines = o.copy.hero.split("\n").reduce((n, raw) => n + wrap(c, raw, maxW).length, 0);
+    return 56 * u + lines * heroSize * 1.2 * u + 24 * u + 84 * u + (square ? 34 : 56) * u +
+      (showIcons ? iconsH() : 0) + o.copy.ticks.length * tickH + 30 * u + bandH;
+  };
+  if (y + need() > bottom) showIcons = false;
+  while (y + need() > bottom && heroSize > 60) heroSize -= 6;
+
+  // Hero headline (explicit lines, big)
+  c.font = F(800, heroSize);
+  c.fillStyle = "#0f172a";
+  for (const raw of o.copy.hero.split("\n")) {
+    for (const line of wrap(c, raw, maxW)) {
+      c.fillText(line, pad, y);
+      y += heroSize * 1.2 * u;
+    }
+  }
+  y += 24 * u;
+
+  // Anchor pill
+  c.font = F(800, square ? 38 : 44);
+  const aw = Math.min(c.measureText(o.copy.anchor).width + 60 * u, maxW);
+  c.fillStyle = accent;
+  roundRect(c, pad, y, aw, 84 * u, 42 * u); c.fill();
+  c.fillStyle = "#fff";
+  c.fillText(o.copy.anchor, pad + 30 * u, y + 18 * u, maxW - 60 * u);
+  y += 84 * u + (square ? 34 : 56) * u;
+
+  // Icon tiles
+  if (showIcons) {
+    const n = o.copy.icons.length;
+    const gap = 24 * u;
+    const tile = (maxW - gap * (n - 1)) / n;
+    const th = Math.min(tile, 190 * u);
+    o.copy.icons.forEach((ic, i) => {
+      const x = pad + i * (tile + gap);
+      c.fillStyle = "#f8fafc";
+      roundRect(c, x, y, tile, th, 32 * u); c.fill();
+      c.strokeStyle = "#e2e8f0"; c.lineWidth = 2 * u;
+      roundRect(c, x, y, tile, th, 32 * u); c.stroke();
+      c.font = F(400, 84);
+      c.textAlign = "center";
+      c.textBaseline = "middle";
+      c.fillText(ic, x + tile / 2, y + th / 2);
+      c.textAlign = "left";
+      c.textBaseline = "top";
+    });
+    y += th + 44 * u;
+  }
+
+  // Trust ticks
+  c.font = F(700, square ? 30 : 34);
+  for (const t of o.copy.ticks) {
+    c.fillStyle = "#16a34a";
+    c.beginPath(); c.arc(pad + 18 * u, y + 20 * u, 18 * u, 0, Math.PI * 2); c.fill();
+    c.fillStyle = "#fff";
+    c.font = F(800, 24);
+    c.fillText("✓", pad + 10 * u, y + 7 * u);
+    c.font = F(700, square ? 30 : 34);
+    c.fillStyle = "#334155";
+    c.fillText(t, pad + 54 * u, y + 2 * u);
+    y += tickH;
+  }
+
+  // QR band: at the bottom of the page, or right under the content (story: above the reply bar).
+  const bandY = story ? Math.min(Math.max(y + 30 * u, H * 0.5), bottom - bandH) : Math.min(Math.max(y + 30 * u, H - bandH - 50 * u), bottom - bandH);
+  c.fillStyle = "#0f172a";
+  roundRect(c, pad, bandY, maxW, bandH, 36 * u); c.fill();
+  const qs = bandH - 56 * u;
+  c.fillStyle = "#fff";
+  roundRect(c, pad + 28 * u, bandY + 28 * u, qs, qs, 20 * u); c.fill();
+  if (o.qr) c.drawImage(o.qr, pad + 40 * u, bandY + 40 * u, qs - 24 * u, qs - 24 * u);
+  const tx = pad + qs + 64 * u;
+  const tw = maxW - qs - 90 * u;
+  c.fillStyle = "#fff";
+  c.font = F(800, square ? 36 : 40);
+  let ty = bandY + 36 * u;
+  for (const l of wrap(c, o.copy.cta, tw).slice(0, 2)) { c.fillText(l, tx, ty); ty += 50 * u; }
+  c.font = F(700, 28);
+  c.fillStyle = "#cbd5e1";
+  c.fillText("Google Play → DutyPe", tx, ty + 8 * u);
+  ty += 46 * u;
+  if (o.code) { c.fillStyle = "#fde68a"; c.fillText(`Code ${o.code}`, tx, ty); ty += 40 * u; }
+  if (o.phone) { c.fillStyle = "#fff"; c.fillText(`📞 ${o.phone}`, tx, ty); }
+}
+
 type DrawOpts = { copy: Copy; theme: ThemeKey; format: Format; qr: HTMLImageElement | null; area: string; phone: string; code: string; family: string };
 
 function draw(canvas: HTMLCanvasElement, o: DrawOpts) {
@@ -417,6 +630,8 @@ export function AdminMarketingKit() {
   const [format, setFormat] = useState<Format>("feed");
   const [lang, setLang] = useState<Lang>("te");
   const [theme, setTheme] = useState<ThemeKey | "auto">("auto");
+  // "clean": white, one colour, big Telugu headline (default); "bold": full-colour gradient.
+  const [style, setStyle] = useState<"clean" | "bold">("clean");
   const [area, setArea] = useState("Khammam");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -479,10 +694,12 @@ export function AdminMarketingKit() {
       document.fonts.load(`800 40px ${deva.style.fontFamily}`),
       document.fonts.load(`400 40px ${telugu.style.fontFamily}`),
     ]).catch(() => null).then(() => {
-      if (alive) draw(canvas, { copy, theme: themeKey, format, qr, area, phone, code, family });
+      if (!alive) return;
+      if (style === "clean") drawClean(canvas, { copy: cleanCopyFor(audience, lang, x), theme: themeKey, format, qr, area, phone, code, family });
+      else draw(canvas, { copy, theme: themeKey, format, qr, area, phone, code, family });
     });
     return () => { alive = false; };
-  }, [copy, themeKey, format, qr, area, phone, code, family]);
+  }, [copy, x, style, audience, lang, themeKey, format, qr, area, phone, code, family]);
 
   function download() {
     const canvas = canvasRef.current;
@@ -544,6 +761,9 @@ export function AdminMarketingKit() {
           {([["te", "తెలుగు"], ["en", "English"], ["hi", "हिन्दी"]] as Array<[Lang, string]>).map(([k, l]) => (
             <button key={k} style={btn(lang === k)} onClick={() => setLang(k)}>{l}</button>
           ))}
+          <b style={{ width: 50, marginLeft: 16 }}>Style</b>
+          <button style={btn(style === "clean")} onClick={() => setStyle("clean")}>Clean</button>
+          <button style={btn(style === "bold")} onClick={() => setStyle("bold")}>Bold</button>
           <b style={{ width: 70, marginLeft: 16 }}>Colour</b>
           <button style={btn(theme === "auto")} onClick={() => setTheme("auto")}>Auto</button>
           {(Object.keys(THEMES) as ThemeKey[]).map((k) => (

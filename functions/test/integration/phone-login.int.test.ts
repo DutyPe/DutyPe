@@ -58,10 +58,13 @@ describe("WhatsApp OTP (emulator)", () => {
     respond = gatewayOk;
     // "Didn't get it? Send by SMS" right after the WhatsApp code: allowed at once.
     await call(login.sendWhatsappOtp)({ phone: "9876543210" }, app);
+    const whatsappCode = sentCode();
     const r = await call(login.sendWhatsappOtp)({ phone: "9876543210", channel: "sms" }, app);
+    assert.equal(r.sameCode, true, "a resend within 10 minutes sends the same code");
     assert.deepEqual([r.sent, r.channel], [true, "sms_gateway"]);
     const m = sent.at(-1)!.url.match(/2factor\.in\/API\/V1\/key1\/SMS\/9876543210\/(\d{6})\/DUTYPE_OTP$/);
     assert.ok(m, sent.at(-1)!.url);
+    assert.equal(m![1], whatsappCode, "the SMS carries the same digits as the WhatsApp message");
     const v = await call(login.verifyWhatsappOtp)({ phone: PHONE, code: m![1] }, app);
     assert.ok(v.token);
 

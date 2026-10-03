@@ -245,10 +245,10 @@
     <string name="auth_accept_terms_error">Please accept the Terms &amp; Conditions</string>
     <string name="select_role_headline">How will you use DutyPe?</string>
     <string name="select_role_subheadline">Choose how you want to use the app</string>
-    <string name="select_role_looking_for_work">I\'m Looking for Work</string>
-    <string name="select_role_worker_desc">Find daily jobs and instant gigs, get paid fast</string>
-    <string name="select_role_want_to_hire">I Want to Hire</string>
-    <string name="select_role_employer_desc">Post jobs, find workers nearby, manage hiring</string>
+    <string name="select_role_looking_for_work">I want work</string>
+    <string name="select_role_worker_desc">Jobs near you, urgent day work, part-time for students. Skilled? Earn more with home services.</string>
+    <string name="select_role_want_to_hire">I need workers or home services</string>
+    <string name="select_role_employer_desc">Hire staff for your shop or home, get someone in minutes, or book AC, cleaning, electrician and more.</string>
     <string name="auth_enter_mobile_number">Enter your mobile number</string>
     <string name="auth_we_will_send_otp">We\'ll send a 6-digit OTP</string>
     <string name="auth_or_divider">or</string>

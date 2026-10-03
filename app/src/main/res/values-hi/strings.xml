@@ -244,9 +244,9 @@
     <string name="select_role_headline">आप ड्यूटीपे का उपयोग कैसे करेंगे?</string>
     <string name="select_role_subheadline">ऐप का उपयोग करने का तरीका चुनें</string>
     <string name="select_role_looking_for_work">मुझे काम चाहिए</string>
-    <string name="select_role_worker_desc">रोज़ाना काम और तुरंत गिग्स खोजें, जल्दी कमाई करें</string>
-    <string name="select_role_want_to_hire">मुझे वर्कर चाहिए</string>
-    <string name="select_role_employer_desc">काम पोस्ट करें, पास के वर्कर खोजें और काम कराएं</string>
+    <string name="select_role_worker_desc">पास की नौकरियाँ, अर्जेंट दिन का काम, छात्रों के लिए पार्ट-टाइम। हुनर है? घरेलू सेवाओं से ज़्यादा कमाएँ।</string>
+    <string name="select_role_want_to_hire">मुझे कामगार या घरेलू सेवा चाहिए</string>
+    <string name="select_role_employer_desc">दुकान या घर के लिए स्टाफ़, मिनटों में कोई व्यक्ति, या AC, सफ़ाई, इलेक्ट्रीशियन जैसी घरेलू सेवाएँ बुक करें।</string>
     <string name="auth_enter_mobile_number">अपना मोबाइल नंबर दर्ज करें</string>
     <string name="auth_we_will_send_otp">हम 6 अंकों का ओटीपी भेजेंगे</string>
     <string name="auth_or_divider">या</string>

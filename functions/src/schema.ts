@@ -533,11 +533,22 @@ export const OtpCodes = {
   ATTEMPTS: "attempts",
   /** "whatsapp" | "sms": where the current code went. */
   CHANNEL: "channel",
+  /** The code, encrypted, so a resend within the window sends the same digits. */
+  SEALED: "sealed",
+  /** When this code was first made (a code lives at most 30 minutes). */
+  ISSUED_AT: "issuedAt",
   LAST_SENT_AT: "lastSentAt",
   HOUR_START: "hourStart",
   HOUR_COUNT: "hourCount",
   DAY_KEY: "dayKey",
   DAY_COUNT: "dayCount",
+  EXPIRE_AT: "expireAt",
+} as const;
+
+/** otp_ip/{hash(ip)_hour} — codes requested from one internet address in one hour (anti-abuse). */
+export const OtpIp = {
+  COLLECTION: "otp_ip",
+  COUNT: "count",
   EXPIRE_AT: "expireAt",
 } as const;
 

@@ -6,7 +6,7 @@
  * Also imported by the web admin (web/lib/firebase/schema.ts re-exports this file's shape).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CATEGORY_KEYS = exports.MAX_PAY_RUPEES = exports.Values = exports.Idempotency = exports.TruecallerProfiles = exports.OtpDaily = exports.OtpCodes = exports.LocationDemand = exports.Announcements = exports.PartnerLedger = exports.PartnerTopups = exports.ServicePartners = exports.ServiceBookingSecrets = exports.CouponUses = exports.ServiceBookings = exports.AppConfig = exports.PaymentQrCodes = exports.SubscriptionPayments = exports.WithdrawalDaily = exports.Withdrawals = exports.WalletLedger = exports.Wallets = exports.Referrals = exports.ReferralCodes = exports.InstantRequests = exports.Ratings = exports.Notifications = exports.SavedJobs = exports.Applications = exports.JobDetails = exports.Jobs = exports.JobContacts = exports.EmployerCards = exports.EmployerProfiles = exports.WorkerCards = exports.WorkerProfiles = exports.UserTokens = exports.PhoneRoles = void 0;
+exports.CATEGORY_KEYS = exports.MAX_PAY_RUPEES = exports.Values = exports.Idempotency = exports.TruecallerProfiles = exports.OtpDaily = exports.OtpIp = exports.OtpCodes = exports.LocationDemand = exports.Announcements = exports.PartnerLedger = exports.PartnerTopups = exports.ServicePartners = exports.ServiceBookingSecrets = exports.CouponUses = exports.ServiceBookings = exports.AppConfig = exports.PaymentQrCodes = exports.SubscriptionPayments = exports.WithdrawalDaily = exports.Withdrawals = exports.WalletLedger = exports.Wallets = exports.Referrals = exports.ReferralCodes = exports.InstantRequests = exports.Ratings = exports.Notifications = exports.SavedJobs = exports.Applications = exports.JobDetails = exports.Jobs = exports.JobContacts = exports.EmployerCards = exports.EmployerProfiles = exports.WorkerCards = exports.WorkerProfiles = exports.UserTokens = exports.PhoneRoles = void 0;
 exports.PhoneRoles = {
     COLLECTION: "phoneRoles",
     UID: "uid",
@@ -504,11 +504,21 @@ exports.OtpCodes = {
     ATTEMPTS: "attempts",
     /** "whatsapp" | "sms": where the current code went. */
     CHANNEL: "channel",
+    /** The code, encrypted, so a resend within the window sends the same digits. */
+    SEALED: "sealed",
+    /** When this code was first made (a code lives at most 30 minutes). */
+    ISSUED_AT: "issuedAt",
     LAST_SENT_AT: "lastSentAt",
     HOUR_START: "hourStart",
     HOUR_COUNT: "hourCount",
     DAY_KEY: "dayKey",
     DAY_COUNT: "dayCount",
+    EXPIRE_AT: "expireAt",
+};
+/** otp_ip/{hash(ip)_hour} — codes requested from one internet address in one hour (anti-abuse). */
+exports.OtpIp = {
+    COLLECTION: "otp_ip",
+    COUNT: "count",
     EXPIRE_AT: "expireAt",
 };
 /** otp_daily/{YYYY-MM-DD} — WhatsApp codes sent per day across all users (spend cap). */

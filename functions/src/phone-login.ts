@@ -25,10 +25,10 @@ import * as admin from "firebase-admin";
 import { onCallSecured } from "./secure-callable";
 import { fail, obj, str } from "./lib/input";
 import {
-  CODE_TTL_MS, MAX_VERIFY_ATTEMPTS, codeMatches, decideSend, hashCode, indianE164, istDayKey, newCode,
-  parseTruecallerUserInfo, smsGatewayConfigured, smsGatewayRequest, whatsappConfigured, whatsappTemplateBody,
+  CODE_TTL_MS, MAX_PER_IP_HOUR, MAX_VERIFY_ATTEMPTS, codeMatches, decideSend, hashCode, indianE164, ipKey, istDayKey,
+  newCode, openCode, parseTruecallerUserInfo, resentExpiry, reuseCode, sealCode, smsGatewayConfigured, smsGatewayRequest, whatsappConfigured, whatsappTemplateBody,
 } from "./lib/phone-otp";
-import { EmployerProfiles, OtpCodes, OtpDaily, PhoneRoles, TruecallerProfiles, Values, WorkerProfiles } from "./schema";
+import { EmployerProfiles, OtpCodes, OtpDaily, OtpIp, PhoneRoles, TruecallerProfiles, Values, WorkerProfiles } from "./schema";
 
 const db = admin.firestore();
 const { Timestamp } = admin.firestore;
@@ -133,10 +133,11 @@ async function sendOnSmsGateway(phone: string, code: string): Promise<boolean> {
  */
 export const sendWhatsappOtp = onCallSecured(
   { requireAuth: false, enforceAppCheck: false, timeoutSeconds: 25, secrets: [WHATSAPP_SECRET] },
-  async (raw: unknown) => {
+  async (raw: unknown, context) => {
     const data = obj(raw);
     const phone = indianE164(data.phone);
     if (!phone) fail("invalid-argument", "Enter a valid 10-digit mobile number");
+    const ip = String((context as { rawRequest?: { ip?: string } } | undefined)?.rawRequest?.ip || "");
     const wantSms = data.channel === "sms";
     const useWhatsapp = !wantSms && whatsappConfigured();
     const useSms = smsGatewayConfigured();
@@ -150,11 +151,15 @@ export const sendWhatsappOtp = onCallSecured(
     const now = Date.now();
     const waCap = Number(process.env.WHATSAPP_DAILY_CAP || 3000);
     const smsCap = Number(process.env.SMS_DAILY_CAP || 2000);
-    const code = newCode();
+    let code = newCode();
     const codeRef = db.collection(OtpCodes.COLLECTION).doc(phone);
     const dayRef = db.collection(OtpDaily.COLLECTION).doc(istDayKey(now));
+    const ipRef = ip ? db.collection(OtpIp.COLLECTION).doc(ipKey(ip, now)) : null;
     const decision = await db.runTransaction(async (tx) => {
-      const [prev, day] = await Promise.all([tx.get(codeRef), tx.get(dayRef)]);
+      const [prev, day, ipDoc] = await Promise.all([tx.get(codeRef), tx.get(dayRef), ipRef ? tx.get(ipRef) : Promise.resolve(null)]);
+      if (ipDoc && Number(ipDoc.get(OtpIp.COUNT) || 0) >= MAX_PER_IP_HOUR) {
+        return { ok: false as const, reason: "ip" as const, retryAfterSec: 3600 };
+      }
       const waLeft = useWhatsapp && Number(day.get(OtpDaily.COUNT) || 0) < waCap;
       const smsLeft = useSms && Number(day.get(OtpDaily.SMS_COUNT) || 0) < smsCap;
       if (!waLeft && !smsLeft) return { ok: false as const, reason: "cap" as const, retryAfterSec: 0 };
@@ -168,10 +173,21 @@ export const sendWhatsappOtp = onCallSecured(
       } : null, now);
       if (!d.ok) return d;
       const channel = waLeft ? "whatsapp" : "sms";
+      // Resend within the window: the same digits, 10 more minutes (max 30 from the first send).
+      const issuedAt = Number(prev.get(OtpCodes.ISSUED_AT) || 0);
+      const previous = prev.exists && reuseCode({
+        hasCode: Boolean(prev.get(OtpCodes.HASH)) && Boolean(prev.get(OtpCodes.SEALED)),
+        expiresAt: Number(prev.get(OtpCodes.EXPIRES_AT) || 0),
+        issuedAt,
+        attempts: Number(prev.get(OtpCodes.ATTEMPTS) || 0),
+      }, now) ? openCode(String(prev.get(OtpCodes.SEALED))) : null;
+      if (previous) code = previous;
       tx.set(codeRef, {
         [OtpCodes.HASH]: hashCode(phone, code),
-        [OtpCodes.EXPIRES_AT]: now + CODE_TTL_MS,
-        [OtpCodes.ATTEMPTS]: 0,
+        [OtpCodes.SEALED]: previous ? prev.get(OtpCodes.SEALED) : sealCode(code),
+        [OtpCodes.ISSUED_AT]: previous ? issuedAt : now,
+        [OtpCodes.EXPIRES_AT]: previous ? resentExpiry(issuedAt, now) : now + CODE_TTL_MS,
+        [OtpCodes.ATTEMPTS]: previous ? Number(prev.get(OtpCodes.ATTEMPTS) || 0) : 0,
         [OtpCodes.CHANNEL]: channel,
         [OtpCodes.LAST_SENT_AT]: d.next.lastSentAt,
         [OtpCodes.HOUR_START]: d.next.hourStart,
@@ -184,7 +200,11 @@ export const sendWhatsappOtp = onCallSecured(
         [channel === "whatsapp" ? OtpDaily.COUNT : OtpDaily.SMS_COUNT]: admin.firestore.FieldValue.increment(1),
         [OtpDaily.EXPIRE_AT]: Timestamp.fromMillis(now + 7 * DAY_MS),
       }, { merge: true });
-      return { ...d, channel, smsLeft };
+      if (ipRef) {
+        tx.set(ipRef, { [OtpIp.COUNT]: admin.firestore.FieldValue.increment(1),
+          [OtpIp.EXPIRE_AT]: Timestamp.fromMillis(now + 2 * 60 * 60 * 1000) }, { merge: true });
+      }
+      return { ...d, channel, smsLeft, reused: Boolean(previous) };
     });
 
     if (!decision.ok) {
@@ -193,10 +213,11 @@ export const sendWhatsappOtp = onCallSecured(
       if (decision.reason === "wait") {
         return { sent: false, channel: wantSms ? "sms_gateway" : "whatsapp", retryAfterSec: decision.retryAfterSec };
       }
+      if (decision.reason === "ip") fail("resource-exhausted", "Too many login requests from this network. Please try again in an hour.");
       fail("resource-exhausted", "Too many codes for this number. Please try again later.");
     }
     if (decision.channel === "whatsapp" && await sendOnWhatsapp(phone, code)) {
-      return { sent: true, channel: "whatsapp", expiresInSec: CODE_TTL_MS / 1000 };
+      return { sent: true, channel: "whatsapp", expiresInSec: CODE_TTL_MS / 1000, sameCode: decision.reused };
     }
     // WhatsApp failed (or SMS was asked for): same code by our SMS gateway.
     if ((decision.channel === "sms" || decision.smsLeft) && await sendOnSmsGateway(phone, code)) {
@@ -205,9 +226,10 @@ export const sendWhatsappOtp = onCallSecured(
           .set({ [OtpDaily.SMS_COUNT]: admin.firestore.FieldValue.increment(1) }, { merge: true }).catch(() => undefined);
       }
       await codeRef.update({ [OtpCodes.CHANNEL]: "sms" }).catch(() => undefined);
-      return { sent: true, channel: "sms_gateway", expiresInSec: CODE_TTL_MS / 1000 };
+      return { sent: true, channel: "sms_gateway", expiresInSec: CODE_TTL_MS / 1000, sameCode: decision.reused };
     }
-    await codeRef.update({ [OtpCodes.HASH]: "" }).catch(() => undefined);
+    // A fresh code nobody received is cancelled; a resent one may still be on the phone, so it stays.
+    if (!decision.reused) await codeRef.update({ [OtpCodes.HASH]: "", [OtpCodes.SEALED]: "" }).catch(() => undefined);
     return { sent: false, channel: "sms" };
   },
 );
@@ -232,7 +254,7 @@ export const verifyWhatsappOtp = onCallSecured(
         return attempts + 1 >= MAX_VERIFY_ATTEMPTS ? "locked" : "wrong";
       }
       // One use only; keep the send counters for the rate limits.
-      tx.update(codeRef, { [OtpCodes.HASH]: "", [OtpCodes.ATTEMPTS]: 0 });
+      tx.update(codeRef, { [OtpCodes.HASH]: "", [OtpCodes.SEALED]: "", [OtpCodes.ATTEMPTS]: 0 });
       return "ok";
     });
     if (result === "expired") fail("deadline-exceeded", "This code has expired. Please request a new one.");
