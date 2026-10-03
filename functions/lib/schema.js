@@ -6,7 +6,7 @@
  * Also imported by the web admin (web/lib/firebase/schema.ts re-exports this file's shape).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CATEGORY_KEYS = exports.MAX_PAY_RUPEES = exports.Values = exports.Idempotency = exports.TruecallerProfiles = exports.OtpDaily = exports.OtpIp = exports.OtpCodes = exports.LocationDemand = exports.Announcements = exports.PartnerLedger = exports.PartnerTopups = exports.ServicePartners = exports.ServiceBookingSecrets = exports.CouponUses = exports.ServiceBookings = exports.AppConfig = exports.PaymentQrCodes = exports.SubscriptionPayments = exports.WithdrawalDaily = exports.Withdrawals = exports.WalletLedger = exports.Wallets = exports.Referrals = exports.ReferralCodes = exports.InstantRequests = exports.Ratings = exports.Notifications = exports.SavedJobs = exports.Applications = exports.JobDetails = exports.Jobs = exports.JobContacts = exports.EmployerCards = exports.EmployerProfiles = exports.WorkerCards = exports.WorkerProfiles = exports.UserTokens = exports.PhoneRoles = void 0;
+exports.CATEGORY_KEYS = exports.MAX_PAY_RUPEES = exports.Values = exports.Idempotency = exports.TruecallerProfiles = exports.WhatsappCampaigns = exports.WhatsappPrefs = exports.OtpDaily = exports.OtpIp = exports.OtpCodes = exports.LocationDemand = exports.Announcements = exports.PartnerLedger = exports.PartnerTopups = exports.ServicePartners = exports.ServiceBookingSecrets = exports.CouponUses = exports.ServiceBookings = exports.AppConfig = exports.PaymentQrCodes = exports.SubscriptionPayments = exports.WithdrawalDaily = exports.Withdrawals = exports.WalletLedger = exports.Wallets = exports.Referrals = exports.ReferralCodes = exports.InstantRequests = exports.Ratings = exports.Notifications = exports.SavedJobs = exports.Applications = exports.JobDetails = exports.Jobs = exports.JobContacts = exports.EmployerCards = exports.EmployerProfiles = exports.WorkerCards = exports.WorkerProfiles = exports.UserTokens = exports.PhoneRoles = void 0;
 exports.PhoneRoles = {
     COLLECTION: "phoneRoles",
     UID: "uid",
@@ -521,13 +521,49 @@ exports.OtpIp = {
     COUNT: "count",
     EXPIRE_AT: "expireAt",
 };
-/** otp_daily/{YYYY-MM-DD} — WhatsApp codes sent per day across all users (spend cap). */
+/** otp_daily/{YYYY-MM-DD} — WhatsApp / SMS messages sent per day across all users (spend caps). */
 exports.OtpDaily = {
     COLLECTION: "otp_daily",
     COUNT: "count",
     /** Codes sent by our SMS gateway that day (separate cap). */
     SMS_COUNT: "smsCount",
+    /** WhatsApp service updates (booking confirmed) that day. */
+    UTILITY_COUNT: "utilityCount",
+    /** WhatsApp offers that day. */
+    PROMO_COUNT: "promoCount",
     EXPIRE_AT: "expireAt",
+};
+/**
+ * whatsapp_prefs/{uid} — "WhatsApp offers" switch in Settings (server only). Off until the user
+ * switches it on; consentAt / optedOutAt keep the record of the choice.
+ */
+exports.WhatsappPrefs = {
+    COLLECTION: "whatsapp_prefs",
+    PROMOS: "promos",
+    PHONE: "phone",
+    LANGUAGE: "language",
+    /** WORKER / EMPLOYER / PARTNER, for choosing who gets an offer. */
+    ROLES: "roles",
+    CONSENT_AT: "consentAt",
+    OPTED_OUT_AT: "optedOutAt",
+    /** "app" or "whatsapp_stop". */
+    SOURCE: "source",
+    LAST_PROMO_AT: "lastPromoAt",
+    UPDATED_AT: "updatedAt",
+};
+/** whatsapp_campaigns/{id} — one admin offer send (who, how many, result). */
+exports.WhatsappCampaigns = {
+    COLLECTION: "whatsapp_campaigns",
+    TEMPLATE: "template",
+    LANGS: "langs",
+    PARAMS: "params",
+    AUDIENCE: "audience",
+    MATCHED: "matched",
+    SENT: "sent",
+    FAILED: "failed",
+    SKIPPED_RECENT: "skippedRecent",
+    BY: "by",
+    CREATED_AT: "createdAt",
 };
 /** truecaller_profiles/{uid} — what the user shared through Truecaller (server only). */
 exports.TruecallerProfiles = {

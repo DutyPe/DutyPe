@@ -1465,7 +1465,7 @@
 • లొకేషన్ డేటా: సమీప ఉద్యోగాలను చూపించడానికి GPS లొకేషన్ (అనుమతితో).
 • పరికర OS మరియు నోటిఫికేషన్ టోకెన్లు.</string>
     <string name="policy_privacy_s2_title">మేము మీ డేటాను ఎలా ఉపయోగిస్తాము</string>
-    <string name="policy_privacy_s2_content">డేటా వర్కర్లను సమీప ఉద్యోగాలతో జత చేయడానికి, యజమానులు మరియు వర్కర్ల మధ్య ఫోన్ సంప్రదింపులను ప్రారంభించడానికి మాత్రమే ఉపయోగించబడుతుంది.</string>
+    <string name="policy_privacy_s2_content">డేటా వర్కర్లను సమీప ఉద్యోగాలతో జత చేయడానికి, యజమానులు మరియు వర్కర్ల మధ్య ఫోన్ సంప్రదింపులను ప్రారంభించడానికి మాత్రమే ఉపయోగించబడుతుంది. లాగిన్ కోడ్‌లు, DutyPe సర్వీస్ బుకింగ్ నిర్ధారణలు వాట్సాప్ లేదా SMS ద్వారా పంపుతాం. ఆఫర్లు, పండుగ శుభాకాంక్షలు మీరు సెట్టింగ్స్‌లో “వాట్సాప్ ఆఫర్లు” ఆన్ చేస్తేనే వస్తాయి (వారానికి ఒక్కసారి మించవు); అక్కడ ఆఫ్ చేయండి లేదా ఎప్పుడైనా STOP అని రిప్లై చేయండి.</string>
     <string name="policy_privacy_s3_title">డేటా రక్షణ &amp; నాన్-సేల్ గ్యారంటీ</string>
     <string name="policy_privacy_s3_content">మేము మీ వ్యక్తిగత డేటాను ఎప్పుడూ మూడవ పక్షాలకు విక్రయించము. డేటా Google Firebase మౌలిక సదుపాయాలపై సురక్షితంగా నిల్వ చేయబడుతుంది.</string>
     <string name="policy_privacy_s4_title">భద్రత &amp; ఎన్‌క్రిప్షన్</string>
@@ -2170,7 +2170,7 @@
     <string name="settings_legal">చట్టపరమైన సమాచారం</string>
     <string name="dark_mode">డార్క్ మోడ్</string>
     <string name="push_notifications">పుష్ నోటిఫికేషన్లు</string>
-    <string name="whatsapp_alerts">వాట్సాప్ అలర్ట్‌లు</string>
+    <string name="whatsapp_alerts">వాట్సాప్‌లో ఆఫర్లు &amp; శుభాకాంక్షలు</string>
     <string name="policy_last_updated_short">చివరిగా నవీకరించబడింది: సెప్టెంబర్ 2026</string>
     <string name="permission_location_label">లొకేషన్</string>
     <string name="permission_location_desc">దగ్గర్లోని పనులను చూపించడానికి మాత్రమే ఉపయోగిస్తారు</string>
@@ -2886,4 +2886,6 @@
     <string name="svc_offer_fee_from_credits">DutyPe ఫీజు (మీ క్రెడిట్స్ నుండి)</string>
     <string name="svc_offer_you_keep">మీకు మిగిలేది</string>
     <string name="svc_offer_discount_note">కస్టమర్‌కి ఇచ్చిన ₹%1$d ఆఫర్ DutyPe ఫీజు నుండే – మీ సంపాదన మారదు.</string>
+    <string name="whatsapp_offers_sub">పండుగ ఆఫర్లు, DutyPe వార్తలు వాట్సాప్‌లో — వారానికి ఒక్కసారి మాత్రమే. ఎప్పుడైనా STOP అని రిప్లై చేసి ఆపవచ్చు. సర్వీస్ బుకింగ్ నిర్ధారణలు ఎలాగూ వస్తాయి.</string>
+    <string name="whatsapp_offers_failed">సేవ్ కాలేదు. ఇంటర్నెట్ చూసి మళ్ళీ ప్రయత్నించండి.</string>
 </resources>

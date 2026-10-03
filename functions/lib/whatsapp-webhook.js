@@ -4,6 +4,8 @@ exports.whatsappWebhook = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto_1 = require("crypto");
+const whatsapp_1 = require("./lib/whatsapp");
+const whatsapp_messages_1 = require("./whatsapp-messages");
 /**
  * Optional settings (functions/.env.<project>):
  *   WHATSAPP_VERIFY_TOKEN  the "Verify token" typed in Meta's webhook setup; when set, only Meta can verify.
@@ -72,6 +74,12 @@ exports.whatsappWebhook = functions
         try {
             const body = req.body;
             functions.logger.info("WhatsApp Webhook POST event", { statuses: (_g = (_f = (_e = (_d = (_c = (_b = (_a = body === null || body === void 0 ? void 0 : body.entry) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.changes) === null || _c === void 0 ? void 0 : _c[0]) === null || _d === void 0 ? void 0 : _d.value) === null || _e === void 0 ? void 0 : _e.statuses) === null || _f === void 0 ? void 0 : _f.length) !== null && _g !== void 0 ? _g : 0 });
+            // "STOP" replies switch WhatsApp offers off for that number.
+            const stopped = (0, whatsapp_1.optOutNumbers)(body);
+            if (stopped.length) {
+                const n = await (0, whatsapp_messages_1.stopWhatsappPromos)(stopped);
+                functions.logger.info(`WhatsApp offers switched off by STOP reply: ${n}`);
+            }
             const entry = (_h = body === null || body === void 0 ? void 0 : body.entry) === null || _h === void 0 ? void 0 : _h[0];
             const change = (_j = entry === null || entry === void 0 ? void 0 : entry.changes) === null || _j === void 0 ? void 0 : _j[0];
             const value = change === null || change === void 0 ? void 0 : change.value;

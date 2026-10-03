@@ -63,6 +63,7 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
     label: "People & Directory",
     links: [
       { href: "/admin/users", label: "Users", icon: Users, summary: "Accounts, roles, and verification status." },
+      { href: "/admin/whatsapp-offers", label: "WhatsApp Offers", icon: MessageSquare, summary: "Offers & festival wishes to users who opted in." },
       { href: "/admin/whatsapp-groups", label: "WhatsApp Broadcasts", icon: MessageSquare, summary: "Export Worker/Employer broadcast contacts." },
       { href: "/admin/phone-roles", label: "Phone Roles", icon: PhoneCall, summary: "Phone number role mapping records." },
       { href: "/admin/delete-user-by-phone", label: "Delete by Phone", icon: UserX, summary: "Emergency account data cleanup." },

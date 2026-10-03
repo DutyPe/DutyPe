@@ -1495,7 +1495,7 @@
 • स्थान डेटा: पास की नौकरियां दिखाने के लिए जीपीएस स्थान (आपकी अनुमति से)।
 • तकनीकी डेटा: डिवाइस ओएस और नोटिफिकेशन टोकन।</string>
     <string name="policy_privacy_s2_title">हम आपके डेटा का उपयोग कैसे करते हैं</string>
-    <string name="policy_privacy_s2_content">डेटा का उपयोग केवल श्रमिकों को पास की नौकरियों से मिलाने और नियोक्ताओं तथा श्रमिकों के बीच संपर्क सक्षम करने के लिए किया जाता है।</string>
+    <string name="policy_privacy_s2_content">डेटा का उपयोग केवल श्रमिकों को पास की नौकरियों से मिलाने और नियोक्ताओं तथा श्रमिकों के बीच संपर्क सक्षम करने के लिए किया जाता है। लॉगिन कोड और DutyPe सर्विस बुकिंग की पुष्टि व्हाट्सएप या SMS पर भेजी जाती है। ऑफ़र और त्योहार की शुभकामनाएँ तभी आएँगी जब आप सेटिंग्स में “व्हाट्सएप ऑफ़र” चालू करें (हफ़्ते में एक बार से ज़्यादा नहीं); वहीं बंद करें या कभी भी STOP लिखें।</string>
     <string name="policy_privacy_s3_title">डेटा सुरक्षा और गैर-बिक्री गारंटी</string>
     <string name="policy_privacy_s3_content">हम आपका व्यक्तिगत डेटा कभी भी तीसरे पक्ष को नहीं बेचते हैं। डेटा गूगल फायरबेस पर सुरक्षित रूप से संग्रहीत किया जाता है।</string>
     <string name="policy_privacy_s4_title">सुरक्षा और एन्क्रिप्शन</string>
@@ -2168,7 +2168,7 @@
     <string name="settings_legal">कानूनी जानकारी</string>
     <string name="dark_mode">डार्क मोड</string>
     <string name="push_notifications">पुश सूचनाएं</string>
-    <string name="whatsapp_alerts">व्हाट्सएप अलर्ट</string>
+    <string name="whatsapp_alerts">व्हाट्सएप पर ऑफ़र &amp; शुभकामनाएँ</string>
     <string name="policy_last_updated_short">अंतिम अपडेट: सितंबर 2026</string>
     <string name="permission_location_label">लोकेशन</string>
     <string name="permission_location_desc">केवल नजदीकी काम दिखाने के लिए उपयोग किया जाता है</string>
@@ -2884,4 +2884,6 @@
     <string name="svc_offer_fee_from_credits">DutyPe फ़ीस (आपके क्रेडिट से)</string>
     <string name="svc_offer_you_keep">आपके पास बचेगा</string>
     <string name="svc_offer_discount_note">ग्राहक का ₹%1$d ऑफ़र DutyPe की फ़ीस से जाता है – आपकी कमाई वही रहती है।</string>
+    <string name="whatsapp_offers_sub">त्योहार ऑफ़र और DutyPe खबरें व्हाट्सएप पर — हफ़्ते में ज़्यादा से ज़्यादा एक बार। कभी भी STOP लिखकर बंद करें। सर्विस बुकिंग की पुष्टि वैसे भी आएगी।</string>
+    <string name="whatsapp_offers_failed">सेव नहीं हुआ। इंटरनेट देखकर फिर कोशिश करें।</string>
 </resources>

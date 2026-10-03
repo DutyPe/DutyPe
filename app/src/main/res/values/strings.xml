@@ -1535,7 +1535,7 @@
 • Location Data: GPS and coarse location (with explicit consent) to display nearby job postings.
 • Technical Data: Device OS and notification tokens.</string>
     <string name="policy_privacy_s2_title">How We Use Your Data</string>
-    <string name="policy_privacy_s2_content">Data is used strictly to match workers with nearby jobs, enable phone contact between hiring employers and matched workers, and dispatch duty status updates.</string>
+    <string name="policy_privacy_s2_content">Data is used strictly to match workers with nearby jobs, enable phone contact between hiring employers and matched workers, and dispatch duty status updates. We send login codes and DutyPe Services booking confirmations on WhatsApp or SMS. Offers and festival wishes on WhatsApp come only if you switch on “WhatsApp offers” in Settings (at most once a week); switch it off there or reply STOP anytime.</string>
     <string name="policy_privacy_s3_title">Data Protection &amp; Non-Sale Guarantee</string>
     <string name="policy_privacy_s3_content">We NEVER sell your personal data to third parties. Data is shared exclusively between matched Employers and Workers for hiring, and stored securely on Google Firebase infrastructure.</string>
     <string name="policy_privacy_s4_title">Security &amp; Encryption</string>
@@ -2218,7 +2218,7 @@
     <string name="settings_legal">Legal</string>
     <string name="dark_mode">Dark Mode</string>
     <string name="push_notifications">Push Notifications</string>
-    <string name="whatsapp_alerts">WhatsApp Alerts</string>
+    <string name="whatsapp_alerts">WhatsApp offers &amp; wishes</string>
     <string name="policy_last_updated_short">Last updated: Sep 2026</string>
     <string name="permission_location_label">Location</string>
     <string name="permission_location_desc">Used only to show nearby jobs</string>
@@ -2934,4 +2934,6 @@
     <string name="svc_offer_fee_from_credits">DutyPe fee (from your credits)</string>
     <string name="svc_offer_you_keep">You keep</string>
     <string name="svc_offer_discount_note">The customer\'s ₹%1$d offer is paid from DutyPe\'s fee – your earning stays the same.</string>
+    <string name="whatsapp_offers_sub">Festival offers and DutyPe news on WhatsApp, at most once a week. Reply STOP to end anytime. Service booking confirmations come anyway.</string>
+    <string name="whatsapp_offers_failed">Could not save. Check your internet and try again.</string>
 </resources>

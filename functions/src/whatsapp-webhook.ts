@@ -1,6 +1,8 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { createHmac, timingSafeEqual } from "crypto";
+import { optOutNumbers } from "./lib/whatsapp";
+import { stopWhatsappPromos } from "./whatsapp-messages";
 
 /**
  * Optional settings (functions/.env.<project>):
@@ -72,6 +74,13 @@ export const whatsappWebhook = functions
       try {
         const body = req.body;
         functions.logger.info("WhatsApp Webhook POST event", { statuses: body?.entry?.[0]?.changes?.[0]?.value?.statuses?.length ?? 0 });
+
+        // "STOP" replies switch WhatsApp offers off for that number.
+        const stopped = optOutNumbers(body);
+        if (stopped.length) {
+          const n = await stopWhatsappPromos(stopped);
+          functions.logger.info(`WhatsApp offers switched off by STOP reply: ${n}`);
+        }
 
         const entry = body?.entry?.[0];
         const change = entry?.changes?.[0];

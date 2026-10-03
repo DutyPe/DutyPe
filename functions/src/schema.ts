@@ -552,13 +552,51 @@ export const OtpIp = {
   EXPIRE_AT: "expireAt",
 } as const;
 
-/** otp_daily/{YYYY-MM-DD} — WhatsApp codes sent per day across all users (spend cap). */
+/** otp_daily/{YYYY-MM-DD} — WhatsApp / SMS messages sent per day across all users (spend caps). */
 export const OtpDaily = {
   COLLECTION: "otp_daily",
   COUNT: "count",
   /** Codes sent by our SMS gateway that day (separate cap). */
   SMS_COUNT: "smsCount",
+  /** WhatsApp service updates (booking confirmed) that day. */
+  UTILITY_COUNT: "utilityCount",
+  /** WhatsApp offers that day. */
+  PROMO_COUNT: "promoCount",
   EXPIRE_AT: "expireAt",
+} as const;
+
+/**
+ * whatsapp_prefs/{uid} — "WhatsApp offers" switch in Settings (server only). Off until the user
+ * switches it on; consentAt / optedOutAt keep the record of the choice.
+ */
+export const WhatsappPrefs = {
+  COLLECTION: "whatsapp_prefs",
+  PROMOS: "promos",
+  PHONE: "phone",
+  LANGUAGE: "language",
+  /** WORKER / EMPLOYER / PARTNER, for choosing who gets an offer. */
+  ROLES: "roles",
+  CONSENT_AT: "consentAt",
+  OPTED_OUT_AT: "optedOutAt",
+  /** "app" or "whatsapp_stop". */
+  SOURCE: "source",
+  LAST_PROMO_AT: "lastPromoAt",
+  UPDATED_AT: "updatedAt",
+} as const;
+
+/** whatsapp_campaigns/{id} — one admin offer send (who, how many, result). */
+export const WhatsappCampaigns = {
+  COLLECTION: "whatsapp_campaigns",
+  TEMPLATE: "template",
+  LANGS: "langs",
+  PARAMS: "params",
+  AUDIENCE: "audience",
+  MATCHED: "matched",
+  SENT: "sent",
+  FAILED: "failed",
+  SKIPPED_RECENT: "skippedRecent",
+  BY: "by",
+  CREATED_AT: "createdAt",
 } as const;
 
 /** truecaller_profiles/{uid} — what the user shared through Truecaller (server only). */

@@ -33,6 +33,8 @@ import { fail, int, latLng, obj, str, stringList, text } from "./lib/input";
 import { distanceKm } from "./lib/geo";
 import { placeOf } from "./lib/places";
 import { notify } from "./lib/notify";
+import { WHATSAPP_TOKEN_SECRET } from "./lib/whatsapp";
+import { whatsappServiceAssigned } from "./whatsapp-messages";
 import { normalizeLocale, tBody, tTitle } from "./notification-i18n";
 import { isCallerAdmin } from "./app-config";
 import {
@@ -694,7 +696,7 @@ export const getServiceOffer = onCallSecured({ timeoutSeconds: 10 }, async (raw:
   };
 });
 
-export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20 }, async (raw: unknown, context) => {
+export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20, secrets: [WHATSAPP_TOKEN_SECRET] }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   const config = await loadConfig();
   const bookingId = str(obj(raw), "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
@@ -747,6 +749,8 @@ export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20 }, async 
     await tellCustomer(String(d[BK.CUSTOMER_ID]), bookingId, "SERVICE_ASSIGNED", {
       partner: String(d[BK.PARTNER_NAME]), service: String(d[BK.SERVICE_NAME]),
     });
+    // Services only: a WhatsApp confirmation to both sides (~₹0.13 each), when the templates are set up.
+    await whatsappServiceAssigned(d);
   }
   return {
     result: "accepted",

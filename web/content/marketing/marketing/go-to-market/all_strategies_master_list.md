@@ -41,7 +41,13 @@
 - ✅ WhatsApp code first (~₹0.12), then the same code by our SMS gateway (~₹0.2), Firebase SMS (~₹6.7) only as a last resort.
 - ✅ A code works 10 minutes; "resend" sends the same code (up to 30 minutes); waits grow 30 s → 60 s → 2 min → 5 min; 5 codes/hour and 10/day per number; 5 wrong tries lock the code; 20 requests/hour per network; daily spend caps.
 - ✅ Truecaller one-tap login.
-- 📋 Register a DLT OTP template (2Factor or MSG91) and add the keys to the functions env.
+- 📋 Register a DLT OTP template (2Factor or MSG91); SMS_PROVIDER / SMS_TEMPLATE in the functions env, the key as the Firebase secret SMS_API_KEY.
+
+## 5b. Which message goes where (cost and safety)
+- ✅ **Push notifications (free)** for ~90% of messages: job alerts, urgent offers to all nearby workers (loud, high priority), application status, tracking.
+- ✅ **WhatsApp utility (~₹0.13)** only for DutyPe Services: when a partner accepts, the customer gets "partner found" (name, number) and the partner gets "job confirmed" (customer, number, address). Off until the two templates are approved in Meta.
+- ❌ **No WhatsApp blasts for urgent work or vacancies** — to 100 nearby workers it is a marketing message (~₹1 each, ₹100 a post) and a few "Report spam" taps turn our number Red, which also blocks login codes.
+- ✅ **WhatsApp offers & festival wishes** — only to people who switch on Settings → "WhatsApp offers & wishes" (off by default, consent time saved), at most once every 7 days, "STOP" reply switches it off; sent from Admin → WhatsApp Offers (Count first, then Send, ≤ 1,000 a day).
 
 ## 6. Channels (where we find people)
 - ✅📋 **Umbrella help desk** — field agent at bus stand (7–10 am), bazaar (11–2), hospital/college gates (3–6), Sunday market; registers people on dutype.in/join?agent=CODE; paid per person who actually joins.
@@ -49,7 +55,7 @@
 - ✅ **Instagram** 4:5 posts and 9:16 stories from the Marketing kit (text in safe zones).
 - 📋 **Local creators** — 3–5 Khammam creators (10k–50k real followers, ~₹1k–12k per reel), each with their own coupon code.
 - 📋 **Auto-rickshaw back stickers** (~₹140–270/auto/month) for brand recall; newspaper inserts only for festival offers.
-- ✅ **WhatsApp templates** (customers, festive, employers, workers, students, partners, referral) — only to people who agreed; one promo a week.
+- ✅ **WhatsApp templates** (customers, festive, employers, workers, students, partners, referral) — copy for groups and status; official offers only through Admin → WhatsApp Offers to opted-in users, one a week.
 - 📋 **Students** — college/ITI gates 3–6 pm, hostels, coaching centres, student WhatsApp groups, one campus ambassador per college (₹20 per student who joins). Pitch: "చదువుతూనే సంపాదించండి — కాలేజ్ దగ్గర్లో పార్ట్-టైమ్ పనులు, వారం జీతం, ఏజెంట్ ఫీజు లేదు." New categories: Home Tutor, Event Staff, Store Promoter, Pharmacy Assistant, Construction; "Student friendly" perk.
 - 📋 **Employers** — supermarkets, restaurants, hospitals, schools, PGs, builders; offer to post their first job for them.
 

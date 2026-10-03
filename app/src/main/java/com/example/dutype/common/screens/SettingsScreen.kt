@@ -7,6 +7,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -77,6 +78,9 @@ import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.appVersionName
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.functions.FirebaseFunctions
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 private val SettingsBg = Color(0xFFF8FAFC)
 private val SettingsInk = Color(0xFF0F172A)
@@ -90,7 +94,6 @@ private val SettingsOn = Color(0xFF10B981)
 
 private const val SETTINGS_PREFS = "dutype_settings_prefs"
 private const val KEY_PUSH_ENABLED = "push_notifications_enabled"
-private const val KEY_WHATSAPP_ENABLED = "whatsapp_alerts_enabled"
 
 private fun readSettingsFlag(context: Context, key: String): Boolean {
     return runCatching {
@@ -481,8 +484,16 @@ private fun LanguageChip(label: String, active: Boolean, onClick: () -> Unit) {
 @Composable
 private fun NotificationsCard() {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var pushEnabled by remember { mutableStateOf(readSettingsFlag(context, KEY_PUSH_ENABLED)) }
-    var whatsappEnabled by remember { mutableStateOf(readSettingsFlag(context, KEY_WHATSAPP_ENABLED)) }
+    // "WhatsApp offers" lives on the server (consent record, STOP replies); off until switched on.
+    var whatsappEnabled by remember { mutableStateOf(false) }
+    var whatsappBusy by remember { mutableStateOf(false) }
+    val signedIn = FirebaseAuth.getInstance().currentUser != null
+    LaunchedEffect(signedIn) {
+        if (!signedIn) return@LaunchedEffect
+        runCatching { callWhatsappPromos(null) }.onSuccess { whatsappEnabled = it }
+    }
     SettingsCard {
         ToggleRow(
             icon = Icons.Outlined.Notifications,
@@ -499,11 +510,34 @@ private fun NotificationsCard() {
             title = stringResource(R.string.whatsapp_alerts),
             checked = whatsappEnabled,
             onCheckedChange = { on ->
+                if (!signedIn || whatsappBusy) return@ToggleRow
+                whatsappBusy = true
                 whatsappEnabled = on
-                writeSettingsFlag(context, KEY_WHATSAPP_ENABLED, on)
+                scope.launch {
+                    runCatching { callWhatsappPromos(on) }
+                        .onSuccess { whatsappEnabled = it }
+                        .onFailure {
+                            whatsappEnabled = !on
+                            Toast.makeText(context, R.string.whatsapp_offers_failed, Toast.LENGTH_SHORT).show()
+                        }
+                    whatsappBusy = false
+                }
             }
         )
+        Text(
+            text = stringResource(R.string.whatsapp_offers_sub),
+            style = TextStyle(fontSize = 12.sp, color = SettingsMuted.fg(), lineHeight = 17.sp),
+            modifier = Modifier.padding(start = 48.dp, end = 16.dp, bottom = 12.dp)
+        )
     }
+}
+
+/** Reads ([enabled] = null) or sets the server's "WhatsApp offers" switch; returns the saved value. */
+private suspend fun callWhatsappPromos(enabled: Boolean?): Boolean {
+    val payload = if (enabled == null) emptyMap<String, Any>() else mapOf("enabled" to enabled)
+    val data = FirebaseFunctions.getInstance("asia-south1")
+        .getHttpsCallable("whatsappPromos").call(payload).await().data as? Map<*, *>
+    return data?.get("enabled") == true
 }
 
 @Composable

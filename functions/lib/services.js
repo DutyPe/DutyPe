@@ -43,6 +43,8 @@ const input_1 = require("./lib/input");
 const geo_1 = require("./lib/geo");
 const places_1 = require("./lib/places");
 const notify_1 = require("./lib/notify");
+const whatsapp_1 = require("./lib/whatsapp");
+const whatsapp_messages_1 = require("./whatsapp-messages");
 const notification_i18n_1 = require("./notification-i18n");
 const app_config_1 = require("./app-config");
 const service_catalog_1 = require("./lib/service-catalog");
@@ -643,7 +645,7 @@ exports.getServiceOffer = (0, secure_callable_1.onCallSecured)({ timeoutSeconds:
             Math.round((0, geo_1.distanceKm)(pLat, pLng, Number(d[BK.LAT]), Number(d[BK.LNG])) * 10) / 10 : null,
     };
 });
-exports.acceptServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 20 }, async (raw, context) => {
+exports.acceptServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 20, secrets: [whatsapp_1.WHATSAPP_TOKEN_SECRET] }, async (raw, context) => {
     const uid = context.auth.uid;
     const config = await loadConfig();
     const bookingId = (0, input_1.str)((0, input_1.obj)(raw), "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
@@ -706,6 +708,8 @@ exports.acceptServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
         await tellCustomer(String(d[BK.CUSTOMER_ID]), bookingId, "SERVICE_ASSIGNED", {
             partner: String(d[BK.PARTNER_NAME]), service: String(d[BK.SERVICE_NAME]),
         });
+        // Services only: a WhatsApp confirmation to both sides (~₹0.13 each), when the templates are set up.
+        await (0, whatsapp_messages_1.whatsappServiceAssigned)(d);
     }
     return {
         result: "accepted",

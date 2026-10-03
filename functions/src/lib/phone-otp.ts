@@ -164,12 +164,14 @@ export function whatsappConfigured(env: NodeJS.ProcessEnv = process.env): boolea
 
 /**
  * Our own SMS gateway (DLT-registered OTP template), ~₹0.15–0.25 per SMS instead of Firebase's
- * ~₹6.7. SMS_PROVIDER = "2factor" (SMS_API_KEY, SMS_TEMPLATE = the 2Factor template name) or
- * "msg91" (SMS_API_KEY = authkey, SMS_TEMPLATE = MSG91 template id).
+ * ~₹6.7. SMS_PROVIDER = "2factor" (SMS_TEMPLATE = the 2Factor template name) or "msg91"
+ * (SMS_TEMPLATE = MSG91 template id), in functions/.env.<project>. The key is the Firebase secret
+ * SMS_API_KEY (2Factor API key / MSG91 authkey); the value "unset" keeps the gateway off.
  */
 export function smsGatewayConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
   const provider = (env.SMS_PROVIDER || "").toLowerCase();
-  return (provider === "2factor" || provider === "msg91") && Boolean((env.SMS_API_KEY || "").trim()) &&
+  const key = (env.SMS_API_KEY || "").trim();
+  return (provider === "2factor" || provider === "msg91") && Boolean(key) && key.toLowerCase() !== "unset" &&
     Boolean((env.SMS_TEMPLATE || "").trim());
 }
 

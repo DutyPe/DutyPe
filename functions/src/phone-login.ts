@@ -132,7 +132,7 @@ async function sendOnSmsGateway(phone: string, code: string): Promise<boolean> {
  * Both server channels share one stored code and the per-number rate limits.
  */
 export const sendWhatsappOtp = onCallSecured(
-  { requireAuth: false, enforceAppCheck: false, timeoutSeconds: 25, secrets: [WHATSAPP_SECRET] },
+  { requireAuth: false, enforceAppCheck: false, timeoutSeconds: 25, secrets: [WHATSAPP_SECRET, "SMS_API_KEY"] },
   async (raw: unknown, context) => {
     const data = obj(raw);
     const phone = indianE164(data.phone);

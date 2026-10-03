@@ -1027,6 +1027,20 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "whatsapp_prefs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "promos",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "roles",
+          "arrayConfig": "CONTAINS"
+        }
+      ]
     }
   ],
   "fieldOverrides": [

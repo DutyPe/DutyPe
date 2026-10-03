@@ -133,7 +133,7 @@ async function sendOnSmsGateway(phone, code) {
  *   3. { sent: false, channel: "sms" } → the app falls back to Firebase SMS.
  * Both server channels share one stored code and the per-number rate limits.
  */
-exports.sendWhatsappOtp = (0, secure_callable_1.onCallSecured)({ requireAuth: false, enforceAppCheck: false, timeoutSeconds: 25, secrets: [exports.WHATSAPP_SECRET] }, async (raw, context) => {
+exports.sendWhatsappOtp = (0, secure_callable_1.onCallSecured)({ requireAuth: false, enforceAppCheck: false, timeoutSeconds: 25, secrets: [exports.WHATSAPP_SECRET, "SMS_API_KEY"] }, async (raw, context) => {
     var _a;
     const data = (0, input_1.obj)(raw);
     const phone = (0, phone_otp_1.indianE164)(data.phone);

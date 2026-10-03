@@ -23,5 +23,6 @@ export * from "./dutype-ai";
 export * from "./feedback";
 export * from "./phone-login";
 export * from "./services";
+export * from "./whatsapp-messages";
 export { submitFieldLead } from "./field-leads";
 export * from "./whatsapp-webhook";
