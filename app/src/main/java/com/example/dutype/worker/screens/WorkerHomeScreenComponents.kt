@@ -609,6 +609,7 @@ fun HomeSectionsContent(
     onDismissAnnouncement: (String) -> Unit = {},
     birthdayService: BirthdayService,
     instantRequests: List<InstantRequest> = emptyList(),
+    skippedInstantRequests: List<InstantRequest> = emptyList(),
     updatingInstantRequestId: String? = null,
     isLoadingInstantRequests: Boolean = false,
     instantHelpError: String? = null,
@@ -833,6 +834,16 @@ fun HomeSectionsContent(
                 }
             }
 
+            if (isOnline && skippedInstantRequests.isNotEmpty()) {
+                item(key = "worker_home_skipped_requests") {
+                    SkippedRequestsSection(
+                        requests = skippedInstantRequests,
+                        onApply = onApplyInstantRequest,
+                        onCall = onCallInstantRequest
+                    )
+                }
+            }
+
             if (isOnline && hasLocationPermission && urgentPreview.isNotEmpty()) {
                 item(key = "worker_home_urgent_jobs") {
                     HomeUrgentJobsSection(
@@ -1015,6 +1026,66 @@ private fun AppliedJobsSummaryCard(
             TextButton(onClick = onOpenMyJobs) {
                 Text(stringResource(R.string.my_jobs), color = WorkerColors.Primary.fg())
             }
+        }
+    }
+}
+
+@Composable
+private fun SkippedRequestsSection(
+    requests: List<InstantRequest>,
+    onApply: (InstantRequest) -> Unit,
+    onCall: (InstantRequest) -> Unit
+) {
+    if (requests.isEmpty()) return
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Skipped & Available Requests (Silent)",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        color = WorkerColors.TextPrimary,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+                Text(
+                    text = "Requests you skipped earlier. You can still accept or call anytime.",
+                    style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFFF1F5F9))
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = "${requests.size} Available",
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF64748B)
+                )
+            }
+        }
+
+        requests.take(10).forEach { request ->
+            InstantRequestCard(
+                request = request,
+                isUpdating = false,
+                onApply = { onApply(request) },
+                onCall = { onCall(request) },
+                onIgnore = {}
+            )
         }
     }
 }

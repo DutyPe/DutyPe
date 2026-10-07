@@ -2,6 +2,8 @@ package com.example.dutype.worker.screens
 
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
+import com.example.dutype.ui.theme.bd
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.WorkOff
@@ -1092,233 +1094,224 @@ private fun JobDetailsContent(
 
         item { Spacer(modifier = Modifier.height(16.dp)) }
 
-        // Stitch design spec: job header card — title, employer + Verified
-        // Employer, and a relative "posted X ago" timestamp. All real job
-        // fields (job.title, job.companyName, job.isVerified, job.createdAt).
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth().border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
-                colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(0.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = job.title.ifBlank { stringResource(R.string.job_details) },
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            color = WorkerColors.TextPrimary,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 20.sp
-                        )
-                    )
-                    if (job.companyName.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(
-                                text = job.companyName,
-                                style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary, fontSize = 14.sp)
-                            )
-                        }
-                    }
-                    if (job.createdAt > 0) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = com.example.dutype.utils.DateTimeUtils.formatTimeAgoExactDays(job.createdAt),
-                            style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary, fontSize = 12.sp)
-                        )
-                    }
-                }
-            }
-        }
-
-        item { Spacer(modifier = Modifier.height(12.dp)) }
-
-        // Stitch design spec: 2x2 stat grid — SALARY / TYPE / DISTANCE / START.
-        // Salary, type and distance are real job fields; "Join Today" is
-        // fixed design copy since the data model has no per-job "start
-        // availability" field yet.
-        item {
-            val statSalaryValue = job.payText
-            val statTypeValue = com.example.dutype.employer.models.EmploymentType.fromKey(job.employmentType).displayName
-            val statDistanceValue = when {
-                job.distance == null || job.distance!! <= 0 -> stringResource(R.string.nearby)
-                job.distance!! < 1.0 -> stringResource(R.string.job_desc_distance_m_away, (job.distance!! * 1000).toInt())
-                else -> stringResource(R.string.job_desc_distance_km_away, "%.1f".format(job.distance))
-            }
-
-            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    JobStatCard(label = stringResource(R.string.job_desc_stat_salary), value = statSalaryValue, modifier = Modifier.weight(1f))
-                    JobStatCard(label = stringResource(R.string.job_desc_stat_type), value = statTypeValue, modifier = Modifier.weight(1f))
-                }
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    JobStatCard(label = stringResource(R.string.job_desc_stat_distance), value = statDistanceValue, modifier = Modifier.weight(1f))
-                    JobStatCard(label = stringResource(R.string.job_desc_stat_start), value = stringResource(R.string.job_desc_stat_join_today), modifier = Modifier.weight(1f))
-                }
-            }
-        }
-
-        item { Spacer(modifier = Modifier.height(16.dp)) }
-
-        // Combined Job Details Card - White background with light border (like worker job cards)
+        // Unified Job Details Card — seamlessly combines header, salary, specs, and about bullets into one single card until the map
         item {
             val payAmount = job.payText
-
-            // Job type (Full-time / Part-time / etc.).
             val displayLocation = job.addressText.ifBlank { job.area }
             val jobTypeDisplay = com.example.dutype.employer.models.EmploymentType.fromKey(job.employmentType).displayName
             val shiftTimingDisplay = com.example.dutype.employer.models.JobShift.fromKey(job.shift).displayName
             val experienceDisplay = job.experienceRequired.ifBlank { "Not specified" }
-            // Employer joined time should be fetched from employer profile if needed
+            val distanceText = when {
+                job.distance == null || job.distance!! <= 0 -> stringResource(R.string.distance_unavailable)
+                job.distance!! < 0.05 -> stringResource(R.string.less_than_50m)
+                job.distance!! < 1.0 -> "${(job.distance!! * 1000).toInt()}m ${stringResource(R.string.away)}"
+                job.distance!! < 2.0 -> String.format("%.1f km ${stringResource(R.string.walkable)}", job.distance)
+                else -> String.format("%.1f km ${stringResource(R.string.away)}", job.distance)
+            }
+            val bullets = parseDescriptionToBullets(job.description)
 
             Card(
-                modifier = Modifier.fillMaxWidth().border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, WorkerColors.Border, RoundedCornerShape(20.dp)),
                 colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(20.dp),
                 elevation = CardDefaults.cardElevation(0.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    // Company Name - show at top of job details
-                    if (job.companyName.isNotEmpty()) {
-                        JobDetailRow(Icons.Filled.Business, Color(0xFF7C3AED), "Company:", job.companyName)
-                        Spacer(modifier = Modifier.height(10.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp)
+                ) {
+                    // Top: Tag + Time
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFDCFCE7).bg())
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = jobTypeDisplay.uppercase(),
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF16A34A).fg()
+                            )
+                        }
+                        if (job.createdAt > 0) {
+                            Text(
+                                text = com.example.dutype.utils.DateTimeUtils.formatTimeAgoExactDays(job.createdAt),
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = WorkerColors.TextTertiary,
+                                    fontSize = 12.sp
+                                )
+                            )
+                        }
                     }
 
-                    // Location - Column format: location on one line, distance below
-                    val distanceText = when {
-                        job.distance == null || job.distance!! <= 0 -> stringResource(R.string.distance_unavailable)
-                        job.distance!! < 0.05 -> stringResource(R.string.less_than_50m)
-                        job.distance!! < 1.0 -> "${(job.distance!! * 1000).toInt()}m ${stringResource(R.string.away)}"
-                        job.distance!! < 2.0 -> String.format("%.1f km ${stringResource(R.string.walkable)}", job.distance)
-                        else -> String.format("%.1f km ${stringResource(R.string.away)}", job.distance)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Title
+                    Text(
+                        text = job.title.ifBlank { stringResource(R.string.job_details) },
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            color = WorkerColors.TextPrimary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp,
+                            lineHeight = 28.sp
+                        )
+                    )
+
+                    if (job.companyName.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = job.companyName,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = WorkerColors.TextSecondary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
                     }
 
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Prominent Pay Section
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFFF8FAFC).bg())
+                            .border(1.dp, Color(0xFFE2E8F0).bd(), RoundedCornerShape(14.dp))
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Text(
+                            text = "SALARY / PAY",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF64748B).fg(),
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = payAmount,
+                            style = TextStyle(
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF16A34A).fg()
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(thickness = 1.dp, color = Color(0xFFE2E8F0).bd())
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Key Job Highlights
+                    Text(
+                        text = "Job Details",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = WorkerColors.TextPrimary,
+                            fontSize = 16.sp
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Location Row
                     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                         Icon(
                             Icons.Default.LocationOn,
                             null,
-                            tint = WorkerColors.Error, // Bright red for location
-                            modifier = Modifier.size(22.dp)
+                            tint = WorkerColors.Error,
+                            modifier = Modifier.size(20.dp)
                         )
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            // Location on one line
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                Text(
-                                    "Location:",
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = WorkerColors.TextSecondary,
-                                        fontWeight = FontWeight.Medium
-                                    )
+                            Text(
+                                text = displayLocation.ifBlank { "Not specified" },
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = WorkerColors.TextPrimary,
+                                    fontSize = 14.5.sp
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    displayLocation.ifBlank { "Not specified" },
-                                    modifier = Modifier.weight(1f),
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                                    ),
-                                    softWrap = true
-                                )
-                            }
-                            // Distance on next line
+                            )
                             if (distanceText != stringResource(R.string.distance_unavailable)) {
                                 Text(
-                                    distanceText,
+                                    text = distanceText,
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = WorkerColors.TextSecondary,
-                                        fontSize = 13.sp
+                                        fontSize = 12.5.sp
                                     ),
                                     modifier = Modifier.padding(top = 2.dp)
                                 )
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
 
-                    // Salary/Pay
-                    JobDetailRow(Icons.Default.Payments, WorkerColors.Success, "Salary:", payAmount)
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Vacancies — not in schema, removed
-
-                    // Experience
+                    Spacer(modifier = Modifier.height(12.dp))
                     JobDetailRow(Icons.Default.Star, Color(0xFFFBBF24), "Experience:", experienceDisplay)
-                    Spacer(modifier = Modifier.height(10.dp))
-
+                    Spacer(modifier = Modifier.height(12.dp))
                     JobDetailRow(
                         Icons.Outlined.WorkOutline,
                         WorkerColors.Primary,
                         "Education:",
                         job.educationRequired.ifBlank { stringResource(R.string.job_desc_no_qualification) }
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Job Type (Full-time / Part-time)
+                    Spacer(modifier = Modifier.height(12.dp))
                     JobDetailRow(Icons.Default.Schedule, Color(0xFF06B6D4), "Job Type:", jobTypeDisplay)
-                    Spacer(modifier = Modifier.height(10.dp))
-
+                    Spacer(modifier = Modifier.height(12.dp))
                     JobDetailRow(Icons.Default.AccessTime, Color(0xFF6366F1), "Shift:", shiftTimingDisplay)
-
-                    // Category row removed — redundant with the Job Type row above.
-
                     if (job.vacancies > 0) {
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                         JobDetailRow(Icons.Default.People, Color(0xFF8B5CF6), "Vacancies:", job.vacancies.toString())
                     }
-
-                    // Always show gender so workers can see preference even when it's "Any".
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     JobDetailRow(
                         Icons.Default.Person,
                         Color(0xFFEC4899),
                         "Gender:",
                         job.gender.ifBlank { stringResource(R.string.all) }
                     )
-                }
-            }
-        }
 
-        item { Spacer(modifier = Modifier.height(16.dp)) }
+                    // About section
+                    if (bullets.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(18.dp))
+                        HorizontalDivider(thickness = 1.dp, color = Color(0xFFE2E8F0).bd())
+                        Spacer(modifier = Modifier.height(16.dp))
 
-        // "About this Job" card — Stitch design spec title + small filled
-        // circle bullets. Bullet content is still the job's real description
-        // (parseDescriptionToBullets(job.description)); the timestamp moved
-        // up into the new job header card so it isn't shown twice.
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth().border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
-                colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(0.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = stringResource(R.string.job_desc_about_job),
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                        Text(
+                            text = stringResource(R.string.job_desc_about_job),
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = WorkerColors.TextPrimary,
+                                fontSize = 16.sp
+                            )
                         )
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Description bullet points — small green/teal filled circle bullets
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        parseDescriptionToBullets(job.description).forEach { point ->
-                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                                Box(
-                                    modifier = Modifier
-                                        .padding(top = 7.dp)
-                                        .size(6.dp)
-                                        .background(WorkerColors.Success, CircleShape)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            bullets.forEach { point ->
+                                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(top = 7.dp)
+                                            .size(6.dp)
+                                            .background(Color(0xFF16A34A).bg(), CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = point,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            color = WorkerColors.TextSecondary,
+                                            lineHeight = 22.sp,
+                                            fontSize = 14.sp
                                         )
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(point, style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary, lineHeight = 22.sp))
+                                    )
+                                }
                             }
                         }
                     }

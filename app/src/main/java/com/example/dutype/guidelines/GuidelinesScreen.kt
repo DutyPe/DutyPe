@@ -30,7 +30,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.filled.HomeRepairService
@@ -226,12 +228,21 @@ private fun GuideCard(section: GuideSection) {
                 verticalAlignment = Alignment.Top,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(
-                    imageVector = if (section.warn) Icons.Filled.Block else Icons.Filled.CheckCircle,
-                    contentDescription = null,
-                    tint = if (section.warn) Red else Green,
-                    modifier = Modifier.padding(top = 2.dp).size(16.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .padding(top = 2.dp)
+                        .size(18.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(if (section.warn) Color(0xFFFEE2E2).bg() else Color(0xFFDCFCE7).bg()),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (section.warn) Icons.Filled.Close else Icons.Filled.Check,
+                        contentDescription = null,
+                        tint = if (section.warn) Red else Green,
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
                 Spacer(Modifier.width(10.dp))
                 Text(
                     text = line,

@@ -558,17 +558,10 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
                 )
                 ProfileRowDivider()
                 EmpMenuRow(
-                    iconRes = R.drawable.ic_profile_privacy,
-                    title = stringResource(R.string.privacy_policy),
+                    iconRes = R.drawable.ic_profile_help,
+                    title = stringResource(R.string.guide_entry),
                     pill = null,
-                    onClick = actions.onPrivacy
-                )
-                ProfileRowDivider()
-                EmpMenuRow(
-                    iconRes = R.drawable.ic_profile_terms,
-                    title = stringResource(R.string.terms_conditions),
-                    pill = null,
-                    onClick = actions.onTerms
+                    onClick = actions.onGuidelines
                 )
                 ProfileRowDivider()
                 EmpMenuRow(

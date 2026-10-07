@@ -721,7 +721,7 @@ fun EmployerExecutiveHeroCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, top = 16.dp, bottom = 14.dp, end = 6.dp),
+                .padding(start = 16.dp, top = 14.dp, bottom = 12.dp, end = 6.dp),
             verticalAlignment = Alignment.Bottom
         ) {
             Column(
@@ -737,22 +737,23 @@ fun EmployerExecutiveHeroCard(
                     color = Color(0xFFEA580C),
                     letterSpacing = 0.5.sp
                 )
-                Spacer(Modifier.height(5.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(
                     text = "Hire Verified Staff & Workers",
-                    fontSize = 18.sp,
+                    fontSize = 15.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                     color = Color(0xFF0F172A),
-                    lineHeight = 22.sp
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.height(5.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(
                     text = "Daily helpers, cooks, cleaners, shop staff & more. Speak directly using DutyPe AI voice.",
                     fontSize = 11.5.sp,
                     color = Color(0xFF64748B),
                     lineHeight = 16.sp
                 )
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(11.dp))
                 // Button pinned to bottom — aligns exactly with bottom of image
                 Button(
                     onClick = onVoiceJob,
@@ -761,7 +762,7 @@ fun EmployerExecutiveHeroCard(
                         containerColor = Color(0xFF0B132B),
                         contentColor = Color.White
                     ),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 9.dp)
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.5.dp)
                 ) {
                     Icon(
                         Icons.Default.Mic,
@@ -780,7 +781,7 @@ fun EmployerExecutiveHeroCard(
                 }
             }
 
-            // 3D Illustrated Workers — aligned with bottom of button and 5dp bigger
+            // 3D Illustrated Workers — aligned with bottom of button
             Image(
                 painter = painterResource(id = R.drawable.img_hire_staff_chars),
                 contentDescription = "Verified Staff",
@@ -788,7 +789,7 @@ fun EmployerExecutiveHeroCard(
                 alignment = Alignment.BottomCenter,
                 modifier = Modifier
                     .weight(0.96f)
-                    .height(161.dp)
+                    .height(158.dp)
                     .align(Alignment.Bottom)
             )
         }

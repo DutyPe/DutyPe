@@ -632,16 +632,78 @@ fun WorkerHomeScreen(
         }
     }
 
-    // Urgent job audio & vibration alert: rings when urgent jobs arrive in worker's location.
+    // Real-time home service bookings (cleaning, etc.) while worker is online
+    var searchingServiceRequests by remember { mutableStateOf<List<com.example.dutype.models.InstantRequest>>(emptyList()) }
+    DisposableEffect(workerOnline) {
+        if (!workerOnline) {
+            searchingServiceRequests = emptyList()
+            return@DisposableEffect onDispose {}
+        }
+        val reg = com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("service_bookings")
+            .whereEqualTo("status", "SEARCHING")
+            .limit(10)
+            .addSnapshotListener { snap, err ->
+                if (err != null || snap == null) return@addSnapshotListener
+                val now = System.currentTimeMillis()
+                searchingServiceRequests = snap.documents.mapNotNull { doc ->
+                    runCatching {
+                        val exp = doc.getTimestamp("expiresAt")?.toDate()?.time ?: (now + 30 * 60 * 1000L)
+                        if (exp <= now) return@mapNotNull null
+                        val cat = doc.getString("category").orEmpty()
+                        val svcName = doc.getString("serviceName").orEmpty().ifBlank { cat }
+                        val price = (doc.getLong("price") ?: 0L).toDouble()
+                        val addr = doc.getString("addressText").orEmpty()
+                        val area = doc.getString("area").orEmpty()
+                        com.example.dutype.models.InstantRequest(
+                            requestId = "svc_${doc.id}",
+                            employerId = doc.getString("customerId").orEmpty(),
+                            employerName = doc.getString("customerName").orEmpty().ifBlank { "DutyPe Customer" },
+                            title = "Home Service: $svcName",
+                            description = doc.getString("note").orEmpty().ifBlank { "Customer requested $svcName in ${area.ifBlank { addr }}" },
+                            category = cat.ifBlank { "Services" },
+                            perPersonPayment = price,
+                            workersNeeded = 1,
+                            status = "open",
+                            addressText = addr.ifBlank { area },
+                            lat = doc.getDouble("lat") ?: 0.0,
+                            lng = doc.getDouble("lng") ?: 0.0,
+                            expiresAt = exp,
+                            createdAt = doc.getTimestamp("createdAt")?.toDate()?.time ?: now
+                        )
+                    }.getOrNull()
+                }
+            }
+        onDispose { reg.remove() }
+    }
+
+    // Urgent job audio & vibration alert: rings when urgent jobs or home services arrive in worker's location.
     // If worker ignores/dismisses, it will NOT play sound again for those jobs.
     var ignoredInstantRequestIds by remember { mutableStateOf(setOf<String>()) }
+
+    val combinedWorkerRequests: List<com.example.dutype.models.InstantRequest> = remember(instantHelpState.instantRequests, searchingServiceRequests) {
+        val existingIds = instantHelpState.instantRequests.map { it.requestId }.toSet()
+        instantHelpState.instantRequests + searchingServiceRequests.filter { it.requestId !in existingIds }
+    }
+
+    val activeWorkerRequests: List<com.example.dutype.models.InstantRequest> = remember(combinedWorkerRequests, ignoredInstantRequestIds) {
+        combinedWorkerRequests.filter {
+            it.requestId !in ignoredInstantRequestIds && !com.example.dutype.urgent.UrgentSoundAlertManager.isIgnored(context, it.requestId)
+        }
+    }
+
+    val skippedWorkerRequests: List<com.example.dutype.models.InstantRequest> = remember(combinedWorkerRequests, ignoredInstantRequestIds) {
+        combinedWorkerRequests.filter {
+            it.requestId in ignoredInstantRequestIds || com.example.dutype.urgent.UrgentSoundAlertManager.isIgnored(context, it.requestId)
+        }
+    }
+
     LaunchedEffect(
         workerOnline,
-        instantHelpState.instantRequests,
+        activeWorkerRequests,
         urgentJobs
     ) {
         if (workerOnline) {
-            val urgentIds = instantHelpState.instantRequests.map { it.requestId } + urgentJobs.map { it.id }
+            val urgentIds = activeWorkerRequests.map { it.requestId } + urgentJobs.map { it.id }
             if (urgentIds.isNotEmpty()) {
                 com.example.dutype.urgent.UrgentSoundAlertManager.playAlertForAnyNew(context, urgentIds)
             }
@@ -860,11 +922,8 @@ fun WorkerHomeScreen(
                                     announcements = announcements,
                                     onDismissAnnouncement = { id -> announcementViewModel.dismissAnnouncement(id) },
                                     birthdayService = birthdayService,
-                                    instantRequests = remember(instantHelpState.instantRequests, ignoredInstantRequestIds) {
-                                        instantHelpState.instantRequests.filter {
-                                            it.requestId !in ignoredInstantRequestIds && !com.example.dutype.urgent.UrgentSoundAlertManager.isIgnored(context, it.requestId)
-                                        }
-                                    },
+                                    instantRequests = activeWorkerRequests,
+                                    skippedInstantRequests = skippedWorkerRequests,
                                     updatingInstantRequestId = instantHelpState.updatingRequestId,
                                     isLoadingInstantRequests = instantHelpState.isLoadingRequests,
                                     instantHelpError = instantHelpState.error,
@@ -899,6 +958,9 @@ fun WorkerHomeScreen(
                                             loginSheetTitle = context.getString(R.string.guest_apply_login_title)
                                             loginSheetSubtitle = context.getString(R.string.guest_apply_login_desc)
                                             showLoginBottomSheet = true
+                                        } else if (request.requestId.startsWith("svc_")) {
+                                            val bId = request.requestId.removePrefix("svc_")
+                                            navController.navigate(com.example.dutype.navigation.Routes.partnerOfferRoute(bId))
                                         } else {
                                             // Same full-screen offer as the notification: Accept / Skip.
                                             navController.navigate(com.example.dutype.navigation.Routes.urgentOfferRoute(request.requestId))
@@ -909,6 +971,9 @@ fun WorkerHomeScreen(
                                             loginSheetTitle = context.getString(R.string.guest_call_login_title)
                                             loginSheetSubtitle = context.getString(R.string.guest_call_login_desc)
                                             showLoginBottomSheet = true
+                                        } else if (request.requestId.startsWith("svc_")) {
+                                            val bId = request.requestId.removePrefix("svc_")
+                                            navController.navigate(com.example.dutype.navigation.Routes.partnerOfferRoute(bId))
                                         } else {
                                             openWorkerUrgentDialer(
                                                 context,
@@ -922,7 +987,7 @@ fun WorkerHomeScreen(
                                     onIgnoreInstantRequest = { request ->
                                         com.example.dutype.urgent.UrgentSoundAlertManager.ignoreRequest(context, request.requestId)
                                         ignoredInstantRequestIds = ignoredInstantRequestIds + request.requestId
-                                        android.widget.Toast.makeText(context, context.getString(R.string.close), android.widget.Toast.LENGTH_SHORT).show()
+                                        android.widget.Toast.makeText(context, "Skipped — available below silently", android.widget.Toast.LENGTH_SHORT).show()
                                     },
                                     todayEarningsAmount = todayEarningsAmount,
                                     todayJobsDone = todayJobsDone,

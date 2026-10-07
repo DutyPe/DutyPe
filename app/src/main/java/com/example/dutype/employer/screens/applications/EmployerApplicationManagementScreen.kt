@@ -1385,7 +1385,7 @@ private val HrShortlistedStatuses = setOf(
 private enum class HiringFilter(val labelRes: Int) {
     ALL(R.string.filter_all),
     NEW(R.string.filter_new),
-    SHORTLISTED(R.string.filter_shortlisted),
+    ACCEPTED(R.string.status_hired),
     CONTACTED(R.string.filter_contacted),
     REJECTED(R.string.filter_rejected)
 }
@@ -1394,7 +1394,7 @@ private fun JobApplication.matchesHiringFilter(filter: HiringFilter, contacted: 
     return when (filter) {
         HiringFilter.ALL -> true
         HiringFilter.NEW -> status == ApplicationStatus.APPLIED
-        HiringFilter.SHORTLISTED -> status in HrShortlistedStatuses
+        HiringFilter.ACCEPTED -> status in HrShortlistedStatuses
         HiringFilter.CONTACTED -> id in contacted
         HiringFilter.REJECTED -> status == ApplicationStatus.REJECTED
     }
@@ -1706,7 +1706,7 @@ private fun FilterEmptyState(
             Text(
                 text = when (filter) {
                     HiringFilter.NEW -> "All applicants for this job have been reviewed."
-                    HiringFilter.SHORTLISTED -> "You haven't shortlisted any candidates yet. Tap 'Shortlist' on candidate cards in 'All' to add them here."
+                    HiringFilter.ACCEPTED -> "You haven't accepted any candidates yet. Tap 'Accept' on candidate cards in 'All' to hire them."
                     HiringFilter.CONTACTED -> "You haven't contacted any candidates yet. Call or chat with applicants to keep track."
                     HiringFilter.REJECTED -> "No candidates have been marked as rejected."
                     else -> "No candidates match this filter."
@@ -1915,12 +1915,13 @@ private fun HiringActionChip(
     label: String,
     active: Boolean,
     activeColor: Color,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val shape = RoundedCornerShape(16.dp)
     Box(
-        modifier = Modifier
-            .height(32.dp)
+        modifier = modifier
+            .height(34.dp)
             .clip(shape)
             .background(if (active) activeColor else Color.White.bg())
             .border(1.dp, if (active) activeColor else HrBorder.bd(), shape)
@@ -1930,8 +1931,8 @@ private fun HiringActionChip(
     ) {
         Text(
             text = label,
-            fontSize = 12.sp,
-            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+            fontSize = 12.5.sp,
+            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
             color = if (active) Color.White else HrInk.fg(),
             maxLines = 1
         )
@@ -2051,20 +2052,18 @@ private fun HiringApplicantCard(
         HorizontalDivider(thickness = 1.dp, color = HrDivider.bd())
         Spacer(modifier = Modifier.height(12.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             HiringActionChip(
-                label = stringResource(R.string.action_shortlist),
+                label = "Accept",
                 active = isShortlisted,
                 activeColor = HrGreen.fg(),
                 onClick = {
                     if (status == ApplicationStatus.APPLIED) onHirePrompt(application)
-                }
-            )
-            HiringActionChip(
-                label = stringResource(R.string.action_interview),
-                active = false,
-                activeColor = HrGreen.fg(),
-                onClick = onInterview
+                },
+                modifier = Modifier.weight(1f)
             )
             HiringActionChip(
                 label = stringResource(R.string.action_reject),
@@ -2074,7 +2073,8 @@ private fun HiringApplicantCard(
                     if (status == ApplicationStatus.APPLIED) {
                         onStatusUpdate(ApplicationStatus.REJECTED, notSuitableReason)
                     }
-                }
+                },
+                modifier = Modifier.weight(1f)
             )
         }
 

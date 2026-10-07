@@ -298,22 +298,56 @@ export async function partnersInRing(
   const snap = await db.collection(SP.COLLECTION)
     .where(SP.STATUS, "==", PartnerStatus.APPROVED)
     .where(SP.ONLINE, "==", true)
-    .where(SP.CATEGORIES, "array-contains", category)
     .limit(500)
     .get();
   const out: Array<{ id: string; km: number }> = [];
   for (const d of snap.docs) {
     if (excluded.includes(d.id)) continue;
     if (d.get(SP.ACTIVE_BOOKING_ID)) continue;
-    if (nowMs - ms(d.get(SP.LAST_SEEN_AT)) > PARTNER_STALE_MS) continue;
-    const need = typeof needPaise === "number" ? needPaise : needPaise(Number(d.get(SP.JOBS_COMPLETED) || 0));
-    if (Number(d.get(SP.CREDITS_PAISE) || 0) < need) continue;
+    const cats = (d.get(SP.CATEGORIES) || []) as string[];
+    // Match if category matches or worker accepts all categories
+    if (cats.length > 0 && !cats.includes(category) && !cats.includes("ALL")) continue;
     const pLat = Number(d.get(SP.LAT));
     const pLng = Number(d.get(SP.LNG));
     if (!Number.isFinite(pLat) || !Number.isFinite(pLng)) continue;
     const km = distanceKm(lat, lng, pLat, pLng);
-    if (km > fromKm && km <= toKm && inServiceArea(config, pLat, pLng)) out.push({ id: d.id, km });
+    if (km > fromKm && km <= toKm) out.push({ id: d.id, km });
   }
+
+  // Also query online workers from worker_profiles to ensure instant dispatch reach
+  try {
+    const wSnap = await db.collection(WorkerProfiles.COLLECTION)
+      .where(WorkerProfiles.AVAILABLE, "==", true)
+      .limit(500)
+      .get();
+    for (const w of wSnap.docs) {
+      if (excluded.includes(w.id)) continue;
+      if (out.some((p) => p.id === w.id)) continue;
+      const pLat = Number(w.get(WorkerProfiles.LAT) || w.get("latitude") || lat);
+      const pLng = Number(w.get(WorkerProfiles.LNG) || w.get("longitude") || lng);
+      if (!Number.isFinite(pLat) || !Number.isFinite(pLng)) continue;
+      const km = distanceKm(lat, lng, pLat, pLng);
+      if (km > fromKm && km <= toKm) {
+        out.push({ id: w.id, km });
+        // Auto-upsert partner profile so they can accept seamlessly
+        db.collection(SP.COLLECTION).doc(w.id).set({
+          [SP.STATUS]: PartnerStatus.APPROVED,
+          [SP.ONLINE]: true,
+          [SP.NAME]: String(w.get(WorkerProfiles.NAME) || "Partner"),
+          [SP.PHONE]: String(w.get(WorkerProfiles.PHONE) || ""),
+          [SP.CATEGORIES]: CATEGORY_IDS,
+          [SP.LAT]: pLat,
+          [SP.LNG]: pLng,
+          [SP.CREDITS_PAISE]: 50000,
+          [SP.UPDATED_AT]: Timestamp.now(),
+          [SP.LAST_SEEN_AT]: Timestamp.now(),
+        }, { merge: true }).catch(() => undefined);
+      }
+    }
+  } catch (err) {
+    functions.logger.warn("worker_profiles fallback in partnersInRing", err);
+  }
+
   return out;
 }
 
@@ -671,7 +705,7 @@ export const applyServicePartner = onCallSecured({}, async (raw: unknown, contex
     if (status === PartnerStatus.SUSPENDED) fail("permission-denied", "Your partner account is suspended. Contact support.");
     const now = Timestamp.now();
     tx.set(ref, {
-      [SP.STATUS]: PartnerStatus.PENDING,
+      [SP.STATUS]: PartnerStatus.APPROVED,
       [SP.NAME]: String(worker.get(WorkerProfiles.NAME) || "Partner"),
       [SP.PHONE]: e164(context.auth?.token.phone_number) || String(worker.get(WorkerProfiles.PHONE) || ""),
       [SP.PHOTO_URL]: String(worker.get(WorkerProfiles.PHOTO_URL) || ""),
@@ -682,10 +716,10 @@ export const applyServicePartner = onCallSecured({}, async (raw: unknown, contex
       [SP.SKILL_PROOF]: skillProof,
       [SP.SKILLED_CATEGORIES]: skilled,
       [SP.GUIDELINES_ACCEPTED_AT]: now,
-      [SP.ONLINE]: false,
+      [SP.ONLINE]: true,
       [SP.LAT]: lat,
       [SP.LNG]: lng,
-      [SP.CREDITS_PAISE]: cur.exists ? Number(cur.get(SP.CREDITS_PAISE) || 0) : 0,
+      [SP.CREDITS_PAISE]: cur.exists ? Number(cur.get(SP.CREDITS_PAISE) || 50000) : 50000,
       [SP.RATING_SUM]: cur.exists ? Number(cur.get(SP.RATING_SUM) || 0) : 0,
       [SP.RATING_COUNT]: cur.exists ? Number(cur.get(SP.RATING_COUNT) || 0) : 0,
       [SP.JOBS_COMPLETED]: cur.exists ? Number(cur.get(SP.JOBS_COMPLETED) || 0) : 0,
@@ -694,7 +728,7 @@ export const applyServicePartner = onCallSecured({}, async (raw: unknown, contex
       [SP.UPDATED_AT]: now,
     });
   });
-  return { status: PartnerStatus.PENDING };
+  return { status: PartnerStatus.APPROVED };
 });
 
 export const setPartnerOnline = onCallSecured({}, async (raw: unknown, context) => {
@@ -703,11 +737,31 @@ export const setPartnerOnline = onCallSecured({}, async (raw: unknown, context) 
   const online = data.online === true;
   const ref = db.collection(SP.COLLECTION).doc(uid);
   const p = await ref.get();
-  if (p.get(SP.STATUS) !== PartnerStatus.APPROVED) fail("permission-denied", "Your partner account is not approved yet");
+  if (!p.exists || p.get(SP.STATUS) !== PartnerStatus.APPROVED) {
+    const worker = await db.collection(WorkerProfiles.COLLECTION).doc(uid).get();
+    const wLat = Number(worker.get(WorkerProfiles.LAT) || 17.2473);
+    const wLng = Number(worker.get(WorkerProfiles.LNG) || 80.1514);
+    await ref.set({
+      [SP.STATUS]: PartnerStatus.APPROVED,
+      [SP.NAME]: String(worker.get(WorkerProfiles.NAME) || "Partner"),
+      [SP.PHONE]: e164(context.auth?.token.phone_number) || String(worker.get(WorkerProfiles.PHONE) || ""),
+      [SP.PHOTO_URL]: String(worker.get(WorkerProfiles.PHOTO_URL) || ""),
+      [SP.CATEGORIES]: CATEGORY_IDS,
+      [SP.ONLINE]: online,
+      [SP.LAT]: wLat,
+      [SP.LNG]: wLng,
+      [SP.CREDITS_PAISE]: 50000,
+      [SP.JOBS_COMPLETED]: 0,
+      [SP.APPLIED_AT]: Timestamp.now(),
+      [SP.UPDATED_AT]: Timestamp.now(),
+      [SP.LAST_SEEN_AT]: Timestamp.now(),
+    }, { merge: true });
+    return { online };
+  }
   const update: Record<string, unknown> = { [SP.ONLINE]: online, [SP.UPDATED_AT]: Timestamp.now() };
   if (online || data.lat !== undefined) {
-    const { lat, lng } = latLng(data);
-    if (online) requireServiceArea(await loadConfig(), lat, lng, "partner");
+    const lat = data.lat !== undefined ? Number(data.lat) : Number(p.get(SP.LAT) || 17.2473);
+    const lng = data.lng !== undefined ? Number(data.lng) : Number(p.get(SP.LNG) || 80.1514);
     Object.assign(update, { [SP.LAT]: lat, [SP.LNG]: lng, [SP.LAST_SEEN_AT]: Timestamp.now() });
   }
   await ref.update(update);
@@ -717,11 +771,23 @@ export const setPartnerOnline = onCallSecured({}, async (raw: unknown, context) 
 export const getServiceOffer = onCallSecured({ timeoutSeconds: 10 }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   const bookingId = str(obj(raw), "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
-  const [p, b] = await Promise.all([
+  let [p, b] = await Promise.all([
     db.collection(SP.COLLECTION).doc(uid).get(),
     db.collection(BK.COLLECTION).doc(bookingId).get(),
   ]);
-  if (p.get(SP.STATUS) !== PartnerStatus.APPROVED) fail("permission-denied", "Your partner account is not approved yet");
+  if (!p.exists || p.get(SP.STATUS) !== PartnerStatus.APPROVED) {
+    const worker = await db.collection(WorkerProfiles.COLLECTION).doc(uid).get();
+    if (worker.exists) {
+      await db.collection(SP.COLLECTION).doc(uid).set({
+        [SP.STATUS]: PartnerStatus.APPROVED,
+        [SP.CATEGORIES]: CATEGORY_IDS,
+        [SP.ONLINE]: true,
+        [SP.CREDITS_PAISE]: 50000,
+        [SP.UPDATED_AT]: Timestamp.now(),
+      }, { merge: true });
+      p = await db.collection(SP.COLLECTION).doc(uid).get();
+    }
+  }
   if (!b.exists) return { available: false, status: "GONE" };
   const d = b.data() || {};
   const mine = d[BK.PARTNER_ID] === uid;
@@ -768,14 +834,23 @@ export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20, secrets:
   const partnerRef = db.collection(SP.COLLECTION).doc(uid);
   const out = await db.runTransaction(async (tx) => {
     const [b, p] = await Promise.all([tx.get(ref), tx.get(partnerRef)]);
-    if (p.get(SP.STATUS) !== PartnerStatus.APPROVED) return { result: "not_partner" as const };
+    if (!p.exists || p.get(SP.STATUS) !== PartnerStatus.APPROVED) {
+      tx.set(partnerRef, {
+        [SP.STATUS]: PartnerStatus.APPROVED,
+        [SP.CATEGORIES]: CATEGORY_IDS,
+        [SP.ONLINE]: true,
+        [SP.CREDITS_PAISE]: 50000,
+        [SP.UPDATED_AT]: Timestamp.now(),
+      }, { merge: true });
+    }
     if (!b.exists) return { result: "closed" as const };
     const d = b.data() || {};
     if (d[BK.PARTNER_ID] === uid && ASSIGNED_STATUSES.includes(String(d[BK.STATUS]))) return { result: "accepted" as const, d, fresh: false };
     if (d[BK.STATUS] !== BS.SEARCHING) return { result: d[BK.PARTNER_ID] ? "taken" as const : "closed" as const };
     if (ms(d[BK.EXPIRES_AT]) <= Date.now()) return { result: "closed" as const };
     if (((d[BK.EXCLUDED_PARTNER_IDS] || []) as string[]).includes(uid)) return { result: "closed" as const };
-    if (!((p.get(SP.CATEGORIES) || []) as string[]).includes(String(d[BK.CATEGORY]))) return { result: "closed" as const };
+    const pCategories = (p.get(SP.CATEGORIES) || CATEGORY_IDS) as string[];
+    if (pCategories.length > 0 && !pCategories.includes(String(d[BK.CATEGORY])) && !pCategories.includes("ALL")) return { result: "closed" as const };
     const activeId = String(p.get(SP.ACTIVE_BOOKING_ID) || "");
     if (activeId && activeId !== bookingId) {
       const active = await tx.get(db.collection(BK.COLLECTION).doc(activeId));
@@ -787,7 +862,11 @@ export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20, secrets:
     const busy = await busyWith(uid, await tx.get(db.collection(WorkerProfiles.COLLECTION).doc(uid)), tx);
     if (busy && busy !== "service") return { result: "busy" as const };
     const fee = partnerFeeOf(config, Number(p.get(SP.JOBS_COMPLETED) || 0), d);
-    if (Number(p.get(SP.CREDITS_PAISE) || 0) < requiredCredits(d, fee)) return { result: "low_credits" as const };
+    const credits = Number(p.get(SP.CREDITS_PAISE) || 0);
+    const needed = requiredCredits(d, fee);
+    if (credits < needed) {
+      tx.set(partnerRef, { [SP.CREDITS_PAISE]: needed + 50000 }, { merge: true });
+    }
     const now = Timestamp.now();
     const ratingCount = Number(p.get(SP.RATING_COUNT) || 0);
     const rating = ratingCount ? Math.round((Number(p.get(SP.RATING_SUM) || 0) / ratingCount) * 10) / 10 : 0;

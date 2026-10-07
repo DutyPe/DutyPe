@@ -260,7 +260,8 @@ service cloud.firestore {
     // ───────────────────────── DutyPe Services (services.ts writes everything) ─────────────────────────
 
     match /service_bookings/{bookingId} {
-      allow get, list: if signedIn() && (resource.data.customerId == me() || resource.data.partnerId == me());
+      allow get: if signedIn() && (resource.data.customerId == me() || resource.data.partnerId == me() || resource.data.status == 'SEARCHING');
+      allow list: if signedIn();
     }
 
     match /service_booking_secrets/{bookingId} {

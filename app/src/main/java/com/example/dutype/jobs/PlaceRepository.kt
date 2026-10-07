@@ -68,6 +68,10 @@ class PlaceRepository @Inject constructor(
                 com.example.dutype.firestore.FirestoreSchema.WorkerProfiles.UPDATED_AT, com.google.firebase.Timestamp.now()
             ).await()
         applyOnline(online)
+        runCatching {
+            val fn = com.google.firebase.functions.FirebaseFunctions.getInstance("asia-south1")
+            fn.getHttpsCallable("setPartnerOnline").call(mapOf("online" to online)).await()
+        }
     }
 
     /** The profile loaded (another phone may have changed the switch): follow it without writing. */

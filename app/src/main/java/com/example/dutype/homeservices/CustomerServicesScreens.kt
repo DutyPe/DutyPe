@@ -1393,7 +1393,7 @@ private fun ServicesIntegratedHeroBanner(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(170.dp)
+            .height(146.dp)
             .clip(RoundedCornerShape(0.dp))
     ) {
         HorizontalPager(
@@ -1416,7 +1416,7 @@ private fun ServicesIntegratedHeroBanner(
                         )
                     )
                     .clickable { onBookPromo(banner.targetServiceId, banner.targetCategoryId) }
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxSize(),
@@ -1426,14 +1426,14 @@ private fun ServicesIntegratedHeroBanner(
                         modifier = Modifier
                             .weight(1.2f)
                             .fillMaxHeight(),
-                        verticalArrangement = Arrangement.SpaceBetween
+                        verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically)
                     ) {
                         Text(
                             text = banner.headline.ifBlank { "DutyPe Assured Services" },
                             color = Color.White,
-                            fontSize = 16.5.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            lineHeight = 22.sp,
+                            lineHeight = 21.sp,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -2479,7 +2479,7 @@ fun ServicesHomeShimmer() {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(172.dp)
+                    .height(146.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(Color(0xFF1E293B))
                     .padding(16.dp)

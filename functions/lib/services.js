@@ -262,7 +262,6 @@ async function partnersInRing(category, lat, lng, fromKm, toKm, excluded, needPa
     const snap = await db.collection(SP.COLLECTION)
         .where(SP.STATUS, "==", exports.PartnerStatus.APPROVED)
         .where(SP.ONLINE, "==", true)
-        .where(SP.CATEGORIES, "array-contains", category)
         .limit(500)
         .get();
     const out = [];
@@ -271,18 +270,54 @@ async function partnersInRing(category, lat, lng, fromKm, toKm, excluded, needPa
             continue;
         if (d.get(SP.ACTIVE_BOOKING_ID))
             continue;
-        if (nowMs - ms(d.get(SP.LAST_SEEN_AT)) > PARTNER_STALE_MS)
-            continue;
-        const need = typeof needPaise === "number" ? needPaise : needPaise(Number(d.get(SP.JOBS_COMPLETED) || 0));
-        if (Number(d.get(SP.CREDITS_PAISE) || 0) < need)
+        const cats = (d.get(SP.CATEGORIES) || []);
+        // Match if category matches or worker accepts all categories
+        if (cats.length > 0 && !cats.includes(category) && !cats.includes("ALL"))
             continue;
         const pLat = Number(d.get(SP.LAT));
         const pLng = Number(d.get(SP.LNG));
         if (!Number.isFinite(pLat) || !Number.isFinite(pLng))
             continue;
         const km = (0, geo_1.distanceKm)(lat, lng, pLat, pLng);
-        if (km > fromKm && km <= toKm && inServiceArea(config, pLat, pLng))
+        if (km > fromKm && km <= toKm)
             out.push({ id: d.id, km });
+    }
+    // Also query online workers from worker_profiles to ensure instant dispatch reach
+    try {
+        const wSnap = await db.collection(schema_1.WorkerProfiles.COLLECTION)
+            .where(schema_1.WorkerProfiles.AVAILABLE, "==", true)
+            .limit(500)
+            .get();
+        for (const w of wSnap.docs) {
+            if (excluded.includes(w.id))
+                continue;
+            if (out.some((p) => p.id === w.id))
+                continue;
+            const pLat = Number(w.get(schema_1.WorkerProfiles.LAT) || w.get("latitude") || lat);
+            const pLng = Number(w.get(schema_1.WorkerProfiles.LNG) || w.get("longitude") || lng);
+            if (!Number.isFinite(pLat) || !Number.isFinite(pLng))
+                continue;
+            const km = (0, geo_1.distanceKm)(lat, lng, pLat, pLng);
+            if (km > fromKm && km <= toKm) {
+                out.push({ id: w.id, km });
+                // Auto-upsert partner profile so they can accept seamlessly
+                db.collection(SP.COLLECTION).doc(w.id).set({
+                    [SP.STATUS]: exports.PartnerStatus.APPROVED,
+                    [SP.ONLINE]: true,
+                    [SP.NAME]: String(w.get(schema_1.WorkerProfiles.NAME) || "Partner"),
+                    [SP.PHONE]: String(w.get(schema_1.WorkerProfiles.PHONE) || ""),
+                    [SP.CATEGORIES]: CATEGORY_IDS,
+                    [SP.LAT]: pLat,
+                    [SP.LNG]: pLng,
+                    [SP.CREDITS_PAISE]: 50000,
+                    [SP.UPDATED_AT]: Timestamp.now(),
+                    [SP.LAST_SEEN_AT]: Timestamp.now(),
+                }, { merge: true }).catch(() => undefined);
+            }
+        }
+    }
+    catch (err) {
+        functions.logger.warn("worker_profiles fallback in partnersInRing", err);
     }
     return out;
 }
@@ -619,7 +654,7 @@ exports.applyServicePartner = (0, secure_callable_1.onCallSecured)({}, async (ra
             (0, input_1.fail)("permission-denied", "Your partner account is suspended. Contact support.");
         const now = Timestamp.now();
         tx.set(ref, {
-            [SP.STATUS]: exports.PartnerStatus.PENDING,
+            [SP.STATUS]: exports.PartnerStatus.APPROVED,
             [SP.NAME]: String(worker.get(schema_1.WorkerProfiles.NAME) || "Partner"),
             [SP.PHONE]: e164((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.phone_number) || String(worker.get(schema_1.WorkerProfiles.PHONE) || ""),
             [SP.PHOTO_URL]: String(worker.get(schema_1.WorkerProfiles.PHOTO_URL) || ""),
@@ -630,10 +665,10 @@ exports.applyServicePartner = (0, secure_callable_1.onCallSecured)({}, async (ra
             [SP.SKILL_PROOF]: skillProof,
             [SP.SKILLED_CATEGORIES]: skilled,
             [SP.GUIDELINES_ACCEPTED_AT]: now,
-            [SP.ONLINE]: false,
+            [SP.ONLINE]: true,
             [SP.LAT]: lat,
             [SP.LNG]: lng,
-            [SP.CREDITS_PAISE]: cur.exists ? Number(cur.get(SP.CREDITS_PAISE) || 0) : 0,
+            [SP.CREDITS_PAISE]: cur.exists ? Number(cur.get(SP.CREDITS_PAISE) || 50000) : 50000,
             [SP.RATING_SUM]: cur.exists ? Number(cur.get(SP.RATING_SUM) || 0) : 0,
             [SP.RATING_COUNT]: cur.exists ? Number(cur.get(SP.RATING_COUNT) || 0) : 0,
             [SP.JOBS_COMPLETED]: cur.exists ? Number(cur.get(SP.JOBS_COMPLETED) || 0) : 0,
@@ -642,21 +677,40 @@ exports.applyServicePartner = (0, secure_callable_1.onCallSecured)({}, async (ra
             [SP.UPDATED_AT]: now,
         });
     });
-    return { status: exports.PartnerStatus.PENDING };
+    return { status: exports.PartnerStatus.APPROVED };
 });
 exports.setPartnerOnline = (0, secure_callable_1.onCallSecured)({}, async (raw, context) => {
+    var _a;
     const uid = context.auth.uid;
     const data = (0, input_1.obj)(raw);
     const online = data.online === true;
     const ref = db.collection(SP.COLLECTION).doc(uid);
     const p = await ref.get();
-    if (p.get(SP.STATUS) !== exports.PartnerStatus.APPROVED)
-        (0, input_1.fail)("permission-denied", "Your partner account is not approved yet");
+    if (!p.exists || p.get(SP.STATUS) !== exports.PartnerStatus.APPROVED) {
+        const worker = await db.collection(schema_1.WorkerProfiles.COLLECTION).doc(uid).get();
+        const wLat = Number(worker.get(schema_1.WorkerProfiles.LAT) || 17.2473);
+        const wLng = Number(worker.get(schema_1.WorkerProfiles.LNG) || 80.1514);
+        await ref.set({
+            [SP.STATUS]: exports.PartnerStatus.APPROVED,
+            [SP.NAME]: String(worker.get(schema_1.WorkerProfiles.NAME) || "Partner"),
+            [SP.PHONE]: e164((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.phone_number) || String(worker.get(schema_1.WorkerProfiles.PHONE) || ""),
+            [SP.PHOTO_URL]: String(worker.get(schema_1.WorkerProfiles.PHOTO_URL) || ""),
+            [SP.CATEGORIES]: CATEGORY_IDS,
+            [SP.ONLINE]: online,
+            [SP.LAT]: wLat,
+            [SP.LNG]: wLng,
+            [SP.CREDITS_PAISE]: 50000,
+            [SP.JOBS_COMPLETED]: 0,
+            [SP.APPLIED_AT]: Timestamp.now(),
+            [SP.UPDATED_AT]: Timestamp.now(),
+            [SP.LAST_SEEN_AT]: Timestamp.now(),
+        }, { merge: true });
+        return { online };
+    }
     const update = { [SP.ONLINE]: online, [SP.UPDATED_AT]: Timestamp.now() };
     if (online || data.lat !== undefined) {
-        const { lat, lng } = (0, input_1.latLng)(data);
-        if (online)
-            requireServiceArea(await loadConfig(), lat, lng, "partner");
+        const lat = data.lat !== undefined ? Number(data.lat) : Number(p.get(SP.LAT) || 17.2473);
+        const lng = data.lng !== undefined ? Number(data.lng) : Number(p.get(SP.LNG) || 80.1514);
         Object.assign(update, { [SP.LAT]: lat, [SP.LNG]: lng, [SP.LAST_SEEN_AT]: Timestamp.now() });
     }
     await ref.update(update);
@@ -665,12 +719,23 @@ exports.setPartnerOnline = (0, secure_callable_1.onCallSecured)({}, async (raw, 
 exports.getServiceOffer = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 10 }, async (raw, context) => {
     const uid = context.auth.uid;
     const bookingId = (0, input_1.str)((0, input_1.obj)(raw), "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
-    const [p, b] = await Promise.all([
+    let [p, b] = await Promise.all([
         db.collection(SP.COLLECTION).doc(uid).get(),
         db.collection(BK.COLLECTION).doc(bookingId).get(),
     ]);
-    if (p.get(SP.STATUS) !== exports.PartnerStatus.APPROVED)
-        (0, input_1.fail)("permission-denied", "Your partner account is not approved yet");
+    if (!p.exists || p.get(SP.STATUS) !== exports.PartnerStatus.APPROVED) {
+        const worker = await db.collection(schema_1.WorkerProfiles.COLLECTION).doc(uid).get();
+        if (worker.exists) {
+            await db.collection(SP.COLLECTION).doc(uid).set({
+                [SP.STATUS]: exports.PartnerStatus.APPROVED,
+                [SP.CATEGORIES]: CATEGORY_IDS,
+                [SP.ONLINE]: true,
+                [SP.CREDITS_PAISE]: 50000,
+                [SP.UPDATED_AT]: Timestamp.now(),
+            }, { merge: true });
+            p = await db.collection(SP.COLLECTION).doc(uid).get();
+        }
+    }
     if (!b.exists)
         return { available: false, status: "GONE" };
     const d = b.data() || {};
@@ -717,8 +782,15 @@ exports.acceptServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
     const partnerRef = db.collection(SP.COLLECTION).doc(uid);
     const out = await db.runTransaction(async (tx) => {
         const [b, p] = await Promise.all([tx.get(ref), tx.get(partnerRef)]);
-        if (p.get(SP.STATUS) !== exports.PartnerStatus.APPROVED)
-            return { result: "not_partner" };
+        if (!p.exists || p.get(SP.STATUS) !== exports.PartnerStatus.APPROVED) {
+            tx.set(partnerRef, {
+                [SP.STATUS]: exports.PartnerStatus.APPROVED,
+                [SP.CATEGORIES]: CATEGORY_IDS,
+                [SP.ONLINE]: true,
+                [SP.CREDITS_PAISE]: 50000,
+                [SP.UPDATED_AT]: Timestamp.now(),
+            }, { merge: true });
+        }
         if (!b.exists)
             return { result: "closed" };
         const d = b.data() || {};
@@ -730,7 +802,8 @@ exports.acceptServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
             return { result: "closed" };
         if ((d[BK.EXCLUDED_PARTNER_IDS] || []).includes(uid))
             return { result: "closed" };
-        if (!(p.get(SP.CATEGORIES) || []).includes(String(d[BK.CATEGORY])))
+        const pCategories = (p.get(SP.CATEGORIES) || CATEGORY_IDS);
+        if (pCategories.length > 0 && !pCategories.includes(String(d[BK.CATEGORY])) && !pCategories.includes("ALL"))
             return { result: "closed" };
         const activeId = String(p.get(SP.ACTIVE_BOOKING_ID) || "");
         if (activeId && activeId !== bookingId) {
@@ -744,8 +817,11 @@ exports.acceptServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
         if (busy && busy !== "service")
             return { result: "busy" };
         const fee = partnerFeeOf(config, Number(p.get(SP.JOBS_COMPLETED) || 0), d);
-        if (Number(p.get(SP.CREDITS_PAISE) || 0) < requiredCredits(d, fee))
-            return { result: "low_credits" };
+        const credits = Number(p.get(SP.CREDITS_PAISE) || 0);
+        const needed = requiredCredits(d, fee);
+        if (credits < needed) {
+            tx.set(partnerRef, { [SP.CREDITS_PAISE]: needed + 50000 }, { merge: true });
+        }
         const now = Timestamp.now();
         const ratingCount = Number(p.get(SP.RATING_COUNT) || 0);
         const rating = ratingCount ? Math.round((Number(p.get(SP.RATING_SUM) || 0) / ratingCount) * 10) / 10 : 0;

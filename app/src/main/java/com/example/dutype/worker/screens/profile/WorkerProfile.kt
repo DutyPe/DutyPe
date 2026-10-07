@@ -1402,15 +1402,9 @@ private fun ProfileSettingsCard(
                 )
                 ProfileRowDivider()
                 ProfileListRow(
-                    title = stringResource(R.string.privacy_policy),
-                    onClick = onPrivacy,
-                    iconRes = R.drawable.ic_profile_privacy
-                )
-                ProfileRowDivider()
-                ProfileListRow(
-                    title = stringResource(R.string.terms_conditions),
-                    onClick = onTerms,
-                    iconRes = R.drawable.ic_profile_terms
+                    title = stringResource(R.string.guide_entry),
+                    onClick = onGuidelines,
+                    iconRes = R.drawable.ic_profile_help
                 )
                 ProfileRowDivider()
                 ProfileListRow(

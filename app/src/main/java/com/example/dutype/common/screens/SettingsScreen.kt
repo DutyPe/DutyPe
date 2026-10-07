@@ -582,20 +582,7 @@ private suspend fun callWhatsappPromos(enabled: Boolean?): Boolean {
 
 @Composable
 private fun LegalCard(navController: NavController, userRole: String = "WORKER") {
-    val roleParam = if (userRole.equals("EMPLOYER", ignoreCase = true)) {
-        com.example.dutype.guidelines.GuidelineRole.EMPLOYER
-    } else {
-        com.example.dutype.guidelines.GuidelineRole.WORKER
-    }
-    val safetyRoute = Routes.guidelinesRoute(roleParam)
-
     SettingsCard {
-        NavRow(
-            iconRes = R.drawable.ic_profile_help,
-            title = stringResource(R.string.guide_entry),
-            onClick = { navController.navigate(safetyRoute) }
-        )
-        SettingsDividerLine()
         NavRow(
             icon = Icons.Outlined.Shield,
             title = stringResource(R.string.privacy_policy),
@@ -622,7 +609,11 @@ private fun DangerRow(text: String, onClick: () -> Unit) {
     ) {
         Text(
             text = text,
-            style = TextStyle(fontSize = 15.sp, color = SettingsDanger.fg())
+            style = TextStyle(
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = SettingsDanger.fg()
+            )
         )
     }
 }
