@@ -6,12 +6,14 @@ import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -60,6 +62,14 @@ import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.WorkOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -141,6 +151,8 @@ import com.example.dutype.employer.models.EmploymentType
 import com.example.dutype.employer.models.PayType
 import com.example.dutype.employer.models.JobShift
 import com.example.dutype.location.LocationSuggestion
+import com.example.dutype.models.JobListing
+import com.example.dutype.models.InstantRequest
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.utils.JobValidationUtils
@@ -201,7 +213,20 @@ private val PostJobBaseCategoryChips = listOf(
     JobCategory.OTHER
 )
 private val PostJobStartDateOptions = listOf("Immediately", "Tomorrow", "Next Week")
-private val PostJobPerkOptions = listOf("Food Provided", "Transport", "Overtime Bonus", "Accommodation", "Student friendly (flexible hours)")
+private val PostJobPerkOptions = listOf(
+    "Food Provided",
+    "Accommodation / Stay",
+    "Transport / Fuel",
+    "Overtime Bonus",
+    "Flexible Timings",
+    "Weekly Payout",
+    "Tips Included",
+    "Performance Bonus",
+    "Training Provided",
+    "Uniform Provided",
+    "ESI / PF",
+    "Mobile Allowance"
+)
 private val PostJobExtraPayTypes = listOf(PayType.HOURLY, PayType.NEGOTIABLE)
 private const val MIN_DESCRIPTION_CHARS = 10
 
@@ -377,7 +402,7 @@ private class PostJobController(
             experienceLevel = experienceLevel,
             educationRequired = educationRequired,
             gender = gender,
-            benefits = selectedPerks.toList(),
+            benefits = selectedPerks.map { it.take(60).trim() }.filter { it.isNotBlank() }.toList(),
             repostOfJobId = repostOfJobId
         )
         employerJobViewModel.saveDraft(draft)
@@ -658,7 +683,7 @@ private class PostJobController(
             gender = when (gender) { "Male" -> "MALE"; "Female" -> "FEMALE"; else -> "ANY" },
             experienceRequired = experienceLevel,
             educationRequired = educationRequired,
-            benefits = selectedPerks.toList(),
+            benefits = selectedPerks.map { it.take(60).trim() }.filter { it.isNotBlank() }.toList(),
             businessName = companyName.trim().takeIf { it.isNotBlank() && !it.equals(employerName.trim(), ignoreCase = true) }.orEmpty()
         )
     }
@@ -938,6 +963,7 @@ fun PostJobScreen(
     navController: NavController,
     rootNavController: NavController? = null,
     employerId: String? = null,
+    initialTab: String? = null,
     onJobPosted: ((String?) -> Unit)? = null,
     onStatusBarColorChange: ((Color) -> Unit)? = null
 ) {
@@ -999,7 +1025,7 @@ fun PostJobScreen(
             .windowInsetsPadding(WindowInsets.statusBars)
             .background(Color.White.bg())
     ) {
-        // Top Bar: Back button to Home/previous step + 2-Tab Segmented Switch
+        // Top Bar: Back button to Home/Hiring Room + 2-Tab Segmented Switch (Instant Need vs Regular Job) + Voice AI
         Surface(
             modifier = Modifier.fillMaxWidth(),
             color = Color.White.bg()
@@ -1017,8 +1043,8 @@ fun PostJobScreen(
                         } else {
                             val popped = navController.popBackStack()
                             if (!popped) {
-                                (rootNavController ?: navController).navigate(Routes.EMPLOYER_HOME) {
-                                    popUpTo(Routes.EMPLOYER_HOME) { inclusive = false }
+                                (rootNavController ?: navController).navigate(Routes.EMPLOYER_DASHBOARD) {
+                                    popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
                                     launchSingleTop = true
                                 }
                             }
@@ -1094,6 +1120,27 @@ fun PostJobScreen(
                             )
                         }
                     }
+                }
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // DutyPe AI Voice Assistant Button
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF0F172A).bg())
+                        .clickable {
+                            (rootNavController ?: navController).navigate(Routes.dutypeAiRoute(listen = true))
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Mic,
+                        contentDescription = "Voice Job Post",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
@@ -1602,7 +1649,7 @@ private fun PostJobWizardBody(
         Text(
             text = postJobStepTitle(currentStep),
             fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
+            fontWeight = FontWeight.SemiBold,
             color = PjInk.fg()
         )
         Spacer(modifier = Modifier.height(20.dp))
@@ -1650,7 +1697,7 @@ private fun BoxScope.PostJobBottomCta(c: PostJobController, currentStep: Int, ct
                 Text(
                     text = ctaLabel,
                     fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.SemiBold,
                     color = Color.White
                 )
             }
@@ -1906,18 +1953,95 @@ private fun PostJobExtraPayTypeChips(c: PostJobController) {
 
 @Composable
 private fun PostJobPerkChips(c: PostJobController) {
-    PjFlow {
-        PostJobPerkOptions.forEach { perk ->
-            val on = perk in c.selectedPerks
-            PjChip(
-                label = perk,
-                selected = on,
-                onClick = {
-                    c.selectedPerks = if (on) c.selectedPerks - perk else c.selectedPerks + perk
+    var customPerkInput by remember { mutableStateOf("") }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        val allPerkOptions = remember(c.selectedPerks) {
+            val combined = PostJobPerkOptions.toMutableList()
+            c.selectedPerks.forEach { perk ->
+                if (perk !in combined) combined.add(perk)
+            }
+            combined
+        }
+
+        PjFlow {
+            allPerkOptions.forEach { perk ->
+                val on = perk in c.selectedPerks
+                val isCustom = perk !in PostJobPerkOptions
+                PjChip(
+                    label = if (isCustom) "$perk ✕" else perk,
+                    selected = on,
+                    onClick = {
+                        c.selectedPerks = if (on) c.selectedPerks - perk else c.selectedPerks + perk
+                    },
+                    selectedFill = Color(0xFF0F0F0F).bg(),
+                    showCheck = !isCustom
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        // Custom perk input: employers can type custom benefits matching their mindset
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = customPerkInput,
+                onValueChange = { if (it.length <= 50) customPerkInput = it },
+                placeholder = {
+                    Text(
+                        "Add custom perk (e.g. Tea & snacks, Daily incentive)",
+                        fontSize = 12.sp,
+                        color = Color(0xFF94A3B8),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 },
-                selectedFill = Color(0xFF0F0F0F).bg(),
-                showCheck = true
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true,
+                textStyle = TextStyle(fontSize = 13.sp, color = Color(0xFF0F172A)),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color.White.bg(),
+                    unfocusedContainerColor = Color.White.bg(),
+                    focusedBorderColor = Color(0xFF2563EB).bd(),
+                    unfocusedBorderColor = Color(0xFFCBD5E1).bd()
+                )
             )
+
+            Spacer(Modifier.width(8.dp))
+
+            Surface(
+                modifier = Modifier
+                    .height(48.dp)
+                    .clickable(
+                        enabled = customPerkInput.trim().isNotBlank()
+                    ) {
+                        val trimmed = customPerkInput.trim()
+                        if (trimmed.isNotBlank()) {
+                            c.selectedPerks = c.selectedPerks + trimmed
+                            customPerkInput = ""
+                        }
+                    },
+                shape = RoundedCornerShape(12.dp),
+                color = if (customPerkInput.trim().isNotBlank()) Color(0xFF0F172A) else Color(0xFFE2E8F0)
+            ) {
+                Box(
+                    modifier = Modifier.padding(horizontal = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "+ Add",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (customPerkInput.trim().isNotBlank()) Color.White else Color(0xFF94A3B8)
+                    )
+                }
+            }
         }
     }
 }
@@ -2228,7 +2352,7 @@ fun RequirementsSection(
                     Text(
                         text = stringResource(R.string.post_job_requirements),
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         color = EmployerColors.TextPrimary
                     )
                     Text(

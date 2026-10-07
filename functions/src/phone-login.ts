@@ -132,7 +132,7 @@ async function sendOnSmsGateway(phone: string, code: string): Promise<boolean> {
  * Both server channels share one stored code and the per-number rate limits.
  */
 export const sendWhatsappOtp = onCallSecured(
-  { requireAuth: false, enforceAppCheck: false, timeoutSeconds: 25, secrets: [WHATSAPP_SECRET, "SMS_API_KEY"] },
+  { requireAuth: false, enforceAppCheck: false, timeoutSeconds: 25, secrets: [WHATSAPP_SECRET] },
   async (raw: unknown, context) => {
     const data = obj(raw);
     const phone = indianE164(data.phone);
@@ -147,6 +147,9 @@ export const sendWhatsappOtp = onCallSecured(
     const role = requestedRole(data);
     const existing = await registeredRole(phone);
     if (role && existing && existing !== role) fail("failed-precondition", `phone-already-registered-as:${existing}`);
+    const mode = String(data.mode || "");
+    if (mode === "login" && !existing) fail("not-found", "No account found with this number. Please register first.");
+    if (mode === "register" && existing) fail("already-exists", "An account already exists with this number. Please log in.");
 
     const now = Date.now();
     const waCap = Number(process.env.WHATSAPP_DAILY_CAP || 3000);
@@ -262,7 +265,13 @@ export const verifyWhatsappOtp = onCallSecured(
     if (result === "wrong") fail("invalid-argument", "The code is incorrect. Please check and try again.");
 
     const uid = await uidForPhone(phone);
-    return { token: await admin.auth().createCustomToken(uid) };
+    const existingRole = await registeredRole(phone);
+    const claims: Record<string, unknown> = {
+      phone_number: phone,
+      ...(existingRole ? { role: existingRole } : {}),
+    };
+    await admin.auth().setCustomUserClaims(uid, claims).catch((e) => functions.logger.warn("setCustomUserClaims failed", e));
+    return { token: await admin.auth().createCustomToken(uid, claims) };
   },
 );
 
@@ -336,7 +345,12 @@ export const truecallerSignIn = onCallSecured(
           if (doc.exists && !doc.get(WorkerProfiles.EMAIL)) tx.update(ref, { [WorkerProfiles.EMAIL]: tc.email });
         });
       }
-      return { ...profile, allowed: true, isNewUser, token: await admin.auth().createCustomToken(uid) };
+      const claims: Record<string, unknown> = {
+        phone_number: phone,
+        ...(existingRole ? { role: existingRole } : {}),
+      };
+      await admin.auth().setCustomUserClaims(uid, claims).catch((e) => functions.logger.warn("setCustomUserClaims failed", e));
+      return { ...profile, allowed: true, isNewUser, token: await admin.auth().createCustomToken(uid, claims) };
     } catch (e) {
       functions.logger.error("truecallerSignIn error:", e);
       if (e instanceof functions.https.HttpsError) throw e;

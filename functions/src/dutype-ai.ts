@@ -282,12 +282,19 @@ const BUSY: Record<"en" | "te" | "hi", string> = {
   hi: "DutyPe AI अभी व्यस्त है। एक मिनट बाद फिर कोशिश करें। आपका मुफ़्त मौका इस्तेमाल नहीं हुआ।",
 };
 
+function detectLang(message: string, fallback: Lang): Lang {
+  if (/[\u0C00-\u0C7F]/.test(message) || /\b(pani|cheyyi|kaavali|unara|entha|eppudu|naku|mandu|undhi|chesanu|cheyali)\b/i.test(message)) return "te";
+  if (/[\u0900-\u097F]/.test(message) || /\b(chahiye|kaam|karein|kitne|kisko|karo|naukri|rakha|hoga|hai|batao|karna)\b/i.test(message)) return "hi";
+  return fallback;
+}
+
 export const dutypeAi = onCallSecured({ timeoutSeconds: 30, memory: "512MB", enforceAppCheck: false, secrets: [AZURE_OPENAI_SECRET, AZURE_COSMOS_SECRET] }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   if (context.auth?.token.role !== "EMPLOYER") fail("permission-denied", "DutyPe AI is for employers");
   const data = obj(raw);
   const message = str(data, "message", { min: 1, max: 1000 });
-  const l = lang(data.lang);
+  const rawLang = lang(data.lang);
+  const l = detectLang(message, rawLang);
   const history = (Array.isArray(data.history) ? data.history : []).slice(-6).map((h) => {
     const t = obj(h);
     return { from: t.role === "ai" ? "DutyPe AI" : "Employer", text: String(t.text || "").slice(0, 300) };
@@ -298,8 +305,8 @@ export const dutypeAi = onCallSecured({ timeoutSeconds: 30, memory: "512MB", enf
     return { reply: quickAnswer(message, facts, l) ?? LOCKED[access === "limit" ? "limit" : "upgrade"][l], action: null, stats: facts.stats, locked: access };
   }
 
-  const prompt = `You are "DutyPe AI", the friendly hiring assistant inside the DutyPe app for small Indian employers.
-Reply in ${LANG_NAME[l]}, in 1-3 short sentences that sound natural when read aloud. Be warm and practical.
+  const prompt = `You are "DutyPe AI", the friendly, natural-sounding hiring and home services assistant inside the DutyPe app for Indian employers.
+Language instruction: The employer said: "${message}". Reply naturally in ${LANG_NAME[l]} (if they spoke Telugu, reply in clean Telugu script; if Hindi, reply in clean Devanagari script; if English, reply in clear English). Speak smoothly, warmly and concisely in 1-3 short sentences designed to sound natural when read aloud by voice text-to-speech. Do not use robotic wording.
 Use ONLY these facts about this employer (never invent numbers, names or jobs): ${JSON.stringify({ ...facts, stats: undefined, summary: facts.stats })}
 Conversation so far: ${JSON.stringify(history)}
 Employer now says: ${JSON.stringify(message)}

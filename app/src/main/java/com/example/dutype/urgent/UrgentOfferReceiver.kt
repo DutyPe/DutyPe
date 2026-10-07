@@ -23,7 +23,10 @@ class UrgentOfferReceiver : BroadcastReceiver() {
         val requestId = intent.getStringExtra(UrgentOffers.EXTRA_REQUEST_ID) ?: return
         val notificationId = intent.getIntExtra(UrgentOffers.EXTRA_NOTIFICATION_ID, UrgentOffers.notificationId(requestId))
         when (intent.action) {
-            UrgentOffers.ACTION_SKIP -> NotificationManagerCompat.from(context).cancel(notificationId)
+            UrgentOffers.ACTION_SKIP -> {
+                UrgentSoundAlertManager.ignoreRequest(context, requestId)
+                NotificationManagerCompat.from(context).cancel(notificationId)
+            }
             UrgentOffers.ACTION_ACCEPT -> {
                 val pending = goAsync()
                 val appContext = context.applicationContext

@@ -89,6 +89,10 @@ fun EmployerAddressManagementScreen(
     val savedWorkLocationsStore = employerJobsViewModel.savedWorkLocationsStore
     val savedWorkLocations by savedWorkLocationsStore.locations.collectAsState()
 
+    LaunchedEffect(Unit) {
+        savedWorkLocationsStore.start()
+    }
+
     // Employer theme color
     val employerBlue = EmployerColors.Primary
 

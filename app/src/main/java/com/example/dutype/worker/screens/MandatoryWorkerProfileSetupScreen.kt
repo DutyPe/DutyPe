@@ -7,6 +7,7 @@ import com.example.dutype.profile.ExperienceBucket
 import com.example.dutype.employer.models.JobCategory
 import com.example.dutype.firestore.FirestoreSchema.WorkerProfiles
 import com.dutype.app.R
+import com.example.dutype.components.ProfileSetupReferralCard
 import android.app.Activity
 import android.net.Uri
 import android.widget.Toast
@@ -342,7 +343,7 @@ fun MandatoryWorkerProfileSetupScreen(
     var authMethod by rememberSaveable { mutableStateOf<String?>(null) }
     var showValidationErrors by rememberSaveable { mutableStateOf(false) }  // Show errors only after Next click
     var isCompletionInProgress by remember { mutableStateOf(false) }  // Prevent double-execution
-    val totalSteps = 3  // Identity Verification step removed
+    val totalSteps = 2  // Streamlined 2-step setup: Basic Info + Skills & Experience
 
     fun logFunnelEvent(event: String, extras: Map<String, String> = emptyMap()) {
         runCatching {
@@ -372,7 +373,7 @@ fun MandatoryWorkerProfileSetupScreen(
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
                 profileCompletionViewModel.getWorker(currentUser.uid).getOrNull()?.let { saved ->
-                    if (fullName.isBlank()) fullName = saved.name
+                    if (fullName.isBlank() && !saved.name.equals("User", ignoreCase = true)) fullName = saved.name
                     if (phoneNumber.isBlank()) phoneNumber = saved.phone.removePrefix("+91").trim()
                     if (skills.isBlank() && saved.skills.isNotEmpty()) {
                         skills = saved.skills.joinToString(", ") { JobCategory.fromKey(it).displayName }
@@ -402,7 +403,7 @@ fun MandatoryWorkerProfileSetupScreen(
                     }
                     if (fullName.isBlank()) {
                         val googleName = profileCompletionViewModel.getUserName()
-                        if (googleName != null) {
+                        if (googleName != null && !googleName.equals("User", ignoreCase = true)) {
                             fullName = googleName
                             Timber.d("📦 PREFILL: fullName from Google = $fullName")
                         }
@@ -422,9 +423,34 @@ fun MandatoryWorkerProfileSetupScreen(
                     // don't have to type their name a second time right after OTP.
                     if (fullName.isBlank()) {
                         val cachedName = profileCompletionViewModel.getUserName()
-                        if (!cachedName.isNullOrBlank()) {
+                        if (!cachedName.isNullOrBlank() && !cachedName.equals("User", ignoreCase = true)) {
                             fullName = cachedName
                             Timber.d("📦 PREFILL: fullName from registration cache = $fullName")
+                        }
+                    }
+                }
+
+                "TRUECALLER" -> {
+                    // Truecaller Flow: Prefill verified phone, optional email, and name (editable)
+                    if (phoneNumber.isBlank()) {
+                        val tcPhone = profileCompletionViewModel.getPhoneNumber()
+                        if (tcPhone != null) {
+                            phoneNumber = tcPhone.replace("+91", "").trim()
+                            Timber.d("📦 PREFILL: phoneNumber from Truecaller = $phoneNumber")
+                        }
+                    }
+                    if (email.isBlank()) {
+                        val tcEmail = profileCompletionViewModel.getUserEmail()
+                        if (!tcEmail.isNullOrBlank()) {
+                            email = tcEmail
+                            Timber.d("📦 PREFILL: email from Truecaller = $email")
+                        }
+                    }
+                    if (fullName.isBlank()) {
+                        val tcName = profileCompletionViewModel.getUserName()
+                        if (!tcName.isNullOrBlank() && !tcName.equals("User", ignoreCase = true)) {
+                            fullName = tcName
+                            Timber.d("📦 PREFILL: fullName from Truecaller = $fullName")
                         }
                     }
                 }
@@ -435,6 +461,9 @@ fun MandatoryWorkerProfileSetupScreen(
                 }
             }
 
+            if (fullName.trim().equals("User", ignoreCase = true)) {
+                fullName = ""
+            }
             Timber.d("📦 PREFILL: Final values - email=$email, fullName=$fullName, phoneNumber=$phoneNumber")
         } catch (e: Exception) {
             Timber.e(e, "📦 PREFILL: Error loading existing profile data")
@@ -482,29 +511,21 @@ fun MandatoryWorkerProfileSetupScreen(
     // For OTP auth: fullName (user enters), email (optional), phoneNumber (prefilled, read-only), address
 
 
-    // Step 1 (Basic information): name, valid date of birth, gender (+ phone/email per auth method).
-    val isStep1Valid = fullName.isNotBlank() &&
-        ValidationUtils.isValidIndianPhoneNumber(phoneNumber) &&
-        (authMethod != "GOOGLE" || email.isNotBlank()) &&
-        (gender == "Male" || gender == "Female") &&
-        dateOfBirth.isNotBlank() && ValidationUtils.isValidDateOfBirth(dateOfBirth)
+    // Step 1 (Basic information): name (*), gender (*), optional email, optional bio, optional referral code
+    val isStep1Valid = fullName.trim().isNotBlank() &&
+        (gender == "Male" || gender == "Female" || gender.isNotBlank()) &&
+        (email.isBlank() || ValidationUtils.isValidEmail(email))
     // Step 2 (Skills & experience): at least one skill and an experience level.
-    // Education is optional (short bio lives in step 1 and is optional too).
     val isStep2Valid = skills.isNotBlank() && experience.isNotBlank()
-    // Step 3 (Where are you based?): address only.
-    val isStep3Valid = address.isNotBlank()
-    val isStep4Valid = true // Identity Verification step removed
+    val isStep3Valid = true
 
     // Overall form validation
-    val isFormValid = isStep1Valid && isStep2Valid && isStep3Valid
-
+    val isFormValid = isStep1Valid && isStep2Valid
 
     // Current step validation
     val isCurrentStepValid = when (currentStep) {
         1 -> isStep1Valid
         2 -> isStep2Valid
-        3 -> isStep3Valid
-        4 -> isStep4Valid
         else -> false
     }
 
@@ -520,20 +541,9 @@ fun MandatoryWorkerProfileSetupScreen(
     var bioError by remember { mutableStateOf<String?>(null) }
 
     // Debug logging for form validation
-    LaunchedEffect(fullName, email, phoneNumber, address, dateOfBirth, gender, skills, experience, workerBio, currentStep, isCurrentStepValid, showValidationErrors) {
-        // Show DOB age errors immediately when a DOB is selected/typed,
-        // while keeping "required" gating behind Next click.
-        val liveDateOfBirthError = if (dateOfBirth.length < 10) null else ValidationUtils.getDateOfBirthError(dateOfBirth)
-
+    LaunchedEffect(fullName, email, gender, skills, experience, workerBio, currentStep, isCurrentStepValid, showValidationErrors) {
         // Only update error messages when user tries to proceed (showValidationErrors = true)
         if (showValidationErrors) {
-            // Update phone error
-            phoneError = when {
-                phoneNumber.isBlank() -> "Phone number is required"
-                !ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && phoneNumber.isNotBlank() -> "Enter a valid 10-digit phone number"
-                else -> null
-            }
-
             // Update email error
             emailError = when {
                 email.isNotBlank() && !ValidationUtils.isValidEmail(email) -> "Enter a valid email address"
@@ -542,28 +552,13 @@ fun MandatoryWorkerProfileSetupScreen(
 
             // Update full name error
             fullNameError = when {
-                fullName.isBlank() -> "Full name is required"
+                fullName.trim().isBlank() -> "Full name is required"
                 else -> null
             }
-
-            // Update address error
-            addressError = when {
-                address.isBlank() -> "Address is required"
-                else -> null
-            }
-
-            // Update Aadhaar error
-            aadhaarNumberError = when {
-                aadhaarNumber.length < 4 -> "Must be exactly 4 digits"
-                else -> null
-            }
-
-            // Update date of birth error with age validation
-            dateOfBirthError = ValidationUtils.getDateOfBirthError(dateOfBirth)
 
             // Update gender error
             genderError = when {
-                gender != "Male" && gender != "Female" -> "Gender is required"
+                gender != "Male" && gender != "Female" && gender.isBlank() -> "Gender is required"
                 else -> null
             }
 
@@ -589,14 +584,14 @@ fun MandatoryWorkerProfileSetupScreen(
             emailError = null
             fullNameError = null
             addressError = null
-            dateOfBirthError = liveDateOfBirthError
+            dateOfBirthError = null
             genderError = null
             skillsError = null
             experienceError = null
             bioError = null
         }
 
-        Timber.d("Form validation - step=$currentStep, step1Valid=$isStep1Valid, step2Valid=$isStep2Valid, step3Valid=$isStep3Valid, currentValid=$isCurrentStepValid")
+        Timber.d("Form validation - step=$currentStep, step1Valid=$isStep1Valid, step2Valid=$isStep2Valid, currentValid=$isCurrentStepValid")
     }
 
     // Show loading while fetching existing profile data
@@ -671,7 +666,7 @@ fun MandatoryWorkerProfileSetupScreen(
                             // Stitch design: 3-segment progress bar, shown above every step
                             StitchStepProgressBar(currentStep = currentStep, totalSteps = totalSteps)
 
-                            // Step 1: Basic information (photo, name, date of birth, gender, short bio)
+                            // Step 1: Basic information (name, gender, email, short bio, referral)
                             if (currentStep == 1) {
                                 AnimatedVisibility(
                                     visible = true,
@@ -679,45 +674,24 @@ fun MandatoryWorkerProfileSetupScreen(
                                     exit = slideOutVertically() + fadeOut()
                                 ) {
                                     PersonalInformationStep(
+                                        profileCompletionViewModel = profileCompletionViewModel,
                                         fullName = fullName,
                                         email = email,
-                                        phoneNumber = phoneNumber,
-                                        authMethod = authMethod,
                                         gender = gender,
                                         workerBio = workerBio,
-                                        dateOfBirth = dateOfBirth,
-                                        selfieUri = selfieUri,
-                                        phoneError = if (showValidationErrors) phoneError else null,
-                                        emailError = if (showValidationErrors) emailError else null,
                                         fullNameError = if (showValidationErrors) fullNameError else null,
                                         genderError = if (showValidationErrors) genderError else null,
                                         bioError = if (showValidationErrors) bioError else null,
-                                        dateOfBirthError = dateOfBirthError,
-                                        onWorkerBioChange = { workerBio = it },
-                                        onGenderChange = { gender = it },
-                                        onDateOfBirthChange = { dateOfBirth = it },
-                                        onSelfieSelected = { uri ->
-                                            selfieUriString = uri.toString()
-                                            selfieUrl = null
-                                        },
+                                        emailError = if (showValidationErrors) emailError else null,
                                         onFullNameChange = { fullName = it },
-                                        onEmailChange = { newEmail ->
-                                            // Email can be changed only for OTP auth (or when not from Google)
-                                            if (authMethod != "GOOGLE" || email.isBlank()) {
-                                                email = newEmail
-                                            }
-                                        },
-                                        onPhoneChange = { newPhone ->
-                                            // Phone can be changed only for non-OTP auth (or when not from OTP)
-                                            if (authMethod != "PHONE_OTP" || phoneNumber.isBlank()) {
-                                                phoneNumber = newPhone
-                                            }
-                                        }
+                                        onGenderChange = { gender = it },
+                                        onEmailChange = { email = it },
+                                        onWorkerBioChange = { workerBio = it }
                                     )
                                 }
                             }
 
-                            // Step 2: Skills & experience (skills, experience, education)
+                            // Step 2: Skills & experience (skills, experience)
                             if (currentStep == 2) {
                                 AnimatedVisibility(
                                     visible = true,
@@ -727,29 +701,10 @@ fun MandatoryWorkerProfileSetupScreen(
                                     SkillsExperienceStep(
                                         skills = skills,
                                         experience = experience,
-                                        educationQualification = educationQualification,
                                         skillsError = if (showValidationErrors) skillsError else null,
                                         experienceError = if (showValidationErrors) experienceError else null,
                                         onSkillsChange = { skills = it },
-                                        onExperienceChange = { experience = it },
-                                        onEducationChange = { educationQualification = it }
-                                    )
-                                }
-                            }
-
-                            // Step 3: Where are you based? (location)
-                            if (currentStep == 3) {
-                                AnimatedVisibility(
-                                    visible = true,
-                                    enter = slideInVertically() + fadeIn(),
-                                    exit = slideOutVertically() + fadeOut()
-                                ) {
-                                    LocationStep(
-                                        address = address,
-                                        addressError = if (showValidationErrors) addressError else null,
-                                        onAddressChange = { address = it },
-                                        locationService = locationService,
-                                        locationPreferences = profileCompletionViewModel.locationPreferences
+                                        onExperienceChange = { experience = it }
                                     )
                                 }
                             }
@@ -1057,12 +1012,11 @@ fun MandatoryWorkerProfileSetupScreen(
                             Text(
                                 text = when (currentStep) {
                                     1 -> stringResource(R.string.worker_setup_next_skills)
-                                    2 -> stringResource(R.string.worker_setup_next_location)
                                     else -> stringResource(R.string.worker_setup_complete_profile)
                                 },
                                 color = StitchWhite.fg(),
                                 fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 maxLines = 1,
                                 softWrap = false,
                                 overflow = TextOverflow.Ellipsis
@@ -1078,27 +1032,19 @@ fun MandatoryWorkerProfileSetupScreen(
 
 @Composable
 private fun PersonalInformationStep(
+    profileCompletionViewModel: ProfileCompletionViewModel,
     fullName: String,
     email: String,
-    phoneNumber: String,
-    authMethod: String?,
     gender: String,
     workerBio: String,
-    dateOfBirth: String,
-    selfieUri: Uri?,
-    phoneError: String?,
-    emailError: String?,
     fullNameError: String?,
     genderError: String?,
     bioError: String?,
-    dateOfBirthError: String?,
-    onWorkerBioChange: (String) -> Unit,
-    onGenderChange: (String) -> Unit,
-    onDateOfBirthChange: (String) -> Unit,
-    onSelfieSelected: (Uri) -> Unit,
+    emailError: String?,
     onFullNameChange: (String) -> Unit,
+    onGenderChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
-    onPhoneChange: (String) -> Unit
+    onWorkerBioChange: (String) -> Unit
 ) {
     Column(
         modifier = Modifier.padding(top = 4.dp),
@@ -1109,8 +1055,8 @@ private fun PersonalInformationStep(
             Text(
                 text = stringResource(R.string.worker_setup_basic_info_title),
                 color = StitchTitle.fg(),
-                fontSize = 26.sp,
-                fontWeight = FontWeight.Bold
+                fontSize = 24.sp,
+                fontWeight = FontWeight.SemiBold
             )
             Text(
                 text = stringResource(R.string.worker_setup_basic_info_sub),
@@ -1120,19 +1066,11 @@ private fun PersonalInformationStep(
             )
         }
 
-        ProfilePhotoPicker(selfieUri = selfieUri, onSelfieSelected = onSelfieSelected)
-
         FullNameField(fullName = fullName, error = fullNameError, onChange = onFullNameChange)
-
-        DateOfBirthField(
-            dateOfBirth = dateOfBirth,
-            error = dateOfBirthError,
-            onDateOfBirthChange = onDateOfBirthChange
-        )
 
         // GENDER
         Column {
-            StitchSectionLabel(stringResource(R.string.worker_setup_section_gender))
+            StitchSectionLabel(stringResource(R.string.worker_setup_section_gender) + " *")
             GenderChipsRow(gender = gender, onGenderChange = onGenderChange)
             if (genderError != null) {
                 Text(
@@ -1144,20 +1082,17 @@ private fun PersonalInformationStep(
             }
         }
 
+        EmailField(email = email, error = emailError, onChange = onEmailChange)
+
         WorkerBioSection(
             workerBio = workerBio,
             bioError = bioError,
             onWorkerBioChange = onWorkerBioChange
         )
 
-        ContactDetailsSection(
-            email = email,
-            phoneNumber = phoneNumber,
-            authMethod = authMethod,
-            emailError = emailError,
-            phoneError = phoneError,
-            onEmailChange = onEmailChange,
-            onPhoneChange = onPhoneChange
+        ProfileSetupReferralCard(
+            role = UserRole.WORKER,
+            profileCompletionViewModel = profileCompletionViewModel
         )
     }
 }
@@ -1170,7 +1105,7 @@ private fun FullNameField(fullName: String, error: String?, onChange: (String) -
             onValueChange = onChange,
             label = {
                 Text(
-                    stringResource(R.string.full_name),
+                    stringResource(R.string.full_name) + " *",
                     color = StitchFieldLabel.fg(),
                     fontSize = 12.sp
                 )
@@ -1180,12 +1115,58 @@ private fun FullNameField(fullName: String, error: String?, onChange: (String) -
                 .fillMaxWidth()
                 .heightIn(min = 56.dp),
             textStyle = androidx.compose.ui.text.TextStyle(
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
                 color = StitchTitle.fg()
             ),
             shape = RoundedCornerShape(14.dp),
             isError = error != null,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = if (error != null) WorkerColors.Error else StitchInk.bd(),
+                unfocusedBorderColor = if (error != null) WorkerColors.Error else StitchBorder.bd(),
+                focusedLabelColor = if (error != null) WorkerColors.Error else StitchFieldLabel.fg(),
+                unfocusedLabelColor = StitchFieldLabel.fg(),
+                errorBorderColor = WorkerColors.Error,
+                cursorColor = StitchInk.fg()
+            ),
+            singleLine = true
+        )
+        if (error != null) {
+            Text(
+                text = error,
+                color = WorkerColors.Error,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmailField(email: String, error: String?, onChange: (String) -> Unit) {
+    Column {
+        OutlinedTextField(
+            value = email,
+            onValueChange = onChange,
+            label = {
+                Text(
+                    stringResource(R.string.email_address),
+                    color = StitchFieldLabel.fg(),
+                    fontSize = 12.sp
+                )
+            },
+            placeholder = { Text(stringResource(R.string.enter_email)) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp),
+            textStyle = androidx.compose.ui.text.TextStyle(
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = StitchTitle.fg()
+            ),
+            shape = RoundedCornerShape(14.dp),
+            isError = error != null,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = if (error != null) WorkerColors.Error else StitchInk.bd(),
                 unfocusedBorderColor = if (error != null) WorkerColors.Error else StitchBorder.bd(),
@@ -1275,151 +1256,193 @@ private fun ContactDetailsSection(
     onEmailChange: (String) -> Unit,
     onPhoneChange: (String) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        // Contact details — required for account/auth (phone always, email for Google
-        // auth) but not part of the Stitch screenshot, so styled as a secondary,
-        // lower-emphasis block underneath the primary design elements above.
-        StitchSectionLabel(stringResource(R.string.worker_setup_section_contact_details))
+    var isContactExpanded by remember { mutableStateOf(false) }
 
-        // Email - Behavior differs based on authentication method
-        if (authMethod == "GOOGLE") {
-            // Google Auth: Email is prefilled and read-only
-            OutlinedTextField(
-                value = email,
-                onValueChange = { }, // Read-only
-                label = { Text(stringResource(R.string.email_address_verified)) },
-                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = false,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    disabledBorderColor = WorkerColors.Border,
-                    disabledTextColor = WorkerColors.TextSecondary
-                ),
-                trailingIcon = {
-                    Icon(
-                        Icons.Default.CheckCircle,
-                        contentDescription = "Verified by Google",
-                        tint = WorkerColors.TextPrimary,
-                        modifier = Modifier.size(20.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .border(1.dp, StitchBorder.bd(), RoundedCornerShape(16.dp))
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { isContactExpanded = !isContactExpanded },
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.worker_setup_section_contact_details),
+                    color = StitchTitle.fg(),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (!isContactExpanded && phoneNumber.isNotBlank()) {
+                    Text(
+                        text = "+91 $phoneNumber",
+                        color = StitchSubtitle.fg(),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(top = 2.dp)
                     )
                 }
+            }
+            Icon(
+                imageVector = if (isContactExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                contentDescription = null,
+                tint = StitchSubtitle.fg(),
+                modifier = Modifier.size(20.dp)
             )
-        } else if (authMethod == "PHONE_OTP") {
-            // OTP Auth: Email is optional and editable
-            Column {
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = onEmailChange,
-                    label = { Text(stringResource(R.string.email_address_optional)) },
-                    placeholder = { Text(stringResource(R.string.enter_email)) },
-                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    isError = emailError != null,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Primary.bd(),
-                        unfocusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Border,
-                        errorBorderColor = WorkerColors.Error
-                    ),
-                    singleLine = true
-                )
-                if (emailError != null) {
-                    Text(
-                        text = emailError,
-                        color = WorkerColors.Error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                    )
-                }
-            }
-        } else {
-            // Default: Email is editable
-            Column {
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = onEmailChange,
-                    label = { Text(stringResource(R.string.email_address)) },
-                    placeholder = { Text(stringResource(R.string.enter_email)) },
-                    leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    isError = emailError != null,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Primary.bd(),
-                        unfocusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Border,
-                        errorBorderColor = WorkerColors.Error
-                    ),
-                    singleLine = true
-                )
-                if (emailError != null) {
-                    Text(
-                        text = emailError,
-                        color = WorkerColors.Error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                    )
-                }
-            }
         }
 
-        // Phone Number - Behavior differs based on authentication method
-        if (authMethod == "PHONE_OTP") {
-            // OTP Auth: Phone is prefilled and read-only
-            OutlinedTextField(
-                value = phoneNumber,
-                onValueChange = { }, // Read-only
-                label = { Text(stringResource(R.string.phone_number_verified)) },
-                leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = false,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    disabledBorderColor = WorkerColors.Border,
-                    disabledTextColor = WorkerColors.TextSecondary
-                ),
-                trailingIcon = {
-                    Icon(
-                        Icons.Default.CheckCircle,
-                        contentDescription = "Verified by OTP",
-                        tint = WorkerColors.TextPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            )
-        } else {
-            // Google Auth (or default): Phone is editable and mandatory
-            Column {
-                OutlinedTextField(
-                    value = phoneNumber,
-                    onValueChange = { newValue ->
-                        // Only allow digits and limit to 10 characters
-                        if (newValue.all { it.isDigit() } && newValue.length <= 10) {
-                            onPhoneChange(newValue)
+        AnimatedVisibility(visible = isContactExpanded) {
+            Column(
+                modifier = Modifier.padding(top = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Email - Behavior differs based on authentication method
+                if (authMethod == "GOOGLE") {
+                    // Google Auth: Email is prefilled and read-only
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { }, // Read-only
+                        label = { Text(stringResource(R.string.email_address_verified)) },
+                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = false,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            disabledBorderColor = WorkerColors.Border,
+                            disabledTextColor = WorkerColors.TextSecondary
+                        ),
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = "Verified by Google",
+                                tint = WorkerColors.TextPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
-                    },
-                    label = { Text(stringResource(R.string.phone_number_required)) },
-                    placeholder = { Text(stringResource(R.string.enter_10_digit_phone)) },
-                    leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    isError = phoneError != null,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (phoneError != null) WorkerColors.Error else WorkerColors.Primary.bd(),
-                        unfocusedBorderColor = if (phoneError != null) WorkerColors.Error else WorkerColors.Border,
-                        errorBorderColor = WorkerColors.Error
                     )
-                )
-                if (phoneError != null) {
-                    Text(
-                        text = phoneError,
-                        color = WorkerColors.Error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                } else if (authMethod == "PHONE_OTP" || authMethod == "TRUECALLER") {
+                    // OTP / Truecaller Auth: Email is optional and editable
+                    Column {
+                        OutlinedTextField(
+                            value = email,
+                            onValueChange = onEmailChange,
+                            label = { Text(stringResource(R.string.email_address_optional)) },
+                            placeholder = { Text(stringResource(R.string.enter_email)) },
+                            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                            isError = emailError != null,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Primary.bd(),
+                                unfocusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Border,
+                                errorBorderColor = WorkerColors.Error
+                            ),
+                            singleLine = true
+                        )
+                        if (emailError != null) {
+                            Text(
+                                text = emailError,
+                                color = WorkerColors.Error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                            )
+                        }
+                    }
+                } else {
+                    // Default: Email is editable
+                    Column {
+                        OutlinedTextField(
+                            value = email,
+                            onValueChange = onEmailChange,
+                            label = { Text(stringResource(R.string.email_address)) },
+                            placeholder = { Text(stringResource(R.string.enter_email)) },
+                            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                            isError = emailError != null,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Primary.bd(),
+                                unfocusedBorderColor = if (emailError != null) WorkerColors.Error else WorkerColors.Border,
+                                errorBorderColor = WorkerColors.Error
+                            ),
+                            singleLine = true
+                        )
+                        if (emailError != null) {
+                            Text(
+                                text = emailError,
+                                color = WorkerColors.Error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Phone Number - Behavior differs based on authentication method
+                if (authMethod == "PHONE_OTP" || authMethod == "TRUECALLER") {
+                    // Phone is prefilled and verified
+                    OutlinedTextField(
+                        value = phoneNumber,
+                        onValueChange = { }, // Read-only
+                        label = { Text(stringResource(R.string.phone_number_verified)) },
+                        leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = false,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            disabledBorderColor = WorkerColors.Border,
+                            disabledTextColor = WorkerColors.TextSecondary
+                        ),
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = "Verified",
+                                tint = WorkerColors.TextPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     )
+                } else {
+                    // Google Auth (or default): Phone is editable and mandatory
+                    Column {
+                        OutlinedTextField(
+                            value = phoneNumber,
+                            onValueChange = { newValue ->
+                                // Only allow digits and limit to 10 characters
+                                if (newValue.all { it.isDigit() } && newValue.length <= 10) {
+                                    onPhoneChange(newValue)
+                                }
+                            },
+                            label = { Text(stringResource(R.string.phone_number_required)) },
+                            placeholder = { Text(stringResource(R.string.enter_10_digit_phone)) },
+                            leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) },
+                            modifier = Modifier.fillMaxWidth(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            isError = phoneError != null,
+                            shape = RoundedCornerShape(16.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = if (phoneError != null) WorkerColors.Error else WorkerColors.Primary.bd(),
+                                unfocusedBorderColor = if (phoneError != null) WorkerColors.Error else WorkerColors.Border,
+                                errorBorderColor = WorkerColors.Error
+                            )
+                        )
+                        if (phoneError != null) {
+                            Text(
+                                text = phoneError,
+                                color = WorkerColors.Error,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1548,6 +1571,49 @@ private fun LocationStep(
         }
 
         Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 6.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(
+                            onClick = {
+                                fetchError = null
+                                if (locationService.hasLocationPermission()) {
+                                    startFetch(false)
+                                } else {
+                                    locationPermissionLauncher.launch(
+                                        arrayOf(
+                                            android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                            android.Manifest.permission.ACCESS_COARSE_LOCATION
+                                        )
+                                    )
+                                }
+                            }
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Icon(
+                        Icons.Default.MyLocation,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = StitchAccent.fg()
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isFetchingLocation) stringResource(R.string.worker_setup_detecting) else stringResource(R.string.worker_setup_detect),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = StitchAccent.fg()
+                    )
+                }
+            }
+
             com.example.dutype.components.LocationAutocompleteField(
                 value = address,
                 onValueChange = onAddressChange,
@@ -1582,110 +1648,66 @@ private fun LocationStep(
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
             }
-            // Fetched-location info lives UNDER the address field (never above it).
             LocationStatusRow(
                 isFetching = isFetchingLocation,
                 fetchError = fetchError,
                 showDetected = detectedAddress != null && detectedAddress == address,
-                detectedArea = detectedArea,
-                onDetect = {
-                    fetchError = null
-                    if (locationService.hasLocationPermission()) {
-                        startFetch(false)
-                    } else {
-                        locationPermissionLauncher.launch(
-                            arrayOf(
-                                android.Manifest.permission.ACCESS_FINE_LOCATION,
-                                android.Manifest.permission.ACCESS_COARSE_LOCATION
-                            )
-                        )
-                    }
-                }
+                detectedArea = detectedArea
             )
         }
     }
 }
 
-/** Line under the address field: detection status on the left, "Detect" action on the right. */
+/** Status line under the address field showing detection status. */
 @Composable
 private fun LocationStatusRow(
     isFetching: Boolean,
     fetchError: String?,
     showDetected: Boolean,
-    detectedArea: String?,
-    onDetect: () -> Unit
+    detectedArea: String?
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+            .padding(top = 6.dp, start = 4.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 4.dp, end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            if (isFetching) {
-                Text(
-                    text = stringResource(R.string.worker_setup_detecting_location),
-                    color = StitchSubtitle.fg(),
-                    fontSize = 12.sp
-                )
-            } else if (fetchError != null) {
-                Text(
-                    text = fetchError,
-                    color = WorkerColors.Error,
-                    fontSize = 12.sp
-                )
-            } else if (showDetected) {
-                Icon(
-                    Icons.Default.LocationOn,
-                    contentDescription = null,
-                    tint = StitchSuccess.fg(),
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = stringResource(R.string.worker_setup_location_detected),
-                    color = StitchSuccess.fg(),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1
-                )
-                if (detectedArea != null) {
-                    Text(
-                        text = "  ·  $detectedArea",
-                        color = StitchSubtitle.fg(),
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(onClick = onDetect)
-                .padding(horizontal = 6.dp, vertical = 4.dp)
-        ) {
+        if (isFetching) {
+            Text(
+                text = stringResource(R.string.worker_setup_detecting_location),
+                color = StitchSubtitle.fg(),
+                fontSize = 12.sp
+            )
+        } else if (fetchError != null) {
+            Text(
+                text = fetchError,
+                color = WorkerColors.Error,
+                fontSize = 12.sp
+            )
+        } else if (showDetected) {
             Icon(
-                Icons.Default.MyLocation,
+                Icons.Default.LocationOn,
                 contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                tint = StitchAccent.fg()
+                tint = StitchSuccess.fg(),
+                modifier = Modifier.size(14.dp)
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
-                text = if (isFetching) stringResource(R.string.worker_setup_detecting) else stringResource(R.string.worker_setup_detect),
-                fontSize = 14.sp,
+                text = stringResource(R.string.worker_setup_location_detected),
+                color = StitchSuccess.fg(),
+                fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = StitchAccent.fg()
+                maxLines = 1
             )
+            if (detectedArea != null) {
+                Text(
+                    text = "  ·  $detectedArea",
+                    color = StitchSubtitle.fg(),
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
@@ -1726,16 +1748,17 @@ private fun SkillChipsFlow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        skills.forEach { skill ->
-            val isSelected = selected.contains(skill)
-            val label = if (skill == OTHERS_SKILL) stringResource(R.string.category_other) else skill
-            StitchPill(
-                text = label,
-                selected = isSelected,
-                leadingIcon = skillIcon(skill),
-                onClick = { onSkillClick(skill, isSelected) }
-            )
-        }
+        skills.filter { !it.equals(OTHERS_SKILL, ignoreCase = true) && !it.equals("other", ignoreCase = true) && !it.equals("others", ignoreCase = true) }
+            .forEach { skill ->
+                val isSelected = selected.any { it.equals(skill, ignoreCase = true) }
+                StitchPill(
+                    text = skill,
+                    selected = isSelected,
+                    leadingCheck = isSelected,
+                    leadingIcon = skillIcon(skill),
+                    onClick = { onSkillClick(skill, isSelected) }
+                )
+            }
     }
 }
 
@@ -1799,7 +1822,7 @@ private fun DateOfBirthField(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = stringResource(R.string.date_of_birth),
+            text = stringResource(R.string.date_of_birth) + " *",
             color = StitchFieldLabel.fg(),
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold
@@ -1956,7 +1979,7 @@ private fun DobPickerDialog(
     ) {
         DatePicker(
             state = state,
-            showModeToggle = true,
+            showModeToggle = false,
             colors = whiteDatePickerColors()
         )
     }
@@ -2002,11 +2025,11 @@ private val DEFAULT_SKILLS = listOf(
     JobCategory.COOK, JobCategory.MAID, JobCategory.DRIVER, JobCategory.DELIVERY, JobCategory.HELPER,
     JobCategory.CARETAKER, JobCategory.TAILOR, JobCategory.PLUMBER, JobCategory.ELECTRICIAN,
     JobCategory.PAINTER, JobCategory.GARDENER, JobCategory.SECURITY
-).map { it.displayName } + "Others"
+).map { it.displayName }.filter { !it.equals("Others", ignoreCase = true) && !it.equals("Other", ignoreCase = true) }
 
 /** Extra skills that are NOT shown as chips by default; found through the search bar. */
 private val EXTRA_SKILLS = JobCategory.entries
-    .filter { it != JobCategory.OTHER }
+    .filter { it != JobCategory.OTHER && !it.displayName.equals("Others", ignoreCase = true) && !it.displayName.equals("Other", ignoreCase = true) }
     .map { it.displayName }
     .filter { it !in DEFAULT_SKILLS }
 
@@ -2016,26 +2039,24 @@ private const val MAX_CUSTOM_SKILL_LENGTH = 30
 
 private val EXPERIENCE_OPTIONS = ExperienceBucket.entries.map { it.label }
 
-private val EDUCATION_OPTIONS = listOf(
-    "No formal education", "Below 10th", "10th pass", "12th pass",
-    "ITI / Diploma", "Graduate", "Any qualification"
-)
-
 private fun parseSkills(raw: String): List<String> =
-    raw.split(",").map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+    raw.split(",").map { it.trim() }.filter { it.isNotEmpty() && !it.equals("Others", ignoreCase = true) && !it.equals("Other", ignoreCase = true) }.distinct()
 
-/** Trims, strips commas, caps length, capitalizes words; maps known names to their canonical form. */
+/** Trims, strips commas, caps length, capitalizes words; maps known names or title-cases custom input. */
 private fun normalizeSkillInput(raw: String): String {
     val cleaned = raw.replace(",", " ").trim().replace(Regex("\\s+"), " ")
         .take(MAX_CUSTOM_SKILL_LENGTH).trim()
-    if (cleaned.isEmpty() || cleaned.equals(OTHERS_SKILL, ignoreCase = true)) return ""
-    // Skills are job categories (they drive job matching), so only known categories are accepted.
-    return (DEFAULT_SKILLS + EXTRA_SKILLS).firstOrNull { it.equals(cleaned, ignoreCase = true) }.orEmpty()
+    if (cleaned.isEmpty() || cleaned.equals(OTHERS_SKILL, ignoreCase = true) || cleaned.equals("other", ignoreCase = true) || cleaned.equals("others", ignoreCase = true)) return ""
+    val known = (DEFAULT_SKILLS + EXTRA_SKILLS).firstOrNull { it.equals(cleaned, ignoreCase = true) }
+    if (known != null) return known
+    return cleaned.split(" ").filter { it.isNotBlank() }
+        .joinToString(" ") { it.replaceFirstChar { char -> char.uppercase() } }
 }
 
-/** "Cook, Driver" → ["COOK", "DRIVER"]. */
-private fun skillKeys(raw: String): List<String> = parseSkills(raw).mapNotNull { name ->
+/** "Cook, Driver, Welder" → ["COOK", "DRIVER", "WELDER"]. Custom skills fall back to normalized uppercase token. */
+private fun skillKeys(raw: String): List<String> = parseSkills(raw).map { name ->
     JobCategory.entries.firstOrNull { it.displayName.equals(name, ignoreCase = true) }?.name
+        ?: name.uppercase().replace(Regex("[^A-Z0-9]+"), "_").trim('_').ifBlank { "OTHER" }
 }
 
 /** 13sp SemiBold gray label used for the sub-sections of a step. */
@@ -2054,18 +2075,18 @@ private fun SubSectionHeader(title: String) {
 private fun SkillsExperienceStep(
     skills: String,
     experience: String,
-    educationQualification: String,
     skillsError: String?,
     experienceError: String?,
     onSkillsChange: (String) -> Unit,
-    onExperienceChange: (String) -> Unit,
-    onEducationChange: (String) -> Unit
+    onExperienceChange: (String) -> Unit
 ) {
+    var isExperienceExpanded by remember { mutableStateOf(true) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         Column {
             Text(
@@ -2083,7 +2104,7 @@ private fun SkillsExperienceStep(
         }
 
         Column {
-            SubSectionHeader(stringResource(R.string.worker_setup_what_are_skills))
+            SubSectionHeader(stringResource(R.string.worker_setup_what_are_skills) + " *")
             SkillsPickerSection(
                 skills = skills,
                 skillsError = skillsError,
@@ -2091,37 +2112,63 @@ private fun SkillsExperienceStep(
             )
         }
 
-        Column {
-            SubSectionHeader(stringResource(R.string.worker_setup_how_much_exp))
-            ChipOptionsFlow(
-                options = EXPERIENCE_OPTIONS,
-                selected = experience,
-                onSelect = onExperienceChange
-            )
-            if (experienceError != null) {
-                Text(
-                    text = experienceError,
-                    color = WorkerColors.Error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(start = 4.dp, top = 6.dp)
-                )
-            }
-        }
-
-        Box(
+        // Experience Accordion
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(1.dp)
-                .background(StitchBorder.bg())
-        )
+                .clip(RoundedCornerShape(16.dp))
+                .border(1.dp, StitchBorder.bd(), RoundedCornerShape(16.dp))
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isExperienceExpanded = !isExperienceExpanded },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.worker_setup_how_much_exp) + " *",
+                        color = StitchTitle.fg(),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    if (!isExperienceExpanded && experience.isNotBlank()) {
+                        Text(
+                            text = experience,
+                            color = StitchAccent.fg(),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = if (isExperienceExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = StitchSubtitle.fg(),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
 
-        Column {
-            SubSectionHeader(stringResource(R.string.worker_setup_education_optional))
-            ChipOptionsFlow(
-                options = EDUCATION_OPTIONS,
-                selected = educationQualification,
-                onSelect = onEducationChange
-            )
+            AnimatedVisibility(visible = isExperienceExpanded) {
+                Column(modifier = Modifier.padding(top = 12.dp)) {
+                    ChipOptionsFlow(
+                        options = EXPERIENCE_OPTIONS,
+                        selected = experience,
+                        onSelect = onExperienceChange
+                    )
+                    if (experienceError != null) {
+                        Text(
+                            text = experienceError,
+                            color = WorkerColors.Error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(start = 4.dp, top = 6.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -2144,13 +2191,6 @@ private fun ChipOptionsFlow(
                 "1-2 years" -> stringResource(R.string.exp_1_to_2_years)
                 "3-5 years" -> stringResource(R.string.exp_3_to_5_years)
                 "5+ years" -> stringResource(R.string.exp_5_plus_years)
-                "No formal education" -> stringResource(R.string.edu_no_formal)
-                "Below 10th" -> stringResource(R.string.edu_below_10th)
-                "10th pass" -> stringResource(R.string.edu_10th_pass)
-                "12th pass" -> stringResource(R.string.edu_12th_pass)
-                "ITI / Diploma" -> stringResource(R.string.edu_iti_diploma)
-                "Graduate" -> stringResource(R.string.edu_graduate)
-                "Any qualification" -> stringResource(R.string.edu_any)
                 else -> option
             }
             StitchPill(
@@ -2204,6 +2244,7 @@ private fun WorkerBioSection(
  * surface via search; anything typed that doesn't match can be added as a custom
  * skill (chip or keyboard Done). Selection is stored in the same comma-joined string.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SkillsPickerSection(
     skills: String,
@@ -2214,59 +2255,77 @@ private fun SkillsPickerSection(
     var showAllSkills by remember { mutableStateOf(false) }
     val searchFocus = remember { FocusRequester() }
     val selected = parseSkills(skills)
-    val selectedSet = selected.toSet()
     val query = searchQuery.trim()
 
+    fun isSelected(skill: String): Boolean =
+        selected.any { it.equals(skill, ignoreCase = true) }
+
     fun toggleSkill(name: String) {
-        val updated = if (selected.any { it.equals(name, ignoreCase = true) }) {
-            selected.filter { !it.equals(name, ignoreCase = true) }
+        val cleanName = normalizeSkillInput(name).ifBlank { name.trim() }
+        if (cleanName.isBlank()) return
+        val updated = if (isSelected(cleanName)) {
+            selected.filter { !it.equals(cleanName, ignoreCase = true) }
         } else {
-            selected + name
+            selected + cleanName
         }
         onSkillsChange(updated.joinToString(", "))
     }
 
     fun addSkill(name: String) {
-        if (name.isNotBlank() && selected.none { it.equals(name, ignoreCase = true) }) {
-            onSkillsChange((selected + name).joinToString(", "))
+        val cleanName = normalizeSkillInput(name).ifBlank { name.trim() }
+        if (cleanName.isNotBlank() && !isSelected(cleanName)) {
+            onSkillsChange((selected + cleanName).joinToString(", "))
         }
         searchQuery = ""
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         SkillSearchField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
             focusRequester = searchFocus,
-            onDone = { addSkill(normalizeSkillInput(searchQuery)) }
+            onDone = { addSkill(searchQuery) }
         )
 
-        val addedSkills = selected.filter { it !in DEFAULT_SKILLS }
-        if (addedSkills.isNotEmpty()) {
-            Text(
-                text = stringResource(R.string.worker_setup_added_skills),
-                color = StitchLabel.fg(),
-                fontSize = 12.sp
-            )
-            SkillChipsFlow(
-                skills = addedSkills,
-                selected = selectedSet,
-                onSkillClick = { skill, _ -> toggleSkill(skill) }
-            )
+        // 1. Prominently display all selected skills as selected chips
+        if (selected.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "Selected Skills (${selected.size})",
+                    color = StitchTitle.fg(),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    selected.forEach { skill ->
+                        StitchPill(
+                            text = skill,
+                            selected = true,
+                            leadingCheck = true,
+                            leadingIcon = skillIcon(skill),
+                            onClick = { toggleSkill(skill) }
+                        )
+                    }
+                }
+            }
         }
 
+        // 2. Search Results or Default Skills Grid
         if (query.isNotEmpty()) {
             SkillSearchResults(
                 query = query,
-                selected = selectedSet,
+                isSelected = { isSelected(it) },
                 onPick = { addSkill(it) }
             )
         } else {
             DefaultSkillsGrid(
                 showAll = showAllSkills,
-                selected = selectedSet,
+                isSelected = { isSelected(it) },
                 onToggle = { toggleSkill(it) },
-                onOthers = { searchFocus.requestFocus() },
                 onShowAll = { showAllSkills = true }
             )
         }
@@ -2313,6 +2372,17 @@ private fun SkillSearchField(
         leadingIcon = {
             Icon(Icons.Default.Search, contentDescription = null, tint = StitchSubtitle.fg())
         },
+        trailingIcon = {
+            if (value.isNotBlank()) {
+                IconButton(onClick = onDone) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Add skill",
+                        tint = StitchAccent.fg()
+                    )
+                }
+            }
+        },
         modifier = Modifier
             .fillMaxWidth()
             .focusRequester(focusRequester),
@@ -2332,64 +2402,74 @@ private fun SkillSearchField(
 @Composable
 private fun SkillSearchResults(
     query: String,
-    selected: Set<String>,
+    isSelected: (String) -> Boolean,
     onPick: (String) -> Unit
 ) {
-    val allSkills = (DEFAULT_SKILLS + EXTRA_SKILLS).filter { it != OTHERS_SKILL }
+    val allSkills = (DEFAULT_SKILLS + EXTRA_SKILLS).filter {
+        !it.equals(OTHERS_SKILL, ignoreCase = true) && !it.equals("other", ignoreCase = true)
+    }
     val matches = allSkills.filter { it.contains(query, ignoreCase = true) }
-    val typed = normalizeSkillInput(query)
+    val typed = normalizeSkillInput(query).ifBlank { query.trim() }
     val alreadyKnown = typed.isEmpty() ||
         allSkills.any { it.equals(typed, ignoreCase = true) } ||
-        selected.any { it.equals(typed, ignoreCase = true) }
+        isSelected(typed)
 
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        matches.forEach { skill ->
-            StitchPill(
-                text = skill,
-                selected = selected.contains(skill),
-                leadingIcon = skillIcon(skill),
-                onClick = { onPick(skill) }
-            )
-        }
-        if (!alreadyKnown) {
-            StitchPill(
-                text = stringResource(R.string.worker_setup_add_custom_skill, typed),
-                selected = false,
-                leadingIcon = Icons.Default.Add,
-                onClick = { onPick(typed) }
-            )
-        }
-    }
-    if (matches.isEmpty() && alreadyKnown) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = stringResource(R.string.worker_setup_skill_already_added, query),
+            text = "Search Results",
             color = StitchSubtitle.fg(),
-            fontSize = 13.sp
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium
         )
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            matches.forEach { skill ->
+                val selected = isSelected(skill)
+                StitchPill(
+                    text = skill,
+                    selected = selected,
+                    leadingCheck = selected,
+                    leadingIcon = skillIcon(skill),
+                    onClick = { onPick(skill) }
+                )
+            }
+            if (!alreadyKnown && typed.isNotBlank()) {
+                StitchPill(
+                    text = "+ Add \"$typed\"",
+                    selected = false,
+                    leadingIcon = Icons.Default.Add,
+                    onClick = { onPick(typed) }
+                )
+            }
+        }
+        if (matches.isEmpty() && alreadyKnown && isSelected(query)) {
+            Text(
+                text = stringResource(R.string.worker_setup_skill_already_added, query),
+                color = StitchSubtitle.fg(),
+                fontSize = 13.sp
+            )
+        }
     }
 }
 
 @Composable
 private fun DefaultSkillsGrid(
     showAll: Boolean,
-    selected: Set<String>,
+    isSelected: (String) -> Boolean,
     onToggle: (String) -> Unit,
-    onOthers: () -> Unit,
     onShowAll: () -> Unit
 ) {
     val visible = if (showAll) DEFAULT_SKILLS else DEFAULT_SKILLS.take(DEFAULT_VISIBLE_SKILLS)
     val remainingCount = DEFAULT_SKILLS.size - visible.size
+    val filtered = visible.filter { !it.equals(OTHERS_SKILL, ignoreCase = true) && !it.equals("other", ignoreCase = true) }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SkillChipsFlow(
-            skills = visible,
-            selected = selected,
-            onSkillClick = { skill, _ ->
-                if (skill == OTHERS_SKILL) onOthers() else onToggle(skill)
-            }
+            skills = filtered,
+            selected = filtered.filter { isSelected(it) }.toSet(),
+            onSkillClick = { skill, _ -> onToggle(skill) }
         )
         if (remainingCount > 0) {
             Text(

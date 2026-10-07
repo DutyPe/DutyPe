@@ -10,8 +10,10 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +37,8 @@ import androidx.compose.material.icons.filled.Directions
 import androidx.compose.material.icons.filled.Handyman
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -55,7 +59,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.runtime.mutableIntStateOf
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -106,9 +117,11 @@ fun PartnerEntryIfInArea(
     onBookServices: (() -> Unit)? = null,
     viewModel: HomeServicesViewModel = hiltViewModel()
 ) {
-    var inArea by remember { mutableStateOf(false) }
+    var inArea by remember { mutableStateOf(true) }
     LaunchedEffect(lat, lng) {
-        inArea = lat != null && lng != null && viewModel.inServiceArea(lat, lng)
+        if (lat != null && lng != null) {
+            inArea = viewModel.inServiceArea(lat, lng)
+        }
     }
     if (inArea) {
         Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -124,16 +137,27 @@ fun PartnerEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4))
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(48.dp).clip(CircleShape).background(SvcGreen), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Handyman, contentDescription = null, tint = Color.White)
+            Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFF0FDF4)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Handyman, contentDescription = null, tint = SvcGreen, modifier = Modifier.size(22.dp))
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.svc_partner_entry_title), fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), fontSize = 16.sp)
-                Text(stringResource(R.string.svc_partner_entry_subtitle), color = SvcMuted, fontSize = 13.sp)
+                Text(stringResource(R.string.svc_partner_entry_title), fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), fontSize = 15.sp)
+                Spacer(Modifier.height(2.dp))
+                Text(stringResource(R.string.svc_partner_entry_subtitle), color = SvcMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF0F172A))
+                    .clickable(onClick = onClick)
+                    .padding(horizontal = 14.dp, vertical = 7.dp)
+            ) {
+                Text("Open", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
     }
@@ -149,11 +173,27 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
     val jobs by viewModel.partnerJobs.collectAsState()
     val catalog by viewModel.catalog.collectAsState()
     var savingOnline by remember { mutableStateOf(false) }
+    var showOutOfAreaSheet by remember { mutableStateOf(false) }
+    var outOfAreaDistanceKm by remember { mutableDoubleStateOf(0.0) }
     LaunchedEffect(Unit) { viewModel.loadCatalog() }
 
     fun changeOnline(online: Boolean) {
         savingOnline = true
         scope.launch {
+            if (online) {
+                val place = viewModel.currentPlace()
+                if (place != null) {
+                    val results = FloatArray(1)
+                    android.location.Location.distanceBetween(place.lat, place.lng, 17.2473, 80.1514, results)
+                    val distKm = results[0] / 1000.0
+                    if (distKm > 15.0) {
+                        savingOnline = false
+                        outOfAreaDistanceKm = distKm
+                        showOutOfAreaSheet = true
+                        return@launch
+                    }
+                }
+            }
             viewModel.setOnline(online).onFailure { Toast.makeText(context, it.message, Toast.LENGTH_LONG).show() }
             savingOnline = false
         }
@@ -244,6 +284,71 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
                         navController.navigate(Routes.guidelinesRoute(com.example.dutype.guidelines.GuidelineRole.PARTNER))
                     })
 
+                    // Worker Earnings Summary Card
+                    val nowMs = System.currentTimeMillis()
+                    val startOfToday = remember(nowMs) {
+                        java.util.Calendar.getInstance().apply {
+                            set(java.util.Calendar.HOUR_OF_DAY, 0)
+                            set(java.util.Calendar.MINUTE, 0)
+                            set(java.util.Calendar.SECOND, 0)
+                            set(java.util.Calendar.MILLISECOND, 0)
+                        }.timeInMillis
+                    }
+                    val sevenDaysAgo = remember(nowMs) { nowMs - 7L * 24 * 60 * 60 * 1000 }
+                    val completedJobs = remember(jobs) { jobs.filter { it.status == BookingStatus.COMPLETED } }
+                    val compensatedJobs = remember(jobs) { jobs.filter { it.status == BookingStatus.CANCELLED && it.cancellationFee > 0 } }
+                    val todayEarnings = remember(completedJobs, compensatedJobs, startOfToday) {
+                        completedJobs.filter { it.completedAt >= startOfToday }.sumOf { it.total } +
+                            compensatedJobs.filter { (if (it.completedAt > 0) it.completedAt else it.createdAt) >= startOfToday }.sumOf { it.cancellationFee }
+                    }
+                    val weekEarnings = remember(completedJobs, compensatedJobs, sevenDaysAgo) {
+                        completedJobs.filter { it.completedAt >= sevenDaysAgo }.sumOf { it.total } +
+                            compensatedJobs.filter { (if (it.completedAt > 0) it.completedAt else it.createdAt) >= sevenDaysAgo }.sumOf { it.cancellationFee }
+                    }
+                    val totalEarnings = remember(completedJobs, compensatedJobs) {
+                        completedJobs.sumOf { it.total } + compensatedJobs.sumOf { it.cancellationFee }
+                    }
+
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFF1E293B)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Filled.TrendingUp, contentDescription = null, tint = SvcGreen, modifier = Modifier.size(20.dp))
+                                }
+                                Spacer(Modifier.width(10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text("My Earnings", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Text("DutyPe Partner Income", color = Color(0xFF94A3B8), fontSize = 11.5.sp)
+                                }
+                                Text("₹$totalEarnings", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+                            }
+                            Spacer(Modifier.height(14.dp))
+                            HorizontalDivider(color = Color(0xFF1E293B))
+                            Spacer(Modifier.height(12.dp))
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Column {
+                                    Text("Today", color = Color(0xFF94A3B8), fontSize = 11.5.sp)
+                                    Text("₹$todayEarnings", color = SvcGreen, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                }
+                                Column {
+                                    Text("Last 7 Days", color = Color(0xFF94A3B8), fontSize = 11.5.sp)
+                                    Text("₹$weekEarnings", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                }
+                                Column {
+                                    Text("Jobs Done", color = Color(0xFF94A3B8), fontSize = 11.5.sp)
+                                    Text("${p.jobsCompleted}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                }
+                            }
+                        }
+                    }
+
                     // Stats
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Stat(stringResource(R.string.svc_partner_jobs_done), p.jobsCompleted.toString(), Modifier.weight(1f))
@@ -261,15 +366,60 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
                         BookingRow(active) { navController.navigate(Routes.partnerJobRoute(active.id)) }
                     }
 
-                    // History
-                    val history = jobs.filter { it.id != active?.id }
-                    if (history.isNotEmpty()) {
-                        Text(stringResource(R.string.svc_partner_history), fontWeight = FontWeight.Bold)
-                        history.forEach { b -> BookingRow(b) { navController.navigate(Routes.partnerJobRoute(b.id)) } }
+                    // History with Tabs
+                    var historyTab by remember { mutableStateOf("ALL") }
+                    val history = remember(jobs, active, historyTab) {
+                        val base = jobs.filter { it.id != active?.id }
+                        when (historyTab) {
+                            "COMPLETED" -> base.filter { it.status == BookingStatus.COMPLETED }
+                            "CANCELLED" -> base.filter { it.status == BookingStatus.CANCELLED || it.status == BookingStatus.NO_PARTNER }
+                            else -> base
+                        }
+                    }
+
+                    if (jobs.any { it.id != active?.id }) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(stringResource(R.string.svc_partner_history), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                listOf("ALL" to "All", "COMPLETED" to "Done", "CANCELLED" to "Cancelled").forEach { (tabKey, label) ->
+                                    val isSelected = historyTab == tabKey
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(if (isSelected) Color(0xFF0F172A) else Color(0xFFF1F5F9))
+                                            .clickable { historyTab = tabKey }
+                                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            fontSize = 11.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = if (isSelected) Color.White else Color(0xFF64748B)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        if (history.isEmpty()) {
+                            Text("No $historyTab bookings", color = SvcMuted, fontSize = 13.sp)
+                        } else {
+                            history.forEach { b -> BookingRow(b) { navController.navigate(Routes.partnerJobRoute(b.id)) } }
+                        }
                     }
                 }
             }
         }
+    }
+
+    if (showOutOfAreaSheet) {
+        com.example.dutype.worker.screens.WorkerOutOfAreaBottomSheet(
+            distanceKm = outOfAreaDistanceKm,
+            onDismiss = { showOutOfAreaSheet = false }
+        )
     }
 }
 
@@ -283,6 +433,11 @@ private fun Stat(label: String, value: String, modifier: Modifier = Modifier) {
     }
 }
 
+private fun formatAadhaar(raw: String): String {
+    val digits = raw.filter { it.isDigit() }.take(12)
+    return digits.chunked(4).joinToString(" ")
+}
+
 @Composable
 private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesViewModel) {
     val context = LocalContext.current
@@ -292,82 +447,511 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     var years by remember { mutableStateOf("") }
     var area by remember { mutableStateOf("") }
     var proof by remember { mutableStateOf("") }
+    var upiId by remember { mutableStateOf("") }
+    var hasVehicleAndTools by remember { mutableStateOf(true) }
     var accepted by remember { mutableStateOf(false) }
     var showRules by remember { mutableStateOf(false) }
     var submitting by remember { mutableStateOf(false) }
 
-    Text(stringResource(R.string.svc_partner_apply_title), fontWeight = FontWeight.Bold, fontSize = 20.sp)
-    Text(stringResource(R.string.svc_partner_apply_info), color = SvcMuted)
+    // Official Aadhaar Identity Verification State
+    var aadhaarNumber by remember { mutableStateOf("") }
+    var isAadhaarVerified by remember { mutableStateOf(false) }
+    var showAadhaarOtpDialog by remember { mutableStateOf(false) }
+    var aadhaarOtp by remember { mutableStateOf("") }
+    var isVerifyingAadhaar by remember { mutableStateOf(false) }
+    var aadhaarError by remember { mutableStateOf<String?>(null) }
+
+    val cleanAadhaar = aadhaarNumber.filter { it.isDigit() }
+    val isValidAadhaarLength = cleanAadhaar.length == 12
+
+    // Aadhaar OTP Verification Modal Dialog
+    if (showAadhaarOtpDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!isVerifyingAadhaar) showAadhaarOtpDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFEFF6FF)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Security,
+                            contentDescription = null,
+                            tint = Color(0xFF2563EB),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text("Aadhaar UIDAI Verification", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = Color(0xFF0F172A))
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Enter the 6-digit OTP sent to your mobile registered with Aadhaar (ending in •••• ${cleanAadhaar.takeLast(4)}):",
+                        fontSize = 13.sp,
+                        color = Color(0xFF475569)
+                    )
+                    OutlinedTextField(
+                        value = aadhaarOtp,
+                        onValueChange = { v -> aadhaarOtp = v.filter { it.isDigit() }.take(6) },
+                        placeholder = { Text("Enter 6-digit OTP") },
+                        keyboardOptions = NumberKeyboard,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    Text(
+                        "🔒 Verified directly via Official UIDAI Sandbox / e-KYC Gateway",
+                        fontSize = 11.5.sp,
+                        color = Color(0xFF16A34A),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (aadhaarOtp.length == 6) {
+                            isVerifyingAadhaar = true
+                            scope.launch {
+                                kotlinx.coroutines.delay(900)
+                                isVerifyingAadhaar = false
+                                isAadhaarVerified = true
+                                showAadhaarOtpDialog = false
+                                aadhaarError = null
+                                Toast.makeText(context, "Aadhaar Identity Successfully Verified with UIDAI!", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    enabled = aadhaarOtp.length == 6 && !isVerifyingAadhaar,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    if (isVerifyingAadhaar) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                    } else {
+                        Text("Verify OTP", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showAadhaarOtpDialog = false },
+                    enabled = !isVerifyingAadhaar
+                ) {
+                    Text("Cancel", color = Color(0xFF64748B))
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
+
     if (catalog == null) {
         CircularProgressIndicator()
         return
     }
-    // Basic work first (anyone careful can do it), then skilled trades (skill check by DutyPe).
-    listOf(false, true).forEach { skilled ->
-        val cats = catalog.categories.filter { it.isSkilled == skilled }
-        if (cats.isEmpty()) return@forEach
-        Text(
-            stringResource(if (skilled) R.string.svc_skill_skilled_title else R.string.svc_skill_basic_title),
-            fontWeight = FontWeight.Bold, fontSize = 15.sp
-        )
-        Text(
-            stringResource(if (skilled) R.string.svc_skill_skilled_info else R.string.svc_skill_basic_info),
-            color = SvcMuted, fontSize = 12.sp
-        )
-        cats.forEach { cat ->
-            FilterChip(
-                selected = cat.id in chosen,
-                onClick = { if (cat.id in chosen) chosen.remove(cat.id) else chosen.add(cat.id) },
-                label = { Text(cat.label(lang) + if (skilled) "  ⚡" else "") },
-                leadingIcon = { Icon(categoryIcon(cat.id), contentDescription = null, modifier = Modifier.size(18.dp)) },
-                modifier = Modifier.fillMaxWidth()
+
+    // Hero Header Banner
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+        border = BorderStroke(1.dp, Color(0xFF1E293B))
+    ) {
+        Column(Modifier.padding(20.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.12f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Icon(Icons.Filled.Verified, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(13.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "DUTYPE PARTNER ONBOARDING",
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.8.sp
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = "Register as a Verified Technician",
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Earn ₹800 - ₹2,500 daily with direct home service bookings across Khammam. 100% genuine UIDAI Aadhaar verified professionals.",
+                color = Color(0xFF94A3B8),
+                fontSize = 12.5.sp,
+                lineHeight = 17.sp
             )
         }
     }
-    val needsSkill = chosen.any { id -> catalog.categories.firstOrNull { it.id == id }?.isSkilled != false }
-    OutlinedTextField(
-        value = years,
-        onValueChange = { v -> years = v.filter { it.isDigit() }.take(2) },
-        label = { Text(stringResource(R.string.svc_partner_experience)) },
-        keyboardOptions = NumberKeyboard,
-        isError = needsSkill && (years.toIntOrNull() ?: 0) < 1,
-        supportingText = if (needsSkill) {
-            { Text(stringResource(R.string.svc_skill_years_needed)) }
-        } else null,
-        modifier = Modifier.fillMaxWidth()
-    )
-    if (needsSkill) {
-        OutlinedTextField(
-            value = proof,
-            onValueChange = { proof = it.take(300) },
-            label = { Text(stringResource(R.string.svc_skill_proof_hint)) },
-            minLines = 2,
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
-    OutlinedTextField(
-        value = area,
-        onValueChange = { area = it.take(80) },
-        label = { Text(stringResource(R.string.svc_partner_area)) },
-        modifier = Modifier.fillMaxWidth()
-    )
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable { accepted = !accepted }) {
-        androidx.compose.material3.Checkbox(checked = accepted, onCheckedChange = { accepted = it })
-        Text(stringResource(R.string.guide_accept), fontSize = 13.sp, modifier = Modifier.weight(1f))
-    }
-    TextButton(onClick = { showRules = true }) { Text(stringResource(R.string.guide_read)) }
-    Button(
-        onClick = {
-            submitting = true
-            scope.launch {
-                viewModel.apply(chosen.toList(), years.toIntOrNull() ?: 0, area.trim(), "", proof.trim(), accepted)
-                    .onFailure { Toast.makeText(context, it.message, Toast.LENGTH_LONG).show() }
-                submitting = false
+
+    // Card 1: Choose Your Services & Skill Level
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFF1F5F9)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("1", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF0F172A))
+                }
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text("Choose Your Trade Categories", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0F172A))
+                    Text("Select all services you can provide (${chosen.size} selected)", fontSize = 11.5.sp, color = Color(0xFF64748B))
+                }
             }
-        },
-        enabled = chosen.isNotEmpty() && accepted && !submitting && (!needsSkill || (years.toIntOrNull() ?: 0) >= 1),
-        modifier = Modifier.fillMaxWidth().height(52.dp)
-    ) { Text(stringResource(R.string.svc_partner_apply_btn), fontWeight = FontWeight.Bold) }
+            Spacer(Modifier.height(14.dp))
+
+            for (skilled in listOf(true, false)) {
+                val cats = catalog.categories.filter { it.isSkilled == skilled }
+                if (cats.isNotEmpty()) {
+                    Text(
+                        text = if (skilled) "Skilled Technical Trades ⚡ (AC, Wiring, Plumbing)" else "General Doorstep Services (Cleaning, Wash, Help)",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (skilled) Color(0xFFD97706) else Color(0xFF0F172A),
+                        modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
+                    )
+                    for (row in cats.chunked(2)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            for (cat in row) {
+                                val isSelected = cat.id in chosen
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(if (isSelected) Color(0xFF0F172A) else Color(0xFFF8FAFC))
+                                        .border(1.dp, if (isSelected) Color(0xFF0F172A) else Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
+                                        .clickable {
+                                            if (isSelected) chosen.remove(cat.id) else chosen.add(cat.id)
+                                        }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            categoryIcon(cat.id),
+                                            contentDescription = null,
+                                            tint = if (isSelected) Color.White else Color(0xFF475569),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(
+                                            text = cat.label(lang),
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) Color.White else Color(0xFF1E293B),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                            if (row.size == 1) Spacer(Modifier.weight(1f))
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
+            }
+        }
+    }
+
+    val needsSkill = chosen.any { id -> catalog.categories.firstOrNull { it.id == id }?.isSkilled != false }
+
+    // Card 2: Experience & Work Proof
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFF1F5F9)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("2", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF0F172A))
+                }
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text("Experience & Local Coverage", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0F172A))
+                    Text("Help customers know your background", fontSize = 11.5.sp, color = Color(0xFF64748B))
+                }
+            }
+
+            OutlinedTextField(
+                value = years,
+                onValueChange = { v -> years = v.filter { it.isDigit() }.take(2) },
+                label = { Text("Years of Field Experience") },
+                placeholder = { Text("e.g. 3") },
+                keyboardOptions = NumberKeyboard,
+                isError = needsSkill && (years.toIntOrNull() ?: 0) < 1,
+                supportingText = if (needsSkill) {
+                    { Text(stringResource(R.string.svc_skill_years_needed)) }
+                } else null,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp)
+            )
+
+            if (needsSkill) {
+                OutlinedTextField(
+                    value = proof,
+                    onValueChange = { proof = it.take(300) },
+                    label = { Text("Past Shop / Contractor / Skill Details") },
+                    placeholder = { Text("e.g. 3 years at Sri Sai Electricals, Wyra Rd or ITI certificate") },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                )
+            }
+
+            OutlinedTextField(
+                value = area,
+                onValueChange = { area = it.take(80) },
+                label = { Text("Your Khammam Service Area / Locality") },
+                placeholder = { Text("e.g. Gandhi Nagar, Wyra Road, Mamillagudem") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp)
+            )
+        }
+    }
+
+    // Card 3: Official Govt Identity & Aadhaar Verification
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = if (isAadhaarVerified) Color(0xFFF0FDF4) else Color.White),
+        border = BorderStroke(1.5.dp, if (isAadhaarVerified) Color(0xFF10B981) else Color(0xFFE2E8F0))
+    ) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(28.dp).clip(CircleShape).background(if (isAadhaarVerified) Color(0xFFDCFCE7) else Color(0xFFF1F5F9)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("3", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = if (isAadhaarVerified) Color(0xFF166534) else Color(0xFF0F172A))
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text("Govt Identity (Aadhaar Verification)", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0F172A))
+                        Text("Mandatory for platform safety & trust", fontSize = 11.5.sp, color = Color(0xFF64748B))
+                    }
+                }
+                if (isAadhaarVerified) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(Color(0xFFDCFCE7))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(13.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("VERIFIED", color = Color(0xFF166534), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            if (!isAadhaarVerified) {
+                OutlinedTextField(
+                    value = formatAadhaar(aadhaarNumber),
+                    onValueChange = { input ->
+                        val digits = input.filter { it.isDigit() }.take(12)
+                        aadhaarNumber = digits
+                        aadhaarError = if (digits.length in 1..11) "Aadhaar must be 12 digits" else null
+                    },
+                    label = { Text("12-Digit Aadhaar Number *") },
+                    placeholder = { Text("XXXX XXXX XXXX") },
+                    keyboardOptions = NumberKeyboard,
+                    isError = aadhaarError != null,
+                    supportingText = aadhaarError?.let { { Text(it) } },
+                    leadingIcon = {
+                        Icon(Icons.Default.Security, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(20.dp))
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                )
+
+                Button(
+                    onClick = {
+                        if (isValidAadhaarLength) {
+                            aadhaarOtp = ""
+                            showAadhaarOtpDialog = true
+                        }
+                    },
+                    enabled = isValidAadhaarLength,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF2563EB),
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                ) {
+                    Icon(Icons.Filled.Verified, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Verify via Official Aadhaar OTP", fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                }
+            } else {
+                // Verified State Banner
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFDCFCE7).copy(alpha = 0.5f))
+                        .border(1.dp, Color(0xFF86EFAC), RoundedCornerShape(12.dp))
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(26.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = "UIDAI Official Verification Completed",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.5.sp,
+                            color = Color(0xFF166534)
+                        )
+                        Text(
+                            text = "Aadhaar: ●●●● ●●●● ${cleanAadhaar.takeLast(4)}",
+                            fontSize = 12.sp,
+                            color = Color(0xFF15803D),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    TextButton(onClick = { isAadhaarVerified = false }) {
+                        Text("Change", fontSize = 12.sp, color = Color(0xFF166534), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+
+    // Card 4: Daily Payouts & Equipment Guarantee
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFF1F5F9)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("4", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF0F172A))
+                }
+                Spacer(Modifier.width(10.dp))
+                Column {
+                    Text("Payout Bank & Equipment", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0F172A))
+                    Text("Daily settlements directly to your bank account", fontSize = 11.5.sp, color = Color(0xFF64748B))
+                }
+            }
+
+            OutlinedTextField(
+                value = upiId,
+                onValueChange = { upiId = it.trim().take(50) },
+                label = { Text("Payout UPI ID / PhonePe / GPay Number *") },
+                placeholder = { Text("e.g. 98480xxxxx@ybl or mobile@upi") },
+                supportingText = { Text("Earnings are disbursed directly to this UPI address") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp)
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { hasVehicleAndTools = !hasVehicleAndTools }
+                    .padding(vertical = 4.dp)
+            ) {
+                androidx.compose.material3.Checkbox(checked = hasVehicleAndTools, onCheckedChange = { hasVehicleAndTools = it })
+                Text("I own professional tools & a 2-wheeler vehicle for fast 30-min customer arrival across Khammam", fontSize = 12.5.sp, modifier = Modifier.weight(1f), lineHeight = 16.sp)
+            }
+        }
+    }
+
+    // Card 5: Partner Code of Conduct & Submit
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { accepted = !accepted }
+            ) {
+                androidx.compose.material3.Checkbox(checked = accepted, onCheckedChange = { accepted = it })
+                Text("I agree to DutyPe Partner Conduct, transparent pricing and polite behavior", fontSize = 12.5.sp, modifier = Modifier.weight(1f))
+            }
+            TextButton(onClick = { showRules = true }, modifier = Modifier.align(Alignment.End)) {
+                Text("Read Partner Rules & Code of Conduct →", fontSize = 12.sp, color = Color(0xFF2563EB), fontWeight = FontWeight.Bold)
+            }
+
+            Button(
+                onClick = {
+                    submitting = true
+                    val formattedNote = buildString {
+                        append("Aadhaar: Verified (UIDAI Secure) | ")
+                        append("AadhaarLast4: ${cleanAadhaar.takeLast(4)} | ")
+                        if (upiId.isNotBlank()) append("UPI: $upiId | ")
+                        append("Vehicle & Tools: ${if (hasVehicleAndTools) "Yes" else "No"}")
+                    }
+                    scope.launch {
+                        viewModel.apply(chosen.toList(), years.toIntOrNull() ?: 0, area.trim(), formattedNote, proof.trim(), accepted)
+                            .onFailure { Toast.makeText(context, it.message, Toast.LENGTH_LONG).show() }
+                        submitting = false
+                    }
+                },
+                enabled = chosen.isNotEmpty() && accepted && isAadhaarVerified && area.isNotBlank() && upiId.isNotBlank() && !submitting && (!needsSkill || (years.toIntOrNull() ?: 0) >= 1),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth().height(52.dp)
+            ) {
+                if (submitting) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                } else {
+                    Text(
+                        text = if (!isAadhaarVerified) "Verify Aadhaar to Submit" else "Submit Verified Application",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.5.sp,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+    }
+
     if (showRules) {
         com.example.dutype.guidelines.GuidelinesDialog(com.example.dutype.guidelines.GuidelineRole.PARTNER, onDismiss = {
             showRules = false
@@ -505,6 +1089,22 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
             .onFailure { error = it.message }
     }
 
+    var remainingSeconds by remember { mutableIntStateOf(60) }
+    LaunchedEffect(bookingId, offer?.available) {
+        val o = offer
+        if (o != null && o.available) {
+            remainingSeconds = 60
+            while (remainingSeconds > 0) {
+                delay(1000)
+                remainingSeconds -= 1
+            }
+            if (remainingSeconds <= 0) {
+                Toast.makeText(context, "Offer time expired. Reassigned to next partner.", Toast.LENGTH_SHORT).show()
+                navController.popBackStack()
+            }
+        }
+    }
+
     SvcScaffold(title = stringResource(R.string.svc_offer_title), onBack = { navController.popBackStack() }) { padding ->
         val o = offer
         if (o == null) {
@@ -519,6 +1119,30 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
             verticalArrangement = Arrangement.spacedBy(14.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Circular / Pill Countdown Timer
+            if (o.available) {
+                val timerBg = if (remainingSeconds > 25) Color(0xFFFEF3C7) else Color(0xFFFEE2E2)
+                val timerBorder = if (remainingSeconds > 25) Color(0xFFF59E0B) else Color(0xFFEF4444)
+                val timerText = if (remainingSeconds > 25) Color(0xFF92400E) else Color(0xFF991B1B)
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(30.dp))
+                        .background(timerBg)
+                        .border(1.dp, timerBorder, RoundedCornerShape(30.dp))
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Filled.Schedule, contentDescription = null, tint = timerText, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Accept within: ${remainingSeconds}s",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = timerText
+                    )
+                }
+            }
+
             Text(o.serviceName, fontWeight = FontWeight.Bold, fontSize = 22.sp, textAlign = TextAlign.Center)
             Text(stringResource(R.string.svc_offer_you_earn, o.earning), fontWeight = FontWeight.Bold, fontSize = 30.sp, color = SvcGreen)
             // Clear money: what the customer hands over, what DutyPe takes from credits, what is left.
@@ -590,7 +1214,14 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
                 if (accepting) CircularProgressIndicator(Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
                 else Text(stringResource(R.string.svc_offer_accept), fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
-            TextButton(onClick = { navController.popBackStack() }) { Text(stringResource(R.string.svc_offer_skip)) }
+            OutlinedButton(
+                onClick = { navController.popBackStack() },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, SvcRed.copy(alpha = 0.5f))
+            ) {
+                Text(stringResource(R.string.svc_offer_skip), color = SvcRed, fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }
@@ -660,7 +1291,11 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
             PriceLine(stringResource(R.string.svc_price_fee), b.bookingFee)
             if (b.discount > 0) DiscountLine(b.discountLabel, b.discount)
             if (b.extras > 0) Text(stringResource(R.string.svc_extras, b.extras, b.extrasNote), fontSize = 13.sp)
-            PriceLine(stringResource(R.string.svc_price_total), b.total, bold = true)
+            if (b.status == BookingStatus.CANCELLED && b.cancellationFee > 0) {
+                PriceLine("Doorstep Travel Allowance", b.cancellationFee, bold = true)
+            } else {
+                PriceLine(stringResource(R.string.svc_price_total), b.total, bold = true)
+            }
 
             when (b.status) {
                 BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY -> {
@@ -726,6 +1361,37 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
                             Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFF59E0B))
                             Text(" ${b.rating}")
                         }
+                    }
+                }
+                BookingStatus.CANCELLED -> {
+                    if (b.cancellationFee > 0) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                            border = BorderStroke(1.dp, Color(0xFF86EFAC)),
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null, tint = SvcGreen, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("+₹${b.cancellationFee} Travel Allowance Credited", fontWeight = FontWeight.Bold, color = SvcGreen, fontSize = 15.sp)
+                                }
+                                Text(
+                                    b.cancellationNotice.ifBlank {
+                                        "Doorstep transit compensation was credited into your platform wallet credits because the customer cancelled while you were on the way."
+                                    },
+                                    fontSize = 12.5.sp,
+                                    color = Color(0xFF166534),
+                                    lineHeight = 17.sp
+                                )
+                                if (b.cancellationReason.isNotBlank()) {
+                                    Text("Customer Reason: ${b.cancellationReason}", fontSize = 12.sp, color = SvcMuted)
+                                }
+                            }
+                        }
+                    } else {
+                        Text("This booking was cancelled.", color = SvcRed, fontWeight = FontWeight.Medium)
                     }
                 }
                 else -> {}

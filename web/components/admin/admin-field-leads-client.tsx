@@ -37,12 +37,30 @@ export function AdminFieldLeadsClient() {
   const [agentFilter, setAgentFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [payoutRate, setPayoutRate] = useState(50);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [form, setForm] = useState({ code: "", name: "", phone: "" });
   const [msg, setMsg] = useState<string | null>(null);
 
   const today = istDay();
-  const shown = leads.filter((l) =>
-    (!agentFilter || l.agentCode === agentFilter) && (!statusFilter || l.status === statusFilter) && (!roleFilter || l.role === roleFilter));
+  const shown = leads.filter((l) => {
+    if (agentFilter && l.agentCode !== agentFilter) return false;
+    if (statusFilter && l.status !== statusFilter) return false;
+    if (roleFilter && l.role !== roleFilter) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const name = String(l.name || "").toLowerCase();
+      const phone = String(l.phone || "").toLowerCase();
+      const area = String(l.area || "").toLowerCase();
+      if (!name.includes(q) && !phone.includes(q) && !area.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const totalJoinedAllAgents = agents.reduce((sum, a) => sum + Number(a.joined || 0), 0);
+  const totalLeadsAllAgents = agents.reduce((sum, a) => sum + Number(a.leads || 0), 0);
+  const totalPayoutAllAgents = totalJoinedAllAgents * payoutRate;
 
   async function addAgent() {
     if (!services) return;
@@ -72,6 +90,13 @@ export function AdminFieldLeadsClient() {
     await updateDoc(doc(services.db, "field_leads", l.id), { status, updatedAt: Timestamp.now() });
   }
 
+  function copyAgentLink(code: string) {
+    const link = `${SITE_URL}/join?agent=${code}`;
+    navigator.clipboard.writeText(link);
+    setCopiedCode(code);
+    setTimeout(() => setCopiedCode(null), 2500);
+  }
+
   function exportCsv() {
     const head = ["createdAt", "agentCode", "role", "name", "phone", "area", "skills", "status", "note"];
     const lines = shown.map((l) => [
@@ -89,11 +114,51 @@ export function AdminFieldLeadsClient() {
     <div>
       {msg && <div className="alert-banner" style={{ marginBottom: 12 }}>{msg}</div>}
 
+      {/* Summary KPI Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 16 }}>
+        <div style={{ background: "#fff", padding: "14px 18px", borderRadius: 10, border: "1px solid #e2e8f0" }}>
+          <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Active Agents</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#0f172a", marginTop: 4 }}>
+            {agents.filter((a) => a.active).length} / {agents.length}
+          </div>
+        </div>
+        <div style={{ background: "#fff", padding: "14px 18px", borderRadius: 10, border: "1px solid #e2e8f0" }}>
+          <div style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>Total Leads</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#0f172a", marginTop: 4 }}>
+            {totalLeadsAllAgents}
+          </div>
+        </div>
+        <div style={{ background: "#fff", padding: "14px 18px", borderRadius: 10, border: "1px solid #e2e8f0" }}>
+          <div style={{ fontSize: 12, color: "#16a34a", fontWeight: 600 }}>Verified Joined</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#16a34a", marginTop: 4 }}>
+            {totalJoinedAllAgents}
+          </div>
+        </div>
+        <div style={{ background: "#fff", padding: "14px 18px", borderRadius: 10, border: "1px solid #e2e8f0" }}>
+          <div style={{ fontSize: 12, color: "#0284c7", fontWeight: 600 }}>Total Agent Payout</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#0284c7", marginTop: 4 }}>
+            ₹{totalPayoutAllAgents.toLocaleString("en-IN")}
+          </div>
+        </div>
+      </div>
+
       <section className="admin-section">
-        <h2 className="admin-section-title">Field agents</h2>
-        <p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+          <h2 className="admin-section-title" style={{ margin: 0 }}>Field agents &amp; Payouts</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+            <span style={{ color: "#475569", fontWeight: 600 }}>Payout per Joined Lead:</span>
+            <span>₹</span>
+            <input
+              type="number"
+              value={payoutRate}
+              onChange={(e) => setPayoutRate(Math.max(0, Number(e.target.value)))}
+              style={{ width: 70, padding: "4px 8px", borderRadius: 6, border: "1px solid #cbd5e1" }}
+            />
+          </div>
+        </div>
+        <p style={{ marginTop: 8 }}>
           Create a code for each person at an umbrella desk. They register people at <b>{SITE_URL}/join?agent=CODE</b> and help them
-          install the app. Pay per <b>Joined</b> (that phone number signed up in the app) — see the playbook in Marketing Hub → growth / playbooks / umbrella_desk.
+          install the app. Pay per <b>Joined</b> (that phone number signed up in the app).
         </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
           <input placeholder="Code (e.g. RAVI01)" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })} />
@@ -103,28 +168,53 @@ export function AdminFieldLeadsClient() {
         </div>
         <div className="admin-table-container">
           <table className="admin-table">
-            <thead><tr><th>Code</th><th>Agent</th><th>Today</th><th>Total registered</th><th>Joined (pay these)</th><th>Join rate</th><th>Link</th><th></th></tr></thead>
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Agent</th>
+                <th>Today</th>
+                <th>Total Registered</th>
+                <th>Joined (Verified)</th>
+                <th>Join Rate</th>
+                <th>Calculated Payout</th>
+                <th>Link</th>
+                <th>Action</th>
+              </tr>
+            </thead>
             <tbody>
               {agents.map((a) => {
                 const total = Number(a.leads || 0);
                 const joined = Number(a.joined || 0);
                 const daily = (a.daily || {}) as Record<string, number>;
+                const payout = joined * payoutRate;
                 return (
                   <tr key={a.id}>
                     <td><b>{a.id}</b>{a.active ? "" : " (off)"}</td>
-                    <td>{String(a.name || "")}<div style={{ fontSize: 12 }}>{String(a.phone || "")}</div></td>
+                    <td>{String(a.name || "")}<div style={{ fontSize: 12, color: "#64748b" }}>{String(a.phone || "")}</div></td>
                     <td>{daily[today] || 0}</td>
                     <td>{total}</td>
-                    <td><b>{joined}</b></td>
+                    <td><b style={{ color: "#16a34a" }}>{joined}</b></td>
                     <td>{total ? Math.round((joined / total) * 100) + "%" : "–"}</td>
-                    <td><a href={`/join?agent=${a.id}`} target="_blank" rel="noreferrer">open form</a></td>
+                    <td><b style={{ color: "#0284c7" }}>₹{payout.toLocaleString("en-IN")}</b></td>
+                    <td>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <a href={`/join?agent=${a.id}`} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>Form</a>
+                        <button
+                          className="btn"
+                          style={{ padding: "2px 8px", fontSize: 11 }}
+                          onClick={() => copyAgentLink(a.id)}
+                        >
+                          {copiedCode === a.id ? "Copied!" : "Copy Link"}
+                        </button>
+                      </div>
+                    </td>
                     <td>
                       <button className="btn" onClick={() => void setActive(a, !a.active)}>{a.active ? "Turn off" : "Turn on"}</button>
                     </td>
                   </tr>
                 );
               })}
-              {agents.length === 0 && <tr><td colSpan={8}>No agents yet.</td></tr>}
+              {agents.length === 0 && <tr><td colSpan={9}>No agents yet.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -132,7 +222,14 @@ export function AdminFieldLeadsClient() {
 
       <section className="admin-section">
         <h2 className="admin-section-title">Registrations ({shown.length})</h2>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12, alignItems: "center" }}>
+          <input
+            type="search"
+            placeholder="Search by name, phone, or area..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ minWidth: 240, padding: "6px 10px", borderRadius: 6, border: "1px solid #cbd5e1" }}
+          />
           <select value={agentFilter} onChange={(e) => setAgentFilter(e.target.value)}>
             <option value="">All agents</option>
             {agents.map((a) => <option key={a.id} value={a.id}>{a.id}</option>)}
@@ -149,18 +246,18 @@ export function AdminFieldLeadsClient() {
         </div>
         <div className="admin-table-container">
           <table className="admin-table">
-            <thead><tr><th>When</th><th>Who</th><th>Phone</th><th>Skills / area</th><th>Agent</th><th>Status</th></tr></thead>
+            <thead><tr><th>When</th><th>Who</th><th>Phone</th><th>Skills / Area</th><th>Agent</th><th>Status</th></tr></thead>
             <tbody>
               {shown.map((l) => (
                 <tr key={l.id}>
                   <td>{new Date(millis(l.createdAt)).toLocaleString("en-IN")}</td>
-                  <td><b>{String(l.name || "")}</b><div style={{ fontSize: 12 }}>{ROLE_LABEL[String(l.role)] || String(l.role)}</div></td>
+                  <td><b>{String(l.name || "")}</b><div style={{ fontSize: 12, color: "#64748b" }}>{ROLE_LABEL[String(l.role)] || String(l.role)}</div></td>
                   <td><a href={`tel:${String(l.phone || "")}`}>{String(l.phone || "")}</a></td>
-                  <td>{((l.skills || []) as string[]).join(", ")}<div style={{ fontSize: 12 }}>{String(l.area || "")}</div>
+                  <td>{((l.skills || []) as string[]).join(", ")}<div style={{ fontSize: 12, color: "#64748b" }}>{String(l.area || "")}</div>
                     {l.note ? <div style={{ fontSize: 12, opacity: 0.7 }}>{String(l.note)}</div> : null}</td>
-                  <td>{String(l.agentCode || "")}</td>
+                  <td><b>{String(l.agentCode || "")}</b></td>
                   <td>
-                    {l.status === "JOINED" ? <b style={{ color: "#16a34a" }}>JOINED</b> : (
+                    {l.status === "JOINED" ? <b style={{ color: "#16a34a", background: "#dcfce7", padding: "3px 8px", borderRadius: 4, fontSize: 12 }}>JOINED</b> : (
                       <select value={String(l.status || "NEW")} onChange={(e) => void setStatus(l, e.target.value)}>
                         {STATUSES.filter((s) => s !== "JOINED").map((s) => <option key={s} value={s}>{s}</option>)}
                       </select>
@@ -168,7 +265,7 @@ export function AdminFieldLeadsClient() {
                   </td>
                 </tr>
               ))}
-              {shown.length === 0 && <tr><td colSpan={6}>No registrations yet.</td></tr>}
+              {shown.length === 0 && <tr><td colSpan={6}>No registrations yet matching filters.</td></tr>}
             </tbody>
           </table>
         </div>

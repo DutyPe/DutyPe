@@ -260,10 +260,11 @@ object AppModule {
     @Provides
     @Singleton
     fun provideSavedWorkLocationsStore(
+        @ApplicationContext context: Context,
         firestore: FirebaseFirestore,
         auth: FirebaseAuth
     ): com.example.dutype.services.SavedWorkLocationsStore {
-        return com.example.dutype.services.SavedWorkLocationsStore(firestore, auth)
+        return com.example.dutype.services.SavedWorkLocationsStore(context, firestore, auth)
     }
 
     @Provides

@@ -118,7 +118,7 @@ Google's ranking algorithm places the greatest weight on **recent ratings** rath
   3. Never prompt on app launch, error states, or repeatedly within 30 days.
 - **Developer Review Reply Protocol**: Google research shows that **replying to negative user reviews increases the user's rating by an average of +0.7 stars**.
   - Respond to all 1-star, 2-star, and 3-star reviews within 24 hours.
-  - Offer direct support via Telugu/Hindi WhatsApp support (`+91-8500717800`).
+  - Offer direct support via Telugu/Hindi WhatsApp support (`+91-8019151847`).
 
 ---
 

@@ -172,19 +172,19 @@ fun SettingsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(SettingsBg.bg())
-            .statusBarsPadding()
     ) {
+        com.example.dutype.components.CommonHeader(
+            title = stringResource(R.string.settings),
+            navController = navController,
+            backgroundColor = SettingsBg.bg()
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 32.dp)
         ) {
-            SettingsHeader(
-                title = stringResource(R.string.settings),
-                onBack = { navController.navigateUp() }
-            )
-
             SettingsSectionLabel(stringResource(R.string.settings_account))
             AccountCard(
                 phoneNumber = phoneNumber,
@@ -198,7 +198,10 @@ fun SettingsScreen(
             NotificationsCard()
 
             SettingsSectionLabel(stringResource(R.string.settings_legal))
-            LegalCard(navController = navController)
+            LegalCard(
+                navController = navController,
+                userRole = roleForEdit
+            )
 
             if (currentUser != null) {
                 Spacer(modifier = Modifier.height(20.dp))
@@ -343,8 +346,45 @@ private fun SettingsChevron() {
 }
 
 @Composable
-private fun NavRow(icon: ImageVector, title: String, onClick: () -> Unit) {
-    SettingsRow(icon = icon, title = title, onClick = onClick) {
+private fun NavRow(
+    icon: ImageVector? = null,
+    iconRes: Int? = null,
+    title: String,
+    onClick: () -> Unit
+) {
+    val base = Modifier
+        .fillMaxWidth()
+        .height(52.dp)
+        .clickable(onClick = onClick)
+    Row(
+        modifier = base.padding(start = 16.dp, end = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (iconRes != null) {
+            Icon(
+                painter = androidx.compose.ui.res.painterResource(id = iconRes),
+                contentDescription = null,
+                tint = SettingsInk.fg(),
+                modifier = Modifier.size(20.dp)
+            )
+        } else if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = SettingsInk.fg(),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = title,
+            style = TextStyle(
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = SettingsRowText.fg()
+            ),
+            modifier = Modifier.weight(1f)
+        )
         SettingsChevron()
     }
 }
@@ -393,6 +433,12 @@ private fun FlatToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
 @Composable
 private fun AccountCard(phoneNumber: String, onEditProfile: () -> Unit) {
     SettingsCard {
+        NavRow(
+            iconRes = R.drawable.ic_profile_person,
+            title = stringResource(R.string.edit_profile),
+            onClick = onEditProfile
+        )
+        SettingsDividerLine()
         SettingsRow(
             icon = Icons.Outlined.Phone,
             title = stringResource(R.string.phone_number),
@@ -405,12 +451,6 @@ private fun AccountCard(phoneNumber: String, onEditProfile: () -> Unit) {
             Spacer(modifier = Modifier.width(6.dp))
             SettingsChevron()
         }
-        SettingsDividerLine()
-        NavRow(
-            icon = Icons.Outlined.Person,
-            title = stringResource(R.string.edit_profile),
-            onClick = onEditProfile
-        )
     }
 }
 
@@ -541,8 +581,21 @@ private suspend fun callWhatsappPromos(enabled: Boolean?): Boolean {
 }
 
 @Composable
-private fun LegalCard(navController: NavController) {
+private fun LegalCard(navController: NavController, userRole: String = "WORKER") {
+    val roleParam = if (userRole.equals("EMPLOYER", ignoreCase = true)) {
+        com.example.dutype.guidelines.GuidelineRole.EMPLOYER
+    } else {
+        com.example.dutype.guidelines.GuidelineRole.WORKER
+    }
+    val safetyRoute = Routes.guidelinesRoute(roleParam)
+
     SettingsCard {
+        NavRow(
+            iconRes = R.drawable.ic_profile_help,
+            title = stringResource(R.string.guide_entry),
+            onClick = { navController.navigate(safetyRoute) }
+        )
+        SettingsDividerLine()
         NavRow(
             icon = Icons.Outlined.Shield,
             title = stringResource(R.string.privacy_policy),

@@ -505,14 +505,18 @@ export const previewServiceQuote = onCallSecured({ timeoutSeconds: 10 }, async (
   const who = await customerOf(context.auth!.uid, String(context.auth?.token.role || ""));
   const q = quote(config, service, first, str(data, "couponCode", { max: 20, optional: true }), now, who.planMember);
   let couponError = q.couponError;
-  if (!couponError && q.couponCode) {
-    const used = await db.collection(CouponUses.COLLECTION).doc(`${context.auth!.uid}_${q.couponCode}`).get();
-    if (used.exists) couponError = "You have already used this coupon";
-  }
   const offers = config.coupons
     .filter((c) => c.visible !== false && c.active !== false && (!c.validTo || c.validTo > now) && (!c.validFrom || c.validFrom <= now))
     .filter((c) => !c.firstBookingOnly || first)
     .map((c) => ({ code: c.code, title: c.title, minOrder: c.minOrder ?? 0 }));
+  if (!couponError && q.couponCode) {
+    const used = await db.collection(CouponUses.COLLECTION).doc(`${context.auth!.uid}_${q.couponCode}`).get();
+    if (used.exists) {
+      couponError = "You have already used this coupon";
+      const baseQ = quote(config, service, first, "", now, who.planMember);
+      return { ...baseQ, couponError, firstBooking: first, offers };
+    }
+  }
   return { ...q, ...(couponError ? { couponError } : {}), firstBooking: first, offers };
 });
 
@@ -532,24 +536,84 @@ export const cancelServiceBooking = onCallSecured({}, async (raw: unknown, conte
     const partnerId = String(b.get(BK.PARTNER_ID) || "");
     const partnerRef = partnerId ? db.collection(SP.COLLECTION).doc(partnerId) : null;
     const partner = partnerRef ? await tx.get(partnerRef) : null;
+
+    // Travel compensation: if partner was already on the way / reached location
+    // Scales dynamically between ₹10 and ₹30 based on distance between partner & customer doorstep
+    const travelFeeCharged = status === BS.ON_THE_WAY;
+    let travelFeeRupees = 0;
+    if (travelFeeCharged) {
+      const bLat = Number(b.get(BK.LAT) || 0);
+      const bLng = Number(b.get(BK.LNG) || 0);
+      const pLat = partner ? Number(partner.get(SP.LAT) || 0) : 0;
+      const pLng = partner ? Number(partner.get(SP.LNG) || 0) : 0;
+      let distKm = 0;
+      if (bLat && bLng && pLat && pLng) {
+        distKm = distanceKm(pLat, pLng, bLat, bLng);
+      }
+      if (distKm > 0) {
+        if (distKm <= 1.5) travelFeeRupees = 10;
+        else if (distKm <= 3.5) travelFeeRupees = 20;
+        else travelFeeRupees = 30;
+      } else {
+        travelFeeRupees = 20; // default medium transit allowance
+      }
+      travelFeeRupees = Math.min(30, Math.max(10, travelFeeRupees));
+    }
+    const travelFeePaise = travelFeeRupees * 100;
+    const now = Timestamp.now();
+
     tx.update(ref, {
       [BK.STATUS]: BS.CANCELLED,
       [BK.CANCELLED_BY]: "customer",
       ...(reason ? { [BK.CANCEL_REASON]: reason } : {}),
+      ...(travelFeeCharged ? {
+        cancellationFee: travelFeeRupees,
+        cancellationFeePaise: travelFeePaise,
+        travelCompensationCredited: true,
+        cancellationNotice: `Doorstep travel compensation of ₹${travelFeeRupees} credited to partner for fuel/transit expenses.`
+      } : {}),
       [BK.NEXT_WAVE_AT]: FieldValue.delete(),
-      [BK.UPDATED_AT]: Timestamp.now(),
+      [BK.UPDATED_AT]: now,
     });
-    if (partnerRef && partner?.get(SP.ACTIVE_BOOKING_ID) === bookingId) {
-      tx.update(partnerRef, { [SP.ACTIVE_BOOKING_ID]: FieldValue.delete() });
+
+    if (partnerRef) {
+      if (travelFeeCharged && partner) {
+        const curCredits = Number(partner.get(SP.CREDITS_PAISE) || 0);
+        const newCredits = curCredits + travelFeePaise;
+        tx.update(partnerRef, {
+          [SP.CREDITS_PAISE]: FieldValue.increment(travelFeePaise),
+          [SP.ACTIVE_BOOKING_ID]: FieldValue.delete(),
+          [SP.UPDATED_AT]: now,
+        });
+        tx.create(partnerRef.collection(PartnerLedger.SUBCOLLECTION).doc(), {
+          [PartnerLedger.AMOUNT_PAISE]: travelFeePaise,
+          [PartnerLedger.BALANCE_PAISE]: newCredits,
+          [PartnerLedger.KIND]: "COMPENSATION",
+          [PartnerLedger.BOOKING_ID]: bookingId,
+          [PartnerLedger.NOTE]: `Doorstep travel compensation for cancelled booking #${bookingId.slice(-6)} (₹${travelFeeRupees})`,
+          [PartnerLedger.CREATED_AT]: now,
+        });
+      } else if (partner?.get(SP.ACTIVE_BOOKING_ID) === bookingId) {
+        tx.update(partnerRef, { [SP.ACTIVE_BOOKING_ID]: FieldValue.delete() });
+      }
     }
-    return { partnerId, service: String(b.get(BK.SERVICE_NAME) || ""), d: b.data() || {} };
+    return {
+      partnerId,
+      service: String(b.get(BK.SERVICE_NAME) || ""),
+      d: b.data() || {},
+      travelFeeCharged,
+      travelFeeRupees,
+    };
   });
   await releaseCoupon(out.d);
   if (out.partnerId) {
-    await tellPartner(out.partnerId, "SERVICE_CANCELLED_BY_CUSTOMER", { service: out.service },
+    const cancelMsg = out.travelFeeCharged ?
+      `Customer cancelled after you were dispatched. ₹${out.travelFeeRupees} auto travel compensation has been credited to your DutyPe wallet.` :
+      `Customer cancelled booking for ${out.service}.`;
+    await tellPartner(out.partnerId, "SERVICE_CANCELLED_BY_CUSTOMER", { service: out.service, message: cancelMsg },
       { bookingId, deepLink: "dutype://partner" });
   }
-  return { ok: true };
+  return { ok: true, travelFeeCharged: out.travelFeeCharged, cancellationFee: out.travelFeeRupees };
 });
 
 export const rateServiceBooking = onCallSecured({}, async (raw: unknown, context) => {
@@ -959,4 +1023,80 @@ export const verifyPartnerTopup = onCallSecured({ enforceAppCheck: false }, asyn
   await tellPartner(out.partnerId, approve ? "PARTNER_TOPUP_VERIFIED" : "PARTNER_TOPUP_REJECTED",
     { amount: Math.round(out.amount / 100), reason: reason || "" }, { deepLink: "dutype://partner" });
   return { topupId, status: approve ? "VERIFIED" : "REJECTED", creditsPaise: out.balance };
+});
+
+export const adminCreateServiceBooking = onCallSecured({ enforceAppCheck: false }, async (raw: unknown, context) => {
+  if (!(await isCallerAdmin(context))) fail("permission-denied", "Admins only");
+  const data = obj(raw);
+  const customerName = str(data, "customerName", { min: 2, max: 80 });
+  const customerPhone = str(data, "customerPhone", { min: 10, max: 15 });
+  const category = str(data, "category", { min: 2, max: 40 });
+  const serviceId = str(data, "serviceId", { min: 2, max: 40 });
+  const addressText = str(data, "addressText", { min: 5, max: 300 });
+  const area = str(data, "area", { max: 80, optional: true }) || "Khammam";
+  const partnerId = str(data, "partnerId", { max: 128, optional: true });
+  const note = str(data, "note", { max: 300, optional: true });
+
+  const config = await loadConfig();
+  const service = config.services.find((s) => s.id === serviceId) || {
+    id: serviceId,
+    name: serviceId,
+    price: 299,
+    category,
+    durationMinutes: 60,
+  };
+
+  const now = Timestamp.now();
+  const otp = newStartOtp();
+  const ref = db.collection(BK.COLLECTION).doc();
+  const bookingId = ref.id;
+
+  let partnerData: Record<string, unknown> = {};
+  if (partnerId) {
+    const partnerRef = db.collection(SP.COLLECTION).doc(partnerId);
+    const pSnap = await partnerRef.get();
+    if (pSnap.exists) {
+      partnerData = {
+        [BK.STATUS]: BS.ASSIGNED,
+        [BK.PARTNER_ID]: partnerId,
+        [BK.PARTNER_NAME]: String(pSnap.get(SP.NAME) || "Partner"),
+        [BK.PARTNER_PHONE]: String(pSnap.get(SP.PHONE) || ""),
+        [BK.PARTNER_PHOTO_URL]: String(pSnap.get(SP.PHOTO_URL) || ""),
+        [BK.ASSIGNED_AT]: now,
+      };
+      await partnerRef.update({
+        [SP.ACTIVE_BOOKING_ID]: bookingId,
+        [SP.UPDATED_AT]: now,
+      });
+    }
+  }
+
+  const bookingDoc = {
+    [BK.CUSTOMER_ID]: `admin_booked_${Date.now()}`,
+    [BK.CUSTOMER_NAME]: customerName,
+    [BK.CUSTOMER_PHONE]: customerPhone,
+    [BK.CATEGORY]: category,
+    [BK.SERVICE_ID]: service.id,
+    [BK.SERVICE_NAME]: service.name,
+    [BK.PRICE]: service.price,
+    [BK.BOOKING_FEE]: 0,
+    [BK.TOTAL]: service.price,
+    [BK.ADDRESS_TEXT]: addressText,
+    [BK.AREA]: area,
+    [BK.LAT]: 17.2473,
+    [BK.LNG]: 80.1514,
+    [BK.NOTE]: note || "Booked by Admin",
+    [BK.STATUS]: partnerId ? BS.ASSIGNED : BS.SEARCHING,
+    [BK.CREATED_AT]: now,
+    [BK.UPDATED_AT]: now,
+    ...partnerData,
+  };
+
+  await ref.set(bookingDoc);
+  await db.collection(ServiceBookingSecrets.COLLECTION).doc(bookingId).set({
+    [ServiceBookingSecrets.START_OTP]: otp,
+    [ServiceBookingSecrets.CUSTOMER_ID]: `admin_booked_${Date.now()}`,
+  });
+
+  return { ok: true, bookingId, startOtp: otp };
 });

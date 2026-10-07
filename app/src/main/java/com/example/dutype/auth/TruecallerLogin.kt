@@ -194,7 +194,8 @@ fun TruecallerLoginButton(
     busy: Boolean,
     onAuthorized: (code: String, codeVerifier: String) -> Unit,
     onFailed: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
 ) {
     val context = LocalContext.current
     LaunchedEffect(Unit) { TruecallerAuth.init(context) }
@@ -228,8 +229,6 @@ fun TruecallerLoginButton(
     val clientId = remember(context) { context.getString(R.string.truecaller_client_id) }
     if (clientId.isBlank()) return
 
-    // Sits under the "Send OTP" / "Continue" button of a Column.
-    Spacer(modifier = Modifier.height(14.dp))
     OutlinedButton(
         onClick = {
             if (!usable) {
@@ -254,23 +253,25 @@ fun TruecallerLoginButton(
                 (activity ?: context).startActivity(intent)
             }
         },
-        enabled = !busy,
+        enabled = enabled && !busy,
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp),
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, Color(0xFF0087FF).bd())
     ) {
         if (busy) {
             CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(22.dp), color = Color(0xFF0087FF))
         } else {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                Icon(
-                    imageVector = Icons.Filled.Call,
-                    contentDescription = null,
-                    tint = Color(0xFF0087FF).fg(),
-                    modifier = Modifier.size(18.dp)
-                )
+                androidx.compose.ui.res.painterResource(id = R.drawable.ic_truecaller).let { iconPainter ->
+                    Icon(
+                        painter = iconPainter,
+                        contentDescription = "Truecaller",
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = stringResource(R.string.auth_continue_with_truecaller),

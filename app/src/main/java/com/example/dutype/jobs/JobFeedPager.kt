@@ -120,9 +120,9 @@ class JobFeedPager internal constructor(
     private suspend fun openNextStage(): Boolean {
         if (stageIndex >= stages.lastIndex) return false
         val next = stages[stageIndex + 1]
-        // Resolve the worker's district / state before committing, so a failure can be retried.
+        // Resolve the worker's district / state before committing, safely handling network or function errors.
         if ((next == FeedSection.DISTRICT || next == FeedSection.STATE) && place == null) {
-            place = places.placeFor(lat!!, lng!!)
+            place = runCatching { places.placeFor(lat!!, lng!!) }.getOrNull()
         }
         stageIndex++
         section = next

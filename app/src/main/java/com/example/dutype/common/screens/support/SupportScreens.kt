@@ -63,16 +63,20 @@ fun ContactUsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White.bg())
-            .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, end = 20.dp, bottom = 32.dp)
     ) {
-        ContactBackRow(onBack = { navController.popBackStack() })
-        Spacer(Modifier.height(8.dp))
-        Text(stringResource(R.string.contact_get_in_touch), fontSize = 22.sp, fontWeight = FontWeight.Bold, color = CuInk.fg())
-        Spacer(Modifier.height(16.dp))
-        ContactReplyBadge()
-        Spacer(Modifier.height(16.dp))
+        CommonHeader(
+            title = stringResource(R.string.contact_get_in_touch),
+            navController = navController,
+            backgroundColor = Color.White.bg()
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 20.dp, end = 20.dp, bottom = 32.dp)
+        ) {
+            ContactReplyBadge()
+            Spacer(Modifier.height(16.dp))
         ContactChannelCard(
             icon = Icons.Outlined.Chat,
             circleColor = Color(0xFFF0FDF4).fg(),
@@ -80,7 +84,7 @@ fun ContactUsScreen(
             title = stringResource(R.string.contact_whatsapp_title),
             subtitle = stringResource(R.string.contact_whatsapp_subtitle),
             onClick = {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/919876543210"))
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/918019151847"))
                 context.startActivity(intent)
             }
         )
@@ -92,7 +96,7 @@ fun ContactUsScreen(
             title = stringResource(R.string.contact_helpline_title),
             subtitle = stringResource(R.string.contact_helpline_subtitle),
             onClick = {
-                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:+918500717800")))
+                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:+918019151847")))
             }
         )
         Spacer(Modifier.height(12.dp))
@@ -137,6 +141,7 @@ fun ContactUsScreen(
             }
         )
     }
+}
 }
 
 @Composable
@@ -336,9 +341,12 @@ fun HelpMainScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White.bg())
-            .statusBarsPadding()
     ) {
-        HelpHeader(title = stringResource(R.string.help_faqs), onBack = { navController.popBackStack() })
+        CommonHeader(
+            title = stringResource(R.string.help_faqs),
+            navController = navController,
+            backgroundColor = Color.White.bg()
+        )
 
         Column(
             modifier = Modifier
@@ -349,12 +357,17 @@ fun HelpMainScreen(
             HelpSummaryCard(
                 onWhatsApp = {
                     val msg = context.getString(R.string.whatsapp_worker_message)
-                    val url = "https://wa.me/918500717800?text=" + java.net.URLEncoder.encode(msg, "UTF-8")
+                    val url = "https://wa.me/918019151847?text=" + java.net.URLEncoder.encode(msg, "UTF-8")
                     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                 },
+                onCall = {
+                    runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:+918019151847"))) }
+                },
                 onEmail = {
-                    val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:dutypein@gmail.com"))
-                    intent.putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.email_subject_worker_support))
+                    val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@dutype.in")).apply {
+                        putExtra(Intent.EXTRA_EMAIL, arrayOf("support@dutype.in", "dutypein@gmail.com"))
+                        putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.email_subject_worker_support))
+                    }
                     runCatching { context.startActivity(Intent.createChooser(intent, "Send Email")) }
                 },
                 onReport = { navController.navigate(com.example.dutype.navigation.Routes.REPORT) }
@@ -411,28 +424,31 @@ private fun HelpHeader(title: String, onBack: () -> Unit) {
     }
 }
 
-/** Green summary card (matches the Terms "Plain Language Summary") with the 3 quick contacts. */
+/** Green summary card (matches the Terms "Plain Language Summary") with the quick contacts. */
 @Composable
-private fun HelpSummaryCard(onWhatsApp: () -> Unit, onEmail: () -> Unit, onReport: () -> Unit) {
+private fun HelpSummaryCard(onWhatsApp: () -> Unit, onCall: () -> Unit, onEmail: () -> Unit, onReport: () -> Unit) {
     val shape = RoundedCornerShape(20.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color(0xFFF0FDF4).bg(), shape)
             .border(1.dp, Color(0xFFA7F3D0).bd(), shape)
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(stringResource(R.string.help_need_fast), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = CuGreen.fg())
         Text(
             stringResource(R.string.help_need_fast_desc),
-            fontSize = 14.sp,
-            lineHeight = 20.sp,
+            fontSize = 13.5.sp,
+            lineHeight = 19.sp,
             color = CuInk.fg()
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            HelpContactPill(stringResource(R.string.whatsapp_label), Icons.Default.Phone, Modifier.weight(1f), onWhatsApp)
-            HelpContactPill(stringResource(R.string.email_label), Icons.Default.Email, Modifier.weight(1f), onEmail)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HelpContactPill(stringResource(R.string.whatsapp_label), Icons.Outlined.Chat, Modifier.weight(1f), onWhatsApp)
+            HelpContactPill("Call Support", Icons.Outlined.Phone, Modifier.weight(1f), onCall)
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HelpContactPill(stringResource(R.string.email_label), Icons.Outlined.Email, Modifier.weight(1f), onEmail)
             HelpContactPill(stringResource(R.string.report), Icons.Default.BugReport, Modifier.weight(1f), onReport)
         }
     }

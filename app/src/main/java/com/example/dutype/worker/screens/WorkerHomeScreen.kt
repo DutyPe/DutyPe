@@ -77,6 +77,8 @@ import com.example.dutype.utils.findActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -200,6 +202,8 @@ fun WorkerHomeScreen(
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
     var workerRating by remember { mutableStateOf(0f) }
     var workerReviewCount by remember { mutableIntStateOf(0) }
+    var showOutOfAreaSheet by remember { mutableStateOf(false) }
+    var outOfAreaDistanceKm by remember { mutableStateOf(0.0) }
 
     // P1-2: BirthdayService kept (passed to HomeSectionsContent); the local birthdayInfo/showBirthdayBanner
     // mutableState pair previously declared here was dead (never assigned, never read) and was deleted.
@@ -628,6 +632,30 @@ fun WorkerHomeScreen(
         }
     }
 
+    // Urgent job audio & vibration alert: rings when urgent jobs arrive in worker's location.
+    // If worker ignores/dismisses, it will NOT play sound again for those jobs.
+    var ignoredInstantRequestIds by remember { mutableStateOf(setOf<String>()) }
+    LaunchedEffect(
+        workerOnline,
+        instantHelpState.instantRequests,
+        urgentJobs
+    ) {
+        if (workerOnline) {
+            val urgentIds = instantHelpState.instantRequests.map { it.requestId } + urgentJobs.map { it.id }
+            if (urgentIds.isNotEmpty()) {
+                com.example.dutype.urgent.UrgentSoundAlertManager.playAlertForAnyNew(context, urgentIds)
+            }
+        } else {
+            com.example.dutype.urgent.UrgentSoundAlertManager.stopSound()
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            com.example.dutype.urgent.UrgentSoundAlertManager.stopSound()
+        }
+    }
+
     // Fetch unread notification count after initial load
     LaunchedEffect(currentUser) {
         currentUser?.uid?.let { userId ->
@@ -832,14 +860,36 @@ fun WorkerHomeScreen(
                                     announcements = announcements,
                                     onDismissAnnouncement = { id -> announcementViewModel.dismissAnnouncement(id) },
                                     birthdayService = birthdayService,
-                                    instantRequests = instantHelpState.instantRequests,
+                                    instantRequests = remember(instantHelpState.instantRequests, ignoredInstantRequestIds) {
+                                        instantHelpState.instantRequests.filter {
+                                            it.requestId !in ignoredInstantRequestIds && !com.example.dutype.urgent.UrgentSoundAlertManager.isIgnored(context, it.requestId)
+                                        }
+                                    },
                                     updatingInstantRequestId = instantHelpState.updatingRequestId,
                                     isLoadingInstantRequests = instantHelpState.isLoadingRequests,
                                     instantHelpError = instantHelpState.error,
-                                    showOnlineToggle = !isGuestUser,
+                                    showOnlineToggle = true,
                                     isOnline = workerOnline,
                                     isSavingOnline = savingOnline,
                                     onOnlineChange = { online ->
+                                        if (isGuestUser) {
+                                            loginSheetTitle = context.getString(R.string.guest_apply_login_title)
+                                            loginSheetSubtitle = "Log in to turn ON Duty and start receiving instant job alerts."
+                                            showLoginBottomSheet = true
+                                            return@HomeSectionsContent
+                                        }
+                                        if (online) {
+                                            val lat = currentLocation?.latitude
+                                            val lng = currentLocation?.longitude
+                                            if (lat != null && lng != null) {
+                                                val dist = calculateHaversineDistanceKm(lat, lng, KHAMMAM_CENTER_LAT, KHAMMAM_CENTER_LNG)
+                                                if (dist > KHAMMAM_SERVICE_RADIUS_KM) {
+                                                    outOfAreaDistanceKm = dist
+                                                    showOutOfAreaSheet = true
+                                                    return@HomeSectionsContent
+                                                }
+                                            }
+                                        }
                                         jobViewModel.setOnline(online) { message ->
                                             android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
                                         }
@@ -868,6 +918,11 @@ fun WorkerHomeScreen(
                                                 // Contact UI is opened immediately; this callback only confirms the response record.
                                             }
                                         }
+                                    },
+                                    onIgnoreInstantRequest = { request ->
+                                        com.example.dutype.urgent.UrgentSoundAlertManager.ignoreRequest(context, request.requestId)
+                                        ignoredInstantRequestIds = ignoredInstantRequestIds + request.requestId
+                                        android.widget.Toast.makeText(context, context.getString(R.string.close), android.widget.Toast.LENGTH_SHORT).show()
                                     },
                                     todayEarningsAmount = todayEarningsAmount,
                                     todayJobsDone = todayJobsDone,
@@ -1013,13 +1068,12 @@ fun WorkerHomeScreen(
             )
         }
 
-        // Welcome celebration overlay — shown once after new user completes profile
-        // var showCelebration by remember { mutableStateOf(consumeWelcomeCelebrationFlag(context)) }
-        // WelcomeCelebrationOverlay(
-        //     visible = showCelebration,
-        //     bonusAmount = referralConfig.signupBonus.toInt().takeIf { it > 0 } ?: 0,
-        //     onDismiss = { showCelebration = false }
-        // )
+        if (showOutOfAreaSheet) {
+            WorkerOutOfAreaBottomSheet(
+                distanceKm = outOfAreaDistanceKm,
+                onDismiss = { showOutOfAreaSheet = false }
+            )
+        }
     }
 }
 
@@ -1141,5 +1195,110 @@ private fun openWorkerUrgentDialer(context: android.content.Context, phone: Stri
         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$normalized")))
     }.onFailure {
         android.widget.Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), android.widget.Toast.LENGTH_SHORT).show()
+    }
+}
+
+private const val KHAMMAM_CENTER_LAT = 17.2473
+private const val KHAMMAM_CENTER_LNG = 80.1514
+private const val KHAMMAM_SERVICE_RADIUS_KM = 15.0
+
+private fun calculateHaversineDistanceKm(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    val r = 6371.0
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLon = Math.toRadians(lon2 - lon1)
+    val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    return r * c
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun WorkerOutOfAreaBottomSheet(
+    distanceKm: Double,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFEF2F2)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "📍", fontSize = 26.sp)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Outside Serviceable Area",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    color = Color(0xFF0F172A)
+                ),
+                textAlign = TextAlign.Center
+            )
+
+            if (distanceKm > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "You are currently ${String.format("%.1f", distanceKm)} km away from Khammam City.",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        color = Color(0xFFDC2626)
+                    ),
+                    textAlign = TextAlign.Center
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "DutyPe Instant Jobs & Home Services are currently active only within Khammam City (15 km radius). To turn ON duty and receive orders, you must be located within the Khammam service zone.",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 13.5.sp,
+                    color = Color(0xFF64748B),
+                    lineHeight = 20.sp
+                ),
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Black,
+                    contentColor = Color.White
+                )
+            ) {
+                Text(
+                    text = "Understood",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
     }
 }

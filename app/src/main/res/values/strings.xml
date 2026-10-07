@@ -205,6 +205,7 @@
     <string name="bottom_nav_chat">Chat</string>
     <string name="bottom_nav_categories">Categories</string>
     <string name="bottom_nav_account">Account</string>
+    <string name="bottom_nav_services">Services</string>
     <string name="contact_support_whatsapp">Contact Support on WhatsApp</string>
     <string name="onboarding_title_1">Work Near You</string>
     <string name="onboarding_desc_1">Find nearby jobs within 10 km and start earning faster.</string>
@@ -219,6 +220,7 @@
     <string name="onboarding_get_started">Get Started</string>
     <string name="get_started">Get Started</string>
     <string name="auth_welcome_back">Welcome back!</string>
+    <string name="auth_welcome_back_user">Welcome back, %1$s!</string>
     <string name="auth_sign_in_subtitle">Sign in with your phone number to continue</string>
     <string name="auth_mobile_number">Mobile Number</string>
     <string name="auth_help">Help</string>
@@ -246,16 +248,16 @@
     <string name="select_role_headline">How will you use DutyPe?</string>
     <string name="select_role_subheadline">Choose how you want to use the app</string>
     <string name="select_role_looking_for_work">I want work</string>
-    <string name="select_role_worker_desc">Jobs near you, urgent day work, part-time for students. Skilled? Earn more with home services.</string>
+    <string name="select_role_worker_desc">Find jobs near you &amp; daily wages</string>
     <string name="select_role_want_to_hire">I need workers or home services</string>
-    <string name="select_role_employer_desc">Hire staff for your shop or home, get someone in minutes, or book AC, cleaning, electrician and more.</string>
-    <string name="auth_enter_mobile_number">Enter your mobile number</string>
+    <string name="select_role_employer_desc">Hire staff or book home services</string>
+    <string name="auth_enter_mobile_number">Enter your number</string>
     <string name="auth_we_will_send_otp">We\'ll send a 6-digit OTP</string>
     <string name="auth_or_divider">or</string>
     <string name="auth_continue_with_google">Continue with Google</string>
     <string name="auth_google_coming_soon">Google sign-in is coming soon</string>
-    <string name="auth_by_continuing_agree">By continuing, you agree to our </string>
-    <string name="auth_terms">Terms</string>
+    <string name="auth_by_continuing_agree">By continuing, you confirm that you are 18 years of age and agree to the </string>
+    <string name="auth_terms">Terms &amp; Conditions</string>
     <string name="auth_privacy_policy_short">Privacy Policy</string>
     <string name="auth_verify_your_number">Verify your number</string>
     <string name="auth_change_number_action">Change number</string>
@@ -526,7 +528,7 @@
     <string name="full_name_required">Full Name *</string>
     <string name="enter_full_name">Enter your full name</string>
     <string name="email_address_verified">Email Address (Verified)</string>
-    <string name="email_address_optional">Email Address (Optional)</string>
+    <string name="email_address_optional">Email Address</string>
     <string name="enter_email">Enter your email</string>
     <string name="phone_number_verified">Phone Number (Verified)</string>
     <string name="phone_number_required">Phone Number *</string>
@@ -922,7 +924,7 @@
     <string name="refer_employer_complete_profile_desc">To generate your personalized referral code and start earning rewards, please complete your company profile first.</string>
     <string name="refer_employer_share_text">Join DutyPe for hiring!\n\nUse my referral code: %1$s\n\nDownload DutyPe: %2$s\n\nFind reliable workers for your business and earn Rs.%3$d bonus!</string>
     <string name="refer_employer_step_1">Share your referral code with employers or workers</string>
-    <string name="refer_employer_step_4">Reach milestones for bonus cash and free job posts</string>
+    <string name="refer_employer_step_4">Earn DutyPe balance automatically usable for job posts &amp; home services</string>
     <string name="refer_reward_5_employer">5 referrals: Rs.50 bonus + 5 free job posts</string>
     <string name="refer_reward_10_employer">10 referrals: Rs.100 bonus + 10 free job posts</string>
     <string name="refer_reward_25_employer">25 referrals: Rs.250 bonus + 25 free job posts</string>
@@ -1515,7 +1517,7 @@
     <string name="policy_last_updated">Last updated: July 2026 • Version 2.5 • DutyPe India</string>
     <string name="policy_compliance">Registered in India • Compliant with IT Act 2000 Section 79 &amp; Google Play Policies</string>
     <string name="policy_terms_s1_title">Platform Overview &amp; Eligibility</string>
-    <string name="policy_terms_s1_content">DutyPe is an instant workforce platform connecting Employers (job providers) with skilled Workers and daily-wage job seekers across India. Users must be at least 18 years of age to register. By creating an account, both Workers and Employers confirm that all profile details and qualifications supplied are accurate.</string>
+    <string name="policy_terms_s1_content">DutyPe is an instant workforce platform connecting Employers (job providers) with skilled Workers and daily-wage job seekers across India. Users must be at least 18 years of age to register or use this service. By creating an account and continuing, both Workers and Employers confirm that they are 18 years of age or older and that all profile details and qualifications supplied are accurate.</string>
     <string name="policy_terms_s2_title">Account Registration &amp; Single-Role Policy</string>
     <string name="policy_terms_s2_content">Accounts are authenticated securely via Mobile Phone OTP. Each phone number is tied to a single active role (Worker or Employer) to guarantee trust, verified ratings, and fraud prevention.</string>
     <string name="policy_terms_s3_title">Employer Plans &amp; Play Billing Rules</string>
@@ -1543,7 +1545,7 @@
     <string name="policy_privacy_s5_title">Location Access &amp; Control</string>
     <string name="policy_privacy_s5_content">Location is used solely to calculate job proximity. Users can toggle location permissions anytime in Android System Settings.</string>
     <string name="policy_privacy_s6_title">Account Deletion Rights</string>
-    <string name="policy_privacy_s6_content">Under the DPDP Act, you have the right to request deletion of your account and profile data anytime via the app Profile Settings or by emailing dutypein@gmail.com.</string>
+    <string name="policy_privacy_s6_content">Under the DPDP Act, you have the right to request deletion of your account and profile data anytime via the app Profile Settings or by emailing support@dutype.in.</string>
 
     <!-- Auto-extracted from hardcoded Compose literals so hi/te apply. -->
     <string name="auto_phone_number">Phone number</string>
@@ -1928,8 +1930,8 @@
     <string name="emp_profile_help_desk">Help Desk</string>
     <string name="emp_profile_company_details">Company Details &amp; Photos</string>
     <string name="emp_profile_my_posted_jobs">My Posted Jobs</string>
-    <string name="emp_profile_work_locations">Work Locations &amp; Job Sites</string>
-    <string name="emp_profile_subscription_credits">Subscription &amp; Credits</string>
+    <string name="emp_profile_work_locations">My Addresses</string>
+    <string name="emp_profile_subscription_credits">Subscription</string>
     <string name="emp_profile_hiring_history">Hiring History &amp; Closed Posts</string>
     <string name="emp_profile_refer_employer">Refer an Employer (Earn ₹%1$d)</string>
     <string name="emp_profile_help_support">Help &amp; Support</string>
@@ -2134,7 +2136,7 @@
     <string name="worker_setup_failed_generic">Failed to complete profile setup</string>
     <string name="worker_setup_basic_info_title">Basic information</string>
     <string name="worker_setup_basic_info_sub">Your photo, name, birth date, gender and short bio</string>
-    <string name="worker_setup_add_photo_optional">Add profile photo (optional)</string>
+    <string name="worker_setup_add_photo_optional">Add profile photo</string>
     <string name="worker_setup_section_gender">GENDER</string>
     <string name="worker_setup_section_contact_details">CONTACT DETAILS</string>
     <string name="worker_setup_dob_subtitle">Enter as DD/MM/YYYY or pick from calendar</string>
@@ -2145,8 +2147,8 @@
     <string name="worker_setup_skills_exp_sub">What you do, how long, and your background</string>
     <string name="worker_setup_what_are_skills">What are your skills?</string>
     <string name="worker_setup_how_much_exp">How much experience do you have?</string>
-    <string name="worker_setup_education_optional">Your education (optional)</string>
-    <string name="worker_setup_bio_optional">Short bio (optional)</string>
+    <string name="worker_setup_education_optional">Your Education</string>
+    <string name="worker_setup_bio_optional">Short Bio</string>
     <string name="worker_setup_bio_char_count">%1$d/%2$d characters</string>
     <string name="worker_setup_added_skills">Added skills (tap to remove)</string>
     <string name="worker_setup_search_skill_placeholder">Search or type your own skill...</string>
@@ -2167,10 +2169,10 @@
     <string name="edu_any">Any qualification</string>
     <string name="worker_setup_where_based_title">Where are you based?</string>
     <string name="worker_setup_where_based_sub">We use this to show jobs near you</string>
-    <string name="worker_setup_detecting_location">Detecting your location…</string>
+    <string name="worker_setup_detecting_location">Fetching your location…</string>
     <string name="worker_setup_location_detected">Location detected</string>
-    <string name="worker_setup_detect">Detect</string>
-    <string name="worker_setup_detecting">Detecting…</string>
+    <string name="worker_setup_detect">Fetch Location</string>
+    <string name="worker_setup_detecting">Fetching…</string>
     <string name="worker_setup_could_not_get_location">Could not get location. Please enter address manually or try again.</string>
     <string name="worker_profile_hint_photo">Add profile photo to reach 100%%</string>
     <string name="worker_profile_hint_skills">Add your skills to reach 100%%</string>
@@ -2285,7 +2287,7 @@
     <string name="owner_contact_name">Owner / Contact Person Name</string>
     <string name="contact_phone_number_label">Contact Phone Number (+91)</string>
     <string name="business_category">Business Category</string>
-    <string name="gstin_optional">GSTIN (Optional)</string>
+    <string name="gstin_optional">GSTIN</string>
     <string name="gst_active">✓ GST Active: %1$s</string>
     <string name="save_company_details_action">Save Company Details →</string>
     <string name="valid_gstin_required">Enter a valid 15-character GSTIN</string>
@@ -2480,7 +2482,7 @@
     <string name="gstin_format_valid">GSTIN format looks valid</string>
     <string name="check_gstin_format">Please check the GSTIN format</string>
     <string name="start_hiring">Start Hiring</string>
-    <string name="help_needed_optional">Help Needed (Optional)</string>
+    <string name="help_needed_optional">Help Needed</string>
     <string name="gstin_hint">e.g. 36AABCR1234M1Z5</string>
     <string name="verify_gstin">Verify GSTIN</string>
     <string name="full_name_hint">e.g. Ravi Teja</string>
@@ -2710,6 +2712,10 @@
     <string name="auth_enter_name_first">Please enter your name first.</string>
     <string name="auth_get_sms_short">Get SMS</string>
     <string name="auth_code_sent_sms">Verification code sent via SMS.</string>
+    <string name="auth_resend_via_whatsapp">Resend</string>
+    <string name="auth_resend_via_whatsapp_in">Resend (%1$d:%2$02d)</string>
+    <string name="auth_send_via_sms">Send via SMS</string>
+    <string name="auth_send_via_sms_in">Send via SMS in %1$d:%2$02d</string>
     <string name="svc_title">DutyPe Services</string>
     <string name="svc_entry_title">Home services in %1$s</string>
     <string name="svc_entry_subtitle">AC, cleaning, electrician, plumber &amp; repairs · verified partners · fixed prices</string>
@@ -2721,7 +2727,7 @@
     <string name="svc_book_title">Book service</string>
     <string name="svc_when">When?</string>
     <string name="svc_now">Now (partner in ~60 min)</string>
-    <string name="svc_schedule">Pick a time</string>
+    <string name="svc_schedule">Schedule</string>
     <string name="svc_today">Today</string>
     <string name="svc_tomorrow">Tomorrow</string>
     <string name="svc_address">Address</string>
@@ -2729,14 +2735,17 @@
     <string name="svc_use_location">Use my current location</string>
     <string name="svc_location_set">Location set ✓</string>
     <string name="svc_location_needed">Turn on location so the partner can find your home</string>
+    <string name="svc_partner_instructions_title">Instructions for Partner</string>
+    <string name="svc_high_demand_title">🔥 High Demand in your area</string>
+    <string name="svc_high_demand_msg">Our verified professionals are currently serving customers nearby. You can schedule in advance for guaranteed confirmation or book now.</string>
     <string name="svc_note_hint">Anything the partner should know (optional)</string>
     <string name="svc_price_service">Service</string>
     <string name="svc_price_fee">DutyPe booking fee</string>
     <string name="svc_price_total">Total</string>
-    <string name="svc_pay_after">Pay the partner after the job · cash or UPI</string>
+    <string name="svc_pay_after">Pay after service</string>
     <string name="svc_inspection_info">This is the visit charge. The partner checks the problem and tells you the repair price before starting.</string>
     <string name="svc_warranty">7-day free re-work if something is not right</string>
-    <string name="svc_confirm">Confirm booking</string>
+    <string name="svc_confirm">Confirm Booking</string>
     <string name="svc_status_searching">Finding a partner near you…</string>
     <string name="svc_status_assigned">Partner assigned</string>
     <string name="svc_status_on_the_way">Partner is on the way</string>
@@ -2936,4 +2945,12 @@
     <string name="svc_offer_discount_note">The customer\'s ₹%1$d offer is paid from DutyPe\'s fee – your earning stays the same.</string>
     <string name="whatsapp_offers_sub">Festival offers and DutyPe news on WhatsApp, at most once a week. Reply STOP to end anytime. Service booking confirmations come anyway.</string>
     <string name="whatsapp_offers_failed">Could not save. Check your internet and try again.</string>
+    <string name="referral_have_code_optional">Have a referral code?</string>
+    <string name="referral_worker_bonus_hint">Get ₹50 bonus on completing your first job!</string>
+    <string name="referral_employer_bonus_hint">Get ₹500 bonus on completing your first job booking!</string>
+    <string name="referral_apply">Apply</string>
+    <string name="referral_applied">Applied ✓</string>
+    <string name="referral_enter_code_placeholder">Enter referral code</string>
+    <string name="referral_referred_by_friend">Referred by a friend?</string>
+    <string name="referral_redeem_within_7_days">Enter their referral code within 7 days of joining to earn your bonus</string>
 </resources>

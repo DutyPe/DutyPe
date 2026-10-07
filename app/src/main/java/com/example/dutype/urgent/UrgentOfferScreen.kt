@@ -79,8 +79,14 @@ fun UrgentOfferScreen(requestId: String, navController: NavController) {
     val viewModel: UrgentOfferViewModel = hiltViewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(requestId) { viewModel.load(requestId) }
+    val context = LocalContext.current
+    LaunchedEffect(Unit) { UrgentSoundAlertManager.stopSound() }
     val speaker = rememberSpeaker()
     val close: () -> Unit = { if (!navController.popBackStack()) navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.HOME) }
+    val onSkip: () -> Unit = {
+        UrgentSoundAlertManager.ignoreRequest(context, requestId)
+        close()
+    }
 
     Box(
         modifier = Modifier
@@ -91,7 +97,7 @@ fun UrgentOfferScreen(requestId: String, navController: NavController) {
     ) {
         when (val s = state) {
             UrgentOfferState.Loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Green.fg())
-            is UrgentOfferState.Offer -> OfferContent(s, speaker, onAccept = viewModel::accept, onSkip = close)
+            is UrgentOfferState.Offer -> OfferContent(s, speaker, onAccept = viewModel::accept, onSkip = onSkip)
             is UrgentOfferState.Accepted -> AcceptedContent(s, speaker, onDone = close)
             is UrgentOfferState.Unavailable -> MessageContent(s.reason, onDone = close)
             is UrgentOfferState.Failed -> FailedContent(s.message, onRetry = { viewModel.load(requestId) }, onDone = close)

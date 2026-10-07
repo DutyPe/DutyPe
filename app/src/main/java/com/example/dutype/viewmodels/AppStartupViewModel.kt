@@ -36,22 +36,21 @@ class AppStartupViewModel @Inject constructor(
     private val firestore: FirebaseFirestore
 ) : ViewModel() {
 
-    private val initialCachedDestination: String? by lazy {
+    private val initialCachedDestination: String by lazy {
         val cached = StartDestinationCache.read(context)
         // Profile-setup routes need a signed-in uid.
         // Home routes (WORKER_HOME / EMPLOYER_HOME) support guest exploration.
         val isAuthGated = cached == Routes.PROFILE_SETUP ||
             cached == Routes.EMPLOYER_PROFILE_SETUP
         if (isAuthGated && FirebaseAuth.getInstance().currentUser == null) {
-            null
+            Routes.SELECT_ROLE
         } else {
-            cached
+            cached ?: Routes.ONBOARDING
         }
     }
 
     private val _startupState = MutableStateFlow<StartupState>(
-        if (initialCachedDestination != null) StartupState.Resolved(initialCachedDestination!!)
-        else StartupState.Loading
+        StartupState.Resolved(initialCachedDestination)
     )
     val startupState: StateFlow<StartupState> = _startupState.asStateFlow()
 

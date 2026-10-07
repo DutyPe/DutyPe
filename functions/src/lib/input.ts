@@ -69,9 +69,9 @@ export function stringList(data: Obj, key: string, opts: { maxItems: number; max
   const values = raw
     .filter((v): v is string => typeof v === "string")
     .map((v) => v.trim())
-    .filter(Boolean);
-  if (values.length > opts.maxItems) fail("invalid-argument", `${key} has too many items`);
-  if (values.some((v) => v.length > opts.maxLength)) fail("invalid-argument", `${key} item is too long`);
+    .filter(Boolean)
+    .map((v) => (v.length > opts.maxLength ? v.slice(0, opts.maxLength).trim() : v))
+    .slice(0, opts.maxItems);
   return Array.from(new Set(values));
 }
 

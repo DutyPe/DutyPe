@@ -98,6 +98,7 @@ object UrgentOffers {
     /** The ringing offer: big text, Accept / Skip right on the notification, gone after 10 minutes. */
     fun showOffer(context: Context, data: Map<String, String>) {
         val requestId = data["requestId"]?.takeIf { it.isNotBlank() } ?: return
+        if (UrgentSoundAlertManager.isIgnored(context, requestId)) return
         if (!canNotify(context)) return
         val id = notificationId(requestId)
         val title = data["title"].orEmpty().ifBlank { context.getString(R.string.urgent_offer_title_fallback) }
@@ -111,6 +112,8 @@ object UrgentOffers {
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setAutoCancel(true)
+            .setSound(android.provider.Settings.System.DEFAULT_RINGTONE_URI)
+            .setVibrate(longArrayOf(0, 800, 400, 800, 400, 800))
             .setTimeoutAfter(10 * 60 * 1000L)
             .setContentIntent(openOfferIntent(context, requestId, id))
             .addAction(0, context.getString(R.string.urgent_offer_accept), actionIntent(context, ACTION_ACCEPT, requestId, id, id + 1))
@@ -118,6 +121,7 @@ object UrgentOffers {
             .build()
         try {
             NotificationManagerCompat.from(context).notify(id, notification)
+            UrgentSoundAlertManager.playAlertIfNew(context, requestId)
         } catch (_: SecurityException) {
         }
     }

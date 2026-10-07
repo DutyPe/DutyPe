@@ -62,6 +62,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.google.firebase.auth.FirebaseAuth
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.components.ReferAndEarnRedemptionCard
 import com.example.dutype.models.*
 import com.example.dutype.navigation.Routes
 import com.example.dutype.di.rememberInAppReviewTriggerService
@@ -87,9 +88,7 @@ fun WorkerReferEarnScreen(
         .filter { it.type == Values.LedgerType.SIGNUP_BONUS || it.type == Values.LedgerType.WELCOME_BONUS }
         .sumOf { it.amountPaise }
     val successful = uiState.wallet?.successfulReferrals ?: 0
-    val nextMilestone = referralConfig.milestones.keys.sorted().firstOrNull { it > successful } ?: 0
 
-    var isVisible by remember { mutableStateOf(false) }
     var showCopySuccess by remember { mutableStateOf(false) }
     var showWithdrawDialog by remember { mutableStateOf(false) }
     var isCheckingProfileStatus by remember { mutableStateOf(true) }
@@ -126,9 +125,6 @@ fun WorkerReferEarnScreen(
 
         isProfileCompleted = localProfileDeferred.await() || remoteProfileDeferred.await()
         isCheckingProfileStatus = false
-
-        delay(100)
-        isVisible = true
     }
 
     LaunchedEffect(uiState.withdrawalSuccess) {
@@ -150,16 +146,11 @@ fun WorkerReferEarnScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White.bg())
-            .statusBarsPadding()
     ) {
-        ReferText(
-            text = stringResource(R.string.refer_earn),
-            color = Color(0xFF0F0F0F).fg(),
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 16.dp)
+        CommonHeader(
+            title = stringResource(R.string.refer_earn),
+            navController = navController,
+            backgroundColor = Color.White.bg()
         )
 
         when {
@@ -255,160 +246,118 @@ fun WorkerReferEarnScreen(
 
                     // Hero, referral code, how-it-works steps and my referrals summary
                     item {
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(300)) + slideInVertically(tween(300))
-                        ) {
-                                                        ReferEarnTopSections(
-                                referralCode = uiState.wallet?.referralCode.orEmpty(),
-                                rewardAmount = referralConfig.rewardPerReferral.toInt(),
-                                onCopyClick = {
-                                    if (uiState.wallet?.referralCode.isNullOrBlank()) {
-                                        Toast.makeText(context, context.getString(R.string.refer_code_creating_toast), Toast.LENGTH_SHORT).show()
-                                        viewModel.loadReferralData()
-                                        return@ReferEarnTopSections
-                                    }
-                                    copyTextToClipboard(
-                                        context = context,
-                                        label = context.getString(R.string.refer_code_clipboard_label),
-                                        text = uiState.wallet?.referralCode.orEmpty()
-                                    )
-                                    showCopySuccess = true
-                                },
-                                onShareClick = {
-                                    val code = uiState.wallet?.referralCode.orEmpty()
-                                    if (code.isBlank()) {
-                                        Toast.makeText(context, context.getString(R.string.refer_code_creating_toast), Toast.LENGTH_SHORT).show()
-                                        viewModel.loadReferralData()
-                                        return@ReferEarnTopSections
-                                    }
-                                    val shareText = context.getString(R.string.refer_worker_share_text, code, playStoreUrl, referralConfig.signupBonus.toInt())
-
-                                    val intent = Intent(Intent.ACTION_SEND).apply {
-                                        type = "text/plain"
-                                        putExtra(Intent.EXTRA_TEXT, shareText)
-                                    }
-                                    context.startActivity(Intent.createChooser(intent, context.getString(R.string.refer_share_chooser_title)))
-
-                                    val activity = context as? Activity
-                                    if (activity != null) {
-                                        reviewTriggerService.onReferralCodeShared(activity)
-                                    }
+                        ReferEarnTopSections(
+                            referralCode = uiState.wallet?.referralCode.orEmpty(),
+                            rewardAmount = referralConfig.rewardPerReferral.toInt(),
+                            onCopyClick = {
+                                if (uiState.wallet?.referralCode.isNullOrBlank()) {
+                                    Toast.makeText(context, context.getString(R.string.refer_code_creating_toast), Toast.LENGTH_SHORT).show()
+                                    viewModel.loadReferralData()
+                                    return@ReferEarnTopSections
                                 }
-                            )
-                        }
+                                copyTextToClipboard(
+                                    context = context,
+                                    label = context.getString(R.string.refer_code_clipboard_label),
+                                    text = uiState.wallet?.referralCode.orEmpty()
+                                )
+                                showCopySuccess = true
+                            },
+                            onShareClick = {
+                                val code = uiState.wallet?.referralCode.orEmpty()
+                                if (code.isBlank()) {
+                                    Toast.makeText(context, context.getString(R.string.refer_code_creating_toast), Toast.LENGTH_SHORT).show()
+                                    viewModel.loadReferralData()
+                                    return@ReferEarnTopSections
+                                }
+                                val shareText = context.getString(R.string.refer_worker_share_text, code, playStoreUrl, referralConfig.signupBonus.toInt())
+
+                                val intent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_TEXT, shareText)
+                                }
+                                context.startActivity(Intent.createChooser(intent, context.getString(R.string.refer_share_chooser_title)))
+
+                                val activity = context as? Activity
+                                if (activity != null) {
+                                    reviewTriggerService.onReferralCodeShared(activity)
+                                }
+                            }
+                        )
                     }
 
-
-                    // Who referred you
+                    // Who referred you / Referral Code Redemption
                     item {
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(450, 100)) + slideInVertically(tween(450, 100))
-                        ) {
+                        if (uiState.myReferrer != null) {
                             ReferrerInfoCard(referrer = uiState.myReferrer)
+                        } else {
+                            ReferAndEarnRedemptionCard(
+                                hasExistingReferrer = false,
+                                onSuccess = { viewModel.loadReferralData() }
+                            )
                         }
                     }
 
                     // Stats Grid
                     item {
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(500, 100)) + slideInVertically(tween(500, 100))
-                        ) {
-                            StatsGrid(
-                                totalReferrals = uiState.referralHistory.size,
-                                successfulReferrals = uiState.wallet?.successfulReferrals ?: 0,
-                                totalEarnings = (uiState.wallet?.lifetimeEarnedPaise ?: 0L) / 100.0,
-                                availableBalance = (uiState.wallet?.balancePaise ?: 0L) / 100.0,
-                                signupBonusReceived = joinBonusPaise > 0L,
-                                signupBonusAmount = joinBonusPaise / 100.0
-                            )
-                        }
+                        StatsGrid(
+                            totalReferrals = uiState.referralHistory.size,
+                            successfulReferrals = uiState.wallet?.successfulReferrals ?: 0,
+                            totalEarnings = (uiState.wallet?.lifetimeEarnedPaise ?: 0L) / 100.0,
+                            availableBalance = (uiState.wallet?.balancePaise ?: 0L) / 100.0,
+                            signupBonusReceived = joinBonusPaise > 0L,
+                            signupBonusAmount = joinBonusPaise / 100.0
+                        )
                     }
 
-                    // Withdraw Button � always visible once data is loaded
+                    // Withdraw Button — always visible once data is loaded
                     item {
                         val balance = (uiState.wallet?.balancePaise ?: 0L) / 100.0
                         val minWithdrawal = referralConfig.minWithdrawal
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(550, 150)) + slideInVertically(tween(550, 150))
-                        ) {
-                            WithdrawCard(
-                                availableBalance = balance,
-                                minWithdrawal = minWithdrawal,
-                                onWithdrawClick = {
-                                    if (balance < minWithdrawal) return@WithdrawCard
-                                    // Re-check profile completion before opening withdraw dialog
-                                    coroutineScope.launch {
-                                        val localOk = runCatching {
-                                            profileCompletionViewModel.isProfileComplete(UserRole.WORKER)
-                                        }.getOrDefault(false)
-                                        val remoteOk = isProfileCompleted || (FirebaseAuth.getInstance().currentUser?.uid?.let { uid ->
-                                            profileCompletionViewModel.isProfileComplete(uid, UserRole.WORKER).getOrDefault(false)
-                                        } ?: false)
+                        WithdrawCard(
+                            availableBalance = balance,
+                            minWithdrawal = minWithdrawal,
+                            onWithdrawClick = {
+                                if (balance < minWithdrawal) return@WithdrawCard
+                                // Re-check profile completion before opening withdraw dialog
+                                coroutineScope.launch {
+                                    val localOk = runCatching {
+                                        profileCompletionViewModel.isProfileComplete(UserRole.WORKER)
+                                    }.getOrDefault(false)
+                                    val remoteOk = isProfileCompleted || (FirebaseAuth.getInstance().currentUser?.uid?.let { uid ->
+                                        profileCompletionViewModel.isProfileComplete(uid, UserRole.WORKER).getOrDefault(false)
+                                    } ?: false)
 
-                                        if (!localOk && !remoteOk) {
-                                            Toast.makeText(
-                                                context,
-                                                context.getString(R.string.refer_complete_profile_to_withdraw),
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                        } else {
-                                            if (remoteOk && !localOk) {
-                                                profileCompletionViewModel.markProfileComplete(UserRole.WORKER)
-                                            }
-                                            showWithdrawDialog = true
+                                    if (!localOk && !remoteOk) {
+                                        Toast.makeText(
+                                            context,
+                                            context.getString(R.string.refer_complete_profile_to_withdraw),
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    } else {
+                                        if (remoteOk && !localOk) {
+                                            profileCompletionViewModel.markProfileComplete(UserRole.WORKER)
                                         }
+                                        showWithdrawDialog = true
                                     }
                                 }
-                            )
-                        }
+                            }
+                        )
                     }
 
-                    // Milestone Progress
-                    item {
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(600, 200)) + slideInVertically(tween(600, 200))
-                        ) {
-                            MilestoneProgressCard(
-                                successfulReferrals = successful,
-                                nextMilestone = nextMilestone,
-                                milestoneBonus = referralConfig.milestones[nextMilestone] ?: 0.0
-                            )
-                        }
-                    }
 
                     // How it works / Rewards & milestones / How to redeem (accordion)
                     item {
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(700, 300)) + slideInVertically(tween(700, 300))
-                        ) {
-                            ReferInfoAccordion(referralConfig = referralConfig)
-                        }
+                        ReferInfoAccordion(referralConfig = referralConfig)
                     }
 
                     // Withdrawal History
                     item {
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(800, 400)) + slideInVertically(tween(800, 400))
-                        ) {
-                            WithdrawalHistorySection(withdrawals = uiState.withdrawalHistory)
-                        }
+                        WithdrawalHistorySection(withdrawals = uiState.withdrawalHistory)
                     }
 
- // Referral History
+                    // Referral History
                     item {
-                        AnimatedVisibility(
-                            visible = isVisible,
-                            enter = fadeIn(tween(900, 500)) + slideInVertically(tween(900, 500))
-                        ) {
-                            ReferralHistorySection(referralHistory = uiState.referralHistory)
-                        }
+                        ReferralHistorySection(referralHistory = uiState.referralHistory)
                     }
 
 
@@ -530,33 +479,49 @@ private fun ReferEarnTopSections(
 
     Column(modifier = Modifier.fillMaxWidth()) {
         // Hero card
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .background(Color(0xFFF0FDF4).bg())
-                .border(1.dp, Color(0xFFA7F3D0).bd(), RoundedCornerShape(24.dp))
-                .padding(20.dp)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4).bg()),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFA7F3D0).bd()),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
-            Icon(
-                imageVector = Icons.Outlined.CardGiftcard,
-                contentDescription = null,
-                tint = green,
-                modifier = Modifier.size(28.dp)
-            )
-            Spacer(Modifier.height(10.dp))
-            ReferText(
-                text = stringResource(R.string.refer_hero_title, rewardAmount),
-                color = ink,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(4.dp))
-            ReferText(
-                text = stringResource(R.string.refer_hero_subtitle),
-                color = slate,
-                fontSize = 13.sp
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFDCFCE7).bg()),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.CardGiftcard,
+                        contentDescription = null,
+                        tint = green,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    ReferText(
+                        text = stringResource(R.string.refer_hero_title, rewardAmount),
+                        color = ink,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    ReferText(
+                        text = stringResource(R.string.refer_hero_subtitle),
+                        color = slate,
+                        fontSize = 13.sp
+                    )
+                }
+            }
         }
 
         Spacer(Modifier.height(14.dp))
@@ -839,56 +804,9 @@ private fun WithdrawCard(availableBalance: Double, minWithdrawal: Double, onWith
     }
 }
 
-@Composable
-private fun MilestoneProgressCard(successfulReferrals: Int, nextMilestone: Int, milestoneBonus: Double) {
-    val progress = if (nextMilestone > 0) successfulReferrals.toFloat() / nextMilestone.toFloat() else 0f
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(20.dp)) {
-            Text(
-                text = stringResource(R.string.next_milestone),
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
-            )
-            Spacer(Modifier.height(12.dp))
-            LinearProgressIndicator(
-                progress = { progress.coerceIn(0f, 1f) },
-                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                trackColor = WorkerColors.Border
-            )
-            Spacer(Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = stringResource(R.string.refer_milestone_progress, successfulReferrals, nextMilestone),
-                    style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary)
-                )
-                if (milestoneBonus > 0) {
-                    Text(
-                        text = stringResource(R.string.refer_bonus_amount, milestoneBonus.toInt()),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                        )
-                    )
-                }
-            }
-        }
-    }
-}
-
 /**
- * How it works / Rewards & milestones / How to redeem as one accordion (same look as the
- * Terms screen sections). One section open at a time; "How It Works" starts open.
+ * How it works / How to redeem as one clean accordion.
+ * One section open at a time; "How It Works" starts open.
  */
 @Composable
 private fun ReferInfoAccordion(referralConfig: com.example.dutype.repositories.ReferralConfig) {
@@ -900,19 +818,11 @@ private fun ReferInfoAccordion(referralConfig: com.example.dutype.repositories.R
                 listOf(
                     stringResource(R.string.refer_worker_step_1),
                     stringResource(R.string.refer_step_2),
-                    stringResource(R.string.refer_step_3),
-                    stringResource(R.string.refer_worker_step_4)
+                    stringResource(R.string.refer_step_3)
                 )
             )
         }
-        ReferAccordionCard(stringResource(R.string.rewards_milestones), expanded == 1, { toggle(1) }) {
-            RewardRow(stringResource(R.string.refer_reward_per_referral, referralConfig.rewardPerReferral.toInt()))
-            RewardRow(stringResource(R.string.refer_reward_friend_bonus, referralConfig.signupBonus.toInt()))
-            referralConfig.milestones.entries.sortedBy { it.key }.forEach { (count, bonus) ->
-                RewardRow(stringResource(R.string.refer_milestone_item, count, bonus.toInt()))
-            }
-        }
-        ReferAccordionCard(stringResource(R.string.how_to_redeem), expanded == 2, { toggle(2) }) {
+        ReferAccordionCard(stringResource(R.string.how_to_redeem), expanded == 1, { toggle(1) }) {
             val minWithdrawal = referralConfig.minWithdrawal.toInt()
             Text(
                 text = stringResource(R.string.refer_withdrawal_threshold_info, minWithdrawal),

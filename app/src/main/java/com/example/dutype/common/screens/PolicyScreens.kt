@@ -102,30 +102,30 @@ fun PrivacyPolicyScreen(navController: NavController) {
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White.bg())
-            .statusBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(start = 20.dp, end = 20.dp, bottom = 32.dp)
     ) {
-        PvBackRow(onBack = { navController.popBackStack() })
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.privacy_policy),
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = Ink900.fg()
+        CommonHeader(
+            title = stringResource(R.string.privacy_policy),
+            navController = navController,
+            backgroundColor = Color.White.bg()
         )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = stringResource(R.string.policy_last_updated_short),
-            fontSize = 12.sp,
-            color = Ink400.fg()
-        )
-        Spacer(modifier = Modifier.height(20.dp))
-        PvPermissionCards()
-        Spacer(modifier = Modifier.height(20.dp))
-        PvAccordionCard()
-        Spacer(modifier = Modifier.height(24.dp))
-        PvGrievanceFooter()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 20.dp, end = 20.dp, bottom = 32.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.policy_last_updated_short),
+                fontSize = 12.sp,
+                color = Ink400.fg()
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            PvPermissionCards()
+            Spacer(modifier = Modifier.height(20.dp))
+            PvAccordionCard()
+            Spacer(modifier = Modifier.height(24.dp))
+            PvGrievanceFooter()
+        }
     }
 }
 
@@ -143,7 +143,7 @@ private fun PolicyMainContainer(
             .background(Color.White.bg())
     ) {
         CommonHeader(
-            title = if (selectedTab == 0) stringResource(R.string.terms_of_service) else stringResource(R.string.privacy_policy),
+            title = if (selectedTab == 0) stringResource(R.string.terms_conditions) else stringResource(R.string.privacy_policy),
             onBackClick = { navController.popBackStack() },
             backgroundColor = Color.White.bg()
         )
@@ -168,7 +168,7 @@ private fun PolicyMainContainer(
                 onClick = { selectedTab = 0 },
                 text = {
                     Text(
-                        text = stringResource(R.string.terms_of_service),
+                        text = stringResource(R.string.terms_conditions),
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium,
                             color = Ink900.fg()
@@ -231,13 +231,13 @@ private fun PolicyMainContainer(
                     style = MaterialTheme.typography.bodyMedium.copy(color = Ink600.fg(), lineHeight = 20.sp)
                 )
 
-                // Official Available Emails
+                // Official Available Email
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
                             val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                data = Uri.parse("mailto:dutypein@gmail.com")
+                                data = Uri.parse("mailto:support@dutype.in")
                                 putExtra(Intent.EXTRA_SUBJECT, "DutyPe Support & Policy Query")
                             }
                             try { context.startActivity(intent) } catch (_: Exception) {}
@@ -252,35 +252,7 @@ private fun PolicyMainContainer(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "dutypein@gmail.com",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = BrandBlue.fg()
-                        )
-                    )
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                data = Uri.parse("mailto:dutypefeedback@gmail.com")
-                                putExtra(Intent.EXTRA_SUBJECT, "DutyPe Feedback")
-                            }
-                            try { context.startActivity(intent) } catch (_: Exception) {}
-                        },
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Email,
-                        contentDescription = null,
-                        tint = BrandBlue.fg(),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "dutypefeedback@gmail.com",
+                        text = "support@dutype.in",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.SemiBold,
                             color = BrandBlue.fg()
@@ -688,8 +660,7 @@ private fun PvGrievanceFooter() {
             lineHeight = 20.sp,
             color = Ink600.fg()
         )
-        PvEmailLink(context, "dutypein@gmail.com", "DutyPe Support & Policy Query")
-        PvEmailLink(context, "dutypefeedback@gmail.com", "DutyPe Feedback")
+        PvEmailLink(context, "support@dutype.in", "DutyPe Support & Policy Query")
         Text(
             text = stringResource(R.string.policy_compliance),
             fontSize = 12.sp,

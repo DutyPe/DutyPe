@@ -233,6 +233,26 @@ fun EmployerUrgentNeedDetailScreen(
                     )
                 }
             },
+            onChatMatchedWorker = { worker ->
+                val phone = worker.phone
+                val reqTitle = request?.title ?: "Urgent Job"
+                if (phone.isNotBlank()) {
+                    openWhatsApp(context, phone, "Hello ${worker.fullName}, I have an urgent job opening on DutyPe: $reqTitle.")
+                } else {
+                    applicationViewModel.fetchPhoneNumberForWorker(
+                        jobId = requestId,
+                        workerId = worker.workerId,
+                        onSuccess = { fetchedPhone ->
+                            if (fetchedPhone.isNotBlank()) {
+                                openWhatsApp(context, fetchedPhone, "Hello ${worker.fullName}, I have an urgent job opening on DutyPe: $reqTitle.")
+                            } else {
+                                Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        onFailure = { Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show() }
+                    )
+                }
+            },
             onOpenMatchedWorkerProfile = { worker ->
                 navController.navigate(Routes.workerProfileViewRoute(worker.workerId))
             },
@@ -297,5 +317,17 @@ private fun openDialer(context: android.content.Context, phone: String) {
         context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
     }.onFailure {
         Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), Toast.LENGTH_SHORT).show()
+    }
+}
+
+private fun openWhatsApp(context: android.content.Context, phone: String, message: String) {
+    if (phone.isBlank()) return
+    val rawDigits = phone.filter { it.isDigit() }
+    val formattedPhone = if (rawDigits.length == 10) "91$rawDigits" else rawDigits
+    val waUri = Uri.parse("https://wa.me/$formattedPhone?text=${Uri.encode(message)}")
+    runCatching {
+        context.startActivity(Intent(Intent.ACTION_VIEW, waUri))
+    }.onFailure {
+        Toast.makeText(context, context.getString(R.string.whatsapp_not_installed), Toast.LENGTH_SHORT).show()
     }
 }

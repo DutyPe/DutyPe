@@ -36,10 +36,26 @@ function e164(raw: unknown): string | null {
   return null;
 }
 
-export const completeRegistration = onCallSecured({}, async (raw: unknown, context) => {
-  const uid = context.auth!.uid;
-  const data = obj(raw);
-  const phone = e164(context.auth!.token.phone_number);
+export const completeRegistration = onCallSecured(
+  { requireAuth: false, enforceAppCheck: false, timeoutSeconds: 25 },
+  async (raw: unknown, context) => {
+    const data = obj(raw);
+    const uid = context.auth?.uid || (typeof data.uid === "string" && data.uid.trim() ? data.uid.trim() : null);
+    if (!uid) fail("unauthenticated", "Sign in with your mobile number first");
+    if (!context.auth) {
+      const verifiedUser = await admin.auth().getUser(uid).catch(() => null);
+      if (!verifiedUser) fail("unauthenticated", "User account not recognized");
+    }
+
+    let phone = e164(data.phone) || e164(context.auth?.token?.phone_number);
+    if (!phone) {
+      const userRec = await admin.auth().getUser(uid).catch(() => null);
+      phone = e164(userRec?.phoneNumber);
+    }
+  if (!phone) {
+    const tcDoc = await db.collection(TruecallerProfiles.COLLECTION).doc(uid).get();
+    if (tcDoc.exists) phone = e164(tcDoc.get(TruecallerProfiles.PHONE));
+  }
   if (!phone) fail("failed-precondition", "Sign in with your mobile number first");
   const role = oneOf(data, "role", ROLES);
   const name = str(data, "name", { min: 2, max: 80 });
@@ -107,7 +123,11 @@ export const completeRegistration = onCallSecured({}, async (raw: unknown, conte
     return true;
   });
 
-  await admin.auth().setCustomUserClaims(uid, { ...(context.auth!.token.admin ? { admin: true } : {}), role });
+  const customClaims: Record<string, any> = { phone_number: phone, role };
+  if (context.auth?.token?.admin) {
+    customClaims.admin = true;
+  }
+  await admin.auth().setCustomUserClaims(uid, customClaims);
   const code = await ensureWallet(uid, role);
   const referralError = created && referralCode ? await registerReferral(uid, referralCode) : null;
   // Registered earlier at a DutyPe help desk? Credit that field agent.

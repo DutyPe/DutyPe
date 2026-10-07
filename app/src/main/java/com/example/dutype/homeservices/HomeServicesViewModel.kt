@@ -2,6 +2,7 @@ package com.example.dutype.homeservices
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.dutype.models.LocationData
 import com.example.dutype.repositories.LocationRepository
 import com.google.firebase.functions.FirebaseFunctionsException
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,14 +21,43 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeServicesViewModel @Inject constructor(
     private val repo: HomeServicesRepository,
-    private val locationRepository: LocationRepository
+    private val locationRepository: LocationRepository,
+    val savedWorkLocationsStore: com.example.dutype.services.SavedWorkLocationsStore
 ) : ViewModel() {
+
+    val userLocation: StateFlow<LocationData?> = locationRepository.userLocation
 
     private val _catalog = MutableStateFlow<ServicesCatalog?>(null)
     val catalog: StateFlow<ServicesCatalog?> = _catalog.asStateFlow()
 
     private val _catalogError = MutableStateFlow<String?>(null)
     val catalogError: StateFlow<String?> = _catalogError.asStateFlow()
+
+    init {
+        // Real-time synchronization: when promotional banners or offers are saved in admin web portal,
+        // update the mobile app catalog StateFlow instantly without requiring app restart or waiting for TTL.
+        viewModelScope.launch {
+            repo.observeFirestoreServicesConfig().collect { snap ->
+                if (snap != null && snap.exists()) {
+                    val current = _catalog.value
+                    val newBanners = repo.bannersFromSnapshot(snap)
+                    val newOffers = repo.offersFromSnapshot(snap)
+                    val newMostBooked = repo.mostBookedServiceIdsFromSnapshot(snap)
+                    if (current != null) {
+                        _catalog.value = current.copy(
+                            promoBanners = newBanners,
+                            offers = newOffers,
+                            mostBookedServiceIds = if (newMostBooked.isNotEmpty()) newMostBooked else current.mostBookedServiceIds
+                        )
+                        repo.invalidateCatalogCache()
+                    } else {
+                        repo.invalidateCatalogCache()
+                        loadCatalog(force = true)
+                    }
+                }
+            }
+        }
+    }
 
     val myBookings: StateFlow<List<ServiceBooking>> =
         repo.observeMyBookings().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -72,12 +102,31 @@ class HomeServicesViewModel @Inject constructor(
 
     /** Current phone location: lat, lng, area, address (null without permission / GPS). */
     suspend fun currentPlace(): Place? = runCatching {
+        val cached = locationRepository.userLocation.value ?: locationRepository.lastKnownLocation()
+        if (locationRepository.isManualLocationLocked() && cached != null && cached.hasValidCoordinates()) {
+            return@runCatching Place(cached.latitude, cached.longitude, cached.area.orEmpty(), cached.address)
+        }
         locationRepository.getHighAccuracy(timeoutMs = 8_000L, minAccuracyMeters = 100f)?.let {
             Place(it.latitude, it.longitude, it.area, it.address)
-        } ?: locationRepository.lastKnownLocation()?.let { Place(it.latitude, it.longitude, it.area.orEmpty(), it.address) }
+        } ?: cached?.let { Place(it.latitude, it.longitude, it.area.orEmpty(), it.address) }
     }.getOrNull()
 
     data class Place(val lat: Double, val lng: Double, val area: String, val address: String)
+
+    fun setManualLocation(area: String, city: String = "Khammam", lat: Double = 17.2473, lng: Double = 80.1514) {
+        locationRepository.setManualLocation(city, area, "$area, $city", lat, lng)
+    }
+
+    fun resetToGps() {
+        locationRepository.setAutoLocation()
+        viewModelScope.launch {
+            locationRepository.refresh(force = true)
+            currentPlace()
+        }
+    }
+
+    suspend fun searchPlaces(query: String): List<com.example.dutype.models.PlaceSuggestion> =
+        locationRepository.searchPlaces(query)
 
     suspend fun book(
         service: ServiceItem, addressText: String, area: String, lat: Double, lng: Double, note: String, scheduledAt: Long?,
@@ -88,7 +137,7 @@ class HomeServicesViewModel @Inject constructor(
 
     suspend fun startCode(bookingId: String): String = runCatching { repo.startCode(bookingId) }.getOrDefault("")
 
-    suspend fun cancel(bookingId: String): Result<Unit> = runCatching { repo.cancel(bookingId) }.mapError()
+    suspend fun cancel(bookingId: String, reason: String = ""): Result<Unit> = runCatching { repo.cancel(bookingId, reason) }.mapError()
 
     suspend fun rate(bookingId: String, stars: Int, review: String): Result<Unit> =
         runCatching { repo.rate(bookingId, stars, review) }.mapError()

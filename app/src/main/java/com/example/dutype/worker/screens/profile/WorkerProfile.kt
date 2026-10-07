@@ -4,6 +4,8 @@ import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
+import com.example.dutype.components.UserReviewsBottomSheet
+import kotlinx.coroutines.launch
 import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -27,6 +29,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -37,6 +40,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.ExitToApp
@@ -232,6 +236,29 @@ fun WorkerProfileScreen(
         }
     }
 
+    var showReviewsSheet by remember { mutableStateOf(false) }
+    var isReviewsLoading by remember { mutableStateOf(false) }
+    var workerReviews by remember { mutableStateOf<List<com.example.dutype.services.Rating>>(emptyList()) }
+    var workerGivenReviews by remember { mutableStateOf<List<com.example.dutype.services.Rating>>(emptyList()) }
+    val ratingService = remember { com.example.dutype.di.ratingServiceFromHilt(context) }
+
+    fun openReviewsSheet() {
+        if (currentUserId.isNotBlank()) {
+            showReviewsSheet = true
+            scope.launch {
+                isReviewsLoading = true
+                try {
+                    workerReviews = ratingService.getUserRatings(currentUserId)
+                    workerGivenReviews = ratingService.getRatingsGivenByUser(currentUserId)
+                } catch (e: Exception) {
+                    Timber.e(e, "Error loading ratings")
+                } finally {
+                    isReviewsLoading = false
+                }
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
         if (currentUser != null && !currentUser.isAnonymous) {
@@ -419,23 +446,62 @@ fun WorkerProfileScreen(
                 else { pendingMenuAction = "profile"; showLoginBottomSheet = true }
             }
             val whatsappSupport: () -> Unit = {
-                val whatsappNumber = "918500717800" // DutyPe support number
+                val whatsappNumber = "918019151847" // DutyPe support number
                 val message = "Hello DutyPe Team! I am a worker on DutyPe and I need help with the app."
-                val encodedMessage = java.net.URLEncoder.encode(message, "UTF-8")
+                val encodedMessage = runCatching { java.net.URLEncoder.encode(message, "UTF-8") }.getOrDefault("")
                 val whatsappUrl = "https://wa.me/$whatsappNumber?text=$encodedMessage"
-                try {
-                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                        data = android.net.Uri.parse(whatsappUrl)
+                runCatching {
+                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(whatsappUrl)).apply {
                         setPackage("com.whatsapp")
+                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                     context.startActivity(intent)
-                } catch (e: Exception) {
-                    // If WhatsApp is not installed, open in browser
-                    val browserIntent = android.content.Intent(
-                        android.content.Intent.ACTION_VIEW,
-                        android.net.Uri.parse(whatsappUrl)
+                }.onFailure {
+                    runCatching {
+                        val browserIntent = android.content.Intent(
+                            android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse(whatsappUrl)
+                        ).apply {
+                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(browserIntent)
+                    }.onFailure {
+                        android.widget.Toast.makeText(context, "DutyPe Support WhatsApp: +91 85007 17800", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+
+            // Top bar: Account title + Help Desk button matching employer profile
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                androidx.compose.material3.Text(
+                    text = androidx.compose.ui.res.stringResource(R.string.emp_profile_account),
+                    color = androidx.compose.ui.graphics.Color(0xFF0F172A).fg(),
+                    fontSize = 20.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+                Box(
+                    modifier = Modifier
+                        .height(32.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable {
+                            localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP)
+                        }
+                        .padding(horizontal = 14.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.material3.Text(
+                        text = androidx.compose.ui.res.stringResource(R.string.emp_profile_help_desk),
+                        color = androidx.compose.ui.graphics.Color(0xFF10B981).fg(),
+                        fontSize = 12.sp,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
                     )
-                    context.startActivity(browserIntent)
                 }
             }
 
@@ -461,13 +527,13 @@ fun WorkerProfileScreen(
                             val userPhone = workerProfile?.phone.orEmpty().ifBlank { personalInfo.phone }.ifBlank { authPhone }
                             val hasName = userName.isNotBlank() && userName != "User"
 
-                            // Avatar with 3dp green ring
+                            // Avatar with subtle light circular border
                             Box(
                                 modifier = Modifier
                                     .size(72.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFFF0FDF4).bg())
-                                    .border(3.dp, Color(0xFF10B981).bd(), CircleShape)
+                                    .background(Color(0xFFF8FAFC).bg())
+                                    .border(1.5.dp, Color(0xFFE2E8F0).bd(), CircleShape)
                                     .clickable { startImagePicker() },
                                 contentAlignment = Alignment.Center
                             ) {
@@ -519,7 +585,7 @@ fun WorkerProfileScreen(
                             }
                             Text(
                                 text = nameText,
-                                style = profileTextStyle(22.sp, FontWeight.Bold, Color(0xFF0F0F0F).fg()),
+                                style = profileTextStyle(20.sp, FontWeight.SemiBold, Color(0xFF0F0F0F).fg()),
                                 maxLines = 1,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier.clickable { openProfileDetails() }
@@ -542,6 +608,7 @@ fun WorkerProfileScreen(
                                     textAlign = TextAlign.Center
                                 )
                             }
+                            Spacer(modifier = Modifier.height(6.dp))
 
                             val joinMillis = memberSinceMillis
                             val hasRating = profileReviewCount > 0 && profileRating > 0.0
@@ -552,19 +619,33 @@ fun WorkerProfileScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.Center
                                 ) {
-                                    Text(
-                                        text = if (hasRating) {
-                                            val reviewText = if (profileReviewCount == 1) {
-                                                stringResource(R.string.worker_stat_review_single)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .clickable { openReviewsSheet() }
+                                            .padding(horizontal = 4.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = if (hasRating) {
+                                                val reviewText = if (profileReviewCount == 1) {
+                                                    stringResource(R.string.worker_stat_review_single)
+                                                } else {
+                                                    stringResource(R.string.worker_stat_reviews_count, profileReviewCount)
+                                                }
+                                                "★ " + String.format(java.util.Locale.US, "%.1f", profileRating) + " ($reviewText)"
                                             } else {
-                                                stringResource(R.string.worker_stat_reviews_count, profileReviewCount)
-                                            }
-                                            "★ " + String.format(java.util.Locale.US, "%.1f", profileRating) + " ($reviewText)"
-                                        } else {
-                                            stringResource(R.string.emp_profile_no_reviews_yet)
-                                        },
-                                        style = profileTextStyle(13.sp, FontWeight.Normal, Color(0xFF64748B).fg())
-                                    )
+                                                stringResource(R.string.emp_profile_no_reviews_yet)
+                                            },
+                                            style = profileTextStyle(13.sp, FontWeight.Medium, if (hasRating) Color(0xFFD97706) else Color(0xFF64748B).fg())
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.ChevronRight,
+                                            contentDescription = null,
+                                            tint = Color(0xFF94A3B8),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
                                     if (joinMillis > 0L) {
                                         Box(
                                             modifier = Modifier
@@ -589,8 +670,8 @@ fun WorkerProfileScreen(
                                 modifier = Modifier
                                     .size(72.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFFF0FDF4).bg())
-                                    .border(3.dp, Color(0xFF10B981).bd(), CircleShape),
+                                    .background(Color(0xFFF8FAFC).bg())
+                                    .border(1.5.dp, Color(0xFFE2E8F0).bd(), CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -681,8 +762,12 @@ fun WorkerProfileScreen(
                         },
                         onRateApp = { openPlayStoreListing(context) },
                         onJoinCommunity = { openWhatsAppCommunity(context) },
-                        onHelp = { localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP) },
-                        onSettings = { rootNavController.navigate(Routes.SETTINGS) }
+                        onHelp = {
+                            localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP)
+                        },
+                        onSettings = { rootNavController.navigate(Routes.SETTINGS) },
+                        onPrivacy = { rootNavController.navigate(Routes.PRIVACY_POLICY) },
+                        onTerms = { rootNavController.navigate(Routes.TERMS_OF_SERVICE) }
                     )
                 }
 
@@ -787,6 +872,20 @@ fun WorkerProfileScreen(
             "refer_earn" -> stringResource(R.string.login_to_refer_earn)
             else -> stringResource(R.string.login_to_access_feature)
         }
+    )
+
+    UserReviewsBottomSheet(
+        isVisible = showReviewsSheet,
+        title = stringResource(R.string.my_ratings_reviews),
+        averageRating = profileRating.toFloat(),
+        totalRatings = profileReviewCount,
+        reviews = workerReviews,
+        givenReviews = workerGivenReviews,
+        isLoading = isReviewsLoading,
+        isGivenLoading = isReviewsLoading,
+        receivedTabTitle = stringResource(R.string.employers_rated_you),
+        givenTabTitle = stringResource(R.string.you_rated_employers),
+        onDismiss = { showReviewsSheet = false }
     )
 }
 
@@ -1071,7 +1170,7 @@ private fun ProfileListRow(
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = title,
-            style = profileTextStyle(15.sp, FontWeight.SemiBold, Color(0xFF0F0F0F).fg()),
+            style = profileTextStyle(15.sp, FontWeight.Medium, Color(0xFF0F0F0F).fg()),
             maxLines = 1,
             modifier = Modifier.weight(1f)
         )
@@ -1135,6 +1234,64 @@ private fun ProfileCompletenessCard(percent: Int, hint: String, onAdd: () -> Uni
 }
 
 @Composable
+private fun QuickActionTile(
+    iconRes: Int,
+    title: String,
+    badge: String? = null,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(contentAlignment = Alignment.TopEnd) {
+                Icon(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = null,
+                    tint = Color(0xFF0F172A).fg(),
+                    modifier = Modifier.size(24.dp)
+                )
+                if (!badge.isNullOrBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .offset(x = 18.dp, y = (-6).dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFFDCFCE7).bg())
+                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                    ) {
+                        Text(
+                            text = badge,
+                            style = profileTextStyle(10.sp, FontWeight.Bold, Color(0xFF16A34A).fg())
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = title,
+                style = profileTextStyle(12.sp, FontWeight.Medium, Color(0xFF0F0F0F).fg()),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
 private fun ProfileSettingsCard(
     onEditProfile: () -> Unit,
     onWorkHistory: () -> Unit,
@@ -1144,31 +1301,142 @@ private fun ProfileSettingsCard(
     onRateApp: () -> Unit,
     onJoinCommunity: () -> Unit,
     onHelp: () -> Unit,
-    onSettings: () -> Unit
+    onSettings: () -> Unit,
+    onPrivacy: () -> Unit = {},
+    onTerms: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White.bg())
-            .padding(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 0.dp)
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        ProfileListRow(title = stringResource(R.string.edit_profile), onClick = onEditProfile, iconRes = R.drawable.ic_profile_person)
-        ProfileRowDivider()
-        ProfileListRow(title = stringResource(R.string.work_history), onClick = onWorkHistory, iconRes = R.drawable.ic_profile_history)
-        ProfileRowDivider()
-        ProfileListRow(title = stringResource(R.string.my_earnings), onClick = onEarnings, iconRes = R.drawable.ic_profile_wallet)
-        ProfileRowDivider()
-        ProfileListRow(title = stringResource(R.string.refer_earn), onClick = onReferEarn, iconRes = R.drawable.ic_profile_gift)
-        ProfileRowDivider()
-        ProfileListRow(title = stringResource(R.string.guide_entry), onClick = onGuidelines, iconRes = R.drawable.ic_profile_help)
-        ProfileRowDivider()
-        ProfileListRow(title = stringResource(R.string.about_nav_rate_playstore), onClick = onRateApp, iconRes = R.drawable.ic_profile_star, showStars = true)
-        ProfileRowDivider()
-        ProfileListRow(title = stringResource(R.string.about_nav_whatsapp_community), onClick = onJoinCommunity, iconRes = R.drawable.ic_profile_message)
-        ProfileRowDivider()
-        ProfileListRow(title = stringResource(R.string.help_faqs), onClick = onHelp, iconRes = R.drawable.ic_profile_help)
-        ProfileRowDivider()
-        ProfileListRow(title = stringResource(R.string.settings), onClick = onSettings, iconRes = R.drawable.ic_profile_settings)
+        // Flat Menu Card: Work History, My Earnings, Help Desk
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                ProfileListRow(
+                    title = stringResource(R.string.work_history),
+                    onClick = onWorkHistory,
+                    iconRes = R.drawable.ic_profile_history
+                )
+                ProfileRowDivider()
+                ProfileListRow(
+                    title = stringResource(R.string.my_earnings),
+                    onClick = onEarnings,
+                    iconRes = R.drawable.ic_profile_wallet
+                )
+                ProfileRowDivider()
+                ProfileListRow(
+                    title = stringResource(R.string.emp_profile_help_desk),
+                    onClick = onHelp,
+                    iconRes = R.drawable.ic_profile_help
+                )
+            }
+        }
+
+        // Group 1: Referral & Earn Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onReferEarn)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_profile_gift),
+                    contentDescription = null,
+                    tint = Color(0xFF0F0F0F).fg(),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = stringResource(R.string.refer_earn),
+                    style = profileTextStyle(15.sp, FontWeight.Medium, Color(0xFF0F0F0F).fg()),
+                    modifier = Modifier.weight(1f)
+                )
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFFFEF3C7).bg())
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = "₹100",
+                        style = profileTextStyle(11.sp, FontWeight.Bold, Color(0xFFD97706).fg())
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "›",
+                    style = profileTextStyle(16.sp, FontWeight.Normal, Color(0xFF94A3B8).fg())
+                )
+            }
+        }
+
+        // Group 2: Settings, Legal & App Rating Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                ProfileListRow(
+                    title = stringResource(R.string.settings),
+                    onClick = onSettings,
+                    iconRes = R.drawable.ic_profile_settings
+                )
+                ProfileRowDivider()
+                ProfileListRow(
+                    title = stringResource(R.string.privacy_policy),
+                    onClick = onPrivacy,
+                    iconRes = R.drawable.ic_profile_privacy
+                )
+                ProfileRowDivider()
+                ProfileListRow(
+                    title = stringResource(R.string.terms_conditions),
+                    onClick = onTerms,
+                    iconRes = R.drawable.ic_profile_terms
+                )
+                ProfileRowDivider()
+                ProfileListRow(
+                    title = stringResource(R.string.about_nav_rate_playstore),
+                    onClick = onRateApp,
+                    iconRes = R.drawable.ic_profile_star,
+                    showStars = true
+                )
+            }
+        }
+
+        // Subtle App Version at the bottom
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val version = remember(context) {
+            runCatching {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName
+            }.getOrNull() ?: "1.0.0"
+        }
+        Text(
+            text = "APP VERSION: $version",
+            style = profileTextStyle(11.sp, FontWeight.Normal, Color(0xFF94A3B8).fg()),
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp)
+        )
     }
 }
 
@@ -1178,10 +1446,17 @@ private const val PLAY_STORE_PACKAGE = "com.dutype.app"
 
 private fun openPlayStoreListing(context: android.content.Context) {
     try {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$PLAY_STORE_PACKAGE")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    } catch (e: android.content.ActivityNotFoundException) {
+        val playStoreIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$PLAY_STORE_PACKAGE")).apply {
+            setPackage("com.android.vending")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(playStoreIntent)
+    } catch (e: Exception) {
         try {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$PLAY_STORE_PACKAGE")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$PLAY_STORE_PACKAGE")).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(webIntent)
         } catch (e2: Exception) {
             Timber.e(e2, "Unable to open Play Store")
         }

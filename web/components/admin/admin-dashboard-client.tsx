@@ -306,7 +306,7 @@ export function AdminDashboardClient() {
             <MapPin size={18} className="admin-section-icon-inline" />
             <h2 className="admin-section-title">Regional Distribution (Telangana & Andhra Pradesh)</h2>
           </div>
-          <Link href="/admin/users" className="admin-view-all">
+          <Link href="/admin/users" className="admin-view-all" prefetch={false}>
             <span>View User Directory</span>
             <ArrowRight size={14} />
           </Link>
@@ -410,7 +410,7 @@ export function AdminDashboardClient() {
           {quickActions.map((action) => {
             const Icon = action.icon;
             return (
-              <Link key={action.href} href={action.href} className="admin-action-card">
+              <Link key={action.href} href={action.href} className="admin-action-card" prefetch={false}>
                 <span className="admin-action-icon-wrap" style={{ background: action.bg, color: action.color }}>
                   <Icon size={20} strokeWidth={2.2} />
                 </span>
@@ -429,7 +429,7 @@ export function AdminDashboardClient() {
               <Briefcase size={17} className="admin-section-icon-inline" />
               <h2 className="admin-section-title">Recent Job Listings</h2>
             </div>
-            <Link href="/admin/jobs" className="admin-view-all">
+            <Link href="/admin/jobs" className="admin-view-all" prefetch={false}>
               <span>View all</span>
               <ArrowRight size={13} />
             </Link>
@@ -459,7 +459,7 @@ export function AdminDashboardClient() {
               <FileText size={17} className="admin-section-icon-inline" />
               <h2 className="admin-section-title">Recent Applications</h2>
             </div>
-            <Link href="/admin/applications" className="admin-view-all">
+            <Link href="/admin/applications" className="admin-view-all" prefetch={false}>
               <span>View all</span>
               <ArrowRight size={13} />
             </Link>
@@ -504,7 +504,7 @@ export function AdminDashboardClient() {
             <Users size={17} className="admin-section-icon-inline" />
             <h2 className="admin-section-title">Recently Joined Accounts</h2>
           </div>
-          <Link href="/admin/users" className="admin-view-all">
+          <Link href="/admin/users" className="admin-view-all" prefetch={false}>
             <span>View all</span>
             <ArrowRight size={13} />
           </Link>

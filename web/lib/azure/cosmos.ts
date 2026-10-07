@@ -37,7 +37,28 @@ export async function cosmosAdd(name: string, item: Record<string, unknown>) {
   try {
     await c.items.create({ id: randomUUID(), createdAt: new Date().toISOString(), ...item });
     return true;
-  } catch (error) {
+  } catch (error: unknown) {
+    const err = error as { code?: number; statusCode?: number; message?: string };
+    if (err?.code === 404 || err?.statusCode === 404 || err?.message?.includes("NotFound")) {
+      try {
+        const endpoint = process.env.AZURE_COSMOS_ENDPOINT || DEFAULT_ENDPOINT;
+        const key = process.env.AZURE_COSMOS_KEY;
+        if (key) {
+          client ??= new CosmosClient({ endpoint, key });
+          await client.database(process.env.AZURE_COSMOS_DATABASE || "dutype").containers.createIfNotExists({
+            id: name,
+            partitionKey: { paths: ["/uid"] }
+          });
+          const retryContainer = container(name);
+          if (retryContainer) {
+            await retryContainer.items.create({ id: randomUUID(), createdAt: new Date().toISOString(), ...item });
+            return true;
+          }
+        }
+      } catch (retryError) {
+        console.warn(`Cosmos retry write to ${name} failed`, retryError);
+      }
+    }
     console.warn(`Cosmos write to ${name} failed`, error);
     return false;
   }
@@ -80,14 +101,56 @@ export async function listCosmos(request: NextRequest, name: string, dataKey = "
     }
     const query = `SELECT * FROM c${where.length ? ` WHERE ${where.join(" AND ")}` : ""} ORDER BY c.createdAt DESC`;
 
-    const page = await c.items
-      .query({ query, parameters }, { maxItemCount: limit, continuationToken: params.get("after") || undefined })
-      .fetchNext();
-    const items = page.resources.map((item: Record<string, unknown>) =>
+    let page;
+    try {
+      page = await c.items
+        .query({ query, parameters }, { maxItemCount: limit, continuationToken: params.get("after") || undefined })
+        .fetchNext();
+    } catch (queryErr: unknown) {
+      const qErr = queryErr as { message?: string; code?: number; statusCode?: number };
+      if (qErr?.code === 404 || qErr?.statusCode === 404 || qErr?.message?.includes("NotFound")) {
+        throw queryErr;
+      }
+      // If ORDER BY fails due to composite index, retry without ORDER BY
+      if (qErr?.message?.includes("ORDER BY") || qErr?.message?.includes("index")) {
+        const fallbackQuery = `SELECT * FROM c${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
+        page = await c.items
+          .query({ query: fallbackQuery, parameters }, { maxItemCount: limit, continuationToken: params.get("after") || undefined })
+          .fetchNext();
+      } else {
+        throw queryErr;
+      }
+    }
+
+    const resources = Array.isArray(page?.resources) ? page.resources : [];
+    const items = resources.map((item: Record<string, unknown>) =>
       Object.fromEntries(Object.entries(item).filter(([key]) => !key.startsWith("_")))
     );
-    return NextResponse.json({ [dataKey]: items, nextCursor: page.continuationToken ?? null });
-  } catch (error) {
+    return NextResponse.json({ [dataKey]: items, nextCursor: page?.continuationToken ?? null });
+  } catch (error: unknown) {
+    const err = error as { code?: number; statusCode?: number; message?: string };
+    if (
+      err?.code === 404 ||
+      err?.statusCode === 404 ||
+      err?.message?.includes("NotFound") ||
+      err?.message?.includes("Resource Not Found")
+    ) {
+      // Auto-create container in background if it didn't exist yet
+      try {
+        const endpoint = process.env.AZURE_COSMOS_ENDPOINT || DEFAULT_ENDPOINT;
+        const key = process.env.AZURE_COSMOS_KEY;
+        if (key) {
+          client ??= new CosmosClient({ endpoint, key });
+          await client.database(process.env.AZURE_COSMOS_DATABASE || "dutype").containers.createIfNotExists({
+            id: name,
+            partitionKey: { paths: ["/uid"] }
+          });
+        }
+      } catch {
+        // Non-blocking
+      }
+      return NextResponse.json({ [dataKey]: [], nextCursor: null });
+    }
     const message = error instanceof Error ? error.message : `Failed to load ${name}.`;
     return NextResponse.json({ error: message }, { status: 500 });
   }

@@ -78,7 +78,7 @@ private val SupportMuted = Color(0xFF64748B)
 private val SupportHint = Color(0xFF94A3B8)
 private val SupportWhatsApp = Color(0xFF25D366)
 
-private const val SUPPORT_PHONE = "+918500717800"
+private const val SUPPORT_PHONE = "+918019151847"
 private const val SUPPORT_EMAIL = "support@dutype.in"
 
 private data class SupportItem(
@@ -186,7 +186,7 @@ private fun filterSupportItems(items: List<SupportItem>, query: String): List<Su
 
 private fun openSupportWhatsApp(context: Context) {
     val msg = context.getString(R.string.whatsapp_employer_message)
-    val url = "https://wa.me/918500717800?text=" + java.net.URLEncoder.encode(msg, "UTF-8")
+    val url = "https://wa.me/918019151847?text=" + java.net.URLEncoder.encode(msg, "UTF-8")
     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
 }
 

@@ -40,6 +40,7 @@ object Routes {
     const val EMPLOYER_DASHBOARD = "dashboard"
     const val EMPLOYER_PROFILE = "employer_profile"
     const val EMPLOYER_POST_JOB = "employer_post_job"
+    const val EMPLOYER_POST_JOB_WITH_TAB = "employer_post_job?tab={tab}"
     const val EMPLOYER_POST_URGENT_NEED = "employer_post_urgent_need"
     const val EMPLOYER_URGENT_NEED_DETAIL = "employer_urgent_need_detail/{requestId}"
     const val EMPLOYER_PROFILE_SETUP = "employer_profile_setup"
@@ -91,6 +92,14 @@ object Routes {
 
     fun employerJobPreviewRoute(jobId: String): String {
         return "employer_job_preview/$jobId"
+    }
+
+    fun employerPostJobRoute(tab: String? = null): String {
+        return if (tab.isNullOrBlank()) {
+            EMPLOYER_POST_JOB
+        } else {
+            "employer_post_job?tab=${java.net.URLEncoder.encode(tab, "UTF-8")}"
+        }
     }
 
     fun employerUrgentNeedDetailRoute(requestId: String): String {
@@ -158,6 +167,8 @@ object Routes {
 
     fun servicesBookRoute(serviceId: String): String = "services/book/$serviceId"
     fun servicesBookingRoute(bookingId: String): String = "services/booking/$bookingId"
+    const val SERVICES_CATEGORY = "services/category/{categoryId}"
+    fun servicesCategoryRoute(categoryId: String): String = "services/category/$categoryId"
     fun partnerOfferRoute(bookingId: String): String = "partner/offer/$bookingId"
     fun partnerJobRoute(bookingId: String): String = "partner/job/$bookingId"
 }

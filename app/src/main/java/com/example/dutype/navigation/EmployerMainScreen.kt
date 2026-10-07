@@ -120,7 +120,7 @@ fun EmployerMainScreen(
     // Check if current route should hide bottom bar
     val shouldShowBottomBar = currentRoute?.let { route ->
         !routesWithoutBottomBar.any { hiddenRoute ->
-            route == hiddenRoute || route.startsWith(hiddenRoute.substringBefore("{"))
+            route == hiddenRoute || route.startsWith(hiddenRoute.substringBefore("?").substringBefore("{"))
         }
     } ?: true
 
@@ -151,7 +151,7 @@ fun EmployerMainScreen(
         ) {
             NavHost(
                 navController = navController,
-                startDestination = Routes.EMPLOYER_DASHBOARD
+                startDestination = Routes.SERVICES
             ) {
                     composable(Routes.EMPLOYER_DASHBOARD) {
                         EmployerHomeScreen(
@@ -169,6 +169,41 @@ fun EmployerMainScreen(
                             navController = navController,
                             rootNavController = rootNavController,
                             employerId = null,
+                            initialTab = null,
+                            onJobPosted = { newJobId ->
+                                if (!newJobId.isNullOrBlank()) {
+                                    navController.navigate(Routes.employerJobPreviewRoute(newJobId)) {
+                                        popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                                        launchSingleTop = true
+                                    }
+                                } else {
+                                    navController.navigate(Routes.EMPLOYER_DASHBOARD) {
+                                        popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                                        launchSingleTop = true
+                                    }
+                                }
+                            },
+                            onStatusBarColorChange = { color ->
+                                currentStatusBarColor = color
+                            }
+                        )
+                    }
+                    composable(
+                        route = Routes.EMPLOYER_POST_JOB_WITH_TAB,
+                        arguments = listOf(
+                            navArgument("tab") {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            }
+                        )
+                    ) { backStackEntry ->
+                        val initialTab = backStackEntry.arguments?.getString("tab")
+                        PostJobScreen(
+                            navController = navController,
+                            rootNavController = rootNavController,
+                            employerId = null,
+                            initialTab = initialTab,
                             onJobPosted = { newJobId ->
                                 if (!newJobId.isNullOrBlank()) {
                                     navController.navigate(Routes.employerJobPreviewRoute(newJobId)) {
@@ -211,6 +246,21 @@ fun EmployerMainScreen(
                         EmployerUrgentNeedDetailScreen(
                             navController = navController,
                             requestId = requestId
+                        )
+                    }
+                    composable(Routes.SERVICES) {
+                        com.example.dutype.homeservices.ServicesHomeScreen(
+                            navController = navController,
+                            rootNavController = rootNavController
+                        )
+                    }
+                    composable(
+                        route = Routes.SERVICES_CATEGORY,
+                        arguments = listOf(androidx.navigation.navArgument("categoryId") { type = androidx.navigation.NavType.StringType })
+                    ) { backStackEntry ->
+                        com.example.dutype.homeservices.CategoryServicesScreen(
+                            categoryId = backStackEntry.arguments?.getString("categoryId").orEmpty(),
+                            navController = rootNavController ?: navController
                         )
                     }
                     composable(Routes.EMPLOYER_PROFILE) {

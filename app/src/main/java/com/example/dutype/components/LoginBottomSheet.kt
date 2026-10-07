@@ -496,7 +496,7 @@ fun LoginBottomSheet(
                                         Timber.d("🎁 REFERRAL: Saved referral code for signup: $referralCode")
                                     }
 
-                                    otpViewModel.sendOtp(fullPhoneNumber, context)
+                                    otpViewModel.sendOtp(fullPhoneNumber, context, mode = if (isRegistrationMode) "register" else "login")
                                 } catch (e: Exception) {
                                     isCheckingPhone = false
                                     Timber.e(e, "📱 Error in phone check")
@@ -547,9 +547,9 @@ fun LoginBottomSheet(
                         onVerifyClick = { otpViewModel.verifyOtp(otpValue, context) },
                         onResendClick = {
                             val fullPhoneNumber = selectedCountryCode + phoneNumber
-                            otpViewModel.resendOtp(fullPhoneNumber, context)
+                            otpViewModel.resendOtp(fullPhoneNumber, context, mode = if (isRegistrationMode) "register" else "login")
                         },
-                        onBackClick = { otpViewModel.resetState() },
+                        onBackClick = { otpViewModel.resetState(keepActiveSession = true) },
                         resendCooldownSeconds = resendCooldown
                     )
                 }
@@ -1217,13 +1217,32 @@ private fun OtpInputContent(
 
         // OTP Input boxes
         if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) {
-            Text(
-                text = androidx.compose.ui.res.stringResource(com.dutype.app.R.string.auth_code_sent_whatsapp),
-                style = AppTypography.bodySmall.copy(color = WorkerColors.TextSecondary),
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 10.dp)
-            )
+                    .background(Color(0xFFE8F5E9), shape = RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Icon(
+                    painter = painterResource(id = com.dutype.app.R.drawable.ic_whatsapp),
+                    contentDescription = null,
+                    tint = Color(0xFF25D366),
+                    modifier = Modifier
+                        .size(20.dp)
+                        .padding(top = 2.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = androidx.compose.ui.res.stringResource(com.dutype.app.R.string.auth_code_sent_whatsapp),
+                    style = AppTypography.bodySmall.copy(
+                        color = Color(0xFF1B5E20),
+                        lineHeight = 18.sp
+                    ),
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
         }
         OtpInputBoxes(
             otpValue = otpValue,

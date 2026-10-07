@@ -184,13 +184,12 @@ fun MainNavGraph(
         }.onFailure { Timber.w(it, "Failed to log notification destination telemetry") }
     }
 
-    // Safety timeout to ensure navigationDetermined is always set.
-    // Bug #4 fix: reduced from 800ms → 600ms. The splash is already
-    // dismissed on the first frame (see onReady() call above), so this
-    // timeout only governs how long the ONBOARDING fallback stays on
-    // screen before we accept that Firestore/DataStore is truly stuck.
+    // Immediate resolution & safety timeout to ensure navigationDetermined is always set.
     LaunchedEffect(Unit) {
-        delay(600)
+        if (startupState is com.example.dutype.viewmodels.StartupState.Resolved) {
+            runCatching { onReady() }
+        }
+        delay(150)
         if (!navigationDetermined) {
             Timber.w("MainNavGraph - Timeout reached, forcing navigationDetermined = true")
             navigationDetermined = true
@@ -402,10 +401,12 @@ fun MainNavGraph(
             arguments = listOf(navArgument("role") { type = NavType.StringType; defaultValue = "WORKER" })
         ) { backStackEntry ->
             val role = backStackEntry.arguments?.getString("role") ?: "WORKER"
-            Timber.d("Register route accessed with role: $role")
-            RegisterScreen(
+            Timber.d("Register route accessed with role: $role -> routing to unified auth")
+            EnhancedLoginScreen(
                 navController = navController,
-                initialRole = role
+                skipRoleSelection = true,
+                initialRole = role,
+                isRegisterMode = false
             )
         }
         composable(Routes.SELECT_ROLE) {
@@ -472,6 +473,15 @@ fun MainNavGraph(
             deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://services" })
         ) {
             com.example.dutype.homeservices.ServicesHomeScreen(navController = navController)
+        }
+        composable(
+            route = Routes.SERVICES_CATEGORY,
+            arguments = listOf(navArgument("categoryId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            com.example.dutype.homeservices.CategoryServicesScreen(
+                categoryId = backStackEntry.arguments?.getString("categoryId").orEmpty(),
+                navController = navController
+            )
         }
         composable(
             route = Routes.SERVICES_BOOK,

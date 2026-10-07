@@ -18,13 +18,18 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.Locale
+
 /**
  * The employer's saved hiring addresses (`employer_profiles/{uid}/work_locations`, at most 5).
  * Listens only after [start] (employer screens), so workers never pay for it. Writes update
- * local state immediately and persist in the background.
+ * local state immediately and persist in the background. Synchronizes with local saved addresses.
  */
 @Singleton
 class SavedWorkLocationsStore @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth
 ) {
@@ -34,13 +39,77 @@ class SavedWorkLocationsStore @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var registration: ListenerRegistration? = null
     private var activeUserId: String? = null
+    private val prefs by lazy { context.getSharedPreferences("dutype_saved_addresses", Context.MODE_PRIVATE) }
 
     init {
-        auth.addAuthStateListener { if (it.currentUser?.uid != activeUserId) stop() }
+        loadFromPreferences()
+        auth.addAuthStateListener {
+            val uid = it.currentUser?.takeUnless { u -> u.isAnonymous }?.uid
+            if (uid != activeUserId) {
+                stop()
+                if (uid != null) {
+                    start()
+                }
+            }
+        }
+    }
+
+    /** Loads locally saved addresses so the screen has addresses immediately. */
+    fun loadFromPreferences() {
+        val localList = mutableListOf<WorkLocation>()
+        for ((key, value) in prefs.all) {
+            if (key.startsWith("addr_") && value is String && value.isNotBlank()) {
+                val tag = key.removePrefix("addr_")
+                val area = prefs.getString("area_$tag", null)?.trim()
+                val lat = prefs.getString("lat_$tag", null)?.toDoubleOrNull() ?: 17.2473
+                val lng = prefs.getString("lng_$tag", null)?.toDoubleOrNull() ?: 80.1514
+                val label = if (!area.isNullOrBlank()) area else tag.replace("_", " ").replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
+                localList.add(
+                    WorkLocation(
+                        id = "local_$tag",
+                        label = label,
+                        address = value.trim(),
+                        latitude = lat,
+                        longitude = lng,
+                        addedAt = System.currentTimeMillis()
+                    )
+                )
+            }
+        }
+
+        // Fallback: if no custom addresses are saved yet, check LocationPreferences
+        if (localList.isEmpty() && _locations.value.isEmpty()) {
+            val locPrefs = context.getSharedPreferences("location_preferences", Context.MODE_PRIVATE)
+            val currentAddr = locPrefs.getString("address", null)?.trim()
+            val currentArea = locPrefs.getString("area", null)?.trim()
+            val currentLat = locPrefs.getString("latitude", null)?.toDoubleOrNull() ?: 17.2473
+            val currentLng = locPrefs.getString("longitude", null)?.toDoubleOrNull() ?: 80.1514
+            if (!currentAddr.isNullOrBlank()) {
+                localList.add(
+                    WorkLocation(
+                        id = "local_current",
+                        label = if (!currentArea.isNullOrBlank()) currentArea else "Current Location",
+                        address = currentAddr,
+                        latitude = currentLat,
+                        longitude = currentLng,
+                        addedAt = System.currentTimeMillis()
+                    )
+                )
+            }
+        }
+
+        if (localList.isNotEmpty()) {
+            val current = _locations.value
+            val merged = (current + localList.filter { loc ->
+                current.none { it.address.equals(loc.address, ignoreCase = true) }
+            }).distinctBy { it.address.lowercase(Locale.ROOT) }
+            _locations.value = merged
+        }
     }
 
     /** Idempotent: starts the listener for the signed-in employer. */
     fun start() {
+        loadFromPreferences()
         val uid = auth.currentUser?.takeUnless { it.isAnonymous }?.uid ?: return
         if (uid == activeUserId && registration != null) return
         stop()
@@ -50,7 +119,7 @@ class SavedWorkLocationsStore @Inject constructor(
             .limit(MAX_LOCATIONS.toLong())
             .addSnapshotListener { snapshot, error ->
                 if (error != null || snapshot == null) return@addSnapshotListener
-                _locations.value = snapshot.documents.map { doc ->
+                val remote = snapshot.documents.map { doc ->
                     WorkLocation(
                         id = doc.id,
                         label = doc.getString(WorkLocations.LABEL).orEmpty(),
@@ -60,6 +129,12 @@ class SavedWorkLocationsStore @Inject constructor(
                         addedAt = doc.id.removePrefix("loc_").toLongOrNull() ?: 0L
                     )
                 }
+                // Merge remote with local preferences so addresses are never wiped
+                val local = _locations.value.filter { it.id.startsWith("local_") }
+                val merged = (remote + local.filter { loc ->
+                    remote.none { it.address.equals(loc.address, ignoreCase = true) }
+                }).distinctBy { it.address.lowercase(Locale.ROOT) }
+                _locations.value = if (merged.isNotEmpty()) merged else remote
                 if (snapshot.isEmpty && !snapshot.metadata.isFromCache) seedFromProfile(uid)
             }
     }
@@ -68,7 +143,7 @@ class SavedWorkLocationsStore @Inject constructor(
         registration?.remove()
         registration = null
         activeUserId = null
-        _locations.value = emptyList()
+        loadFromPreferences()
     }
 
     fun snapshot(): List<WorkLocation> = _locations.value
@@ -83,18 +158,40 @@ class SavedWorkLocationsStore @Inject constructor(
             existing.copy(label = cleanLabel, latitude = latitude, longitude = longitude, usageCount = existing.usageCount + 1)
                 .also { updated -> _locations.value = current.map { if (it.id == updated.id) updated else it } }
         } else {
-            check(current.size < MAX_LOCATIONS) { "You can save up to $MAX_LOCATIONS work locations" }
             val now = System.currentTimeMillis()
             WorkLocation("loc_$now", cleanLabel, cleanAddress, latitude, longitude, now, 1)
-                .also { _locations.value = current + it }
+                .also { _locations.value = (current + it).takeLast(MAX_LOCATIONS) }
         }
+        val tagKey = cleanLabel.lowercase(Locale.ROOT).replace(" ", "_").filter { it.isLetterOrDigit() || it == '_' }
+        prefs.edit()
+            .putString("addr_$tagKey", cleanAddress)
+            .putString("area_$tagKey", cleanLabel)
+            .putString("lat_$tagKey", latitude.toString())
+            .putString("lng_$tagKey", longitude.toString())
+            .apply()
         persist(saved)
         return saved
     }
 
     fun remove(id: String) {
         if (id.isBlank()) return
+        val item = _locations.value.firstOrNull { it.id == id }
         _locations.value = _locations.value.filterNot { it.id == id }
+        if (item != null) {
+            val tagKey = item.label.lowercase(Locale.ROOT).replace(" ", "_").filter { it.isLetterOrDigit() || it == '_' }
+            prefs.edit()
+                .remove("addr_$tagKey")
+                .remove("area_$tagKey")
+                .remove("lat_$tagKey")
+                .remove("lng_$tagKey")
+                .apply()
+            // Also clean legacy tags if matching
+            val legacyTags = listOf("home", "work", "parents", "shop", "other")
+            val matchingLegacy = legacyTags.firstOrNull { item.label.contains(it, ignoreCase = true) }
+            if (matchingLegacy != null) {
+                prefs.edit().remove("addr_$matchingLegacy").remove("area_$matchingLegacy").apply()
+            }
+        }
         val uid = activeUserId ?: return
         scope.launch { runCatching { collection(uid).document(id).delete().await() } }
     }
@@ -119,12 +216,24 @@ class SavedWorkLocationsStore @Inject constructor(
     private fun seedFromProfile(uid: String) {
         scope.launch {
             runCatching {
-                val profile = firestore.collection(EmployerProfiles.COLLECTION).document(uid).get().await()
-                val address = profile.getString(EmployerProfiles.ADDRESS).orEmpty().trim()
-                val lat = profile.getDouble(EmployerProfiles.LAT)
-                val lng = profile.getDouble(EmployerProfiles.LNG)
+                val employerProfile = firestore.collection(EmployerProfiles.COLLECTION).document(uid).get().await()
+                var address = employerProfile.getString(EmployerProfiles.ADDRESS).orEmpty().trim()
+                var area = employerProfile.getString(EmployerProfiles.AREA).orEmpty().trim()
+                var lat = employerProfile.getDouble(EmployerProfiles.LAT)
+                var lng = employerProfile.getDouble(EmployerProfiles.LNG)
+
+                if (address.isBlank()) {
+                    val workerProfile = firestore.collection(com.example.dutype.firestore.FirestoreSchema.WorkerProfiles.COLLECTION).document(uid).get().await()
+                    if (workerProfile.exists()) {
+                        address = workerProfile.getString(com.example.dutype.firestore.FirestoreSchema.WorkerProfiles.ADDRESS).orEmpty().trim()
+                        area = workerProfile.getString(com.example.dutype.firestore.FirestoreSchema.WorkerProfiles.AREA).orEmpty().trim()
+                        lat = workerProfile.getDouble(com.example.dutype.firestore.FirestoreSchema.WorkerProfiles.LAT)
+                        lng = workerProfile.getDouble(com.example.dutype.firestore.FirestoreSchema.WorkerProfiles.LNG)
+                    }
+                }
+
                 if (address.isNotBlank() && lat != null && lng != null && _locations.value.isEmpty()) {
-                    add("Main location", address, lat, lng)
+                    add(if (area.isNotBlank()) area else "Main location", address, lat, lng)
                 }
             }
         }

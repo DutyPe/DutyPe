@@ -147,12 +147,10 @@ fun EarningsDashboardScreen(
             .fillMaxSize()
             .background(ScreenBg.bg())
     ) {
-        Text(
-            text = stringResource(R.string.my_earnings),
-            style = t(22, FontWeight.Bold, InkBlack.fg()),
-            modifier = Modifier
-                .statusBarsPadding()
-                .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 16.dp)
+        com.example.dutype.components.CommonHeader(
+            title = stringResource(R.string.my_earnings),
+            navController = navController,
+            backgroundColor = ScreenBg.bg()
         )
 
         LazyColumn(

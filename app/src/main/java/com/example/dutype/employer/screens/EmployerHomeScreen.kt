@@ -56,7 +56,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -482,7 +483,11 @@ fun EmployerHomeScreen(
             }
         ) {
             DashboardContent(
-                onOpenHomeServices = { rootNavController.navigate(com.example.dutype.navigation.Routes.SERVICES) },
+                onOpenHomeServices = {
+                    navController.navigate(com.example.dutype.navigation.Routes.SERVICES) {
+                        launchSingleTop = true
+                    }
+                },
                 referralPostsLeft = ownEmployerProfile?.referralPostsLeft ?: 0,
                 onBookService = { id -> rootNavController.navigate(com.example.dutype.navigation.Routes.servicesBookRoute(id)) },
                 onOpenServiceBooking = { id -> rootNavController.navigate(com.example.dutype.navigation.Routes.servicesBookingRoute(id)) },
@@ -638,7 +643,7 @@ fun EmployerHomeScreen(
 }
 
 @Composable
-private fun VoicePulsingFab(
+fun VoicePulsingFab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -672,7 +677,7 @@ private fun VoicePulsingFab(
             modifier = Modifier
                 .size(56.dp + (22.dp * pulseScale))
                 .clip(CircleShape)
-                .background(Color(0xFF10B981).bg().copy(alpha = pulseAlpha))
+                .background(Color(0xFF0F172A).copy(alpha = pulseAlpha))
         )
 
         // Floating Action Button - FIXED 56.dp, strictly non-moving
@@ -690,8 +695,320 @@ private fun VoicePulsingFab(
             Icon(
                 imageVector = Icons.Default.Mic,
                 contentDescription = "Voice Job Posting",
-                tint = Color(0xFF10B981).fg(),
+                tint = Color.White,
                 modifier = Modifier.size(28.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun EmployerExecutiveHeroCard(
+    companyName: String = "",
+    onPostJob: () -> Unit = {},
+    onVoiceJob: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF4DB)),
+        border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, top = 16.dp, bottom = 14.dp, end = 6.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Column(
+                modifier = Modifier
+                    .weight(1.32f)
+                    .align(Alignment.Bottom)
+            ) {
+                // Urgent Hiring subtitle / badge
+                Text(
+                    text = "⚡ NEED SOMEONE TODAY?",
+                    fontSize = 11.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold,
+                    color = Color(0xFFEA580C),
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    text = "Hire Verified Staff & Workers",
+                    fontSize = 18.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    color = Color(0xFF0F172A),
+                    lineHeight = 22.sp
+                )
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    text = "Daily helpers, cooks, cleaners, shop staff & more. Speak directly using DutyPe AI voice.",
+                    fontSize = 11.5.sp,
+                    color = Color(0xFF64748B),
+                    lineHeight = 16.sp
+                )
+                Spacer(Modifier.height(14.dp))
+                // Button pinned to bottom — aligns exactly with bottom of image
+                Button(
+                    onClick = onVoiceJob,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF0B132B),
+                        contentColor = Color.White
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 9.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Mic,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(17.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "Ask DutyPe AI to Post",
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        fontSize = 12.5.sp,
+                        color = Color.White,
+                        maxLines = 1
+                    )
+                }
+            }
+
+            // 3D Illustrated Workers — aligned with bottom of button and 5dp bigger
+            Image(
+                painter = painterResource(id = R.drawable.img_hire_staff_chars),
+                contentDescription = "Verified Staff",
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.BottomCenter,
+                modifier = Modifier
+                    .weight(0.96f)
+                    .height(161.dp)
+                    .align(Alignment.Bottom)
+            )
+        }
+    }
+}
+
+@Composable
+fun EmployerExecutiveInstantHelpCard(
+    onPostUrgent: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .clickable { onPostUrgent() },
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xFFFEF2F2)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Filled.FlashOn,
+                    contentDescription = null,
+                    tint = Color(0xFFDC2626),
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "NEED URGENT HELP TODAY?",
+                    fontSize = 10.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold,
+                    color = Color(0xFFDC2626),
+                    letterSpacing = 0.6.sp
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "Get Workers in 15 Mins",
+                    fontSize = 15.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "Electricians, loaders, drivers & daily helpers",
+                    fontSize = 12.sp,
+                    color = Color(0xFF64748B)
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF0F172A))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Request ⚡",
+                    color = Color.White,
+                    fontSize = 11.5.sp,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun EmployerExecutiveStatsBar(
+    activeJobs: Int,
+    totalApplicants: Int,
+    creditsLeft: Int,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp, horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            ExecutiveStatColumn(
+                label = "Active Openings",
+                value = activeJobs.toString(),
+                modifier = Modifier.weight(1f)
+            )
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(34.dp)
+                    .background(Color(0xFFE2E8F0))
+            )
+            ExecutiveStatColumn(
+                label = "Applications",
+                value = totalApplicants.toString(),
+                modifier = Modifier.weight(1f)
+            )
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(34.dp)
+                    .background(Color(0xFFE2E8F0))
+            )
+            ExecutiveStatColumn(
+                label = "Post Credits",
+                value = creditsLeft.toString(),
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExecutiveStatColumn(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = value,
+            fontSize = 20.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            color = Color(0xFF0F172A)
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = label.uppercase(),
+            fontSize = 10.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            letterSpacing = 0.5.sp,
+            color = Color(0xFF64748B),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+fun EmployerCompactPostActionRow(
+    onPostJob: () -> Unit,
+    onVoiceJob: () -> Unit,
+    onPostUrgent: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Button(
+            onClick = onPostJob,
+            modifier = Modifier
+                .weight(1f)
+                .height(44.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF0F172A),
+                contentColor = Color.White
+            ),
+            contentPadding = PaddingValues(horizontal = 14.dp)
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Post Another Job", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontSize = 13.5.sp)
+        }
+
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF0F172A))
+                .clickable { onVoiceJob() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Default.Mic,
+                contentDescription = "Voice Post",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFFFEF2F2))
+                .border(1.dp, Color(0xFFFCA5A5), RoundedCornerShape(12.dp))
+                .clickable { onPostUrgent() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Filled.FlashOn,
+                contentDescription = "Urgent Request",
+                tint = Color(0xFFDC2626),
+                modifier = Modifier.size(20.dp)
             )
         }
     }
@@ -828,86 +1145,83 @@ fun DashboardContent(
                 verticalArrangement = Arrangement.spacedBy(0.dp),
                 scrollStateManager = scrollStateManager
             ) {
-                // A new employer (no jobs, no urgent requests yet) gets one welcome section: how to
-                // start, in a clean layout, instead of zero counters and three unrelated cards.
-                val isFirstTime = recentJobs.isEmpty() && urgentRequests.isEmpty() && !isLoadingUrgentRequests
-                if (isFirstTime) item {
-                    EmployerWelcomeSection(
-                        ownerName = companyName,
-                        onPostJob = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) },
-                        onPostUrgent = {
-                            navController.navigate(com.example.dutype.navigation.Routes.employerPostUrgentNeedRoute(null))
-                        },
-                        onVoice = onVoiceJobClick
-                    )
-                }
-
-                // Referral reward: free posts earned by inviting friends (24 h), or a nudge to earn one.
-                item(key = "referral_post") {
-                    ReferralFreePostCard(
-                        postsLeft = referralPostsLeft,
-                        onPost = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) },
-                        onRefer = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_REFER_EARN) },
-                        modifier = Modifier.padding(bottom = 14.dp)
-                    )
-                }
-
-                // Pick by need: hire staff, someone right now, or fix something at home.
-                if (!isFirstTime) item(key = "need_chooser") {
-                    com.example.dutype.homeservices.EmployerNeedChooser(
-                        onPostJob = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) },
-                        onPostUrgent = {
-                            navController.navigate(com.example.dutype.navigation.Routes.employerPostUrgentNeedRoute(null))
-                        },
-                        onHomeServices = onOpenHomeServices
-                    )
-                }
-
-                if (!isFirstTime) item {
-                    com.example.dutype.employer.components.VoiceJobTriggerCard(
-                        onClick = onVoiceJobClick,
-                        modifier = Modifier.padding(top = 10.dp)
-                    )
-                }
-
-                // DutyPe Services showcase: offers, categories and popular services, one tap to book.
-                item(key = "home_services_showcase") {
-                    com.example.dutype.homeservices.HomeServicesShowcase(
-                        onOpenServices = onOpenHomeServices,
-                        onBookService = onBookService,
-                        onOpenBooking = onOpenServiceBooking,
-                        modifier = Modifier.padding(top = 20.dp)
-                    )
-                }
-
-                if (!isFirstTime) item {
-                    EmployerStatsRow(
-                        activeJobs = updatedStats.activeJobs,
-                        applicants = updatedStats.totalApplications,
-                        creditsLeft = subscription.normalCredits + subscription.instantCredits,
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
-                }
-
-                if (!isFirstTime) item {
-                    EmployerSectionLabel(
-                        text = stringResource(R.string.employer_home_active_openings),
-                        modifier = Modifier.padding(top = 22.dp, bottom = 10.dp)
-                    )
-                }
-
                 val activeOpenJobs = recentJobs.filter { it.status.equals("open", ignoreCase = true) }
-                if (isFirstTime) {
-                    // The welcome card above already leads to posting.
-                } else if (activeOpenJobs.isEmpty()) {
-                    item {
-                        EmployerNoActiveJobsCard(
-                            onPostJobClick = {
-                                navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB)
-                            }
+                val hasActiveJobs = activeOpenJobs.isNotEmpty()
+
+                if (!hasActiveJobs) {
+                    // PRE-POSTING STATE: Clean, single hero hiring entry without zero stats or duplicate post cards
+                    // 1. Executive Hero Card
+                    item(key = "exec_hero") {
+                        EmployerExecutiveHeroCard(
+                            companyName = companyName,
+                            onPostJob = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) },
+                            onVoiceJob = onVoiceJobClick,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                    }
+
+                    // 2. Referral reward: show if employer has earned free posts waiting to be used
+                    if (referralPostsLeft > 0) {
+                        item(key = "referral_post") {
+                            ReferralFreePostCard(
+                                postsLeft = referralPostsLeft,
+                                onPost = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) },
+                                onRefer = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_REFER_EARN) },
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+                        }
+                    }
+
+                    // 4. DutyPe Services showcase teaser
+                    item(key = "home_services_showcase") {
+                        com.example.dutype.homeservices.ServicesAreaTeaserCard(
+                            onOpenServices = onOpenHomeServices,
+                            onOpenBooking = onOpenServiceBooking,
+                            modifier = Modifier.padding(bottom = 16.dp)
                         )
                     }
                 } else {
+                    // POSTED STATE: Show live stats & active openings management
+                    // 1. Executive 3-Column Stats Bar
+                    item(key = "exec_stats") {
+                        EmployerExecutiveStatsBar(
+                            activeJobs = updatedStats.activeJobs,
+                            totalApplicants = updatedStats.totalApplications,
+                            creditsLeft = subscription.normalCredits + subscription.instantCredits,
+                            modifier = Modifier.padding(bottom = 14.dp)
+                        )
+                    }
+
+                    // 2. Compact Post Another Job action row
+                    item(key = "compact_post_bar") {
+                        EmployerCompactPostActionRow(
+                            onPostJob = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) },
+                            onVoiceJob = onVoiceJobClick,
+                            onPostUrgent = { navController.navigate(com.example.dutype.navigation.Routes.employerPostUrgentNeedRoute(null)) },
+                            modifier = Modifier.padding(bottom = 14.dp)
+                        )
+                    }
+
+                    // 3. Referral reward: show if employer has earned free posts waiting to be used
+                    if (referralPostsLeft > 0) {
+                        item(key = "referral_post") {
+                            ReferralFreePostCard(
+                                postsLeft = referralPostsLeft,
+                                onPost = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) },
+                                onRefer = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_REFER_EARN) },
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+                        }
+                    }
+
+                    // 4. Active Openings Section
+                    item(key = "active_openings_label") {
+                        EmployerSectionLabel(
+                            text = stringResource(R.string.employer_home_active_openings),
+                            modifier = Modifier.padding(bottom = 10.dp)
+                        )
+                    }
+
                     items(activeOpenJobs, key = { it.id }) { job ->
                         val jobApps = applicationsByJobId[job.id].orEmpty()
                         val count = maxOf(job.applicationCount, jobApps.size)
@@ -924,6 +1238,15 @@ fun DashboardContent(
                                 )
                             },
                             modifier = Modifier.padding(bottom = 10.dp)
+                        )
+                    }
+
+                    // 5. DutyPe Services showcase teaser
+                    item(key = "home_services_showcase") {
+                        com.example.dutype.homeservices.ServicesAreaTeaserCard(
+                            onOpenServices = onOpenHomeServices,
+                            onOpenBooking = onOpenServiceBooking,
+                            modifier = Modifier.padding(top = 6.dp, bottom = 16.dp)
                         )
                     }
                 }

@@ -622,29 +622,26 @@ private fun JobImageOrAnimation(
     companyName: String,
     modifier: Modifier = Modifier
 ) {
-    // Priority 1: Show employer uploaded image if available — fits inside the
-    // caller's modifier (44dp circular avatar) instead of forcing 180dp height.
     if (!jobImageUrl.isNullOrBlank()) {
         OptimizedJobImage(
             imageUrl = jobImageUrl,
             contentDescription = stringResource(R.string.job_image_desc),
-            modifier = modifier.clip(CircleShape)
+            modifier = modifier.clip(CircleShape),
+            placeholderIcon = Icons.Default.Business
         )
     } else {
-        // Priority 2: pick a category-specific emoji from the job title so
-        // the card never feels generic when the employer skipped the image
-        // upload. Falls back to a briefcase for unmatched titles.
-        val emoji = getJobEmoji(jobTitle)
         Box(
             modifier = modifier
                 .clip(CircleShape)
-                .background(WorkerColors.WarningLight)
+                .background(WorkerColors.ChipBackground)
                 .border(1.dp, WorkerColors.Border, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = emoji,
-                fontSize = 22.sp
+            Icon(
+                imageVector = Icons.Default.Business,
+                contentDescription = companyName,
+                tint = WorkerColors.TextSecondary,
+                modifier = Modifier.size(22.dp)
             )
         }
     }

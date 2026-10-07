@@ -65,16 +65,20 @@ class SmsAutoRetrieverHelper(
 
     fun startListening() {
         try {
+            // Instant SMS Retriever: Register broadcast receiver synchronously immediately
+            // so no incoming SMS broadcast is missed, even if SMS arrives in under 2 seconds.
+            registerReceiver()
+
             val client = SmsRetriever.getClient(context)
             val task = client.startSmsRetriever()
             
             task.addOnSuccessListener {
                 Timber.i("📱 SMS Retriever started listening successfully")
-                registerReceiver()
             }
             
             task.addOnFailureListener { e ->
                 Timber.e(e, "📱 Failed to start SMS Retriever")
+                unregisterReceiver()
                 onError("Could not start automatic SMS reader.")
             }
         } catch (e: Exception) {

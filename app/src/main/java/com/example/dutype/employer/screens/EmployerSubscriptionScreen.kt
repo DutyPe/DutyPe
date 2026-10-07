@@ -589,7 +589,7 @@ fun EmployerSubscriptionScreen(
                     }
                     OutlinedButton(
                         onClick = {
-                            val phoneNumber = "918500717800"
+                            val phoneNumber = "918019151847"
                             val message = "Hi DutyPe Team, please verify my purchased subscription plan. UTR: $utrNumber"
                             val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
                                 data = android.net.Uri.parse("https://api.whatsapp.com/send?phone=$phoneNumber&text=${android.net.Uri.encode(message)}")
@@ -680,7 +680,7 @@ private fun daysRemaining(expiry: Long): Int {
 private fun openSalesContact(context: android.content.Context) {
     val message = "Hi DutyPe Team, I would like to talk to sales about an Enterprise plan."
     val whatsapp = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-        data = Uri.parse("https://api.whatsapp.com/send?phone=918500717800&text=${Uri.encode(message)}")
+        data = Uri.parse("https://api.whatsapp.com/send?phone=918019151847&text=${Uri.encode(message)}")
     }
     try {
         context.startActivity(whatsapp)

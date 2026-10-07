@@ -92,7 +92,28 @@ export async function cosmosAdd(name: string, item: Record<string, unknown>): Pr
   try {
     await c.items.create({ id: randomUUID(), createdAt: new Date().toISOString(), ...item });
     return true;
-  } catch (e) {
+  } catch (e: unknown) {
+    const err = e as { code?: number; statusCode?: number; message?: string };
+    if (err?.code === 404 || err?.statusCode === 404 || err?.message?.includes("NotFound")) {
+      try {
+        const endpoint = process.env.AZURE_COSMOS_ENDPOINT;
+        const key = process.env.AZURE_COSMOS_KEY;
+        if (endpoint && key) {
+          client ??= new CosmosClient({ endpoint, key });
+          await client.database(process.env.AZURE_COSMOS_DATABASE || "dutype").containers.createIfNotExists({
+            id: name,
+            partitionKey: { paths: ["/uid"] }
+          });
+          const retryC = container(name);
+          if (retryC) {
+            await retryC.items.create({ id: randomUUID(), createdAt: new Date().toISOString(), ...item });
+            return true;
+          }
+        }
+      } catch (retryErr) {
+        functions.logger.warn(`Failed to auto-create Cosmos container ${name}`, retryErr);
+      }
+    }
     functions.logger.warn(`Cosmos write to ${name} failed`, e);
     return false;
   }

@@ -7,6 +7,7 @@ import com.dutype.app.R
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,6 +23,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -95,6 +98,9 @@ private class EmpProfileActions(
     val onRefer: () -> Unit,
     val onGuidelines: () -> Unit = {},
     val onRateApp: () -> Unit = {},
+    val onSettings: () -> Unit = {},
+    val onPrivacy: () -> Unit = {},
+    val onTerms: () -> Unit = {},
     val onSwitch: () -> Unit,
     val onLogout: () -> Unit
 )
@@ -177,8 +183,8 @@ private fun EmpAvatar(ui: EmpProfileUi, onClick: () -> Unit) {
         modifier = Modifier
             .size(72.dp)
             .clip(CircleShape)
-            .background(Color(0xFFEFF6FF).bg())
-            .border(3.dp, EmpCobalt.bd(), CircleShape)
+            .background(Color(0xFFF8FAFC).bg())
+            .border(1.5.dp, Color(0xFFE2E8F0).bd(), CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -251,6 +257,21 @@ private fun EmpHero(ui: EmpProfileUi, actions: EmpProfileActions) {
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.clickable(onClick = actions.onEdit)
+        ) {
+            Text(
+                text = stringResource(R.string.edit_profile),
+                style = profileTextStyle(13.sp, FontWeight.SemiBold, Color(0xFF10B981).fg())
+            )
+            Spacer(modifier = Modifier.width(3.dp))
+            Text(
+                text = "▶",
+                style = profileTextStyle(9.sp, FontWeight.Bold, Color(0xFF10B981).fg())
+            )
+        }
         Spacer(modifier = Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
             Text(
@@ -367,7 +388,7 @@ private fun EmpMenuRow(
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = title,
-            style = profileTextStyle(15.sp, FontWeight.SemiBold, Color(0xFF0F0F0F).fg()),
+            style = profileTextStyle(15.sp, FontWeight.Medium, Color(0xFF0F0F0F).fg()),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
@@ -402,44 +423,163 @@ private fun EmpMenuRow(
 }
 
 @Composable
+private fun EmpQuickActionTile(
+    iconRes: Int,
+    title: String,
+    badge: String? = null,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(contentAlignment = Alignment.TopEnd) {
+                Icon(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = null,
+                    tint = Color(0xFF0F172A).fg(),
+                    modifier = Modifier.size(24.dp)
+                )
+                if (!badge.isNullOrBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .offset(x = 18.dp, y = (-6).dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFFEFF6FF).bg())
+                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                    ) {
+                        Text(
+                            text = badge,
+                            style = profileTextStyle(10.sp, FontWeight.Bold, Color(0xFF2563EB).fg())
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = title,
+                style = profileTextStyle(12.sp, FontWeight.Medium, Color(0xFF0F0F0F).fg()),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
 private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White.bg())
-            .padding(start = 8.dp, top = 8.dp, end = 8.dp, bottom = 0.dp)
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        EmpMenuRow(R.drawable.ic_profile_person, stringResource(R.string.emp_profile_company_details), null, actions.onCompany)
-        ProfileRowDivider()
-        EmpMenuRow(
-            R.drawable.myjobs, stringResource(R.string.emp_profile_my_posted_jobs),
-            when {
-                ui.activeJobs <= 0 -> null
-                ui.applicants > 0 -> stringResource(R.string.emp_profile_active_waiting, ui.activeJobs, ui.applicants)
-                else -> stringResource(R.string.emp_profile_active_only, ui.activeJobs)
-            },
-            actions.onMyJobs
-        )
-        ProfileRowDivider()
-        EmpMenuRow(R.drawable.ic_profile_globe, stringResource(R.string.emp_profile_work_locations), ui.locCount.takeIf { it > 0 }?.toString(), actions.onLocations)
-        ProfileRowDivider()
-        EmpMenuRow(R.drawable.ic_profile_wallet, stringResource(R.string.emp_profile_subscription_credits), ui.pill, actions.onSubscription)
-        ProfileRowDivider()
-        EmpMenuRow(R.drawable.ic_profile_history, stringResource(R.string.emp_profile_hiring_history), null, actions.onHistory)
-        ProfileRowDivider()
-        EmpMenuRow(R.drawable.ic_profile_gift, stringResource(R.string.emp_profile_refer_employer, EmpReferAmount), null, actions.onRefer)
-        ProfileRowDivider()
-        EmpMenuRow(R.drawable.ic_profile_help, stringResource(R.string.guide_entry), null, actions.onGuidelines)
-        ProfileRowDivider()
-        EmpMenuRow(
-            iconRes = R.drawable.ic_profile_star,
-            title = stringResource(R.string.about_nav_rate_playstore),
-            pill = null,
-            onClick = actions.onRateApp,
-            showStars = true
-        )
-        ProfileRowDivider()
-        EmpMenuRow(R.drawable.ic_profile_help, stringResource(R.string.emp_profile_help_support), null, actions.onHelp)
+        // 3 Quick Action Tiles in a single row (Pronto / Urban Company standard)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            EmpQuickActionTile(
+                iconRes = R.drawable.myjobs,
+                title = stringResource(R.string.emp_profile_my_posted_jobs),
+                badge = if (ui.activeJobs > 0) ui.activeJobs.toString() else null,
+                onClick = actions.onMyJobs,
+                modifier = Modifier.weight(1f)
+            )
+            EmpQuickActionTile(
+                iconRes = R.drawable.ic_profile_wallet,
+                title = stringResource(R.string.emp_profile_subscription_credits),
+                badge = ui.pill,
+                onClick = actions.onSubscription,
+                modifier = Modifier.weight(1f)
+            )
+            EmpQuickActionTile(
+                iconRes = R.drawable.ic_profile_help,
+                title = stringResource(R.string.emp_profile_help_support),
+                onClick = actions.onHelp,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        // Group 1: Business Details & Locations Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                EmpMenuRow(R.drawable.ic_profile_globe, stringResource(R.string.emp_profile_work_locations), ui.locCount.takeIf { it > 0 }?.toString(), actions.onLocations)
+                ProfileRowDivider()
+                EmpMenuRow(R.drawable.ic_profile_history, stringResource(R.string.emp_profile_hiring_history), null, actions.onHistory)
+            }
+        }
+
+        // Group 2: Refer & Earn Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            EmpMenuRow(R.drawable.ic_profile_gift, stringResource(R.string.emp_profile_refer_employer, EmpReferAmount), null, actions.onRefer)
+        }
+
+        // Group 3: Settings & Legal Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                EmpMenuRow(
+                    iconRes = R.drawable.ic_profile_settings,
+                    title = stringResource(R.string.settings),
+                    pill = null,
+                    onClick = actions.onSettings
+                )
+                ProfileRowDivider()
+                EmpMenuRow(
+                    iconRes = R.drawable.ic_profile_privacy,
+                    title = stringResource(R.string.privacy_policy),
+                    pill = null,
+                    onClick = actions.onPrivacy
+                )
+                ProfileRowDivider()
+                EmpMenuRow(
+                    iconRes = R.drawable.ic_profile_terms,
+                    title = stringResource(R.string.terms_conditions),
+                    pill = null,
+                    onClick = actions.onTerms
+                )
+                ProfileRowDivider()
+                EmpMenuRow(
+                    iconRes = R.drawable.ic_profile_star,
+                    title = stringResource(R.string.about_nav_rate_playstore),
+                    pill = null,
+                    onClick = actions.onRateApp,
+                    showStars = true
+                )
+            }
+        }
     }
 }
 
@@ -448,32 +588,48 @@ private fun EmpAccountCard(ui: EmpProfileUi, actions: EmpProfileActions) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White.bg())
+            .padding(horizontal = 16.dp)
     ) {
-        // Switch to Worker Mode commented out as requested
-        // EmpMenuRow(
-        //     iconRes = R.drawable.ic_profile_settings,
-        //     title = "Switch to Worker Mode",
-        //     pill = null,
-        //     onClick = actions.onSwitch
-        // )
         if (ui.isLoggedIn) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-                    .clickable(onClick = actions.onLogout)
-                    .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                border = BorderStroke(1.dp, Color(0xFFFEE2E2).bd()),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.emp_profile_logout),
-                    style = profileTextStyle(15.sp, FontWeight.SemiBold, Color(0xFFEF4444).fg()),
-                    maxLines = 1,
-                    modifier = Modifier.weight(1f)
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .clickable(onClick = actions.onLogout)
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.emp_profile_logout),
+                        style = profileTextStyle(15.sp, FontWeight.SemiBold, Color(0xFFEF4444).fg()),
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
+
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val version = remember(context) {
+            runCatching {
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName
+            }.getOrNull() ?: "1.0.0"
+        }
+        Text(
+            text = "APP VERSION: $version",
+            style = profileTextStyle(11.sp, FontWeight.Normal, Color(0xFF94A3B8).fg()),
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp)
+        )
     }
 }
 
@@ -689,7 +845,14 @@ fun EmployerProfileScreen(
         )
 
         val actions = EmpProfileActions(
-            onHelp = { go(Routes.EMPLOYER_HELP, null) },
+            onHelp = {
+                try {
+                    nav.navigate(Routes.EMPLOYER_HELP)
+                } catch (e: Exception) {
+                    Timber.e(e, "Error navigating to help")
+                    android.widget.Toast.makeText(context, "Unable to open Help Desk.", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            },
             onEdit = { go(Routes.EMPLOYER_COMPANY_DETAILS, "profile") },
             onAvatar = {
                 if (isLoggedIn) {
@@ -708,6 +871,9 @@ fun EmployerProfileScreen(
             onRefer = { go(Routes.EMPLOYER_REFER_EARN, null) },
             onGuidelines = { nav.navigate(Routes.guidelinesRoute(com.example.dutype.guidelines.GuidelineRole.EMPLOYER)) },
             onRateApp = { openPlayStoreListing(context) },
+            onSettings = { rootNavController.navigate(Routes.SETTINGS) },
+            onPrivacy = { rootNavController.navigate(Routes.PRIVACY_POLICY) },
+            onTerms = { rootNavController.navigate(Routes.TERMS_OF_SERVICE) },
             onSwitch = {
                 rootNavController.navigate(Routes.SELECT_ROLE) {
                     launchSingleTop = true
@@ -821,20 +987,23 @@ private const val PLAY_STORE_PACKAGE = "com.dutype.app"
 
 private fun openPlayStoreListing(context: android.content.Context) {
     try {
-        context.startActivity(
-            android.content.Intent(
-                android.content.Intent.ACTION_VIEW,
-                android.net.Uri.parse("market://details?id=$PLAY_STORE_PACKAGE")
-            ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-        )
-    } catch (e: android.content.ActivityNotFoundException) {
+        val playStoreIntent = android.content.Intent(
+            android.content.Intent.ACTION_VIEW,
+            android.net.Uri.parse("market://details?id=$PLAY_STORE_PACKAGE")
+        ).apply {
+            setPackage("com.android.vending")
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(playStoreIntent)
+    } catch (e: Exception) {
         try {
-            context.startActivity(
-                android.content.Intent(
-                    android.content.Intent.ACTION_VIEW,
-                    android.net.Uri.parse("https://play.google.com/store/apps/details?id=$PLAY_STORE_PACKAGE")
-                ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-            )
+            val webIntent = android.content.Intent(
+                android.content.Intent.ACTION_VIEW,
+                android.net.Uri.parse("https://play.google.com/store/apps/details?id=$PLAY_STORE_PACKAGE")
+            ).apply {
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(webIntent)
         } catch (e2: Exception) {
             timber.log.Timber.e(e2, "Unable to open Play Store")
         }

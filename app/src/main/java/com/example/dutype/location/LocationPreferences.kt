@@ -107,6 +107,9 @@ class LocationPreferences(context: Context) {
         // Save to SharedPreferences first
         // PRECISION FIX: Store lat/lon as String to preserve Double precision (15 digits vs Float's 7)
         prefs.edit().apply {
+            if (forceManualOverride) {
+                putString(KEY_LOCATION_MODE, LOCATION_MODE_AUTO)
+            }
             putString(KEY_ADDRESS, locationData.address)
             putString(KEY_LATITUDE, locationData.latitude.toString())
             putString(KEY_LONGITUDE, locationData.longitude.toString())
@@ -134,8 +137,24 @@ class LocationPreferences(context: Context) {
      * Save a user-selected preferred location and lock it from automatic GPS refreshes.
      */
     fun savePreferredLocation(locationData: LocationData) {
-        setLocationModeManual()
-        saveLocation(locationData, forceManualOverride = true)
+        Timber.d("📍 LocationPreferences: Saving preferred location - ${locationData.getShortAddress()}")
+        prefs.edit().apply {
+            putString(KEY_LOCATION_MODE, LOCATION_MODE_MANUAL)
+            putString(KEY_ADDRESS, locationData.address)
+            putString(KEY_LATITUDE, locationData.latitude.toString())
+            putString(KEY_LONGITUDE, locationData.longitude.toString())
+            putString(KEY_CITY, locationData.city)
+            putString(KEY_STATE, locationData.state)
+            putString(KEY_COUNTRY, locationData.country)
+            putString(KEY_AREA, locationData.area)
+            putFloat(KEY_ACCURACY, locationData.accuracy)
+            putLong(KEY_TIMESTAMP, locationData.timestamp)
+            putLong(KEY_LAST_UPDATED, System.currentTimeMillis())
+            putBoolean(KEY_LOCATION_ENABLED, true)
+            apply()
+        }
+        _currentLocation.value = locationData
+        _locationError.value = null
     }
 
     /**
@@ -186,7 +205,19 @@ class LocationPreferences(context: Context) {
     }
 
     fun isManualLocationLocked(): Boolean {
-        return prefs.getString(KEY_LOCATION_MODE, LOCATION_MODE_AUTO) == LOCATION_MODE_MANUAL
+        val isManual = prefs.getString(KEY_LOCATION_MODE, LOCATION_MODE_AUTO) == LOCATION_MODE_MANUAL
+        if (!isManual) return false
+        val lastUpdated = prefs.getLong(KEY_LAST_UPDATED, 0L)
+        val ageMs = System.currentTimeMillis() - lastUpdated
+        if (lastUpdated > 0L && ageMs > 2 * 60 * 60 * 1000L) {
+            setLocationModeAuto()
+            return false
+        }
+        return true
+    }
+
+    fun clearManualLock() {
+        setLocationModeAuto()
     }
     
     /**

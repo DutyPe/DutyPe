@@ -17,6 +17,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.HomeRepairService
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.HomeRepairService
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.WorkOutline
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -27,7 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,8 +50,8 @@ import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.EmployerColors
 
 /**
- * Custom Employer Bottom Bar - Fully flat, edge-to-edge docked bottom navigation.
- * No pill/tablet gap on sides. Features Home, Post Job, and Account tabs.
+ * Custom Employer Bottom Bar - Flat, docked bottom navigation with sleek outline/filled vector icons.
+ * Features Home, Services, Post Job, and Account tabs.
  */
 @Composable
 fun EmployerBottomBar(
@@ -68,34 +79,42 @@ fun EmployerBottomBar(
     data class EmployerNavTab(
         val route: String,
         val title: String,
-        val iconResUnfilled: Int? = null,
-        val iconResFilled: Int? = null,
-        val vectorIcon: androidx.compose.ui.graphics.vector.ImageVector? = null
+        val iconRes: Int,
+        val iconFilledRes: Int
     )
 
-    // 3 clean tabs: Home, Post Job (Instant + Regular), and Account (Profile)
+    // 4 clean tabs with filled/outlined icon states
     val navTabs = listOf(
         EmployerNavTab(
-            route = Routes.EMPLOYER_DASHBOARD,
+            route = Routes.SERVICES,
             title = stringResource(R.string.bottom_nav_home),
-            iconResUnfilled = R.drawable.ic_home_unfilled,
-            iconResFilled = R.drawable.ic_home_filled
+            iconRes = R.drawable.ic_home_unfilled,
+            iconFilledRes = R.drawable.ic_home_filled
+        ),
+        EmployerNavTab(
+            route = Routes.EMPLOYER_DASHBOARD,
+            title = "Hire Workers",
+            iconRes = R.drawable.ic_emp_briefcase,
+            iconFilledRes = R.drawable.ic_emp_briefcase_filled
         ),
         EmployerNavTab(
             route = Routes.EMPLOYER_POST_JOB,
             title = stringResource(R.string.post_job),
-            iconResUnfilled = R.drawable.ic_emp_briefcase,
-            iconResFilled = R.drawable.ic_emp_briefcase
+            iconRes = R.drawable.ic_nav_post_job,
+            iconFilledRes = R.drawable.ic_nav_post_job_filled
         ),
         EmployerNavTab(
             route = Routes.EMPLOYER_PROFILE,
             title = stringResource(R.string.bottom_nav_account),
-            iconResUnfilled = R.drawable.ic_person_unfilled,
-            iconResFilled = R.drawable.ic_person_filled
+            iconRes = R.drawable.ic_person_unfilled,
+            iconFilledRes = R.drawable.ic_person_filled
         )
     )
 
-    // Fully flat docked bar spanning edge-to-edge with no floating pill tablet gaps
+    val selectedColor = Color(0xFF0F172A).fg()
+    val unselectedColor = Color(0xFF64748B).fg()
+
+    // Fully flat docked bar spanning edge-to-edge
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = Color.White.bg(),
@@ -118,6 +137,8 @@ fun EmployerBottomBar(
             ) {
                 navTabs.forEach { tab ->
                     val isSelected = currentRoute == tab.route
+                    val tint = if (isSelected) selectedColor else unselectedColor
+                    val activeIconRes = if (isSelected) tab.iconFilledRes else tab.iconRes
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center,
@@ -130,28 +151,18 @@ fun EmployerBottomBar(
                                 onClick = { navigateTo(tab.route) }
                             )
                     ) {
-                        if (tab.vectorIcon != null) {
-                            Icon(
-                                imageVector = tab.vectorIcon,
-                                contentDescription = tab.title,
-                                modifier = Modifier.size(24.dp),
-                                tint = if (isSelected) Color(0xFF0F172A).fg() else Color(0xFF64748B).fg()
-                            )
-                        } else {
-                            val iconRes = if (isSelected) tab.iconResFilled ?: tab.iconResUnfilled!! else tab.iconResUnfilled!!
-                            Icon(
-                                painter = painterResource(id = iconRes),
-                                contentDescription = tab.title,
-                                modifier = Modifier.size(24.dp),
-                                tint = if (isSelected) Color(0xFF0F172A).fg() else Color(0xFF64748B).fg()
-                            )
-                        }
+                        Icon(
+                            painter = androidx.compose.ui.res.painterResource(id = activeIconRes),
+                            contentDescription = tab.title,
+                            modifier = Modifier.size(25.dp),
+                            tint = tint
+                        )
                         Spacer(modifier = Modifier.height(3.dp))
                         Text(
                             text = tab.title,
                             fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                            color = if (isSelected) Color(0xFF0F172A).fg() else Color(0xFF64748B).fg(),
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                            color = tint,
                             maxLines = 1
                         )
                     }

@@ -5,6 +5,9 @@ import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
 import com.dutype.app.R
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -22,6 +25,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -280,43 +285,137 @@ fun EmptyJobsState(
         return
     }
     val place = currentLocationName?.substringBefore(",")?.trim().orEmpty()
-    Column(modifier = modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        com.example.dutype.components.DutyPeEmptyState(
-            icon = Icons.Default.Search,
-            art = com.example.dutype.components.EmptyArt.SEARCH,
-            title = if (place.isNotBlank()) stringResource(R.string.home_no_jobs_title_place, place) else stringResource(R.string.home_no_jobs_title),
-            message = stringResource(R.string.home_no_jobs_body),
-            primary = onBrowseAll?.let {
-                com.example.dutype.components.EmptyStateAction(label = stringResource(R.string.home_browse_all_jobs), onClick = it)
-            },
-            secondary = onHelpDesk?.let {
-                com.example.dutype.components.EmptyStateAction(label = stringResource(R.string.home_need_help), onClick = it)
-            }
-        )
-        if (suggestedCities.isNotEmpty()) {
-            Text(
-                text = stringResource(R.string.home_try_other_cities),
-                color = WorkerColors.TextSecondary,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
-            )
-            androidx.compose.foundation.layout.FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)
+    val placeDisplayName = if (place.isNotBlank()) place else "your area"
+
+    val context = LocalContext.current
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White.bg(),
+            border = BorderStroke(1.dp, Color(0xFFF1F5F9).bd()),
+            shadowElevation = 0.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 36.dp, horizontal = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                suggestedCities.take(6).forEach { city ->
-                    Text(
-                        text = city.city,
-                        color = WorkerColors.TextPrimary,
-                        fontSize = 13.sp,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(999.dp))
-                            .border(1.dp, WorkerColors.Border, RoundedCornerShape(999.dp))
-                            .clickable { onCitySelected(city) }
-                            .padding(horizontal = 14.dp, vertical = 7.dp)
-                    )
+                Text(
+                    text = "WE ARE",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        letterSpacing = 2.sp,
+                        color = Color(0xFF94A3B8).fg()
+                    ),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "COMING SOON",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Black,
+                        fontSize = 26.sp,
+                        letterSpacing = 1.5.sp,
+                        color = Color(0xFF00A859)
+                    ),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = "We're currently live in select areas and expanding quickly. Get notified when we are near you!",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 14.sp,
+                        color = Color(0xFF64748B).fg(),
+                        lineHeight = 21.sp
+                    ),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // WhatsApp "Notify me!" Pill Button
+                Button(
+                    onClick = {
+                        val number = "918019151847"
+                        val messageText = "Hi DutyPe, please notify me when jobs launch in $placeDisplayName!"
+                        val encoded = runCatching { java.net.URLEncoder.encode(messageText, "UTF-8") }.getOrDefault("")
+                        val url = "https://wa.me/$number?text=$encoded"
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                                setPackage("com.whatsapp")
+                            }
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                            context.startActivity(browserIntent)
+                        }
+                    },
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF00A859),
+                        contentColor = Color.White
+                    ),
+                    contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_whatsapp),
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Notify me!",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                color = Color.White
+                            )
+                        )
+                    }
                 }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // "Change location" Link
+                Text(
+                    text = "Change location",
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        color = Color(0xFF00A859),
+                        textDecoration = TextDecoration.Underline
+                    ),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .clickable {
+                            if (suggestedCities.isNotEmpty()) {
+                                onCitySelected(suggestedCities.first())
+                            } else if (onBrowseAll != null) {
+                                onBrowseAll()
+                            }
+                        }
+                        .padding(8.dp)
+                )
             }
         }
     }
@@ -519,6 +618,7 @@ fun HomeSectionsContent(
     onOnlineChange: (Boolean) -> Unit = {},
     onApplyInstantRequest: (InstantRequest) -> Unit = {},
     onCallInstantRequest: (InstantRequest) -> Unit = {},
+    onIgnoreInstantRequest: (InstantRequest) -> Unit = {},
     todayEarningsAmount: Double = 0.0,
     todayJobsDone: Int = 0,
     thisWeekEarningsAmount: Double = 0.0,
@@ -626,18 +726,6 @@ fun HomeSectionsContent(
             item(key = "worker_home_header_item") {
                 headerContent()
             }
-            // DutyPe Services runs in Khammam district only: the card shows only for workers there.
-            if (FirebaseAuth.getInstance().currentUser != null && currentLocation != null) {
-                item(key = "worker_home_partner_entry") {
-                    com.example.dutype.homeservices.PartnerEntryIfInArea(
-                        lat = currentLocation.latitude,
-                        lng = currentLocation.longitude,
-                        onClick = { rootNavController.navigate(com.example.dutype.navigation.Routes.PARTNER) },
-                        onBookServices = { rootNavController.navigate(com.example.dutype.navigation.Routes.SERVICES) },
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-            }
             if (showOnlineToggle) {
                 item(key = "worker_home_online_toggle") {
                     com.example.dutype.worker.components.OnlineToggleCard(
@@ -646,6 +734,46 @@ fun HomeSectionsContent(
                         onChange = onOnlineChange,
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
+                }
+            }
+
+            // DutyPe Services partner entry & home services booking in Khammam
+            item(key = "worker_home_partner_entry") {
+                com.example.dutype.homeservices.PartnerEntryIfInArea(
+                    lat = currentLocation?.latitude ?: 17.2473,
+                    lng = currentLocation?.longitude ?: 80.1514,
+                    onClick = { rootNavController.navigate(com.example.dutype.navigation.Routes.PARTNER) },
+                    onBookServices = { rootNavController.navigate(com.example.dutype.navigation.Routes.SERVICES) },
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+
+            if (showOnlineToggle && !isOnline) {
+                item(key = "worker_home_offline_notice") {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        color = Color(0xFFF8FAFC).bg(),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd())
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = "⏸️", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Duty is OFF. Switch ON above to start receiving instant hiring alerts and home service bookings in Khammam.",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFF64748B).fg(),
+                                    fontSize = 12.5.sp,
+                                    lineHeight = 17.sp
+                                )
+                            )
+                        }
+                    }
                 }
             }
 
@@ -690,7 +818,7 @@ fun HomeSectionsContent(
             // }
 
             if (
-                (instantRequests.isNotEmpty() || isLoadingInstantRequests || !instantHelpError.isNullOrBlank())
+                isOnline && (instantRequests.isNotEmpty() || isLoadingInstantRequests || !instantHelpError.isNullOrBlank())
             ) {
                 item {
                     InstantRequestSection(
@@ -699,12 +827,13 @@ fun HomeSectionsContent(
                         updatingRequestId = updatingInstantRequestId,
                         error = instantHelpError,
                         onApply = onApplyInstantRequest,
-                        onCall = onCallInstantRequest
+                        onCall = onCallInstantRequest,
+                        onIgnore = onIgnoreInstantRequest
                     )
                 }
             }
 
-            if (hasLocationPermission && urgentPreview.isNotEmpty()) {
+            if (isOnline && hasLocationPermission && urgentPreview.isNotEmpty()) {
                 item(key = "worker_home_urgent_jobs") {
                     HomeUrgentJobsSection(
                         jobs = urgentPreview,
@@ -816,9 +945,11 @@ fun HomeSectionsContent(
             }
         }
 
-        // Section 4: DutyPe Promise Carousel (at the bottom after jobs)
-        item {
-            DutyPePromiseCarousel()
+        // Section 4: DutyPe Promise Carousel (only shown when jobs are available, hidden on empty state)
+        if (!showEmptyJobsState && availableJobs.isNotEmpty()) {
+            item {
+                DutyPePromiseCarousel()
+            }
         }
 
         // Footer: Made with love in Bharat (always shown).
@@ -895,7 +1026,8 @@ private fun InstantRequestSection(
     updatingRequestId: String?,
     error: String?,
     onApply: (InstantRequest) -> Unit,
-    onCall: (InstantRequest) -> Unit
+    onCall: (InstantRequest) -> Unit,
+    onIgnore: (InstantRequest) -> Unit = {}
 ) {
     if (!isLoading && requests.isEmpty() && error.isNullOrBlank()) {
         return
@@ -944,7 +1076,8 @@ private fun InstantRequestSection(
                 request = request,
                 isUpdating = updatingRequestId == request.requestId,
                 onApply = { onApply(request) },
-                onCall = { onCall(request) }
+                onCall = { onCall(request) },
+                onIgnore = { onIgnore(request) }
             )
         }
     }
@@ -955,7 +1088,8 @@ private fun InstantRequestCard(
     request: InstantRequest,
     isUpdating: Boolean,
     onApply: () -> Unit,
-    onCall: () -> Unit
+    onCall: () -> Unit,
+    onIgnore: () -> Unit = {}
 ) {
     val responseStatus = request.workerResponseStatus.trim().lowercase()
     val hasWorkerResponded = responseStatus in setOf("applied", "called", "accepted", "completed")
@@ -1042,6 +1176,20 @@ private fun InstantRequestCard(
                             style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                if (!hasWorkerResponded) {
+                    IconButton(
+                        onClick = onIgnore,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(R.string.close),
+                            tint = WorkerColors.TextSecondary,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }

@@ -218,29 +218,6 @@ export function AdminReferralConfigClient() {
         </label>
       </div>
 
-      <div style={{ marginTop: 24 }}>
-        <h3 style={{ marginBottom: 8, fontSize: 14, fontWeight: 600 }}>Milestone bonuses</h3>
-        {Object.entries(config.milestones).sort(([a], [b]) => Number(a) - Number(b)).map(([count, amount]) => (
-          <div key={count} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
-            <span style={{ width: 120 }}>{count} referrals →</span>
-            <input
-              type="number"
-              value={amount}
-              min={0}
-              onChange={(e) => {
-                setConfig({
-                  ...config,
-                  milestones: { ...config.milestones, [count]: parseNumber(e.target.value, amount) },
-                });
-                setDirty(true);
-              }}
-              style={{ width: 100, padding: 6, borderRadius: 6, border: "1px solid #d1d5db" }}
-            />
-            <span style={{ color: "#6b7280", fontSize: 12 }}>₹</span>
-          </div>
-        ))}
-      </div>
-
       <div style={{ marginTop: 24, display: "flex", gap: 12, alignItems: "center" }}>
         <button
           type="button"

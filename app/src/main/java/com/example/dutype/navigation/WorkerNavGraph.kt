@@ -68,6 +68,14 @@ fun WorkerNavGraph(
                 scrollStateManager = scrollStateManager
             )
         }
+
+        // Services Tab (Home Services)
+        composable(WorkerBottomRoutes.SERVICES) {
+            com.example.dutype.homeservices.ServicesHomeScreen(
+                navController = navController,
+                rootNavController = rootNavController
+            )
+        }
         
         // Profile Tab
         composable(WorkerBottomRoutes.PROFILE) {
@@ -308,6 +316,7 @@ fun WorkerNavGraph(
 object WorkerBottomRoutes {
     const val HOME = "home"
     const val JOBS = "${Routes.WORKER_ALL_JOBS}?filter=All Jobs"
+    const val SERVICES = Routes.SERVICES
     const val MAP = Routes.WORKER_JOB_MAP
     const val MY_JOBS = "myjobs"
     const val PROFILE = "profile"

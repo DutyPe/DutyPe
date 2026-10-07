@@ -1,9 +1,12 @@
-const ADMIN_DOMAIN = "@dutype.com";
+const ADMIN_DOMAINS = ["@dutype.com", "@dutype.in"];
 const ADMIN_ROLE = "ADMIN";
 
 const LEGACY_ADMIN_EMAILS = new Set([
   "admin@dutype.com",
+  "admin@dutype.in",
+  "support@dutype.in",
   "vamsi@dutype.com",
+  "vamsi@dutype.in",
   "vamsib298@gmail.com",
   "dutypein@gmail.com",
   "dutpyein@gmail.com"
@@ -33,7 +36,7 @@ export function isAdminEmail(email: string | null | undefined) {
     return false;
   }
 
-  return normalized.endsWith(ADMIN_DOMAIN) || LEGACY_ADMIN_EMAILS.has(normalized);
+  return ADMIN_DOMAINS.some((d) => normalized.endsWith(d)) || LEGACY_ADMIN_EMAILS.has(normalized);
 }
 
 function normalizeRole(value: unknown) {

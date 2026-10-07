@@ -51,6 +51,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -273,7 +274,7 @@ private fun RegisterContent(
                 .background(Color.White.bg())
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .padding(24.dp)
+                .padding(horizontal = 24.dp, vertical = 12.dp)
         ) {
             val resendCooldown by otpViewModel.resendCooldownSeconds.collectAsState()
             RegisterOtpSection(
@@ -289,11 +290,15 @@ private fun RegisterContent(
                 phoneNumber = phoneNumber,
                 otpState = otpState,
                 onVerifyClick = { otpViewModel.verifyOtp(otpValue, context) },
-                onResendClick = {
+                onResendWhatsapp = {
                     val fullPhoneNumber = selectedCountryCode + phoneNumber
-                    otpViewModel.resendOtp(fullPhoneNumber, context)
+                    otpViewModel.resendViaWhatsapp(fullPhoneNumber, context, mode = "register")
                 },
-                onBackClick = { otpViewModel.resetState() },
+                onResendSms = {
+                    val fullPhoneNumber = selectedCountryCode + phoneNumber
+                    otpViewModel.resendViaSms(fullPhoneNumber, context, mode = "register")
+                },
+                onBackClick = { otpViewModel.resetState(keepActiveSession = true) },
                 resendCooldownSeconds = resendCooldown
             )
         }
@@ -326,7 +331,7 @@ private fun RegisterContent(
                     // WhatsApp Help Button
                     Surface(
                         onClick = {
-                            val whatsappUrl = "https://wa.me/918500717800?text=Hello%20DutyPe%20Team!%20I%20need%20help%20creating%20an%20account."
+                            val whatsappUrl = "https://wa.me/918019151847?text=Hello%20DutyPe%20Team!%20I%20need%20help%20creating%20an%20account."
                             try {
                                 val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
                                     data = android.net.Uri.parse(whatsappUrl)
@@ -418,15 +423,15 @@ private fun RegisterContent(
                                     profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
                                     profileCompletionViewModel.savePhoneNumber(fullPhoneNumber)
                                     profileCompletionViewModel.saveUserInfoToLocalStorage(email = "", name = fullName.trim(), role = role)
-                                    otpViewModel.sendOtp(fullPhoneNumber, context)
+                                    otpViewModel.sendOtp(fullPhoneNumber, context, mode = "register")
                                 }
                                 FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
-                                    Timber.w("Phone check returned UNKNOWN; proceeding with OTP registration for $fullPhoneNumber")
                                     isCheckingPhone = false
-                                    profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
-                                    profileCompletionViewModel.savePhoneNumber(fullPhoneNumber)
-                                    profileCompletionViewModel.saveUserInfoToLocalStorage(email = "", name = fullName.trim(), role = role)
-                                    otpViewModel.sendOtp(fullPhoneNumber, context)
+                                    Toast.makeText(
+                                        context,
+                                        "Could not verify phone number. Please check connection and try again.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                 }
                             }
                         } catch (e: Exception) {
@@ -446,7 +451,8 @@ private fun RegisterContent(
 
             // Truecaller one-tap sign-up / login: verified number + name (+ email) without an SMS.
             TruecallerLoginButton(
-                busy = truecallerBusy || otpState.isLoading || isCheckingPhone,
+                busy = truecallerBusy,
+                enabled = !truecallerBusy && !otpState.isLoading && !isCheckingPhone,
                 onAuthorized = { code, verifier ->
                     truecallerBusy = true
                     scope.launch {
@@ -795,7 +801,7 @@ private fun RegisterEntrySection(
                         fontWeight = FontWeight.Medium
                     ),
                     cursorBrush = SolidColor(BrandBluePrimary.fg()),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     decorationBox = { innerTextField ->
                         if (phoneNumber.isBlank()) {
                             Text(
@@ -1208,7 +1214,8 @@ private fun RegisterOtpSection(
     phoneNumber: String,
     otpState: OtpState,
     onVerifyClick: () -> Unit,
-    onResendClick: () -> Unit,
+    onResendWhatsapp: () -> Unit,
+    onResendSms: () -> Unit,
     onBackClick: () -> Unit,
     resendCooldownSeconds: Int = 0
 ) {
@@ -1218,33 +1225,43 @@ private fun RegisterOtpSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 16.dp),
+            .padding(top = 8.dp),
         horizontalAlignment = Alignment.Start
     ) {
-        // Back arrow, top-left
-        IconButton(
-            onClick = onBackClick,
-            modifier = Modifier.size(40.dp)
+        // Top Header Bar: Back arrow and "Verify OTP" aligned on the exact header row
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.back),
-                tint = Ink900.fg()
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .clickable(onClick = onBackClick),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back),
+                    tint = Ink900.fg(),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = stringResource(R.string.auth_verify_otp),
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Ink900.fg(),
+                    letterSpacing = (-0.2).sp
+                )
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = stringResource(R.string.auth_verify_your_number),
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Ink900.fg()
-            )
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // "+91 98765 43210 · Change number"
         val changeNumberLabel = stringResource(R.string.auth_change_number_action)
@@ -1272,63 +1289,91 @@ private fun RegisterOtpSection(
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_whatsapp),
-                    contentDescription = null,
-                    tint = Color(0xFF25D366).fg(),
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.auth_code_sent_whatsapp),
-                    style = MaterialTheme.typography.bodyMedium.copy(color = Ink600.fg(), fontSize = 14.sp)
-                )
-            }
-        }
-
         AuthOtpBoxes(otpValue = otpValue, onOtpChange = onOtpChange, digitCount = 6)
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Dual Resend Actions: WhatsApp chip + SMS chip in a SINGLE ROW with border styling
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (resendCooldownSeconds > 0) {
-                val minutes = resendCooldownSeconds / 60
-                val seconds = resendCooldownSeconds % 60
-                Text(
-                    text = stringResource(
-                        if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) R.string.auth_get_sms_in else R.string.auth_resend_otp_in,
-                        minutes, seconds
-                    ),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Ink600.fg(),
-                        fontSize = 14.sp
-                    )
-                )
-            } else {
-                TextButton(
-                    onClick = onResendClick,
-                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+            // Chip 1: Resend via WhatsApp (with timer during cooldown)
+            Surface(
+                onClick = onResendWhatsapp,
+                enabled = resendCooldownSeconds <= 0 && !otpState.isLoading,
+                shape = RoundedCornerShape(20.dp),
+                color = Color.White.bg(),
+                border = BorderStroke(
+                    1.dp,
+                    if (resendCooldownSeconds <= 0) Color(0xFF25D366).bd() else CardBorder.bd()
+                ),
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_whatsapp),
+                        contentDescription = null,
+                        tint = if (resendCooldownSeconds <= 0) Color(0xFF25D366).fg() else Ink400.fg(),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                    val waMinutes = resendCooldownSeconds / 60
+                    val waSeconds = resendCooldownSeconds % 60
                     Text(
-                        text = stringResource(
-                            if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) R.string.auth_get_sms_instead else R.string.auth_resend_otp
+                        text = if (resendCooldownSeconds > 0) {
+                            stringResource(R.string.auth_resend_via_whatsapp_in, waMinutes, waSeconds)
+                        } else {
+                            stringResource(R.string.auth_resend_via_whatsapp)
+                        },
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp,
+                            color = if (resendCooldownSeconds <= 0) Color(0xFF1B5E20).fg() else Ink600.fg()
                         ),
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = BrandEmeraldAccent.fg()
-                        )
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // Chip 2: Send via SMS (WITHOUT timer)
+            Surface(
+                onClick = onResendSms,
+                enabled = !otpState.isLoading,
+                shape = RoundedCornerShape(20.dp),
+                color = Color.White.bg(),
+                border = BorderStroke(1.dp, BrandBlueBorder.bd()),
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_profile_message),
+                        contentDescription = null,
+                        tint = BrandBluePrimary.fg(),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(5.dp))
+                    Text(
+                        text = stringResource(R.string.auth_send_via_sms),
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp,
+                            color = BrandBluePrimary.fg()
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }

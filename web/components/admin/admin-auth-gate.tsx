@@ -109,10 +109,10 @@ export function AdminAuthGate({ children }: AdminAuthGateProps) {
             If server-side admin credentials are configured, a secure session cookie is also used.
           </p>
           <div className="button-row">
-            <Link href="/admin/login" className="button">
+            <Link href="/admin/login" className="button" prefetch={false}>
               Go to admin login
             </Link>
-            <Link href="/" className="button ghost">
+            <Link href="/" className="button ghost" prefetch={false}>
               Back to public site
             </Link>
           </div>
@@ -135,7 +135,7 @@ export function AdminAuthGate({ children }: AdminAuthGateProps) {
             <button type="button" className="button" onClick={handleSignOut}>
               Sign out
             </button>
-            <Link href="/" className="button ghost">
+            <Link href="/" className="button ghost" prefetch={false}>
               Back to public site
             </Link>
           </div>

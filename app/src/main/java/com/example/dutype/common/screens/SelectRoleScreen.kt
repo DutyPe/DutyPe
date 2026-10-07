@@ -94,7 +94,6 @@ fun SelectRoleScreen(
             androidx.hilt.navigation.compose.hiltViewModel()
 
         var selectedRole by remember { mutableStateOf("WORKER") }
-        var showLanguageSheet by remember { mutableStateOf(false) }
 
         fun applyRole(role: String) {
             Timber.d("🔍 Role selected: $role")
@@ -122,17 +121,6 @@ fun SelectRoleScreen(
         ) {
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Top row: compact language switcher (end aligned)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Same language chip + bottom sheet as the onboarding screen.
-                LanguageSelectorChip(onClick = { showLanguageSheet = true })
-            }
-
-            // More space above than below pushes the headline and cards comfortably lower down
             Spacer(modifier = Modifier.weight(1.35f))
 
             HeadlineBlock()
@@ -167,56 +155,6 @@ fun SelectRoleScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
         }
-
-        if (showLanguageSheet) {
-            com.example.dutype.components.LanguageSelectionBottomSheet(
-                onDismiss = { showLanguageSheet = false }
-            )
-        }
-    }
-}
-
-/** Identical to the onboarding header chip: translate icon, current language, chevron. */
-@Composable
-private fun LanguageSelectorChip(onClick: () -> Unit) {
-    val context = LocalContext.current
-    val activeLangName = when (com.example.dutype.utils.LocaleHelper.getLanguage(context)) {
-        com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU -> "తెలుగు"
-        com.example.dutype.utils.LocaleHelper.LANGUAGE_HINDI -> "हिन्दी"
-        else -> "English"
-    }
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
-        color = Color.White.bg(),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0).bd())
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.Translate,
-                contentDescription = null,
-                tint = Color(0xFF2563EB).fg(),
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = activeLangName,
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF0F172A).fg()
-                )
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowDown,
-                contentDescription = null,
-                tint = Color(0xFF475569).fg(),
-                modifier = Modifier.size(16.dp)
-            )
-        }
     }
 }
 
@@ -249,33 +187,34 @@ private fun ContinueButton(onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp),
-        contentPadding = PaddingValues(0.dp),
-        shape = RoundedCornerShape(28.dp),
+            .height(54.dp),
+        shape = RoundedCornerShape(16.dp),
         elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = InkColor.bg(),
+            containerColor = Color.Black,
             contentColor = Color.White
         )
     ) {
         Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
                 text = stringResource(R.string.continue_text),
                 style = MaterialTheme.typography.labelLarge.copy(
-                    fontSize = 16.sp,
+                    fontSize = 16.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
             )
-            Spacer(modifier = Modifier.width(8.dp))
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
                 tint = Color.White,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(20.dp)
             )
         }
     }

@@ -42,7 +42,7 @@ class ReportingService @Inject constructor(
 ) {
     companion object {
         const val MAX_CLAIM_AMOUNT = 1_000_000.0
-        const val SUPPORT_WHATSAPP_NUMBER = "918500717800"
+        const val SUPPORT_WHATSAPP_NUMBER = "918019151847"
     }
 
     fun reportJob(

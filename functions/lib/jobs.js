@@ -76,7 +76,7 @@ function readJobInput(data) {
             [schema_1.JobDetails.GENDER]: (0, input_1.oneOf)(data, "gender", GENDERS, "ANY"),
             [schema_1.JobDetails.EXPERIENCE_REQUIRED]: (0, input_1.str)(data, "experienceRequired", { max: 60, optional: true }),
             [schema_1.JobDetails.EDUCATION_REQUIRED]: (0, input_1.str)(data, "educationRequired", { max: 60, optional: true }),
-            [schema_1.JobDetails.BENEFITS]: (0, input_1.stringList)(data, "benefits", { maxItems: 8, maxLength: 30 }),
+            [schema_1.JobDetails.BENEFITS]: (0, input_1.stringList)(data, "benefits", { maxItems: 20, maxLength: 80 }),
         },
         contactNumber: (0, input_1.mobile)(data, "contactNumber"),
     };

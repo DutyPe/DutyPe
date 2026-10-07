@@ -87,6 +87,7 @@ function cosmosConfigured() {
 }
 /** Adds one item (id and createdAt are filled in); false when not configured or on error. */
 async function cosmosAdd(name, item) {
+    var _a;
     const c = container(name);
     if (!c)
         return false;
@@ -95,6 +96,28 @@ async function cosmosAdd(name, item) {
         return true;
     }
     catch (e) {
+        const err = e;
+        if ((err === null || err === void 0 ? void 0 : err.code) === 404 || (err === null || err === void 0 ? void 0 : err.statusCode) === 404 || ((_a = err === null || err === void 0 ? void 0 : err.message) === null || _a === void 0 ? void 0 : _a.includes("NotFound"))) {
+            try {
+                const endpoint = process.env.AZURE_COSMOS_ENDPOINT;
+                const key = process.env.AZURE_COSMOS_KEY;
+                if (endpoint && key) {
+                    client !== null && client !== void 0 ? client : (client = new cosmos_1.CosmosClient({ endpoint, key }));
+                    await client.database(process.env.AZURE_COSMOS_DATABASE || "dutype").containers.createIfNotExists({
+                        id: name,
+                        partitionKey: { paths: ["/uid"] }
+                    });
+                    const retryC = container(name);
+                    if (retryC) {
+                        await retryC.items.create(Object.assign({ id: (0, crypto_1.randomUUID)(), createdAt: new Date().toISOString() }, item));
+                        return true;
+                    }
+                }
+            }
+            catch (retryErr) {
+                functions.logger.warn(`Failed to auto-create Cosmos container ${name}`, retryErr);
+            }
+        }
         functions.logger.warn(`Cosmos write to ${name} failed`, e);
         return false;
     }

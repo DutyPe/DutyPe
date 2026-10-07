@@ -33,7 +33,13 @@ export const metadata: Metadata = {
   ],
   applicationName: "DutyPe",
   icons: {
-    icon: "/icon.svg"
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "192x192" },
+      { url: "/icon.svg", type: "image/svg+xml" }
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-icon.png"
   },
   alternates: {
     canonical: "/"

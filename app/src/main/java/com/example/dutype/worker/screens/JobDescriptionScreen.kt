@@ -1107,7 +1107,7 @@ private fun JobDetailsContent(
                         text = job.title.ifBlank { stringResource(R.string.job_details) },
                         style = MaterialTheme.typography.titleLarge.copy(
                             color = WorkerColors.TextPrimary,
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             fontSize = 20.sp
                         )
                     )
@@ -1300,7 +1300,7 @@ private fun JobDetailsContent(
                     Text(
                         text = stringResource(R.string.job_desc_about_job),
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
                         )
                     )
@@ -1343,7 +1343,7 @@ private fun JobDetailsContent(
                     Text(
                         text = stringResource(R.string.auto_job_location),
                         style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
+                            fontWeight = FontWeight.SemiBold,
                             color = WorkerColors.TextPrimary
                         )
                     )
@@ -1479,7 +1479,7 @@ private fun JobDetailsContent(
                         Text(
                             text = stringResource(R.string.auto_similar_jobs),
                             style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.SemiBold,
                                 color = WorkerColors.TextPrimary
                             )
                         )
@@ -1623,7 +1623,7 @@ private fun JobStatCard(label: String, value: String, modifier: Modifier = Modif
             text = value,
             style = MaterialTheme.typography.bodyLarge.copy(
                 color = WorkerColors.TextPrimary,
-                fontWeight = FontWeight.Bold,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 15.sp
             ),
             maxLines = 1,

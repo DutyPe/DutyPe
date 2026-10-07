@@ -69,6 +69,25 @@ class LocationRepository @Inject constructor(
         locationPreferences.getSavedLocationIfFresh(maxAgeMs)
 
     /**
+     * Manually override current user location (e.g. Khammam localities picker).
+     */
+    fun setManualLocation(city: String, area: String, displayName: String, latitude: Double = 0.0, longitude: Double = 0.0) {
+        locationPreferences.saveManualLocation(city, area, displayName, latitude, longitude)
+    }
+
+    /**
+     * Clear manual override and resume automatic GPS fixes.
+     */
+    fun setAutoLocation() {
+        locationPreferences.setLocationModeAuto()
+    }
+
+    /**
+     * Check if user manually locked their location (e.g. localities picker).
+     */
+    fun isManualLocationLocked(): Boolean = locationPreferences.isManualLocationLocked()
+
+    /**
      * Request a fresh location. De-duplicated: if another call is already in
      * flight, this call waits for its result instead of starting a second GPS
      * request. If a fresh fix was obtained within [minIntervalMs] we skip the
@@ -129,7 +148,14 @@ class LocationRepository @Inject constructor(
     suspend fun getHighAccuracy(
         timeoutMs: Long = 10_000L,
         minAccuracyMeters: Float = 50f,
+        forceManualOverride: Boolean = false,
     ): LocationInfo? = refreshMutex.withLock {
+        if (locationPreferences.isManualLocationLocked() && !forceManualOverride) {
+            Timber.d("📍 LocationRepository: Manual location is locked, skipping high-accuracy GPS fetch")
+            val cached = userLocation.value ?: locationPreferences.getSavedLocation()
+            return@withLock cached?.let { locationDataToInfo(it) }
+        }
+
         Timber.d("📍 LocationRepository: high-accuracy fetch (timeout=${timeoutMs}ms, minAcc=${minAccuracyMeters}m)")
         val info = locationService.getHighAccuracyLocation(
             timeoutMs = timeoutMs,
@@ -138,9 +164,17 @@ class LocationRepository @Inject constructor(
         if (info != null) {
             _lastRefreshAt.value = System.currentTimeMillis()
             // Persist so other screens observing userLocation pick up the fresh fix.
-            runCatching { locationPreferences.saveLocation(locationService.toLocationData(info)) }
+            // Do NOT force manual override unless caller specifically requested it.
+            runCatching { locationPreferences.saveLocation(locationService.toLocationData(info), forceManualOverride = forceManualOverride) }
         }
         info
+    }
+
+    suspend fun searchPlaces(
+        query: String,
+        maxResults: Int = 8
+    ): List<com.example.dutype.models.PlaceSuggestion> {
+        return locationService.searchPlaces(query, maxResults)
     }
 
     // Convert a cached LocationData back into a LocationInfo so that throttled

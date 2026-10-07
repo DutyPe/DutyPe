@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.example.dutype.components.ProfileSetupReferralCard
 import com.example.dutype.components.ReferralValidationResult
 import com.example.dutype.components.SelectableLocationMap
 import com.example.dutype.components.isValidReferralCode
@@ -81,16 +82,17 @@ private val StitchLabel = Color(0xFF64748B)
 private val StitchDisabledBg = Color(0xFFF1F5F9)
 private val StitchFieldValue = Color(0xFF0F172A)
 
-private data class StitchIndustryOption(val key: String, @StringRes val labelRes: Int)
+private data class StitchIndustryOption(val key: String, val label: String)
 
 private val StitchIndustryOptions = listOf(
-    StitchIndustryOption("Construction", R.string.company_category_construction),
-    StitchIndustryOption("Retail / Shop", R.string.company_category_retail),
-    StitchIndustryOption("Hospitality", R.string.industry_hospitality),
-    StitchIndustryOption("Manufacturing", R.string.company_category_manufacturing),
-    StitchIndustryOption("Logistics & Transport", R.string.industry_logistics_transport),
-    StitchIndustryOption("Services", R.string.industry_services),
-    StitchIndustryOption("Other", R.string.industry_other)
+    StitchIndustryOption("Restaurant / Hotel", "🍽️ Restaurant / Hotel / Tiffin"),
+    StitchIndustryOption("Retail / Shop", "🛍️ Retail Store / Saree & Cloth / Mart"),
+    StitchIndustryOption("Salon / Parlour", "💇 Salon / Parlour / Spa"),
+    StitchIndustryOption("Supermarket / Grocery", "🛒 Supermarket / Grocery / Bakery"),
+    StitchIndustryOption("Garage / Workshop", "🔧 Garage / Workshop / Hardware"),
+    StitchIndustryOption("Medical / Clinic", "🏥 Medical / Clinic / Pharmacy"),
+    StitchIndustryOption("Construction / Works", "🏗️ Construction / Contractor"),
+    StitchIndustryOption("Services / Other", "🏢 Other Local Shop / Business")
 )
 
 /**
@@ -159,7 +161,7 @@ private fun StitchDropdownField(
     modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val displayValue = options.find { it.key == value }?.let { stringResource(it.labelRes) } ?: value.ifBlank { stringResource(R.string.select_industry) }
+    val displayValue = options.find { it.key == value }?.label ?: value.ifBlank { "Select Shop / Business Category" }
     Box(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -178,7 +180,7 @@ private fun StitchDropdownField(
                     text = displayValue,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (value.isBlank()) StitchLabel.fg().copy(alpha = 0.6f) else StitchBlue.fg()
+                    color = if (value.isBlank()) StitchLabel.fg().copy(alpha = 0.6f) else StitchNavy.fg()
                 )
             }
             Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = StitchLabel.fg())
@@ -186,7 +188,7 @@ private fun StitchDropdownField(
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(stringResource(option.labelRes)) },
+                    text = { Text(option.label, fontSize = 14.sp, fontWeight = FontWeight.Medium) },
                     onClick = {
                         onValueChange(option.key)
                         expanded = false
@@ -204,8 +206,8 @@ internal fun StitchSegmentedToggle(
     onIndividualSelected: () -> Unit,
     onCompanySelected: () -> Unit,
     modifier: Modifier = Modifier,
-    individualLabel: String = stringResource(R.string.auth_personal_individual),
-    companyLabel: String = stringResource(R.string.auth_company_business)
+    individualLabel: String = "🏠 Individual / Home",
+    companyLabel: String = "🏪 Shop / Store / Business"
 ) {
     Row(
         modifier = modifier
@@ -335,9 +337,9 @@ fun MandatoryEmployerProfileSetupScreen(
                 profileCompletionViewModel.getEmployer(currentUser.uid).getOrNull()?.let { saved ->
                     employerType = saved.employerType
                     if (saved.isCompany) {
-                        if (companyName.isBlank()) companyName = saved.businessName
-                        if (contactName.isBlank()) contactName = saved.ownerName
-                    } else if (companyName.isBlank()) {
+                        if (companyName.isBlank() && !saved.businessName.equals("User", ignoreCase = true)) companyName = saved.businessName
+                        if (contactName.isBlank() && !saved.ownerName.equals("User", ignoreCase = true)) contactName = saved.ownerName
+                    } else if (companyName.isBlank() && !saved.ownerName.equals("User", ignoreCase = true)) {
                         companyName = saved.ownerName
                     }
                     if (contactPhone.isBlank()) contactPhone = saved.phone.removePrefix("+91").trim()
@@ -353,12 +355,12 @@ fun MandatoryEmployerProfileSetupScreen(
                     if (saved.photoUrl.isNotBlank()) selfieUrl = saved.photoUrl
                 }
 
-                // Fallback: Load display name from Google Sign-In if still empty
+                // Fallback: Load display name from auth cache if still empty
                 if (companyName.isBlank()) {
                     val savedName = profileCompletionViewModel.getUserName()
-                    if (savedName != null) {
+                    if (savedName != null && !savedName.equals("User", ignoreCase = true)) {
                         companyName = savedName
-                        Timber.d("📦 PREFILL: companyName from Google = $companyName")
+                        Timber.d("📦 PREFILL: companyName from auth = $companyName")
                     }
                 }
 
@@ -367,7 +369,7 @@ fun MandatoryEmployerProfileSetupScreen(
                     val savedPhone = profileCompletionViewModel.getPhoneNumber()
                     if (savedPhone != null) {
                         contactPhone = savedPhone.replace("+91", "").trim()
-                        Timber.d("📦 PREFILL: contactPhone from OTP = $contactPhone")
+                        Timber.d("📦 PREFILL: contactPhone from auth = $contactPhone")
                     }
                 }
             }
@@ -615,6 +617,7 @@ fun MandatoryEmployerProfileSetupScreen(
     }
 
     MandatoryEmployerProfileSetupContent(
+        profileCompletionViewModel = profileCompletionViewModel,
         employerType = employerType,
         companyName = companyName,
         contactPhone = contactPhone,
@@ -738,6 +741,7 @@ fun MandatoryEmployerProfileSetupScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MandatoryEmployerProfileSetupContent(
+    profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel(),
     employerType: String,
     companyName: String,
     contactPhone: String,
@@ -818,6 +822,7 @@ fun MandatoryEmployerProfileSetupContent(
                         verticalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
                         CompanyInformationStep(
+                            profileCompletionViewModel = profileCompletionViewModel,
                             employerType = employerType,
                             companyName = companyName,
                             industry = industry,
@@ -935,7 +940,7 @@ fun MandatoryEmployerProfileSetupContent(
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                         } else {
                             Text(
-                                text = if (currentStep == totalSteps) stringResource(R.string.start_hiring) else stringResource(R.string.next),
+                                text = if (employerType == "INDIVIDUAL") "Save & Explore Services →" else "Save & Start Hiring →",
                                 color = Color.White,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
@@ -961,6 +966,7 @@ fun MandatoryEmployerProfileSetupContent(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CompanyInformationStep(
+    profileCompletionViewModel: ProfileCompletionViewModel,
     employerType: String,
     companyName: String,
     industry: String,
@@ -989,21 +995,23 @@ private fun CompanyInformationStep(
     Column(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Segmented toggle: Individual | Company / Business
+        // Segmented toggle: Individual | Shop / Business
         StitchSegmentedToggle(
             isIndividual = isIndividual,
             onIndividualSelected = { onEmployerTypeChange("INDIVIDUAL") },
-            onCompanySelected = { onEmployerTypeChange("COMPANY") }
+            onCompanySelected = { onEmployerTypeChange("COMPANY") },
+            individualLabel = "🏠 Individual / Home",
+            companyLabel = "🏪 Shop / Store / Business"
         )
 
-        // Business / Shop Name — only relevant for Company / Business accounts
-        if (!isIndividual) {
+        if (isIndividual) {
+            // Your Full Name (For individual customers booking home services or personal domestic help)
             Column {
                 StitchTextField(
-                    label = stringResource(R.string.auth_company_shop_name),
+                    label = "Your Full Name *",
                     value = companyName,
                     onValueChange = onCompanyNameChange,
-                    placeholder = stringResource(R.string.auth_company_name_hint)
+                    placeholder = "e.g. Vamsi Krishna"
                 )
                 if (companyNameError != null) {
                     Text(
@@ -1014,84 +1022,57 @@ private fun CompanyInformationStep(
                     )
                 }
             }
-        }
-
-        // Industry — dropdown picker
-        StitchDropdownField(
-            label = if (isIndividual) stringResource(R.string.help_needed_optional) else stringResource(R.string.industry),
-            value = industry,
-            options = StitchIndustryOptions,
-            onValueChange = { onIndustryChange(it) }
-        )
-
-        // GSTIN — optional, with inline "Verify →" action (Company only)
-        if (!isIndividual) {
+        } else {
+            // Shop / Store / Business Name (e.g. Balaji Sweets, Royal Salon, Green Hotel)
             Column {
                 StitchTextField(
-                    label = stringResource(R.string.gstin_optional),
-                    value = gstin,
-                    onValueChange = { onGstinChange(it) },
-                    placeholder = stringResource(R.string.gstin_hint),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                    trailingContent = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.clickable(enabled = gstin.isNotBlank() && !isVerifyingGstin) { onVerifyGstin() }
-                        ) {
-                            if (isVerifyingGstin) {
-                                CircularProgressIndicator(modifier = Modifier.size(14.dp), color = StitchBlue.fg(), strokeWidth = 2.dp)
-                            } else {
-                                Text(text = stringResource(R.string.verify), color = StitchBlue.fg(), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                                Spacer(modifier = Modifier.width(2.dp))
-                                Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = stringResource(R.string.verify_gstin), tint = StitchBlue.fg(), modifier = Modifier.size(14.dp))
-                            }
-                        }
-                    }
+                    label = "Shop / Store / Business Name *",
+                    value = companyName,
+                    onValueChange = onCompanyNameChange,
+                    placeholder = "e.g. Sri Balaji Sweets, Royal Salon, Green Hotel"
                 )
-                if (gstinVerifiedMessage != null) {
+                if (companyNameError != null) {
                     Text(
-                        text = gstinVerifiedMessage,
-                        color = StitchLabel.fg(),
+                        text = companyNameError,
+                        color = EmployerColors.Error,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                     )
                 }
             }
-        }
 
-        // Your Full Name
-        Column {
-            StitchTextField(
-                label = stringResource(R.string.auth_your_full_name),
-                value = if (isIndividual) companyName else contactName,
-                onValueChange = if (isIndividual) onCompanyNameChange else onContactNameChange,
-                placeholder = stringResource(R.string.full_name_hint)
+            // Shop / Business Category
+            StitchDropdownField(
+                label = "Shop Type / Business Category *",
+                value = industry,
+                options = StitchIndustryOptions,
+                onValueChange = { onIndustryChange(it) }
             )
-            if (isIndividual && companyNameError != null) {
+            if (industryError != null) {
                 Text(
-                    text = companyNameError,
+                    text = industryError,
                     color = EmployerColors.Error,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(start = 16.dp, top = 4.dp)
                 )
             }
+
+            // Owner / Manager Name
+            Column {
+                StitchTextField(
+                    label = "Owner / Manager Full Name *",
+                    value = contactName,
+                    onValueChange = onContactNameChange,
+                    placeholder = "e.g. Ramesh"
+                )
+            }
         }
 
-        // Referral Code Input - REMOVED: Now handled in login/signup flow
-        // Referral codes must be entered DURING registration (EnhancedLoginScreen), not in profile setup
-        // This follows best practices from Uber, Airbnb, PayPal - code entry happens BEFORE account creation
-        /*
-        if (showReferralSection && !hasAlreadyUsedReferral) {
-            Spacer(modifier = Modifier.height(8.dp))
-            ReferralCodeInput(
-                referralCode = referralCode,
-                onReferralCodeChange = onReferralCodeChange,
-                isValidating = isValidatingReferral,
-                validationResult = referralValidationResult,
-                onValidate = onValidateReferral
-            )
-        }
-        */
+        // Primary Referral Card: Optional expandable card
+        ProfileSetupReferralCard(
+            role = UserRole.EMPLOYER,
+            profileCompletionViewModel = profileCompletionViewModel
+        )
     }
 }
 
@@ -1330,7 +1311,7 @@ private fun ContactDetailsStep(
                     onBusinessLocationChange(latitude, longitude)
                 },
                 locationService = locationService,
-                label = stringResource(R.string.city_area_label),
+                label = stringResource(R.string.city_area_label) + " *",
                 placeholder = if (isIndividual) stringResource(R.string.search_area_landmark_hint) else stringResource(R.string.search_or_enter_work_location),
                 maxLines = 2,
                 shape = RoundedCornerShape(14.dp),

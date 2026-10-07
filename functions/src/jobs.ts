@@ -87,7 +87,7 @@ function readJobInput(data: Record<string, unknown>): JobInput {
       [JobDetails.GENDER]: oneOf(data, "gender", GENDERS, "ANY"),
       [JobDetails.EXPERIENCE_REQUIRED]: str(data, "experienceRequired", { max: 60, optional: true }),
       [JobDetails.EDUCATION_REQUIRED]: str(data, "educationRequired", { max: 60, optional: true }),
-      [JobDetails.BENEFITS]: stringList(data, "benefits", { maxItems: 8, maxLength: 30 }),
+      [JobDetails.BENEFITS]: stringList(data, "benefits", { maxItems: 20, maxLength: 80 }),
     },
     contactNumber: mobile(data, "contactNumber"),
   };

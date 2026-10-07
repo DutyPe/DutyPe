@@ -11,6 +11,8 @@ import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -48,14 +50,15 @@ fun jobCategoryTint(label: String): Pair<Color, Color> = when (label) {
     else -> JobCategoryPalette[(label.hashCode() and 0x7fffffff) % JobCategoryPalette.size]
 }
 
-/** Material icon for the categories that have one; the rest use their emoji. */
-fun jobCategoryIcon(label: String): ImageVector? = when (label) {
+/** Material icon for the categories. Uses company/business icon for other/unmapped. */
+fun jobCategoryIcon(label: String): ImageVector = when (label) {
     "All Jobs" -> Icons.Default.Apps
     "Electrician" -> Icons.Default.Bolt
     "Plumber" -> Icons.Default.Build
     "Driver" -> Icons.Default.LocalShipping
     "Cook" -> Icons.Default.Restaurant
-    else -> null
+    "Other", "OTHER" -> Icons.Default.Business
+    else -> Icons.Default.Business
 }
 
 /** Best category for a job: its stored type, else inferred from title/description. */
@@ -68,7 +71,7 @@ fun resolveJobCategory(category: String, title: String, description: String = ""
         ?: JobCategory.OTHER
 }
 
-/** Rounded square with the category icon/emoji on its tint, as used in the rail. */
+/** Rounded square with the category icon on its tint, as used in the rail and card tiles. */
 @Composable
 fun JobCategoryIconTile(
     category: String,
@@ -89,10 +92,6 @@ fun JobCategoryIconTile(
             .background(container, RoundedCornerShape(cornerRadius)),
         contentAlignment = Alignment.Center
     ) {
-        if (icon != null) {
-            Icon(imageVector = icon, contentDescription = resolved.displayName, tint = tint, modifier = Modifier.size(size * 0.5f))
-        } else {
-            Text(text = resolved.icon, fontSize = (size.value * 0.46f).sp)
-        }
+        Icon(imageVector = icon, contentDescription = resolved.displayName, tint = tint, modifier = Modifier.size(size * 0.5f))
     }
 }

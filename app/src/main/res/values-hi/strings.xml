@@ -203,6 +203,7 @@
     <string name="bottom_nav_chat">चैट</string>
     <string name="bottom_nav_categories">श्रेणियां</string>
     <string name="bottom_nav_account">खाता</string>
+    <string name="bottom_nav_services">सेवाएं</string>
     <string name="contact_support_whatsapp">व्हाट्सएप पर सहायता से संपर्क करें</string>
     <string name="onboarding_title_1">अपने आस-पास काम पाएं</string>
     <string name="onboarding_desc_1">10 किमी के भीतर पास के काम खोजें और तेजी से कमाना शुरू करें।</string>
@@ -217,6 +218,7 @@
     <string name="onboarding_get_started">शुरू करें</string>
     <string name="get_started">शुरू करें</string>
     <string name="auth_welcome_back">वापसी पर स्वागत है!</string>
+    <string name="auth_welcome_back_user">वापसी पर स्वागत है, %1$s!</string>
     <string name="auth_sign_in_subtitle">जारी रखने के लिए अपने फ़ोन नंबर से साइन इन करें</string>
     <string name="auth_mobile_number">मोबाइल नंबर</string>
     <string name="auth_help">सहायता</string>
@@ -226,7 +228,7 @@
     <string name="auth_enter_otp">ओटीपी दर्ज करें</string>
     <string name="auth_enter_sms_code">SMS द्वारा भेजा गया 6-अंकों का कोड दर्ज करें: </string>
     <string name="auth_change_number">नंबर बदलें</string>
-    <string name="auth_verify_otp">सत्यापित करें (Verify)</string>
+    <string name="auth_verify_otp">OTP सत्यापित करें</string>
     <string name="auth_didnt_receive_code">कोड नहीं मिला? </string>
     <string name="auth_resend_in">%1$d से० में पुनः भेजें</string>
     <string name="auth_resend_otp">पुनः भेजें (Resend)</string>
@@ -244,16 +246,16 @@
     <string name="select_role_headline">आप ड्यूटीपे का उपयोग कैसे करेंगे?</string>
     <string name="select_role_subheadline">ऐप का उपयोग करने का तरीका चुनें</string>
     <string name="select_role_looking_for_work">मुझे काम चाहिए</string>
-    <string name="select_role_worker_desc">पास की नौकरियाँ, अर्जेंट दिन का काम, छात्रों के लिए पार्ट-टाइम। हुनर है? घरेलू सेवाओं से ज़्यादा कमाएँ।</string>
+    <string name="select_role_worker_desc">पास की नौकरियाँ और दैनिक काम</string>
     <string name="select_role_want_to_hire">मुझे कामगार या घरेलू सेवा चाहिए</string>
-    <string name="select_role_employer_desc">दुकान या घर के लिए स्टाफ़, मिनटों में कोई व्यक्ति, या AC, सफ़ाई, इलेक्ट्रीशियन जैसी घरेलू सेवाएँ बुक करें।</string>
-    <string name="auth_enter_mobile_number">अपना मोबाइल नंबर दर्ज करें</string>
+    <string name="select_role_employer_desc">स्टाफ़ रखें या घरेलू सेवाएँ बुक करें</string>
+    <string name="auth_enter_mobile_number">अपना नंबर दर्ज करें</string>
     <string name="auth_we_will_send_otp">हम 6 अंकों का ओटीपी भेजेंगे</string>
     <string name="auth_or_divider">या</string>
     <string name="auth_continue_with_google">Google के साथ जारी रखें</string>
     <string name="auth_google_coming_soon">Google साइन-इन जल्द आ रहा है</string>
-    <string name="auth_by_continuing_agree">जारी रखकर, आप हमारी </string>
-    <string name="auth_terms">शर्तों</string>
+    <string name="auth_by_continuing_agree">आगे बढ़कर, आप पुष्टि करते हैं कि आपकी आयु 18 वर्ष है और आप सहमत हैं: </string>
+    <string name="auth_terms">नियम व शर्तें</string>
     <string name="auth_privacy_policy_short">गोपनीयता नीति</string>
     <string name="auth_verify_your_number">अपना नंबर सत्यापित करें</string>
     <string name="auth_change_number_action">नंबर बदलें</string>
@@ -524,7 +526,7 @@
     <string name="full_name_required">पूरा नाम *</string>
     <string name="enter_full_name">अपना पूरा नाम दर्ज करें</string>
     <string name="email_address_verified">ईमेल पता (सत्यापित)</string>
-    <string name="email_address_optional">ईमेल पता (वैकल्पिक)</string>
+    <string name="email_address_optional">ईमेल पता</string>
     <string name="enter_email">अपना ईमेल दर्ज करें</string>
     <string name="phone_number_verified">फ़ोन नंबर (सत्यापित)</string>
     <string name="phone_number_required">फ़ोन नंबर *</string>
@@ -919,7 +921,7 @@
     <string name="refer_employer_complete_profile_desc">अपना निजी रेफरल कोड बनाने और इनाम कमाना शुरू करने के लिए, कृपया पहले अपनी कंपनी प्रोफ़ाइल पूरी करें।</string>
     <string name="refer_employer_share_text">भर्ती के लिए DutyPe से जुड़ें!\n\nमेरा रेफरल कोड इस्तेमाल करें: %1$s\n\nDutyPe डाउनलोड करें: %2$s\n\nअपने व्यवसाय के लिए भरोसेमंद कर्मचारी पाएँ और रु.%3$d बोनस कमाएँ!</string>
     <string name="refer_employer_step_1">अपना रेफरल कोड नियोक्ताओं या कर्मचारियों के साथ शेयर करें</string>
-    <string name="refer_employer_step_4">बोनस नकद और मुफ़्त जॉब पोस्ट के लिए पड़ाव पूरे करें</string>
+    <string name="refer_employer_step_4">मुफ़्त जॉब पोस्ट और होम सेवाओं के लिए उपयोग होने वाला ड्यूटीपे बैलेंस प्राप्त करें</string>
     <string name="refer_reward_5_employer">5 रेफरल: रु.50 बोनस + 5 मुफ़्त जॉब पोस्ट</string>
     <string name="refer_reward_10_employer">10 रेफरल: रु.100 बोनस + 10 मुफ़्त जॉब पोस्ट</string>
     <string name="refer_reward_25_employer">25 रेफरल: रु.250 बोनस + 25 मुफ़्त जॉब पोस्ट</string>
@@ -1503,7 +1505,7 @@
     <string name="policy_privacy_s5_title">स्थान पहुंच और नियंत्रण</string>
     <string name="policy_privacy_s5_content">स्थान का उपयोग केवल कार्य दूरी की गणना करने के लिए किया जाता है। उपयोगकर्ता सेटिंग्स में किसी भी समय स्थान अनुमतियों को नियंत्रित कर सकते हैं।</string>
     <string name="policy_privacy_s6_title">खाता हटाने के अधिकार</string>
-    <string name="policy_privacy_s6_content">डीपीडीपी अधिनियम के तहत, आपको ऐप प्रोफ़ाइल सेटिंग्स के माध्यम से या dutypein@gmail.com पर ईमेल करके अपने खाते को हटाने का अनुरोध करने का अधिकार है।</string>
+    <string name="policy_privacy_s6_content">डीपीडीपी अधिनियम के तहत, आपको ऐप प्रोफ़ाइल सेटिंग्स के माध्यम से या support@dutype.in पर ईमेल करके अपने खाते को हटाने का अनुरोध करने का अधिकार है।</string>
     <!-- Auto-extracted UI strings. Machine-assisted: needs native review. -->
     <string name="auto_phone_number">फ़ोन नंबर</string>
     <string name="auto_join_thousands_finding_opportunities_every">हर दिन अवसर पाने वाले हजारों लोगों से जुड़ें</string>
@@ -1878,8 +1880,8 @@
     <string name="emp_profile_help_desk">हेल्प डेस्क</string>
     <string name="emp_profile_company_details">कंपनी विवरण और तस्वीरें</string>
     <string name="emp_profile_my_posted_jobs">मेरे पोस्ट किए गए काम</string>
-    <string name="emp_profile_work_locations">कार्य स्थल और लोकेशन</string>
-    <string name="emp_profile_subscription_credits">सदस्यता और क्रेडिट</string>
+    <string name="emp_profile_work_locations">मेरे पते</string>
+    <string name="emp_profile_subscription_credits">सब्सक्रिप्शन</string>
     <string name="emp_profile_hiring_history">हायरिंग इतिहास और बंद काम</string>
     <string name="emp_profile_refer_employer">नियोक्ता को रेफर करें (₹%1$d कमाएं)</string>
     <string name="emp_profile_help_support">सहायता और सपोर्ट</string>
@@ -2084,7 +2086,7 @@
     <string name="worker_setup_failed_generic">प्रोफ़ाइल सेटअप पूरा करने में विफल</string>
     <string name="worker_setup_basic_info_title">बुनियादी जानकारी</string>
     <string name="worker_setup_basic_info_sub">आपकी फ़ोटो, नाम, जन्म तिथि, लिंग और संक्षिप्त परिचय</string>
-    <string name="worker_setup_add_photo_optional">प्रोफ़ाइल फ़ोटो जोड़ें (वैकल्पिक)</string>
+    <string name="worker_setup_add_photo_optional">प्रोफ़ाइल फ़ोटो जोड़ें</string>
     <string name="worker_setup_section_gender">लिंग</string>
     <string name="worker_setup_section_contact_details">संपर्क विवरण</string>
     <string name="worker_setup_dob_subtitle">DD/MM/YYYY के रूप में दर्ज करें या कैलेंडर से चुनें</string>
@@ -2095,8 +2097,8 @@
     <string name="worker_setup_skills_exp_sub">आप क्या काम करते हैं, कितने समय से, और आपकी पृष्ठभूमि</string>
     <string name="worker_setup_what_are_skills">आपके कौशल क्या हैं?</string>
     <string name="worker_setup_how_much_exp">आपके पास कितना अनुभव है?</string>
-    <string name="worker_setup_education_optional">आपकी शिक्षा (वैकल्पिक)</string>
-    <string name="worker_setup_bio_optional">संक्षिप्त परिचय (वैकल्पिक)</string>
+    <string name="worker_setup_education_optional">आपकी शिक्षा</string>
+    <string name="worker_setup_bio_optional">संक्षिप्त परिचय</string>
     <string name="worker_setup_bio_char_count">%1$d/%2$d वर्ण</string>
     <string name="worker_setup_added_skills">जोड़े गए कौशल (हटाने के लिए टैप करें)</string>
     <string name="worker_setup_search_skill_placeholder">खोजें या अपना कौशल टाइप करें...</string>
@@ -2117,10 +2119,10 @@
     <string name="edu_any">कोई भी योग्यता</string>
     <string name="worker_setup_where_based_title">आप कहां रहते हैं?</string>
     <string name="worker_setup_where_based_sub">हम इसका उपयोग आपके पास की नौकरियां दिखाने के लिए करते हैं</string>
-    <string name="worker_setup_detecting_location">आपके स्थान का पता लगाया जा रहा है…</string>
+    <string name="worker_setup_detecting_location">आपका स्थान प्राप्त किया जा रहा है…</string>
     <string name="worker_setup_location_detected">स्थान का पता चल गया</string>
-    <string name="worker_setup_detect">पता लगाएं</string>
-    <string name="worker_setup_detecting">पता लग रहा है…</string>
+    <string name="worker_setup_detect">स्थान प्राप्त करें</string>
+    <string name="worker_setup_detecting">प्राप्त किया जा रहा है…</string>
     <string name="worker_setup_could_not_get_location">स्थान प्राप्त नहीं हो सका। कृपया पता मैन्युअल रूप से दर्ज करें या पुनः प्रयास करें।</string>
     <string name="worker_profile_hint_photo">100%% तक पहुँचने के लिए प्रोफ़ाइल फ़ोटो जोड़ें</string>
     <string name="worker_profile_hint_skills">100%% तक पहुँचने के लिए अपने कौशल जोड़ें</string>
@@ -2235,7 +2237,7 @@
     <string name="owner_contact_name">मालिक / संपर्क व्यक्ति का नाम</string>
     <string name="contact_phone_number_label">संपर्क फ़ोन नंबर (+91)</string>
     <string name="business_category">व्यापार श्रेणी</string>
-    <string name="gstin_optional">GSTIN (वैकल्पिक)</string>
+    <string name="gstin_optional">GSTIN</string>
     <string name="gst_active">✓ GST सक्रिय: %1$s</string>
     <string name="save_company_details_action">कंपनी विवरण सहेजें →</string>
     <string name="valid_gstin_required">मान्य 15-अंकीय GSTIN दर्ज करें</string>
@@ -2431,7 +2433,7 @@
     <string name="gstin_format_valid">GSTIN प्रारूप सही लग रहा है</string>
     <string name="check_gstin_format">कृपया GSTIN प्रारूप की जाँच करें</string>
     <string name="start_hiring">हायरिंग शुरू करें</string>
-    <string name="help_needed_optional">आवश्यक सहायता (वैकल्पिक)</string>
+    <string name="help_needed_optional">आवश्यक सहायता</string>
     <string name="gstin_hint">उदा. 36AABCR1234M1Z5</string>
     <string name="verify_gstin">GSTIN सत्यापित करें</string>
     <string name="full_name_hint">उदा. रवि तेजा</string>
@@ -2660,6 +2662,10 @@
     <string name="auth_truecaller_failed">Truecaller से सत्यापन नहीं हुआ। कृपया OTP का उपयोग करें।</string>
     <string name="auth_enter_name_first">कृपया पहले अपना नाम लिखें।</string>
     <string name="auth_get_sms_short">SMS पाएं</string>
+    <string name="auth_resend_via_whatsapp">फिर भेजें</string>
+    <string name="auth_resend_via_whatsapp_in">फिर भेजें (%1$d:%2$02d)</string>
+    <string name="auth_send_via_sms">SMS द्वारा भेजें</string>
+    <string name="auth_send_via_sms_in">%1$d:%2$02d में SMS द्वारा भेजें</string>
     <string name="svc_title">DutyPe सर्विसेज़</string>
     <string name="svc_entry_title">%1$s में घर की सर्विसेज़</string>
     <string name="svc_entry_subtitle">AC, सफ़ाई, इलेक्ट्रीशियन, प्लंबर और रिपेयर · सत्यापित पार्टनर · तय दाम</string>
@@ -2671,7 +2677,7 @@
     <string name="svc_book_title">सर्विस बुक करें</string>
     <string name="svc_when">कब?</string>
     <string name="svc_now">अभी (~60 मिनट में)</string>
-    <string name="svc_schedule">समय चुनें</string>
+    <string name="svc_schedule">शेड्यूल करें</string>
     <string name="svc_today">आज</string>
     <string name="svc_tomorrow">कल</string>
     <string name="svc_address">पता</string>
@@ -2679,6 +2685,9 @@
     <string name="svc_use_location">मेरी मौजूदा लोकेशन लें</string>
     <string name="svc_location_set">लोकेशन सेट ✓</string>
     <string name="svc_location_needed">पार्टनर आपका घर ढूंढ सके, इसलिए लोकेशन चालू करें</string>
+    <string name="svc_partner_instructions_title">पार्टनर के लिए निर्देश</string>
+    <string name="svc_high_demand_title">🔥 आपके क्षेत्र में भारी मांग</string>
+    <string name="svc_high_demand_msg">हमारे सत्यापित प्रोफेशनल्स अभी अन्य सेवाओं में व्यस्त हैं। आप अग्रिम समय शेड्यूल कर सकते हैं या अभी बुक कर सकते हैं।</string>
     <string name="svc_note_hint">पार्टनर को कुछ बताना हो (वैकल्पिक)</string>
     <string name="svc_price_service">सर्विस</string>
     <string name="svc_price_fee">DutyPe बुकिंग फ़ीस</string>
@@ -2886,4 +2895,12 @@
     <string name="svc_offer_discount_note">ग्राहक का ₹%1$d ऑफ़र DutyPe की फ़ीस से जाता है – आपकी कमाई वही रहती है।</string>
     <string name="whatsapp_offers_sub">त्योहार ऑफ़र और DutyPe खबरें व्हाट्सएप पर — हफ़्ते में ज़्यादा से ज़्यादा एक बार। कभी भी STOP लिखकर बंद करें। सर्विस बुकिंग की पुष्टि वैसे भी आएगी।</string>
     <string name="whatsapp_offers_failed">सेव नहीं हुआ। इंटरनेट देखकर फिर कोशिश करें।</string>
+    <string name="referral_have_code_optional">रेफ़रल कोड है?</string>
+    <string name="referral_worker_bonus_hint">अपना पहला काम पूरा करने पर ₹50 बोनस पाएं!</string>
+    <string name="referral_employer_bonus_hint">अपनी पहली बुकिंग करने पर ₹500 बोनस पाएं!</string>
+    <string name="referral_apply">लागू करें</string>
+    <string name="referral_applied">लागू हो गया ✓</string>
+    <string name="referral_enter_code_placeholder">रेफ़रल कोड दर्ज करें</string>
+    <string name="referral_referred_by_friend">किसी दोस्त ने रेफ़र किया?</string>
+    <string name="referral_redeem_within_7_days">बोनस पाने के लिए जुड़ने के 7 दिनों के भीतर उनका कोड डालें</string>
 </resources>

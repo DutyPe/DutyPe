@@ -57,6 +57,7 @@ private val TosCheck = Color(0xFF10B981)
 private val TosLink = Color(0xFF2563EB)
 
 private val TosSectionTitleRes = listOf(
+    R.string.tos_summary_title,
     R.string.tos_section_1,
     R.string.tos_section_2,
     R.string.tos_section_3,
@@ -65,19 +66,22 @@ private val TosSectionTitleRes = listOf(
 )
 
 /**
- * Terms of Service screen: highlights card + accordion of the real terms text.
+ * Terms of Service screen: unified accordions for all sections with summary open by default.
  */
 @Composable
 internal fun TermsAccordionScreen(navController: NavController) {
-    var expandedIndex by rememberSaveable { mutableIntStateOf(1) }
+    var expandedIndex by rememberSaveable { mutableIntStateOf(0) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White.bg())
-            .statusBarsPadding()
     ) {
-        TosHeader(onBack = { navController.popBackStack() })
+        com.example.dutype.components.CommonHeader(
+            title = stringResource(R.string.terms_conditions),
+            navController = navController,
+            backgroundColor = Color.White.bg()
+        )
 
         Column(
             modifier = Modifier
@@ -85,8 +89,6 @@ internal fun TermsAccordionScreen(navController: NavController) {
                 .verticalScroll(rememberScrollState())
                 .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 32.dp)
         ) {
-            TosHighlightsCard()
-            Spacer(modifier = Modifier.height(16.dp))
             TosSectionTitleRes.forEachIndexed { index, titleRes ->
                 if (index > 0) Spacer(modifier = Modifier.height(10.dp))
                 TosSectionCard(
@@ -102,56 +104,15 @@ internal fun TermsAccordionScreen(navController: NavController) {
 }
 
 @Composable
-private fun TosHeader(onBack: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .size(40.dp)
-                .clickable { onBack() },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(R.string.back),
-                tint = TosInk.fg(),
-                modifier = Modifier.size(24.dp)
-            )
-        }
-        Text(
-            text = stringResource(R.string.terms_of_service),
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = TosInk.fg(),
-            modifier = Modifier.align(Alignment.Center)
-        )
-    }
-}
-
-@Composable
-private fun TosHighlightsCard() {
-    val shape = RoundedCornerShape(20.dp)
+private fun TosSummaryBody() {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFFF0FDF4).bg(), shape)
-            .border(1.dp, Color(0xFFA7F3D0).bd(), shape)
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text(
-            text = stringResource(R.string.tos_summary_title),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = TosGreen.fg()
-        )
         TosHighlightRow(stringResource(R.string.tos_summary_1))
         TosHighlightRow(stringResource(R.string.tos_summary_2))
         TosHighlightRow(stringResource(R.string.tos_summary_3))
+        TosHighlightRow("Must be 18+ years of age to register or use DutyPe.")
     }
 }
 
@@ -255,10 +216,11 @@ private fun TosTitledPara(title: String, content: String) {
 @Composable
 private fun TosSectionBody(index: Int, navController: NavController) {
     when (index) {
-        0 -> TosEligibilityBody()
-        1 -> TosWorkerBody()
-        2 -> TosEmployerBody()
-        3 -> TosPaymentsBody()
+        0 -> TosSummaryBody()
+        1 -> TosEligibilityBody()
+        2 -> TosWorkerBody()
+        3 -> TosEmployerBody()
+        4 -> TosPaymentsBody()
         else -> TosPrivacyBody(navController)
     }
 }
@@ -310,8 +272,7 @@ private fun TosPaymentsBody() {
 @Composable
 private fun TosPrivacyBody(navController: NavController) {
     TosBodyText(stringResource(R.string.policy_grievance_contact))
-    TosEmailRow("dutypein@gmail.com", "DutyPe Support & Policy Query")
-    TosEmailRow("dutypefeedback@gmail.com", "DutyPe Feedback")
+    TosEmailRow("support@dutype.in", "DutyPe Support & Policy Query")
     Text(
         text = stringResource(R.string.privacy_policy),
         fontSize = 14.sp,

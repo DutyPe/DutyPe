@@ -246,7 +246,7 @@ internal fun AuthPhoneEntryField(
                     fontWeight = FontWeight.Medium
                 ),
                 cursorBrush = SolidColor(Color(0xFFD81B60).fg()),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 decorationBox = { innerTextField ->
                     if (phoneNumber.isBlank() && placeholderText.isNotBlank()) {
                         Text(

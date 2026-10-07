@@ -87,11 +87,9 @@ function stringList(data, key, opts) {
     const values = raw
         .filter((v) => typeof v === "string")
         .map((v) => v.trim())
-        .filter(Boolean);
-    if (values.length > opts.maxItems)
-        fail("invalid-argument", `${key} has too many items`);
-    if (values.some((v) => v.length > opts.maxLength))
-        fail("invalid-argument", `${key} item is too long`);
+        .filter(Boolean)
+        .map((v) => (v.length > opts.maxLength ? v.slice(0, opts.maxLength).trim() : v))
+        .slice(0, opts.maxItems);
     return Array.from(new Set(values));
 }
 function latLng(data) {

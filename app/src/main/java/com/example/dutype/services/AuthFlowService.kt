@@ -47,8 +47,9 @@ class AuthFlowService @Inject constructor(
 
     data class LoginResolution(val user: SessionUser, val shouldRouteToProfileSetup: Boolean)
 
-    private fun phoneKey(): String? =
+    private fun phoneKey(fallbackPhone: String? = null): String? =
         auth.currentUser?.phoneNumber?.takeIf { it.isNotBlank() }?.let(PhoneNumberUtils::normalize)
+            ?: fallbackPhone?.takeIf { it.isNotBlank() }?.let(PhoneNumberUtils::normalize)
 
     /** Live role from phoneRoles/{phone}; null when signed out or not registered. */
     fun observeActiveRole(): Flow<String?> = callbackFlow {
@@ -75,25 +76,30 @@ class AuthFlowService @Inject constructor(
         requestedRole: String,
         name: String,
         referralCode: String?,
-        employerType: String? = null
+        employerType: String? = null,
+        knownPhone: String? = null
     ): Result<RegistrationResolution> =
         runCatching {
             val user = auth.currentUser ?: error("User not authenticated")
             val role = requestedRole.trim().uppercase()
+            val phone = phoneKey(knownPhone).orEmpty()
+            runCatching { user.getIdToken(true).await() }
             @Suppress("UNCHECKED_CAST")
             val data = functions.getHttpsCallable("completeRegistration").call(
                 mapOf(
+                    "uid" to user.uid,
                     "role" to role,
                     "name" to name.trim(),
+                    "phone" to phone,
                     "referralCode" to referralCode?.trim().orEmpty(),
                     "employerType" to employerType.orEmpty()
                 )
             ).await().data as? Map<String, Any?> ?: emptyMap()
             // The server set the role claim; refresh so Firestore rules see it now.
-            user.getIdToken(true).await()
+            runCatching { user.getIdToken(true).await() }
             com.example.dutype.utils.FirestoreUtils.invalidatePhoneCheckCache()
             RegistrationResolution(
-                user = SessionUser(user.uid, role, name.trim(), user.phoneNumber.orEmpty(), null),
+                user = SessionUser(user.uid, role, name.trim(), phone, null),
                 ownReferralCode = data["referralCode"] as? String ?: "",
                 referralError = data["referralError"] as? String
             )
@@ -103,10 +109,10 @@ class AuthFlowService @Inject constructor(
      * After OTP on the login path. Enforces one role per phone: a number registered with the other
      * role is signed out and fails with `phone-already-registered-as:<ROLE>`.
      */
-    suspend fun resolveLogin(requestedRole: String): Result<LoginResolution> = runCatching {
+    suspend fun resolveLogin(requestedRole: String, knownPhone: String? = null): Result<LoginResolution> = runCatching {
         val perfStart = AuthPerf.now()
         val user = auth.currentUser ?: error("User not authenticated")
-        val phone = phoneKey() ?: error("Phone number is required")
+        val phone = phoneKey(knownPhone) ?: error("Phone number is required")
         val role = requestedRole.trim().uppercase()
         val (roleDoc, profile) = coroutineScope {
             val roleRead = async { withTimeout(READ_TIMEOUT_MS) { firestore.collection(PhoneRoles.COLLECTION).document(phone).get().await() } }

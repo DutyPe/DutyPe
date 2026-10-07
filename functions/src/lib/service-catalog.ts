@@ -27,6 +27,16 @@ export interface ServiceCategory {
   te: string;
   hi: string;
   skill: SkillLevel;
+  imageUrl?: string;
+}
+
+export interface ServiceOption {
+  id: string;
+  title: string;
+  price: number;
+  originalPrice?: number;
+  durationMin?: number;
+  description?: string;
 }
 
 export interface ServiceItem {
@@ -47,6 +57,12 @@ export interface ServiceItem {
   provide?: string[];
   /** What the partner brings (ids of [ITEMS]); defaults to the category's list. */
   bring?: string[];
+  /** Cloud Storage or CDN URL for 3D isometric clay render (optional). */
+  imageUrl?: string;
+  /** Original / MRP strike-through price in Rupees (optional, for promotional discount tags). */
+  originalPrice?: number;
+  /** Selectable variants / options (e.g. 1 Split AC vs 2 Split ACs) */
+  options?: ServiceOption[];
 }
 
 /** Things to keep ready / bring, in three languages (ids used by services). */
@@ -172,7 +188,7 @@ export function skillOf(category: string): SkillLevel {
 
 const s = (
   id: string, category: CategoryId, name: string, te: string, hi: string, price: number, durationMin: number,
-  includes: string, extra: { inspection?: boolean; provide?: string[]; bring?: string[] } = {},
+  includes: string, extra: { inspection?: boolean; provide?: string[]; bring?: string[]; imageUrl?: string; originalPrice?: number } = {},
 ): ServiceItem => ({ id, category, name, te, hi, price, durationMin, includes, ...extra });
 const VISIT = { inspection: true };
 
@@ -201,7 +217,16 @@ export const DEFAULT_SERVICES: ServiceItem[] = [
     "Shampoo and vacuum cleaning of fabric sofa.", { provide: ["POWER", "WATER"], bring: ["VACUUM", "GLOVES"] }),
   s("clean_fans", "CLEANING", "Fans, cobwebs & windows (2 hrs)", "ఫ్యాన్లు, బూజు, కిటికీలు (2 గంటలు)", "पंखे, जाले और खिड़कियाँ (2 घंटे)", 349, 120,
     "Ceiling fans, cobwebs, window grills and glass of the house.", { provide: ["LADDER", "WATER", "CLEANER"], bring: ["GLOVES"] }),
-
+  s("clean_balcony", "CLEANING", "Balcony deep cleaning", "బాల్కనీ డీప్ క్లీనింగ్", "बालकनी डीप क्लीनिंग", 249, 45,
+    "Floor scrubbing, railing wipe and dust removal for one balcony.", { provide: ["WATER", "BROOM"], bring: ["GLOVES"] }),
+  s("clean_fridge", "CLEANING", "Fridge deep cleaning", "ఫ్రిజ్ డీప్ క్లీనింగ్", "फ्रिज डीप क्लीनिंग", 299, 45,
+    "Shelves, trays, exterior wipe and interior sanitization of one refrigerator.", { provide: ["WATER", "POWER"], bring: ["GLOVES"] }),
+  s("clean_windows", "CLEANING", "Window & mesh cleaning (up to 4 windows)", "కిటికీలు & మెష్ క్లీనింగ్", "खिड़कियाँ और जाली सफ़ाई", 299, 60,
+    "Mesh dusting, grill washing and glass wipe for up to 4 windows.", { provide: ["LADDER", "WATER"], bring: ["GLOVES"] }),
+  s("clean_kitchen_prep", "CLEANING", "Kitchen prep & chopping (1 hr)", "కిచెన్ ప్రిపరేషన్ & కూరగాయలు తరగడం (1 గంట)", "किचन प्रेप और सब्ज़ी कटिंग (1 घंटा)", 149, 60,
+    "Vegetable washing, chopping, kneading and kitchen counter organizing.", { provide: ["GROCERIES", "DISH_SOAP"], bring: ["GLOVES"] }),
+  s("clean_wardrobe", "CLEANING", "Complete wardrobe organization (2 hrs)", "వార్డ్‌రోబ్ ఆర్గనైజేషన్ (2 గంటలు)", "वार्डरोब संगठन (2 घंटे)", 349, 120,
+    "Folding, categorizing and neat organizing of one master wardrobe.", { provide: ["CLEAR_SPACE"], bring: ["GLOVES"] }),
   // AC (SKILLED)
   s("ac_service", "AC", "AC service (foam-jet)", "AC సర్వీస్ (ఫోమ్-జెట్)", "AC सर्विस (फोम-जेट)", 449, 60,
     "Filter, coil and drain cleaning, cooling check. Split or window, one AC."),
@@ -297,7 +322,12 @@ export const DEFAULT_SERVICES: ServiceItem[] = [
     "Weeding, trimming and clearing leaves.", { provide: ["BROOM", "WATER"], bring: ["GLOVES"] }),
   s("help_festival", "HOME_HELP", "Festival decoration help (2 hrs)", "పండుగ అలంకరణ సహాయం (2 గంటలు)", "त्योहार सजावट में मदद (2 घंटे)", 349, 120,
     "Help with lights, flowers and arranging the house.", { provide: ["LADDER", "NEW_ITEM"], bring: ["GLOVES"] }),
-
+  s("help_hourly_1hr", "HOME_HELP", "Hourly home helper (1 hr)", "గంటల ప్రాతిపదికన ఇంటి సహాయం (1 గంట)", "प्रति घंटा घरेलू मदद (1 घंटा)", 149, 60,
+    "One verified helper for general house work, folding, sorting, errands or assistance.", { provide: ["CLEAR_SPACE"], bring: ["GLOVES"] }),
+  s("help_hourly_2hr", "HOME_HELP", "Hourly home helper (2 hrs)", "గంటల ప్రాతిపదికన ఇంటి సహాయం (2 గంటలు)", "प्रति घंटा घरेलू मदद (2 घंटे)", 249, 120,
+    "One verified helper for up to 2 hours of home tasks and organizing.", { provide: ["CLEAR_SPACE"], bring: ["GLOVES"] }),
+  s("help_laundry", "HOME_HELP", "Laundry & clothes ironing help (1.5 hrs)", "లాండ్రీ & బట్టల ఇస్త్రీ సహాయం (1.5 గంటలు)", "कपड़े धोना और इस्त्री मदद (1.5 घंटे)", 249, 90,
+    "Help with washing machine loads, hanging clothes to dry, and neat ironing.", { provide: ["POWER", "WATER"], bring: ["GLOVES"] }),
   // Car & bike (BASIC)
   s("car_wash", "VEHICLE", "Car wash at home (outside + inside vacuum)", "ఇంటి వద్ద కార్ వాష్ (బయట + లోపల వాక్యూమ్)", "घर पर कार वॉश (बाहर + अंदर वैक्यूम)", 349, 60,
     "Foam wash, wipe and interior vacuum of one car."),
@@ -338,30 +368,80 @@ export function mergeConfig(raw: unknown): ServicesConfig {
   if (Array.isArray(o.services)) {
     for (const item of o.services as Array<Partial<ServiceItem>>) if (item && typeof item.id === "string") overrides.set(item.id, item);
   }
+  // 1. Resolve Categories (defaults + custom categories added by admin)
+  const categories: ServiceCategory[] = CATEGORIES.map((c) => ({ ...c }));
+  const catOverrides = new Map<string, Partial<ServiceCategory>>();
+  if (Array.isArray(o.categories)) {
+    for (const item of o.categories as Array<Partial<ServiceCategory>>) {
+      if (item && typeof item.id === "string" && item.id.trim()) {
+        catOverrides.set(item.id.trim().toUpperCase(), item);
+      }
+    }
+  }
+
+  for (let i = 0; i < categories.length; i++) {
+    const c = categories[i];
+    const ov = catOverrides.get(c.id);
+    if (ov) {
+      catOverrides.delete(c.id);
+      categories[i] = {
+        ...c,
+        ...(typeof ov.name === "string" && ov.name.trim() ? { name: ov.name.trim() } : {}),
+        ...(typeof ov.te === "string" && ov.te.trim() ? { te: ov.te.trim() } : {}),
+        ...(typeof ov.hi === "string" && ov.hi.trim() ? { hi: ov.hi.trim() } : {}),
+        ...(ov.skill === "BASIC" || ov.skill === "SKILLED" ? { skill: ov.skill } : {}),
+        ...(typeof ov.imageUrl === "string" && ov.imageUrl.trim() ? { imageUrl: ov.imageUrl.trim() } : {}),
+      };
+    }
+  }
+
+  // Append new custom categories created in admin panel
+  for (const [id, ov] of catOverrides.entries()) {
+    if (typeof ov.name === "string" && ov.name.trim()) {
+      categories.push({
+        id: id as CategoryId,
+        name: ov.name.trim(),
+        te: typeof ov.te === "string" && ov.te.trim() ? ov.te.trim() : ov.name.trim(),
+        hi: typeof ov.hi === "string" && ov.hi.trim() ? ov.hi.trim() : ov.name.trim(),
+        skill: ov.skill === "BASIC" ? "BASIC" : "SKILLED",
+        ...(typeof ov.imageUrl === "string" && ov.imageUrl.trim() ? { imageUrl: ov.imageUrl.trim() } : {}),
+      });
+    }
+  }
+
+  // 2. Resolve Services (defaults + custom services under any category)
   const services: ServiceItem[] = DEFAULT_SERVICES.map((d) => {
     const ov = overrides.get(d.id);
     overrides.delete(d.id);
     if (!ov) return d;
     const price = Number(ov.price);
+    const originalPrice = Number(ov.originalPrice);
     return {
       ...d,
       ...(Number.isFinite(price) && price >= 0 && price <= 100_000 ? { price: Math.round(price) } : {}),
+      ...(Number.isFinite(originalPrice) && originalPrice > 0 ? { originalPrice: Math.round(originalPrice) } : (ov.originalPrice === 0 ? { originalPrice: undefined } : {})),
       ...(typeof ov.name === "string" && ov.name.trim() ? { name: ov.name.trim() } : {}),
       ...(typeof ov.includes === "string" ? { includes: ov.includes } : {}),
+      ...(typeof ov.imageUrl === "string" && ov.imageUrl.trim() ? { imageUrl: ov.imageUrl.trim() } : {}),
       ...(typeof ov.active === "boolean" ? { active: ov.active } : {}),
     };
   });
-  // New services added only by the admin (need category, name and price).
+
+  // New services added only by the admin (can reference any default or custom category)
   for (const ov of overrides.values()) {
-    const category = CATEGORIES.find((c) => c.id === ov.category)?.id;
+    const targetCat = categories.find((c) => c.id.toUpperCase() === String(ov.category || "").toUpperCase())?.id || (ov.category as CategoryId);
     const price = Number(ov.price);
-    if (!category || typeof ov.name !== "string" || !ov.name.trim() || !Number.isFinite(price) || price < 0) continue;
+    const originalPrice = Number(ov.originalPrice);
+    if (!targetCat || typeof ov.name !== "string" || !ov.name.trim() || !Number.isFinite(price) || price < 0) continue;
     services.push({
-      id: String(ov.id), category, name: ov.name.trim(), te: String(ov.te || ov.name), hi: String(ov.hi || ov.name),
+      id: String(ov.id), category: targetCat, name: ov.name.trim(), te: String(ov.te || ov.name), hi: String(ov.hi || ov.name),
       price: Math.round(price), durationMin: Number(ov.durationMin) || 60, includes: String(ov.includes || ""),
       ...(ov.inspection ? { inspection: true } : {}), ...(ov.active === false ? { active: false } : {}),
+      ...(typeof ov.imageUrl === "string" && ov.imageUrl.trim() ? { imageUrl: ov.imageUrl.trim() } : {}),
+      ...(Number.isFinite(originalPrice) && originalPrice > 0 ? { originalPrice: Math.round(originalPrice) } : {}),
     });
   }
+
   return {
     bookingFee: num("bookingFee", 0, 500),
     inspectionFee: num("inspectionFee", 0, 500),
@@ -380,7 +460,7 @@ export function mergeConfig(raw: unknown): ServicesConfig {
     firstBookingFeeFree: typeof o.firstBookingFeeFree === "boolean" ? o.firstBookingFeeFree : DEFAULT_CONFIG.firstBookingFeeFree,
     planMembersFeeFree: typeof o.planMembersFeeFree === "boolean" ? o.planMembersFeeFree : DEFAULT_CONFIG.planMembersFeeFree,
     coupons: Array.isArray(o.coupons) ? (o.coupons as unknown[]).map(cleanCoupon).filter((c): c is Coupon => c !== null) : [],
-    categories: CATEGORIES,
+    categories,
     services,
   };
 }
@@ -410,7 +490,8 @@ function cleanCoupon(raw: unknown): Coupon | null {
 }
 
 export function findService(config: ServicesConfig, serviceId: string): ServiceItem | null {
-  return config.services.find((x) => x.id === serviceId && x.active !== false) ?? null;
+  const sid = String(serviceId || "").trim().toLowerCase();
+  return config.services.find((x) => x.id.toLowerCase() === sid && x.active !== false) ?? null;
 }
 
 export function bookingFeeFor(config: ServicesConfig, service: ServiceItem): number {

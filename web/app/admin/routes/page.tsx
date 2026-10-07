@@ -18,7 +18,6 @@ const adminRoutes = [
   { href: "/admin/posters", label: "Posters", description: "Print posters for posted jobs, workers, and employers." },
   { href: "/admin/applications", label: "Applications", description: "Track applications and update status." },
   { href: "/admin/instant-help", label: "Instant Help", description: "Monitor urgent hiring requests and response speed." },
-  { href: "/admin/saved-jobs", label: "Saved Jobs", description: "Review saved-job collection records." },
   { href: "/admin/ratings", label: "Ratings", description: "Inspect ratings and trust signals." },
   { href: "/admin/referrals", label: "Referrals", description: "Monitor referrals and payouts." },
   { href: "/admin/referral-config", label: "Referral Config", description: "Edit referral program configuration values." },
@@ -33,6 +32,7 @@ const adminRoutes = [
   { href: "/admin/ai-logs", label: "DutyPe AI Logs", description: "Employer questions to DutyPe AI and its replies (Azure Cosmos DB)." },
   { href: "/admin/admin-activity", label: "Admin Activity", description: "Log of every admin write: who, what and when (Azure Cosmos DB)." },
   { href: "/admin/services", label: "DutyPe Services", description: "Home services: approve partners, verify credit top-ups, bookings and prices." },
+  { href: "/admin/service-catalog", label: "Service 3D Icons & Catalog", description: "Upload 3D clay renders, inspect real-time KB sizes, and perform CRUD operations on services." },
   { href: "/admin/payments", label: "Subscription Payments", description: "Verify employer UTRs, manage active QR codes, and extend job postings." },
   { href: "/admin/check-and-create-code", label: "Check/Create Code", description: "Referral utility tools." },
   { href: "/admin/create-test-referral", label: "Create Test Referral", description: "Generate test referral entries." },
@@ -53,7 +53,7 @@ export default function AdminRoutesPage() {
           <h2 className="admin-section-title">Admin Route Map</h2>
           <div className="admin-route-grid">
             {adminRoutes.map((route) => (
-              <Link key={route.href} href={route.href} className="admin-route-card">
+              <Link key={route.href} href={route.href} prefetch={false} className="admin-route-card">
                 <strong>{route.label}</strong>
                 <span className="admin-route-path">{route.href}</span>
                 <p>{route.description}</p>

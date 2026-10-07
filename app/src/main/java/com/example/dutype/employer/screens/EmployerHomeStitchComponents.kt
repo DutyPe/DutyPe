@@ -1207,11 +1207,25 @@ fun EmployerNoActiveJobsCard(onPostJobClick: (() -> Unit)? = null, modifier: Mod
             .fillMaxWidth()
             .clip(shape)
             .background(Color.White.bg())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+            .border(1.dp, EhBorder.bd(), shape)
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text(stringResource(R.string.employer_home_no_active_jobs), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = EhInk.fg())
-        Text(stringResource(R.string.employer_home_no_active_jobs_sub), fontSize = 13.sp, color = EhSlate.fg())
+        Text(stringResource(R.string.employer_home_no_active_jobs), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = EhInk.fg())
+        Text(stringResource(R.string.employer_home_no_active_jobs_sub), fontSize = 13.sp, color = EhSlate.fg(), lineHeight = 18.sp)
+        if (onPostJobClick != null) {
+            Spacer(Modifier.height(4.dp))
+            Button(
+                onClick = onPostJobClick,
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Post a Job", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+        }
     }
 }
 

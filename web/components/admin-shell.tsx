@@ -39,8 +39,10 @@ import {
   X,
   Search,
   ShieldCheck,
+  BookOpen,
   LucideIcon
 } from "lucide-react";
+
 
 import { getFirebaseServices } from "@/lib/firebase/client";
 
@@ -56,7 +58,8 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
     label: "Overview",
     links: [
       { href: "/admin", label: "Dashboard", icon: LayoutDashboard, summary: "Live platform health, metrics & activity." },
-      { href: "/admin/routes", label: "Routes & Tools", icon: Compass, summary: "Directory of every admin route." }
+      { href: "/admin/routes", label: "Routes & Tools", icon: Compass, summary: "Directory of every admin route." },
+      { href: "/admin/founder-playbook", label: "Founder Playbook", icon: BookOpen, summary: "Khammam GTM strategy, business fundamentals, missing features tracker & daily founder checklist." }
     ]
   },
   {
@@ -79,7 +82,6 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
       { href: "/admin/posters", label: "Posters & Marketing Kit", icon: Printer, summary: "Job posters, Instagram posts & stories, WhatsApp templates." },
       { href: "/admin/applications", label: "Applications", icon: FileText, summary: "Review worker application records." },
       { href: "/admin/instant-help", label: "Instant Help", icon: Zap, summary: "Urgent request speed and fill rate metrics." },
-      { href: "/admin/saved-jobs", label: "Saved Jobs", icon: Bookmark, summary: "Worker saved jobs activity." },
       { href: "/admin/ratings", label: "Ratings & Trust", icon: Star, summary: "Worker and employer review signals." },
     ]
   },
@@ -95,10 +97,16 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
     ]
   },
   {
+    label: "DutyPe Home Services",
+    links: [
+      { href: "/admin/services", label: "Partners & Bookings", icon: Wrench, summary: "Partners, credit top-ups, live bookings & prices." },
+      { href: "/admin/service-catalog", label: "3D Icons & Catalog", icon: Sparkles, summary: "Upload 3D clay renders, inspect KB sizes & CRUD services." }
+    ]
+  },
+  {
     label: "Payments & Revenue",
     links: [
-      { href: "/admin/payments", label: "Payments Panel", icon: CreditCard, summary: "Verify employer UTRs, manage QR codes & extend jobs." },
-      { href: "/admin/services", label: "DutyPe Services", icon: Wrench, summary: "Partners, credit top-ups, bookings & prices." }
+      { href: "/admin/payments", label: "Subscription Payments", icon: CreditCard, summary: "Verify employer UTRs, manage active QR codes & extend jobs." }
     ]
   },
   {
@@ -188,7 +196,7 @@ export function AdminShell({
       {/* Sidebar */}
       <aside className={`admin-sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="admin-sidebar-header">
-          <Link href="/admin" className="admin-brand">
+          <Link href="/admin" className="admin-brand" prefetch={false}>
             <span className="admin-brand-mark">
               <span className="admin-brand-initials">DP</span>
               <span className="admin-brand-pulse" />
@@ -248,6 +256,7 @@ export function AdminShell({
                     <Link
                       key={link.href}
                       href={link.href}
+                      prefetch={false}
                       className={`admin-sidebar-link ${isActive ? "active" : ""}`}
                       onClick={() => setSidebarOpen(false)}
                       aria-current={isActive ? "page" : undefined}
@@ -278,7 +287,7 @@ export function AdminShell({
           </div>
 
           <div className="admin-sidebar-footer-actions">
-            <Link href="/" className="admin-footer-btn" target="_blank" rel="noopener noreferrer">
+            <Link href="/" className="admin-footer-btn" target="_blank" rel="noopener noreferrer" prefetch={false}>
               <ExternalLink size={15} />
               <span>Public Site</span>
             </Link>
@@ -318,19 +327,19 @@ export function AdminShell({
             </div>
           </div>
           <div className="admin-topbar-actions" aria-label="Admin shortcuts">
-            <Link href="/admin/post-job" className="admin-topbar-action primary">
+            <Link href="/admin/post-job" className="admin-topbar-action primary" prefetch={false}>
               <PlusCircle size={15} />
               <span>Post Job</span>
             </Link>
-            <Link href="/admin/jobs" className="admin-topbar-action">
+            <Link href="/admin/jobs" className="admin-topbar-action" prefetch={false}>
               <Briefcase size={15} />
               <span>Jobs</span>
             </Link>
-            <Link href="/admin/users" className="admin-topbar-action">
+            <Link href="/admin/users" className="admin-topbar-action" prefetch={false}>
               <Users size={15} />
               <span>Users</span>
             </Link>
-            <Link href="/" className="admin-topbar-action ghost" target="_blank" rel="noopener noreferrer">
+            <Link href="/" className="admin-topbar-action ghost" target="_blank" rel="noopener noreferrer" prefetch={false}>
               <ExternalLink size={15} />
               <span>Public</span>
             </Link>

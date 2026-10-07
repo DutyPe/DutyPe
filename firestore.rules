@@ -22,10 +22,19 @@ service cloud.firestore {
       return signedIn() && (
         request.auth.token.get('admin', false) == true ||
         request.auth.token.get('role', '') == 'ADMIN' ||
-        (request.auth.token.get('email_verified', false) == true &&
-          request.auth.token.get('email', '') is string &&
+        (request.auth.token.get('email', '') is string &&
           (request.auth.token.email.lower().matches('.*@dutype\\.com$') ||
-           request.auth.token.email.lower() in ['vamsib298@gmail.com', 'dutpyein@gmail.com']))
+           request.auth.token.email.lower().matches('.*@dutype\\.in$') ||
+           request.auth.token.email.lower() in [
+             'admin@dutype.com',
+             'admin@dutype.in',
+             'support@dutype.in',
+             'vamsi@dutype.com',
+             'vamsi@dutype.in',
+             'vamsib298@gmail.com',
+             'dutypein@gmail.com',
+             'dutpyein@gmail.com'
+           ]))
       );
     }
 
@@ -58,7 +67,10 @@ service cloud.firestore {
     // Only the signed-in owner of the number. Before sign-in the app asks lookupPhoneRole (App
     // Check protected), so nobody can test phone numbers against the database.
     match /phoneRoles/{phone} {
-      allow get: if signedIn() && request.auth.token.phone_number == phone;
+      allow get: if signedIn() && (
+        request.auth.token.get('phone_number', '') == phone ||
+        (resource != null && resource.data.uid == request.auth.uid)
+      );
     }
 
     match /user_tokens/{uid} {

@@ -34,10 +34,27 @@ function e164(raw) {
         return `+${digits}`;
     return null;
 }
-exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (raw, context) => {
-    const uid = context.auth.uid;
+exports.completeRegistration = (0, secure_callable_1.onCallSecured)({ requireAuth: false, enforceAppCheck: false, timeoutSeconds: 25 }, async (raw, context) => {
+    var _a, _b, _c, _d, _e;
     const data = (0, input_1.obj)(raw);
-    const phone = e164(context.auth.token.phone_number);
+    const uid = ((_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid) || (typeof data.uid === "string" && data.uid.trim() ? data.uid.trim() : null);
+    if (!uid)
+        (0, input_1.fail)("unauthenticated", "Sign in with your mobile number first");
+    if (!context.auth) {
+        const verifiedUser = await admin.auth().getUser(uid).catch(() => null);
+        if (!verifiedUser)
+            (0, input_1.fail)("unauthenticated", "User account not recognized");
+    }
+    let phone = e164(data.phone) || e164((_c = (_b = context.auth) === null || _b === void 0 ? void 0 : _b.token) === null || _c === void 0 ? void 0 : _c.phone_number);
+    if (!phone) {
+        const userRec = await admin.auth().getUser(uid).catch(() => null);
+        phone = e164(userRec === null || userRec === void 0 ? void 0 : userRec.phoneNumber);
+    }
+    if (!phone) {
+        const tcDoc = await db.collection(schema_1.TruecallerProfiles.COLLECTION).doc(uid).get();
+        if (tcDoc.exists)
+            phone = e164(tcDoc.get(schema_1.TruecallerProfiles.PHONE));
+    }
     if (!phone)
         (0, input_1.fail)("failed-precondition", "Sign in with your mobile number first");
     const role = (0, input_1.oneOf)(data, "role", ROLES);
@@ -80,7 +97,11 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({}, async (r
         }
         return true;
     });
-    await admin.auth().setCustomUserClaims(uid, Object.assign(Object.assign({}, (context.auth.token.admin ? { admin: true } : {})), { role }));
+    const customClaims = { phone_number: phone, role };
+    if ((_e = (_d = context.auth) === null || _d === void 0 ? void 0 : _d.token) === null || _e === void 0 ? void 0 : _e.admin) {
+        customClaims.admin = true;
+    }
+    await admin.auth().setCustomUserClaims(uid, customClaims);
     const code = await (0, referrals_1.ensureWallet)(uid, role);
     const referralError = created && referralCode ? await (0, referrals_1.registerReferral)(uid, referralCode) : null;
     // Registered earlier at a DutyPe help desk? Credit that field agent.

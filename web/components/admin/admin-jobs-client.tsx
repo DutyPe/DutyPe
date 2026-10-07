@@ -454,6 +454,7 @@ export function AdminJobsClient() {
                         <Link
                           className="table-action"
                           href={`/admin/posters?jobId=${encodeURIComponent(job.id)}`}
+                          prefetch={false}
                         >
                           Print Poster
                         </Link>

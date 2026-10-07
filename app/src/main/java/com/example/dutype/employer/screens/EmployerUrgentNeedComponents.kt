@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Cancel
@@ -254,6 +255,7 @@ internal fun EmployerUrgentNeedDetailContent(
     matchedWorkersState: MatchedWorkersUiState = MatchedWorkersUiState(),
     onRefreshMatchedWorkers: () -> Unit = {},
     onCallMatchedWorker: (MatchedWorker) -> Unit = {},
+    onChatMatchedWorker: (MatchedWorker) -> Unit = {},
     onOpenMatchedWorkerProfile: (MatchedWorker) -> Unit = {},
     onOpenWorkerProfile: (InstantResponse) -> Unit,
     onCallWorker: (com.example.dutype.models.InstantResponse) -> Unit,
@@ -415,6 +417,7 @@ internal fun EmployerUrgentNeedDetailContent(
                             UrgentMatchedWorkerCard(
                                 worker = worker,
                                 onCallWorker = { onCallMatchedWorker(worker) },
+                                onChatWorker = { onChatMatchedWorker(worker) },
                                 onOpenProfile = { onOpenMatchedWorkerProfile(worker) }
                             )
                         }
@@ -464,6 +467,7 @@ internal fun EmployerUrgentNeedDetailContent(
 internal fun UrgentMatchedWorkerCard(
     worker: MatchedWorker,
     onCallWorker: () -> Unit,
+    onChatWorker: (() -> Unit)? = null,
     onOpenProfile: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -659,7 +663,7 @@ internal fun UrgentMatchedWorkerCard(
                 }
             }
 
-            // Action: call the worker (nearby workers were already broadcast-notified)
+            // Action: call or chat with the worker
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -673,6 +677,18 @@ internal fun UrgentMatchedWorkerCard(
                     Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(stringResource(R.string.call_worker))
+                }
+                if (onChatWorker != null) {
+                    OutlinedButton(
+                        onClick = onChatWorker,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, Color(0xFF25D366))
+                    ) {
+                        Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF25D366))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(stringResource(R.string.chat), color = Color(0xFF25D366), fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }

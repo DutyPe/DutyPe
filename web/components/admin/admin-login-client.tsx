@@ -160,7 +160,7 @@ export function AdminLoginClient() {
               <button type="submit" className="button" disabled={submitting || (session.loading && !session.user)}>
                 {submitting ? "Signing in..." : "Sign in"}
               </button>
-              <Link href="/" className="button ghost">
+              <Link href="/" className="button ghost" prefetch={false}>
                 Back to public site
               </Link>
             </div>

@@ -118,10 +118,11 @@ class InAppUpdateManager @Inject constructor(
                 val errorMessage = exception.message ?: ""
                 if (errorMessage.contains("-10") || errorMessage.contains("ERROR_APP_NOT_OWNED")) {
                     Timber.d("ℹ️ IN-APP UPDATE: Skipped (app not installed from Play Store or debug build)")
+                    onNoUpdate()
                 } else {
                     Timber.w(exception, "⚠️ IN-APP UPDATE: Check failed")
+                    onError(exception)
                 }
-                onError(exception)
             }
         } catch (e: Exception) {
             Timber.w(e, "⚠️ IN-APP UPDATE: Error during check")

@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.navigation.NavController
 import com.example.dutype.navigation.Routes
 import timber.log.Timber
+import kotlinx.coroutines.launch
 
 /**
  * Deep Link Handler - Comprehensive deep linking following Google's best practices
@@ -467,7 +468,14 @@ object DeepLinkHandler {
     }
     
     private fun navigateToReferral(navController: NavController, referralCode: String) {
-        safeNavigate(navController, "${Routes.WORKER_REFER_EARN}?code=$referralCode", "referral:$referralCode")
+        val cleanCode = com.example.dutype.models.normalizeReferralCode(referralCode)
+        runCatching {
+            val stateManager = com.example.dutype.di.ComposeServiceEntryPoint.from(navController.context).profileSetupStateManager()
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                stateManager.saveReferralCode(cleanCode)
+            }
+        }
+        safeNavigate(navController, "${Routes.WORKER_REFER_EARN}?code=$cleanCode", "referral:$cleanCode")
     }
 
     private fun navigateToReferralHome(navController: NavController) {

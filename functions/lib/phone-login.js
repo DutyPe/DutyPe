@@ -133,7 +133,7 @@ async function sendOnSmsGateway(phone, code) {
  *   3. { sent: false, channel: "sms" } → the app falls back to Firebase SMS.
  * Both server channels share one stored code and the per-number rate limits.
  */
-exports.sendWhatsappOtp = (0, secure_callable_1.onCallSecured)({ requireAuth: false, enforceAppCheck: false, timeoutSeconds: 25, secrets: [exports.WHATSAPP_SECRET, "SMS_API_KEY"] }, async (raw, context) => {
+exports.sendWhatsappOtp = (0, secure_callable_1.onCallSecured)({ requireAuth: false, enforceAppCheck: false, timeoutSeconds: 25, secrets: [exports.WHATSAPP_SECRET] }, async (raw, context) => {
     var _a;
     const data = (0, input_1.obj)(raw);
     const phone = (0, phone_otp_1.indianE164)(data.phone);
@@ -150,6 +150,11 @@ exports.sendWhatsappOtp = (0, secure_callable_1.onCallSecured)({ requireAuth: fa
     const existing = await registeredRole(phone);
     if (role && existing && existing !== role)
         (0, input_1.fail)("failed-precondition", `phone-already-registered-as:${existing}`);
+    const mode = String(data.mode || "");
+    if (mode === "login" && !existing)
+        (0, input_1.fail)("not-found", "No account found with this number. Please register first.");
+    if (mode === "register" && existing)
+        (0, input_1.fail)("already-exists", "An account already exists with this number. Please log in.");
     const now = Date.now();
     const waCap = Number(process.env.WHATSAPP_DAILY_CAP || 3000);
     const smsCap = Number(process.env.SMS_DAILY_CAP || 2000);
@@ -269,7 +274,10 @@ exports.verifyWhatsappOtp = (0, secure_callable_1.onCallSecured)({ requireAuth: 
     if (result === "wrong")
         (0, input_1.fail)("invalid-argument", "The code is incorrect. Please check and try again.");
     const uid = await uidForPhone(phone);
-    return { token: await admin.auth().createCustomToken(uid) };
+    const existingRole = await registeredRole(phone);
+    const claims = Object.assign({ phone_number: phone }, (existingRole ? { role: existingRole } : {}));
+    await admin.auth().setCustomUserClaims(uid, claims).catch((e) => functions.logger.warn("setCustomUserClaims failed", e));
+    return { token: await admin.auth().createCustomToken(uid, claims) };
 });
 // ─────────────────────────────── Truecaller ───────────────────────────────
 async function truecallerProfile(authorizationCode, codeVerifier) {
@@ -341,7 +349,9 @@ exports.truecallerSignIn = (0, secure_callable_1.onCallSecured)({ requireAuth: f
                     tx.update(ref, { [schema_1.WorkerProfiles.EMAIL]: tc.email });
             });
         }
-        return Object.assign(Object.assign({}, profile), { allowed: true, isNewUser, token: await admin.auth().createCustomToken(uid) });
+        const claims = Object.assign({ phone_number: phone }, (existingRole ? { role: existingRole } : {}));
+        await admin.auth().setCustomUserClaims(uid, claims).catch((e) => functions.logger.warn("setCustomUserClaims failed", e));
+        return Object.assign(Object.assign({}, profile), { allowed: true, isNewUser, token: await admin.auth().createCustomToken(uid, claims) });
     }
     catch (e) {
         functions.logger.error("truecallerSignIn error:", e);

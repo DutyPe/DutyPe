@@ -183,14 +183,11 @@ class MainActivity : ComponentActivity() {
         var startupOverlayCommitted = false
         splashScreen.setKeepOnScreenCondition { keepSplashOnScreen && !startupOverlayCommitted }
 
-        // The splash is held only until MainNavGraph has resolved the start route from the
-        // locally cached value (mainNavReady, ~1-2 frames on the fast path), so the user never
-        // sees a blank frame between the splash and the first screen. No network is involved.
-        // Hard cap: never keep the splash longer than 700ms even if routing is slow.
+        // Safety fallback: drop splash after 150ms max so user never experiences launch lag
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             keepSplashOnScreen = false
             startupOverlayCommitted = true
-        }, 700L)
+        }, 150L)
 
         super.onCreate(savedInstanceState)
         val launchIntent = normalizeNotificationLaunchIntent(intent)
@@ -361,8 +358,14 @@ class MainActivity : ComponentActivity() {
                         window.statusBarColor = android.graphics.Color.TRANSPARENT
                         WindowCompat.getInsetsController(window, window.decorView).apply {
                             // If dark theme is enabled, or the custom status bar color is dark,
-                            // use light-colored system status bar icons (white). Otherwise, use dark icons.
-                            isAppearanceLightStatusBars = !darkTheme && !isColorDark
+                            // or on dark auth/login screens, use light-colored system status bar icons (white).
+                            // Otherwise, use dark icons.
+                            val isAuthRoute = currentRouteForBars?.contains("login", ignoreCase = true) == true ||
+                                currentRouteForBars?.contains("register", ignoreCase = true) == true ||
+                                currentRouteForBars?.contains("otp", ignoreCase = true) == true ||
+                                currentRouteForBars?.contains("role", ignoreCase = true) == true ||
+                                currentRouteForBars?.contains("services", ignoreCase = true) == true
+                            isAppearanceLightStatusBars = if (isAuthRoute) false else (!darkTheme && !isColorDark)
                             isAppearanceLightNavigationBars = !darkTheme
                         }
                     }
@@ -382,9 +385,11 @@ class MainActivity : ComponentActivity() {
                                 statusBarColor = it
                             },
                             onReady = {
-                                // Dismiss the system splash once MainNavGraph has resolved
+                                // Dismiss the system splash immediately once MainNavGraph has resolved
                                 // the start destination and is ready to render content.
                                 mainNavReady = true
+                                keepSplashOnScreen = false
+                                startupOverlayCommitted = true
                             },
                             notificationData = launchIntent?.extras?.getString("notificationId"),
                             notificationPermissionManager = notificationPermissionManager,
@@ -421,24 +426,6 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // Launch wordmark ("DutyPe", letters fading up) over the black splash colour while
-                        // the first screen loads underneath. Cold starts only; skipped when opened from a
-                        // notification or link so those land on their screen straight away.
-                        var showBrandIntro by androidx.compose.runtime.saveable.rememberSaveable {
-                            mutableStateOf(
-                                savedInstanceState == null &&
-                                    launchIntent?.getBooleanExtra("from_notification", false) != true &&
-                                    launchIntent?.data == null
-                            )
-                        }
-                        if (showBrandIntro) {
-                            // The intro covers the screen, so the plain system splash can go at once.
-                            androidx.compose.runtime.SideEffect {
-                                startupOverlayCommitted = true
-                                keepSplashOnScreen = false
-                            }
-                            com.example.dutype.ui.BrandIntro(onFinished = { showBrandIntro = false })
-                        }
 
                         // Native Google Play In-App Review (triggered on job application, posting, etc.)
                         // PERF: only wire up the review manager after the first screen is ready.

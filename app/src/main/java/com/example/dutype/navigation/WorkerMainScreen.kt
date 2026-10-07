@@ -121,7 +121,8 @@ fun WorkerMainScreen(
         Routes.GUIDELINES,
         Routes.WORKER_CATEGORIES, "worker_categories", // Hide bottom bar on categories screen
         Routes.PROFILE_SETUP, "profile_setup", // Hide bottom bar on profile setup screen
-        Routes.JOB_APPLICATION, "job_application" // Hide bottom bar on apply for job screen
+        Routes.JOB_APPLICATION, "job_application", // Hide bottom bar on apply for job screen
+        Routes.URGENT_OFFER, "urgent_offer" // Hide bottom bar on urgent offer / voice talking screen
     )
 
     // Update bottom bar visibility based on current route and scroll state

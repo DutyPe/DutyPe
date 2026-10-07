@@ -9,14 +9,18 @@ service firebase.storage {
       return request.auth != null && (
         (request.auth.token.get('admin', false) == true) ||
         (request.auth.token.get('role', '') == 'ADMIN') ||
-        (request.auth.token.get('email_verified', false) == true &&
-          request.auth.token.get('email', '') is string &&
+        (request.auth.token.get('email', '') is string &&
           (
             request.auth.token.email.lower().matches('.*@dutype\\.com$') ||
+            request.auth.token.email.lower().matches('.*@dutype\\.in$') ||
             request.auth.token.email.lower() in [
               'admin@dutype.com',
+              'admin@dutype.in',
+              'support@dutype.in',
               'vamsi@dutype.com',
+              'vamsi@dutype.in',
               'vamsib298@gmail.com',
+              'dutypein@gmail.com',
               'dutpyein@gmail.com'
             ]
           )
@@ -54,6 +58,17 @@ service firebase.storage {
 
     // Dynamic configuration assets (banners, lottie) — public read, admin-only write.
     match /dynamic_assets/{allPaths=**} {
+      allow read: if true;
+      allow write, delete: if isAdmin();
+    }
+
+    // Home service 3D clay images & category renders — public read, admin-only write.
+    match /services/{allPaths=**} {
+      allow read: if true;
+      allow write, delete: if isAdmin();
+    }
+
+    match /categories/{allPaths=**} {
       allow read: if true;
       allow write, delete: if isAdmin();
     }

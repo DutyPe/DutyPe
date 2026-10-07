@@ -3,14 +3,14 @@ import type { Metadata } from "next";
 export const PLAY_STORE_URL =
   "https://play.google.com/store/apps/details?id=com.dutype.app";
 export const APP_STORE_URL = "https://apps.apple.com/app/dutype";
-export const SUPPORT_EMAIL = "dutypein@gmail.com";
-export const FEEDBACK_EMAIL = "dutypefeedback@gmail.com";
+export const SUPPORT_EMAIL = "support@dutype.in";
+export const FEEDBACK_EMAIL = "support@dutype.in";
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://dutype.in";
 
 export const siteMeta = {
   name: "DutyPe",
   companyName: "DutyPe Technologies Private Limited",
-  supportEmail: "dutypein@gmail.com",
+  supportEmail: "support@dutype.in",
   strapline: "Local jobs near you",
   description:
     "Find local jobs near you. Connect workers with employers instantly. No middlemen, no fees."

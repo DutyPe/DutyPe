@@ -1,5 +1,8 @@
 package com.example.dutype.worker.screens
 
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
+import com.example.dutype.ui.theme.bd
 import com.dutype.app.R
 import android.content.Intent
 import android.net.Uri
@@ -130,16 +133,19 @@ fun WorkerHistoryScreen(
         // Tab Row
         ScrollableTabRow(
             selectedTabIndex = selectedTab,
-                containerColor = WorkerColors.ScreenBackground,
-            contentColor = WorkerColors.TextPrimary,
+            containerColor = Color.White.bg(),
+            contentColor = Color(0xFF0F172A).fg(),
             edgePadding = 16.dp,
             indicator = { tabPositions ->
-                TabRowDefaults.Indicator(
-                    Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                    height = 3.dp
-                )
-            }
+                if (selectedTab < tabPositions.size) {
+                    TabRowDefaults.SecondaryIndicator(
+                        Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                        color = Color(0xFF0F172A).fg(),
+                        height = 2.5.dp
+                    )
+                }
+            },
+            divider = { HorizontalDivider(color = Color(0xFFE2E8F0).bd(), thickness = 1.dp) }
         ) {
             tabs.forEachIndexed { index, title ->
                 Tab(
@@ -148,7 +154,9 @@ fun WorkerHistoryScreen(
                     text = {
                         Text(
                             text = title,
-                            fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
+                            fontSize = 13.5.sp,
+                            fontWeight = if (selectedTab == index) FontWeight.SemiBold else FontWeight.Medium,
+                            color = if (selectedTab == index) Color(0xFF0F172A).fg() else Color(0xFF64748B).fg()
                         )
                     }
                 )
