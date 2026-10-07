@@ -62,6 +62,8 @@ import androidx.navigation.NavController
 import com.dutype.app.R
 import com.example.dutype.models.InstantRequest
 import com.example.dutype.utils.LocaleHelper
+import com.example.dutype.utils.findActivity
+import com.example.dutype.di.rememberInAppReviewTriggerService
 import java.util.Locale
 
 private val Green = Color(0xFF16A34A)
@@ -80,6 +82,7 @@ fun UrgentOfferScreen(requestId: String, navController: NavController) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     LaunchedEffect(requestId) { viewModel.load(requestId) }
     val context = LocalContext.current
+    val reviewTriggerService = rememberInAppReviewTriggerService()
     LaunchedEffect(Unit) { UrgentSoundAlertManager.stopSound() }
     val speaker = rememberSpeaker()
     val close: () -> Unit = { if (!navController.popBackStack()) navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.HOME) }
@@ -98,7 +101,12 @@ fun UrgentOfferScreen(requestId: String, navController: NavController) {
         when (val s = state) {
             UrgentOfferState.Loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Green.fg())
             is UrgentOfferState.Offer -> OfferContent(s, speaker, onAccept = viewModel::accept, onSkip = onSkip)
-            is UrgentOfferState.Accepted -> AcceptedContent(s, speaker, onDone = close)
+            is UrgentOfferState.Accepted -> {
+                LaunchedEffect(Unit) {
+                    context.findActivity()?.let { act -> reviewTriggerService.onWorkerJobApplication(act) }
+                }
+                AcceptedContent(s, speaker, onDone = close)
+            }
             is UrgentOfferState.Unavailable -> MessageContent(s.reason, onDone = close)
             is UrgentOfferState.Failed -> FailedContent(s.message, onRetry = { viewModel.load(requestId) }, onDone = close)
         }

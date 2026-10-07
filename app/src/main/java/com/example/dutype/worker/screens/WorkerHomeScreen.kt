@@ -979,6 +979,9 @@ fun WorkerHomeScreen(
                                                 context,
                                                 request.contactNumber.ifBlank { request.employerPhone }
                                             )
+                                            context.findActivity()?.let { act ->
+                                                inAppReviewTriggerService.onWorkerDirectContact(act)
+                                            }
                                             instantHelpViewModel.respondToInstantRequest(request, "called") {
                                                 // Contact UI is opened immediately; this callback only confirms the response record.
                                             }

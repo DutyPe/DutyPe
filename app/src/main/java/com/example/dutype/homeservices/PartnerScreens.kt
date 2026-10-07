@@ -86,6 +86,8 @@ import androidx.navigation.NavController
 import com.dutype.app.R
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.LocaleHelper
+import com.example.dutype.utils.findActivity
+import com.example.dutype.di.rememberInAppReviewTriggerService
 import kotlinx.coroutines.launch
 
 private fun rupees(paise: Long): String {
@@ -1070,6 +1072,7 @@ fun PartnerTopupScreen(navController: NavController, viewModel: HomeServicesView
 @Composable
 fun PartnerOfferScreen(bookingId: String, navController: NavController, viewModel: HomeServicesViewModel = hiltViewModel()) {
     val context = LocalContext.current
+    val reviewTriggerService = rememberInAppReviewTriggerService()
     val scope = rememberCoroutineScope()
     var offer by remember { mutableStateOf<ServiceOffer?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -1194,6 +1197,9 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
                                     else -> context.getString(R.string.svc_offer_gone)
                                 }
                                 if (msg == null) {
+                                    context.findActivity()?.let { act ->
+                                        reviewTriggerService.onWorkerJobApplication(act)
+                                    }
                                     navController.navigate(Routes.partnerJobRoute(bookingId)) {
                                         popUpTo(Routes.PARTNER_OFFER) { inclusive = true }
                                     }
@@ -1231,6 +1237,7 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
 @Composable
 fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel: HomeServicesViewModel = hiltViewModel()) {
     val context = LocalContext.current
+    val reviewTriggerService = rememberInAppReviewTriggerService()
     val scope = rememberCoroutineScope()
     val booking by remember(bookingId) { viewModel.booking(bookingId) }.collectAsState(initial = null)
     var code by remember { mutableStateOf("") }
@@ -1342,6 +1349,9 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
                     Button(
                         onClick = {
                             act("complete", extra = extraValue, note = extrasNote.trim()) {
+                                context.findActivity()?.let { act ->
+                                    reviewTriggerService.onWorkerJobCompleted(act)
+                                }
                                 Toast.makeText(
                                     context,
                                     context.getString(R.string.svc_job_done, b.total + extraValue),

@@ -177,6 +177,8 @@ import androidx.navigation.NavController
 import com.example.dutype.employer.screens.EmployerExecutiveHeroCard
 import com.example.dutype.employer.screens.EmployerExecutiveInstantHelpCard
 import com.example.dutype.employer.screens.VoicePulsingFab
+import com.example.dutype.utils.findActivity
+import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.dutype.app.R
 import com.example.dutype.components.DutyPeEmptyState
 import com.example.dutype.components.DutyPeErrorState
@@ -4232,6 +4234,7 @@ private fun slots(dayOffset: Int, now: Long = System.currentTimeMillis()): List<
 @Composable
 fun BookServiceScreen(serviceId: String, navController: NavController, viewModel: HomeServicesViewModel = hiltViewModel()) {
     val context = LocalContext.current
+    val reviewTriggerService = rememberInAppReviewTriggerService()
     val lang = LocaleHelper.getLanguage(context)
     val scope = rememberCoroutineScope()
     val catalog by viewModel.catalog.collectAsState()
@@ -4437,6 +4440,9 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                 if (scheduled) slot else null, q?.couponCode.orEmpty()
             )
                 .onSuccess { id ->
+                    context.findActivity()?.let { act ->
+                        reviewTriggerService.onServiceBooked(act)
+                    }
                     navController.navigate(Routes.servicesBookingRoute(id)) {
                         popUpTo(Routes.SERVICES_BOOK) { inclusive = true }
                     }
@@ -5416,6 +5422,7 @@ private fun StatusTimeline(b: ServiceBooking) {
 @Composable
 fun BookingDetailScreen(bookingId: String, navController: NavController, viewModel: HomeServicesViewModel = hiltViewModel()) {
     val context = LocalContext.current
+    val reviewTriggerService = rememberInAppReviewTriggerService()
     val scope = rememberCoroutineScope()
     val load by remember(bookingId) { viewModel.bookingLoad(bookingId) }.collectAsState(initial = BookingLoad(false, null, null))
     var code by remember { mutableStateOf("") }
@@ -5637,7 +5644,12 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                                 busy = true
                                 scope.launch {
                                     viewModel.rate(b.id, stars, review.trim())
-                                        .onSuccess { Toast.makeText(context, context.getString(R.string.svc_thanks_rating), Toast.LENGTH_SHORT).show() }
+                                        .onSuccess {
+                                            context.findActivity()?.let { act ->
+                                                reviewTriggerService.onServiceCompleted(act, stars)
+                                            }
+                                            Toast.makeText(context, context.getString(R.string.svc_thanks_rating), Toast.LENGTH_SHORT).show()
+                                        }
                                         .onFailure { Toast.makeText(context, it.message, Toast.LENGTH_LONG).show() }
                                     busy = false
                                 }

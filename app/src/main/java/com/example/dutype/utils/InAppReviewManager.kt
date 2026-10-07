@@ -51,7 +51,11 @@ class InAppReviewManager @Inject constructor(
         CoroutineScope(Dispatchers.Main).launch {
             try {
                 if (force || shouldShowReviewPrompt()) {
-                    _showRatingPromptFlow.value = true
+                    if (activity != null && !activity.isFinishing && !activity.isDestroyed) {
+                        launchNativeReview(activity)
+                    } else {
+                        _showRatingPromptFlow.value = true
+                    }
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Error evaluating review eligibility")

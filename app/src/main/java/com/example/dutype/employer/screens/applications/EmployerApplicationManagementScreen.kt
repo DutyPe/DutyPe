@@ -63,6 +63,7 @@ import com.example.dutype.utils.DateTimeUtils
 import com.example.dutype.viewmodels.EmployerApplicationViewModel
 import com.example.dutype.viewmodels.EmployerJobsViewModel
 import com.example.dutype.di.rememberInAppReviewTriggerService
+import com.example.dutype.utils.findActivity
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import kotlinx.coroutines.launch
@@ -230,6 +231,7 @@ fun EmployerApplicationManagementScreen(
                             onSuccess = { result ->
                                 Toast.makeText(context, result.message, Toast.LENGTH_SHORT).show()
                                 if (result.success) {
+                                    context.findActivity()?.let { act -> reviewTriggerService.onEmployerVerifiedWork(act) }
                                     ratedApplicationIds = ratedApplicationIds + application.id
                                     showRatingSheet = false
                                     pendingRatingApplication = null
@@ -590,6 +592,7 @@ fun EmployerApplicationManagementScreen(
                         notes = notes
                     )
                     if (newStatus == ApplicationStatus.HIRED) {
+                        context.findActivity()?.let { act -> reviewTriggerService.onEmployerHiredWorker(act) }
                         val targetJobId = jobId ?: application.jobId
                         if (targetJobId.isNotBlank()) {
                             viewModel.canHireMoreApplicants(currentJob?.vacancies ?: 1) { canAccept, remaining ->
@@ -620,6 +623,7 @@ fun EmployerApplicationManagementScreen(
                                 ).show()
                                 return@launch
                             }
+                            context.findActivity()?.let { act -> reviewTriggerService.onEmployerVerifiedWork(act) }
                             Toast.makeText(context, context.getString(R.string.work_marked_done_rate_now), Toast.LENGTH_SHORT).show()
                             return@launch
                         }

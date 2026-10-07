@@ -101,14 +101,47 @@ class InAppReviewTriggerService @Inject constructor(
     }
     
     /**
-     * Trigger after worker's job is marked as completed
+     * Trigger after customer books a home service (cleaning, plumbing, etc.)
+     */
+    fun onServiceBooked(activity: Activity) {
+        scope.launch {
+            try {
+                Timber.i("IN-APP REVIEW: onServiceBooked() called")
+                reviewManager.trackPositiveAction()
+                reviewManager.triggerRatingPrompt(activity, force = true)
+                Timber.d("Home service booked - review triggered forcefully")
+            } catch (e: Exception) {
+                Timber.e(e, "Error requesting review after service booking")
+            }
+        }
+    }
+
+    /**
+     * Trigger after a service is successfully completed or rated by the customer
+     */
+    fun onServiceCompleted(activity: Activity, stars: Int = 5) {
+        scope.launch {
+            try {
+                Timber.i("IN-APP REVIEW: onServiceCompleted() called (stars=$stars)")
+                reviewManager.trackPositiveAction()
+                reviewManager.triggerRatingPrompt(activity, force = (stars >= 4))
+                Timber.d("Service completed - review triggered")
+            } catch (e: Exception) {
+                Timber.e(e, "Error requesting review after service completion")
+            }
+        }
+    }
+
+    /**
+     * Trigger after worker's job or service is marked as completed
      */
     fun onWorkerJobCompleted(activity: Activity) {
         scope.launch {
             try {
+                Timber.i("IN-APP REVIEW: onWorkerJobCompleted() called")
                 reviewManager.trackPositiveAction()
-                reviewManager.triggerRatingPrompt(activity, force = false)
-                Timber.d("Worker job completed - requesting review")
+                reviewManager.triggerRatingPrompt(activity, force = true)
+                Timber.d("Worker job completed - requesting review forcefully")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after job completion")
             }
@@ -157,9 +190,10 @@ class InAppReviewTriggerService @Inject constructor(
     fun onEmployerHiredWorker(activity: Activity) {
         scope.launch {
             try {
+                Timber.i("IN-APP REVIEW: onEmployerHiredWorker() called")
                 reviewManager.trackPositiveAction()
-                reviewManager.requestInAppReview(activity)
-                Timber.d("Employer hired worker - requesting review")
+                reviewManager.triggerRatingPrompt(activity, force = true)
+                Timber.d("Employer hired worker - requesting review forcefully")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after hiring")
             }
@@ -172,9 +206,10 @@ class InAppReviewTriggerService @Inject constructor(
     fun onEmployerVerifiedWork(activity: Activity) {
         scope.launch {
             try {
+                Timber.i("IN-APP REVIEW: onEmployerVerifiedWork() called")
                 reviewManager.trackPositiveAction()
-                reviewManager.triggerRatingPrompt(activity, force = false)
-                Timber.d("Employer verified work - requesting review")
+                reviewManager.triggerRatingPrompt(activity, force = true)
+                Timber.d("Employer verified work - requesting review forcefully")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after work verification")
             }

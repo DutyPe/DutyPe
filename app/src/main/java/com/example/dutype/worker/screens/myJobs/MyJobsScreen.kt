@@ -82,6 +82,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.runtime.collectAsState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.firebase.auth.FirebaseAuth
+import com.example.dutype.utils.findActivity
+import com.example.dutype.di.rememberInAppReviewTriggerService
 
 // ─── Design tokens (pixel-exact "My Jobs" mockup) ──────────────────────────
 private val MyJobsInk = Color(0xFF0F0F0F)
@@ -115,6 +117,7 @@ fun MyJobsScreen(
     val cardContext = androidx.compose.ui.platform.LocalContext.current
     val ratingService = remember { com.example.dutype.di.ratingServiceFromHilt(cardContext) }
     val ratingScope = rememberCoroutineScope()
+    val reviewTriggerService = rememberInAppReviewTriggerService()
 
     val currentUser = FirebaseAuth.getInstance().currentUser
 
@@ -409,6 +412,9 @@ fun MyJobsScreen(
                     )
                     result.onSuccess { ratingResult ->
                         if (ratingResult.success) {
+                            cardContext.findActivity()?.let { act ->
+                                reviewTriggerService.onWorkerJobCompleted(act)
+                            }
                             ratedApplicationIds = ratedApplicationIds + app.id
                             showRatingSheet = false
                             applicationToRate = null
