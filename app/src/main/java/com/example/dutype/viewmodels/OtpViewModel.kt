@@ -78,8 +78,8 @@ class OtpViewModel @Inject constructor(
         /** Bound for the pre-OTP phone/role check so it can never stall the SMS request. */
         const val PRECHECK_TIMEOUT_MS = 1_200L
 
-        /** Bound for the WhatsApp send callable. */
-        const val WHATSAPP_SEND_TIMEOUT_MS = 12_000L
+        /** Bound for the WhatsApp send callable (matches Cloud Function 25s timeout). */
+        const val WHATSAPP_SEND_TIMEOUT_MS = 25_000L
 
         /** How long the user waits on WhatsApp before "Get code by SMS" is offered. */
         const val SMS_FALLBACK_AFTER_SECONDS = 60

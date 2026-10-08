@@ -501,6 +501,7 @@ private fun OtpLoginScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .weight(1f)
                     .background(
                         brush = Brush.verticalGradient(
                             colors = listOf(
@@ -535,8 +536,9 @@ private fun OtpLoginScreen(
 
                     Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp, bottom = 28.dp)
+                            .fillMaxSize()
+                            .padding(top = 16.dp, bottom = 24.dp),
+                        verticalArrangement = Arrangement.SpaceBetween
                     ) {
                         // WhatsApp Help Button (Top-Right)
                         Row(
@@ -587,37 +589,35 @@ private fun OtpLoginScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(28.dp))
-
-                        // DutyPe Wordmark
-                        Text(
-                            text = "DutyPe",
-                            modifier = Modifier.padding(horizontal = 24.dp),
-                            style = MaterialTheme.typography.displayMedium.copy(
-                                fontSize = 46.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color.White,
-                                letterSpacing = (-1.5).sp
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            // DutyPe Wordmark
+                            Text(
+                                text = "DutyPe",
+                                modifier = Modifier.padding(horizontal = 24.dp),
+                                style = MaterialTheme.typography.displayMedium.copy(
+                                    fontSize = 46.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White,
+                                    letterSpacing = (-1.5).sp
+                                )
                             )
-                        )
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
 
-                        // Tagline: "Jobs & home services, made simple."
-                        Text(
-                            text = buildAnnotatedString {
-                                withStyle(SpanStyle(color = Color(0xFFCBD5E1), fontWeight = FontWeight.Normal, fontSize = 18.sp)) {
-                                    append("Jobs & home services,\n")
-                                }
-                                withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)) {
-                                    append("made simple.")
-                                }
-                            },
-                            lineHeight = 25.sp,
-                            modifier = Modifier.padding(horizontal = 24.dp)
-                        )
-
-                        Spacer(modifier = Modifier.height(22.dp))
+                            // Tagline: "Jobs & home services, made simple."
+                            Text(
+                                text = buildAnnotatedString {
+                                    withStyle(SpanStyle(color = Color(0xFFCBD5E1), fontWeight = FontWeight.Normal, fontSize = 18.sp)) {
+                                        append("Jobs & home services,\n")
+                                    }
+                                    withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)) {
+                                        append("made simple.")
+                                    }
+                                },
+                                lineHeight = 25.sp,
+                                modifier = Modifier.padding(horizontal = 24.dp)
+                            )
+                        }
 
                         // 3 Badges Row - crisp single row matching mockup (no clipping or scrolling)
                         Row(
@@ -659,9 +659,11 @@ private fun OtpLoginScreen(
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(modifier = Modifier.fillMaxWidth()) {
-                        // Title: "Enter your number" (reduced 3dp: 24.sp -> 21.sp)
-                        Text(
-                            text = stringResource(R.string.auth_enter_mobile_number),
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Title: "Enter your number" (reduced 3dp: 24.sp -> 21.sp)
+                            Text(
+                                text = stringResource(R.string.auth_enter_mobile_number),
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontSize = 21.sp,
                                 fontWeight = FontWeight.Bold,
@@ -858,29 +860,6 @@ private fun OtpLoginScreen(
                                     )
                                 }
                             }
-                        }
-
-                        otpState.error?.takeIf { !otpState.otpSent }?.let { err ->
-                            Spacer(modifier = Modifier.height(10.dp))
-                            val errorText = if (err.startsWith("phone-already-registered-as:")) {
-                                val existingRole = err.substringAfter(":").trim().lowercase()
-                                val existingRoleLabel = if (existingRole.contains("employer")) context.getString(R.string.employer) else context.getString(R.string.worker)
-                                context.getString(R.string.auth_phone_registered_as_role, existingRoleLabel, existingRoleLabel)
-                            } else if (err == "account-not-found") {
-                                context.getString(R.string.auth_no_account_found)
-                            } else {
-                                err
-                            }
-                            Text(
-                                text = errorText,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFFDC2626).fg(),
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium
-                                ),
-                                modifier = Modifier.fillMaxWidth(),
-                                textAlign = TextAlign.Center
-                            )
                         }
 
                         /*
@@ -1179,23 +1158,6 @@ private fun OtpInputSection(
             onOtpChange = onOtpChange,
             digitCount = 6
         )
-
-        otpState.error?.let { rawError ->
-            Spacer(modifier = Modifier.height(12.dp))
-            val displayText = if (rawError.startsWith("phone-already-registered-as:")) {
-                val existingRole = rawError.substringAfter(":").trim().lowercase()
-                val existingRoleLabel = if (existingRole.contains("employer")) context.getString(R.string.employer) else context.getString(R.string.worker)
-                context.getString(R.string.auth_phone_registered_as_role, existingRoleLabel, existingRoleLabel)
-            } else {
-                rawError
-            }
-            Text(
-                text = displayText,
-                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626).fg(), fontSize = 13.sp),
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
-        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
