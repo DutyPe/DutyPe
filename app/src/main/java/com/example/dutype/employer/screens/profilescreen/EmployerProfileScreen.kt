@@ -738,46 +738,49 @@ fun EmployerProfileScreen(
         employerProfile?.let { applyEmployer(it) }
     }
 
+    var showPhotoOptionSheet by remember { mutableStateOf(false) }
+
+    val handleImageUpload: (Uri) -> Unit = { selectedUri ->
+        profileImageUri = selectedUri
+        isUploadingImage = true
+        scope.launch {
+            try {
+                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                if (currentUser != null) {
+                    val uploadResult = profileCompletionViewModel.uploadProfileImage(selectedUri, currentUser.uid, "employer")
+                    uploadResult.fold(
+                        onSuccess = { imageUrl ->
+                            profileImageUrl = imageUrl
+                            profPhotoUrl = imageUrl
+                            android.widget.Toast.makeText(context, context.getString(R.string.profile_photo_updated), android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        onFailure = { exception ->
+                            profileImageUri = null
+                            val errorMessage = when {
+                                exception.message?.contains("quota", ignoreCase = true) == true ||
+                                exception.message?.contains("billing", ignoreCase = true) == true ||
+                                exception.message?.contains("storage", ignoreCase = true) == true ->
+                                    context.getString(R.string.photo_upload_unavailable)
+                                exception.message?.contains("network", ignoreCase = true) == true ->
+                                    context.getString(R.string.network_error_check_connection)
+                                else -> context.getString(R.string.photo_upload_failed)
+                            }
+                            android.widget.Toast.makeText(context, errorMessage, android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                profileImageUri = null
+                android.widget.Toast.makeText(context, context.getString(R.string.photo_upload_failed), android.widget.Toast.LENGTH_SHORT).show()
+            } finally {
+                isUploadingImage = false
+            }
+        }
+    }
+
     val imagePickerLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            uri?.let { selectedUri ->
-                profileImageUri = selectedUri
-                isUploadingImage = true
-                scope.launch {
-                    try {
-                        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                        if (currentUser != null) {
-                            val uploadResult = profileCompletionViewModel.uploadProfileImage(selectedUri, currentUser.uid, "employer")
-                            uploadResult.fold(
-                                onSuccess = { imageUrl ->
-                                    profileImageUrl = imageUrl
-                                    profPhotoUrl = imageUrl
-                                    android.widget.Toast.makeText(context, context.getString(R.string.profile_photo_updated), android.widget.Toast.LENGTH_SHORT).show()
-                                },
-                                onFailure = { exception ->
-                                    profileImageUri = null
-                                    // Show user-friendly error message
-                                    val errorMessage = when {
-                                        exception.message?.contains("quota", ignoreCase = true) == true ||
-                                        exception.message?.contains("billing", ignoreCase = true) == true ||
-                                        exception.message?.contains("storage", ignoreCase = true) == true ->
-                                            context.getString(R.string.photo_upload_unavailable)
-                                        exception.message?.contains("network", ignoreCase = true) == true ->
-                                            context.getString(R.string.network_error_check_connection)
-                                        else -> context.getString(R.string.photo_upload_failed)
-                                    }
-                                    android.widget.Toast.makeText(context, errorMessage, android.widget.Toast.LENGTH_LONG).show()
-                                }
-                            )
-                        }
-                    } catch (e: Exception) {
-                        profileImageUri = null
-                        android.widget.Toast.makeText(context, context.getString(R.string.photo_upload_failed), android.widget.Toast.LENGTH_SHORT).show()
-                    } finally {
-                        isUploadingImage = false
-                    }
-                }
-            }
+            uri?.let { handleImageUpload(it) }
         }
 
     if (isLoadingProfile) {
@@ -849,7 +852,7 @@ fun EmployerProfileScreen(
             onEdit = { go(Routes.EMPLOYER_COMPANY_DETAILS, "profile") },
             onAvatar = {
                 if (isLoggedIn) {
-                    imagePickerLauncher.launch("image/*")
+                    showPhotoOptionSheet = true
                 } else {
                     pendingMenuAction = "profile"
                     showLoginBottomSheet = true
@@ -940,6 +943,12 @@ fun EmployerProfileScreen(
     //         onDismiss = { showThemeBottomSheet = false },
     //     )
     // }
+
+    com.example.dutype.components.ImagePickerBottomSheet(
+        isVisible = showPhotoOptionSheet,
+        onDismiss = { showPhotoOptionSheet = false },
+        onImageSelected = { uri -> handleImageUpload(uri) }
+    )
 
     // Guest Mode - Login Bottom Sheet
     com.example.dutype.components.LoginBottomSheet(

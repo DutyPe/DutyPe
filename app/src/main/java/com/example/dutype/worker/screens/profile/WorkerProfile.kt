@@ -284,56 +284,58 @@ fun WorkerProfileScreen(
         isVisible = true
     }
 
+    var showPhotoOptionSheet by remember { mutableStateOf(false) }
+
+    val handleImageUpload: (Uri) -> Unit = { selectedUri ->
+        Timber.d(" WORKER PROFILE: Selected image URI: $selectedUri")
+        profileImageUri = selectedUri
+        isUploadingImage = true
+
+        // Upload image to Firebase Storage and update profile
+        scope.launch {
+            try {
+                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                Timber.d(" WORKER PROFILE: Current user: ${currentUser?.uid}")
+                if (currentUser != null) {
+                    // Upload to Firebase Storage
+                    Timber.d(" WORKER PROFILE: Starting upload...")
+                    val uploadResult = profileCompletionViewModel.uploadProfileImage(selectedUri, currentUser.uid, "worker")
+                    uploadResult.fold(
+                        onSuccess = { imageUrl ->
+                            profileImageUrl = imageUrl
+                            Timber.i(" WORKER PROFILE: ✅ Profile image uploaded: $imageUrl")
+                            android.widget.Toast.makeText(context, context.getString(R.string.profile_photo_updated), android.widget.Toast.LENGTH_SHORT).show()
+                        },
+                        onFailure = { exception ->
+                            Timber.e(exception, "Failed to upload profile image")
+                            profileImageUri = null // Reset the local preview
+                            // Show user-friendly error message
+                            val errorMessage = when {
+                                exception.message?.contains("quota", ignoreCase = true) == true ||
+                                exception.message?.contains("billing", ignoreCase = true) == true ||
+                                exception.message?.contains("storage", ignoreCase = true) == true ->
+                                    context.getString(R.string.photo_upload_unavailable)
+                                exception.message?.contains("network", ignoreCase = true) == true ->
+                                    context.getString(R.string.network_error_check_connection)
+                                else -> context.getString(R.string.photo_upload_failed)
+                            }
+                            android.widget.Toast.makeText(context, errorMessage, android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error uploading profile image")
+                profileImageUri = null // Reset the local preview
+                android.widget.Toast.makeText(context, context.getString(R.string.photo_upload_failed), android.widget.Toast.LENGTH_SHORT).show()
+            } finally {
+                isUploadingImage = false
+            }
+        }
+    }
+
     val imagePickerLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-            Timber.d(" WORKER PROFILE: Image picker result - uri: $uri")
-            uri?.let { selectedUri ->
-                Timber.d(" WORKER PROFILE: Selected image URI: $selectedUri")
-                profileImageUri = selectedUri
-                isUploadingImage = true
-
-                // Upload image to Firebase Storage and update profile
-                scope.launch {
-                    try {
-                        val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                        Timber.d(" WORKER PROFILE: Current user: ${currentUser?.uid}")
-                        if (currentUser != null) {
-                            // Upload to Firebase Storage
-                            Timber.d(" WORKER PROFILE: Starting upload...")
-                            val uploadResult = profileCompletionViewModel.uploadProfileImage(selectedUri, currentUser.uid, "worker")
-                            uploadResult.fold(
-                                onSuccess = { imageUrl ->
-                                    profileImageUrl = imageUrl
-                                    Timber.i(" WORKER PROFILE: ✅ Profile image uploaded: $imageUrl")
-                                    android.widget.Toast.makeText(context, context.getString(R.string.profile_photo_updated), android.widget.Toast.LENGTH_SHORT).show()
-
-                                },
-                                onFailure = { exception ->
-                                    Timber.e(exception, "Failed to upload profile image")
-                                    profileImageUri = null // Reset the local preview
-                                    // Show user-friendly error message
-                                    val errorMessage = when {
-                                        exception.message?.contains("quota", ignoreCase = true) == true ||
-                                        exception.message?.contains("billing", ignoreCase = true) == true ||
-                                        exception.message?.contains("storage", ignoreCase = true) == true ->
-                                            context.getString(R.string.photo_upload_unavailable)
-                                        exception.message?.contains("network", ignoreCase = true) == true ->
-                                            context.getString(R.string.network_error_check_connection)
-                                        else -> context.getString(R.string.photo_upload_failed)
-                                    }
-                                    android.widget.Toast.makeText(context, errorMessage, android.widget.Toast.LENGTH_LONG).show()
-                                }
-                            )
-                        }
-                    } catch (e: Exception) {
-                        Timber.e(e, "Error uploading profile image")
-                        profileImageUri = null // Reset the local preview
-                        android.widget.Toast.makeText(context, context.getString(R.string.photo_upload_failed), android.widget.Toast.LENGTH_SHORT).show()
-                    } finally {
-                        isUploadingImage = false
-                    }
-                }
-            }
+            uri?.let { handleImageUpload(it) }
         }
 
     // Play Store URL constant
@@ -442,7 +444,7 @@ fun WorkerProfileScreen(
                 }
             }
             val startImagePicker: () -> Unit = {
-                if (isLoggedIn) imagePickerLauncher.launch("image/*")
+                if (isLoggedIn) showPhotoOptionSheet = true
                 else { pendingMenuAction = "profile"; showLoginBottomSheet = true }
             }
             val whatsappSupport: () -> Unit = {
@@ -843,6 +845,12 @@ fun WorkerProfileScreen(
     //         onDismiss = { showThemeBottomSheet = false },
     //     )
     // }
+
+    com.example.dutype.components.ImagePickerBottomSheet(
+        isVisible = showPhotoOptionSheet,
+        onDismiss = { showPhotoOptionSheet = false },
+        onImageSelected = { uri -> handleImageUpload(uri) }
+    )
 
     // Guest Mode - Login Bottom Sheet
     com.example.dutype.components.LoginBottomSheet(

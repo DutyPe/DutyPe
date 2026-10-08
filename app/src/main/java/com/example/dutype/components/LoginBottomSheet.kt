@@ -1,5 +1,6 @@
 package com.example.dutype.components
 
+import com.dutype.app.R
 import com.example.dutype.ui.theme.fg
 import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
@@ -319,8 +320,27 @@ fun LoginBottomSheet(
                 Timber.e(e, "📱 Error in login flow")
                 otpViewModel.resetState()
                 isCheckingProfile = false
-                onLoginSuccess()
             }
+        }
+    }
+
+    LaunchedEffect(otpState.error) {
+        val err = otpState.error
+        if (!err.isNullOrBlank()) {
+            val toastText = if (err.startsWith("phone-already-registered-as:")) {
+                val existingRole = err.substringAfter(":").trim().lowercase()
+                val existingRoleLabel = if (existingRole.contains("employer")) {
+                    context.getString(R.string.employer)
+                } else {
+                    context.getString(R.string.worker)
+                }
+                context.getString(R.string.auth_phone_registered_as_role, existingRoleLabel, existingRoleLabel)
+            } else if (err == "account-not-found") {
+                context.getString(R.string.auth_no_account_found)
+            } else {
+                err
+            }
+            Toast.makeText(context, toastText, Toast.LENGTH_LONG).show()
         }
     }
 

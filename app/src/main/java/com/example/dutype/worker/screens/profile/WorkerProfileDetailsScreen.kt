@@ -92,50 +92,50 @@ fun WorkerProfileDetailsScreen(
     var isReviewsLoading by remember { mutableStateOf(false) }
     val ratingService = remember { com.example.dutype.di.ratingServiceFromHilt(context) }
 
-    // Image picker launcher with toast notification
+    var showPhotoOptionSheet by remember { mutableStateOf(false) }
+
+    val handleImageUpload: (Uri) -> Unit = { selectedUri ->
+        profileImageUri = selectedUri
+        isUploadingImage = true
+
+        scope.launch {
+            try {
+                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                Timber.d("📸 WORKER PROFILE DETAILS: Current user: ${currentUser?.uid}")
+                if (currentUser != null) {
+                    Timber.d("📸 WORKER PROFILE DETAILS: Starting upload...")
+                    val uploadResult = profileCompletionViewModel.uploadProfileImage(selectedUri, currentUser.uid, "worker")
+                    uploadResult.fold(
+                        onSuccess = { imageUrl ->
+                            profileImageUrl = imageUrl
+                            Timber.i("📸 WORKER PROFILE DETAILS: ✅ Profile image uploaded: $imageUrl")
+                            Toast.makeText(context, context.getString(R.string.profile_photo_updated), Toast.LENGTH_SHORT).show()
+                        },
+                        onFailure = { exception ->
+                            Timber.e(exception, "📸 WORKER PROFILE DETAILS: ❌ Failed to upload profile image")
+                            profileImageUri = null
+                            Toast.makeText(context, context.getString(R.string.profile_photo_upload_failed), Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                } else {
+                    Timber.w("📸 WORKER PROFILE DETAILS: No current user - cannot upload")
+                    profileImageUri = null
+                    Toast.makeText(context, context.getString(R.string.profile_login_to_upload), Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "📸 WORKER PROFILE DETAILS: ❌ Error uploading profile image")
+                profileImageUri = null
+                Toast.makeText(context, context.getString(R.string.profile_photo_upload_error), Toast.LENGTH_SHORT).show()
+            } finally {
+                isUploadingImage = false
+            }
+        }
+    }
+
     val imagePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        Timber.d("📸 WORKER PROFILE DETAILS: Image picker result - uri: $uri")
-        uri?.let { selectedUri ->
-            profileImageUri = selectedUri
-            isUploadingImage = true
-
-            scope.launch {
-                try {
-                    val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                    Timber.d("📸 WORKER PROFILE DETAILS: Current user: ${currentUser?.uid}")
-                    if (currentUser != null) {
-                        Timber.d("📸 WORKER PROFILE DETAILS: Starting upload...")
-                        val uploadResult = profileCompletionViewModel.uploadProfileImage(selectedUri, currentUser.uid, "worker")
-                        uploadResult.fold(
-                            onSuccess = { imageUrl ->
-                                profileImageUrl = imageUrl
-                                Timber.i("📸 WORKER PROFILE DETAILS: ✅ Profile image uploaded: $imageUrl")
-
-                                // Show success toast
-                                Toast.makeText(context, context.getString(R.string.profile_photo_updated), Toast.LENGTH_SHORT).show()
-                            },
-                            onFailure = { exception ->
-                                Timber.e(exception, "📸 WORKER PROFILE DETAILS: ❌ Failed to upload profile image")
-                                profileImageUri = null
-                                Toast.makeText(context, context.getString(R.string.profile_photo_upload_failed), Toast.LENGTH_SHORT).show()
-                            }
-                        )
-                    } else {
-                        Timber.w("📸 WORKER PROFILE DETAILS: No current user - cannot upload")
-                        profileImageUri = null
-                        Toast.makeText(context, context.getString(R.string.profile_login_to_upload), Toast.LENGTH_SHORT).show()
-                    }
-                } catch (e: Exception) {
-                    Timber.e(e, "📸 WORKER PROFILE DETAILS: ❌ Error uploading profile image")
-                    profileImageUri = null
-                    Toast.makeText(context, context.getString(R.string.profile_photo_upload_error), Toast.LENGTH_SHORT).show()
-                } finally {
-                    isUploadingImage = false
-                }
-            }
-        }
+        uri?.let { handleImageUpload(it) }
     }
 
     // Load existing profile data
@@ -266,7 +266,7 @@ fun WorkerProfileDetailsScreen(
                             profileImageUri = profileImageUri,
                             isUploadingImage = isUploadingImage,
                             fullName = fullName,
-                            onImageClick = { imagePickerLauncher.launch("image/*") }
+                            onImageClick = { showPhotoOptionSheet = true }
                         )
                     }
                 }
@@ -462,6 +462,12 @@ fun WorkerProfileDetailsScreen(
         receivedTabTitle = stringResource(R.string.employers_rated_you),
         givenTabTitle = stringResource(R.string.you_rated_employers),
         onDismiss = { showReviewsSheet = false }
+    )
+
+    com.example.dutype.components.ImagePickerBottomSheet(
+        isVisible = showPhotoOptionSheet,
+        onDismiss = { showPhotoOptionSheet = false },
+        onImageSelected = { uri -> handleImageUpload(uri) }
     )
 }
 

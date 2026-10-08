@@ -24,9 +24,13 @@ class ApplicationStateManager @Inject constructor() {
     private val _applications = MutableStateFlow<List<JobApplication>>(emptyList())
     val applications: StateFlow<List<JobApplication>> = _applications.asStateFlow()
 
-    // Application status tracking
+    // Application status tracking by jobId
     private val _applicationStatuses = MutableStateFlow<Map<String, ApplicationStatus>>(emptyMap())
     val applicationStatuses: StateFlow<Map<String, ApplicationStatus>> = _applicationStatuses.asStateFlow()
+
+    // Application status tracking by applicationId
+    private val _applicationStatusesById = MutableStateFlow<Map<String, ApplicationStatus>>(emptyMap())
+    val applicationStatusesById: StateFlow<Map<String, ApplicationStatus>> = _applicationStatusesById.asStateFlow()
 
     // Refresh triggers
     private val _refreshTrigger = MutableStateFlow(0)
@@ -107,6 +111,27 @@ class ApplicationStateManager @Inject constructor() {
         _applications.update { applications ->
             applications.map { app ->
                 if (app.jobId == jobId) {
+                    _applicationStatusesById.update { it + (app.id to status) }
+                    app.copy(status = status)
+                } else {
+                    app
+                }
+            }
+        }
+
+        triggerRefresh()
+    }
+
+    /**
+     * Update application status directly by application ID
+     */
+    fun updateApplicationStatusById(applicationId: String, status: ApplicationStatus) {
+        _applicationStatusesById.update { it + (applicationId to status) }
+
+        _applications.update { applications ->
+            applications.map { app ->
+                if (app.id == applicationId) {
+                    _applicationStatuses.update { it + (app.jobId to status) }
                     app.copy(status = status)
                 } else {
                     app
@@ -124,6 +149,7 @@ class ApplicationStateManager @Inject constructor() {
         _appliedJobIds.value = emptySet()
         _applications.value = emptyList()
         _applicationStatuses.value = emptyMap()
+        _applicationStatusesById.value = emptyMap()
         triggerRefresh()
     }
 

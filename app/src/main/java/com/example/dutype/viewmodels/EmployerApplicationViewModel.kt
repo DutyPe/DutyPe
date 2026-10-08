@@ -63,7 +63,8 @@ class EmployerApplicationViewModel @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val functions: FirebaseFunctions,
     private val auth: FirebaseAuth,
-    val profileStore: CurrentProfileStore
+    val profileStore: CurrentProfileStore,
+    private val applicationStateManager: com.example.dutype.state.ApplicationStateManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EmployerApplicationUiState())
@@ -80,6 +81,20 @@ class EmployerApplicationViewModel @Inject constructor(
 
     init {
         loadUnlocks()
+        viewModelScope.launch {
+            applicationStateManager.applicationStatusesById.collect { statusMap ->
+                if (statusMap.isNotEmpty()) {
+                    _uiState.update { current ->
+                        val updated = current.allApplications.map { app ->
+                            val overrideStatus = statusMap[app.id]
+                            if (overrideStatus != null && overrideStatus != app.status) app.copy(status = overrideStatus) else app
+                        }
+                        current.copy(allApplications = updated)
+                    }
+                    applyFilters()
+                }
+            }
+        }
     }
 
     /** Every applicant across the employer's jobs (live). */
@@ -129,11 +144,29 @@ class EmployerApplicationViewModel @Inject constructor(
     }
 
     suspend fun updateApplicationStatusForResult(applicationId: String, newStatus: ApplicationStatus): Result<Unit> {
-        _uiState.update { it.copy(isUpdating = true) }
-        val result = repository.setStatus(applicationId, newStatus)
-        _uiState.update {
-            it.copy(isUpdating = false, hasError = result.isFailure, error = result.exceptionOrNull()?.message)
+        // Instant global state sync across all active screens & viewmodels
+        applicationStateManager.updateApplicationStatusById(applicationId, newStatus)
+        _uiState.update { current ->
+            val updated = current.allApplications.map { app ->
+                if (app.id == applicationId) app.copy(status = newStatus) else app
+            }
+            current.copy(isUpdating = true, allApplications = updated)
         }
+        applyFilters()
+
+        val result = repository.setStatus(applicationId, newStatus)
+        _uiState.update { current ->
+            val updated = current.allApplications.map { app ->
+                if (app.id == applicationId) app.copy(status = newStatus) else app
+            }
+            current.copy(
+                isUpdating = false,
+                allApplications = updated,
+                hasError = result.isFailure,
+                error = result.exceptionOrNull()?.message
+            )
+        }
+        applyFilters()
         return result
     }
 

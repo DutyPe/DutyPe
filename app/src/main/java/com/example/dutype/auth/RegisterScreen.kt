@@ -239,6 +239,26 @@ private fun RegisterContent(
         }
     }
 
+    LaunchedEffect(otpState.error) {
+        val err = otpState.error
+        if (!err.isNullOrBlank()) {
+            val toastText = if (err.startsWith("phone-already-registered-as:")) {
+                val existingRole = err.substringAfter(":").trim().lowercase()
+                val existingRoleLabel = if (existingRole.contains("employer")) {
+                    context.getString(R.string.employer)
+                } else {
+                    context.getString(R.string.worker)
+                }
+                context.getString(R.string.auth_phone_registered_as_role, existingRoleLabel, existingRoleLabel)
+            } else if (err == "account-not-found") {
+                context.getString(R.string.auth_no_account_found)
+            } else {
+                err
+            }
+            Toast.makeText(context, toastText, Toast.LENGTH_LONG).show()
+        }
+    }
+
     if (otpState.otpSent) {
         // ── Enterprise SMS Auto-Retrieval ────────────────────────────────────
         DisposableEffect(Unit) {

@@ -113,10 +113,6 @@ fun EmployerApplicationManagementScreen(
     var pendingCloseJobId by remember { mutableStateOf<String?>(null) }
     var isClosingJob by remember { mutableStateOf(false) }
 
-    // Stop-calls hiring dialog
-    var showStopCallsHiringDialog by remember { mutableStateOf(false) }
-    var pendingHiringApplication by remember { mutableStateOf<JobApplication?>(null) }
-
     val toggleJobCalls: (String, Boolean) -> Unit = { targetJobId, pauseCalls ->
         val done: (Boolean, String?) -> Unit = { ok, error ->
             if (ok) {
@@ -291,73 +287,6 @@ fun EmployerApplicationManagementScreen(
                     }
                 ) {
                     Text(stringResource(R.string.cancel))
-                }
-            }
-        )
-    }
-
-    if (showStopCallsHiringDialog && pendingHiringApplication != null) {
-        val app = pendingHiringApplication!!
-        AlertDialog(
-            onDismissRequest = {
-                showStopCallsHiringDialog = false
-                pendingHiringApplication = null
-            },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("🎉", fontSize = 20.sp)
-                    Text(stringResource(R.string.confirm_hiring), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        text = stringResource(
-                            R.string.hiring_worker_for_job_prompt,
-                            app.workerName.ifBlank { stringResource(R.string.this_worker) },
-                            app.jobTitle.ifBlank { stringResource(R.string.dutype_job) }
-                        ),
-                        fontSize = 14.sp,
-                        color = Color(0xFF1E293B).fg()
-                    )
-                    Text(
-                        text = stringResource(R.string.stop_calls_prompt),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = Color(0xFFDC2626).fg()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val targetJobId = jobId ?: app.jobId
-                        viewModel.updateApplicationStatus(app.id, ApplicationStatus.HIRED, "Hired from passbook (calls stopped)")
-                        if (targetJobId.isNotBlank()) {
-                            toggleJobCalls(targetJobId, true)
-                        }
-                        showStopCallsHiringDialog = false
-                        pendingHiringApplication = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626).bg()),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Icon(Icons.Default.CallEnd, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.stop_calls_job_filled), fontWeight = FontWeight.Bold, color = Color.White)
-                }
-            },
-            dismissButton = {
-                OutlinedButton(
-                    onClick = {
-                        viewModel.updateApplicationStatus(app.id, ApplicationStatus.HIRED, "Hired from passbook (keep open)")
-                        Toast.makeText(context, context.getString(R.string.candidate_hired_keep_open), Toast.LENGTH_SHORT).show()
-                        showStopCallsHiringDialog = false
-                        pendingHiringApplication = null
-                    },
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text(stringResource(R.string.keep_open_need_more))
                 }
             }
         )
@@ -557,8 +486,8 @@ fun EmployerApplicationManagementScreen(
                                 },
                                 onHire = { appId ->
                                     uiState.allApplications.firstOrNull { it.id == appId }?.let { app ->
-                                        pendingHiringApplication = app
-                                        showStopCallsHiringDialog = true
+                                        viewModel.updateApplicationStatus(app.id, ApplicationStatus.HIRED, "Hired from AI top picks")
+                                        context.findActivity()?.let { act -> reviewTriggerService.onEmployerHiredWorker(act) }
                                     }
                                 },
                                 modifier = Modifier.padding(horizontal = 20.dp)
@@ -605,8 +534,8 @@ fun EmployerApplicationManagementScreen(
                     }
                 },
                 onHirePrompt = { app ->
-                    pendingHiringApplication = app
-                    showStopCallsHiringDialog = true
+                    viewModel.updateApplicationStatus(app.id, ApplicationStatus.HIRED, "Hired directly")
+                    context.findActivity()?.let { act -> reviewTriggerService.onEmployerHiredWorker(act) }
                 },
                 onRate = { application ->
                     scope.launch {
@@ -2061,11 +1990,13 @@ private fun HiringApplicantCard(
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             HiringActionChip(
-                label = "Accept",
+                label = if (isShortlisted) stringResource(R.string.status_hired) else stringResource(R.string.accept),
                 active = isShortlisted,
                 activeColor = HrGreen.fg(),
                 onClick = {
-                    if (status == ApplicationStatus.APPLIED) onHirePrompt(application)
+                    if (status == ApplicationStatus.APPLIED) {
+                        onStatusUpdate(ApplicationStatus.HIRED, "Hired directly")
+                    }
                 },
                 modifier = Modifier.weight(1f)
             )

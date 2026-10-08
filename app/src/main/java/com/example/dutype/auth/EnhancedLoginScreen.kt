@@ -286,6 +286,26 @@ private fun OtpLoginScreen(
         }
     }
 
+    LaunchedEffect(otpState.error) {
+        val err = otpState.error
+        if (!err.isNullOrBlank()) {
+            val toastText = if (err.startsWith("phone-already-registered-as:")) {
+                val existingRole = err.substringAfter(":").trim().lowercase()
+                val existingRoleLabel = if (existingRole.contains("employer")) {
+                    context.getString(R.string.employer)
+                } else {
+                    context.getString(R.string.worker)
+                }
+                context.getString(R.string.auth_phone_registered_as_role, existingRoleLabel, existingRoleLabel)
+            } else if (err == "account-not-found") {
+                context.getString(R.string.auth_no_account_found)
+            } else {
+                err
+            }
+            Toast.makeText(context, toastText, Toast.LENGTH_LONG).show()
+        }
+    }
+
     if (otpState.otpSent) {
         // Ensure SMS Retriever is active on OTP screen
         LaunchedEffect(Unit) {
@@ -787,6 +807,29 @@ private fun OtpLoginScreen(
                             }
                         }
 
+                        otpState.error?.takeIf { !otpState.otpSent }?.let { err ->
+                            Spacer(modifier = Modifier.height(10.dp))
+                            val errorText = if (err.startsWith("phone-already-registered-as:")) {
+                                val existingRole = err.substringAfter(":").trim().lowercase()
+                                val existingRoleLabel = if (existingRole.contains("employer")) context.getString(R.string.employer) else context.getString(R.string.worker)
+                                context.getString(R.string.auth_phone_registered_as_role, existingRoleLabel, existingRoleLabel)
+                            } else if (err == "account-not-found") {
+                                context.getString(R.string.auth_no_account_found)
+                            } else {
+                                err
+                            }
+                            Text(
+                                text = errorText,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFFDC2626).fg(),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
                         /*
                         // Truecaller temporarily disabled for 1-2 days pending Play Store verification
                         Spacer(modifier = Modifier.height(20.dp))
@@ -1084,11 +1127,17 @@ private fun OtpInputSection(
             digitCount = 6
         )
 
-        // Wrong / expired code etc. (this screen showed no OTP errors before WhatsApp codes).
-        otpState.error?.takeIf { !it.startsWith("phone-already-registered-as:") }?.let { error ->
+        otpState.error?.let { rawError ->
             Spacer(modifier = Modifier.height(12.dp))
+            val displayText = if (rawError.startsWith("phone-already-registered-as:")) {
+                val existingRole = rawError.substringAfter(":").trim().lowercase()
+                val existingRoleLabel = if (existingRole.contains("employer")) context.getString(R.string.employer) else context.getString(R.string.worker)
+                context.getString(R.string.auth_phone_registered_as_role, existingRoleLabel, existingRoleLabel)
+            } else {
+                rawError
+            }
             Text(
-                text = error,
+                text = displayText,
                 style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFDC2626).fg(), fontSize = 13.sp),
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center

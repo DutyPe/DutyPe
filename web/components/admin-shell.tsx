@@ -40,6 +40,7 @@ import {
   Search,
   ShieldCheck,
   BookOpen,
+  TrendingUp,
   LucideIcon
 } from "lucide-react";
 
@@ -106,7 +107,8 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
   {
     label: "Payments & Revenue",
     links: [
-      { href: "/admin/payments", label: "Subscription Payments", icon: CreditCard, summary: "Verify employer UTRs, manage active QR codes & extend jobs." }
+      { href: "/admin/payments", label: "Subscription Payments", icon: CreditCard, summary: "Verify employer UTRs, manage active QR codes & extend jobs." },
+      { href: "/admin/expenses", label: "Marketing Expenses & ROI", icon: TrendingUp, summary: "Track spend on posters, ads, influencers vs revenue & user growth." }
     ]
   },
   {
