@@ -9,7 +9,12 @@ import com.example.dutype.MainActivity
 import com.dutype.app.R
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -183,6 +188,17 @@ private fun HeadlineBlock() {
 
 @Composable
 private fun ContinueButton(onClick: () -> Unit) {
+    val infiniteTransition = androidx.compose.animation.core.rememberInfiniteTransition(label = "continue_arrow_pulse")
+    val arrowOffset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            animation = androidx.compose.animation.core.tween(600, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+        ),
+        label = "continue_arrow_offset"
+    )
+
     Button(
         onClick = onClick,
         modifier = Modifier
@@ -214,7 +230,9 @@ private fun ContinueButton(onClick: () -> Unit) {
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
                 tint = Color.White,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier
+                    .offset(x = arrowOffset.dp)
+                    .size(20.dp)
             )
         }
     }

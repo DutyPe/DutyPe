@@ -31,9 +31,15 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -154,6 +160,24 @@ fun EmployerApplicationManagementScreen(
                 currentJob = job
                 isJobClosedOverride = job != null && !job.isOpen()
             }
+        }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, jobId) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                if (jobId != null) {
+                    viewModel.loadJobApplications(jobId)
+                    viewModel.loadMatchedWorkers(jobId, force = true)
+                } else {
+                    viewModel.loadEmployerApplications()
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -340,117 +364,121 @@ fun EmployerApplicationManagementScreen(
         )
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(HrBackground.bg())
-    ) {
-        HiringRoomHeader(
-            title = if (jobId != null) stringResource(R.string.hiring_room) else stringResource(R.string.all_applications),
+    if (jobId != null) {
+        HiringRoomReplicatedLayout(
+            jobId = jobId,
+            jobTitle = jobTitleForActions,
             subtitle = headerStrip,
-            onBackClick = onBackClick
-        )
-
-        if (jobId != null) {
-            extras()
-
-            TabRow(
-                selectedTabIndex = selectedTabIndex,
-                containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground,
-                contentColor = EmployerColors.TextPrimary
-            ) {
-                Tab(
-                    selected = selectedTabIndex == 0,
-                    onClick = {
-                        selectedTabIndex = 0
-                        viewModel.loadMatchedWorkers(jobId, force = true)
-                    },
-                    text = { Text(stringResource(R.string.hiring_room_best_matches)) },
-                    icon = { Icon(Icons.Default.Verified, contentDescription = null) }
-                )
-                Tab(
-                    selected = selectedTabIndex == 1,
-                    onClick = { selectedTabIndex = 1 },
-                    text = { Text(stringResource(R.string.hiring_room_applied_workers)) },
-                    icon = { Icon(Icons.Default.Work, contentDescription = null) }
-                )
-            }
-        }
-
-        if (jobId != null && selectedTabIndex == 0) {
-            MatchedWorkersContent(
-                state = matchedWorkersState,
-                isJobLive = isJobLive,
-                onRefresh = { viewModel.loadMatchedWorkers(jobId, force = true) },
-                isContactUnlocked = { workerId -> viewModel.isContactUnlocked(workerId) },
-                onUnlockContact = { worker ->
+            isJobLive = isJobLive,
+            isJobFilled = isJobFilled,
+            applicantsCount = applicantCountForSummary,
+            nearbyCount = matchedWorkersState.workers.size,
+            callReadyCount = callReadyCandidates,
+            selectedTabIndex = selectedTabIndex,
+            onTabSelected = { newTab ->
+                selectedTabIndex = newTab
+                if (newTab == 0) {
+                    viewModel.loadMatchedWorkers(jobId, force = true)
+                } else {
+                    viewModel.loadJobApplications(jobId)
+                }
+            },
+            onBackClick = onBackClick,
+            onToggleCalls = { pause -> toggleJobCalls(jobId, pause) },
+            matchedWorkers = matchedWorkersState.workers,
+            isMatchedLoading = matchedWorkersState.isLoading,
+            matchedError = matchedWorkersState.error,
+            onRefreshMatched = { viewModel.loadMatchedWorkers(jobId, force = true) },
+            onCallMatchedWorker = { worker ->
+                val phone = worker.phone
+                if (phone.isNotBlank()) {
+                    dialWorkerPhone(context, phone)
+                } else {
+                    Toast.makeText(context, context.getString(R.string.fetching_phone_number), Toast.LENGTH_SHORT).show()
                     viewModel.fetchPhoneNumberForWorker(
                         jobId = jobId,
                         workerId = worker.workerId,
-                        onSuccess = { },
-                        onFailure = {
-                            Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show()
-                        }
+                        onSuccess = { p -> if (p.isNotBlank()) dialWorkerPhone(context, p) },
+                        onFailure = { Toast.makeText(context, context.getString(R.string.failed_fetch_phone_number), Toast.LENGTH_SHORT).show() }
                     )
-                },
-                onCallWorker = { worker ->
-                    val phone = worker.phone
-                    if (phone.isNotBlank()) {
-                        dialWorkerPhone(context, phone)
-                    } else {
-                        Toast.makeText(context, context.getString(R.string.fetching_phone_number), Toast.LENGTH_SHORT).show()
-                        viewModel.fetchPhoneNumberForWorker(
-                            jobId = jobId,
-                            workerId = worker.workerId,
-                            onSuccess = { fetchedPhone ->
-                                if (fetchedPhone.isNotBlank()) {
-                                    dialWorkerPhone(context, fetchedPhone)
-                                } else {
-                                    Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            onFailure = {
-                                Toast.makeText(context, context.getString(R.string.failed_fetch_phone_number), Toast.LENGTH_SHORT).show()
-                            }
-                        )
-                    }
-                },
-                onChatWorker = { worker ->
-                    val phone = worker.phone
-                    val jobTitleMsg = jobTitleForActions.ifBlank { "DutyPe" }
-                    if (phone.isNotBlank()) {
-                        openWorkerWhatsApp(context, phone, "Hello ${worker.fullName}, I have a job opening on DutyPe: $jobTitleMsg.")
-                    } else {
-                        viewModel.fetchPhoneNumberForWorker(
-                            jobId = jobId,
-                            workerId = worker.workerId,
-                            onSuccess = { fetchedPhone ->
-                                if (fetchedPhone.isNotBlank()) {
-                                    openWorkerWhatsApp(context, fetchedPhone, "Hello ${worker.fullName}, I have a job opening on DutyPe: $jobTitleMsg.")
-                                } else {
-                                    Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            onFailure = {
-                                Toast.makeText(context, context.getString(R.string.failed_fetch_phone_number), Toast.LENGTH_SHORT).show()
-                            }
-                        )
-                    }
-                },
-                leadingContent = null,
-                modifier = Modifier.weight(1f)
+                }
+            },
+            onWhatsAppMatchedWorker = { worker ->
+                val phone = worker.phone
+                val jobTitleMsg = jobTitleForActions.ifBlank { "DutyPe" }
+                if (phone.isNotBlank()) {
+                    openWorkerWhatsApp(context, phone, "Hello ${worker.fullName}, I have a job opening on DutyPe: $jobTitleMsg.")
+                } else {
+                    viewModel.fetchPhoneNumberForWorker(
+                        jobId = jobId,
+                        workerId = worker.workerId,
+                        onSuccess = { p -> if (p.isNotBlank()) openWorkerWhatsApp(context, p, "Hello ${worker.fullName}, I have a job opening on DutyPe: $jobTitleMsg.") },
+                        onFailure = { Toast.makeText(context, context.getString(R.string.failed_fetch_phone_number), Toast.LENGTH_SHORT).show() }
+                    )
+                }
+            },
+            applications = uiState.applications,
+            isApplicationsLoading = uiState.isLoading,
+            applicationsError = uiState.error,
+            onRefreshApplications = { viewModel.loadJobApplications(jobId) },
+            onApplicationClick = onApplicationClick,
+            onCallApplicant = { application ->
+                val phone = application.workerPhone.trim()
+                if (phone.isNotBlank()) {
+                    dialWorkerPhone(context, phone)
+                } else {
+                    viewModel.unlockContact(
+                        application = application,
+                        onSuccess = { p -> if (p.isNotBlank()) dialWorkerPhone(context, p) },
+                        onFailure = { Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show() }
+                    )
+                }
+            },
+            onWhatsAppApplicant = { application ->
+                val phone = application.workerPhone.trim()
+                val displayName = application.workerName.ifBlank { "there" }
+                val defaultWaMsg = context.getString(R.string.whatsapp_msg_application, displayName)
+                if (phone.isNotBlank()) {
+                    openWorkerWhatsApp(context, phone, defaultWaMsg)
+                } else {
+                    viewModel.unlockContact(
+                        application = application,
+                        onSuccess = { p -> if (p.isNotBlank()) openWorkerWhatsApp(context, p, defaultWaMsg) },
+                        onFailure = { Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show() }
+                    )
+                }
+            },
+            onAcceptApplicant = { application ->
+                viewModel.updateApplicationStatus(application.id, ApplicationStatus.HIRED, "Hired directly")
+                context.findActivity()?.let { act -> reviewTriggerService.onEmployerHiredWorker(act) }
+                Toast.makeText(context, context.getString(R.string.status_hired), Toast.LENGTH_SHORT).show()
+            },
+            onRejectApplicant = { application ->
+                viewModel.updateApplicationStatus(application.id, ApplicationStatus.REJECTED, "Not suitable")
+                Toast.makeText(context, context.getString(R.string.action_reject), Toast.LENGTH_SHORT).show()
+            },
+            onRateApplicant = { application ->
+                pendingRatingApplication = application
+                showRatingSheet = true
+            },
+            ratedApplicationIds = ratedApplicationIds
+        )
+    } else {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(HrBackground.bg())
+        ) {
+            HiringRoomHeader(
+                title = stringResource(R.string.all_applications),
+                subtitle = headerStrip,
+                onBackClick = onBackClick
             )
-        } else {
+
             val rankedApplications = remember(uiState.applications) {
                 uiState.applications.sortedApplicationsForConnectNow()
             }
-            val visibleApplications = remember(rankedApplications, isJobLive, jobId) {
-                if (jobId != null && !isJobLive) {
-                    rankedApplications.filter { it.status in filledApplicationStatuses }
-                } else {
-                    rankedApplications
-                }
-            }
+            val visibleApplications = rankedApplications
 
             HiringApplicantsSection(
                 modifier = Modifier.weight(1f),
@@ -459,42 +487,12 @@ fun EmployerApplicationManagementScreen(
                 onRetry = { viewModel.retry() },
                 allApplications = uiState.applications,
                 visibleApplications = visibleApplications,
-                isJobSpecific = jobId != null,
+                isJobSpecific = false,
                 callReadyCandidates = callReadyCandidates,
                 isJobLive = isJobLive,
                 ratedApplicationIds = ratedApplicationIds,
                 employerShopAddress = currentJob?.addressText.orEmpty(),
-                leadingContent = if (jobId != null) {
-                    {
-                        val openApplicants = uiState.allApplications.filter { it.status == ApplicationStatus.APPLIED }
-                        if (isJobLive && openApplicants.size >= 2) {
-                            com.example.dutype.employer.ai.AiTopPicksCard(
-                                jobId = jobId,
-                                applicantIds = openApplicants.map { it.id },
-                                onCall = { appId ->
-                                    uiState.allApplications.firstOrNull { it.id == appId }?.let { app ->
-                                        viewModel.unlockContact(
-                                            application = app,
-                                            onSuccess = { phone ->
-                                                if (phone.isNotBlank()) context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
-                                            },
-                                            onFailure = {
-                                                Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show()
-                                            }
-                                        )
-                                    }
-                                },
-                                onHire = { appId ->
-                                    uiState.allApplications.firstOrNull { it.id == appId }?.let { app ->
-                                        viewModel.updateApplicationStatus(app.id, ApplicationStatus.HIRED, "Hired from AI top picks")
-                                        context.findActivity()?.let { act -> reviewTriggerService.onEmployerHiredWorker(act) }
-                                    }
-                                },
-                                modifier = Modifier.padding(horizontal = 20.dp)
-                            )
-                        }
-                    }
-                } else null,
+                leadingContent = null,
                 onCloseJob = { showCloseJobDialog = true },
                 onOpen = { application ->
                     onApplicationClick(application)
@@ -522,15 +520,6 @@ fun EmployerApplicationManagementScreen(
                     )
                     if (newStatus == ApplicationStatus.HIRED) {
                         context.findActivity()?.let { act -> reviewTriggerService.onEmployerHiredWorker(act) }
-                        val targetJobId = jobId ?: application.jobId
-                        if (targetJobId.isNotBlank()) {
-                            viewModel.canHireMoreApplicants(currentJob?.vacancies ?: 1) { canAccept, remaining ->
-                                if (!canAccept || remaining <= 0) {
-                                    pendingCloseJobId = targetJobId
-                                    showCloseJobDialog = true
-                                }
-                            }
-                        }
                     }
                 },
                 onHirePrompt = { app ->
@@ -568,6 +557,1146 @@ fun EmployerApplicationManagementScreen(
                     }
                 }
             )
+        }
+    }
+}
+
+@Composable
+private fun HiringRoomReplicatedLayout(
+    jobId: String,
+    jobTitle: String,
+    subtitle: String,
+    isJobLive: Boolean,
+    isJobFilled: Boolean,
+    applicantsCount: Int,
+    nearbyCount: Int,
+    callReadyCount: Int,
+    selectedTabIndex: Int,
+    onTabSelected: (Int) -> Unit,
+    onBackClick: () -> Unit,
+    onToggleCalls: (Boolean) -> Unit,
+    matchedWorkers: List<MatchedWorker>,
+    isMatchedLoading: Boolean,
+    matchedError: String?,
+    onRefreshMatched: () -> Unit,
+    onCallMatchedWorker: (MatchedWorker) -> Unit,
+    onWhatsAppMatchedWorker: (MatchedWorker) -> Unit,
+    applications: List<JobApplication>,
+    isApplicationsLoading: Boolean,
+    applicationsError: String?,
+    onRefreshApplications: () -> Unit,
+    onApplicationClick: (JobApplication) -> Unit,
+    onCallApplicant: (JobApplication) -> Unit,
+    onWhatsAppApplicant: (JobApplication) -> Unit,
+    onAcceptApplicant: (JobApplication) -> Unit,
+    onRejectApplicant: (JobApplication) -> Unit,
+    onRateApplicant: (JobApplication) -> Unit,
+    ratedApplicationIds: Set<String>
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8F9FA))
+    ) {
+        // 1. YELLOW HERO WITH TITLE RIGHT OF BACK ARROW, LIVE PILL & 4 METRIC CHIPS
+        HiringRoomYellowHero(
+            jobTitle = jobTitle,
+            subtitle = subtitle,
+            isJobLive = isJobLive,
+            applicantsCount = applicantsCount,
+            nearbyCount = nearbyCount,
+            callReadyCount = callReadyCount,
+            onBackClick = onBackClick
+        )
+
+        // 2. SCROLLABLE CONTENT BODY
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .weight(1f),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Card 1: Accepting worker calls toggle
+            item(key = "accepting_calls_card") {
+                AcceptingCallsCard(
+                    isAcceptingCalls = !isJobFilled,
+                    onToggleCalls = onToggleCalls
+                )
+            }
+
+            // Card 2: Mark job as filled outlined button
+            item(key = "mark_job_filled_btn") {
+                MarkJobFilledButton(
+                    isJobFilled = isJobFilled,
+                    onToggleCalls = onToggleCalls
+                )
+            }
+
+            // Card 3: Pill Segmented Tabs (Best matches vs Applied)
+            item(key = "pill_segmented_tabs") {
+                HiringRoomPillTabs(
+                    selectedTabIndex = selectedTabIndex,
+                    bestMatchesCount = nearbyCount,
+                    appliedCount = applicantsCount,
+                    onTabSelected = onTabSelected
+                )
+            }
+
+            // Section Heading
+            item(key = "section_heading") {
+                Column(modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)) {
+                    Text(
+                        text = if (selectedTabIndex == 0) "Best workers for this job" else "Applied workers",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E293B)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (selectedTabIndex == 0) {
+                            "Nearest first, then availability and profile strength."
+                        } else {
+                            "Review workers who applied directly to this job."
+                        },
+                        fontSize = 13.sp,
+                        color = Color(0xFF64748B)
+                    )
+                }
+            }
+
+            // Candidate Cards
+            if (selectedTabIndex == 0) {
+                when {
+                    isMatchedLoading -> {
+                        item(key = "matches_loading") {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(160.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = Color(0xFFFBBF24))
+                            }
+                        }
+                    }
+                    matchedWorkers.isEmpty() -> {
+                        item(key = "matches_empty") {
+                            EmptyMatchesCard(onRefresh = onRefreshMatched)
+                        }
+                    }
+                    else -> {
+                        itemsIndexed(matchedWorkers, key = { index, w -> "${w.workerId}_$index" }) { _, worker ->
+                            MatchedWorkerCardMockup(
+                                worker = worker,
+                                defaultJobTitle = jobTitle,
+                                onCall = { onCallMatchedWorker(worker) },
+                                onWhatsApp = { onWhatsAppMatchedWorker(worker) }
+                            )
+                        }
+                    }
+                }
+            } else {
+                when {
+                    isApplicationsLoading -> {
+                        item(key = "applicants_loading") {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(160.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = Color(0xFFFBBF24))
+                            }
+                        }
+                    }
+                    applications.isEmpty() -> {
+                        item(key = "applicants_empty") {
+                            EmptyAppliedCard(onRefresh = onRefreshApplications)
+                        }
+                    }
+                    else -> {
+                        itemsIndexed(applications, key = { index, a -> "${a.id}_$index" }) { _, app ->
+                            AppliedCandidateCardMockup(
+                                application = app,
+                                defaultJobTitle = jobTitle,
+                                hasAlreadyRated = app.id in ratedApplicationIds,
+                                onClick = { onApplicationClick(app) },
+                                onCall = { onCallApplicant(app) },
+                                onWhatsApp = { onWhatsAppApplicant(app) },
+                                onAccept = { onAcceptApplicant(app) },
+                                onReject = { onRejectApplicant(app) },
+                                onRate = { onRateApplicant(app) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HiringRoomYellowHero(
+    jobTitle: String,
+    subtitle: String,
+    isJobLive: Boolean,
+    applicantsCount: Int,
+    nearbyCount: Int,
+    callReadyCount: Int,
+    onBackClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFFBBF24),
+        shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(top = 4.dp, bottom = 18.dp)
+        ) {
+            // Top Bar Row: Back Arrow + Title/Subtitle (right of back arrow) + Live pill badge
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBackClick) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.back),
+                        tint = Color(0xFF1E293B),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(2.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.hiring_room),
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E293B)
+                    )
+                    Text(
+                        text = subtitle,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF475569),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White,
+                    shadowElevation = 0.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(if (isJobLive) Color(0xFF10B981) else Color(0xFF94A3B8), CircleShape)
+                        )
+                        Text(
+                            text = if (isJobLive) "Live" else "Closed",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 4 Metric Chips Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                HiringMetricChip(
+                    value = applicantsCount.toString(),
+                    label = "Applicants",
+                    modifier = Modifier.weight(1f)
+                )
+                HiringMetricChip(
+                    value = nearbyCount.toString(),
+                    label = "Nearby",
+                    modifier = Modifier.weight(1f)
+                )
+                HiringMetricChip(
+                    value = callReadyCount.toString(),
+                    label = "Call-ready",
+                    modifier = Modifier.weight(1f)
+                )
+                HiringMetricChip(
+                    value = if (isJobLive) "Open" else "Closed",
+                    label = "Status",
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HiringMetricChip(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = Color(0xFFFEF3C7)
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = value,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1E293B),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF64748B),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun AcceptingCallsCard(
+    isAcceptingCalls: Boolean,
+    onToggleCalls: (Boolean) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = Color(0xFFFFFDF5),
+        border = BorderStroke(1.dp, Color(0xFFFDE68A))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFEF3C7)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Call,
+                    contentDescription = null,
+                    tint = Color(0xFFD97706),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Accepting worker calls",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1E293B)
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Workers can see your number and call",
+                    fontSize = 12.sp,
+                    color = Color(0xFF64748B)
+                )
+            }
+            Switch(
+                checked = isAcceptingCalls,
+                onCheckedChange = { isChecked ->
+                    onToggleCalls(!isChecked)
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = Color.White,
+                    checkedTrackColor = Color(0xFFF59E0B),
+                    uncheckedThumbColor = Color.White,
+                    uncheckedTrackColor = Color(0xFFCBD5E1),
+                    checkedBorderColor = Color.Transparent,
+                    uncheckedBorderColor = Color.Transparent
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun MarkJobFilledButton(
+    isJobFilled: Boolean,
+    onToggleCalls: (Boolean) -> Unit
+) {
+    OutlinedButton(
+        onClick = { onToggleCalls(!isJobFilled) },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(50.dp),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.5.dp, Color(0xFF1E293B)),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = Color(0xFF1E293B),
+            containerColor = Color.White
+        )
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.CheckCircle,
+                contentDescription = null,
+                tint = Color(0xFF1E293B),
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (isJobFilled) "Reopen job for calls" else "Mark job as filled",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1E293B)
+            )
+        }
+    }
+}
+
+@Composable
+private fun HiringRoomPillTabs(
+    selectedTabIndex: Int,
+    bestMatchesCount: Int,
+    appliedCount: Int,
+    onTabSelected: (Int) -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = Color(0xFFFEF3C7)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clickable { onTabSelected(0) },
+                shape = RoundedCornerShape(20.dp),
+                color = if (selectedTabIndex == 0) Color(0xFFFBBF24) else Color.Transparent
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "Best matches ($bestMatchesCount)",
+                        fontSize = 14.sp,
+                        fontWeight = if (selectedTabIndex == 0) FontWeight.Bold else FontWeight.SemiBold,
+                        color = if (selectedTabIndex == 0) Color(0xFF1E293B) else Color(0xFF78350F)
+                    )
+                }
+            }
+
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clickable { onTabSelected(1) },
+                shape = RoundedCornerShape(20.dp),
+                color = if (selectedTabIndex == 1) Color(0xFFFBBF24) else Color.Transparent
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "Applied ($appliedCount)",
+                        fontSize = 14.sp,
+                        fontWeight = if (selectedTabIndex == 1) FontWeight.Bold else FontWeight.SemiBold,
+                        color = if (selectedTabIndex == 1) Color(0xFF1E293B) else Color(0xFF78350F)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MatchedWorkerCardMockup(
+    worker: MatchedWorker,
+    defaultJobTitle: String,
+    onCall: () -> Unit,
+    onWhatsApp: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Top row: Avatar + Name & Available now + TOP MATCH badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFEF3C7)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (worker.profileImageUrl.isNotBlank()) {
+                        com.example.dutype.components.OptimizedProfileImage(
+                            imageUrl = worker.profileImageUrl,
+                            contentDescription = worker.fullName,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Text(
+                            text = worker.fullName.firstOrNull()?.uppercase() ?: "W",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF92400E)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = worker.fullName.ifBlank { "Worker" },
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E293B),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(if (worker.isAvailable) Color(0xFF10B981) else Color(0xFF94A3B8), CircleShape)
+                        )
+                        Text(
+                            text = if (worker.isAvailable) "Available now" else "Active today",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+                }
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFFEF3C7)
+                ) {
+                    Text(
+                        text = "TOP MATCH",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFB45309),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            // 3-Column stats row: Distance | Jobs Done | Rating
+            MockupWorkerMetricsRow(
+                distanceText = formatWorkerDistanceShort(worker.distanceKm),
+                jobsDoneText = worker.completedJobs.toString(),
+                ratingText = formatWorkerRatingValue(worker.rating),
+                ratingCountText = formatWorkerRatingCount(worker.ratingCount)
+            )
+
+            // Skill pill
+            val primarySkill = worker.skills.firstOrNull()?.replaceFirstChar { it.titlecase(Locale.ROOT) }
+                ?: defaultJobTitle
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFFF1F5F9)
+            ) {
+                Text(
+                    text = primarySkill,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF334155),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+
+            // Dual Action Buttons: Yellow [Call] and Cream [WhatsApp]
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = onCall,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFBBF24),
+                        contentColor = Color(0xFF1E293B)
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Call,
+                            contentDescription = null,
+                            tint = Color(0xFF1E293B),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Call",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = onWhatsApp,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFEF3C7),
+                        contentColor = Color(0xFF78350F)
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.ChatBubbleOutline,
+                            contentDescription = null,
+                            tint = Color(0xFF78350F),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "WhatsApp",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF78350F)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppliedCandidateCardMockup(
+    application: JobApplication,
+    defaultJobTitle: String,
+    hasAlreadyRated: Boolean,
+    onClick: () -> Unit,
+    onCall: () -> Unit,
+    onWhatsApp: () -> Unit,
+    onAccept: () -> Unit,
+    onReject: () -> Unit,
+    onRate: () -> Unit
+) {
+    val status = application.status
+    val isHired = status == ApplicationStatus.HIRED
+    val isCompleted = status == ApplicationStatus.COMPLETED
+    val isRejected = status == ApplicationStatus.REJECTED
+    val isApplied = status == ApplicationStatus.APPLIED
+
+    val badgeBg = when {
+        isHired || isCompleted -> Color(0xFFD1FAE5)
+        isRejected -> Color(0xFFFEE2E2)
+        else -> Color(0xFFFEF3C7)
+    }
+    val badgeTextCol = when {
+        isHired || isCompleted -> Color(0xFF065F46)
+        isRejected -> Color(0xFF991B1B)
+        else -> Color(0xFFB45309)
+    }
+    val badgeLabel = when {
+        isHired -> "HIRED"
+        isCompleted -> "COMPLETED"
+        isRejected -> "REJECTED"
+        else -> "APPLIED"
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Top row: Avatar + Name & Available now + Badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFEF3C7)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val photoUrl = application.workerPhoto.ifBlank { application.worker?.photoUrl.orEmpty() }
+                    if (photoUrl.isNotBlank()) {
+                        com.example.dutype.components.OptimizedProfileImage(
+                            imageUrl = photoUrl,
+                            contentDescription = application.workerName,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Text(
+                            text = application.workerName.firstOrNull()?.uppercase() ?: "W",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF92400E)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = application.workerName.ifBlank { "Worker" },
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E293B),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(if (!isRejected) Color(0xFF10B981) else Color(0xFF94A3B8), CircleShape)
+                        )
+                        Text(
+                            text = if (application.worker?.available == true) "Available now" else "Active today",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+                }
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = badgeBg
+                ) {
+                    Text(
+                        text = badgeLabel,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = badgeTextCol,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            // 3-Column stats row
+            MockupWorkerMetricsRow(
+                distanceText = formatWorkerDistanceShort(application.worker?.distanceKm),
+                jobsDoneText = (application.worker?.jobsCompleted ?: 0).toString(),
+                ratingText = formatWorkerRatingValue(application.worker?.rating ?: 0.0),
+                ratingCountText = formatWorkerRatingCount(application.worker?.ratingCount ?: 0)
+            )
+
+            // Skill pill
+            val primarySkill = application.workerSkill.ifBlank {
+                application.worker?.skills?.firstOrNull() ?: defaultJobTitle
+            }.replaceFirstChar { it.titlecase(Locale.ROOT) }
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFFF1F5F9)
+            ) {
+                Text(
+                    text = primarySkill,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF334155),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
+            }
+
+            // Action Buttons: Call & WhatsApp
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = onCall,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFBBF24),
+                        contentColor = Color(0xFF1E293B)
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Call,
+                            contentDescription = null,
+                            tint = Color(0xFF1E293B),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Call",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1E293B)
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = onWhatsApp,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFEF3C7),
+                        contentColor = Color(0xFF78350F)
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.ChatBubbleOutline,
+                            contentDescription = null,
+                            tint = Color(0xFF78350F),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "WhatsApp",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF78350F)
+                        )
+                    }
+                }
+            }
+
+            // Direct Accept / Reject buttons (Only when APPLIED)
+            if (isApplied) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = onAccept,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF10B981),
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
+                    ) {
+                        Text(
+                            text = "Accept",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = onReject,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color(0xFFEF4444)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFFEF4444),
+                            containerColor = Color.White
+                        )
+                    ) {
+                        Text(
+                            text = "Reject",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            // If Hired & not rated: Rate button
+            if ((isHired || isCompleted) && !hasAlreadyRated) {
+                Button(
+                    onClick = onRate,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFF59E0B),
+                        contentColor = Color.White
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Rate Worker",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MockupWorkerMetricsRow(
+    distanceText: String,
+    jobsDoneText: String,
+    ratingText: String,
+    ratingCountText: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.LocationOn,
+                contentDescription = null,
+                tint = Color(0xFF1E293B),
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = distanceText,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1E293B)
+            )
+            Text(
+                text = stringResource(R.string.away_label),
+                fontSize = 12.sp,
+                color = Color(0xFF64748B)
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .width(1.dp)
+                .height(28.dp)
+                .background(Color(0xFFE2E8F0))
+        )
+
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.CheckCircle,
+                contentDescription = null,
+                tint = Color(0xFF1E293B),
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = jobsDoneText,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1E293B)
+            )
+            Text(
+                text = stringResource(R.string.jobs_done_label),
+                fontSize = 12.sp,
+                color = Color(0xFF64748B)
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .width(1.dp)
+                .height(28.dp)
+                .background(Color(0xFFE2E8F0))
+        )
+
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Default.Star,
+                contentDescription = null,
+                tint = Color(0xFF1E293B),
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = ratingText,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1E293B)
+            )
+            Text(
+                text = ratingCountText,
+                fontSize = 12.sp,
+                color = Color(0xFF64748B)
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyMatchesCard(onRefresh: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Groups,
+                contentDescription = null,
+                tint = Color(0xFF94A3B8),
+                modifier = Modifier.size(44.dp)
+            )
+            Text(
+                text = "No worker matches nearby yet",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1E293B)
+            )
+            Text(
+                text = "Workers near your job location will appear here automatically.",
+                fontSize = 13.sp,
+                color = Color(0xFF64748B),
+                textAlign = TextAlign.Center
+            )
+            TextButton(onClick = onRefresh) {
+                Text("Refresh Matches", color = Color(0xFFD97706), fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyAppliedCard(onRefresh: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.HourglassTop,
+                contentDescription = null,
+                tint = Color(0xFF94A3B8),
+                modifier = Modifier.size(44.dp)
+            )
+            Text(
+                text = "No applicants yet",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1E293B)
+            )
+            Text(
+                text = "When workers apply to this job opening, you'll see them right here.",
+                fontSize = 13.sp,
+                color = Color(0xFF64748B),
+                textAlign = TextAlign.Center
+            )
+            TextButton(onClick = onRefresh) {
+                Text("Refresh List", color = Color(0xFFD97706), fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

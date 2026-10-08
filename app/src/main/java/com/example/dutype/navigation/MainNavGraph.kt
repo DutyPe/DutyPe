@@ -23,7 +23,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.dutype.auth.EnhancedLoginScreen
-import com.example.dutype.auth.RegisterScreen
 import com.example.dutype.common.screens.SelectRoleScreen
 import com.example.dutype.common.screens.TermsOfServiceScreen
 import com.example.dutype.common.screens.PrivacyPolicyScreen

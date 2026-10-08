@@ -497,15 +497,30 @@ private fun OtpLoginScreen(
                 .fillMaxSize()
                 .background(Color.Black)
         ) {
-            // Top Hero Section
+            // Top Hero Section with Warm Saffron Shade on Upper Half
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.Black)
+                    .background(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFFEA580C).copy(alpha = 0.38f),
+                                Color(0xFFFF9933).copy(alpha = 0.18f),
+                                Color(0xFF0F0F10)
+                            )
+                        )
+                    )
                     .statusBarsPadding()
             ) {
-                    // Dark ambient background circles
+                    // Ambient Saffron glow and dark depth circles
                     Canvas(modifier = Modifier.matchParentSize()) {
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(Color(0xFFFF9933).copy(alpha = 0.30f), Color.Transparent),
+                                center = Offset(x = size.width * 0.85f, y = size.height * 0.20f),
+                                radius = size.width * 0.60f
+                            )
+                        )
                         drawCircle(
                             color = Color(0xFF141416),
                             radius = size.width * 0.48f,
@@ -644,11 +659,11 @@ private fun OtpLoginScreen(
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(modifier = Modifier.fillMaxWidth()) {
-                        // Title: "Enter your number"
+                        // Title: "Enter your number" (reduced 3dp: 24.sp -> 21.sp)
                         Text(
                             text = stringResource(R.string.auth_enter_mobile_number),
                             style = MaterialTheme.typography.titleLarge.copy(
-                                fontSize = 24.sp,
+                                fontSize = 21.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Ink900.fg(),
                                 letterSpacing = (-0.4).sp
@@ -723,10 +738,10 @@ private fun OtpLoginScreen(
                                         .weight(1f)
                                         .focusRequester(phoneFocusRequester),
                                     singleLine = true,
-                                    textStyle = MaterialTheme.typography.bodyLarge.copy(
+                                    textStyle = androidx.compose.ui.text.TextStyle(
+                                        color = Color.Transparent,
                                         fontSize = 18.sp,
-                                        color = Ink900.fg(),
-                                        fontWeight = FontWeight.SemiBold
+                                        letterSpacing = 1.sp
                                     ),
                                     cursorBrush = SolidColor(Color.Black),
                                     keyboardOptions = KeyboardOptions(
@@ -735,16 +750,42 @@ private fun OtpLoginScreen(
                                     ),
                                     keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
                                     decorationBox = { innerTextField ->
-                                        if (phoneNumber.isBlank()) {
-                                            Text(
-                                                text = "9876543210",
-                                                style = MaterialTheme.typography.bodyLarge.copy(
-                                                    fontSize = 18.sp,
-                                                    color = Color(0xFF94A3B8)
+                                        Box(contentAlignment = Alignment.CenterStart) {
+                                            if (phoneNumber.isEmpty()) {
+                                                Text(
+                                                    text = "9876543210",
+                                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                                        fontSize = 18.sp,
+                                                        color = Color(0xFF94A3B8),
+                                                        letterSpacing = 1.sp
+                                                    )
                                                 )
-                                            )
+                                            } else {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    phoneNumber.forEachIndexed { index, char ->
+                                                        AnimatedContent(
+                                                            targetState = char,
+                                                            transitionSpec = {
+                                                                (slideInVertically { it / 2 } + fadeIn(tween(150)))
+                                                                    .togetherWith(slideOutVertically { -it / 2 } + fadeOut(tween(150)))
+                                                            },
+                                                            label = "phone_digit_$index"
+                                                        ) { digit ->
+                                                            Text(
+                                                                text = digit.toString(),
+                                                                style = MaterialTheme.typography.bodyLarge.copy(
+                                                                    fontSize = 18.sp,
+                                                                    color = Ink900.fg(),
+                                                                    fontWeight = FontWeight.SemiBold,
+                                                                    letterSpacing = 1.sp
+                                                                )
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            innerTextField()
                                         }
-                                        innerTextField()
                                     }
                                 )
                             }
@@ -753,6 +794,16 @@ private fun OtpLoginScreen(
                         Spacer(modifier = Modifier.height(18.dp))
 
                         val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading
+                        val sendArrowTransition = rememberInfiniteTransition(label = "send_arrow_pulse")
+                        val sendArrowOffset by sendArrowTransition.animateFloat(
+                            initialValue = 0f,
+                            targetValue = if (buttonEnabled) 6f else 0f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(600, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "send_arrow_offset"
+                        )
 
                         // Send OTP Button
                         Button(
@@ -801,7 +852,9 @@ private fun OtpLoginScreen(
                                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                         contentDescription = null,
                                         tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier
+                                            .offset(x = sendArrowOffset.dp)
+                                            .size(20.dp)
                                     )
                                 }
                             }
@@ -1240,10 +1293,22 @@ private fun OtpInputSection(
 
         Spacer(modifier = Modifier.height(28.dp))
 
+        val verifyButtonEnabled = otpValue.length == 6 && !otpState.isLoading
+        val verifyArrowTransition = rememberInfiniteTransition(label = "verify_arrow_pulse")
+        val verifyArrowOffset by verifyArrowTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = if (verifyButtonEnabled) 6f else 0f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(600, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "verify_arrow_offset"
+        )
+
         // Verify & Continue button — grayed out until all 6 digits are entered
         Button(
             onClick = onVerifyClick,
-            enabled = otpValue.length == 6 && !otpState.isLoading,
+            enabled = verifyButtonEnabled,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp),
@@ -1267,15 +1332,17 @@ private fun OtpInputSection(
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (otpValue.length == 6 && !otpState.isLoading) Color.White else Color(0xFF94A3B8).fg()
+                            color = if (verifyButtonEnabled) Color.White else Color(0xFF94A3B8).fg()
                         )
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
-                        tint = if (otpValue.length == 6 && !otpState.isLoading) Color.White else Color(0xFF94A3B8).fg(),
-                        modifier = Modifier.size(18.dp)
+                        tint = if (verifyButtonEnabled) Color.White else Color(0xFF94A3B8).fg(),
+                        modifier = Modifier
+                            .offset(x = verifyArrowOffset.dp)
+                            .size(18.dp)
                     )
                 }
             }

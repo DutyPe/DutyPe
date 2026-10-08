@@ -256,7 +256,7 @@
     <string name="auth_or_divider">or</string>
     <string name="auth_continue_with_google">Continue with Google</string>
     <string name="auth_google_coming_soon">Google sign-in is coming soon</string>
-    <string name="auth_by_continuing_agree">By continuing, you confirm that you are 18 years of age and agree to the </string>
+    <string name="auth_by_continuing_agree">By continuing, you confirm that you are 18+ years of age and agree to the </string>
     <string name="auth_terms">Terms &amp; Conditions</string>
     <string name="auth_privacy_policy_short">Privacy Policy</string>
     <string name="auth_verify_your_number">Verify your number</string>
@@ -1930,9 +1930,9 @@
     <string name="emp_profile_help_desk">Help Desk</string>
     <string name="emp_profile_company_details">Company Details &amp; Photos</string>
     <string name="emp_profile_my_posted_jobs">My Posted Jobs</string>
-    <string name="emp_profile_work_locations">My Addresses</string>
+    <string name="emp_profile_work_locations">Address</string>
     <string name="emp_profile_subscription_credits">Subscription</string>
-    <string name="emp_profile_hiring_history">Hiring History &amp; Closed Posts</string>
+    <string name="emp_profile_hiring_history">Job Posting History</string>
     <string name="emp_profile_refer_employer">Refer an Employer (Earn ₹%1$d)</string>
     <string name="emp_profile_help_support">Help &amp; Support</string>
     <string name="emp_profile_logout">Log Out</string>

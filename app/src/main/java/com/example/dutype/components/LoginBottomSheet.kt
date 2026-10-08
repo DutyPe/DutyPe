@@ -156,11 +156,9 @@ fun LoginBottomSheet(
     val otpState by otpViewModel.otpState.collectAsState()
 
     var phoneNumber by remember { mutableStateOf("") }
-    var registerName by remember { mutableStateOf("") }
     var otpValue by remember { mutableStateOf("") }
     var isCheckingPhone by remember { mutableStateOf(false) }
     var isCheckingProfile by remember { mutableStateOf(false) }
-    var isRegistrationMode by remember { mutableStateOf(false) } // Toggle between Login/Registration
     val selectedCountryCode = "+91"
 
     // Referral code state - moved to parent scope so it's accessible in onContinueClick
@@ -198,66 +196,14 @@ fun LoginBottomSheet(
             try {
                 val currentUser = FirebaseAuth.getInstance().currentUser
                 if (currentUser != null) {
-                    if (isRegistrationMode) {
-                        val pendingReferralCode = profileCompletionViewModel.getReferralCode()
-                        val registrationResult = otpViewModel.completeRegistration(
-                            role = role,
-                            fullName = registerName.trim(),
-                            referralCode = pendingReferralCode
-                        )
-
-                        registrationResult.fold(
-                            onSuccess = {
-                                profileCompletionViewModel.saveUserInfoToLocalStorage(
-                                    email = "",
-                                    name = registerName.trim(),
-                                    role = role
-                                )
-
-                                // completeRegistration already applied the referral code server-side.
-                                if (!pendingReferralCode.isNullOrBlank()) profileCompletionViewModel.clearReferralCode()
-
-                                otpViewModel.resetState()
-                                isCheckingProfile = false
-
-                                if (onProfileSetupRequired != null) {
-                                    onProfileSetupRequired.invoke()
-                                } else if (navController != null) {
-                                    val target = when (role) {
-                                        UserRole.EMPLOYER -> Routes.EMPLOYER_PROFILE_SETUP
-                                        else -> Routes.PROFILE_SETUP
-                                    }
-                                    navController.navigate(target) {
-                                        popUpTo(navController.graph.startDestinationId) { inclusive = false }
-                                        launchSingleTop = true
-                                    }
-                                    onDismiss()
-                                } else {
-                                    onLoginSuccess()
-                                }
-                            },
-                            onFailure = { error ->
-                                Timber.e(error, "LoginBottomSheet - Registration finalization failed")
-                                Toast.makeText(
-                                    context,
-                                    error.message ?: if (isTelugu) "నమోదును పూర్తి చేయలేకపోయాం. దయచేసి మళ్లీ ప్రయత్నించండి." else "Could not finish registration. Please try again.",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                                otpViewModel.resetState()
-                                isCheckingProfile = false
-                            }
-                        )
-                        return@LaunchedEffect
-                    }
-
-                    val loginResult = otpViewModel.resolveUnifiedAuth(role, fullName = registerName.trim().takeIf { it.isNotBlank() })
+                    val loginResult = otpViewModel.resolveUnifiedAuth(role, fullName = null)
                     loginResult.fold(
                         onSuccess = { outcome ->
                             // Persist the name captured in the bottom-sheet registration form
                             // so the profile setup screen can pre-fill it for new users.
                             profileCompletionViewModel.saveUserInfoToLocalStorage(
                                 email = "",
-                                name = registerName.trim(),
+                                name = outcome.user?.name ?: "",
                                 role = outcome.role
                             )
 
@@ -399,26 +345,14 @@ fun LoginBottomSheet(
                 if (isPhoneScreen) {
                     // Phone Input Screen
                     PhoneInputContent(
-                        title = if (isRegistrationMode) {
-                            if (isTelugu) "మీ ఖాతా సృష్టించండి" else "Create your account"
-                        } else {
-                            effectiveTitle
-                        },
-                        subtitle = if (isRegistrationMode) {
-                            if (isTelugu) "నమోదు కోసం మీ మొబైల్ నంబర్ నమోదు చేయండి" else "Enter your mobile number to register"
-                        } else {
-                            effectiveSubtitle
-                        },
+                        title = effectiveTitle,
+                        subtitle = effectiveSubtitle,
                         phoneNumber = phoneNumber,
                         onPhoneNumberChange = { phoneNumber = it },
-                        registerName = registerName,
-                        onRegisterNameChange = { registerName = it },
                         role = role,
                         selectedCountryCode = selectedCountryCode,
                         otpState = otpState,
                         isCheckingPhone = isCheckingPhone,
-                        isRegistrationMode = isRegistrationMode,
-                        onToggleMode = { isRegistrationMode = !isRegistrationMode },
                         referralCode = referralCode,
                         onReferralCodeChange = { referralCode = it },
                         showReferralInput = showReferralInput,
@@ -433,25 +367,11 @@ fun LoginBottomSheet(
                         onHasAlreadyUsedReferralChange = { hasAlreadyUsedReferral = it },
                         onContinueClick = {
                             val fullPhoneNumber = selectedCountryCode + phoneNumber
-                            // In registration mode, name is mandatory — mirror the EnhancedLoginScreen contract.
-                            if (isRegistrationMode && registerName.trim().length < 2) {
-                                Toast.makeText(
-                                    context,
-                                    if (role == UserRole.EMPLOYER) {
-                                        if (isTelugu) "దయచేసి మీ కంపెనీ పేరును నమోదు చేయండి." else "Please enter your company name to register."
-                                    } else {
-                                        if (isTelugu) "దయచేసి మీ పూర్తి పేరు నమోదు చేయండి." else "Please enter your full name to register."
-                                    },
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            } else {
-                                scope.launch {
+                            scope.launch {
                                 try {
                                     isCheckingPhone = true
 
-                                    // PRE-OTP USER CHECK: Verify user existence AND role match.
-                                    // Single-role-per-phone means a number registered as WORKER
-                                    // cannot log in / re-register on the EMPLOYER side.
+                                    // PRE-OTP USER CHECK: Verify role match if user exists
                                     val phoneCheck = com.example.dutype.utils.FirestoreUtils.checkPhoneForRole(
                                         phoneNumber = fullPhoneNumber,
                                         requestedRole = role.name
@@ -461,91 +381,32 @@ fun LoginBottomSheet(
                                         "EMPLOYER" -> if (isTelugu) "ఎంప్లాయర్" else "employer"
                                         else -> null
                                     }
-                                    when (phoneCheck.exists) {
-                                        com.example.dutype.utils.FirestoreUtils.PhoneExistenceResult.EXISTS -> {
-                                            if (isRegistrationMode) {
-                                                isCheckingPhone = false
-                                                val message = when {
-                                                    phoneCheck.roleConflict && existingRoleLabel != null ->
-                                                        if (isTelugu) "ఈ నంబర్ ఇప్పటికే $existingRoleLabel గా నమోదు అయింది. దయచేసి $existingRoleLabel గా లాగిన్ చేయండి."
-                                                        else "This number is already registered as a $existingRoleLabel. Please log in as a $existingRoleLabel."
-                                                    else ->
-                                                        if (isTelugu) "ఈ నంబర్ ఇప్పటికే నమోదు అయింది. దయచేసి లాగిన్ ఉపయోగించండి."
-                                                        else "This number is already registered. Please use Login instead."
-                                                }
-                                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-                                                Timber.w("📱 Registration blocked - phone=$fullPhoneNumber existingRole=${phoneCheck.existingRole} conflict=${phoneCheck.roleConflict}")
-                                                return@launch
-                                            } else if (phoneCheck.roleConflict && existingRoleLabel != null) {
-                                                // Login side with the wrong role selected.
-                                                isCheckingPhone = false
-                                                Toast.makeText(
-                                                    context,
-                                                    if (isTelugu) "ఈ నంబర్ $existingRoleLabel గా నమోదు అయింది. దయచేసి $existingRoleLabel గా లాగిన్ చేయండి."
-                                                    else "This number is registered as a $existingRoleLabel. Please log in as a $existingRoleLabel.",
-                                                    Toast.LENGTH_LONG
-                                                ).show()
-                                                Timber.w("📱 Login blocked - role conflict phone=$fullPhoneNumber existingRole=${phoneCheck.existingRole} requested=${role.name}")
-                                                return@launch
-                                            }
-                                        }
-                                        com.example.dutype.utils.FirestoreUtils.PhoneExistenceResult.NOT_EXISTS -> {
-                                            if (!isRegistrationMode) {
-                                                isCheckingPhone = false
-                                                Toast.makeText(
-                                                    context,
-                                                    if (isTelugu) "ఈ నంబర్‌కు సంబంధించిన ఖాతా కనబడలేదు. దయచేసి ముందుగా నమోదు చేయండి." else "No account found with this number. Please Register first.",
-                                                    Toast.LENGTH_LONG
-                                                ).show()
-                                                Timber.w("📱 Login blocked - User doesn't exist: $fullPhoneNumber")
-                                                return@launch
-                                            }
-                                        }
-                                        com.example.dutype.utils.FirestoreUtils.PhoneExistenceResult.UNKNOWN -> {
-                                            Timber.w("Phone check returned UNKNOWN; proceeding with OTP: $fullPhoneNumber")
-                                        }
+                                    if (phoneCheck.exists == com.example.dutype.utils.FirestoreUtils.PhoneExistenceResult.EXISTS && phoneCheck.roleConflict && existingRoleLabel != null) {
+                                        isCheckingPhone = false
+                                        Toast.makeText(
+                                            context,
+                                            if (isTelugu) "ఈ నంబర్ $existingRoleLabel గా నమోదు అయింది. దయచేసి $existingRoleLabel గా లాగిన్ చేయండి."
+                                            else "This number is registered as a $existingRoleLabel. Please log in as a $existingRoleLabel.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        return@launch
                                     }
 
                                     isCheckingPhone = false
                                     profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
                                     profileCompletionViewModel.savePhoneNumber(fullPhoneNumber)
 
-                                    // Save referral code if provided and user hasn't used one before (only in registration mode)
-                                    if (isRegistrationMode && referralCode.isNotBlank() && !hasAlreadyUsedReferral && validatedReferrerName != null) {
+                                    if (referralCode.isNotBlank() && !hasAlreadyUsedReferral && validatedReferrerName != null) {
                                         profileCompletionViewModel.saveReferralCode(com.example.dutype.models.normalizeReferralCode(referralCode))
-                                        Timber.d("🎁 REFERRAL: Saved referral code for signup: $referralCode")
+                                        Timber.d("🎁 REFERRAL: Saved referral code: $referralCode")
                                     }
 
-                                    otpViewModel.sendOtp(fullPhoneNumber, context, mode = if (isRegistrationMode) "register" else "login")
+                                    otpViewModel.sendOtp(fullPhoneNumber, context, mode = "unified")
                                 } catch (e: Exception) {
                                     isCheckingPhone = false
-                                    Timber.e(e, "📱 Error in phone check")
-
-                                    // Save referral code if provided (only in registration mode)
-                                    if (isRegistrationMode && referralCode.isNotBlank() && !hasAlreadyUsedReferral && validatedReferrerName != null) {
-                                        profileCompletionViewModel.saveReferralCode(com.example.dutype.models.normalizeReferralCode(referralCode))
-                                        Timber.d("🎁 REFERRAL: Saved referral code for signup: $referralCode")
-                                    }
-
-                                    if (!isRegistrationMode) {
-                                        Toast.makeText(
-                                            context,
-                                            if (isTelugu) "ఖాతా ధృవీకరణ విఫలమైంది. దయచేసి మళ్లీ ప్రయత్నించండి." else "Account verification failed. Please try again.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        return@launch
-                                    }
-
-                                    // This catch handles unexpected failures outside the normal
-                                    // UNKNOWN pre-check path, so surface a retry instead of
-                                    // guessing which state was written.
-                                    Toast.makeText(
-                                        context,
-                                        if (isTelugu) "ఖాతా ధృవీకరణ విఫలమైంది. దయచేసి మళ్లీ ప్రయత్నించండి." else "Account verification failed. Please try again.",
-                                        Toast.LENGTH_LONG
-                                    ).show()
+                                    Timber.e(e, "📱 Error in phone check, proceeding with OTP")
+                                    otpViewModel.sendOtp(fullPhoneNumber, context, mode = "unified")
                                 }
-                            }
                             }
                         }
                     )
@@ -567,7 +428,7 @@ fun LoginBottomSheet(
                         onVerifyClick = { otpViewModel.verifyOtp(otpValue, context) },
                         onResendClick = {
                             val fullPhoneNumber = selectedCountryCode + phoneNumber
-                            otpViewModel.resendOtp(fullPhoneNumber, context, mode = if (isRegistrationMode) "register" else "login")
+                            otpViewModel.resendOtp(fullPhoneNumber, context, mode = "unified")
                         },
                         onBackClick = { otpViewModel.resetState(keepActiveSession = true) },
                         resendCooldownSeconds = resendCooldown
@@ -584,14 +445,10 @@ private fun PhoneInputContent(
     subtitle: String,
     phoneNumber: String,
     onPhoneNumberChange: (String) -> Unit,
-    registerName: String,
-    onRegisterNameChange: (String) -> Unit,
     role: UserRole,
     selectedCountryCode: String,
     otpState: com.example.dutype.viewmodels.OtpState,
     isCheckingPhone: Boolean,
-    isRegistrationMode: Boolean,
-    onToggleMode: () -> Unit,
     referralCode: String,
     onReferralCodeChange: (String) -> Unit,
     showReferralInput: Boolean,
@@ -739,48 +596,8 @@ private fun PhoneInputContent(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Registration name — full name for workers, company name for employers
-        if (isRegistrationMode) {
-            OutlinedTextField(
-                value = registerName,
-                onValueChange = { onRegisterNameChange(it.take(60)) },
-                placeholder = {
-                    Text(
-                        if (role == UserRole.EMPLOYER) {
-                            if (isTelugu) "మీ కంపెనీ పేరు" else "Company name"
-                        } else {
-                            if (isTelugu) "మీ పూర్తి పేరు" else "Full name"
-                        },
-                        style = AppTypography.bodyLarge.copy(
-                            color = WorkerColors.TextTertiary,
-                            fontSize = 16.sp
-                        )
-                    )
-                },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(8.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = WorkerColors.Info,
-                    unfocusedBorderColor = WorkerColors.Border,
-                    cursorColor = WorkerColors.Info,
-                    focusedContainerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-                    unfocusedContainerColor = WorkerColors.CardBackground
-                ),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Text,
-                    capitalization = KeyboardCapitalization.Words,
-                    imeAction = ImeAction.Next
-                ),
-                textStyle = AppTypography.bodyLarge.copy(fontSize = 16.sp)
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        // REFERRAL CODE SECTION - Only show in Registration mode
-        if (isRegistrationMode && !hasAlreadyUsedReferral && role == UserRole.WORKER) {
+        // REFERRAL CODE SECTION - For workers who have a referral code
+        if (!hasAlreadyUsedReferral && role == UserRole.WORKER) {
             // Referral code toggle
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1090,47 +907,9 @@ private fun PhoneInputContent(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // MODE TOGGLE - Professional design at bottom
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = if (isRegistrationMode) {
-                    if (isTelugu) "ఇప్పటికే ఖాతా ఉందా? " else "Already have an account? "
-                } else {
-                    if (isTelugu) "కొత్త ఖాతా కావాలా? " else "Create a new account? "
-                },
-                style = AppTypography.bodyMedium.copy(
-                    color = WorkerColors.TextSecondary
-                )
-            )
-            TextButton(
-                onClick = onToggleMode,
-                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
-            ) {
-                Text(
-                    text = if (isRegistrationMode) {
-                        if (isTelugu) "లాగిన్" else "Login"
-                    } else {
-                        if (isTelugu) "ఖాతా సృష్టించండి" else "Create Account"
-                    },
-                    style = AppTypography.bodyMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF60A5FA).fg() else Color(0xFF1D4ED8).fg()
-                    )
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Terms and Privacy Policy with clickable links
+        // Terms and Privacy Policy with clickable links (18+ disclaimer)
         val termsUrl = com.example.dutype.utils.AppConstants.TERMS_URL
         val privacyUrl = com.example.dutype.utils.AppConstants.PRIVACY_URL
 
@@ -1139,10 +918,12 @@ private fun PhoneInputContent(
             horizontalArrangement = Arrangement.Center
         ) {
             Text(
-                text = if (isTelugu) "కొనసాగించడం ద్వారా, మీరు మా " else "By continuing, you agree to our ",
-                style = AppTypography.caption.copy(color = WorkerColors.TextSecondary)
+                text = if (isTelugu) "కొనసాగించడం ద్వారా, మీరు 18+ సంవత్సరాల వయస్సు కలిగి ఉన్నారని మరియు మా " else "By continuing, you confirm that you are 18+ years of age, and agree to our ",
+                style = AppTypography.caption.copy(color = WorkerColors.TextSecondary),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
         }
+        Spacer(modifier = Modifier.height(2.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center

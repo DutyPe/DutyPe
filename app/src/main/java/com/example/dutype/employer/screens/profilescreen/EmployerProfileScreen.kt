@@ -583,31 +583,6 @@ private fun EmpAccountCard(ui: EmpProfileUi, actions: EmpProfileActions) {
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
-        if (ui.isLoggedIn) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
-                border = BorderStroke(1.dp, Color(0xFFFEE2E2).bd()),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .clickable(onClick = actions.onLogout)
-                        .padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.emp_profile_logout),
-                        style = profileTextStyle(15.sp, FontWeight.SemiBold, Color(0xFFEF4444).fg()),
-                        maxLines = 1,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        }
 
         val context = androidx.compose.ui.platform.LocalContext.current
         val version = remember(context) {

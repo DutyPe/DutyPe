@@ -301,6 +301,15 @@ private fun SettingsDividerLine() {
 }
 
 @Composable
+private fun settingsRowTextStyle() = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(
+    fontSize = 15.sp,
+    fontWeight = FontWeight.Medium,
+    color = SettingsRowText.fg(),
+    lineHeight = androidx.compose.ui.unit.TextUnit.Unspecified,
+    letterSpacing = 0.sp
+)
+
+@Composable
 private fun SettingsRow(
     icon: ImageVector,
     title: String,
@@ -324,11 +333,7 @@ private fun SettingsRow(
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = title,
-            style = TextStyle(
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = SettingsRowText.fg()
-            ),
+            style = settingsRowTextStyle(),
             modifier = Modifier.weight(1f)
         )
         trailing()
@@ -378,11 +383,7 @@ private fun NavRow(
         Spacer(modifier = Modifier.width(12.dp))
         Text(
             text = title,
-            style = TextStyle(
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = SettingsRowText.fg()
-            ),
+            style = settingsRowTextStyle(),
             modifier = Modifier.weight(1f)
         )
         SettingsChevron()
@@ -609,11 +610,7 @@ private fun DangerRow(text: String, onClick: () -> Unit) {
     ) {
         Text(
             text = text,
-            style = TextStyle(
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = SettingsDanger.fg()
-            )
+            style = settingsRowTextStyle().copy(color = SettingsDanger.fg(), fontWeight = FontWeight.SemiBold)
         )
     }
 }
