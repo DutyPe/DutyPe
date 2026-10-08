@@ -27,7 +27,7 @@ class HomeServicesViewModel @Inject constructor(
 
     val userLocation: StateFlow<LocationData?> = locationRepository.userLocation
 
-    private val _catalog = MutableStateFlow<ServicesCatalog?>(null)
+    private val _catalog = MutableStateFlow<ServicesCatalog?>(repo.getCachedCatalog())
     val catalog: StateFlow<ServicesCatalog?> = _catalog.asStateFlow()
 
     private val _catalogError = MutableStateFlow<String?>(null)
@@ -39,7 +39,7 @@ class HomeServicesViewModel @Inject constructor(
         viewModelScope.launch {
             repo.observeFirestoreServicesConfig().collect { snap ->
                 if (snap != null && snap.exists()) {
-                    val current = _catalog.value
+                    val current = _catalog.value ?: repo.getCachedCatalog()
                     val newBanners = repo.bannersFromSnapshot(snap)
                     val newOffers = repo.offersFromSnapshot(snap)
                     val newMostBooked = repo.mostBookedServiceIdsFromSnapshot(snap)
@@ -49,10 +49,8 @@ class HomeServicesViewModel @Inject constructor(
                             offers = newOffers,
                             mostBookedServiceIds = if (newMostBooked.isNotEmpty()) newMostBooked else current.mostBookedServiceIds
                         )
-                        repo.invalidateCatalogCache()
                     } else {
-                        repo.invalidateCatalogCache()
-                        loadCatalog(force = true)
+                        loadCatalog(force = false)
                     }
                 }
             }

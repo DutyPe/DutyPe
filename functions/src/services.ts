@@ -425,7 +425,7 @@ export async function dispatchServiceWaves(nowMs: number): Promise<void> {
 
 // ─────────────────────────────── customer ───────────────────────────────
 
-export const createServiceBooking = onCallSecured({ timeoutSeconds: 30 }, async (raw: unknown, context) => {
+export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceAppCheck: false }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   // Anyone with a DutyPe account can book for their home: an employer, or a worker too.
   const role = String(context.auth?.token.role || "");
@@ -521,7 +521,11 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30 }, async 
     if ((e as { code?: number }).code === 6) fail("already-exists", "You have already used this coupon");
     throw e;
   }
-  if (!scheduled) await advanceServiceWave(ref.id, now);
+  if (!scheduled) {
+    void advanceServiceWave(ref.id, now).catch((err) => {
+      functions.logger.warn(`advanceServiceWave failed for ${ref.id}:`, err);
+    });
+  }
   return {
     bookingId: ref.id, startOtp, price: service.price, bookingFee, discount: q.discount, discountLabel: q.discountLabel,
     total: q.total,
@@ -529,7 +533,7 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30 }, async 
 });
 
 /** Price breakdown before booking: first-booking offer, the coupon typed, and the visible offers. */
-export const previewServiceQuote = onCallSecured({ timeoutSeconds: 10 }, async (raw: unknown, context) => {
+export const previewServiceQuote = onCallSecured({ timeoutSeconds: 10, enforceAppCheck: false }, async (raw: unknown, context) => {
   const data = obj(raw);
   const config = await loadConfig();
   const service = findService(config, str(data, "serviceId", { max: 60 }));
@@ -554,7 +558,7 @@ export const previewServiceQuote = onCallSecured({ timeoutSeconds: 10 }, async (
   return { ...q, ...(couponError ? { couponError } : {}), firstBooking: first, offers };
 });
 
-export const cancelServiceBooking = onCallSecured({}, async (raw: unknown, context) => {
+export const cancelServiceBooking = onCallSecured({ enforceAppCheck: false }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   const data = obj(raw);
   const bookingId = str(data, "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
@@ -650,7 +654,7 @@ export const cancelServiceBooking = onCallSecured({}, async (raw: unknown, conte
   return { ok: true, travelFeeCharged: out.travelFeeCharged, cancellationFee: out.travelFeeRupees };
 });
 
-export const rateServiceBooking = onCallSecured({}, async (raw: unknown, context) => {
+export const rateServiceBooking = onCallSecured({ enforceAppCheck: false }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   const data = obj(raw);
   const bookingId = str(data, "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
@@ -675,7 +679,7 @@ export const rateServiceBooking = onCallSecured({}, async (raw: unknown, context
 
 const CATEGORY_IDS = CATEGORIES.map((c) => c.id) as string[];
 
-export const applyServicePartner = onCallSecured({}, async (raw: unknown, context) => {
+export const applyServicePartner = onCallSecured({ enforceAppCheck: false }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   if (context.auth?.token.role !== Values.Role.WORKER) fail("permission-denied", "Only workers can become service partners");
   const data = obj(raw);
@@ -731,7 +735,7 @@ export const applyServicePartner = onCallSecured({}, async (raw: unknown, contex
   return { status: PartnerStatus.APPROVED };
 });
 
-export const setPartnerOnline = onCallSecured({}, async (raw: unknown, context) => {
+export const setPartnerOnline = onCallSecured({ enforceAppCheck: false }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   const data = obj(raw);
   const online = data.online === true;
@@ -768,7 +772,7 @@ export const setPartnerOnline = onCallSecured({}, async (raw: unknown, context) 
   return { online };
 });
 
-export const getServiceOffer = onCallSecured({ timeoutSeconds: 10 }, async (raw: unknown, context) => {
+export const getServiceOffer = onCallSecured({ timeoutSeconds: 10, enforceAppCheck: false }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   const bookingId = str(obj(raw), "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
   let [p, b] = await Promise.all([
@@ -826,7 +830,7 @@ export const getServiceOffer = onCallSecured({ timeoutSeconds: 10 }, async (raw:
   };
 });
 
-export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20, secrets: [WHATSAPP_TOKEN_SECRET] }, async (raw: unknown, context) => {
+export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceAppCheck: false, secrets: [WHATSAPP_TOKEN_SECRET] }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   const config = await loadConfig();
   const bookingId = str(obj(raw), "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
@@ -907,7 +911,7 @@ export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20, secrets:
   };
 });
 
-export const updateServiceBooking = onCallSecured({ timeoutSeconds: 20 }, async (raw: unknown, context) => {
+export const updateServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceAppCheck: false }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   const data = obj(raw);
   const bookingId = str(data, "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
@@ -1012,7 +1016,7 @@ export const updateServiceBooking = onCallSecured({ timeoutSeconds: 20 }, async 
   };
 });
 
-export const requestPartnerTopup = onCallSecured({}, async (raw: unknown, context) => {
+export const requestPartnerTopup = onCallSecured({ enforceAppCheck: false }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   const data = obj(raw);
   const config = await loadConfig();

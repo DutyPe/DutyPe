@@ -311,7 +311,7 @@ class HomeServicesRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth
 ) {
-    @Volatile private var cachedCatalog: Pair<Long, ServicesCatalog>? = null
+    fun getCachedCatalog(): ServicesCatalog? = cachedCatalog?.second
 
     val uid: String? get() = auth.currentUser?.uid
 
@@ -887,9 +887,10 @@ class HomeServicesRepository @Inject constructor(
         cancellationNotice = d.getString("cancellationNotice").orEmpty()
     )
 
-    private companion object {
+    companion object {
         const val BOOKINGS = "service_bookings"
         const val PARTNERS = "service_partners"
         const val CATALOG_TTL_MS = 10 * 60 * 1000L
+        @Volatile private var cachedCatalog: Pair<Long, ServicesCatalog>? = null
     }
 }

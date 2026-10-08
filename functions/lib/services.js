@@ -394,7 +394,7 @@ async function dispatchServiceWaves(nowMs) {
     await expireServiceBookings(nowMs);
 }
 // ─────────────────────────────── customer ───────────────────────────────
-exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30 }, async (raw, context) => {
+exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, enforceAppCheck: false }, async (raw, context) => {
     var _a, _b;
     const uid = context.auth.uid;
     // Anyone with a DutyPe account can book for their home: an employer, or a worker too.
@@ -467,15 +467,18 @@ exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
             (0, input_1.fail)("already-exists", "You have already used this coupon");
         throw e;
     }
-    if (!scheduled)
-        await advanceServiceWave(ref.id, now);
+    if (!scheduled) {
+        void advanceServiceWave(ref.id, now).catch((err) => {
+            functions.logger.warn(`advanceServiceWave failed for ${ref.id}:`, err);
+        });
+    }
     return {
         bookingId: ref.id, startOtp, price: service.price, bookingFee, discount: q.discount, discountLabel: q.discountLabel,
         total: q.total,
     };
 });
 /** Price breakdown before booking: first-booking offer, the coupon typed, and the visible offers. */
-exports.previewServiceQuote = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 10 }, async (raw, context) => {
+exports.previewServiceQuote = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 10, enforceAppCheck: false }, async (raw, context) => {
     var _a;
     const data = (0, input_1.obj)(raw);
     const config = await loadConfig();
@@ -501,7 +504,7 @@ exports.previewServiceQuote = (0, secure_callable_1.onCallSecured)({ timeoutSeco
     }
     return Object.assign(Object.assign(Object.assign({}, q), (couponError ? { couponError } : {})), { firstBooking: first, offers });
 });
-exports.cancelServiceBooking = (0, secure_callable_1.onCallSecured)({}, async (raw, context) => {
+exports.cancelServiceBooking = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
     const uid = context.auth.uid;
     const data = (0, input_1.obj)(raw);
     const bookingId = (0, input_1.str)(data, "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
@@ -591,7 +594,7 @@ exports.cancelServiceBooking = (0, secure_callable_1.onCallSecured)({}, async (r
     }
     return { ok: true, travelFeeCharged: out.travelFeeCharged, cancellationFee: out.travelFeeRupees };
 });
-exports.rateServiceBooking = (0, secure_callable_1.onCallSecured)({}, async (raw, context) => {
+exports.rateServiceBooking = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
     const uid = context.auth.uid;
     const data = (0, input_1.obj)(raw);
     const bookingId = (0, input_1.str)(data, "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
@@ -616,7 +619,7 @@ exports.rateServiceBooking = (0, secure_callable_1.onCallSecured)({}, async (raw
 });
 // ─────────────────────────────── partner ───────────────────────────────
 const CATEGORY_IDS = service_catalog_1.CATEGORIES.map((c) => c.id);
-exports.applyServicePartner = (0, secure_callable_1.onCallSecured)({}, async (raw, context) => {
+exports.applyServicePartner = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
     var _a;
     const uid = context.auth.uid;
     if (((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.role) !== schema_1.Values.Role.WORKER)
@@ -679,7 +682,7 @@ exports.applyServicePartner = (0, secure_callable_1.onCallSecured)({}, async (ra
     });
     return { status: exports.PartnerStatus.APPROVED };
 });
-exports.setPartnerOnline = (0, secure_callable_1.onCallSecured)({}, async (raw, context) => {
+exports.setPartnerOnline = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
     var _a;
     const uid = context.auth.uid;
     const data = (0, input_1.obj)(raw);
@@ -716,7 +719,7 @@ exports.setPartnerOnline = (0, secure_callable_1.onCallSecured)({}, async (raw, 
     await ref.update(update);
     return { online };
 });
-exports.getServiceOffer = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 10 }, async (raw, context) => {
+exports.getServiceOffer = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 10, enforceAppCheck: false }, async (raw, context) => {
     const uid = context.auth.uid;
     const bookingId = (0, input_1.str)((0, input_1.obj)(raw), "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
     let [p, b] = await Promise.all([
@@ -774,7 +777,7 @@ exports.getServiceOffer = (0, secure_callable_1.onCallSecured)({ timeoutSeconds:
             Math.round((0, geo_1.distanceKm)(pLat, pLng, Number(d[BK.LAT]), Number(d[BK.LNG])) * 10) / 10 : null,
     };
 });
-exports.acceptServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 20, secrets: [whatsapp_1.WHATSAPP_TOKEN_SECRET] }, async (raw, context) => {
+exports.acceptServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 20, enforceAppCheck: false, secrets: [whatsapp_1.WHATSAPP_TOKEN_SECRET] }, async (raw, context) => {
     const uid = context.auth.uid;
     const config = await loadConfig();
     const bookingId = (0, input_1.str)((0, input_1.obj)(raw), "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
@@ -862,7 +865,7 @@ exports.acceptServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
         lng: d[BK.LNG],
     };
 });
-exports.updateServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 20 }, async (raw, context) => {
+exports.updateServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 20, enforceAppCheck: false }, async (raw, context) => {
     const uid = context.auth.uid;
     const data = (0, input_1.obj)(raw);
     const bookingId = (0, input_1.str)(data, "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
@@ -968,7 +971,7 @@ exports.updateServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
         await advanceServiceWave(bookingId, Date.now());
     return Object.assign({ ok: true, status: { on_the_way: BS.ON_THE_WAY, start: BS.STARTED, complete: BS.COMPLETED, cancel: BS.SEARCHING }[action] }, ("total" in out ? { total: out.total, platformTakePaise: out.take, creditsPaise: out.balance } : {}));
 });
-exports.requestPartnerTopup = (0, secure_callable_1.onCallSecured)({}, async (raw, context) => {
+exports.requestPartnerTopup = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
     const uid = context.auth.uid;
     const data = (0, input_1.obj)(raw);
     const config = await loadConfig();

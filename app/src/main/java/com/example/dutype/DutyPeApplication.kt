@@ -308,50 +308,12 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
             firebaseAppCheck.setTokenAutoRefreshEnabled(true)
 
             if (isDebuggableBuild()) {
-                // Use debug provider for development/testing
-                try {
-                    val debugProviderClass = Class.forName("com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory")
-                    val getInstance = debugProviderClass.getMethod("getInstance")
-                    val debugProvider = getInstance.invoke(null)
-                    firebaseAppCheck.installAppCheckProviderFactory(debugProvider as com.google.firebase.appcheck.AppCheckProviderFactory)
-                    Timber.i("✅ Firebase App Check initialized (DEBUG provider)")
-                    logAppCheckDebugSecretIfPresent()
-                    firebaseAppCheck.getAppCheckToken(false)
-                        .addOnSuccessListener {
-                            Timber.i("✅ App Check token acquired (debug) - expiresAt=%d", it.expireTimeMillis)
-                            logAppCheckDebugSecretIfPresent()
-                        }
-                        .addOnFailureListener { tokenError ->
-                            val errorMessage = tokenError.message.orEmpty()
-                            val isDebugRegistrationIssue =
-                                errorMessage.contains("App attestation failed", ignoreCase = true) ||
-                                errorMessage.contains("code: 403", ignoreCase = true)
-
-                            if (isDebugRegistrationIssue) {
-                                if (!appCheckDebugHintLogged) {
-                                    appCheckDebugHintLogged = true
-                                    val projectId = runCatching {
-                                        FirebaseApp.getInstance().options.projectId
-                                    }.getOrDefault("unknown-project")
-                                    Timber.w(
-                                        "⚠️ DEBUG App Check rejected (project=%s). Add the debug secret from logcat to Firebase Console > Build > App Check > Android app > Manage debug tokens.",
-                                        projectId
-                                    )
-                                }
-                                logAppCheckDebugSecretIfPresent()
-                            } else {
-                                Timber.e(tokenError, "❌ App Check token fetch failed in DEBUG")
-                                logAppCheckDebugSecretIfPresent()
-                            }
-                        }
-                } catch (e: Exception) {
-                    // Fallback to Play Integrity if debug provider class is unavailable.
-                    // This may fail on sideloaded/debug builds, but gives a deterministic state.
-                    firebaseAppCheck.installAppCheckProviderFactory(
-                        PlayIntegrityAppCheckProviderFactory.getInstance()
-                    )
-                    Timber.e(e, "❌ Debug App Check provider unavailable; fell back to Play Integrity")
-                }
+                // In debug builds, installing DebugAppCheckProviderFactory without an enrolled debug token
+                // in Firebase Console causes GoogleApiManager SecurityException, 403 App attestation failed,
+                // and throttles/delays all Firebase and Firestore network calls by 20-30 seconds.
+                // Skip installing the debug provider so debug builds run with instant, unblocked network requests.
+                Timber.i("🧪 Debug build: Skipping App Check provider to ensure instant network performance.")
+                return
             } else {
                 val isTestLab = runCatching {
                     android.provider.Settings.System.getString(contentResolver, "firebase.test.lab") == "true"

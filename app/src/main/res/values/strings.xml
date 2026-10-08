@@ -1930,7 +1930,7 @@
     <string name="emp_profile_help_desk">Help Desk</string>
     <string name="emp_profile_company_details">Company Details &amp; Photos</string>
     <string name="emp_profile_my_posted_jobs">My Posted Jobs</string>
-    <string name="emp_profile_work_locations">Address</string>
+    <string name="emp_profile_work_locations">My Addresses</string>
     <string name="emp_profile_subscription_credits">Subscription</string>
     <string name="emp_profile_hiring_history">Job Posting History</string>
     <string name="emp_profile_refer_employer">Refer an Employer (Earn ₹%1$d)</string>

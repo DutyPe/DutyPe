@@ -497,31 +497,15 @@ private fun OtpLoginScreen(
                 .fillMaxSize()
                 .background(Color.Black)
         ) {
-            // Top Hero Section with Warm Saffron Shade on Upper Half
+            // Top Hero Section with Pure Black Base and Dark Depth Circles
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .background(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(
-                                Color(0xFFEA580C).copy(alpha = 0.38f),
-                                Color(0xFFFF9933).copy(alpha = 0.18f),
-                                Color(0xFF0F0F10)
-                            )
-                        )
-                    )
+                    .background(Color.Black)
                     .statusBarsPadding()
             ) {
-                    // Ambient Saffron glow and dark depth circles
                     Canvas(modifier = Modifier.matchParentSize()) {
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(Color(0xFFFF9933).copy(alpha = 0.30f), Color.Transparent),
-                                center = Offset(x = size.width * 0.85f, y = size.height * 0.20f),
-                                radius = size.width * 0.60f
-                            )
-                        )
                         drawCircle(
                             color = Color(0xFF141416),
                             radius = size.width * 0.48f,
