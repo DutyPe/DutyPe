@@ -151,7 +151,7 @@ fun EmployerMainScreen(
         ) {
             NavHost(
                 navController = navController,
-                startDestination = Routes.SERVICES
+                startDestination = Routes.EMPLOYER_DASHBOARD
             ) {
                     composable(Routes.EMPLOYER_DASHBOARD) {
                         EmployerHomeScreen(

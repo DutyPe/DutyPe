@@ -1,0 +1,86 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="160dp"
+    android:height="160dp"
+    android:viewportWidth="160"
+    android:viewportHeight="160">
+
+    <!-- Soft circular backdrop badge -->
+    <path
+        android:fillColor="#F0F4F8"
+        android:pathData="M80,80m-70,0a70,70 0,1 1,140 0a70,70 0,1 1,-140 0" />
+
+    <path
+        android:fillColor="#E2E8F0"
+        android:pathData="M80,80m-58,0a58,58 0,1 1,116 0a58,58 0,1 1,-116 0" />
+
+    <!-- Partnership celebration sparks/stars -->
+    <!-- Top star -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M80,22 L82,28 L88,30 L82,32 L80,38 L78,32 L72,30 L78,28 Z" />
+    <!-- Left small star -->
+    <path
+        android:fillColor="#3B82F6"
+        android:pathData="M38,42 L39.5,46 L43.5,47.5 L39.5,49 L38,53 L36.5,49 L32.5,47.5 L36.5,46 Z" />
+    <!-- Right small star -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M122,42 L123.5,46 L127.5,47.5 L123.5,49 L122,53 L120.5,49 L116.5,47.5 L120.5,46 Z" />
+
+    <!-- Left sleeve (Navy) -->
+    <path
+        android:fillColor="#1E3A8A"
+        android:pathData="M18,108 L42,84 L54,96 L30,120 Z" />
+
+    <!-- Left sleeve cuff (Blue accent) -->
+    <path
+        android:fillColor="#3B82F6"
+        android:pathData="M40,82 L47,75 L59,87 L52,94 Z" />
+
+    <!-- Right sleeve (Dark Slate) -->
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M142,108 L118,84 L106,96 L130,120 Z" />
+
+    <!-- Right sleeve cuff (Teal accent) -->
+    <path
+        android:fillColor="#059669"
+        android:pathData="M120,82 L113,75 L101,87 L108,94 Z" />
+
+    <!-- Left Wrist & Hand (Warm amber skin tone) -->
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M47,75 C52,70 60,68 68,72 L82,82 C86,85 87,90 84,94 L80,98 C76,102 70,102 66,98 L52,86 Z" />
+
+    <!-- Right Wrist & Hand (Warm amber shade) -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M113,75 C108,70 100,68 92,72 L78,82 C74,85 73,90 76,94 L80,98 C84,102 90,102 94,98 L108,86 Z" />
+
+    <!-- Left thumb pressing across right hand -->
+    <path
+        android:fillColor="#FCD34D"
+        android:pathData="M66,68 C70,64 78,65 83,70 L89,76 C91,78 90,82 87,83 C84,84 81,83 79,80 L73,74 C70,72 66,72 64,74 Z" />
+
+    <!-- Right thumb resting across left hand -->
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M94,68 C90,64 82,65 77,70 L71,76 C69,78 70,82 73,83 C76,84 79,83 81,80 L87,74 C90,72 94,72 96,74 Z" />
+
+    <!-- Interlocked fingers (Finger clasp details) -->
+    <path
+        android:fillColor="#D97706"
+        android:pathData="M74,86 C74,83 78,81 81,83 C84,85 85,89 82,91 L79,93 C76,94 74,90 74,86 Z" />
+    <path
+        android:fillColor="#D97706"
+        android:pathData="M78,90 C78,87 82,85 85,87 C88,89 89,93 86,95 L83,97 C80,98 78,94 78,90 Z" />
+    <path
+        android:fillColor="#D97706"
+        android:pathData="M82,94 C82,91 86,89 89,91 C92,93 93,97 90,99 L87,101 C84,102 82,98 82,94 Z" />
+
+    <!-- Heart/connection small pulse above the handshake -->
+    <path
+        android:fillColor="#EF4444"
+        android:pathData="M80,52 C78,48 74,48 72,50 C70,52 70,56 73,59 L80,66 L87,59 C90,56 90,52 88,50 C86,48 82,48 80,52 Z" />
+
+</vector>

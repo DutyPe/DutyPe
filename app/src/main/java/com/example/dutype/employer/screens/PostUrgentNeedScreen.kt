@@ -22,12 +22,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -96,14 +98,12 @@ private val URGENT_CATEGORIES = URGENT_TRADE_GRID + listOf(
 private data class UrgentDurationOption(val key: String, @StringRes val labelRes: Int)
 
 private val URGENT_DURATION_OPTIONS = listOf(
-    UrgentDurationOption("Half Day (4 hrs)", R.string.duration_half_day),
-    UrgentDurationOption("Full Day (8 hrs)", R.string.duration_full_day),
+    UrgentDurationOption("Per Hour", R.string.duration_per_hour),
+    UrgentDurationOption("Per Task", R.string.duration_per_task),
+    UrgentDurationOption("Per Day", R.string.duration_per_day),
     UrgentDurationOption("2-3 Days", R.string.duration_2_3_days),
-    UrgentDurationOption("1 Week", R.string.duration_1_week),
-    UrgentDurationOption("Monthly", R.string.duration_monthly)
+    UrgentDurationOption("1 Week", R.string.duration_1_week)
 )
-
-private val URGENT_WAGE_OPTIONS = listOf(500, 750, 1000)
 
 private val UrgentNavy = Color(0xFF0F172A)
 private val UrgentCobalt = Color(0xFF2563EB)
@@ -182,7 +182,7 @@ fun PostUrgentNeedContent(
     var urgencyType by rememberSaveable { mutableStateOf("right_now") }
     var workersNeeded by rememberSaveable { mutableStateOf(2) }
 
-    var selectedDuration by rememberSaveable { mutableStateOf("Full Day (8 hrs)") }
+    var selectedDuration by rememberSaveable { mutableStateOf("Per Day") }
 
     var perPersonPaymentText by rememberSaveable(initialCategory) {
         mutableStateOf(initialMatch?.defaultPay?.toString() ?: "600")
@@ -290,16 +290,26 @@ fun PostUrgentNeedContent(
         }
     }
 
-    val currentCategoryItem = URGENT_CATEGORIES.firstOrNull { it.id == selectedCategoryItem }
-        ?: URGENT_CATEGORIES.first()
     val defaultGeneralHelper = stringResource(R.string.general_helper)
-    val effectiveCategory = if (selectedCategoryItem == "other") {
-        otherCategory.trim().ifBlank { jobTitle.trim() }.ifBlank { defaultGeneralHelper }
-    } else {
-        currentCategoryItem.title
+    fun deriveCategoryFromTitle(title: String): String {
+        val lower = title.lowercase()
+        return when {
+            "cook" in lower || "chef" in lower -> "Cook"
+            "electr" in lower -> "Electrician"
+            "plumb" in lower -> "Plumber"
+            "load" in lower || "hamali" in lower || "helper" in lower -> "Loading Helper"
+            "driv" in lower -> "Driver"
+            "secur" in lower || "guard" in lower -> "Security"
+            "carpent" in lower -> "Carpenter"
+            "deliv" in lower -> "Delivery"
+            "paint" in lower -> "Painter"
+            "clean" in lower || "maid" in lower || "sweep" in lower -> "Cleaner / Maid"
+            else -> defaultGeneralHelper
+        }
     }
+    val effectiveCategory = if (jobTitle.isNotBlank()) deriveCategoryFromTitle(jobTitle) else defaultGeneralHelper
 
-    val canPost = (selectedCategoryItem != "other" || otherCategory.trim().length >= 2 || jobTitle.trim().length >= 2) &&
+    val canPost = jobTitle.trim().length >= 2 &&
             contactNumber.isNotBlank() &&
             !isAutoPickingLocation
 
@@ -399,7 +409,32 @@ fun PostUrgentNeedContent(
             .background(Color.White.bg())
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            UrgentAlertStrip(showBack = showTopBar, onBackClick = onBackClick)
+            if (showTopBar) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .height(48.dp)
+                        .padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.back),
+                            tint = UrgentNavy.fg(),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Urgent Requirement",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = UrgentNavy.fg()
+                    )
+                }
+            }
 
             Column(
                 modifier = Modifier
@@ -409,10 +444,6 @@ fun PostUrgentNeedContent(
                     .padding(start = 20.dp, end = 20.dp)
             ) {
                 Spacer(modifier = Modifier.height(16.dp))
-                VoiceJobTriggerCard(
-                    onClick = { showVoiceSheet = true }
-                )
-                Spacer(modifier = Modifier.height(20.dp))
                 Text(
                     text = stringResource(R.string.urgent_need_what_do_you_need),
                     fontSize = 20.sp,
@@ -422,26 +453,6 @@ fun PostUrgentNeedContent(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 UrgentTitleField(value = jobTitle, onValueChange = { jobTitle = it.take(80) })
-                Spacer(modifier = Modifier.height(14.dp))
-                Text(
-                    text = stringResource(R.string.urgent_pick_work_type),
-                    fontSize = 12.sp,
-                    color = Color(0xFF64748B).fg()
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                UrgentTradeGrid(
-                    selectedId = selectedCategoryItem,
-                    onSelect = { item ->
-                        selectedCategoryItem = item.id
-                        perPersonPaymentText = item.defaultPay.toString()
-                        // Fill the title from the chip unless the employer wrote their own.
-                        val chipTitle = context.getString(item.labelRes)
-                        if (item.id != "other" && (jobTitle.isBlank() || jobTitle == lastChipTitle)) {
-                            jobTitle = chipTitle
-                            lastChipTitle = chipTitle
-                        }
-                    }
-                )
 
                 Spacer(modifier = Modifier.height(20.dp))
                 UrgentLocationCard(
@@ -487,15 +498,40 @@ fun PostUrgentNeedContent(
             }
         }
 
-        UrgentBroadcastButton(
-            enabled = !state.isPostingUrgentNeed && canPost,
-            loading = state.isPostingUrgentNeed || isAutoPickingLocation,
-            onClick = { broadcastNeed() },
+        Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(Color.White.bg())
                 .navigationBarsPadding()
-                .padding(start = 20.dp, end = 20.dp, bottom = bottomPadding)
-        )
+                .padding(start = 20.dp, end = 20.dp, bottom = bottomPadding, top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            UrgentBroadcastButton(
+                enabled = !state.isPostingUrgentNeed && canPost,
+                loading = state.isPostingUrgentNeed || isAutoPickingLocation,
+                onClick = { broadcastNeed() },
+                modifier = Modifier.weight(1f)
+            )
+
+            // AI Voice Assistant Button
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF0F172A).bg())
+                    .clickable { showVoiceSheet = true },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Mic,
+                    contentDescription = "Voice Assistant",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
     }
 
     if (showLocationDialog) {
@@ -859,29 +895,42 @@ private fun UrgentWageSection(wageText: String, onWageChange: (String) -> Unit) 
         UrgentFieldLabel(stringResource(R.string.urgent_need_daily_wage))
         Spacer(modifier = Modifier.height(10.dp))
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp)
+                .background(Color.White.bg(), RoundedCornerShape(14.dp))
+                .border(1.dp, UrgentBorder.bd(), RoundedCornerShape(14.dp))
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            URGENT_WAGE_OPTIONS.forEach { amount ->
-                UrgentChip(
-                    label = stringResource(R.string.wage_per_day_format, amount),
-                    selected = wageText == amount.toString(),
-                    onClick = { onWageChange(amount.toString()) },
-                    modifier = Modifier.weight(1f),
-                    horizontalPad = 4.dp
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(10.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = stringResource(R.string.urgent_need_custom_wage), fontSize = 12.sp, color = Color(0xFF94A3B8).fg())
+            Text(
+                text = "₹",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = UrgentNavy.fg()
+            )
             Spacer(modifier = Modifier.width(10.dp))
-            UrgentInputBox(
+            BasicTextField(
                 value = wageText,
                 onValueChange = { input -> onWageChange(input.filter { it.isDigit() }.take(5)) },
-                prefix = "\u20B9",
-                keyboardType = KeyboardType.Number,
-                modifier = Modifier.width(120.dp)
+                textStyle = TextStyle(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = UrgentNavy.fg()
+                ),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+                decorationBox = { innerTextField ->
+                    if (wageText.isEmpty()) {
+                        Text(
+                            text = "Enter wage amount (e.g. 700)",
+                            fontSize = 14.sp,
+                            color = Color(0xFF94A3B8).fg()
+                        )
+                    }
+                    innerTextField()
+                }
             )
         }
     }
@@ -1066,7 +1115,6 @@ private fun UrgentTitleField(value: String, onValueChange: (String) -> Unit) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(stringResource(R.string.urgent_job_title_label)) },
         placeholder = { Text(stringResource(R.string.urgent_job_title_hint), color = Color(0xFF94A3B8).fg()) },
         singleLine = true,
         shape = RoundedCornerShape(14.dp),
@@ -1074,7 +1122,6 @@ private fun UrgentTitleField(value: String, onValueChange: (String) -> Unit) {
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = UrgentNavy.fg(),
             unfocusedBorderColor = UrgentBorder.bd(),
-            focusedLabelColor = UrgentNavy.fg(),
             focusedContainerColor = Color.White.bg(),
             unfocusedContainerColor = Color.White.bg(),
             focusedTextColor = UrgentNavy.fg(),

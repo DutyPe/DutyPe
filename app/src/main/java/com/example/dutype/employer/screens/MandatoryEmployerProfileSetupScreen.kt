@@ -1,28 +1,15 @@
 package com.example.dutype.employer.screens
 
-import com.example.dutype.ui.theme.bd
-import com.example.dutype.ui.theme.bg
-import com.example.dutype.ui.theme.fg
-import com.example.dutype.firestore.FirestoreSchema.Values
-import com.example.dutype.firestore.FirestoreSchema.EmployerProfiles
-import com.dutype.app.R
 import android.app.Activity
 import android.content.Context
-import android.net.Uri
-import android.widget.Toast
-import androidx.annotation.StringRes
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -38,74 +25,73 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.dutype.app.R
 import com.example.dutype.components.ProfileSetupReferralCard
-import com.example.dutype.components.ReferralValidationResult
-import com.example.dutype.components.SelectableLocationMap
-import com.example.dutype.components.isValidReferralCode
+import com.example.dutype.components.markWelcomeCelebrationPending
+import com.example.dutype.di.rememberInAppReviewTriggerService
+import com.example.dutype.firestore.FirestoreSchema.EmployerProfiles
+import com.example.dutype.firestore.FirestoreSchema.Values
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.ui.theme.EmployerColors
 import com.example.dutype.ui.theme.LocalRoleColors
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.fg
+import com.example.dutype.utils.GeoUtils
 import com.example.dutype.utils.ValidationUtils
-import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
+
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import com.example.dutype.models.normalizeReferralCode
+import androidx.compose.ui.text.SpanStyle
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import com.example.dutype.components.markWelcomeCelebrationPending
 import timber.log.Timber
 
 // =============================================================================
-// STITCH DESIGN SPEC PALETTE — exact colors from the employer profile setup
-// design (fixed, non-theme-adaptive: this screen matches the design 1:1)
+// STITCH DESIGN SPEC PALETTE
 // =============================================================================
 private val StitchNavy = Color(0xFF0F172A)
 private val StitchTrack = Color(0xFFF1F5F9)
 private val StitchBorder = Color(0xFFE2E8F0)
 private val StitchBlue = Color(0xFF2563EB)
 private val StitchLabel = Color(0xFF64748B)
-private val StitchDisabledBg = Color(0xFFF1F5F9)
+private val StitchDisabledBg = Color(0xFFF8FAFC)
 private val StitchFieldValue = Color(0xFF0F172A)
-
-private data class StitchIndustryOption(val key: String, val label: String)
-
-private val StitchIndustryOptions = listOf(
-    StitchIndustryOption("Restaurant / Hotel", "🍽️ Restaurant / Hotel / Tiffin"),
-    StitchIndustryOption("Retail / Shop", "🛍️ Retail Store / Saree & Cloth / Mart"),
-    StitchIndustryOption("Salon / Parlour", "💇 Salon / Parlour / Spa"),
-    StitchIndustryOption("Supermarket / Grocery", "🛒 Supermarket / Grocery / Bakery"),
-    StitchIndustryOption("Garage / Workshop", "🔧 Garage / Workshop / Hardware"),
-    StitchIndustryOption("Medical / Clinic", "🏥 Medical / Clinic / Pharmacy"),
-    StitchIndustryOption("Construction / Works", "🏗️ Construction / Contractor"),
-    StitchIndustryOption("Services / Other", "🏢 Other Local Shop / Business")
-)
 
 /**
  * Generic Stitch-style outlined field: white/gray rounded box with a small
- * gray label pinned at the top and a bold value line below it.
+ * gray label pinned at the top, a bold value line below it, and optional helper/error notes.
  */
 @Composable
 private fun StitchTextField(
-    label: String,
     value: String,
     onValueChange: (String) -> Unit,
+    placeholder: String,
     modifier: Modifier = Modifier,
-    placeholder: String? = null,
+    label: String? = null,
+    helperText: String? = null,
+    errorMessage: String? = null,
     readOnly: Boolean = false,
     backgroundColor: Color = Color.White,
     valueColor: Color = StitchFieldValue,
@@ -113,152 +99,86 @@ private fun StitchTextField(
     leadingIcon: (@Composable () -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(backgroundColor, RoundedCornerShape(14.dp))
-            .border(1.dp, StitchBorder.bd(), RoundedCornerShape(14.dp))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (leadingIcon != null) {
-            leadingIcon()
-            Spacer(modifier = Modifier.width(10.dp))
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = label, fontSize = 12.sp, color = StitchLabel.fg())
-            Spacer(modifier = Modifier.height(2.dp))
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                readOnly = readOnly,
-                singleLine = true,
-                textStyle = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = valueColor),
-                keyboardOptions = keyboardOptions,
-                cursorBrush = SolidColor(valueColor),
-                decorationBox = { inner ->
-                    if (value.isEmpty() && placeholder != null) {
-                        Text(text = placeholder, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = StitchLabel.fg().copy(alpha = 0.6f))
-                    }
-                    inner()
-                }
-            )
-        }
-        if (trailingContent != null) {
-            Spacer(modifier = Modifier.width(8.dp))
-            trailingContent()
-        }
-    }
-}
-
-/** Stitch-style picker field showing a value + chevron, opening a dropdown menu. */
-@Composable
-private fun StitchDropdownField(
-    label: String,
-    value: String,
-    options: List<StitchIndustryOption>,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val displayValue = options.find { it.key == value }?.label ?: value.ifBlank { "Select Shop / Business Category" }
-    Box(modifier = modifier.fillMaxWidth()) {
+    Column(modifier = modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color.White.bg(), RoundedCornerShape(14.dp))
-                .border(1.dp, StitchBorder.bd(), RoundedCornerShape(14.dp))
-                .clickable { expanded = true }
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .height(56.dp)
+                .background(backgroundColor, RoundedCornerShape(14.dp))
+                .border(
+                    width = 1.dp,
+                    color = if (errorMessage != null) EmployerColors.Error else StitchBorder.bd(),
+                    shape = RoundedCornerShape(14.dp)
+                )
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = label, fontSize = 12.sp, color = StitchLabel.fg())
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = displayValue,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (value.isBlank()) StitchLabel.fg().copy(alpha = 0.6f) else StitchNavy.fg()
+            if (leadingIcon != null) {
+                leadingIcon()
+                Spacer(modifier = Modifier.width(12.dp))
+            }
+            Box(modifier = Modifier.weight(1f)) {
+                if (value.isEmpty()) {
+                    Text(
+                        text = placeholder,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = Color(0xFF94A3B8)
+                    )
+                }
+                BasicTextField(
+                    value = value,
+                    onValueChange = onValueChange,
+                    readOnly = readOnly,
+                    singleLine = true,
+                    textStyle = TextStyle(
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = valueColor
+                    ),
+                    keyboardOptions = keyboardOptions,
+                    cursorBrush = SolidColor(Color(0xFF00A859)),
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
-            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = StitchLabel.fg())
-        }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option.label, fontSize = 14.sp, fontWeight = FontWeight.Medium) },
-                    onClick = {
-                        onValueChange(option.key)
-                        expanded = false
-                    }
-                )
+            if (trailingContent != null) {
+                Spacer(modifier = Modifier.width(8.dp))
+                trailingContent()
             }
         }
-    }
-}
-
-/** Pill-shaped two-option segmented toggle matching the Stitch design spec. */
-@Composable
-internal fun StitchSegmentedToggle(
-    isIndividual: Boolean,
-    onIndividualSelected: () -> Unit,
-    onCompanySelected: () -> Unit,
-    modifier: Modifier = Modifier,
-    individualLabel: String = "🏠 Individual / Home",
-    companyLabel: String = "🏪 Shop / Store / Business"
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .background(StitchTrack.bg(), RoundedCornerShape(24.dp))
-            .padding(4.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(20.dp))
-                .background(if (isIndividual) StitchNavy.bg() else Color.Transparent)
-                .clickable(onClick = onIndividualSelected),
-            contentAlignment = Alignment.Center
-        ) {
+        if (errorMessage != null) {
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = individualLabel,
-                color = if (isIndividual) Color.White else StitchLabel.fg(),
-                fontSize = 14.sp,
-                fontWeight = if (isIndividual) FontWeight.Bold else FontWeight.Medium
+                text = errorMessage,
+                color = EmployerColors.Error,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(start = 4.dp)
             )
-        }
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(20.dp))
-                .background(if (!isIndividual) StitchNavy.bg() else Color.Transparent)
-                .clickable(onClick = onCompanySelected),
-            contentAlignment = Alignment.Center
-        ) {
+        } else if (helperText != null) {
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = companyLabel,
-                color = if (!isIndividual) Color.White else StitchLabel.fg(),
-                fontSize = 14.sp,
-                fontWeight = if (!isIndividual) FontWeight.Bold else FontWeight.Medium
+                text = helperText,
+                color = StitchLabel.fg(),
+                fontSize = 12.sp,
+                modifier = Modifier.padding(start = 4.dp)
             )
         }
     }
 }
 
 /**
- * Mandatory Employer Profile Setup Screen
+ * Mandatory Employer Profile Setup Screen (Single Screen)
  *
- * FIX: Using rememberSaveable for form state to survive activity recreation
- * when camera is launched (process death scenario)
+ * Streamlined single-screen setup capturing:
+ * - Full Name (required)
+ * - Email (optional)
+ * - Shop / Business Name (optional: "give or ignore", can be provided during normal job posting)
+ * - Verified locked phone number
+ * - Location (GPS auto-fetch + autocomplete + compact map preview)
+ * - Referral Code card
  *
  * @param navController Navigation controller for screen navigation
- * @param returnRoute Optional route to navigate to after profile completion (e.g., post_job)
+ * @param returnRoute Optional route to navigate to after profile completion
  */
 @Composable
 fun MandatoryEmployerProfileSetupScreen(
@@ -270,320 +190,223 @@ fun MandatoryEmployerProfileSetupScreen(
     val context = LocalContext.current
     val reviewTriggerService = rememberInAppReviewTriggerService()
     val crashlytics = remember { FirebaseCrashlytics.getInstance() }
-    // Services accessed via ProfileCompletionViewModel (proper DI pattern)
     val locationService = profileCompletionViewModel.locationService
     val notificationService = profileCompletionViewModel.notificationService
     val fcmTokenManager = profileCompletionViewModel.fcmTokenManager
 
-    // Form state - using rememberSaveable to survive activity recreation (camera launch)
-    var employerType by rememberSaveable { mutableStateOf("INDIVIDUAL") }
-    var companyName by rememberSaveable { mutableStateOf("") }
+    // Form state
+    var fullNameInput by rememberSaveable { mutableStateOf("") }
+    var currentStep by rememberSaveable { mutableIntStateOf(1) }
+    var email by rememberSaveable { mutableStateOf("") }
+    var shopOrBusinessName by rememberSaveable { mutableStateOf("") }
     var contactPhone by rememberSaveable { mutableStateOf("") }
     var businessAddress by rememberSaveable { mutableStateOf("") }
     var businessLatitude by rememberSaveable { mutableStateOf(0.0) }
     var businessLongitude by rememberSaveable { mutableStateOf(0.0) }
-    var industry by rememberSaveable { mutableStateOf("") }
-    var gstin by rememberSaveable { mutableStateOf("") }
-    var contactName by rememberSaveable { mutableStateOf("") }
-    var isVerifyingGstin by remember { mutableStateOf(false) }
-    var gstinVerifiedMessage by remember { mutableStateOf<String?>(null) }
 
-    // Selfie state - Uri cannot be saved directly, so we save the string representation
-    var selfieUriString by rememberSaveable { mutableStateOf<String?>(null) }
-    val selfieUri = selfieUriString?.let { Uri.parse(it) }
-    var selfieUrl by rememberSaveable { mutableStateOf<String?>(null) }
-    var isUploadingSelfie by remember { mutableStateOf(false) }
-    var selfieError by remember { mutableStateOf<String?>(null) }
+    val fullName = fullNameInput.trim()
 
-    // Referral code state - REMOVED: Now handled in login flow before profile setup
-    // Referral codes must be entered during registration, not profile setup
-    var referralCode by rememberSaveable { mutableStateOf("") }
-    var isValidatingReferral by remember { mutableStateOf(false) }
-    var referralValidationResult by remember { mutableStateOf<ReferralValidationResult?>(null) }
-    var hasAlreadyUsedReferral by remember { mutableStateOf(true) } // Always true to hide referral section
-    var showReferralSection by remember { mutableStateOf(false) } // Always false - referral handled in login
-
-    // UI state - currentStep must survive activity recreation
+    // Validation & loading states
     var isLoading by remember { mutableStateOf(false) }
-    var isLoadingExistingData by remember { mutableStateOf(true) } // Loading existing profile data
+    var isLoadingExistingData by remember { mutableStateOf(true) }
+    var referralCodeInput by rememberSaveable { mutableStateOf("") }
+    var referralErrorMessage by remember { mutableStateOf<String?>(null) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
-    var currentStep by rememberSaveable { mutableStateOf(1) }
     var showValidationErrors by rememberSaveable { mutableStateOf(false) }
-    val totalSteps = 1
 
-    fun logFunnelEvent(event: String, extras: Map<String, String> = emptyMap()) {
-        runCatching {
-            crashlytics.log("profile_funnel_employer:$event")
-            crashlytics.setCustomKey("profile_funnel_role", "EMPLOYER")
-            crashlytics.setCustomKey("profile_funnel_event", event)
-            crashlytics.setCustomKey("profile_funnel_step", currentStep)
-            extras.forEach { (k, v) -> crashlytics.setCustomKey("profile_funnel_$k", v) }
-        }.onFailure { Timber.w(it, "Failed to log employer funnel telemetry") }
-    }
-
-    // INDUSTRY BEST PRACTICE: Load existing profile data from Firebase (Single Source of Truth)
-    // This handles both new users and existing users with partial data
-    // Pattern used by: Google, Uber, Airbnb, LinkedIn
-    // Full profile data is loaded for form prefilling - all fields are needed
+    // Pre-fill existing data from Firebase & local cache
     LaunchedEffect(Unit) {
-        logFunnelEvent(
-            event = "started",
-            extras = mapOf("return_route" to (returnRoute ?: "none"))
-        )
         isLoadingExistingData = true
         try {
             val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
                 profileCompletionViewModel.getEmployer(currentUser.uid).getOrNull()?.let { saved ->
-                    employerType = saved.employerType
-                    if (saved.isCompany) {
-                        if (companyName.isBlank() && !saved.businessName.equals("User", ignoreCase = true)) companyName = saved.businessName
-                        if (contactName.isBlank() && !saved.ownerName.equals("User", ignoreCase = true)) contactName = saved.ownerName
-                    } else if (companyName.isBlank() && !saved.ownerName.equals("User", ignoreCase = true)) {
-                        companyName = saved.ownerName
+                    var loadedName = ""
+                    if (saved.ownerName.isNotBlank() && !saved.ownerName.equals("User", ignoreCase = true)) {
+                        loadedName = saved.ownerName
+                    } else if (saved.businessName.isNotBlank() && !saved.businessName.equals("User", ignoreCase = true)) {
+                        loadedName = saved.businessName
+                    }
+                    if (loadedName.isNotBlank()) {
+                        fullNameInput = loadedName.trim()
+                    }
+                    if (saved.businessName.isNotBlank() &&
+                        !saved.businessName.equals("User", ignoreCase = true) &&
+                        saved.businessName != saved.ownerName
+                    ) {
+                        shopOrBusinessName = saved.businessName
                     }
                     if (contactPhone.isBlank()) contactPhone = saved.phone.removePrefix("+91").trim()
-                    if (industry.isBlank()) industry = saved.businessType
-                    if (gstin.isBlank()) gstin = saved.gstin
                     if (businessAddress.isBlank()) businessAddress = saved.address
                     if (businessLatitude == 0.0 && businessLongitude == 0.0 &&
-                        com.example.dutype.utils.GeoUtils.hasValidCoordinates(saved.lat, saved.lng)
+                        GeoUtils.hasValidCoordinates(saved.lat, saved.lng)
                     ) {
                         businessLatitude = saved.lat
                         businessLongitude = saved.lng
                     }
-                    if (saved.photoUrl.isNotBlank()) selfieUrl = saved.photoUrl
                 }
 
-                // Fallback: Load display name from auth cache if still empty
-                if (companyName.isBlank()) {
+                // Fallback: load name from local state if still empty
+                if (fullNameInput.isBlank()) {
                     val savedName = profileCompletionViewModel.getUserName()
                     if (savedName != null && !savedName.equals("User", ignoreCase = true)) {
-                        companyName = savedName
-                        Timber.d("📦 PREFILL: companyName from auth = $companyName")
+                        fullNameInput = savedName.trim()
                     }
                 }
-
-                // Load phone from OTP auth if available
+                // Pre-fill email if available
+                if (email.isBlank()) {
+                    val savedEmail = profileCompletionViewModel.getUserEmail()
+                    if (!savedEmail.isNullOrBlank()) {
+                        email = savedEmail
+                    }
+                }
+                // Pre-fill phone from auth if available
                 if (contactPhone.isBlank()) {
                     val savedPhone = profileCompletionViewModel.getPhoneNumber()
                     if (savedPhone != null) {
                         contactPhone = savedPhone.replace("+91", "").trim()
-                        Timber.d("📦 PREFILL: contactPhone from auth = $contactPhone")
                     }
+                }
+                val savedRef = profileCompletionViewModel.getReferralCode()
+                if (!savedRef.isNullOrBlank()) {
+                    referralCodeInput = savedRef.trim()
                 }
             }
         } catch (e: Exception) {
-            Timber.e(e, "📦 PREFILL: Error loading existing profile data")
+            Timber.e(e, "Error prefilling employer profile setup")
         } finally {
             isLoadingExistingData = false
         }
     }
 
-    LaunchedEffect(currentStep) {
-        logFunnelEvent("step_viewed", mapOf("step" to currentStep.toString()))
-    }
+    // Validation
+    val isNameValid = fullNameInput.trim().length >= 2
+    val isEmailValid = email.isBlank() || android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
+    val isLocationValid = businessAddress.isNotBlank() || GeoUtils.hasValidCoordinates(businessLatitude, businessLongitude)
+    val isFormValid = isNameValid && isEmailValid && isLocationValid
 
-    // Validation logic
-    val isStep1Valid = companyName.isNotBlank() && (employerType != Values.EmployerType.COMPANY || industry.isNotBlank())
-    val isStep2Valid = ValidationUtils.isValidIndianPhoneNumber(contactPhone) && businessAddress.isNotBlank()
-    val isStep3Valid = true  // Selfie is optional - always valid
-
-    var phoneError by remember { mutableStateOf<String?>(null) }
-    var companyNameError by remember { mutableStateOf<String?>(null) }
-    var industryError by remember { mutableStateOf<String?>(null) }
-    var addressError by remember { mutableStateOf<String?>(null) }
-
-    // Update errors only when showValidationErrors is true
-    val isIndividual = employerType == "INDIVIDUAL"
-    val phoneNumberRequiredError = stringResource(R.string.phone_number_required_error)
-    val validPhoneError = stringResource(R.string.valid_10_digit_phone_error)
-    val companyNameRequiredError = if (isIndividual) stringResource(R.string.your_full_name_required) else stringResource(R.string.company_name_required_error)
-    val workLocationRequiredError = if (isIndividual) stringResource(R.string.home_or_task_location_required) else stringResource(R.string.work_location_required_error)
-    val selectYourIndustryError = stringResource(R.string.select_your_industry)
-
-    LaunchedEffect(contactPhone, companyName, industry, businessAddress, employerType, showValidationErrors) {
-        if (showValidationErrors) {
-            phoneError = when {
-                contactPhone.isBlank() -> phoneNumberRequiredError
-                !ValidationUtils.isValidIndianPhoneNumber(contactPhone) -> validPhoneError
-                else -> null
-            }
-            companyNameError = if (companyName.isBlank()) companyNameRequiredError else null
-            industryError = if (!isIndividual && industry.isBlank()) selectYourIndustryError else null
-            addressError = if (businessAddress.isBlank()) workLocationRequiredError else null
-        } else {
-            phoneError = null
-            companyNameError = null
-            industryError = null
-            addressError = null
-        }
-    }
-
-    val isCurrentStepValid = isStep1Valid && isStep2Valid && isStep3Valid
-
-    // Guard to prevent double-execution of handleCompletion
     var isCompletionInProgress by remember { mutableStateOf(false) }
 
     fun handleCompletion() {
-        // Prevent double-execution
-        if (isCompletionInProgress) {
-            Timber.w("📍 Profile completion already in progress, ignoring duplicate call")
-            return
-        }
-
+        if (isCompletionInProgress) return
         isCompletionInProgress = true
+
         scope.launch {
             isLoading = true
             errorMessage = null
-            selfieError = null
             try {
                 val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                if (currentUser == null) {
-                    throw IllegalStateException("User not authenticated")
-                } else {
-                    // First upload selfie if available
-                    var uploadedSelfieUrl: String? = null
-                    if (selfieUri != null) {
-                        isUploadingSelfie = true
-                        try {
-                            val uploadResult = profileCompletionViewModel.uploadProfileImage(
-                                selfieUri!!,
-                                currentUser.uid,
-                                "EMPLOYER"
-                            )
-                            uploadResult.fold(
-                                onSuccess = { url ->
-                                    uploadedSelfieUrl = url
-                                    selfieUrl = url
-                                    Timber.d("📸 Employer selfie uploaded: $url")
-                                },
-                                onFailure = { e ->
-                                    Timber.e(e, "📸 Failed to upload employer selfie")
-                                    // Show error but continue - selfie upload is not blocking
-                                    selfieError = context.getString(R.string.employer_photo_upload_failed_saved)
-                                }
-                            )
-                        } catch (e: Exception) {
-                            Timber.e(e, "📸 Exception during employer selfie upload")
-                            selfieError = context.getString(R.string.employer_photo_upload_failed_saved)
-                        } finally {
-                            isUploadingSelfie = false
-                        }
-                    }
+                    ?: throw IllegalStateException("User not authenticated")
 
-                    val isCompany = employerType == Values.EmployerType.COMPANY
-                    val employerProfileData = mutableMapOf<String, Any?>(
-                        EmployerProfiles.EMPLOYER_TYPE to employerType,
-                        EmployerProfiles.OWNER_NAME to (if (isCompany) contactName.ifBlank { companyName } else companyName).trim(),
-                        EmployerProfiles.BUSINESS_NAME to if (isCompany) companyName.trim() else "",
-                        EmployerProfiles.BUSINESS_TYPE to industry.trim(),
-                        EmployerProfiles.GSTIN to if (isCompany) gstin.trim() else ""
-                    )
-                    if (businessAddress.isNotBlank()) {
-                        employerProfileData[EmployerProfiles.ADDRESS] = businessAddress.trim()
-                    }
-                    var finalLat = businessLatitude
-                    var finalLng = businessLongitude
-                    if (!com.example.dutype.utils.GeoUtils.hasValidCoordinates(finalLat, finalLng) && businessAddress.isNotBlank()) {
-                        try {
-                            val geocoded = locationService.getCoordinatesFromAddress(businessAddress.trim())
-                            if (geocoded != null && com.example.dutype.utils.GeoUtils.hasValidCoordinates(geocoded.latitude, geocoded.longitude)) {
-                                finalLat = geocoded.latitude
-                                finalLng = geocoded.longitude
-                                businessLatitude = finalLat
-                                businessLongitude = finalLng
-                                profileCompletionViewModel.locationPreferences.saveLocation(locationService.toLocationData(geocoded))
-                            }
-                        } catch (e: Exception) {
-                            Timber.w(e, "Could not geocode employer address: $businessAddress")
+                // Resolve coordinates if missing but address text is present
+                var finalLat = businessLatitude
+                var finalLng = businessLongitude
+                if (!GeoUtils.hasValidCoordinates(finalLat, finalLng) && businessAddress.isNotBlank()) {
+                    try {
+                        val geocoded = locationService.getCoordinatesFromAddress(businessAddress.trim())
+                        if (geocoded != null && GeoUtils.hasValidCoordinates(geocoded.latitude, geocoded.longitude)) {
+                            finalLat = geocoded.latitude
+                            finalLng = geocoded.longitude
+                            businessLatitude = finalLat
+                            businessLongitude = finalLng
+                            profileCompletionViewModel.locationPreferences.saveLocation(locationService.toLocationData(geocoded))
                         }
+                    } catch (e: Exception) {
+                        Timber.w(e, "Could not geocode employer address: $businessAddress")
                     }
-                    if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(finalLat, finalLng)) {
-                        employerProfileData[EmployerProfiles.LAT] = finalLat
-                        employerProfileData[EmployerProfiles.LNG] = finalLng
-                    }
-
-                    profileCompletionViewModel.saveEmployer(employerProfileData).getOrThrow()
-                    // The photo was saved by uploadProfileImage itself.
-                    if (uploadedSelfieUrl != null) Timber.d("Employer photo saved")
                 }
 
-                // Save role to local DataStore so app knows which home to navigate to on reopen
-                profileCompletionViewModel.saveUserInfoToLocalStorage(companyName, UserRole.EMPLOYER)
+                val hasShop = shopOrBusinessName.isNotBlank()
+                val userPhone = currentUser.phoneNumber?.takeIf { it.isNotBlank() }
+                    ?: (if (contactPhone.isNotBlank()) "+91 $contactPhone" else "")
+                val employerProfileData = mutableMapOf<String, Any?>(
+                    EmployerProfiles.EMPLOYER_TYPE to (if (hasShop) Values.EmployerType.COMPANY else Values.EmployerType.INDIVIDUAL),
+                    EmployerProfiles.OWNER_NAME to fullName.trim(),
+                    EmployerProfiles.BUSINESS_NAME to if (hasShop) shopOrBusinessName.trim() else "",
+                    EmployerProfiles.PHONE to userPhone,
+                    EmployerProfiles.ADDRESS to businessAddress.trim(),
+                    EmployerProfiles.LAT to finalLat,
+                    EmployerProfiles.LNG to finalLng
+                )
 
-                // Check if this is the FIRST time completing profile (not an update)
+                // Save employer document in Firestore
+                profileCompletionViewModel.saveEmployer(employerProfileData).getOrThrow()
+
+                // Save to employer work_locations collection and saved addresses
+                if (businessAddress.isNotBlank()) {
+                    runCatching {
+                        val workLocRef = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                            .collection(EmployerProfiles.COLLECTION)
+                            .document(currentUser.uid)
+                            .collection(EmployerProfiles.WorkLocations.COLLECTION)
+
+                        val locLabel = if (hasShop) shopOrBusinessName.trim() else "Main Office"
+                        workLocRef.document("loc_primary").set(
+                            mapOf(
+                                EmployerProfiles.WorkLocations.LABEL to locLabel,
+                                EmployerProfiles.WorkLocations.ADDRESS to businessAddress.trim(),
+                                EmployerProfiles.WorkLocations.LAT to finalLat,
+                                EmployerProfiles.WorkLocations.LNG to finalLng
+                            )
+                        ).await()
+
+                        val savedPrefs = context.getSharedPreferences("dutype_saved_addresses", Context.MODE_PRIVATE)
+                        val tag = if (hasShop) "shop" else "office"
+                        savedPrefs.edit()
+                            .putString("addr_$tag", businessAddress.trim())
+                            .putString("area_$tag", locLabel)
+                            .putString("lat_$tag", finalLat.toString())
+                            .putString("lng_$tag", finalLng.toString())
+                            .apply()
+                    }.onFailure { Timber.w(it, "Could not save primary work location") }
+                }
+
+                // Save to local storage for instant cache
+                profileCompletionViewModel.saveUserInfoToLocalStorage(
+                    email = email.trim(),
+                    name = fullName.trim(),
+                    role = UserRole.EMPLOYER
+                )
+
                 val wasAlreadyComplete = profileCompletionViewModel.isProfileComplete(UserRole.EMPLOYER)
-
                 profileCompletionViewModel.markProfileComplete(UserRole.EMPLOYER)
                 profileCompletionViewModel.markProfileSetupAsShown(UserRole.EMPLOYER)
 
-                // Notification + FCM register + review trigger are all
-                // non-critical for navigation. Move to fire-and-forget so the
-                // user isn't blocked by Cloud Function round-trips.
                 if (!wasAlreadyComplete) {
-                    val notificationUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
-                    if (!wasAlreadyComplete) {
-                        // Flag for welcome celebration overlay on employer home screen
-                        markWelcomeCelebrationPending(context)
+                    markWelcomeCelebrationPending(context)
+                    scope.launch {
+                        runCatching {
+                            notificationService.sendProfileCompleteNotification(
+                                userName = fullName.trim(),
+                                userId = currentUser.uid,
+                                userRole = "EMPLOYER"
+                            )
+                            fcmTokenManager.registerTokenWithRole("EMPLOYER")
+                        }.onFailure { Timber.e(it, "Notification/FCM background register failed") }
                     }
-                    if (notificationUser != null) {
-                        scope.launch {
-                            runCatching {
-                                notificationService.sendProfileCompleteNotification(
-                                    userName = companyName,
-                                    userId = notificationUser.uid,
-                                    userRole = "EMPLOYER"
-                                ).onSuccess {
-                                    Timber.d("📬 Profile completion notification sent for employer (first time)")
-                                }.onFailure { error ->
-                                    Timber.e(error, "📬 Employer profile completion notification failed")
-                                }
-                                fcmTokenManager.registerTokenWithRole("EMPLOYER")
-                                Timber.d("📬 FCM token registered with EMPLOYER role")
-                            }.onFailure { Timber.e(it, "📬 Background notification/FCM failure") }
-                        }
-                    }
-
                     val activity = context as? Activity
                     if (activity != null) {
                         reviewTriggerService.onEmployerProfileCompleted(activity)
                     }
-                } else {
-                    Timber.d("📬 Profile already complete - skipping notification (this is a profile update)")
                 }
 
-                // Navigate to the returnRoute if provided (e.g. post_job after
-                // a guest filled the form and completed profile setup), otherwise
-                // fall back to the employer home screen.
-                //
-                // BUG #1 FIX: `EMPLOYER_POST_JOB` (and other employer-shell
-                // routes) only exist inside the nested `EmployerMainScreen`
-                // NavHost — not in this outer graph. Navigating to them
-                // directly from here crashes with
-                // `Navigation destination ... cannot be found in the navigation
-                // graph`. We instead navigate the outer controller to
-                // `EMPLOYER_HOME` (which mounts `EmployerMainScreen`) and queue
-                // the desired inner route via `EmployerInnerNavQueue`; the
-                // employer shell drains it on first composition.
+                // Navigate to next screen
                 if (returnRoute != null) {
-                    Timber.d("📍 Profile complete - queuing inner route '$returnRoute' and navigating to EMPLOYER_HOME")
+                    Timber.d("📍 Queuing return route '$returnRoute' and navigating to EMPLOYER_HOME")
                     com.example.dutype.navigation.EmployerInnerNavQueue.setPending(returnRoute)
                     navController.navigate(Routes.EMPLOYER_HOME) {
                         popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
                         launchSingleTop = true
                     }
-                    logFunnelEvent("completed", mapOf("destination" to returnRoute))
                 } else {
-                    Timber.d("📍 Profile complete - navigating to EMPLOYER_HOME")
+                    Timber.d("📍 Navigating to EMPLOYER_HOME")
                     navController.navigate(Routes.EMPLOYER_HOME) {
                         popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
                         launchSingleTop = true
                     }
-                    logFunnelEvent("completed", mapOf("destination" to Routes.EMPLOYER_HOME))
                 }
             } catch (e: Exception) {
-                logFunnelEvent("completion_failed", mapOf("reason" to "exception"))
+                Timber.e(e, "Failed to complete employer profile")
                 errorMessage = e.message ?: context.getString(R.string.failed_to_complete_profile_setup)
             } finally {
                 isLoading = false
@@ -592,598 +415,459 @@ fun MandatoryEmployerProfileSetupScreen(
         }
     }
 
-    // Show loading while fetching existing profile data
+    // Loading existing profile
     if (isLoadingExistingData) {
-        androidx.compose.foundation.layout.Box(
-            modifier = androidx.compose.ui.Modifier
+        Box(
+            modifier = Modifier
                 .fillMaxSize()
                 .background(LocalRoleColors.current.screenBackground),
-            contentAlignment = androidx.compose.ui.Alignment.Center
+            contentAlignment = Alignment.Center
         ) {
-            androidx.compose.foundation.layout.Column(
-                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp)
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                androidx.compose.material3.CircularProgressIndicator(
-                    color = EmployerColors.Primary.fg()
-                )
-                androidx.compose.material3.Text(
-                    stringResource(R.string.loading_your_profile),
-                    color = Color.Gray
-                )
+                CircularProgressIndicator(color = EmployerColors.Primary.fg())
+                Text(stringResource(R.string.loading_your_profile), color = Color.Gray)
             }
         }
         return
     }
 
-    MandatoryEmployerProfileSetupContent(
-        profileCompletionViewModel = profileCompletionViewModel,
-        employerType = employerType,
-        companyName = companyName,
-        contactPhone = contactPhone,
-        businessAddress = businessAddress,
-        businessLatitude = businessLatitude,
-        businessLongitude = businessLongitude,
-        industry = industry,
-        gstin = gstin,
-        contactName = contactName,
-        isVerifyingGstin = isVerifyingGstin,
-        gstinVerifiedMessage = gstinVerifiedMessage,
-        selfieUri = selfieUri,
-        isUploadingSelfie = isUploadingSelfie,
-        selfieError = selfieError,
-        isLoading = isLoading,
-        errorMessage = errorMessage,
-        currentStep = currentStep,
-        totalSteps = totalSteps,
-        isCurrentStepValid = isCurrentStepValid,
-        showValidationErrors = showValidationErrors,
-        phoneError = if (showValidationErrors) phoneError else null,
-        companyNameError = if (showValidationErrors) companyNameError else null,
-        industryError = if (showValidationErrors) industryError else null,
-        addressError = if (showValidationErrors) addressError else null,
-        referralCode = referralCode,
-        isValidatingReferral = isValidatingReferral,
-        referralValidationResult = referralValidationResult,
-        showReferralSection = showReferralSection,
-        hasAlreadyUsedReferral = hasAlreadyUsedReferral,
-        locationService = locationService,
-        onEmployerTypeChange = { employerType = it },
-        onCompanyNameChange = { companyName = it },
-        onContactPhoneChange = { contactPhone = it },
-        onBusinessAddressChange = { businessAddress = it },
-        onBusinessLocationChange = { lat, lng ->
-            businessLatitude = lat
-            businessLongitude = lng
-        },
-        onIndustryChange = { industry = it },
-        onGstinChange = { gstin = it.take(15).uppercase() },
-        onContactNameChange = { contactName = it },
-        onVerifyGstin = {
-            val gstinPattern = Regex("^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$")
-            scope.launch {
-                isVerifyingGstin = true
-                gstinVerifiedMessage = null
-                kotlinx.coroutines.delay(600)
-                gstinVerifiedMessage = if (gstinPattern.matches(gstin.trim().uppercase())) {
-                    context.getString(R.string.gstin_format_valid)
-                } else {
-                    context.getString(R.string.check_gstin_format)
-                }
-                isVerifyingGstin = false
-            }
-        },
-        onReferralCodeChange = { newCode ->
-            referralCode = newCode
-            if (referralValidationResult != null) {
-                referralValidationResult = null
-            }
-        },
-        onValidateReferral = { code ->
-            if (code.isNotBlank() && isValidReferralCode(code)) {
-                scope.launch {
-                    isValidatingReferral = true
-                    try {
-                        val info = profileCompletionViewModel.validateReferralCode(code)
-                        referralValidationResult = if (info.isValid) {
-                            val roleDisplay = if (info.referrerRole == Values.Role.EMPLOYER) context.getString(R.string.an_employer) else context.getString(R.string.a_worker)
-                            ReferralValidationResult(isValid = true, message = context.getString(R.string.valid_code_from_role, roleDisplay))
-                        } else {
-                            ReferralValidationResult(isValid = false, message = info.errorMessage ?: context.getString(R.string.referral_code_not_found))
-                        }
-                    } finally {
-                        isValidatingReferral = false
-                    }
-                }
-            }
-        },
-        onSelfieCapture = { uri ->
-            selfieUriString = uri.toString()
-            selfieError = null
-            Timber.d("📸 Employer selfie captured: $uri")
-        },
-        onSelfieRetake = {
-            selfieUriString = null
-            selfieUrl = null
-        },
-        onPreviousClick = {
-            logFunnelEvent("step_back", mapOf("from_step" to currentStep.toString()))
-            currentStep--
-        },
-        onNextClick = {
-            showValidationErrors = true
-            if (isCurrentStepValid) {
-                val previousStep = currentStep
-                currentStep++
-                logFunnelEvent(
-                    "step_advanced",
-                    mapOf(
-                        "from_step" to previousStep.toString(),
-                        "to_step" to currentStep.toString()
-                    )
-                )
-                showValidationErrors = false
-            } else {
-                logFunnelEvent("step_blocked", mapOf("step" to currentStep.toString()))
-            }
-        },
-        onCompleteClick = {
-            showValidationErrors = true
-            if (isCurrentStepValid) {
-                handleCompletion()
-            } else {
-                logFunnelEvent("step_blocked", mapOf("step" to currentStep.toString()))
-            }
-        }
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun MandatoryEmployerProfileSetupContent(
-    profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel(),
-    employerType: String,
-    companyName: String,
-    contactPhone: String,
-    businessAddress: String,
-    businessLatitude: Double,
-    businessLongitude: Double,
-    industry: String,
-    gstin: String,
-    contactName: String,
-    isVerifyingGstin: Boolean,
-    gstinVerifiedMessage: String?,
-    selfieUri: Uri?,
-    isUploadingSelfie: Boolean,
-    selfieError: String?,
-    isLoading: Boolean,
-    errorMessage: String?,
-    currentStep: Int,
-    totalSteps: Int,
-    isCurrentStepValid: Boolean,
-    showValidationErrors: Boolean,
-    phoneError: String?,
-    companyNameError: String?,
-    industryError: String?,
-    addressError: String?,
-    referralCode: String,
-    isValidatingReferral: Boolean,
-    referralValidationResult: ReferralValidationResult?,
-    showReferralSection: Boolean,
-    hasAlreadyUsedReferral: Boolean,
-    locationService: com.example.dutype.utils.LocationService,
-    onEmployerTypeChange: (String) -> Unit,
-    onCompanyNameChange: (String) -> Unit,
-    onContactPhoneChange: (String) -> Unit,
-    onBusinessAddressChange: (String) -> Unit,
-    onBusinessLocationChange: (Double, Double) -> Unit,
-    onIndustryChange: (String) -> Unit,
-    onGstinChange: (String) -> Unit,
-    onContactNameChange: (String) -> Unit,
-    onVerifyGstin: () -> Unit,
-    onReferralCodeChange: (String) -> Unit,
-    onValidateReferral: (String) -> Unit,
-    onSelfieCapture: (Uri) -> Unit,
-    onSelfieRetake: () -> Unit,
-    onPreviousClick: () -> Unit,
-    onNextClick: () -> Unit,
-    onCompleteClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(LocalRoleColors.current.screenBackground)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-            ) {
-                Card(
+    Scaffold(
+        containerColor = Color.White,
+        topBar = {
+            if (currentStep == 1) {
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .shadow(
-                            elevation = 28.dp,
-                            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-                            ambientColor = EmployerColors.TextPrimary.copy(alpha = 0.12f),
-                            spotColor = EmployerColors.TextPrimary.copy(alpha = 0.08f)
-                        ),
-                    colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.EmployerColors.CardBackground),
-                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
+                        .statusBarsPadding()
                 ) {
-                    Column(
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 32.dp),
-                        verticalArrangement = Arrangement.spacedBy(24.dp)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        CompanyInformationStep(
-                            profileCompletionViewModel = profileCompletionViewModel,
-                            employerType = employerType,
-                            companyName = companyName,
-                            industry = industry,
-                            gstin = gstin,
-                            contactName = contactName,
-                            isVerifyingGstin = isVerifyingGstin,
-                            gstinVerifiedMessage = gstinVerifiedMessage,
-                            companyNameError = companyNameError,
-                            industryError = industryError,
-                            referralCode = referralCode,
-                            isValidatingReferral = isValidatingReferral,
-                            referralValidationResult = referralValidationResult,
-                            showReferralSection = showReferralSection,
-                            hasAlreadyUsedReferral = hasAlreadyUsedReferral,
-                            onEmployerTypeChange = onEmployerTypeChange,
-                            onCompanyNameChange = onCompanyNameChange,
-                            onIndustryChange = onIndustryChange,
-                            onGstinChange = onGstinChange,
-                            onContactNameChange = onContactNameChange,
-                            onVerifyGstin = onVerifyGstin,
-                            onReferralCodeChange = onReferralCodeChange,
-                            onValidateReferral = onValidateReferral
-                        )
-
-                        ContactDetailsStep(
-                            isIndividual = employerType == "INDIVIDUAL",
-                            contactPhone = contactPhone,
-                            businessAddress = businessAddress,
-                            businessLatitude = businessLatitude,
-                            businessLongitude = businessLongitude,
-                            phoneError = phoneError,
-                            addressError = addressError,
-                            onContactPhoneChange = onContactPhoneChange,
-                            onBusinessAddressChange = onBusinessAddressChange,
-                            onBusinessLocationChange = onBusinessLocationChange,
-                            locationService = locationService
-                        )
-
-                        if (errorMessage != null) {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = EmployerColors.ErrorLight),
-                                shape = RoundedCornerShape(12.dp)
+                        if (navController.previousBackStackEntry != null) {
+                            IconButton(
+                                onClick = { navController.popBackStack() },
+                                modifier = Modifier.size(40.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Default.Warning,
-                                        contentDescription = null,
-                                        tint = EmployerColors.Error,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
-                                        text = errorMessage,
-                                        style = MaterialTheme.typography.bodyMedium.copy(
-                                            color = EmployerColors.Error
-                                        )
-                                    )
-                                }
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(R.string.back),
+                                    tint = Color(0xFF0F172A)
+                                )
                             }
+                        } else {
+                            Spacer(modifier = Modifier.width(40.dp))
                         }
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = "Step 1 of 2",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF64748B),
+                            modifier = Modifier.padding(end = 12.dp)
+                        )
+                    }
+
+                    // 2-segment progress bar
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color(0xFF00B159))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(Color(0xFFE2E8F0))
+                        )
                     }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color.White.bg(),
-                shadowElevation = 8.dp
-            ) {
+            } else {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        .statusBarsPadding()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (currentStep > 1) {
-                        OutlinedButton(
-                            onClick = onPreviousClick,
-                            modifier = Modifier.size(56.dp),
-                            shape = RoundedCornerShape(28.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = StitchNavy.fg()
-                            ),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, StitchBorder.bd()),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back), modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard))
-                        }
-                    }
-
-                    Button(
-                        onClick = {
-                            if (currentStep < totalSteps) {
-                                onNextClick()
-                            } else {
-                                onCompleteClick()
-                            }
-                        },
-                        enabled = !isLoading,
-                        modifier = Modifier
-                            .height(56.dp)
-                            .weight(1f),
-                        shape = RoundedCornerShape(28.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = StitchNavy.bg(),
-                            disabledContainerColor = StitchNavy.bg().copy(alpha = 0.5f)
-                        )
+                    IconButton(
+                        onClick = { currentStep = 1 },
+                        modifier = Modifier.size(40.dp)
                     ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                        } else {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.back),
+                            tint = Color(0xFF0F172A)
+                        )
+                    }
+                }
+            }
+        },
+        bottomBar = {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color.White,
+                shadowElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (currentStep == 1) {
+                        Button(
+                            onClick = {
+                                showValidationErrors = true
+                                if (isFormValid) {
+                                    currentStep = 2
+                                }
+                            },
+                            enabled = !isLoading,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isFormValid) Color(0xFF00B159) else Color(0xFFCBD5E1),
+                                disabledContainerColor = Color(0xFFCBD5E1)
+                            )
+                        ) {
                             Text(
-                                text = if (employerType == "INDIVIDUAL") "Save & Explore Services →" else "Save & Start Hiring →",
+                                text = "Continue to Next Step →",
                                 color = Color.White,
                                 fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                softWrap = false,
-                                overflow = TextOverflow.Ellipsis
+                                fontWeight = FontWeight.Bold
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                val rawCode = referralCodeInput.trim()
+                                if (rawCode.isNotBlank()) {
+                                    val normalized = normalizeReferralCode(rawCode)
+                                    scope.launch {
+                                        referralErrorMessage = null
+                                        val res = profileCompletionViewModel.validateReferralCode(normalized)
+                                        if (res.isValid) {
+                                            profileCompletionViewModel.saveReferralCode(normalized)
+                                            runCatching { profileCompletionViewModel.applyReferralCode(normalized) }
+                                            handleCompletion()
+                                        } else {
+                                            referralErrorMessage = res.errorMessage ?: "Invalid referral code"
+                                        }
+                                    }
+                                } else {
+                                    handleCompletion()
+                                }
+                            },
+                            enabled = !isLoading,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(52.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF00B159),
+                                disabledContainerColor = Color(0xFFCBD5E1)
+                            )
+                        ) {
+                            if (isLoading) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(22.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.5.dp
+                                )
+                            } else {
+                                Text(
+                                    text = "Continue",
+                                    color = Color.White,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        TextButton(
+                            onClick = { handleCompletion() },
+                            enabled = !isLoading,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Skip for now",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF00B159)
                             )
                         }
                     }
                 }
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CompanyInformationStep(
-    profileCompletionViewModel: ProfileCompletionViewModel,
-    employerType: String,
-    companyName: String,
-    industry: String,
-    gstin: String,
-    contactName: String,
-    isVerifyingGstin: Boolean,
-    gstinVerifiedMessage: String?,
-    companyNameError: String?,
-    industryError: String?,
-    referralCode: String,
-    isValidatingReferral: Boolean,
-    referralValidationResult: ReferralValidationResult?,
-    showReferralSection: Boolean,
-    hasAlreadyUsedReferral: Boolean,
-    onEmployerTypeChange: (String) -> Unit,
-    onCompanyNameChange: (String) -> Unit,
-    onIndustryChange: (String) -> Unit,
-    onGstinChange: (String) -> Unit,
-    onContactNameChange: (String) -> Unit,
-    onVerifyGstin: () -> Unit,
-    onReferralCodeChange: (String) -> Unit,
-    onValidateReferral: (String) -> Unit
-) {
-    val isIndividual = employerType == "INDIVIDUAL"
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        // Segmented toggle: Individual | Shop / Business
-        StitchSegmentedToggle(
-            isIndividual = isIndividual,
-            onIndividualSelected = { onEmployerTypeChange("INDIVIDUAL") },
-            onCompanySelected = { onEmployerTypeChange("COMPANY") },
-            individualLabel = "🏠 Individual / Home",
-            companyLabel = "🏪 Shop / Store / Business"
-        )
-
-        if (isIndividual) {
-            // Your Full Name (For individual customers booking home services or personal domestic help)
-            Column {
-                StitchTextField(
-                    label = "Your Full Name *",
-                    value = companyName,
-                    onValueChange = onCompanyNameChange,
-                    placeholder = "e.g. Vamsi Krishna"
-                )
-                if (companyNameError != null) {
-                    Text(
-                        text = companyNameError,
-                        color = EmployerColors.Error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                    )
-                }
-            }
-        } else {
-            // Shop / Store / Business Name (e.g. Balaji Sweets, Royal Salon, Green Hotel)
-            Column {
-                StitchTextField(
-                    label = "Shop / Store / Business Name *",
-                    value = companyName,
-                    onValueChange = onCompanyNameChange,
-                    placeholder = "e.g. Sri Balaji Sweets, Royal Salon, Green Hotel"
-                )
-                if (companyNameError != null) {
-                    Text(
-                        text = companyNameError,
-                        color = EmployerColors.Error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                    )
-                }
-            }
-
-            // Shop / Business Category
-            StitchDropdownField(
-                label = "Shop Type / Business Category *",
-                value = industry,
-                options = StitchIndustryOptions,
-                onValueChange = { onIndustryChange(it) }
-            )
-            if (industryError != null) {
-                Text(
-                    text = industryError,
-                    color = EmployerColors.Error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                )
-            }
-
-            // Owner / Manager Name
-            Column {
-                StitchTextField(
-                    label = "Owner / Manager Full Name *",
-                    value = contactName,
-                    onValueChange = onContactNameChange,
-                    placeholder = "e.g. Ramesh"
-                )
-            }
-        }
-
-        // Primary Referral Card: Optional expandable card
-        ProfileSetupReferralCard(
-            role = UserRole.EMPLOYER,
-            profileCompletionViewModel = profileCompletionViewModel
-        )
-    }
-}
-
-/** Result of a current-location fetch; shown under the address field. */
-private class LocationFetchOutcome(val areaText: String?, val errorText: String?)
-
-/** Fetches the current location, reverse-geocodes it and pushes it into the form. */
-private suspend fun fetchCurrentLocationInto(
-    context: Context,
-    locationService: com.example.dutype.utils.LocationService,
-    onAddress: (String) -> Unit,
-    onLocation: (Double, Double) -> Unit,
-    setFetching: (Boolean) -> Unit
-): LocationFetchOutcome {
-    setFetching(true)
-    return try {
-        val locationInfo = locationService.getHighAccuracyLocation(
-            timeoutMs = 8000L,
-            minAccuracyMeters = 35f
-        ) ?: locationService.getCurrentLocation()
-        if (locationInfo != null) {
-            onAddress(locationInfo.getFullAddress())
-            onLocation(locationInfo.latitude, locationInfo.longitude)
-            LocationFetchOutcome(locationInfo.getShortAddress(), null)
-        } else {
-            LocationFetchOutcome(null, context.getString(R.string.could_not_get_current_location))
-        }
-    } catch (e: Exception) {
-        Timber.e(e, "Error fetching location")
-        LocationFetchOutcome(null, context.getString(R.string.error_fetching_location_format, e.message ?: ""))
-    } finally {
-        setFetching(false)
-    }
-}
-
-/** Small status line under the address field: detected area (green) or error (red). */
-@Composable
-private fun LocationFetchStatus(areaText: String?, errorText: String?) {
-    if (errorText != null) {
-        Text(
-            text = errorText,
-            color = Color(0xFFDC2626).fg(),
-            fontSize = 12.sp,
-            modifier = Modifier.padding(start = 4.dp)
-        )
-    } else if (areaText != null) {
-        Row(
-            modifier = Modifier.padding(start = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White)
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Icon(
-                Icons.Default.LocationOn,
-                contentDescription = null,
-                tint = Color(0xFF16A34A).fg(),
-                modifier = Modifier.size(14.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = stringResource(R.string.worker_setup_location_detected),
-                color = Color(0xFF16A34A).fg(),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            if (areaText.isNotBlank()) {
-                Text(
-                    text = " \u00B7 $areaText",
-                    color = Color(0xFF64748B).fg(),
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            if (currentStep == 1) {
+                // Header: "Help us know you better" (Clean Title, no mascot)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                ) {
+                    val annotatedTitle = buildAnnotatedString {
+                        withStyle(SpanStyle(color = Color(0xFF111827), fontWeight = FontWeight.Bold, fontSize = 26.sp)) {
+                            append("Help us ")
+                        }
+                        withStyle(SpanStyle(color = Color(0xFF00A859), fontWeight = FontWeight.Bold, fontSize = 26.sp)) {
+                            append("know you")
+                        }
+                        withStyle(SpanStyle(color = Color(0xFF111827), fontWeight = FontWeight.Bold, fontSize = 26.sp)) {
+                            append(" better")
+                        }
+                    }
+
+                    Text(
+                        text = annotatedTitle,
+                        lineHeight = 34.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Basic profile details & official hiring work location",
+                        fontSize = 13.sp,
+                        color = Color(0xFF64748B)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                // 1. Full Name (Required) - inside placeholder only
+                StitchTextField(
+                    value = fullNameInput,
+                    onValueChange = { fullNameInput = it },
+                    placeholder = "Full name *",
+                    errorMessage = if (showValidationErrors && !isNameValid) "Please enter your full name" else null
                 )
+
+                // 2. Shop / Business Name (Optional) - inside placeholder only
+                StitchTextField(
+                    value = shopOrBusinessName,
+                    onValueChange = { shopOrBusinessName = it },
+                    placeholder = "Shop / Business name (optional)"
+                )
+
+                // 3. Email (Optional) - inside placeholder only
+                StitchTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    placeholder = "Email (optional)",
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    errorMessage = if (showValidationErrors && !isEmailValid) "Please enter a valid email address" else null
+                )
+
+                // 4. Mobile Number (Verified badge)
+                if (contactPhone.isNotBlank()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .background(Color(0xFFF8FAFC), RoundedCornerShape(14.dp))
+                            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(14.dp))
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "+91 $contactPhone",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF64748B)
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .background(Color(0xFFECFDF5), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Lock,
+                                contentDescription = "Verified",
+                                tint = Color(0xFF10B981),
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Verified",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF10B981)
+                            )
+                        }
+                    }
+                }
+
+                // 5. Work Location Section (Required)
+                LocationSectionCard(
+                    businessAddress = businessAddress,
+                    businessLatitude = businessLatitude,
+                    businessLongitude = businessLongitude,
+                    showError = showValidationErrors && !isLocationValid,
+                    locationService = locationService,
+                    onAddressChange = { businessAddress = it },
+                    onLocationChange = { lat, lng ->
+                        businessLatitude = lat
+                        businessLongitude = lng
+                    }
+                )
+            } else {
+                // Step 2: Referral Code Entry (Matches Image 3 exactly)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp, bottom = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Image(
+                        painter = painterResource(R.drawable.ic_handshake_partnership),
+                        contentDescription = "Referral Partnership",
+                        modifier = Modifier
+                            .size(170.dp)
+                            .padding(bottom = 12.dp),
+                        contentScale = ContentScale.Fit
+                    )
+
+                    Text(
+                        text = "Enter referral code",
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF111827),
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "It's optional, you can skip this",
+                        fontSize = 14.sp,
+                        color = Color(0xFF94A3B8),
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(28.dp))
+
+                    OutlinedTextField(
+                        value = referralCodeInput,
+                        onValueChange = { input ->
+                            referralCodeInput = normalizeReferralCode(input).take(12)
+                            referralErrorMessage = null
+                        },
+                        placeholder = {
+                            Text(
+                                text = "Enter referral code",
+                                fontSize = 15.sp,
+                                color = Color(0xFF94A3B8)
+                            )
+                        },
+                        singleLine = true,
+                        isError = referralErrorMessage != null,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF00B159),
+                            unfocusedBorderColor = Color(0xFFCBD5E1),
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedTextColor = Color(0xFF111827),
+                            unfocusedTextColor = Color(0xFF111827),
+                            cursorColor = Color(0xFF00B159)
+                        ),
+                        textStyle = TextStyle(
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 1.sp
+                        ),
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Characters
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (referralErrorMessage != null) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = referralErrorMessage ?: "",
+                            color = Color(0xFFDC2626),
+                            fontSize = 12.sp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 4.dp)
+                        )
+                    }
+                }
             }
+
+            // Error display if any
+            if (errorMessage != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = EmployerColors.ErrorLight),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Warning,
+                            contentDescription = null,
+                            tint = EmployerColors.Error,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = errorMessage ?: "",
+                            style = MaterialTheme.typography.bodyMedium.copy(color = EmployerColors.Error)
+                        )
+                    }
+                }
+            }
+
         }
     }
 }
 
-/** Asks for location permission directly (once) when the location step becomes visible. */
+/**
+ * Dedicated location picker card with GPS auto-fetch, autocomplete, and compact Google Map preview.
+ */
 @Composable
-private fun AutoRequestLocationOnEntry(
-    alreadyAsked: Boolean,
-    hasPermission: () -> Boolean,
-    addressIsBlank: Boolean,
-    onAsked: () -> Unit,
-    onGrantedFetch: () -> Unit,
-    onRequestPermission: () -> Unit
-) {
-    LaunchedEffect(Unit) {
-        if (alreadyAsked) return@LaunchedEffect
-        onAsked()
-        if (hasPermission()) {
-            if (addressIsBlank) onGrantedFetch()
-        } else {
-            onRequestPermission()
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ContactDetailsStep(
-    isIndividual: Boolean,
-    contactPhone: String,
+private fun LocationSectionCard(
     businessAddress: String,
     businessLatitude: Double,
     businessLongitude: Double,
-    phoneError: String?,
-    addressError: String?,
-    onContactPhoneChange: (String) -> Unit,
-    onBusinessAddressChange: (String) -> Unit,
-    onBusinessLocationChange: (Double, Double) -> Unit,
-    locationService: com.example.dutype.utils.LocationService
+    showError: Boolean,
+    locationService: com.example.dutype.utils.LocationService,
+    onAddressChange: (String) -> Unit,
+    onLocationChange: (Double, Double) -> Unit
 ) {
     var isFetchingLocation by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
@@ -1197,13 +881,25 @@ private fun ContactDetailsStep(
     val runFetch: () -> Unit = {
         coroutineScope.launch {
             locationErrorText = null
-            val outcome = fetchCurrentLocationInto(
-                context,
-                locationService,
-                onBusinessAddressChange, onBusinessLocationChange
-            ) { isFetchingLocation = it }
-            detectedAreaText = outcome.areaText
-            locationErrorText = outcome.errorText
+            isFetchingLocation = true
+            try {
+                val locationInfo = locationService.getHighAccuracyLocation(
+                    timeoutMs = 8000L,
+                    minAccuracyMeters = 35f
+                ) ?: locationService.getCurrentLocation()
+                if (locationInfo != null) {
+                    onAddressChange(locationInfo.getFullAddress())
+                    onLocationChange(locationInfo.latitude, locationInfo.longitude)
+                    detectedAreaText = locationInfo.getShortAddress()
+                } else {
+                    locationErrorText = context.getString(R.string.could_not_get_current_location)
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error fetching current location")
+                locationErrorText = e.message ?: "Failed to get location"
+            } finally {
+                isFetchingLocation = false
+            }
         }
     }
 
@@ -1222,56 +918,47 @@ private fun ContactDetailsStep(
         manualLocationRequest = false
     }
 
-    AutoRequestLocationOnEntry(
-        alreadyAsked = autoLocationAsked,
-        hasPermission = { locationService.hasLocationPermission() },
-        addressIsBlank = businessAddress.isBlank(),
-        onAsked = { autoLocationAsked = true },
-        onGrantedFetch = { runFetch() },
-        onRequestPermission = {
-            locationPermissionLauncher.launch(
-                arrayOf(
-                    android.Manifest.permission.ACCESS_FINE_LOCATION,
-                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+    // Auto-request location permission on first view if address is empty
+    LaunchedEffect(Unit) {
+        if (!autoLocationAsked) {
+            autoLocationAsked = true
+            if (locationService.hasLocationPermission()) {
+                if (businessAddress.isBlank()) runFetch()
+            } else {
+                locationPermissionLauncher.launch(
+                    arrayOf(
+                        android.Manifest.permission.ACCESS_FINE_LOCATION,
+                        android.Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
                 )
-            )
-        }
-    )
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        // Phone — verified via OTP during login, shown locked/read-only
-        StitchTextField(
-            label = stringResource(R.string.phone_label),
-            value = if (contactPhone.isBlank()) "" else "+91 $contactPhone",
-            onValueChange = {},
-            readOnly = true,
-            backgroundColor = StitchDisabledBg.bg(),
-            valueColor = StitchLabel.fg(),
-            placeholder = stringResource(R.string.enter_10_digit_phone),
-            trailingContent = {
-                Icon(Icons.Default.Lock, contentDescription = stringResource(R.string.verified_phone_number), tint = StitchLabel.fg(), modifier = Modifier.size(18.dp))
             }
-        )
-        if (phoneError != null) {
-            Text(
-                text = phoneError,
-                color = EmployerColors.Error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(start = 16.dp, top = 2.dp)
-            )
         }
+    }
 
-        // City / Area — real autocomplete search preserved, restyled to match design
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = androidx.compose.foundation.BorderStroke(1.dp, StitchBorder.bd())
+    ) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                Text(
+                    text = "Your Location *",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = StitchNavy.fg()
+                )
+
                 TextButton(
                     onClick = {
                         if (locationService.hasLocationPermission()) {
@@ -1291,95 +978,91 @@ private fun ContactDetailsStep(
                     Icon(
                         Icons.Default.MyLocation,
                         contentDescription = null,
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier.size(15.dp),
                         tint = StitchBlue.fg()
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = stringResource(R.string.use_current_location),
-                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
                         color = StitchBlue.fg()
                     )
                 }
             }
 
+            // Location Autocomplete Field
             com.example.dutype.components.LocationAutocompleteField(
                 value = businessAddress,
-                onValueChange = onBusinessAddressChange,
-                onLocationSelected = { selectedAddress, latitude, longitude ->
-                    onBusinessAddressChange(selectedAddress)
-                    onBusinessLocationChange(latitude, longitude)
+                onValueChange = onAddressChange,
+                onLocationSelected = { selectedAddress, lat, lng ->
+                    onAddressChange(selectedAddress)
+                    onLocationChange(lat, lng)
                 },
                 locationService = locationService,
-                label = stringResource(R.string.city_area_label) + " *",
-                placeholder = if (isIndividual) stringResource(R.string.search_area_landmark_hint) else stringResource(R.string.search_or_enter_work_location),
+                label = null,
+                placeholder = "City, Area or Landmark *",
                 maxLines = 2,
                 shape = RoundedCornerShape(14.dp),
                 leadingIcon = Icons.Default.LocationOn,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = Color.White.bg(),
                     unfocusedContainerColor = Color.White.bg(),
-                    focusedBorderColor = if (addressError != null) EmployerColors.Error else StitchBlue.bd(),
-                    unfocusedBorderColor = if (addressError != null) EmployerColors.Error else StitchBorder.bd(),
+                    focusedBorderColor = if (showError) EmployerColors.Error else Color(0xFF00A859),
+                    unfocusedBorderColor = if (showError) EmployerColors.Error else StitchBorder.bd(),
                     errorBorderColor = EmployerColors.Error
                 )
             )
-            if (addressError != null) {
+
+            if (showError) {
                 Text(
-                    text = addressError,
+                    text = "Please select or enter your location",
                     color = EmployerColors.Error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
-                )
-            }
-            if (isFetchingLocation) {
-                Text(
-                    text = stringResource(R.string.fetching_your_location),
-                    color = Color(0xFF64748B).fg(),
                     fontSize = 12.sp,
                     modifier = Modifier.padding(start = 4.dp)
                 )
-            } else {
-                LocationFetchStatus(areaText = detectedAreaText, errorText = locationErrorText)
             }
-        }
 
-        // Map preview — reuses the real SelectableLocationMap (Google Maps) composable
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(180.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(StitchTrack.bg())
-                .border(1.dp, StitchBorder.bd(), RoundedCornerShape(16.dp))
-        ) {
-            if (com.example.dutype.utils.GeoUtils.hasValidCoordinates(businessLatitude, businessLongitude)) {
-                SelectableLocationMap(
-                    latitude = businessLatitude,
-                    longitude = businessLongitude,
-                    modifier = Modifier.fillMaxSize(),
-                    markerTitle = if (isIndividual) stringResource(R.string.your_location) else stringResource(R.string.business_location),
-                    onLocationPicked = { lat, lng -> onBusinessLocationChange(lat, lng) }
+            if (isFetchingLocation) {
+                Text(
+                    text = stringResource(R.string.fetching_your_location),
+                    color = StitchLabel.fg(),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 4.dp)
                 )
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+            } else if (locationErrorText != null) {
+                Text(
+                    text = locationErrorText ?: "",
+                    color = Color(0xFFDC2626).fg(),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 4.dp)
+                )
+            } else if (detectedAreaText != null) {
+                Row(
+                    modifier = Modifier.padding(start = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = StitchLabel.fg(), modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Icon(
+                        Icons.Default.LocationOn,
+                        contentDescription = null,
+                        tint = Color(0xFF16A34A).fg(),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = stringResource(R.string.pick_location_preview_map),
-                        style = MaterialTheme.typography.bodySmall,
+                        text = stringResource(R.string.worker_setup_location_detected),
+                        color = Color(0xFF16A34A).fg(),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = " · ${detectedAreaText ?: ""}",
                         color = StitchLabel.fg(),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        fontSize = 12.sp,
+                        maxLines = 1
                     )
                 }
             }
         }
     }
 }
-

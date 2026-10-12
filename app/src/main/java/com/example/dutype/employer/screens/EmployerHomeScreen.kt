@@ -34,6 +34,14 @@ import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.ui.unit.sp
 import com.example.dutype.navigation.Routes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.WorkOutline
+import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import com.example.dutype.homeservices.DefaultServicesCatalog
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.CalendarToday
@@ -593,16 +601,6 @@ fun EmployerHomeScreen(
             navController = navController
         )
 
-        // Pulsing Voice FAB Button (positioned above bottom navigation bar)
-        VoicePulsingFab(
-            onClick = {
-                navController.navigate(com.example.dutype.navigation.Routes.dutypeAiRoute(listen = true))
-            },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp, bottom = 105.dp)
-        )
-
         // Language Picker Bottom Sheet (Prompt: Telugu, English, Hindi)
         if (showVoiceLanguageSheet) {
             com.example.dutype.employer.components.VoiceLanguagePickerBottomSheet(
@@ -703,16 +701,495 @@ fun VoicePulsingFab(
 }
 
 @Composable
+fun EmployerBentoGrid(
+    activeJobTitle: String,
+    matchCount: Int,
+    totalMatches: Int,
+    callReadyCount: Int,
+    nearbyCount: Int,
+    onActiveJobClick: () -> Unit,
+    onCallReadyClick: () -> Unit,
+    onNearbyClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // LEFT CARD: Active Job (Warm Peach #FFF0E8, 24.dp radius)
+        Box(
+            modifier = Modifier
+                .weight(1.15f)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color(0xFFFFF0E8))
+                .clickable(onClick = onActiveJobClick)
+                .padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Active job",
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF111827)
+                    )
+                    Icon(
+                        imageVector = Icons.Outlined.WorkOutline,
+                        contentDescription = null,
+                        tint = Color(0xFF111827),
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Center Progress Ring
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(96.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val progressSweep = if (totalMatches > 0) {
+                        ((matchCount.toFloat() / totalMatches.toFloat()) * 360f).coerceIn(0f, 360f)
+                    } else {
+                        0f
+                    }
+                    Canvas(modifier = Modifier.size(86.dp)) {
+                        val strokeW = 10.dp.toPx()
+                        // Background track ring
+                        drawCircle(
+                            color = Color(0xFFFFD8C2),
+                            radius = (size.minDimension - strokeW) / 2f,
+                            style = Stroke(width = strokeW)
+                        )
+                        // Active progress arc
+                        if (progressSweep > 0f) {
+                            drawArc(
+                                color = Color(0xFFE85D04),
+                                startAngle = -90f,
+                                sweepAngle = progressSweep,
+                                useCenter = false,
+                                style = Stroke(
+                                    width = strokeW,
+                                    cap = StrokeCap.Round
+                                )
+                            )
+                        }
+                    }
+                    Text(
+                        text = activeJobTitle,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF111827),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Footer: matches
+                Row(
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    if (totalMatches > 0) {
+                        Text(
+                            text = matchCount.toString(),
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF111827)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "of $totalMatches matches",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF7C6C65),
+                            modifier = Modifier.padding(bottom = 2.dp)
+                        )
+                    } else {
+                        Text(
+                            text = "0 active matches",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF7C6C65),
+                            modifier = Modifier.padding(bottom = 2.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // RIGHT COLUMN: Call-ready (White) & Nearby (Peach)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // TOP CARD: Call-ready
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color.White)
+                    .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(20.dp))
+                    .clickable(onClick = onCallReadyClick)
+                    .padding(14.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Call-ready",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF111827)
+                        )
+                        Icon(
+                            imageVector = Icons.Filled.Call,
+                            contentDescription = null,
+                            tint = Color(0xFFE85D04),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.height(4.dp))
+
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = callReadyCount.toString(),
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF111827)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = if (callReadyCount == 1) "worker" else "workers",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = Color(0xFF8E8E93),
+                            modifier = Modifier.padding(bottom = 2.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // Orange Heartbeat / Waveform Line
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(20.dp)
+                    ) {
+                        val w = size.width
+                        val h = size.height
+                        val midY = h / 2f
+                        val path = Path().apply {
+                            moveTo(0f, midY)
+                            lineTo(w * 0.28f, midY)
+                            lineTo(w * 0.38f, midY - 8.dp.toPx())
+                            lineTo(w * 0.48f, midY + 8.dp.toPx())
+                            lineTo(w * 0.58f, midY - 4.dp.toPx())
+                            lineTo(w * 0.66f, midY)
+                            lineTo(w, midY)
+                        }
+                        drawPath(
+                            path = path,
+                            color = Color(0xFFE85D04),
+                            style = Stroke(
+                                width = 2.5.dp.toPx(),
+                                cap = StrokeCap.Round,
+                                join = StrokeJoin.Round
+                            )
+                        )
+                    }
+                }
+            }
+
+            // BOTTOM CARD: Nearby
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color(0xFFFFF0E8))
+                    .clickable(onClick = onNearbyClick)
+                    .padding(14.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Nearby",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF111827)
+                    )
+
+                    Spacer(Modifier.height(6.dp))
+
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = nearbyCount.toString(),
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF111827)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "in 3 km",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF7C6C65),
+                            modifier = Modifier.padding(bottom = 2.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+data class QuickPostRole(
+    val title: String,
+    val subtitle: String = "Post in 2 minutes",
+    val iconRes: Int,
+    val bgColor: Color,
+    val tintColor: Color
+)
+
+@Composable
+fun EmployerQuickPostSection(
+    onRoleClick: (String) -> Unit,
+    onSeeAllClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val quickPostRoles = remember {
+        listOf(
+            QuickPostRole("Cook", "Post in 2 minutes", R.drawable.ic_chef_hat, Color(0xFFFFF0E8), Color(0xFFE85D04)),
+            QuickPostRole("Helper", "Post in 2 minutes", R.drawable.ic_role_helper, Color(0xFFE8EFFF), Color(0xFF2563EB)),
+            QuickPostRole("Driver", "Post in 2 minutes", R.drawable.ic_role_driver, Color(0xFFE6F7F0), Color(0xFF10B981)),
+            QuickPostRole("Security", "Post in 2 minutes", R.drawable.ic_role_security, Color(0xFFF3E8FF), Color(0xFF8B5CF6))
+        )
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Quick post",
+                fontSize = 19.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF111827)
+            )
+            Text(
+                text = "See all",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF8E8E93),
+                modifier = Modifier.clickable { onSeeAllClick() }
+            )
+        }
+
+        Spacer(Modifier.height(14.dp))
+
+        androidx.compose.foundation.lazy.LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp)
+        ) {
+            items(quickPostRoles) { role ->
+                Column(
+                    modifier = Modifier
+                        .width(135.dp)
+                        .clickable { onRoleClick(role.title) }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(96.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(role.bgColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Top-right (+) badge
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp)
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.85f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.AddCircleOutline,
+                                contentDescription = null,
+                                tint = Color(0xFF111827),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        // Role vector icon
+                        Icon(
+                            painter = painterResource(id = role.iconRes),
+                            contentDescription = role.title,
+                            tint = role.tintColor,
+                            modifier = Modifier.size(42.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Text(
+                        text = role.title,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF111827)
+                    )
+
+                    Spacer(Modifier.height(2.dp))
+
+                    Text(
+                        text = role.subtitle,
+                        fontSize = 11.5.sp,
+                        color = Color(0xFF8E8E93)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EmployerHomeServicesSection(
+    onOpenServices: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val categories = remember { DefaultServicesCatalog.get().categories }
+    val priceMap = remember {
+        mapOf(
+            "CLEANING" to "From ₹199",
+            "AC" to "From ₹399",
+            "ELECTRICIAN" to "From ₹149",
+            "PLUMBER" to "From ₹149",
+            "APPLIANCE" to "From ₹249",
+            "CARPENTER" to "From ₹199",
+            "PAINTER" to "From ₹499",
+            "HOME_HELP" to "From ₹199",
+            "VEHICLE" to "From ₹149"
+        )
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Home Services in Khammam",
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF111827)
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "Doorstep verified technicians in 30–45 mins",
+                    fontSize = 12.sp,
+                    color = Color(0xFF64748B)
+                )
+            }
+            Text(
+                text = "See all",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF8E8E93),
+                modifier = Modifier.clickable { onOpenServices() }
+            )
+        }
+
+        Spacer(Modifier.height(14.dp))
+
+        androidx.compose.foundation.lazy.LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp)
+        ) {
+            items(categories) { category ->
+                val price = priceMap[category.id] ?: "From ₹199"
+                Card(
+                    modifier = Modifier
+                        .width(122.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .clickable { onOpenServices() },
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(82.dp)
+                                .background(Color(0xFFF8FAFC)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            OptimizedImage(
+                                imageUrl = category.resolvedImageUrl,
+                                contentDescription = category.name,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                            Text(
+                                text = category.name,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF111827),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(Modifier.height(3.dp))
+                            Text(
+                                text = price,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFFE85D04)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun EmployerExecutiveHeroCard(
     companyName: String = "",
     onPostJob: () -> Unit = {},
     onVoiceJob: () -> Unit,
+    onCardClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp)),
+            .clip(RoundedCornerShape(20.dp))
+            .clickable { onCardClick?.invoke() ?: onPostJob() },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF4DB)),
         border = BorderStroke(1.dp, Color(0xFFFDE68A)),
@@ -721,19 +1198,16 @@ fun EmployerExecutiveHeroCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, top = 14.dp, bottom = 12.dp, end = 6.dp),
-            verticalAlignment = Alignment.Bottom
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
-                modifier = Modifier
-                    .weight(1.32f)
-                    .align(Alignment.Bottom)
+                modifier = Modifier.weight(1f)
             ) {
-                // Urgent Hiring subtitle / badge
                 Text(
                     text = "⚡ NEED SOMEONE TODAY?",
                     fontSize = 11.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold,
+                    fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFFEA580C),
                     letterSpacing = 0.5.sp
                 )
@@ -741,20 +1215,19 @@ fun EmployerExecutiveHeroCard(
                 Text(
                     text = "Hire Verified Staff & Workers",
                     fontSize = 15.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                    fontWeight = FontWeight.Bold,
                     color = Color(0xFF0F172A),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Daily helpers, cooks, cleaners, shop staff & more. Speak directly using DutyPe AI voice.",
+                    text = "Daily helpers, cooks, cleaners, shop staff & more. Speak directly using Liri voice.",
                     fontSize = 11.5.sp,
                     color = Color(0xFF64748B),
                     lineHeight = 16.sp
                 )
-                Spacer(Modifier.height(11.dp))
-                // Button pinned to bottom — aligns exactly with bottom of image
+                Spacer(Modifier.height(10.dp))
                 Button(
                     onClick = onVoiceJob,
                     shape = RoundedCornerShape(12.dp),
@@ -772,8 +1245,8 @@ fun EmployerExecutiveHeroCard(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "Ask DutyPe AI to Post",
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        text = "Ask Liri to Post",
+                        fontWeight = FontWeight.Bold,
                         fontSize = 12.5.sp,
                         color = Color.White,
                         maxLines = 1
@@ -781,17 +1254,23 @@ fun EmployerExecutiveHeroCard(
                 }
             }
 
-            // 3D Illustrated Workers — aligned with bottom of button
-            Image(
-                painter = painterResource(id = R.drawable.img_hire_staff_chars),
-                contentDescription = "Verified Staff",
-                contentScale = ContentScale.Fit,
-                alignment = Alignment.BottomCenter,
+            Spacer(Modifier.width(12.dp))
+
+            Box(
                 modifier = Modifier
-                    .weight(0.96f)
-                    .height(158.dp)
-                    .align(Alignment.Bottom)
-            )
+                    .size(54.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFEA580C).copy(alpha = 0.12f))
+                    .clickable { onPostJob() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.WorkOutline,
+                    contentDescription = "Post Job",
+                    tint = Color(0xFFEA580C),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
         }
     }
 }
@@ -1130,6 +1609,8 @@ fun DashboardContent(
                 companyName = companyName,
                 unreadCount = unreadCount,
                 onNotificationClick = onNotificationClick,
+                onVoiceClick = onVoiceJobClick,
+                onAvatarClick = { navController.navigate(Routes.EMPLOYER_PROFILE) },
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -1138,10 +1619,10 @@ fun DashboardContent(
                     .fillMaxWidth()
                     .weight(1f),
                 contentPadding = PaddingValues(
-                    top = 16.dp,
+                    top = 8.dp,
                     start = 20.dp,
                     end = 20.dp,
-                    bottom = 80.dp
+                    bottom = 120.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
                 scrollStateManager = scrollStateManager
@@ -1149,77 +1630,105 @@ fun DashboardContent(
                 val activeOpenJobs = recentJobs.filter { it.status.equals("open", ignoreCase = true) }
                 val hasActiveJobs = activeOpenJobs.isNotEmpty()
 
-                if (!hasActiveJobs) {
-                    // PRE-POSTING STATE: Clean, single hero hiring entry without zero stats or duplicate post cards
-                    // 1. Executive Hero Card
-                    item(key = "exec_hero") {
-                        EmployerExecutiveHeroCard(
-                            companyName = companyName,
-                            onPostJob = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) },
-                            onVoiceJob = onVoiceJobClick,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-                    }
+                // Promotional Carousel matching Services screen style
+                item(key = "employer_promo_carousel") {
+                    com.example.dutype.components.PromotionalBannerCarousel(
+                        isWorker = false,
+                        onAction = { target ->
+                            when (target) {
+                                "post_job" -> navController.navigate(Routes.EMPLOYER_POST_JOB)
+                                "urgent_need" -> navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED)
+                                "refer_earn" -> navController.navigate(Routes.EMPLOYER_REFER_EARN)
+                                else -> navController.navigate(Routes.EMPLOYER_POST_JOB)
+                            }
+                        },
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
 
-                    // 2. Referral reward: show if employer has earned free posts waiting to be used
-                    if (referralPostsLeft > 0) {
-                        item(key = "referral_post") {
-                            ReferralFreePostCard(
-                                postsLeft = referralPostsLeft,
-                                onPost = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) },
-                                onRefer = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_REFER_EARN) },
-                                modifier = Modifier.padding(bottom = 12.dp)
-                            )
-                        }
+                // Bento Grid Metrics Cards (Active Job Ring, Call-ready Heartbeat, Nearby)
+                item(key = "employer_bento_grid") {
+                    val firstJob = activeOpenJobs.firstOrNull()
+                    val activeJobTitle = when {
+                        firstJob != null && firstJob.title.isNotBlank() -> firstJob.title
+                        activeOpenJobs.isNotEmpty() -> "Active Job"
+                        else -> "No Active Jobs"
                     }
+                    val matchCount = if (firstJob != null) {
+                        applicationsByJobId[firstJob.id]?.size ?: firstJob.applicationCount
+                    } else {
+                        0
+                    }
+                    val totalMatches = if (firstJob != null) {
+                        maxOf(firstJob.vacancies, matchCount, 1)
+                    } else {
+                        0
+                    }
+                    val callReadyCount = uncontactedApplications.size
+                    val nearbyCount = unacceptedUrgentResponses.size
 
-                    // 4. DutyPe Services showcase teaser
-                    item(key = "home_services_showcase") {
-                        com.example.dutype.homeservices.ServicesAreaTeaserCard(
-                            onOpenServices = onOpenHomeServices,
-                            onOpenBooking = onOpenServiceBooking,
+                    EmployerBentoGrid(
+                        activeJobTitle = activeJobTitle,
+                        matchCount = matchCount,
+                        totalMatches = totalMatches,
+                        callReadyCount = callReadyCount,
+                        nearbyCount = nearbyCount,
+                        onActiveJobClick = {
+                            if (firstJob != null) {
+                                navController.navigate(Routes.employerApplicationsJobRoute(firstJob.id))
+                            } else {
+                                navController.navigate(Routes.EMPLOYER_MY_JOBS)
+                            }
+                        },
+                        onCallReadyClick = {
+                            navController.navigate(Routes.EMPLOYER_APPLICATIONS)
+                        },
+                        onNearbyClick = {
+                            navController.navigate(Routes.employerPostUrgentNeedRoute(null))
+                        },
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+                }
+
+                // 3. Quick Post Section (Cook, Helper, Driver, Security)
+                item(key = "employer_quick_post") {
+                    EmployerQuickPostSection(
+                        onRoleClick = { roleTitle ->
+                            navController.navigate(Routes.employerPostJobRoute(roleTitle))
+                        },
+                        onSeeAllClick = {
+                            navController.navigate(Routes.EMPLOYER_POST_JOB)
+                        },
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+                }
+
+                // 4. Home Services Section with WebApp Remote Images
+                item(key = "employer_home_services") {
+                    EmployerHomeServicesSection(
+                        onOpenServices = onOpenHomeServices,
+                        modifier = Modifier.padding(bottom = 20.dp)
+                    )
+                }
+
+                // 5. Referral Free Post Reward (if employer has earned referral posts)
+                if (referralPostsLeft > 0) {
+                    item(key = "referral_post") {
+                        ReferralFreePostCard(
+                            postsLeft = referralPostsLeft,
+                            onPost = { navController.navigate(Routes.EMPLOYER_POST_JOB) },
+                            onRefer = { navController.navigate(Routes.EMPLOYER_REFER_EARN) },
                             modifier = Modifier.padding(bottom = 16.dp)
                         )
                     }
-                } else {
-                    // POSTED STATE: Show live stats & active openings management
-                    // 1. Executive 3-Column Stats Bar
-                    item(key = "exec_stats") {
-                        EmployerExecutiveStatsBar(
-                            activeJobs = updatedStats.activeJobs,
-                            totalApplicants = updatedStats.totalApplications,
-                            creditsLeft = subscription.normalCredits + subscription.instantCredits,
-                            modifier = Modifier.padding(bottom = 14.dp)
-                        )
-                    }
+                }
 
-                    // 2. Compact Post Another Job action row
-                    item(key = "compact_post_bar") {
-                        EmployerCompactPostActionRow(
-                            onPostJob = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) },
-                            onVoiceJob = onVoiceJobClick,
-                            onPostUrgent = { navController.navigate(com.example.dutype.navigation.Routes.employerPostUrgentNeedRoute(null)) },
-                            modifier = Modifier.padding(bottom = 14.dp)
-                        )
-                    }
-
-                    // 3. Referral reward: show if employer has earned free posts waiting to be used
-                    if (referralPostsLeft > 0) {
-                        item(key = "referral_post") {
-                            ReferralFreePostCard(
-                                postsLeft = referralPostsLeft,
-                                onPost = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) },
-                                onRefer = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_REFER_EARN) },
-                                modifier = Modifier.padding(bottom = 12.dp)
-                            )
-                        }
-                    }
-
-                    // 4. Active Openings Section
+                // 6. Active Openings Management (when employer has active listings)
+                if (hasActiveJobs) {
                     item(key = "active_openings_label") {
                         EmployerSectionLabel(
                             text = stringResource(R.string.employer_home_active_openings),
-                            modifier = Modifier.padding(bottom = 10.dp)
+                            modifier = Modifier.padding(bottom = 12.dp)
                         )
                     }
 
@@ -1235,21 +1744,19 @@ fun DashboardContent(
                             },
                             onReviewClick = {
                                 navController.navigate(
-                                    com.example.dutype.navigation.Routes.employerApplicationsJobRoute(job.id)
+                                    Routes.employerApplicationsJobRoute(job.id)
                                 )
                             },
-                            modifier = Modifier.padding(bottom = 10.dp)
+                            modifier = Modifier.padding(bottom = 12.dp)
                         )
                     }
+                }
 
-                    // 5. DutyPe Services showcase teaser
-                    item(key = "home_services_showcase") {
-                        com.example.dutype.homeservices.ServicesAreaTeaserCard(
-                            onOpenServices = onOpenHomeServices,
-                            onOpenBooking = onOpenServiceBooking,
-                            modifier = Modifier.padding(top = 6.dp, bottom = 16.dp)
-                        )
-                    }
+                // 7. Signature Brand Footer ("India's local jobs & service app" with blue heart)
+                item(key = "employer_brand_footer") {
+                    com.example.dutype.components.MadeWithLoveFooter(
+                        modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 32.dp)
+                    )
                 }
 
                 item {

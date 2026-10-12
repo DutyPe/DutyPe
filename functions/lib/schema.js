@@ -6,7 +6,7 @@
  * Also imported by the web admin (web/lib/firebase/schema.ts re-exports this file's shape).
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CATEGORY_KEYS = exports.MAX_PAY_RUPEES = exports.Values = exports.Idempotency = exports.TruecallerProfiles = exports.WhatsappCampaigns = exports.WhatsappPrefs = exports.OtpDaily = exports.OtpIp = exports.OtpCodes = exports.LocationDemand = exports.Announcements = exports.PartnerLedger = exports.PartnerTopups = exports.ServicePartners = exports.ServiceBookingSecrets = exports.CouponUses = exports.ServiceBookings = exports.AppConfig = exports.PaymentQrCodes = exports.SubscriptionPayments = exports.WithdrawalDaily = exports.Withdrawals = exports.WalletLedger = exports.Wallets = exports.Referrals = exports.ReferralCodes = exports.InstantRequests = exports.Ratings = exports.Notifications = exports.SavedJobs = exports.Applications = exports.JobDetails = exports.Jobs = exports.JobContacts = exports.EmployerCards = exports.EmployerProfiles = exports.WorkerCards = exports.WorkerProfiles = exports.UserTokens = exports.PhoneRoles = void 0;
+exports.CATEGORY_KEYS = exports.MAX_PAY_RUPEES = exports.Values = exports.Idempotency = exports.WhatsappCampaigns = exports.WhatsappPrefs = exports.OtpDaily = exports.OtpIp = exports.OtpCodes = exports.LocationDemand = exports.Announcements = exports.PartnerLedger = exports.PartnerTopups = exports.ServicePartners = exports.ServiceBookingSecrets = exports.CouponUses = exports.ServiceBookings = exports.AppConfig = exports.PaymentQrCodes = exports.SubscriptionPayments = exports.WithdrawalDaily = exports.Withdrawals = exports.WalletLedger = exports.Wallets = exports.Referrals = exports.ReferralCodes = exports.InstantRequests = exports.Ratings = exports.Notifications = exports.SavedJobs = exports.Applications = exports.JobDetails = exports.Jobs = exports.JobContacts = exports.EmployerCards = exports.EmployerProfiles = exports.WorkerCards = exports.WorkerProfiles = exports.UserTokens = exports.PhoneRoles = void 0;
 exports.PhoneRoles = {
     COLLECTION: "phoneRoles",
     UID: "uid",
@@ -22,7 +22,6 @@ exports.WorkerProfiles = {
     COLLECTION: "worker_profiles",
     NAME: "name",
     PHONE: "phone",
-    /** Optional; filled from Truecaller when the user shares it. */
     EMAIL: "email",
     PHOTO_URL: "photoUrl",
     GENDER: "gender",
@@ -76,10 +75,7 @@ exports.EmployerProfiles = {
     EMPLOYER_TYPE: "employerType",
     OWNER_NAME: "ownerName",
     BUSINESS_NAME: "businessName",
-    BUSINESS_TYPE: "businessType",
-    GSTIN: "gstin",
     PHONE: "phone",
-    /** Optional; filled from Truecaller when the user shares it. */
     EMAIL: "email",
     PHOTO_URL: "photoUrl",
     ADDRESS: "address",
@@ -182,7 +178,6 @@ exports.JobDetails = {
     GENDER: "gender",
     EXPERIENCE_REQUIRED: "experienceRequired",
     EDUCATION_REQUIRED: "educationRequired",
-    BENEFITS: "benefits",
 };
 exports.Applications = {
     COLLECTION: "applications",
@@ -564,14 +559,6 @@ exports.WhatsappCampaigns = {
     SKIPPED_RECENT: "skippedRecent",
     BY: "by",
     CREATED_AT: "createdAt",
-};
-/** truecaller_profiles/{uid} — what the user shared through Truecaller (server only). */
-exports.TruecallerProfiles = {
-    COLLECTION: "truecaller_profiles",
-    PHONE: "phone",
-    NAME: "name",
-    EMAIL: "email",
-    UPDATED_AT: "updatedAt",
 };
 exports.Idempotency = {
     COLLECTION: "idempotency",

@@ -78,8 +78,6 @@ export const EmployerProfiles = {
   EMPLOYER_TYPE: "employerType",
   OWNER_NAME: "ownerName",
   BUSINESS_NAME: "businessName",
-  BUSINESS_TYPE: "businessType",
-  GSTIN: "gstin",
   PHONE: "phone",
   EMAIL: "email",
   PHOTO_URL: "photoUrl",
@@ -184,7 +182,6 @@ export const JobDetails = {
   GENDER: "gender",
   EXPERIENCE_REQUIRED: "experienceRequired",
   EDUCATION_REQUIRED: "educationRequired",
-  BENEFITS: "benefits",
 } as const;
 
 export const Applications = {

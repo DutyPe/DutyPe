@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Switch
@@ -46,19 +47,24 @@ fun OnlineToggleCard(isOnline: Boolean, isSaving: Boolean, onChange: (Boolean) -
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .background(if (isOnline) green else Color(0xFF94A3B8).bg(), CircleShape)
-        )
-        Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = stringResource(if (isOnline) R.string.worker_online_title else R.string.worker_offline_title),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (isOnline) green else Color(0xFF0F172A).fg()
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isOnline) {
+                    Box(
+                        modifier = Modifier
+                            .size(9.dp)
+                            .background(green, CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text(
+                    text = stringResource(if (isOnline) R.string.worker_online_title else R.string.worker_offline_title),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isOnline) green else Color(0xFF0F172A).fg()
+                )
+            }
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = stringResource(if (isOnline) R.string.worker_online_body else R.string.worker_offline_body),
                 fontSize = 13.sp,

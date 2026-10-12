@@ -1,4 +1,4 @@
-﻿package com.example.dutype.components
+package com.example.dutype.components
 
 import com.dutype.app.R
 import androidx.compose.animation.AnimatedVisibility
@@ -177,17 +177,18 @@ fun ReportJobSheet(
                 Text(
                     text = stringResource(R.string.auto_what_s_the_issue),
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = WorkerColors.TextSecondary
+                    fontWeight = FontWeight.Bold,
+                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                    fontSize = 14.sp
                 )
                 
                 Spacer(modifier = Modifier.height(10.dp))
                 
-                // Scrollable content area with fixed height
+                // Scrollable content area with comfortable height
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 200.dp),
+                        .heightIn(max = 320.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // NON_PAYMENT is raised from its own sheet because it needs an amount and work date.
@@ -207,21 +208,21 @@ fun ReportJobSheet(
                         
                         OutlinedTextField(
                             value = additionalDetails,
-                            onValueChange = { additionalDetails = it },
+                            onValueChange = { if (it.length <= 250) additionalDetails = it },
                             modifier = Modifier.fillMaxWidth(),
                             placeholder = { 
                                 Text(
-                                    "Add more details (optional)",
-                                    style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextTertiary)
+                                    "Add more details or context (optional)...",
+                                    style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextTertiary, fontSize = 13.sp)
                                 ) 
                             },
                             minLines = 2,
-                            maxLines = 2,
+                            maxLines = 3,
                             shape = RoundedCornerShape(12.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = WorkerColors.Error,
                                 unfocusedBorderColor = WorkerColors.Border,
-                                focusedContainerColor = WorkerColors.ErrorLight,
+                                focusedContainerColor = Color.White,
                                 unfocusedContainerColor = WorkerColors.ChipBackground
                             )
                         )

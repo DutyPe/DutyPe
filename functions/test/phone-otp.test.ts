@@ -3,7 +3,7 @@ import * as assert from "node:assert/strict";
 import {
   CODE_MAX_LIFE_MS, CODE_TTL_MS, MAX_PER_DAY, MAX_PER_HOUR, RESEND_GAP_MS, codeMatches, decideSend, openCode,
   resendGapMs, resentExpiry, reuseCode, sealCode, hashCode, indianE164, istDayKey, newCode,
-  parseTruecallerUserInfo, whatsappConfigured, whatsappTemplateBody, type SendCounters,
+  whatsappConfigured, whatsappTemplateBody, type SendCounters,
 } from "../src/lib/phone-otp";
 
 describe("indianE164", () => {
@@ -81,21 +81,6 @@ describe("decideSend", () => {
   it("uses the Indian calendar day", () => {
     assert.equal(istDayKey(Date.UTC(2026, 9, 1, 19, 0)), "2026-10-02"); // 00:30 IST
     assert.equal(istDayKey(Date.UTC(2026, 9, 1, 18, 0)), "2026-10-01"); // 23:30 IST
-  });
-});
-
-describe("parseTruecallerUserInfo", () => {
-  it("reads number, full name and email", () => {
-    const u = parseTruecallerUserInfo({
-      sub: "x", given_name: "Ravi ", family_name: "Kumar", phone_number: "919876543210", email: "Ravi@Example.com",
-    });
-    assert.deepEqual(u, { phone: "+919876543210", name: "Ravi Kumar", email: "ravi@example.com" });
-  });
-  it("tolerates missing or bad fields", () => {
-    assert.deepEqual(parseTruecallerUserInfo({ phone_number: "+14155552671", email: "not-an-email" }),
-      { phone: null, name: "", email: "" });
-    assert.deepEqual(parseTruecallerUserInfo(null), { phone: null, name: "", email: "" });
-    assert.equal(parseTruecallerUserInfo({ name: "Sita", phone_number: "9876543210" }).name, "Sita");
   });
 });
 

@@ -128,6 +128,35 @@ fun WorkerNavGraph(
             )
         }
 
+        // Home Service partner offer (from worker home screen instant requests or notifications)
+        composable(
+            route = Routes.PARTNER_OFFER,
+            arguments = listOf(navArgument("bookingId") { type = NavType.StringType }),
+            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://partner/offer/{bookingId}" })
+        ) { backStackEntry ->
+            com.example.dutype.homeservices.PartnerOfferScreen(
+                bookingId = backStackEntry.arguments?.getString("bookingId").orEmpty(),
+                navController = navController
+            )
+        }
+
+        // Home Service active job (accepted booking with customer address, directions, OTP)
+        composable(
+            route = Routes.PARTNER_JOB,
+            arguments = listOf(navArgument("bookingId") { type = NavType.StringType }),
+            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://partner/job/{bookingId}" })
+        ) { backStackEntry ->
+            com.example.dutype.homeservices.PartnerJobScreen(
+                bookingId = backStackEntry.arguments?.getString("bookingId").orEmpty(),
+                navController = navController
+            )
+        }
+
+        // Partner wallet topup (credits recharge for accepting service bookings)
+        composable(Routes.PARTNER_TOPUP) {
+            com.example.dutype.homeservices.PartnerTopupScreen(navController = navController)
+        }
+
         // Job Application Screen
         composable(
             route = Routes.JOB_APPLICATION,

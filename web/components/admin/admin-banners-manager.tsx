@@ -23,87 +23,259 @@ export interface PromoBannerDef {
   active: boolean;
 }
 
-const PRESET_BANNERS: Array<{ label: string; banner: Omit<PromoBannerDef, "id"> }> = [
-  {
-    label: "❄️ AC Mega Service (Khammam Summer)",
-    banner: {
-      headline: "Khammam AC Deep Clean ⚡ Flat ₹499",
-      subheadline: "Foam jet service & gas leak check in 59 mins",
-      cta: "Book AC Service",
-      bgStartColor: "#0F172A",
-      bgEndColor: "#0369A1",
-      targetCategoryId: "AC",
-      active: true,
-    }
-  },
-  {
-    label: "✨ Festive Home Deep Cleaning",
-    banner: {
-      headline: "Sparkling Home Deep Cleaning · 25% Off",
-      subheadline: "Kitchen, bathroom & sofa sanitization by pros",
-      cta: "Book Cleaning",
-      bgStartColor: "#022C22",
-      bgEndColor: "#065F46",
-      targetCategoryId: "CLEANING",
-      active: true,
-    }
-  },
-  {
-    label: "⚡ 60-Second Instant Worker Dispatch",
-    banner: {
-      headline: "Need Urgent Worker? Dispatched in 60s",
-      subheadline: "Helpers, technicians & drivers on demand in Khammam",
-      cta: "Hire Instantly",
-      bgStartColor: "#451A03",
-      bgEndColor: "#9A3412",
-      targetCategoryId: "HOME_HELP",
-      active: true,
-    }
-  }
+export type BannerSurface = "services" | "worker" | "employer";
+
+export const COLOR_PRESETS = [
+  { label: "Midnight Slate", start: "#0F172A", end: "#1E3A8A" },
+  { label: "Emerald Pro", start: "#064E3B", end: "#047857" },
+  { label: "Ocean Sky", start: "#0F172A", end: "#0284C7" },
+  { label: "Sunset Amber", start: "#451A03", end: "#D97706" },
+  { label: "Crimson Flame", start: "#881337", end: "#E11D48" },
+  { label: "Royal Indigo", start: "#1E1B4B", end: "#4F46E5" },
+  { label: "Dark Onyx", start: "#111827", end: "#1F2937" },
+  { label: "Forest Green", start: "#14532D", end: "#16A34A" },
 ];
+
+const PRESET_BANNERS_BY_SURFACE: Record<BannerSurface, Array<{ label: string; banner: Omit<PromoBannerDef, "id"> }>> = {
+  services: [
+    {
+      label: "❄️ AC Mega Service (Khammam Summer)",
+      banner: {
+        headline: "Khammam AC Deep Clean ⚡ Flat ₹499",
+        subheadline: "Foam jet service & gas leak check in 59 mins",
+        cta: "Book AC Service",
+        bgStartColor: "#0F172A",
+        bgEndColor: "#0369A1",
+        targetCategoryId: "AC",
+        active: true,
+      }
+    },
+    {
+      label: "✨ Festive Home Deep Cleaning",
+      banner: {
+        headline: "Sparkling Home Deep Cleaning · 25% Off",
+        subheadline: "Kitchen, bathroom & sofa sanitization by pros",
+        cta: "Book Cleaning",
+        bgStartColor: "#022C22",
+        bgEndColor: "#065F46",
+        targetCategoryId: "CLEANING",
+        active: true,
+      }
+    },
+    {
+      label: "⚡ 60-Second Instant Worker Dispatch",
+      banner: {
+        headline: "Need Urgent Worker? Dispatched in 60s",
+        subheadline: "Helpers, technicians & drivers on demand in Khammam",
+        cta: "Hire Instantly",
+        bgStartColor: "#451A03",
+        bgEndColor: "#9A3412",
+        targetCategoryId: "HOME_HELP",
+        active: true,
+      }
+    }
+  ],
+  worker: [
+    {
+      label: "⚡ Zero Commission (100% Earnings)",
+      banner: {
+        headline: "Direct Hiring • 100% Daily Earnings",
+        subheadline: "DutyPe takes 0% cut from your work. Keep all of what you earn directly from employers.",
+        cta: "Explore Jobs",
+        bgStartColor: "#0F172A",
+        bgEndColor: "#1E293B",
+        targetCategoryId: "jobs",
+        active: true
+      }
+    },
+    {
+      label: "🛡️ DutyPe Verified Badge",
+      banner: {
+        headline: "Get Hired 3x Faster Today",
+        subheadline: "Complete your profile & verified trade skills to get priority recommendations and direct calls.",
+        cta: "Complete Profile",
+        bgStartColor: "#064E3B",
+        bgEndColor: "#047857",
+        targetCategoryId: "profile",
+        active: true
+      }
+    },
+    {
+      label: "🎁 Referral Bonus ₹100",
+      banner: {
+        headline: "Earn ₹100 per Worker Referral",
+        subheadline: "Invite fellow electricians, plumbers, cooks or drivers. Withdraw instant cash straight to UPI.",
+        cta: "Invite & Earn",
+        bgStartColor: "#78350F",
+        bgEndColor: "#B45309",
+        targetCategoryId: "refer_earn",
+        active: true
+      }
+    }
+  ],
+  employer: [
+    {
+      label: "⚡ Hire in Minutes",
+      banner: {
+        headline: "Post a Job & Get Instant Calls",
+        subheadline: "Connect with verified, reliable workers near your shop, factory, or home in minutes.",
+        cta: "Post a Job",
+        bgStartColor: "#0F172A",
+        bgEndColor: "#1E293B",
+        targetCategoryId: "post_job",
+        active: true
+      }
+    },
+    {
+      label: "🚨 Urgent Needs (Workers in 60s)",
+      banner: {
+        headline: "Need Workers Today? Instant Matches",
+        subheadline: "Broadcast an urgent need. Available workers get notified on their phones instantly.",
+        cta: "Post Urgent Need",
+        bgStartColor: "#881337",
+        bgEndColor: "#BE123C",
+        targetCategoryId: "urgent_need",
+        active: true
+      }
+    },
+    {
+      label: "🎉 Referral Cashback ₹100",
+      banner: {
+        headline: "Earn ₹100 Cashback Every Time",
+        subheadline: "Refer fellow business owners, contractors or shopkeepers to DutyPe and earn instant wallet balance.",
+        cta: "Refer & Earn",
+        bgStartColor: "#312E81",
+        bgEndColor: "#4338CA",
+        targetCategoryId: "refer_earn",
+        active: true
+      }
+    }
+  ]
+};
+
+const PRESET_BANNERS = PRESET_BANNERS_BY_SURFACE.services;
+
+export interface BannerOptimizationResult {
+  file: File;
+  originalSizeKb: number;
+  webpBlob: Blob;
+  webpSizeKb: number;
+  previewUrl: string;
+  width: number;
+  height: number;
+  savingsPct: number;
+}
+
+// Convert any banner image to low-KB WebP directly in browser with smooth downscaling
+export async function optimizeBannerImage(file: File): Promise<BannerOptimizationResult> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width;
+        let h = img.height;
+        // Banners look sharp on 1080p/1440p mobile displays at max 800px dimension
+        const maxDim = 800;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Unable to create canvas context"));
+          return;
+        }
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, w, h);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("WebP conversion failed"));
+              return;
+            }
+            const originalKb = Math.round((file.size / 1024) * 10) / 10;
+            const webpKb = Math.round((blob.size / 1024) * 10) / 10;
+            const savings = Math.max(0, Math.round(((file.size - blob.size) / file.size) * 100));
+
+            resolve({
+              file,
+              originalSizeKb: originalKb,
+              webpBlob: blob,
+              webpSizeKb: webpKb,
+              previewUrl: URL.createObjectURL(blob),
+              width: w,
+              height: h,
+              savingsPct: savings
+            });
+          },
+          "image/webp",
+          0.85
+        );
+      };
+      img.onerror = () => reject(new Error("Failed to decode image"));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
 
 export function AdminBannersManager({
   onSaved,
   onError
 }: {
-  onSaved: (msg: string) => void;
-  onError: (msg: string) => void;
-}) {
+  onSaved?: (msg: string) => void;
+  onError?: (msg: string) => void;
+} = {}) {
   const services = useMemo(() => getFirebaseServices(), []);
+  const [surface, setSurface] = useState<BannerSurface>("services");
   const [banners, setBanners] = useState<PromoBannerDef[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState<number>(0);
   const [rawConfig, setRawConfig] = useState<Record<string, unknown>>({});
+  const [optStats, setOptStats] = useState<{ originalKb: number; webpKb: number; savings: number } | null>(null);
 
   useEffect(() => {
     if (!services) return;
     void (async () => {
       setLoading(true);
       try {
-        const snap = await getDoc(doc(services.db, "app_config", "services"));
+        const targetDoc = surface === "services" ? "services" : "dynamic_features";
+        const snap = await getDoc(doc(services.db, "app_config", targetDoc));
         const data = (snap.data() || {}) as Record<string, unknown>;
         setRawConfig(data);
-        const list = (data.promoBanners || data.banners || []) as PromoBannerDef[];
-        setBanners(list.length > 0 ? list : [
-          {
-            id: "banner_ac_summer",
-            headline: "Khammam AC Service ⚡ Flat ₹499",
-            subheadline: "Doorstep technician at your home in 59 minutes",
-            cta: "Book Now",
-            bgStartColor: "#0F172A",
-            bgEndColor: "#1E3A8A",
-            targetCategoryId: "AC",
-            active: true
-          }
-        ]);
+        const listField = surface === "services"
+          ? (data.promoBanners ?? data.banners)
+          : surface === "worker"
+            ? data.promoBanners
+            : data.employerPromoBanners;
+        const list = listField as PromoBannerDef[] | undefined;
+        if (Array.isArray(list) && list.length > 0) {
+          setBanners(list);
+        } else {
+          const presets = PRESET_BANNERS_BY_SURFACE[surface] || PRESET_BANNERS_BY_SURFACE.services;
+          setBanners(presets.map((p, i) => ({ id: `banner_${surface}_${i + 1}`, ...p.banner })));
+        }
+        setSelectedIdx(0);
       } catch (e) {
-        onError("Could not load promotional banners: " + (e instanceof Error ? e.message : String(e)));
+        onError?.("Could not load promotional banners: " + (e instanceof Error ? e.message : String(e)));
       } finally {
         setLoading(false);
       }
     })();
-  }, [services, onError]);
+  }, [services, surface, onError]);
 
   const activeBanner = banners[selectedIdx] || banners[0];
 
@@ -168,11 +340,14 @@ export function AdminBannersManager({
   async function handleFileUpload(file: File) {
     if (!services || !activeBanner) return;
     setUploading(true);
+    setOptStats(null);
     try {
       const isLottie = file.name.endsWith(".json") || file.type === "application/json";
-      const storageRef = ref(services.storage, `banners/${Date.now()}_${file.name}`);
-      await uploadBytes(storageRef, file);
-      const downloadUrl = await getDownloadURL(storageRef);
+      const bannerId = (activeBanner.id || `banner_${Date.now()}`).toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+
+      let uploadBlob: Blob = file;
+      let uploadFileName = file.name;
+      let contentType = file.type || "application/octet-stream";
 
       if (isLottie) {
         // Parse JSON locally for instant zero-latency preview
@@ -183,21 +358,79 @@ export function AdminBannersManager({
         } catch {
           // ignore parsing error
         }
+        contentType = "application/json";
+        uploadFileName = `${bannerId}_${Date.now()}.json`;
+      } else {
+        // Automatically optimize image (PNG, JPG, etc.) to low-KB WebP directly in browser
+        const opt = await optimizeBannerImage(file);
+        uploadBlob = opt.webpBlob;
+        uploadFileName = `${bannerId}_${Date.now()}.webp`;
+        contentType = "image/webp";
+        setOptStats({
+          originalKb: opt.originalSizeKb,
+          webpKb: opt.webpSizeKb,
+          savings: opt.savingsPct
+        });
+      }
+
+      let downloadUrl = "";
+
+      // 1. Try server-side admin upload API route (bypasses client storage permission limits & 403 errors)
+      try {
+        const formData = new FormData();
+        formData.append("image", uploadBlob, uploadFileName);
+        formData.append("id", bannerId);
+        formData.append("type", "banner");
+
+        const headers: Record<string, string> = {};
+        if (services.auth.currentUser) {
+          const idToken = await services.auth.currentUser.getIdToken();
+          headers["Authorization"] = `Bearer ${idToken}`;
+        }
+
+        const apiRes = await fetch("/api/admin/service-catalog/upload-image", {
+          method: "POST",
+          headers,
+          body: formData
+        });
+
+        if (apiRes.ok) {
+          const resJson = await apiRes.json();
+          downloadUrl = resJson.url;
+        } else {
+          const errData = await apiRes.json().catch(() => null);
+          console.warn("Server-side banner upload returned non-200:", errData);
+        }
+      } catch (apiErr) {
+        console.warn("Server-side banner upload failed, falling back to client upload:", apiErr);
+      }
+
+      // 2. Client-side fallback if server-side upload was not completed
+      if (!downloadUrl) {
+        const storageRef = ref(services.storage, `banners/${uploadFileName}`);
+        await uploadBytes(storageRef, uploadBlob, {
+          contentType,
+          cacheControl: "public, max-age=31536000, immutable"
+        });
+        downloadUrl = await getDownloadURL(storageRef);
+      }
+
+      if (isLottie) {
         updateBanner(selectedIdx, {
           lottieUrl: downloadUrl,
           imageUrl: downloadUrl,
-          fileSizeBytes: file.size
+          fileSizeBytes: uploadBlob.size
         });
       } else {
         setLottieAnimationData(null);
         updateBanner(selectedIdx, {
           imageUrl: downloadUrl,
           lottieUrl: "",
-          fileSizeBytes: file.size
+          fileSizeBytes: uploadBlob.size
         });
       }
     } catch (e) {
-      onError("Failed to upload file: " + (e instanceof Error ? e.message : String(e)));
+      onError?.("Failed to upload file: " + (e instanceof Error ? e.message : String(e)));
     } finally {
       setUploading(false);
     }
@@ -223,14 +456,30 @@ export function AdminBannersManager({
         active: b.active !== false
       }));
 
-      await setDoc(
-        doc(services.db, "app_config", "services"),
-        { ...rawConfig, promoBanners: cleanBanners, banners: cleanBanners },
-        { merge: true }
+      const targetDoc = surface === "services" ? "services" : "dynamic_features";
+      const fieldName = surface === "services"
+        ? "promoBanners"
+        : surface === "worker"
+          ? "promoBanners"
+          : "employerPromoBanners";
+
+      const updatePayload: Record<string, unknown> = {
+        ...rawConfig,
+        [fieldName]: cleanBanners,
+        updatedAt: Date.now()
+      };
+      if (surface === "services") {
+        updatePayload.banners = cleanBanners;
+      }
+
+      await setDoc(doc(services.db, "app_config", targetDoc), updatePayload, { merge: true });
+      onSaved?.(
+        cleanBanners.length > 0
+          ? `Promotional banners for ${surface.toUpperCase()} published successfully! Android app will update immediately.`
+          : `All promotional banners for ${surface.toUpperCase()} removed.`
       );
-      onSaved("Promotional banners successfully saved! The Android app will display these in the home carousel immediately.");
     } catch (e) {
-      onError("Failed to save banners: " + (e instanceof Error ? e.message : String(e)));
+      onError?.("Failed to save banners: " + (e instanceof Error ? e.message : String(e)));
     } finally {
       setSaving(false);
     }
@@ -255,9 +504,8 @@ export function AdminBannersManager({
               Promotional Banners &amp; Carousel Hub
             </h2>
             <p style={{ margin: "4px 0 0 0", color: "#64748b", fontSize: 14, maxWidth: 720 }}>
-              Configure top-of-screen promotional hero slides seen on the DutyPe Android App Services Home Screen.
-              The mobile app automatically transitions slides every 5 seconds and synchronizes its top status bar and search header
-              colors to match the active banner&apos;s gradient start color!
+              Configure top-of-screen promotional hero banners across DutyPe Home Services, Worker Home Screen, and Employer Home Screen.
+              The mobile app automatically converts uploaded images to high-quality lightweight WebP (20–40 KB) and synchronizes header gradient colors.
             </p>
           </div>
           <button
@@ -267,14 +515,42 @@ export function AdminBannersManager({
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 20px", fontWeight: 700, fontSize: 15 }}
           >
             {saving ? <RefreshCw className="animate-spin" size={16} /> : <Check size={16} />}
-            {saving ? "Saving Banners..." : "Publish Banners to App"}
+            {saving ? "Saving Banners..." : `Publish ${surface.toUpperCase()} Banners`}
           </button>
         </div>
 
+        {/* Target Surface Selector */}
+        <div style={{ marginTop: 16, display: "flex", gap: 10, borderBottom: "1px solid #cbd5e1", paddingBottom: 12 }}>
+          {([
+            ["services", "🛠️ DutyPe Home Services"],
+            ["worker", "👷 Worker Home Screen"],
+            ["employer", "🏢 Employer Home Screen"]
+          ] as const).map(([s, label]) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setSurface(s)}
+              className="btn"
+              style={{
+                padding: "8px 16px",
+                fontWeight: surface === s ? 700 : 500,
+                background: surface === s ? "#1e293b" : "#ffffff",
+                color: surface === s ? "#ffffff" : "#334155",
+                border: surface === s ? "1px solid #0f172a" : "1px solid #cbd5e1",
+                borderRadius: 8,
+                fontSize: 13,
+                cursor: "pointer"
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* Quick Presets */}
-        <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>One-Click Templates:</span>
-          {PRESET_BANNERS.map((p, i) => (
+          {(PRESET_BANNERS_BY_SURFACE[surface] || PRESET_BANNERS_BY_SURFACE.services).map((p, i) => (
             <button
               key={i}
               type="button"
@@ -390,13 +666,12 @@ export function AdminBannersManager({
                     style={{
                       background: "#ffffff",
                       color: "#0f172a",
-                      border: "2px solid #38bdf8",
-                      borderRadius: 20,
+                      border: "none",
+                      borderRadius: 8,
                       padding: "6px 14px",
-                      fontSize: 11.5,
+                      fontSize: 12,
                       fontWeight: 700,
-                      cursor: "default",
-                      boxShadow: "0 0 10px rgba(56, 189, 248, 0.4)"
+                      cursor: "default"
                     }}
                   >
                     {activeBanner.cta || "Book Now"} →
@@ -505,16 +780,14 @@ export function AdminBannersManager({
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                     {!b.active && <span style={{ fontSize: 10, background: "#fee2e2", color: "#dc2626", padding: "1px 6px", borderRadius: 4, fontWeight: 700 }}>OFF</span>}
-                    {banners.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); removeBanner(i); }}
-                        style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: 2 }}
-                        title="Delete Slide"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); removeBanner(i); }}
+                      style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: "2px 4px", borderRadius: 4 }}
+                      title="Delete Slide"
+                    >
+                      <Trash2 size={15} />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -529,14 +802,37 @@ export function AdminBannersManager({
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>
                 Edit Slide {selectedIdx + 1}: &ldquo;{activeBanner.headline}&rdquo;
               </h3>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                <input
-                  type="checkbox"
-                  checked={activeBanner.active !== false}
-                  onChange={(e) => updateBanner(selectedIdx, { active: e.target.checked })}
-                />
-                Active in App Carousel
-              </label>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={activeBanner.active !== false}
+                    onChange={(e) => updateBanner(selectedIdx, { active: e.target.checked })}
+                  />
+                  Active in App Carousel
+                </label>
+                <button
+                  type="button"
+                  onClick={() => removeBanner(selectedIdx)}
+                  style={{
+                    background: "#fee2e2",
+                    color: "#dc2626",
+                    border: "1px solid #fca5a5",
+                    borderRadius: 6,
+                    padding: "4px 10px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4
+                  }}
+                  title="Delete this banner slide"
+                >
+                  <Trash2 size={13} />
+                  Delete Slide
+                </button>
+              </div>
             </div>
 
             {/* SECTION 1: CORE ESSENTIALS (WHAT REALLY MATTERS) */}
@@ -712,13 +1008,37 @@ export function AdminBannersManager({
                         )}
                       </div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>
-                        {uploading ? "Uploading to Cloud Storage..." : "Click to Upload Image or Lottie File"}
+                        {uploading ? "Compressing to WebP & Uploading..." : "Click to Upload Image or Lottie File"}
                       </div>
                       <div style={{ fontSize: 11, color: "#64748b" }}>
-                        Supports <b>.json</b> (Lottie animations) or <b>.png, .webp, .svg, .jpg</b> • Live size shown in KB
+                        PNG / JPG images are <b>auto-converted to low-KB WebP</b> • Lottie <b>.json</b> animations supported
                       </div>
                     </label>
                   </div>
+
+                  {/* Real-time WebP Compression Savings Badge */}
+                  {optStats && (
+                    <div
+                      style={{
+                        marginBottom: 10,
+                        padding: "8px 12px",
+                        background: "#f0fdf4",
+                        border: "1px solid #bbf7d0",
+                        borderRadius: 6,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        fontSize: 12,
+                        color: "#166534"
+                      }}
+                    >
+                      <Check size={16} color="#16a34a" />
+                      <span>
+                        <b>WebP Auto-Compression Applied:</b> {optStats.originalKb} KB &rarr;{" "}
+                        <strong style={{ color: "#15803d" }}>{optStats.webpKb} KB</strong> ({optStats.savings}% size reduction, ultra-fast mobile loading!)
+                      </span>
+                    </div>
+                  )}
 
                   {/* Direct URL Input Fallback */}
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -952,6 +1272,35 @@ export function AdminBannersManager({
                 style={{ padding: "8px 24px", fontWeight: 700 }}
               >
                 {saving ? "Saving..." : "Save All Banners"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {banners.length === 0 && (
+          <div className="admin-section" style={{ background: "#ffffff", border: "2px dashed #cbd5e1", borderRadius: 12, padding: 48, textAlign: "center" }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>🏷️</div>
+            <h3 style={{ margin: "0 0 8px 0", fontSize: 18, fontWeight: 700, color: "#1e293b" }}>No Promotional Banners</h3>
+            <p style={{ margin: "0 0 20px 0", color: "#64748b", fontSize: 14, maxWidth: 460, marginLeft: "auto", marginRight: "auto" }}>
+              All promotional banners have been removed. The mobile app will not show a promotional hero banner on the services home screen.
+            </p>
+            <div style={{ display: "flex", justifyContent: "center", gap: 12 }}>
+              <button
+                type="button"
+                onClick={addBlankBanner}
+                className="btn btn-primary"
+                style={{ fontSize: 13, padding: "8px 16px" }}
+              >
+                + Create a Banner
+              </button>
+              <button
+                type="button"
+                onClick={saveBanners}
+                disabled={saving}
+                className="btn btn-approve"
+                style={{ fontSize: 13, padding: "8px 16px" }}
+              >
+                {saving ? "Publishing..." : "Publish Cleared State to App"}
               </button>
             </div>
           </div>

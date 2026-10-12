@@ -363,7 +363,6 @@ class MainActivity : ComponentActivity() {
                             val isAuthRoute = currentRouteForBars?.contains("login", ignoreCase = true) == true ||
                                 currentRouteForBars?.contains("register", ignoreCase = true) == true ||
                                 currentRouteForBars?.contains("otp", ignoreCase = true) == true ||
-                                currentRouteForBars?.contains("role", ignoreCase = true) == true ||
                                 currentRouteForBars?.contains("services", ignoreCase = true) == true
                             isAppearanceLightStatusBars = if (isAuthRoute) false else (!darkTheme && !isColorDark)
                             isAppearanceLightNavigationBars = !darkTheme
@@ -400,6 +399,13 @@ class MainActivity : ComponentActivity() {
                         // home screen is visible, never during onboarding/login/setup.
                         com.example.dutype.promo.PromoOverlayHost(navController = navController)
 
+                        // Blinkit/Swiggy style Vertical Launch Promo (Admin dynamic config)
+                        com.example.dutype.components.DynamicLaunchPromoDialog(
+                            dynamicConfig = dynamicFeatures,
+                            navController = navController,
+                            currentRoute = currentRouteForBars
+                        )
+
                         // Maintenance Mode Sheet
                         if (showMaintenanceMode) {
                             MaintenanceModeSheet()
@@ -427,16 +433,11 @@ class MainActivity : ComponentActivity() {
                         }
 
 
-                        // Native Google Play In-App Review (triggered on job application, posting, etc.)
+                        // Google Play Review & In-App Rating Prompt
                         // PERF: only wire up the review manager after the first screen is ready.
                         if (mainNavReady) {
                             val reviewManager = rememberInAppReviewManager()
-                            val reviewRequested by reviewManager.showRatingPromptFlow.collectAsStateWithLifecycle()
-                            LaunchedEffect(reviewRequested) {
-                                if (reviewRequested) {
-                                    reviewManager.launchNativeReview(this@MainActivity)
-                                }
-                            }
+                            com.example.dutype.components.PlayStoreRatingPrompt(reviewManager = reviewManager)
                         }
                     }
 

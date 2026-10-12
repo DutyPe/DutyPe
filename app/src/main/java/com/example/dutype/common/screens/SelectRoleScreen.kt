@@ -94,6 +94,17 @@ fun SelectRoleScreen(
 ) {
     run { // follows the app theme (dark mode too)
         val context = LocalContext.current
+        val view = androidx.compose.ui.platform.LocalView.current
+        androidx.compose.runtime.DisposableEffect(view) {
+            val window = (view.context as? android.app.Activity)?.window
+            val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) }
+            val originalLightStatusBars = insetsController?.isAppearanceLightStatusBars ?: true
+            insetsController?.isAppearanceLightStatusBars = true
+
+            onDispose {
+                insetsController?.isAppearanceLightStatusBars = originalLightStatusBars
+            }
+        }
         val scope = rememberCoroutineScope()
         val profileCompletionViewModel: com.example.dutype.viewmodels.ProfileCompletionViewModel =
             androidx.hilt.navigation.compose.hiltViewModel()

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.truecallerSignIn = exports.verifyWhatsappOtp = exports.sendWhatsappOtp = exports.net = exports.WHATSAPP_SECRET = void 0;
+exports.verifyWhatsappOtp = exports.sendWhatsappOtp = exports.net = exports.WHATSAPP_SECRET = void 0;
 exports.uidForPhone = uidForPhone;
 /**
  * Cheaper ways to log in with a phone number than Firebase SMS (~₹6.7 per SMS):
@@ -11,16 +11,12 @@ exports.uidForPhone = uidForPhone;
  *                                          Firebase SMS": nothing set up, send errors, or daily caps.
  *   verifyWhatsappOtp({ phone, code })     checks the code; returns a Firebase custom token for the
  *                                          phone's account (same uid as SMS login, created if new).
- *   truecallerSignIn({ authorizationCode, codeVerifier, role, mode })
- *                                          Truecaller one-tap: exchanges the code for the verified
- *                                          number, name and email. Returns a custom token only when
- *                                          the login / sign-up is allowed for that number and role.
  *
  * The app signs in with signInWithCustomToken(), so auth.currentUser.phoneNumber and the ID token's
  * phone_number are the same as after SMS login, and everything after login is unchanged.
  *
  * Settings: functions/.env.dutype-860ac (WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_TEMPLATE,
- * WHATSAPP_TEMPLATE_LANG, TRUECALLER_CLIENT_ID); secret WHATSAPP_TOKEN (Meta permanent token; the
+ * WHATSAPP_TEMPLATE_LANG); secret WHATSAPP_TOKEN (Meta permanent token; the
  * value "unset" keeps WhatsApp off). Custom tokens need the functions' service account to have the
  * "Service Account Token Creator" role.
  */
@@ -273,91 +269,42 @@ exports.verifyWhatsappOtp = (0, secure_callable_1.onCallSecured)({ requireAuth: 
         (0, input_1.fail)("resource-exhausted", "Too many wrong codes. Please request a new one.");
     if (result === "wrong")
         (0, input_1.fail)("invalid-argument", "The code is incorrect. Please check and try again.");
-    const uid = await uidForPhone(phone);
-    const existingRole = await registeredRole(phone);
+    const [uid, existingRole] = await Promise.all([
+        uidForPhone(phone),
+        registeredRole(phone)
+    ]);
     const claims = Object.assign({ phone_number: phone }, (existingRole ? { role: existingRole } : {}));
-    await admin.auth().setCustomUserClaims(uid, claims).catch((e) => functions.logger.warn("setCustomUserClaims failed", e));
-    return { token: await admin.auth().createCustomToken(uid, claims) };
-});
-// ─────────────────────────────── Truecaller ───────────────────────────────
-async function truecallerProfile(authorizationCode, codeVerifier) {
-    const clientId = process.env.TRUECALLER_CLIENT_ID || "";
-    if (!clientId)
-        (0, input_1.fail)("unavailable", "Truecaller login is not set up");
-    const host = process.env.TRUECALLER_OAUTH_HOST || "https://oauth-account-noneu.truecaller.com";
-    const tokenRes = await exports.net.fetch(`${host}/v1/token`, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-            grant_type: "authorization_code",
-            client_id: clientId,
-            code: authorizationCode,
-            code_verifier: codeVerifier,
-        }).toString(),
-    });
-    if (!tokenRes.ok) {
-        functions.logger.warn(`Truecaller token ${tokenRes.status}`, (await tokenRes.text()).slice(0, 300));
-        (0, input_1.fail)("unauthenticated", "Truecaller verification failed. Please try again or use OTP.");
-    }
-    const accessToken = String((await tokenRes.json()).access_token || "");
-    if (!accessToken)
-        (0, input_1.fail)("unauthenticated", "Truecaller verification failed. Please try again or use OTP.");
-    const infoRes = await exports.net.fetch(`${host}/v1/userinfo`, { headers: { Authorization: `Bearer ${accessToken}` } });
-    if (!infoRes.ok) {
-        functions.logger.warn(`Truecaller userinfo ${infoRes.status}`);
-        (0, input_1.fail)("unauthenticated", "Truecaller verification failed. Please try again or use OTP.");
-    }
-    return (0, phone_otp_1.parseTruecallerUserInfo)(await infoRes.json());
-}
-exports.truecallerSignIn = (0, secure_callable_1.onCallSecured)({ requireAuth: false, enforceAppCheck: false, timeoutSeconds: 20 }, async (raw) => {
-    try {
-        const data = (0, input_1.obj)(raw);
-        const authorizationCode = (0, input_1.str)(data, "authorizationCode", { max: 2000 });
-        const codeVerifier = (0, input_1.str)(data, "codeVerifier", { min: 43, max: 128 });
-        const role = requestedRole(data);
-        if (!role)
-            (0, input_1.fail)("invalid-argument", "role is required");
-        const mode = data.mode === "register" ? "register" : data.mode === "login" ? "login" : "unified";
-        const tc = await truecallerProfile(authorizationCode, codeVerifier);
-        if (!tc.phone)
-            (0, input_1.fail)("failed-precondition", "DutyPe works with Indian mobile numbers only. Please use OTP.");
-        const phone = tc.phone;
-        const existingRole = await registeredRole(phone);
-        const profile = { phone, name: tc.name, email: tc.email, existingRole };
-        // Prevent cross-role collisions (a number cannot be both a Worker and an Employer)
-        if (existingRole && existingRole !== role)
-            return Object.assign(Object.assign({}, profile), { allowed: false, roleConflict: true });
-        // Legacy strict mode checks (if explicitly requested)
-        if (mode === "login" && !existingRole)
-            return Object.assign(Object.assign({}, profile), { allowed: false });
-        if (mode === "register" && existingRole)
-            return Object.assign(Object.assign({}, profile), { allowed: false });
-        const isNewUser = !existingRole;
-        const uid = await uidForPhone(phone);
-        await db.collection(schema_1.TruecallerProfiles.COLLECTION).doc(uid).set({
-            [schema_1.TruecallerProfiles.PHONE]: phone,
-            [schema_1.TruecallerProfiles.NAME]: tc.name,
-            [schema_1.TruecallerProfiles.EMAIL]: tc.email,
-            [schema_1.TruecallerProfiles.UPDATED_AT]: Timestamp.now(),
-        });
-        // Existing accounts: keep the email Truecaller shared if the profile has none yet.
-        if (existingRole && tc.email) {
-            const ref = db.collection(existingRole === schema_1.Values.Role.EMPLOYER ? schema_1.EmployerProfiles.COLLECTION : schema_1.WorkerProfiles.COLLECTION).doc(uid);
-            await db.runTransaction(async (tx) => {
-                const doc = await tx.get(ref);
-                if (doc.exists && !doc.get(schema_1.WorkerProfiles.EMAIL))
-                    tx.update(ref, { [schema_1.WorkerProfiles.EMAIL]: tc.email });
-            });
+    admin.auth().setCustomUserClaims(uid, claims).catch((e) => functions.logger.warn("setCustomUserClaims failed", e));
+    const tokenPromise = admin.auth().createCustomToken(uid, claims);
+    let name = "";
+    let isProfileComplete = false;
+    let photoUrl = "";
+    if (existingRole) {
+        const collection = existingRole === schema_1.Values.Role.EMPLOYER ? schema_1.EmployerProfiles.COLLECTION : schema_1.WorkerProfiles.COLLECTION;
+        const profileSnap = await db.collection(collection).doc(uid).get().catch(() => null);
+        if (profileSnap && profileSnap.exists) {
+            const pData = profileSnap.data() || {};
+            if (existingRole === schema_1.Values.Role.EMPLOYER) {
+                name = String(pData[schema_1.EmployerProfiles.OWNER_NAME] || "");
+                isProfileComplete = Boolean(pData[schema_1.EmployerProfiles.OWNER_NAME] && String(pData[schema_1.EmployerProfiles.OWNER_NAME]).trim().length >= 2);
+                photoUrl = String(pData[schema_1.EmployerProfiles.PHOTO_URL] || "");
+            }
+            else {
+                name = String(pData[schema_1.WorkerProfiles.NAME] || "");
+                const skills = pData[schema_1.WorkerProfiles.SKILLS];
+                isProfileComplete = Array.isArray(skills) && skills.length > 0;
+                photoUrl = String(pData[schema_1.WorkerProfiles.PHOTO_URL] || "");
+            }
         }
-        const claims = Object.assign({ phone_number: phone }, (existingRole ? { role: existingRole } : {}));
-        await admin.auth().setCustomUserClaims(uid, claims).catch((e) => functions.logger.warn("setCustomUserClaims failed", e));
-        return Object.assign(Object.assign({}, profile), { allowed: true, isNewUser, token: await admin.auth().createCustomToken(uid, claims) });
     }
-    catch (e) {
-        functions.logger.error("truecallerSignIn error:", e);
-        if (e instanceof functions.https.HttpsError)
-            throw e;
-        throw new functions.https.HttpsError("internal", (e === null || e === void 0 ? void 0 : e.message) || "Truecaller sign-in failed");
-    }
+    const token = await tokenPromise;
+    return {
+        token,
+        role: existingRole || null,
+        isNewUser: !existingRole,
+        name,
+        isProfileComplete,
+        photoUrl
+    };
 });
 //# sourceMappingURL=phone-login.js.map

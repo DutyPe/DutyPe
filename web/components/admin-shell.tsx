@@ -93,6 +93,7 @@ const adminSections: Array<{ label: string; links: AdminLink[] }> = [
       { href: "/admin/referral-stats", label: "Referral Stats", icon: BarChart3, summary: "Referral analytics and reward audits." },
       { href: "/admin/referral-codes", label: "Referral Codes", icon: Ticket, summary: "Code management and usage." },
       { href: "/admin/referral-config", label: "Referral Config", icon: Sliders, summary: "Set reward amounts and limits." },
+      { href: "/admin/promotional-banners", label: "Promotional Banners", icon: Sparkles, summary: "Design promotional banners for Services, Worker Home & Employer Home." },
       { href: "/admin/marketing", label: "Marketing Hub", icon: Rocket, summary: "Campaign assets, SEO & playbooks." },
       { href: "/admin/field-leads", label: "Field Registrations", icon: Users, summary: "Umbrella-desk agents, leads and joins." }
     ]

@@ -680,9 +680,9 @@ fun WorkerHomeScreen(
     // If worker ignores/dismisses, it will NOT play sound again for those jobs.
     var ignoredInstantRequestIds by remember { mutableStateOf(setOf<String>()) }
 
-    val combinedWorkerRequests: List<com.example.dutype.models.InstantRequest> = remember(instantHelpState.instantRequests, searchingServiceRequests) {
-        val existingIds = instantHelpState.instantRequests.map { it.requestId }.toSet()
-        instantHelpState.instantRequests + searchingServiceRequests.filter { it.requestId !in existingIds }
+    // Service bookings are kept separate during partner onboarding phase
+    val combinedWorkerRequests: List<com.example.dutype.models.InstantRequest> = remember(instantHelpState.instantRequests) {
+        instantHelpState.instantRequests
     }
 
     val activeWorkerRequests: List<com.example.dutype.models.InstantRequest> = remember(combinedWorkerRequests, ignoredInstantRequestIds) {
@@ -960,7 +960,11 @@ fun WorkerHomeScreen(
                                             showLoginBottomSheet = true
                                         } else if (request.requestId.startsWith("svc_")) {
                                             val bId = request.requestId.removePrefix("svc_")
-                                            navController.navigate(com.example.dutype.navigation.Routes.partnerOfferRoute(bId))
+                                            if (request.workerResponseStatus.trim().lowercase() in setOf("applied", "accepted", "called", "completed")) {
+                                                navController.navigate(com.example.dutype.navigation.Routes.partnerJobRoute(bId))
+                                            } else {
+                                                navController.navigate(com.example.dutype.navigation.Routes.partnerOfferRoute(bId))
+                                            }
                                         } else {
                                             // Same full-screen offer as the notification: Accept / Skip.
                                             navController.navigate(com.example.dutype.navigation.Routes.urgentOfferRoute(request.requestId))
@@ -973,7 +977,11 @@ fun WorkerHomeScreen(
                                             showLoginBottomSheet = true
                                         } else if (request.requestId.startsWith("svc_")) {
                                             val bId = request.requestId.removePrefix("svc_")
-                                            navController.navigate(com.example.dutype.navigation.Routes.partnerOfferRoute(bId))
+                                            if (request.workerResponseStatus.trim().lowercase() in setOf("applied", "accepted", "called", "completed")) {
+                                                navController.navigate(com.example.dutype.navigation.Routes.partnerJobRoute(bId))
+                                            } else {
+                                                navController.navigate(com.example.dutype.navigation.Routes.partnerOfferRoute(bId))
+                                            }
                                         } else {
                                             openWorkerUrgentDialer(
                                                 context,
@@ -1037,6 +1045,9 @@ fun WorkerHomeScreen(
                                                 locationPickerText = currentLocation?.getDisplayAddress().orEmpty()
                                                 locationPickerError = null
                                                 showLocationPickerSheet = true
+                                            },
+                                            onWalletClick = {
+                                                navController.navigate(Routes.WORKER_EARNINGS)
                                             }
                                         )
                                     }
@@ -1213,8 +1224,8 @@ private fun WorkerHomeLocationPickerSheet(
                 onValueChange = onValueChange,
                 onLocationSelected = onLocationSelected,
                 locationService = locationService,
-                label = stringResource(R.string.search_location),
-                placeholder = stringResource(R.string.area_street_city),
+                label = null,
+                placeholder = stringResource(R.string.search_location),
                 maxLines = 2,
                 modifier = Modifier.fillMaxWidth()
             )

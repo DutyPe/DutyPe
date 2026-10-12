@@ -197,46 +197,52 @@ fun ImagePickerBottomSheet(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Option 1: Take Photo (Camera)
-            ImagePickerOptionCard(
-                icon = Icons.Default.CameraAlt,
-                iconBgColor = Color(0xFFEFF6FF),
-                iconTintColor = Color(0xFF2563EB),
-                title = stringResource(R.string.camera),
-                subtitle = "Take a new photo with camera",
-                onClick = {
-                    val hasPerm = ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.CAMERA
-                    ) == PackageManager.PERMISSION_GRANTED
+            // 2-card Grid layout for Camera and Gallery (Simple & Professional)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // Card 1: Camera
+                ImagePickerGridCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.CameraAlt,
+                    iconBgColor = Color(0xFFEFF6FF),
+                    iconTintColor = Color(0xFF2563EB),
+                    title = stringResource(R.string.camera),
+                    subtitle = "Take photo",
+                    onClick = {
+                        val hasPerm = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.CAMERA
+                        ) == PackageManager.PERMISSION_GRANTED
 
-                    if (hasPerm) {
-                        val uri = createTempImageUri(context)
-                        tempCameraUri = uri
-                        if (uri != null) {
-                            cameraLauncher.launch(uri)
+                        if (hasPerm) {
+                            val uri = createTempImageUri(context)
+                            tempCameraUri = uri
+                            if (uri != null) {
+                                cameraLauncher.launch(uri)
+                            } else {
+                                Toast.makeText(context, "Could not open camera", Toast.LENGTH_SHORT).show()
+                            }
                         } else {
-                            Toast.makeText(context, "Could not open camera", Toast.LENGTH_SHORT).show()
+                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                         }
-                    } else {
-                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                     }
-                }
-            )
+                )
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Option 2: Choose from Gallery
-            ImagePickerOptionCard(
-                icon = Icons.Default.Image,
-                iconBgColor = Color(0xFFF0FDF4),
-                iconTintColor = Color(0xFF16A34A),
-                title = stringResource(R.string.gallery),
-                subtitle = "Choose from your photo library",
-                onClick = {
-                    galleryLauncher.launch("image/*")
-                }
-            )
+                // Card 2: Gallery
+                ImagePickerGridCard(
+                    modifier = Modifier.weight(1f),
+                    icon = Icons.Default.Image,
+                    iconBgColor = Color(0xFFF0FDF4),
+                    iconTintColor = Color(0xFF16A34A),
+                    title = stringResource(R.string.gallery),
+                    subtitle = "Choose photo",
+                    onClick = {
+                        galleryLauncher.launch("image/*")
+                    }
+                )
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
 
@@ -261,31 +267,32 @@ fun ImagePickerBottomSheet(
 }
 
 @Composable
-private fun ImagePickerOptionCard(
+private fun ImagePickerGridCard(
     icon: ImageVector,
     iconBgColor: Color,
     iconTintColor: Color,
     title: String,
     subtitle: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .clip(RoundedCornerShape(16.dp))
             .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
         color = Color(0xFFF8FAFC)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(vertical = 20.dp, horizontal = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Box(
                 modifier = Modifier
-                    .size(46.dp)
+                    .size(52.dp)
                     .clip(CircleShape)
                     .background(iconBgColor),
                 contentAlignment = Alignment.Center
@@ -294,30 +301,32 @@ private fun ImagePickerOptionCard(
                     imageVector = icon,
                     contentDescription = null,
                     tint = iconTintColor,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(26.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        color = Color(0xFF0F172A).fg()
-                    )
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF64748B).fg(),
-                        fontSize = 12.5.sp
-                    )
-                )
-            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = Color(0xFF0F172A).fg()
+                ),
+                maxLines = 1
+            )
+
+            Spacer(modifier = Modifier.height(3.dp))
+
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF64748B).fg(),
+                    fontSize = 12.sp
+                ),
+                maxLines = 1
+            )
         }
     }
 }

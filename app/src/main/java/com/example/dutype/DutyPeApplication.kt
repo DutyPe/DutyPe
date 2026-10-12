@@ -305,16 +305,17 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
         if (BuildConfig.LOCAL_STAGING) return
         try {
             val firebaseAppCheck = FirebaseAppCheck.getInstance()
-            firebaseAppCheck.setTokenAutoRefreshEnabled(true)
 
             if (isDebuggableBuild()) {
                 // In debug builds, installing DebugAppCheckProviderFactory without an enrolled debug token
                 // in Firebase Console causes GoogleApiManager SecurityException, 403 App attestation failed,
                 // and throttles/delays all Firebase and Firestore network calls by 20-30 seconds.
-                // Skip installing the debug provider so debug builds run with instant, unblocked network requests.
-                Timber.i("🧪 Debug build: Skipping App Check provider to ensure instant network performance.")
+                // Disable token auto refresh and skip provider in debug builds so network requests run instantly.
+                firebaseAppCheck.setTokenAutoRefreshEnabled(false)
+                Timber.i("🧪 Debug build: Skipping App Check provider and disabling auto-refresh.")
                 return
             } else {
+                firebaseAppCheck.setTokenAutoRefreshEnabled(true)
                 val isTestLab = runCatching {
                     android.provider.Settings.System.getString(contentResolver, "firebase.test.lab") == "true"
                 }.getOrDefault(false)

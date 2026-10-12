@@ -13,12 +13,18 @@
         <item name="android:windowLightStatusBar">true</item>
     </style>
 
-    <!-- Platform splash: native black background with centered DutyPe white logo -->
+    <!-- Platform splash: pure black background, white wordmark vector — no animation, no circle container.
+         windowSplashScreenIconBackgroundColor = black makes the adaptive-icon circular container
+         completely invisible against the black splash background. This is the same trick used by
+         Uber, Swiggy and other top apps to get a sharp, full-width logo on a pure black canvas. -->
     <style name="Theme.DutyPe.Splash" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@android:color/black</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_logo_foreground</item>
         <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="s">@drawable/ic_splash_logo_foreground</item>
-        <item name="windowSplashScreenIconBackgroundColor">@android:color/transparent</item>
+        <!-- Set to black (NOT transparent) so the adaptive-icon circular badge = invisible on black bg -->
+        <item name="windowSplashScreenIconBackgroundColor">@android:color/black</item>
+        <!-- Zero animation duration: instant logo, no morph/exit animation -->
+        <item name="windowSplashScreenAnimationDuration">0</item>
         <item name="postSplashScreenTheme">@style/Theme.DutyPe</item>
         <item name="android:statusBarColor">@android:color/black</item>
         <item name="android:navigationBarColor">@android:color/black</item>

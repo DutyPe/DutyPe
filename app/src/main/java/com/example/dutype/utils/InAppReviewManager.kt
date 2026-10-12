@@ -85,14 +85,17 @@ class InAppReviewManager @Inject constructor(
                             Timber.d("In-app review flow completed")
                         }
                     } else {
-                        Timber.w(request.exception, "Review flow not launched")
+                        Timber.w(request.exception, "Review flow not launched, falling back to Play Store prompt")
+                        _showRatingPromptFlow.value = true
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "Error launching review flow")
+                    _showRatingPromptFlow.value = true
                 }
             }
         } catch (e: Exception) {
             Timber.e(e, "Error requesting in-app review")
+            _showRatingPromptFlow.value = true
         }
     }
 

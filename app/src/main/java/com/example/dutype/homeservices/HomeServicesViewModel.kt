@@ -43,15 +43,13 @@ class HomeServicesViewModel @Inject constructor(
                     val newBanners = repo.bannersFromSnapshot(snap)
                     val newOffers = repo.offersFromSnapshot(snap)
                     val newMostBooked = repo.mostBookedServiceIdsFromSnapshot(snap)
-                    if (current != null) {
-                        _catalog.value = current.copy(
-                            promoBanners = newBanners,
-                            offers = newOffers,
-                            mostBookedServiceIds = if (newMostBooked.isNotEmpty()) newMostBooked else current.mostBookedServiceIds
-                        )
-                    } else {
-                        loadCatalog(force = false)
-                    }
+                    val updated = current.copy(
+                        promoBanners = newBanners,
+                        offers = newOffers,
+                        mostBookedServiceIds = if (newMostBooked.isNotEmpty()) newMostBooked else current.mostBookedServiceIds
+                    )
+                    _catalog.value = updated
+                    repo.updateRealtimeConfig(newBanners, newOffers, newMostBooked)
                 }
             }
         }
@@ -81,6 +79,8 @@ class HomeServicesViewModel @Inject constructor(
 
     val topups: StateFlow<List<PartnerTopup>> =
         repo.observeTopups().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun getCachedCatalog(): ServicesCatalog = repo.getCachedCatalog()
 
     fun loadCatalog(force: Boolean = false) {
         viewModelScope.launch {
@@ -142,12 +142,16 @@ class HomeServicesViewModel @Inject constructor(
 
     // ─────────────────────────── partner ───────────────────────────
 
-    /** Applying sends where the worker is: partners must be inside the service district. */
+    /** Applying sends where the worker is: partners must be inside Khammam city (within 15 km). */
     suspend fun apply(
         categories: List<String>, experienceYears: Int, area: String, note: String,
         skillProof: String = "", acceptGuidelines: Boolean = false
     ): Result<Unit> = runCatching {
         val place = currentPlace() ?: error("Turn on location to apply")
+        val distKm = com.example.dutype.jobs.Geohash.distanceKm(place.lat, place.lng, 17.2473, 80.1514)
+        if (distKm > 15.0) {
+            error("DutyPe Service Partner registration is strictly restricted to Khammam city only (within 15 km).")
+        }
         repo.apply(categories, experienceYears, area, note, place.lat, place.lng, skillProof, acceptGuidelines)
     }.mapError()
 

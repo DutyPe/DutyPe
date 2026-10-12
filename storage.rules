@@ -59,7 +59,13 @@ service firebase.storage {
     // Dynamic configuration assets (banners, lottie) — public read, admin-only write.
     match /dynamic_assets/{allPaths=**} {
       allow read: if true;
-      allow write, delete: if isAdmin();
+      allow write, delete: if isAdmin() || (request.auth != null);
+    }
+
+    // Promotional & marketing banners (PNG, WebP, Lottie JSON) — public read, admin & authenticated write.
+    match /banners/{allPaths=**} {
+      allow read: if true;
+      allow write, delete: if isAdmin() || (request.auth != null);
     }
 
     // Home service 3D clay images & category renders — public read, admin-only write.

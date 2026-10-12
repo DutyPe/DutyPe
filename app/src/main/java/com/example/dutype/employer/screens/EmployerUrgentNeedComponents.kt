@@ -48,6 +48,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Delete
@@ -245,6 +247,211 @@ internal fun EmployerUrgentNeedHistoryContent(
 }
 
 @Composable
+private fun InstantHeroMetricChip(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier.height(56.dp),
+        shape = RoundedCornerShape(12.dp),
+        color = Color.White.copy(alpha = 0.92f)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 4.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = value,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF0F172A),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF64748B),
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun InstantHiringYellowHero(
+    title: String,
+    subtitle: String,
+    isLive: Boolean,
+    workersNeeded: Int,
+    readyCount: Int,
+    nearbyCount: Int,
+    statusText: String,
+    onBackClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFFFBBF24),
+        shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(top = 4.dp, bottom = 18.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBackClick) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(R.string.back),
+                        tint = Color(0xFF1E293B),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.instant_hiring_room),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E293B)
+                    )
+                    Text(
+                        text = subtitle,
+                        fontSize = 12.sp,
+                        color = Color(0xFF475569),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = if (isLive) Color(0xFF10B981) else Color(0xFF64748B)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(Color.White, CircleShape)
+                        )
+                        Text(
+                            text = if (isLive) "LIVE" else statusText,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+
+            // 4 Metric Chips Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                InstantHeroMetricChip("Needed", "$workersNeeded", Modifier.weight(1f))
+                InstantHeroMetricChip("Ready", "$readyCount", Modifier.weight(1f))
+                InstantHeroMetricChip("Nearby", "$nearbyCount", Modifier.weight(1f))
+                InstantHeroMetricChip("Status", statusText, Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun InstantHiringPillTabs(
+    selectedTab: Int,
+    nearbyCount: Int,
+    readyCount: Int,
+    onTabSelected: (Int) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = Color(0xFFF1F5F9)
+    ) {
+        Row(
+            modifier = Modifier.padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            val tab0Selected = selectedTab == 0
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { onTabSelected(0) },
+                shape = RoundedCornerShape(10.dp),
+                color = if (tab0Selected) Color.White else Color.Transparent,
+                shadowElevation = if (tab0Selected) 2.dp else 0.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Verified,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (tab0Selected) Color(0xFF059669) else Color(0xFF64748B)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Nearby Matches ($nearbyCount)",
+                        fontSize = 13.sp,
+                        fontWeight = if (tab0Selected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (tab0Selected) Color(0xFF0F172A) else Color(0xFF64748B)
+                    )
+                }
+            }
+
+            val tab1Selected = selectedTab == 1
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { onTabSelected(1) },
+                shape = RoundedCornerShape(10.dp),
+                color = if (tab1Selected) Color.White else Color.Transparent,
+                shadowElevation = if (tab1Selected) 2.dp else 0.dp
+            ) {
+                Row(
+                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = if (tab1Selected) Color(0xFFD97706) else Color(0xFF64748B)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Ready Workers ($readyCount)",
+                        fontSize = 13.sp,
+                        fontWeight = if (tab1Selected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (tab1Selected) Color(0xFF0F172A) else Color(0xFF64748B)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 internal fun EmployerUrgentNeedDetailContent(
     request: InstantRequest?,
     responses: List<InstantResponse>,
@@ -266,7 +473,8 @@ internal fun EmployerUrgentNeedDetailContent(
     onMarkRequestFilled: (InstantRequest) -> Unit,
     onCancelRequest: (InstantRequest) -> Unit,
     onDeleteRequest: ((InstantRequest) -> Unit)? = null,
-    onPostUrgentNeed: () -> Unit
+    onPostUrgentNeed: () -> Unit,
+    onBackClick: () -> Unit = {}
 ) {
     when {
         isLoading -> {
@@ -294,167 +502,230 @@ internal fun EmployerUrgentNeedDetailContent(
             val responseSelectedCount = responses.count { it.status.equals("accepted", ignoreCase = true) || it.status.equals("completed", ignoreCase = true) }
             val selectedCount = maxOf(request.selectedWorkerIds.size, responseSelectedCount)
             val requiredWorkers = request.workersNeeded.coerceAtLeast(1)
+            val isLive = request.status.equals("open", ignoreCase = true)
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFFF8FAFC))
             ) {
-                // 1. Request details summary card
-                item(key = "urgent_detail_${request.requestId}") {
-                    EmployerUrgentNeedCard(
-                        request = request,
-                        responses = responses,
-                        isRequestUpdating = isRequestUpdating,
-                        updatingResponseId = updatingResponseId,
-                        ratedResponseIds = ratedResponseIds,
-                        onOpenRequest = {},
-                        onOpenWorkerProfile = onOpenWorkerProfile,
-                        onCallWorker = onCallWorker,
-                        onSelectResponse = onSelectResponse,
-                        onCompleteResponse = onCompleteResponse,
-                        onNoShowResponse = onNoShowResponse,
-                        onRateResponse = onRateResponse,
-                        onMarkRequestFilled = onMarkRequestFilled,
-                        onCancelRequest = onCancelRequest,
-                        onDeleteRequest = onDeleteRequest,
-                        showDetailButton = false,
-                        showResponses = false
-                    )
-                }
+                // 1. YELLOW HERO WITH TITLE, BACK ARROW, LIVE PILL & 4 METRIC CHIPS
+                InstantHiringYellowHero(
+                    title = request.title,
+                    subtitle = listOf(request.category, request.addressText).filter { it.isNotBlank() }.joinToString(" • "),
+                    isLive = isLive,
+                    workersNeeded = requiredWorkers,
+                    readyCount = responses.size,
+                    nearbyCount = matchedWorkersState.workers.size,
+                    statusText = request.status.uppercase(Locale.ROOT),
+                    onBackClick = onBackClick
+                )
 
-                // 2. Tabs: Nearby Workers vs Responses
-                item(key = "urgent_tabs") {
-                    TabRow(
-                        selectedTabIndex = selectedTab,
-                        containerColor = EmployerColors.CardBackground,
-                        contentColor = EmployerColors.TextPrimary,
-                        modifier = Modifier.clip(RoundedCornerShape(12.dp))
-                    ) {
-                        Tab(
-                            selected = selectedTab == 0,
-                            onClick = { selectedTab = 0 },
-                            text = {
-                                Text(
-                                    text = stringResource(R.string.nearby_matches_format, matchedWorkersState.workers.size),
-                                    fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
-                            icon = { Icon(Icons.Default.Verified, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                        )
-                        Tab(
-                            selected = selectedTab == 1,
-                            onClick = { selectedTab = 1 },
-                            text = {
-                                Text(
-                                    text = stringResource(R.string.ready_workers_format, responses.size),
-                                    fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
-                            icon = { Icon(Icons.Default.Schedule, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                        )
-                    }
-                }
-
-                // 3. Tab Content
-                if (selectedTab == 0) {
-                    // TAB 0: NEARBY MATCHED WORKERS
-                    item(key = "nearby_header") {
-                        Row(
+                // 2. SCROLLABLE BODY
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .weight(1f),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 32.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    // Urgent Request Control Card (Actions)
+                    item(key = "urgent_control_card") {
+                        Card(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.available_workers_near_you),
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = EmployerColors.TextPrimary
-                                    )
-                                )
-                                Text(
-                                    text = stringResource(R.string.nearest_workers_ready_desc),
-                                    style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary)
-                                )
-                            }
-                            IconButton(onClick = onRefreshMatchedWorkers) {
-                                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh_workers), tint = EmployerColors.Primary.fg())
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = request.title,
+                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF0F172A)
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = listOf(request.category, request.budgetText, request.durationText)
+                                                .filter { it.isNotBlank() }.joinToString(" • "),
+                                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B)),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    UrgentStatusBadge(request.status)
+                                }
+
+                                if (isLive) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Button(
+                                            onClick = { onMarkRequestFilled(request) },
+                                            enabled = !isRequestUpdating,
+                                            modifier = Modifier.weight(1.1f),
+                                            shape = RoundedCornerShape(10.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A).bg())
+                                        ) {
+                                            if (isRequestUpdating) {
+                                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = Color.White)
+                                            } else {
+                                                Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(stringResource(R.string.mark_urgent_job_filled), fontSize = 13.sp)
+                                            }
+                                        }
+
+                                        OutlinedButton(
+                                            onClick = { onCancelRequest(request) },
+                                            enabled = !isRequestUpdating,
+                                            modifier = Modifier.weight(0.9f),
+                                            shape = RoundedCornerShape(10.dp),
+                                            border = BorderStroke(1.dp, Color(0xFFEF4444)),
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF4444))
+                                        ) {
+                                            Icon(Icons.Default.Cancel, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFFEF4444))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(stringResource(R.string.stop_urgent_job), fontSize = 13.sp)
+                                        }
+                                    }
+                                } else if (onDeleteRequest != null) {
+                                    OutlinedButton(
+                                        onClick = { onDeleteRequest(request) },
+                                        enabled = !isRequestUpdating,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp),
+                                        border = BorderStroke(1.dp, EmployerColors.Error),
+                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = EmployerColors.Error)
+                                    ) {
+                                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp), tint = EmployerColors.Error)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(stringResource(R.string.delete_post), fontSize = 13.sp)
+                                    }
+                                }
                             }
                         }
                     }
 
-                    if (matchedWorkersState.isLoading) {
-                        items(3, key = { "nearby_loading_$it" }) {
-                            com.example.dutype.components.ApplicationListItemShimmer()
-                        }
-                    } else if (matchedWorkersState.hasError) {
-                        item(key = "nearby_error") {
-                            com.example.dutype.components.DutyPeErrorState(
-                                message = matchedWorkersState.error,
-                                onRetry = onRefreshMatchedWorkers,
-                                compact = true
+                    // Pill Segmented Tabs (Nearby Matches vs Ready Workers)
+                    item(key = "urgent_pill_tabs") {
+                        InstantHiringPillTabs(
+                            selectedTab = selectedTab,
+                            nearbyCount = matchedWorkersState.workers.size,
+                            readyCount = responses.size,
+                            onTabSelected = { selectedTab = it }
+                        )
+                    }
+
+                    // Section Heading
+                    item(key = "urgent_section_heading") {
+                        Column(modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)) {
+                            Text(
+                                text = if (selectedTab == 0) "Best workers for this urgent need" else "Workers ready to work right now",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1E293B)
                             )
-                        }
-                    } else if (matchedWorkersState.workers.isEmpty()) {
-                        item(key = "nearby_empty") {
-                            com.example.dutype.components.DutyPeEmptyState(
-                                icon = Icons.Filled.PersonSearch,
-                                tone = com.example.dutype.components.EmptyTone.BLUE,
-                                compact = true,
-                                title = stringResource(R.string.finding_nearby_workers),
-                                message = stringResource(R.string.finding_nearby_workers_desc),
-                                secondary = com.example.dutype.components.EmptyStateAction(
-                                    label = stringResource(R.string.refresh_nearby_workers),
-                                    icon = Icons.Filled.Refresh,
-                                    onClick = onRefreshMatchedWorkers
-                                ),
-                                modifier = Modifier.fillMaxWidth().background(Color(0xFFF8FAFC).bg(), RoundedCornerShape(14.dp))
-                            )
-                        }
-                    } else {
-                        itemsIndexed(matchedWorkersState.workers, key = { index, w -> "matched_${w.workerId}_$index" }) { _, worker ->
-                            UrgentMatchedWorkerCard(
-                                worker = worker,
-                                onCallWorker = { onCallMatchedWorker(worker) },
-                                onChatWorker = { onChatMatchedWorker(worker) },
-                                onOpenProfile = { onOpenMatchedWorkerProfile(worker) }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (selectedTab == 0) {
+                                    "Nearest first, verified skills and active duty."
+                                } else {
+                                    "Workers who responded to your urgent request."
+                                },
+                                fontSize = 13.sp,
+                                color = Color(0xFF64748B)
                             )
                         }
                     }
-                } else {
-                    // TAB 1: WORKER RESPONSES
-                    if (responses.isEmpty()) {
-                        item(key = "responses_empty") {
-                            com.example.dutype.components.DutyPeEmptyState(
-                                icon = Icons.Filled.Schedule,
-                                badge = Icons.Filled.Bolt,
-                                tone = com.example.dutype.components.EmptyTone.ORANGE,
-                                compact = true,
-                                title = stringResource(R.string.no_responses_received_yet),
-                                message = stringResource(R.string.no_responses_received_desc),
-                                primary = com.example.dutype.components.EmptyStateAction(
-                                    label = stringResource(R.string.view_call_nearby_workers),
-                                    icon = Icons.Filled.Verified,
-                                    onClick = { selectedTab = 0 }
-                                ),
-                                modifier = Modifier.fillMaxWidth().background(Color(0xFFF8FAFC).bg(), RoundedCornerShape(14.dp))
-                            )
+
+                    // Tab 0: NEARBY MATCHED WORKERS
+                    if (selectedTab == 0) {
+                        if (matchedWorkersState.isLoading) {
+                            items(3, key = { "nearby_loading_$it" }) {
+                                com.example.dutype.components.ApplicationListItemShimmer()
+                            }
+                        } else if (matchedWorkersState.hasError) {
+                            item(key = "nearby_error") {
+                                com.example.dutype.components.DutyPeErrorState(
+                                    message = matchedWorkersState.error,
+                                    onRetry = onRefreshMatchedWorkers,
+                                    compact = true
+                                )
+                            }
+                        } else if (matchedWorkersState.workers.isEmpty()) {
+                            item(key = "nearby_empty") {
+                                com.example.dutype.components.DutyPeEmptyState(
+                                    icon = Icons.Filled.PersonSearch,
+                                    tone = com.example.dutype.components.EmptyTone.BLUE,
+                                    compact = true,
+                                    title = stringResource(R.string.finding_nearby_workers),
+                                    message = stringResource(R.string.finding_nearby_workers_desc),
+                                    secondary = com.example.dutype.components.EmptyStateAction(
+                                        label = stringResource(R.string.refresh_nearby_workers),
+                                        icon = Icons.Filled.Refresh,
+                                        onClick = onRefreshMatchedWorkers
+                                    ),
+                                    modifier = Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(14.dp))
+                                )
+                            }
+                        } else {
+                            itemsIndexed(matchedWorkersState.workers, key = { index, w -> "matched_${w.workerId}_$index" }) { _, worker ->
+                                UrgentMatchedWorkerCard(
+                                    worker = worker,
+                                    onCallWorker = { onCallMatchedWorker(worker) },
+                                    onChatWorker = { onChatMatchedWorker(worker) },
+                                    onOpenProfile = { onOpenMatchedWorkerProfile(worker) }
+                                )
+                            }
                         }
                     } else {
-                        itemsIndexed(responses, key = { _, r -> "resp_${r.responseId}" }) { _, response ->
-                            InstantResponseRow(
-                                response = response,
-                                isUpdating = updatingResponseId == response.responseId,
-                                hasAlreadyRated = response.responseId in ratedResponseIds,
-                                canSelectMore = selectedCount < requiredWorkers || response.workerId in request.selectedWorkerIds,
-                                onOpenWorkerProfile = onOpenWorkerProfile,
-                                onCallWorker = onCallWorker,
-                                onSelectResponse = onSelectResponse,
-                                onCompleteResponse = onCompleteResponse,
-                                onNoShowResponse = onNoShowResponse,
-                                onRateResponse = onRateResponse
-                            )
+                        // TAB 1: WORKER RESPONSES
+                        if (responses.isEmpty()) {
+                            item(key = "responses_empty") {
+                                com.example.dutype.components.DutyPeEmptyState(
+                                    icon = Icons.Filled.Schedule,
+                                    badge = Icons.Filled.Bolt,
+                                    tone = com.example.dutype.components.EmptyTone.ORANGE,
+                                    compact = true,
+                                    title = stringResource(R.string.no_responses_received_yet),
+                                    message = stringResource(R.string.no_responses_received_desc),
+                                    primary = com.example.dutype.components.EmptyStateAction(
+                                        label = stringResource(R.string.view_call_nearby_workers),
+                                        icon = Icons.Filled.Verified,
+                                        onClick = { selectedTab = 0 }
+                                    ),
+                                    modifier = Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(14.dp))
+                                )
+                            }
+                        } else {
+                            itemsIndexed(responses, key = { _, r -> "resp_${r.responseId}" }) { _, response ->
+                                InstantResponseRow(
+                                    response = response,
+                                    isUpdating = updatingResponseId == response.responseId,
+                                    hasAlreadyRated = response.responseId in ratedResponseIds,
+                                    canSelectMore = selectedCount < requiredWorkers || response.workerId in request.selectedWorkerIds,
+                                    onOpenWorkerProfile = onOpenWorkerProfile,
+                                    onCallWorker = onCallWorker,
+                                    onSelectResponse = onSelectResponse,
+                                    onCompleteResponse = onCompleteResponse,
+                                    onNoShowResponse = onNoShowResponse,
+                                    onRateResponse = onRateResponse
+                                )
+                            }
                         }
                     }
                 }
@@ -666,28 +937,30 @@ internal fun UrgentMatchedWorkerCard(
             // Action: call or chat with the worker
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Button(
                     onClick = onCallWorker,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A).bg())
+                    modifier = Modifier.weight(1f).height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                    elevation = ButtonDefaults.buttonElevation(0.dp)
                 ) {
-                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.call_worker))
+                    Text(stringResource(R.string.call_worker), fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
                 }
                 if (onChatWorker != null) {
-                    OutlinedButton(
+                    Button(
                         onClick = onChatWorker,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        border = BorderStroke(1.dp, Color(0xFF25D366))
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)),
+                        elevation = ButtonDefaults.buttonElevation(0.dp)
                     ) {
-                        Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF25D366))
+                        Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.chat), color = Color(0xFF25D366), fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.chat), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                 }
             }
@@ -1002,137 +1275,163 @@ private fun InstantResponseRow(
     val canComplete = status == "accepted"
     val canRate = status == "completed" && !hasAlreadyRated
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = Color(0xFFF8FAFC).bg()
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onOpenWorkerProfile(response) },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Worker info row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = response.workerName,
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            color = EmployerColors.TextPrimary,
-                            fontWeight = FontWeight.Bold
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFF1F5F9)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        tint = Color(0xFF64748B),
+                        modifier = Modifier.size(26.dp)
                     )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = response.workerName,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF0F172A)
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Icon(
+                            imageVector = Icons.Default.Verified,
+                            contentDescription = stringResource(R.string.verified_label),
+                            tint = Color(0xFF0284C7),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
                     Text(
                         text = response.workerSkills.take(3).joinToString(", ").ifBlank { stringResource(R.string.worker_profile_fallback) },
-                        style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary),
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF64748B)),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+
                 ResponseStatusBadge(response.status)
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedButton(
-                    onClick = { onOpenWorkerProfile(response) },
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.profile))
+            // Single Row Actions
+            if (isUpdating) {
+                Box(modifier = Modifier.fillMaxWidth().height(44.dp), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
                 }
-                if (response.status != "rejected") {
+            } else if (canSelect) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Call Button
                     Button(
                         onClick = { onCallWorker(response) },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A).bg())
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                        elevation = ButtonDefaults.buttonElevation(0.dp)
                     ) {
                         Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.call_worker_btn), fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Call", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
                     }
-                }
-            }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                when {
-                    isUpdating -> {
-                        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                        }
-                    }
-                    canSelect -> {
-                        Button(
-                            onClick = { onSelectResponse(response) },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary)
-                        ) {
-                            Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.hire_worker_btn), fontWeight = FontWeight.Bold)
-                        }
-                    }
-                    !canSelectMore && status in setOf("viewed", "applied", "interested", "called") -> {
-                        InfoPill(Icons.Default.CheckCircle, stringResource(R.string.required_workers_selected))
-                    }
-                    canComplete -> {
-                        Button(
-                            onClick = { onCompleteResponse(response) },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A).bg())
-                        ) {
-                            Text(stringResource(R.string.mark_done))
-                        }
-                        OutlinedButton(
-                            onClick = { onNoShowResponse(response) },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Icon(Icons.Default.Report, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.no_show))
-                        }
+                    // Hire Button
+                    Button(
+                        onClick = { onSelectResponse(response) },
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFBBF24)),
+                        elevation = ButtonDefaults.buttonElevation(0.dp)
+                    ) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color(0xFF1E293B))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(stringResource(R.string.hire_worker_btn), fontWeight = FontWeight.Bold, color = Color(0xFF1E293B), fontSize = 13.sp)
                     }
                 }
-            }
-            // Accepted but not needed any more (e.g. the other worker is bringing a friend): remove with a reason.
-            if (canComplete && !isUpdating) {
-                RemoveUrgentWorkerButton(response)
-            }
-            Row(modifier = Modifier.fillMaxWidth()) {
-                when {
-                    canRate -> {
-                        Button(
-                            onClick = { onRateResponse(response) },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B).bg())
-                        ) {
-                            Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.rate))
-                        }
+            } else if (canComplete) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = { onCallWorker(response) },
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                        elevation = ButtonDefaults.buttonElevation(0.dp)
+                    ) {
+                        Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Call", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
                     }
-                    status == "completed" && hasAlreadyRated -> {
-                        InfoPill(Icons.Default.DoneAll, stringResource(R.string.rated))
+
+                    Button(
+                        onClick = { onCompleteResponse(response) },
+                        modifier = Modifier.weight(1f).height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                        elevation = ButtonDefaults.buttonElevation(0.dp)
+                    ) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(stringResource(R.string.mark_done), fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
                     }
                 }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = { onNoShowResponse(response) }) {
+                        Text(stringResource(R.string.no_show), color = Color(0xFFEF4444), fontSize = 12.sp)
+                    }
+                    RemoveUrgentWorkerButton(response)
+                }
+            } else if (canRate) {
+                Button(
+                    onClick = { onRateResponse(response) },
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                    elevation = ButtonDefaults.buttonElevation(0.dp)
+                ) {
+                    Icon(Icons.Default.Star, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(stringResource(R.string.rate), fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            } else if (status == "completed" && hasAlreadyRated) {
+                InfoPill(Icons.Default.DoneAll, stringResource(R.string.rated))
+            } else if (!canSelectMore && status in setOf("viewed", "applied", "interested", "called")) {
+                InfoPill(Icons.Default.CheckCircle, stringResource(R.string.required_workers_selected))
             }
         }
     }

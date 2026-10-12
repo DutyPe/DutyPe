@@ -519,7 +519,7 @@ const staticPages: Record<string, LegacyPageDescriptor> = {
         items: [
           "Employers see a worker's profile when the worker applies. A worker's phone number is shown to an employer only when the worker applies or calls, and that reveal is recorded.",
           "For a home-service booking, the customer's name, phone, address and location are shared only with the partner who accepts it; the customer sees the partner's name, phone and rating.",
-          "Service providers that process data for us: Google Firebase and Cloud (accounts, database, notifications), Microsoft Azure (DutyPe AI), Meta WhatsApp (OTP and messages), Truecaller (one-tap login) and maps. They may use it only to provide their service to DutyPe.",
+          "Service providers that process data for us: Google Firebase and Cloud (accounts, database, notifications), Microsoft Azure (DutyPe AI), Meta WhatsApp (OTP and messages), and maps. They may use it only to provide their service to DutyPe.",
           "We share records with the police, courts or government when the law requires it, and we may report misuse to the police on our own when someone's safety, money or property is at risk.",
           "Data is transmitted using encrypted connections and stored on secure cloud systems."
         ]

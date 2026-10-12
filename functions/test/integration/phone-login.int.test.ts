@@ -1,6 +1,6 @@
 /**
- * WhatsApp OTP and Truecaller sign-in against the Firestore + Auth emulators. Meta and Truecaller
- * are stubbed (no network). Run: npm run test:integration (needs `--only firestore,auth`).
+ * WhatsApp OTP sign-in against the Firestore + Auth emulators. Meta is stubbed (no network).
+ * Run: npm run test:integration (needs `--only firestore,auth`).
  */
 import { after, beforeEach, describe, it } from "node:test";
 import * as assert from "node:assert/strict";
@@ -155,71 +155,5 @@ describe("WhatsApp OTP (emulator)", () => {
     assert.equal((await call(login.sendWhatsappOtp)({ phone: PHONE }, app)).sent, true);
     assert.deepEqual(await call(login.sendWhatsappOtp)({ phone: "+919876543211" }, app), { sent: false, channel: "sms" });
     assert.equal(sent.length, 1);
-  });
-});
-
-describe("Truecaller sign-in (emulator)", () => {
-  const verifier = "v".repeat(43);
-  let userinfo: Record<string, unknown> = {};
-  beforeEach(async () => {
-    await clear();
-    sent = [];
-    process.env.TRUECALLER_CLIENT_ID = "client123";
-    userinfo = { given_name: "Ravi", family_name: "Kumar", phone_number: "919876543210", email: "ravi@example.com" };
-    respond = (url) => url.endsWith("/v1/token") ?
-      new Response(JSON.stringify({ access_token: "at" }), { status: 200 }) :
-      new Response(JSON.stringify(userinfo), { status: 200 });
-  });
-
-  it("signs up a new number and the email reaches the new profile", async () => {
-    const r = await call(login.truecallerSignIn)({ authorizationCode: "c", codeVerifier: verifier, role: "WORKER", mode: "register" }, app);
-    assert.equal(r.allowed, true);
-    assert.equal(r.phone, PHONE);
-    assert.equal(r.name, "Ravi Kumar");
-    assert.equal(r.email, "ravi@example.com");
-    assert.ok(r.token);
-    const tokenReq = new URLSearchParams(sent[0].body);
-    assert.equal(tokenReq.get("grant_type"), "authorization_code");
-    assert.equal(tokenReq.get("client_id"), "client123");
-    assert.equal(tokenReq.get("code_verifier"), verifier);
-
-    const user = await admin.auth().getUserByPhoneNumber(PHONE);
-    await call(profiles.completeRegistration)({ role: "WORKER", name: "Ravi Kumar" },
-      { auth: { uid: user.uid, token: { phone_number: PHONE } }, app: { appId: "t" } });
-    const profile = await db.doc(`worker_profiles/${user.uid}`).get();
-    assert.equal(profile.get("email"), "ravi@example.com");
-    assert.equal(profile.get("name"), "Ravi Kumar");
-  });
-
-  it("logs in an existing account and keeps a missing email", async () => {
-    const user = await admin.auth().createUser({ phoneNumber: PHONE });
-    await db.doc(`phoneRoles/${PHONE}`).set({ uid: user.uid, role: "EMPLOYER" });
-    await db.doc(`employer_profiles/${user.uid}`).set({ ownerName: "Ravi" });
-    const r = await call(login.truecallerSignIn)({ authorizationCode: "c", codeVerifier: verifier, role: "EMPLOYER", mode: "login" }, app);
-    assert.equal(r.allowed, true);
-    assert.equal(r.existingRole, "EMPLOYER");
-    assert.equal(JSON.parse(Buffer.from(r.token.split(".")[1], "base64url").toString()).uid, user.uid);
-    assert.equal((await db.doc(`employer_profiles/${user.uid}`).get()).get("email"), "ravi@example.com");
-  });
-
-  it("gives no token when login and account do not match", async () => {
-    const none = await call(login.truecallerSignIn)({ authorizationCode: "c", codeVerifier: verifier, role: "WORKER", mode: "login" }, app);
-    assert.equal(none.allowed, false);
-    assert.equal(none.existingRole, null);
-    assert.equal(none.token, undefined);
-    await db.doc(`phoneRoles/${PHONE}`).set({ uid: "x", role: "EMPLOYER" });
-    const other = await call(login.truecallerSignIn)({ authorizationCode: "c", codeVerifier: verifier, role: "WORKER", mode: "register" }, app);
-    assert.equal(other.allowed, false);
-    assert.equal(other.existingRole, "EMPLOYER");
-    await assert.rejects(admin.auth().getUserByPhoneNumber(PHONE), "no auth account was created");
-  });
-
-  it("rejects foreign numbers and failed Truecaller exchanges", async () => {
-    userinfo = { phone_number: "14155552671" };
-    await assert.rejects(call(login.truecallerSignIn)({ authorizationCode: "c", codeVerifier: verifier, role: "WORKER" }, app),
-      (e) => errorCode(e) === "failed-precondition");
-    respond = () => new Response("bad", { status: 400 });
-    await assert.rejects(call(login.truecallerSignIn)({ authorizationCode: "c", codeVerifier: verifier, role: "WORKER" }, app),
-      (e) => errorCode(e) === "unauthenticated");
   });
 });

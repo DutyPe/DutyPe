@@ -127,7 +127,6 @@ export async function POST(request: NextRequest) {
       [JobDetails.GENDER]: oneOf(body, "gender", GENDERS, "ANY"),
       [JobDetails.EXPERIENCE_REQUIRED]: str(body, "experienceRequired", 60),
       [JobDetails.EDUCATION_REQUIRED]: str(body, "educationRequired", 60),
-      [JobDetails.BENEFITS]: []
     });
     // The number is never public: workers get it from applyToJob(viaCall).
     batch.set(db.collection(JobContacts.COLLECTION).doc(ref.id), {

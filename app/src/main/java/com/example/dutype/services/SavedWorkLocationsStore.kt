@@ -101,8 +101,13 @@ class SavedWorkLocationsStore @Inject constructor(
         if (localList.isNotEmpty()) {
             val current = _locations.value
             val merged = (current + localList.filter { loc ->
-                current.none { it.address.equals(loc.address, ignoreCase = true) }
-            }).distinctBy { it.address.lowercase(Locale.ROOT) }
+                current.none { existing ->
+                    existing.address.equals(loc.address, ignoreCase = true) ||
+                    existing.label.equals(loc.label, ignoreCase = true) ||
+                    (loc.latitude != 0.0 && loc.longitude != 0.0 && existing.latitude != 0.0 && existing.longitude != 0.0 &&
+                     com.example.dutype.utils.GeoUtils.calculateDistance(existing.latitude, existing.longitude, loc.latitude, loc.longitude) < 0.1)
+                }
+            }).distinctBy { it.address.lowercase(Locale.ROOT) }.take(MAX_LOCATIONS)
             _locations.value = merged
         }
     }
@@ -132,8 +137,13 @@ class SavedWorkLocationsStore @Inject constructor(
                 // Merge remote with local preferences so addresses are never wiped
                 val local = _locations.value.filter { it.id.startsWith("local_") }
                 val merged = (remote + local.filter { loc ->
-                    remote.none { it.address.equals(loc.address, ignoreCase = true) }
-                }).distinctBy { it.address.lowercase(Locale.ROOT) }
+                    remote.none { existing ->
+                        existing.address.equals(loc.address, ignoreCase = true) ||
+                        existing.label.equals(loc.label, ignoreCase = true) ||
+                        (loc.latitude != 0.0 && loc.longitude != 0.0 && existing.latitude != 0.0 && existing.longitude != 0.0 &&
+                         com.example.dutype.utils.GeoUtils.calculateDistance(existing.latitude, existing.longitude, loc.latitude, loc.longitude) < 0.1)
+                    }
+                }).distinctBy { it.address.lowercase(Locale.ROOT) }.take(MAX_LOCATIONS)
                 _locations.value = if (merged.isNotEmpty()) merged else remote
                 if (snapshot.isEmpty && !snapshot.metadata.isFromCache) seedFromProfile(uid)
             }
@@ -153,14 +163,26 @@ class SavedWorkLocationsStore @Inject constructor(
         require(cleanAddress.isNotBlank()) { "Address cannot be empty" }
         val cleanLabel = label.trim().ifBlank { cleanAddress.take(30) }
         val current = _locations.value
-        val existing = current.firstOrNull { it.address.equals(cleanAddress, ignoreCase = true) }
+        // Match existing by address, label, or coordinate proximity (< 100 meters)
+        val existing = current.firstOrNull { loc ->
+            loc.address.equals(cleanAddress, ignoreCase = true) ||
+            loc.label.equals(cleanLabel, ignoreCase = true) ||
+            (latitude != 0.0 && longitude != 0.0 && loc.latitude != 0.0 && loc.longitude != 0.0 &&
+             com.example.dutype.utils.GeoUtils.calculateDistance(loc.latitude, loc.longitude, latitude, longitude) < 0.1)
+        }
         val saved = if (existing != null) {
-            existing.copy(label = cleanLabel, latitude = latitude, longitude = longitude, usageCount = existing.usageCount + 1)
+            existing.copy(label = cleanLabel, address = cleanAddress, latitude = latitude, longitude = longitude, usageCount = existing.usageCount + 1)
                 .also { updated -> _locations.value = current.map { if (it.id == updated.id) updated else it } }
         } else {
+            // Prune oldest if at capacity
+            val toEvict = if (current.size >= MAX_LOCATIONS) current.firstOrNull() else null
+            if (toEvict != null) {
+                remove(toEvict.id)
+            }
             val now = System.currentTimeMillis()
+            val remaining = _locations.value.filterNot { it.id == toEvict?.id }.takeLast(MAX_LOCATIONS - 1)
             WorkLocation("loc_$now", cleanLabel, cleanAddress, latitude, longitude, now, 1)
-                .also { _locations.value = (current + it).takeLast(MAX_LOCATIONS) }
+                .also { _locations.value = remaining + it }
         }
         val tagKey = cleanLabel.lowercase(Locale.ROOT).replace(" ", "_").filter { it.isLetterOrDigit() || it == '_' }
         prefs.edit()

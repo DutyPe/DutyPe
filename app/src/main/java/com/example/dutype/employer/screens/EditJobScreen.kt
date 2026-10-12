@@ -632,7 +632,6 @@ fun EditJobScreen(
                         OutlinedTextField(
                             value = payAmount,
                             onValueChange = { typed -> payAmount = typed.filter { it.isDigit() }.take(6) },
-                            label = { Text(stringResource(R.string.amount)) },
                             placeholder = { Text(stringResource(R.string.edit_job_salary_hint), color = EmployerColors.TextTertiary) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
@@ -743,7 +742,7 @@ fun EditJobScreen(
                                 Timber.d(" EditJob: Location selected - $address at ($lat, $lng)")
                             },
                             locationService = locationService,
-                            label = stringResource(R.string.work_location),
+                            label = null,
                             placeholder = stringResource(R.string.search_location_or_gps),
                             showCurrentLocationButton = true,
                             onCurrentLocationClick = {
@@ -883,7 +882,7 @@ fun EditJobScreen(
                                     return@launch
                                 }
 
-                                val fileName = "job_image_${System.currentTimeMillis()}.jpg"
+                                val fileName = "job_image_${System.currentTimeMillis()}.webp"
                                 val storagePath = "job_images/${currentUser.uid}/$fileName"
                                 val uploadResult = com.example.dutype.utils.ImageUploadUtils.uploadWithRetry(
                                     context = context,
@@ -968,8 +967,7 @@ fun EditJobScreen(
                         OutlinedTextField(
                             value = contactNumber,
                             onValueChange = { contactNumber = it },
-                            label = { Text(stringResource(R.string.contact_number_label)) },
-                            placeholder = { Text(stringResource(R.string.phone_number_example_hint), color = EmployerColors.TextTertiary) },
+                            placeholder = { Text(stringResource(R.string.contact_number_label) + " (e.g. 9876543210)", color = EmployerColors.TextTertiary) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
@@ -982,8 +980,7 @@ fun EditJobScreen(
                         OutlinedTextField(
                             value = employerName,
                             onValueChange = { employerName = it },
-                            label = { Text(stringResource(R.string.your_name_optional)) },
-                            placeholder = { Text(stringResource(R.string.enter_your_name), color = EmployerColors.TextTertiary) },
+                            placeholder = { Text(stringResource(R.string.your_name_optional), color = EmployerColors.TextTertiary) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
@@ -1126,7 +1123,7 @@ fun EditJobScreen(
                         OutlinedTextField(
                             value = vacancies,
                             onValueChange = { vacancies = it },
-                            label = { Text(stringResource(R.string.number_of_vacancies)) },
+                            placeholder = { Text(stringResource(R.string.number_of_vacancies) + " (e.g. 2)", color = EmployerColors.TextTertiary) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,

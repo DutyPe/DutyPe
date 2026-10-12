@@ -147,6 +147,19 @@ class InstantHelpViewModel @Inject constructor(
         }
     }
 
+    /** Loads worker responses directly for a single urgent need (e.g. inside Instant Hiring Room). */
+    fun loadResponsesForSingleRequest(requestId: String) {
+        viewModelScope.launch {
+            instantHelpService.getResponsesForRequest(requestId).onSuccess { list ->
+                _uiState.update { current ->
+                    val updated = current.employerInstantResponses.toMutableMap()
+                    updated[requestId] = list
+                    current.copy(employerInstantResponses = updated)
+                }
+            }
+        }
+    }
+
     fun acceptEmployerInstantResponse(response: InstantResponse) = updateResponse(response, "accepted", "Worker selected")
 
     @Suppress("UNUSED_PARAMETER")

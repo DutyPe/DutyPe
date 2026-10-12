@@ -498,7 +498,7 @@ fun EmployerSubscriptionScreen(
                             isUploadingScreenshot = true
                             scope.launch {
                                 val userId = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid ?: "unknown"
-                                val path = "payment_screenshots/$userId/payment_${System.currentTimeMillis()}.jpg"
+                                val path = "payment_screenshots/$userId/payment_${System.currentTimeMillis()}.webp"
                                 val uploadResult = ImageUploadUtils.uploadWithRetry(context, selectedImageUri!!, path)
                                 isUploadingScreenshot = false
                                 when (uploadResult) {
@@ -788,7 +788,8 @@ private fun CurrentPlanCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .background(Ink900.bg(), RoundedCornerShape(24.dp))
+            .background(Color.White, RoundedCornerShape(20.dp))
+            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(20.dp))
             .padding(20.dp)
     ) {
         Row(
@@ -796,27 +797,48 @@ private fun CurrentPlanCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = stringResource(R.string.sub_current_plan, displayName), fontSize = 13.sp, color = Ink400.fg())
-            if (days >= 0) {
+            Column {
                 Text(
-                    text = if (days == 1) stringResource(R.string.day_remaining_single) else stringResource(R.string.days_remaining_plural, days),
-                    fontSize = 13.sp,
-                    color = IndicatorYellow.fg()
+                    text = "ACTIVE PLAN",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF00A859),
+                    letterSpacing = 0.8.sp
                 )
+                Text(
+                    text = displayName,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                )
+            }
+            if (days >= 0) {
+                Surface(
+                    color = Color(0xFFFEF3C7),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = if (days == 1) stringResource(R.string.day_remaining_single) else stringResource(R.string.days_remaining_plural, days),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFFD97706),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
             }
         }
         if (jobLimit > 0 || contactLimit > 0) {
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (jobLimit > 0) {
-                    ProgressRing(used = jobUsed, limit = jobLimit, color = BlueAccent.fg(), label = stringResource(R.string.job_posts_label))
+                    ProgressRing(used = jobUsed, limit = jobLimit, color = Color(0xFF2563EB), label = stringResource(R.string.job_posts_label))
                 }
                 if (contactLimit > 0) {
-                    ProgressRing(used = contactUsed, limit = contactLimit, color = Success.fg(), label = stringResource(R.string.contacts_label))
+                    ProgressRing(used = contactUsed, limit = contactLimit, color = Color(0xFF059669), label = stringResource(R.string.contacts_label))
                 }
             }
         }
@@ -831,13 +853,14 @@ private fun AiStatusRow(text: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0x332E1065).bg(), RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .background(Color(0xFFF5F3FF), RoundedCornerShape(12.dp))
+            .border(1.dp, Color(0xFFEDE9FE), RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFC4B5FD).fg(), modifier = Modifier.size(18.dp))
+        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.width(8.dp))
-        Text(text = text, fontSize = 13.sp, color = Color.White, fontWeight = FontWeight.SemiBold)
+        Text(text = text, fontSize = 13.sp, color = Color(0xFF5B21B6), fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -847,21 +870,31 @@ private fun NoPlanCard(aiStatus: String) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
-            .background(Ink900.bg(), RoundedCornerShape(24.dp))
+            .background(Color.White, RoundedCornerShape(20.dp))
+            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(20.dp))
             .padding(20.dp)
     ) {
-        Text(
-            text = stringResource(R.string.sub_no_active_plan),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = stringResource(R.string.sub_choose_plan_desc),
-            fontSize = 13.sp,
-            color = Ink400.fg()
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stringResource(R.string.sub_no_active_plan),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                )
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = stringResource(R.string.sub_choose_plan_desc),
+                    fontSize = 12.5.sp,
+                    color = Color(0xFF64748B),
+                    lineHeight = 17.sp
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(14.dp))
         AiStatusRow(aiStatus)
     }
@@ -986,75 +1019,77 @@ private fun PlanPageCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .height(490.dp)
             .background(Color.White.bg(), cardShape)
-            .border(1.dp, Hairline.bd(), cardShape)
-            .padding(20.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = plan.name,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = PlanTitleInk.fg()
+            .border(
+                if (isRecommended) 2.dp else 1.dp,
+                if (isRecommended) Ink900.bd() else Hairline.bd(),
+                cardShape
             )
-            if (isRecommended) {
-                PopularPill()
-            }
-        }
-        if (plan.ai) {
-            Spacer(modifier = Modifier.height(8.dp))
+            .padding(20.dp),
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column {
             Row(
-                modifier = Modifier
-                    .background(
-                        androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color(0xFF6D28D9), Color(0xFFDB2777))),
-                        RoundedCornerShape(999.dp)
-                    )
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(stringResource(R.string.sub_ai_badge), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                text = if (isFree) stringResource(R.string.free_cost) else "\u20B9${plan.priceRupees}",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = PlanTitleInk.fg()
-            )
-            if (!isFree) {
                 Text(
-                    text = " ${stringResource(R.string.sub_per_month)}",
-                    fontSize = 14.sp,
-                    color = Ink500.fg(),
-                    modifier = Modifier.padding(bottom = 4.dp)
+                    text = plan.name,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PlanTitleInk.fg()
                 )
+                if (isRecommended) {
+                    PopularPill()
+                }
             }
+            if (plan.ai) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .background(
+                            androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color(0xFF6D28D9), Color(0xFFDB2777))),
+                            RoundedCornerShape(999.dp)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Star, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(stringResource(R.string.sub_ai_badge), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = if (isFree) stringResource(R.string.free_cost) else "\u20B9${plan.priceRupees}",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PlanTitleInk.fg()
+                )
+                if (!isFree) {
+                    Text(
+                        text = " / month",
+                        fontSize = 14.sp,
+                        color = Ink500.fg(),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            PlanBullets(benefits = benefits, checkColor = if (isFree) Ink400.fg() else BlueAccent.fg())
         }
-        Spacer(modifier = Modifier.height(18.dp))
-        PlanBullets(benefits = benefits, checkColor = if (isFree) Ink400.fg() else BlueAccent.fg())
         if (!isFree) {
-            Spacer(modifier = Modifier.height(22.dp))
             Button(
                 onClick = onProceed,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(28.dp),
+                    .height(52.dp),
+                shape = RoundedCornerShape(26.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Ink900.bg(), contentColor = Color.White),
-                elevation = ButtonDefaults.buttonElevation(
-                    defaultElevation = 0.dp,
-                    pressedElevation = 0.dp,
-                    focusedElevation = 0.dp,
-                    hoveredElevation = 0.dp
-                )
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
             ) {
                 Text(
                     text = if (isCurrent) stringResource(R.string.sub_renew_now) else stringResource(R.string.upgrade_with_upi),
@@ -1063,6 +1098,8 @@ private fun PlanPageCard(
                     color = Color.White
                 )
             }
+        } else {
+            Spacer(modifier = Modifier.height(1.dp))
         }
     }
 }
@@ -1073,37 +1110,69 @@ private fun EnterprisePageCard(onTalkToSales: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .height(490.dp)
             .background(Color.White.bg(), cardShape)
             .border(1.dp, Hairline.bd(), cardShape)
-            .padding(20.dp)
+            .padding(20.dp),
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(
-            text = stringResource(R.string.enterprise_plan_title),
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-            color = PlanTitleInk.fg()
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = stringResource(R.string.custom_pricing),
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = PlanTitleInk.fg()
-        )
-        Spacer(modifier = Modifier.height(22.dp))
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.enterprise_plan_title),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PlanTitleInk.fg()
+                )
+                Box(
+                    modifier = Modifier
+                        .background(Color(0xFFF1F5F9).bg(), RoundedCornerShape(50))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "CUSTOM",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Ink700.fg()
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = stringResource(R.string.custom_pricing),
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PlanTitleInk.fg()
+                )
+            }
+            Spacer(modifier = Modifier.height(18.dp))
+            val enterpriseBullets = listOf(
+                AnnotatedString("Unlimited Job Postings"),
+                AnnotatedString("Unlimited Direct Candidate Unlocks"),
+                AnnotatedString("Dedicated Key Account Manager"),
+                AnnotatedString("Custom GST Invoicing & Corporate Agreement"),
+                AnnotatedString("Priority 24/7 Phone & WhatsApp Support")
+            )
+            PlanBullets(benefits = enterpriseBullets, checkColor = Color(0xFF10B981).fg())
+        }
         OutlinedButton(
             onClick = onTalkToSales,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(28.dp),
+                .height(52.dp),
+            shape = RoundedCornerShape(26.dp),
             border = BorderStroke(1.5.dp, Ink900.bd()),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = Ink900.fg())
         ) {
             Text(
                 text = stringResource(R.string.talk_to_sales),
                 fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 color = Ink900.fg()
             )
         }

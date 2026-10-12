@@ -22,7 +22,6 @@ export const WorkerProfiles = {
   COLLECTION: "worker_profiles",
   NAME: "name",
   PHONE: "phone",
-  /** Optional; filled from Truecaller when the user shares it. */
   EMAIL: "email",
   PHOTO_URL: "photoUrl",
   GENDER: "gender",
@@ -78,10 +77,7 @@ export const EmployerProfiles = {
   EMPLOYER_TYPE: "employerType",
   OWNER_NAME: "ownerName",
   BUSINESS_NAME: "businessName",
-  BUSINESS_TYPE: "businessType",
-  GSTIN: "gstin",
   PHONE: "phone",
-  /** Optional; filled from Truecaller when the user shares it. */
   EMAIL: "email",
   PHOTO_URL: "photoUrl",
   ADDRESS: "address",
@@ -188,7 +184,6 @@ export const JobDetails = {
   GENDER: "gender",
   EXPERIENCE_REQUIRED: "experienceRequired",
   EDUCATION_REQUIRED: "educationRequired",
-  BENEFITS: "benefits",
 } as const;
 
 export const Applications = {
@@ -597,15 +592,6 @@ export const WhatsappCampaigns = {
   SKIPPED_RECENT: "skippedRecent",
   BY: "by",
   CREATED_AT: "createdAt",
-} as const;
-
-/** truecaller_profiles/{uid} — what the user shared through Truecaller (server only). */
-export const TruecallerProfiles = {
-  COLLECTION: "truecaller_profiles",
-  PHONE: "phone",
-  NAME: "name",
-  EMAIL: "email",
-  UPDATED_AT: "updatedAt",
 } as const;
 
 export const Idempotency = {

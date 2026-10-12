@@ -68,8 +68,6 @@ private class EmpProfileUi(
     val businessName: String,
     val contact: String,
     val phone: String,
-    val category: String,
-    val gstVerified: Boolean,
     val rating: Double,
     val ratingCount: Int,
     val memberSinceMillis: Long,
@@ -245,7 +243,7 @@ private fun EmpHero(ui: EmpProfileUi, actions: EmpProfileActions) {
             textAlign = TextAlign.Center,
             modifier = Modifier.clickable(onClick = actions.onEdit)
         )
-        val subtitle = listOf(ui.contact, ui.category, ui.city.takeIf { ui.locCount > 0 }.orEmpty())
+        val subtitle = listOf(ui.contact, ui.city.takeIf { ui.locCount > 0 }.orEmpty())
             .filter { it.isNotBlank() }
             .joinToString(" · ")
             .ifBlank { stringResource(R.string.profile_tap_add_details) }
@@ -257,21 +255,6 @@ private fun EmpHero(ui: EmpProfileUi, actions: EmpProfileActions) {
             maxLines = 2,
             overflow = TextOverflow.Ellipsis
         )
-        Spacer(modifier = Modifier.height(4.dp))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.clickable(onClick = actions.onEdit)
-        ) {
-            Text(
-                text = stringResource(R.string.edit_profile),
-                style = profileTextStyle(13.sp, FontWeight.SemiBold, Color(0xFF10B981).fg())
-            )
-            Spacer(modifier = Modifier.width(3.dp))
-            Text(
-                text = "▶",
-                style = profileTextStyle(9.sp, FontWeight.Bold, Color(0xFF10B981).fg())
-            )
-        }
         Spacer(modifier = Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
             Text(
@@ -296,13 +279,6 @@ private fun EmpHero(ui: EmpProfileUi, actions: EmpProfileActions) {
                     style = profileTextStyle(11.sp, FontWeight.Normal, Color(0xFF94A3B8).fg())
                 )
             }
-        }
-        if (ui.gstVerified) {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.emp_profile_gst_verified),
-                style = profileTextStyle(12.sp, FontWeight.SemiBold, Color(0xFF10B981).fg())
-            )
         }
     }
 }
@@ -488,34 +464,7 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 3 Quick Action Tiles in a single row (Pronto / Urban Company standard)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            EmpQuickActionTile(
-                iconRes = R.drawable.myjobs,
-                title = stringResource(R.string.emp_profile_my_posted_jobs),
-                badge = if (ui.activeJobs > 0) ui.activeJobs.toString() else null,
-                onClick = actions.onMyJobs,
-                modifier = Modifier.weight(1f)
-            )
-            EmpQuickActionTile(
-                iconRes = R.drawable.ic_profile_wallet,
-                title = stringResource(R.string.emp_profile_subscription_credits),
-                badge = ui.pill,
-                onClick = actions.onSubscription,
-                modifier = Modifier.weight(1f)
-            )
-            EmpQuickActionTile(
-                iconRes = R.drawable.ic_profile_help,
-                title = stringResource(R.string.emp_profile_help_support),
-                onClick = actions.onHelp,
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        // Group 1: Business Details & Locations Card
+        // Group 1: Job Posting, Subscription, Addresses & History Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -524,13 +473,30 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                EmpMenuRow(R.drawable.ic_profile_globe, stringResource(R.string.emp_profile_work_locations), ui.locCount.takeIf { it > 0 }?.toString(), actions.onLocations)
+                EmpMenuRow(
+                    iconRes = R.drawable.myjobs,
+                    title = stringResource(R.string.emp_profile_my_posted_jobs),
+                    pill = null,
+                    onClick = actions.onMyJobs
+                )
                 ProfileRowDivider()
-                EmpMenuRow(R.drawable.ic_profile_history, stringResource(R.string.emp_profile_hiring_history), null, actions.onHistory)
+                EmpMenuRow(
+                    iconRes = R.drawable.ic_profile_wallet,
+                    title = stringResource(R.string.emp_profile_subscription_credits),
+                    pill = null,
+                    onClick = actions.onSubscription
+                )
+                ProfileRowDivider()
+                EmpMenuRow(
+                    iconRes = R.drawable.ic_profile_globe,
+                    title = stringResource(R.string.emp_profile_work_locations),
+                    pill = null,
+                    onClick = actions.onLocations
+                )
             }
         }
 
-        // Group 2: Refer & Earn Card
+        // Group 2: Help Desk & Refer Earn Card
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -538,7 +504,21 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
             border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
-            EmpMenuRow(R.drawable.ic_profile_gift, stringResource(R.string.emp_profile_refer_employer, EmpReferAmount), null, actions.onRefer)
+            Column(modifier = Modifier.fillMaxWidth()) {
+                EmpMenuRow(
+                    iconRes = R.drawable.ic_profile_help,
+                    title = stringResource(R.string.emp_profile_help_support),
+                    pill = null,
+                    onClick = actions.onHelp
+                )
+                ProfileRowDivider()
+                EmpMenuRow(
+                    iconRes = R.drawable.ic_profile_gift,
+                    title = stringResource(R.string.emp_profile_refer_employer, EmpReferAmount),
+                    pill = null,
+                    onClick = actions.onRefer
+                )
+            }
         }
 
         // Group 3: Settings & Legal Card
@@ -651,8 +631,6 @@ fun EmployerProfileScreen(
     var employerType by remember { mutableStateOf("COMPANY") }
     var profCompany by remember { mutableStateOf("") }
     var profContact by remember { mutableStateOf("") }
-    var profIndustry by remember { mutableStateOf("") }
-    var profGstin by remember { mutableStateOf("") }
     var profAddress by remember { mutableStateOf("") }
     var profRating by remember { mutableStateOf(0.0) }
     var profRatingCount by remember { mutableStateOf(0) }
@@ -677,8 +655,6 @@ fun EmployerProfileScreen(
         companyName = p.displayName
         profCompany = p.displayName
         profContact = p.ownerName
-        profIndustry = p.businessType
-        profGstin = p.gstin
         profAddress = p.address
         profPhotoUrl = p.photoUrl
         profRating = p.rating
@@ -784,10 +760,9 @@ fun EmployerProfileScreen(
         val missingHints = ArrayList<String>()
         if (displayName.isBlank()) missingHints.add("Add business name")
         if (companyPhone.isBlank()) missingHints.add("Add phone number")
-        if (profIndustry.isBlank()) missingHints.add("Add business category")
         if (profAddress.isBlank()) missingHints.add("Add business address")
         if (photoUrl.isBlank()) missingHints.add("Add shop photo")
-        val computedPct = (5 - missingHints.size) * 100 / 5
+        val computedPct = (4 - missingHints.size) * 100 / 4
         val pct = if (storedPct in 1..100) storedPct else computedPct
         val hint = if (missingHints.isNotEmpty()) missingHints[0] else "Complete your profile"
 
@@ -798,8 +773,6 @@ fun EmployerProfileScreen(
             businessName = displayName,
             contact = contact,
             phone = empFormatPhone(companyPhone),
-            category = profIndustry,
-            gstVerified = profGstin.isNotBlank(),
             rating = profRating,
             ratingCount = profRatingCount,
             memberSinceMillis = profCreatedAt,

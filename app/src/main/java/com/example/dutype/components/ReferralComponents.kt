@@ -8,9 +8,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.compose.foundation.layout.*
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import com.example.dutype.models.Referral
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
@@ -298,6 +302,7 @@ fun ProfileSetupReferralCard(
 @Composable
 fun ReferAndEarnRedemptionCard(
     hasExistingReferrer: Boolean,
+    ownReferralCode: String = "",
     onSuccess: () -> Unit,
     modifier: Modifier = Modifier,
     profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
@@ -312,6 +317,11 @@ fun ReferAndEarnRedemptionCard(
     val isWithin7Days = creationTime == 0L || accountAgeMillis <= (7L * 24 * 60 * 60 * 1000)
 
     if (!isWithin7Days) return
+
+    val remainingMillis = (7L * 24 * 60 * 60 * 1000) - accountAgeMillis
+    val daysLeft = if (creationTime > 0L) {
+        maxOf(1, (remainingMillis / (24 * 60 * 60 * 1000)).toInt() + 1).coerceAtMost(7)
+    } else 7
 
     var codeText by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
@@ -329,7 +339,10 @@ fun ReferAndEarnRedemptionCard(
         elevation = CardDefaults.cardElevation(0.dp)
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 Icon(
                     imageVector = Icons.Outlined.CardGiftcard,
                     contentDescription = null,
@@ -345,6 +358,19 @@ fun ReferAndEarnRedemptionCard(
                         color = Color(0xFF0F172A).fg()
                     )
                 )
+                Spacer(modifier = Modifier.weight(1f))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFFEF3C7).bg()
+                ) {
+                    Text(
+                        text = if (daysLeft == 1) "1 day left" else "$daysLeft days left",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFD97706).fg()
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -394,6 +420,10 @@ fun ReferAndEarnRedemptionCard(
                         val code = normalizeReferralCode(codeText)
                         if (code.length < 6) {
                             errorMessage = context.getString(R.string.referral_code_not_found)
+                            return@Button
+                        }
+                        if (ownReferralCode.isNotBlank() && code.equals(ownReferralCode.trim(), ignoreCase = true)) {
+                            errorMessage = "You cannot use your own referral code"
                             return@Button
                         }
                         scope.launch {
@@ -480,9 +510,9 @@ fun ReferralCodeInput(
             onValueChange = { newValue ->
                 onValueChange(normalizeReferralCode(newValue))
             },
-            label = { Text(label) },
-            placeholder = { Text(placeholder) },
+            placeholder = { Text(placeholder.ifBlank { label }) },
             singleLine = true,
+            shape = RoundedCornerShape(12.dp),
             trailingIcon = {
                 when {
                     isValidating -> {
@@ -538,3 +568,162 @@ fun ReferralCodeInput(
         }
     }
 }
+
+/**
+ * Handshake 🤝 partnership connection card shown when a user was referred by someone.
+ * Displays the inviting friend on the left and the current user on the right with a friendly handshake.
+ */
+@Composable
+fun ReferralConnectionHandshakeCard(
+    referrer: Referral,
+    currentUserName: String,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "🤝 Referral Connection",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFDCFCE7)
+                ) {
+                    Text(
+                        text = "Active Friend",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF15803D)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Two people shaking hands
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(12.dp))
+                    .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(12.dp))
+                    .padding(vertical = 12.dp, horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Left: Inviter / Friend
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(Color(0xFFEFF6FF), CircleShape)
+                            .border(1.5.dp, Color(0xFF3B82F6), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "🎁",
+                            fontSize = 20.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Invited By",
+                        fontSize = 11.sp,
+                        color = Color(0xFF64748B)
+                    )
+                    Text(
+                        text = "Code ${referrer.code}",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1E3A8A),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Middle: Handshake Emoji 🤝
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                ) {
+                    Text(
+                        text = "🤝",
+                        fontSize = 32.sp
+                    )
+                    Text(
+                        text = "Partners",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF94A3B8)
+                    )
+                }
+
+                // Right: Current User ("You")
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(Color(0xFFF0FDF4), CircleShape)
+                            .border(1.5.dp, Color(0xFF10B981), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "⭐",
+                            fontSize = 20.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "You",
+                        fontSize = 11.sp,
+                        color = Color(0xFF64748B)
+                    )
+                    Text(
+                        text = currentUserName.ifBlank { "You" },
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "Best friends work & grow together! You both unlock exclusive referral rewards.",
+                fontSize = 12.sp,
+                color = Color(0xFF64748B),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+

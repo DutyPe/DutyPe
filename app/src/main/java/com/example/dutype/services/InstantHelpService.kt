@@ -214,20 +214,37 @@ class InstantHelpService @Inject constructor(
         }
     }
 
-    /** Responses to the employer's recent needs (one subcollection query per need with responses). */
+    /** Responses to the employer's recent needs (one subcollection query per need). */
     suspend fun getEmployerInstantResponses(forRequests: List<InstantRequest>): Result<List<InstantResponse>> =
         withContext(Dispatchers.IO) {
             runCatching {
                 coroutineScope {
-                    forRequests.filter { it.responseCount > 0 }.map { request ->
+                    forRequests.map { request ->
                         async {
-                            requests.document(request.requestId).collection(R.COLLECTION)
-                                .orderBy(R.CREATED_AT, Query.Direction.DESCENDING)
-                                .limit(50)
-                                .get().await().documents
-                                .map { it.toInstantResponse(request.requestId).withRequest(request, request.employerName) }
+                            runCatching {
+                                requests.document(request.requestId).collection(R.COLLECTION)
+                                    .limit(50)
+                                    .get().await().documents
+                                    .map { it.toInstantResponse(request.requestId).withRequest(request, request.employerName) }
+                            }.getOrDefault(emptyList())
                         }
                     }.awaitAll().flatten()
+                }
+            }
+        }
+
+    /** Load responses directly for a single urgent request (used in Instant Hiring Room). */
+    suspend fun getResponsesForRequest(requestId: String): Result<List<InstantResponse>> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val reqDoc = runCatching { requests.document(requestId).get().await() }.getOrNull()
+                val request = reqDoc?.toInstantRequest()
+                val snap = requests.document(requestId).collection(R.COLLECTION)
+                    .limit(50)
+                    .get().await()
+                snap.documents.map { doc ->
+                    val resp = doc.toInstantResponse(requestId)
+                    if (request != null) resp.withRequest(request, request.employerName) else resp
                 }
             }
         }

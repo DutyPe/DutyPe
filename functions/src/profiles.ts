@@ -19,7 +19,7 @@ import { fail, obj, str, oneOf } from "./lib/input";
 import { getReferralConfig } from "./app-config";
 import { ensureWallet, registerReferral } from "./referrals";
 import {
-  Applications, EmployerCards, EmployerProfiles, Jobs, OtpCodes, PhoneRoles, ReferralCodes, SavedJobs, TruecallerProfiles, UserTokens, Values,
+  Applications, EmployerCards, EmployerProfiles, Jobs, OtpCodes, PhoneRoles, ReferralCodes, SavedJobs, UserTokens, Values,
   Wallets, WorkerProfiles,
 } from "./schema";
 
@@ -52,10 +52,6 @@ export const completeRegistration = onCallSecured(
       const userRec = await admin.auth().getUser(uid).catch(() => null);
       phone = e164(userRec?.phoneNumber);
     }
-  if (!phone) {
-    const tcDoc = await db.collection(TruecallerProfiles.COLLECTION).doc(uid).get();
-    if (tcDoc.exists) phone = e164(tcDoc.get(TruecallerProfiles.PHONE));
-  }
   if (!phone) fail("failed-precondition", "Sign in with your mobile number first");
   const role = oneOf(data, "role", ROLES);
   const name = str(data, "name", { min: 2, max: 80 });
@@ -69,11 +65,9 @@ export const completeRegistration = onCallSecured(
   const config = role === Values.Role.EMPLOYER ? await getReferralConfig() : null;
 
   const created = await db.runTransaction(async (tx) => {
-    const [phoneDoc, profile, truecaller] = await Promise.all([
-      tx.get(phoneRef), tx.get(profileRef), tx.get(db.collection(TruecallerProfiles.COLLECTION).doc(uid)),
+    const [phoneDoc, profile] = await Promise.all([
+      tx.get(phoneRef), tx.get(profileRef),
     ]);
-    // Email shared through Truecaller one-tap sign-up (same number only).
-    const tcEmail = truecaller.get(TruecallerProfiles.PHONE) === phone ? String(truecaller.get(TruecallerProfiles.EMAIL) || "") : "";
     if (phoneDoc.exists) {
       if (phoneDoc.get(PhoneRoles.UID) !== uid) fail("already-exists", "This number is linked to another account");
       if (phoneDoc.get(PhoneRoles.ROLE) !== role) {
@@ -89,7 +83,6 @@ export const completeRegistration = onCallSecured(
       tx.create(profileRef, {
         [WorkerProfiles.NAME]: name,
         [WorkerProfiles.PHONE]: phone,
-        ...(tcEmail ? { [WorkerProfiles.EMAIL]: tcEmail } : {}),
         [WorkerProfiles.SKILLS]: [],
         [WorkerProfiles.AVAILABLE]: false,
         [WorkerProfiles.BLOCKED]: false,
@@ -105,7 +98,6 @@ export const completeRegistration = onCallSecured(
           { [EmployerProfiles.BUSINESS_NAME]: name, [EmployerProfiles.OWNER_NAME]: "" } :
           { [EmployerProfiles.OWNER_NAME]: name }),
         [EmployerProfiles.PHONE]: phone,
-        ...(tcEmail ? { [EmployerProfiles.EMAIL]: tcEmail } : {}),
         [EmployerProfiles.SUBSCRIPTION]: {
           [S.PLAN_ID]: campaign ? "UNLIMITED_CAMPAIGN" : "",
           [S.STATUS]: campaign ? "ACTIVE" : "NONE",
@@ -224,7 +216,6 @@ export const deleteAccount = onCallSecured({}, async (_raw: unknown, context) =>
   batch.delete(db.collection(WorkerProfiles.COLLECTION).doc(uid));
   batch.delete(db.collection(EmployerProfiles.COLLECTION).doc(uid));
   batch.delete(db.collection(UserTokens.COLLECTION).doc(uid));
-  batch.delete(db.collection(TruecallerProfiles.COLLECTION).doc(uid));
   if (wallet.exists) batch.update(wallet.ref, { [Wallets.BLOCKED]: true });
   if (code) batch.set(db.collection(ReferralCodes.COLLECTION).doc(code), { [ReferralCodes.ACTIVE]: false }, { merge: true });
   if (phone) {

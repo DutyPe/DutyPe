@@ -2657,9 +2657,7 @@
     <string name="auth_code_sent_whatsapp">हमने कोड WhatsApp पर भेजा है। देखने के लिए WhatsApp खोलें।</string>
     <string name="auth_get_sms_instead">नहीं मिला? SMS से कोड पाएं</string>
     <string name="auth_get_sms_in">%1$d:%2$02d में SMS से कोड पाएं</string>
-    <string name="auth_continue_with_truecaller">Truecaller से जारी रखें</string>
     <string name="auth_or">या</string>
-    <string name="auth_truecaller_failed">Truecaller से सत्यापन नहीं हुआ। कृपया OTP का उपयोग करें।</string>
     <string name="auth_enter_name_first">कृपया पहले अपना नाम लिखें।</string>
     <string name="auth_get_sms_short">SMS पाएं</string>
     <string name="auth_resend_via_whatsapp">फिर भेजें</string>
@@ -2903,4 +2901,32 @@
     <string name="referral_enter_code_placeholder">रेफ़रल कोड दर्ज करें</string>
     <string name="referral_referred_by_friend">किसी दोस्त ने रेफ़र किया?</string>
     <string name="referral_redeem_within_7_days">बोनस पाने के लिए जुड़ने के 7 दिनों के भीतर उनका कोड डालें</string>
+
+    <!-- Partner Onboarding -->
+    <string name="partner_apply_badge">सत्यापित तकनीशियन</string>
+    <string name="partner_apply_hero_title">सर्विस पार्टनर के रूप में पंजीकरण करें</string>
+    <string name="partner_apply_hero_subtitle">खम्मम में सीधे होम सर्विस बुकिंग के साथ दैनिक कमाई करें</string>
+    <string name="partner_section_trades">अपनी सेवाएं चुनें</string>
+    <string name="partner_section_trades_sub">वे सभी सेवाएं चुनें जो आप दे सकते हैं (%1$d चयनित)</string>
+    <string name="partner_skilled_trades">तकनीकी सेवाएं (AC, वायरिंग, प्लंबिंग)</string>
+    <string name="partner_general_trades">सामान्य सेवाएं (सफाई, धुलाई, घरेलू मदद)</string>
+    <string name="partner_section_exp">अनुभव और क्षेत्र</string>
+    <string name="partner_section_exp_sub">ग्राहकों को अपने काम का अनुभव बताएं</string>
+    <string name="partner_exp_years_hint">अनुभव के वर्ष (उदा. 3)</string>
+    <string name="partner_skill_details_hint">पिछली दुकान / ठेकेदार / कौशल विवरण (वैकल्पिक)</string>
+    <string name="partner_area_hint">खम्मम में आपका सेवा क्षेत्र (उदा. वायरा रोड)</string>
+    <string name="partner_section_identity">सरकारी पहचान और बैंक भुगतान</string>
+    <string name="partner_section_identity_sub">सुरक्षा और दैनिक सीधे बैंक भुगतान के लिए</string>
+    <string name="partner_aadhaar_label">आधार नंबर</string>
+    <string name="partner_aadhaar_hint">12-अंकीय आधार नंबर (XXXX XXXX XXXX) *</string>
+    <string name="partner_aadhaar_valid">12-अंकीय आधार नंबर दर्ज किया गया</string>
+    <string name="partner_aadhaar_need_12">आधार 12 अंकों का होना चाहिए</string>
+    <string name="partner_upi_label">भुगतान UPI ID</string>
+    <string name="partner_upi_hint">भुगतान UPI ID (उदा. yourname@ybl या mobile@upi) *</string>
+    <string name="partner_upi_sub">दैनिक कमाई सीधे इस UPI पते पर भेजी जाती है</string>
+    <string name="partner_tools_vehicle">खम्मम में जाने के लिए मेरे पास पेशेवर औजार और 2-पहिया वाहन है</string>
+    <string name="partner_agree_terms">मैं DutyPe पार्टनर नियमों, पारदर्शी मूल्य और विनम्र सेवा से सहमत हूं</string>
+    <string name="partner_read_rules">पार्टनर नियम व आचार संहिता पढ़ें →</string>
+    <string name="partner_submit_btn">आवेदन जमा करें</string>
+    <string name="partner_fill_required">जमा करने के लिए आवश्यक विवरण भरें</string>
 </resources>

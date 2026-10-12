@@ -45,7 +45,7 @@ fun LocationAutocompleteField(
     onValueChange: (String) -> Unit,
     onLocationSelected: (address: String, latitude: Double, longitude: Double) -> Unit,
     locationService: com.example.dutype.utils.LocationService,
-    label: String = "Location",
+    label: String? = null,
     placeholder: String = "Search location",
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
@@ -100,7 +100,7 @@ fun LocationAutocompleteField(
                 onValueChange(query)
                 showSuggestions = query.length >= 3
             },
-            label = { Text(label) },
+            label = label?.takeIf { it.isNotBlank() }?.let { l -> { Text(l) } },
             placeholder = { Text(placeholder) },
             singleLine = singleLine,
             maxLines = maxLines,

@@ -7,11 +7,10 @@
     <!-- Audio permission for Voice Job Posting ("Bol kar post karein") -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
-    <!-- Package Visibility Queries for Google Play Services, Play Store, and Truecaller (Android 11+) -->
+    <!-- Package Visibility Queries for Google Play Services and Play Store (Android 11+) -->
     <queries>
         <package android:name="com.google.android.gms" />
         <package android:name="com.android.vending" />
-        <package android:name="com.truecaller" />
     </queries>
     
     <!-- Location Permissions - Runtime request with clear explanation -->
@@ -77,11 +76,6 @@
         android:enableOnBackInvokedCallback="true"
         tools:targetApi="31">
         
-        <!-- Truecaller one-tap login: client ID from res/values/truecaller.xml (empty = off) -->
-        <meta-data
-            android:name="com.truecaller.android.sdk.ClientId"
-            android:value="@string/truecaller_client_id" />
-
         <!-- Google Play Services version metadata (required for Google Sign-In) -->
         <meta-data
             android:name="com.google.android.gms.version"
@@ -224,21 +218,6 @@
             </intent-filter>
         </activity-alias>
 
-
-        <activity-alias
-            android:name="com.example.dutype.IndependenceAlias"
-            android:targetActivity="com.example.dutype.MainActivity"
-            android:icon="@mipmap/ic_launcher_independence"
-            android:roundIcon="@mipmap/ic_launcher_independence_round"
-            android:label="@string/app_name"
-            android:enabled="false"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
         <!-- Firebase Component Discovery: Register FirebaseIidRegistrar to provide FirebaseInstanceIdInternal -->
         <service
             android:name="com.google.firebase.components.ComponentDiscoveryService"
@@ -247,12 +226,6 @@
                 android:name="com.google.firebase.components:com.example.dutype.di.FirebaseIidRegistrar"
                 android:value="com.google.firebase.components.ComponentRegistrar" />
         </service>
-            <!-- Truecaller one-tap login: hosts the SDK consent sheet, transparent, closes itself -->
-        <activity
-            android:name="com.example.dutype.auth.TruecallerActivity"
-            android:exported="false"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-
 </application>
 
 </manifest>

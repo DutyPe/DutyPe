@@ -998,7 +998,7 @@ private fun JobLocationPickerSheet(
                 onValueChange = { query = it },
                 onLocationSelected = onLocationSelected,
                 locationService = locationService,
-                label = stringResource(R.string.jobs_search_location_label),
+                label = null,
                 placeholder = stringResource(R.string.jobs_search_location_placeholder),
                 maxLines = 2,
                 modifier = Modifier.fillMaxWidth()

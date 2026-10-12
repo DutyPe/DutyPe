@@ -158,7 +158,6 @@ class ProfileCompletionService @Inject constructor(
         if (update[EmployerProfiles.EMPLOYER_TYPE] == Values.EmployerType.COMPANY) {
             require((update[EmployerProfiles.BUSINESS_NAME] as? String).orEmpty().isNotBlank()) { "Enter your business name" }
         }
-        (update[EmployerProfiles.GSTIN] as? String)?.let { update[EmployerProfiles.GSTIN] = it.trim().uppercase() }
         addPlace(update, EmployerProfiles.ADDRESS, EmployerProfiles.AREA, EmployerProfiles.LAT, EmployerProfiles.LNG, EmployerProfiles.GEOHASH)
         update[EmployerProfiles.UPDATED_AT] = Timestamp.now()
         employerRef(uid).set(update, SetOptions.merge()).await()
@@ -191,7 +190,7 @@ class ProfileCompletionService @Inject constructor(
 
     /** Uploads a compressed photo and stores its URL as the profile's `photoUrl`. */
     suspend fun uploadProfileImage(imageUri: Uri, userId: String, userRole: String): Result<String> = runCatching {
-        val path = "profile_images/$userId/profile_${System.currentTimeMillis()}.jpg"
+        val path = "profile_images/$userId/profile_${System.currentTimeMillis()}.webp"
         when (val upload = ImageUploadUtils.uploadWithRetry(context = context, uri = imageUri, storagePath = path)) {
             is ImageUploadUtils.UploadResult.Success -> {
                 val isEmployer = userRole.uppercase() == Values.Role.EMPLOYER
@@ -252,8 +251,8 @@ class ProfileCompletionService @Inject constructor(
         )
         val EMPLOYER_EDITABLE = setOf(
             EmployerProfiles.EMPLOYER_TYPE, EmployerProfiles.OWNER_NAME, EmployerProfiles.BUSINESS_NAME,
-            EmployerProfiles.BUSINESS_TYPE, EmployerProfiles.GSTIN, EmployerProfiles.PHOTO_URL,
-            EmployerProfiles.ADDRESS, EmployerProfiles.AREA, EmployerProfiles.LAT, EmployerProfiles.LNG
+            EmployerProfiles.PHOTO_URL, EmployerProfiles.ADDRESS, EmployerProfiles.AREA,
+            EmployerProfiles.LAT, EmployerProfiles.LNG
         )
     }
 }

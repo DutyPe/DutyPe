@@ -201,13 +201,11 @@ fun EmployerAddressManagementScreen(
                     OutlinedTextField(
                         value = officeName,
                         onValueChange = { officeName = it },
-                        label = { Text(stringResource(R.string.office_name)) },
-                        placeholder = { Text(stringResource(R.string.main_office_branch_hint)) },
+                        placeholder = { Text(stringResource(R.string.office_name)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = employerBlue,
-                            focusedLabelColor = employerBlue
+                            focusedBorderColor = employerBlue
                         )
                     )
 
@@ -229,7 +227,7 @@ fun EmployerAddressManagementScreen(
                                 timber.log.Timber.d("📍 Selected place: $selectedAddress")
                             },
                             locationService = locationService,
-                            label = stringResource(R.string.search_or_enter_address),
+                            label = null,
                             placeholder = stringResource(R.string.search_location_or_enter_address),
                             maxLines = 3,
                             modifier = Modifier.fillMaxWidth(),
@@ -238,8 +236,7 @@ fun EmployerAddressManagementScreen(
                                 locationPermissionLauncher.launch(android.Manifest.permission.ACCESS_FINE_LOCATION)
                             },
                             colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = employerBlue,
-                                focusedLabelColor = employerBlue
+                                focusedBorderColor = employerBlue
                             )
                         )
                     }
@@ -257,8 +254,13 @@ fun EmployerAddressManagementScreen(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     // Add Button
+                    val atCapacity = officeAddresses.size >= 5 && editingAddressId == null
                     Button(
                         onClick = {
+                            if (atCapacity) {
+                                android.widget.Toast.makeText(context, "Maximum 5 addresses allowed. Please remove an old address to add a new one.", android.widget.Toast.LENGTH_LONG).show()
+                                return@Button
+                            }
                             if (officeName.isNotBlank() && fullAddress.isNotBlank()) {
                                 isAddingAddress = true
                                 runCatching {

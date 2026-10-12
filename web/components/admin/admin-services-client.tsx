@@ -18,8 +18,24 @@ const millis = (v: unknown) => (v instanceof Timestamp ? v.toMillis() : typeof v
 const when = (ms: number) => (ms ? new Date(ms).toLocaleString("en-IN") : "");
 const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN")}`;
 
+const KHAMMAM_LAT = 17.2473;
+const KHAMMAM_LNG = 80.1514;
+
+function calcDistanceKm(lat1?: number, lon1?: number, lat2 = KHAMMAM_LAT, lon2 = KHAMMAM_LNG): number | null {
+  if (lat1 === undefined || lon1 === undefined || isNaN(lat1) || isNaN(lon1)) return null;
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
 type Row = Record<string, unknown> & { id: string };
-type Tab = "partners" | "topups" | "bookings" | "banners" | "catalog" | "settings";
+type Tab = "partners" | "topups" | "bookings" | "catalog" | "settings";
 
 const CATEGORY_IDS = ["CLEANING", "AC", "ELECTRICIAN", "PLUMBER", "APPLIANCE", "CARPENTER", "PAINTER", "HOME_HELP", "VEHICLE"];
 
@@ -48,6 +64,10 @@ export function AdminServicesClient() {
   const bookings = useLive("service_bookings", "createdAt", 300);
 
   const [bookingFilter, setBookingFilter] = useState<"ALL" | "TODAY" | "ACTIVE" | "COMPLETED" | "CANCELLED">("ALL");
+  const [partnerSearch, setPartnerSearch] = useState("");
+  const [partnerStatusFilter, setPartnerStatusFilter] = useState<"ALL" | "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED">("ALL");
+  const [partnerPage, setPartnerPage] = useState(1);
+  const PARTNER_PAGE_SIZE = 25;
 
   const startOfTodayMs = useMemo(() => {
     const d = new Date();
@@ -115,6 +135,30 @@ export function AdminServicesClient() {
       workingPartners: working,
     };
   }, [partners]);
+
+  const filteredPartners = useMemo(() => {
+    let list = [...partners].sort((a, b) => (a.status === "PENDING" ? -1 : 0) - (b.status === "PENDING" ? -1 : 0));
+    if (partnerStatusFilter !== "ALL") {
+      list = list.filter((p) => p.status === partnerStatusFilter);
+    }
+    const q = partnerSearch.trim().toLowerCase();
+    if (q) {
+      list = list.filter((p) =>
+        String(p.name || "").toLowerCase().includes(q) ||
+        String(p.phone || "").toLowerCase().includes(q) ||
+        String(p.area || "").toLowerCase().includes(q) ||
+        ((p.categories || []) as string[]).some((c) => String(c).toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [partners, partnerStatusFilter, partnerSearch]);
+
+  const totalPartnerPages = Math.max(1, Math.ceil(filteredPartners.length / PARTNER_PAGE_SIZE));
+  const currentPartnerPage = Math.min(partnerPage, totalPartnerPages);
+  const paginatedPartners = useMemo(() => {
+    const start = (currentPartnerPage - 1) * PARTNER_PAGE_SIZE;
+    return filteredPartners.slice(start, start + PARTNER_PAGE_SIZE);
+  }, [filteredPartners, currentPartnerPage]);
 
   const stats24h = useMemo(() => {
     const list = bookings.filter((b) => millis(b.createdAt) >= last24hMs);
@@ -235,7 +279,6 @@ export function AdminServicesClient() {
           ["partners", `Partners (${pendingPartners} pending)`],
           ["topups", `Credit top-ups (${pendingTopups} pending)`],
           ["bookings", `Bookings (${openBookings} open)`],
-          ["banners", "🎨 Promotional Banners"],
           ["catalog", "📦 Categories & Services"],
           ["settings", "Prices & settings"],
         ] as Array<[Tab, string]>).map(([id, label]) => (
@@ -378,8 +421,97 @@ export function AdminServicesClient() {
 
       {tab === "partners" && (
         <section className="admin-section">
-          <h2 className="admin-section-title">Service partners</h2>
-          <p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <h2 className="admin-section-title" style={{ margin: 0 }}>Service partners</h2>
+              <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>
+                Showing {filteredPartners.length === 0 ? 0 : (currentPartnerPage - 1) * PARTNER_PAGE_SIZE + 1}–{Math.min(currentPartnerPage * PARTNER_PAGE_SIZE, filteredPartners.length)} of {filteredPartners.length} partners (25 per page)
+              </div>
+            </div>
+
+            {/* Search & Filter Controls */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <input
+                type="text"
+                placeholder="🔍 Search name, phone, area..."
+                value={partnerSearch}
+                onChange={(e) => {
+                  setPartnerSearch(e.target.value);
+                  setPartnerPage(1);
+                }}
+                style={{
+                  padding: "7px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #cbd5e1",
+                  fontSize: 13,
+                  minWidth: 220
+                }}
+              />
+              <select
+                value={partnerStatusFilter}
+                onChange={(e) => {
+                  setPartnerStatusFilter(e.target.value as any);
+                  setPartnerPage(1);
+                }}
+                style={{
+                  padding: "7px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #cbd5e1",
+                  fontSize: 13,
+                  background: "#fff"
+                }}
+              >
+                <option value="ALL">All Statuses ({partners.length})</option>
+                <option value="PENDING">Pending Approval ({partners.filter(p => p.status === "PENDING").length})</option>
+                <option value="APPROVED">Approved ({partners.filter(p => p.status === "APPROVED").length})</option>
+                <option value="REJECTED">Rejected ({partners.filter(p => p.status === "REJECTED").length})</option>
+                <option value="SUSPENDED">Suspended ({partners.filter(p => p.status === "SUSPENDED").length})</option>
+              </select>
+
+              {/* Top Pagination Buttons */}
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 4 }}>
+                <button
+                  type="button"
+                  disabled={currentPartnerPage <= 1}
+                  onClick={() => setPartnerPage(p => Math.max(1, p - 1))}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    border: "1px solid #cbd5e1",
+                    background: currentPartnerPage <= 1 ? "#f1f5f9" : "#fff",
+                    color: currentPartnerPage <= 1 ? "#94a3b8" : "#0f172a",
+                    cursor: currentPartnerPage <= 1 ? "not-allowed" : "pointer",
+                    fontSize: 12,
+                    fontWeight: 600
+                  }}
+                >
+                  ◀ Prev
+                </button>
+                <span style={{ fontSize: 12, color: "#475569", fontWeight: 600, padding: "0 6px" }}>
+                  {currentPartnerPage} / {totalPartnerPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={currentPartnerPage >= totalPartnerPages}
+                  onClick={() => setPartnerPage(p => Math.min(totalPartnerPages, p + 1))}
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    border: "1px solid #cbd5e1",
+                    background: currentPartnerPage >= totalPartnerPages ? "#f1f5f9" : "#fff",
+                    color: currentPartnerPage >= totalPartnerPages ? "#94a3b8" : "#0f172a",
+                    cursor: currentPartnerPage >= totalPartnerPages ? "not-allowed" : "pointer",
+                    fontSize: 12,
+                    fontWeight: 600
+                  }}
+                >
+                  Next ▶
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <p style={{ marginTop: 12 }}>
             Call each applicant and check Aadhaar. <b>Basic</b> work (cleaning, home help, car wash) needs only ID and a polite call.
             <b>Skilled</b> work (⚡ marked) needs a skill check before you tick it: ask 3 practical questions on the phone
             (e.g. electrician: &quot;MCB keeps tripping – what do you check first?&quot;), ask for photos/videos of past work or an
@@ -388,18 +520,102 @@ export function AdminServicesClient() {
           <div className="admin-table-container">
             <table className="admin-table">
               <thead>
-                <tr><th>Partner</th><th>Services</th><th>Status</th><th>Credits</th><th>Jobs / rating</th><th>Action</th></tr>
+                <tr>
+                  <th>Partner</th>
+                  <th>Location &amp; GPS Trace</th>
+                  <th>Services</th>
+                  <th>Status</th>
+                  <th>Credits</th>
+                  <th>Jobs / rating</th>
+                  <th>Action</th>
+                </tr>
               </thead>
               <tbody>
-                {[...partners].sort((a, b) => (a.status === "PENDING" ? -1 : 0) - (b.status === "PENDING" ? -1 : 0)).map((p) => {
+                {paginatedPartners.map((p) => {
                   const count = Number(p.ratingCount || 0);
+                  const pLat = typeof p.lat === "number" ? p.lat : undefined;
+                  const pLng = typeof p.lng === "number" ? p.lng : undefined;
+                  const distKm = calcDistanceKm(pLat, pLng);
+                  const isInsideZone = distKm !== null && distKm <= 15.0;
                   return (
                     <tr key={p.id}>
                       <td>
                         <strong>{String(p.name || "")}</strong>
                         <div><a href={`tel:${String(p.phone || "")}`}>{String(p.phone || "")}</a></div>
-                        <div>{String(p.area || "")} · {String(p.experienceYears ?? 0)} yrs</div>
+                        <div>{String(p.experienceYears ?? 0)} yrs experience</div>
                         <div style={{ fontSize: 12, opacity: 0.7 }}>Applied {when(millis(p.appliedAt))}</div>
+                        {p.note ? (
+                          <div style={{ fontSize: 11, color: "#475569", marginTop: 4, background: "#f1f5f9", padding: "2px 6px", borderRadius: 4 }}>
+                            📝 {String(p.note)}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td style={{ minWidth: 190 }}>
+                        <div style={{ fontWeight: 600, color: "#0f172a", fontSize: 13 }}>
+                          📍 {String(p.area || "Area not specified")}
+                        </div>
+                        {pLat !== undefined && pLng !== undefined ? (
+                          <div style={{ marginTop: 3 }}>
+                            <div style={{ fontSize: 11, color: "#64748b", fontFamily: "monospace" }}>
+                              {pLat.toFixed(4)}, {pLng.toFixed(4)}
+                            </div>
+                            <div style={{ marginTop: 4 }}>
+                              {isInsideZone ? (
+                                <span style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  background: "#ecfdf5",
+                                  color: "#059669",
+                                  border: "1px solid #a7f3d0",
+                                  borderRadius: 4,
+                                  padding: "2px 6px"
+                                }}>
+                                  ✓ Khammam ({distKm?.toFixed(1)} km)
+                                </span>
+                              ) : (
+                                <span style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  background: "#fef2f2",
+                                  color: "#dc2626",
+                                  border: "1px solid #fecaca",
+                                  borderRadius: 4,
+                                  padding: "2px 6px"
+                                }}>
+                                  ⚠️ Outside Zone ({distKm?.toFixed(1)} km)
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ marginTop: 4 }}>
+                              <a
+                                href={`https://www.google.com/maps?q=${pLat},${pLng}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 3,
+                                  fontSize: 11.5,
+                                  fontWeight: 600,
+                                  color: "#2563eb",
+                                  textDecoration: "none"
+                                }}
+                              >
+                                🗺️ View on Maps ↗
+                              </a>
+                            </div>
+                          </div>
+                        ) : (
+                          <span style={{ fontSize: 11, color: "#94a3b8", display: "inline-block", marginTop: 4 }}>
+                            No GPS captured
+                          </span>
+                        )}
                       </td>
                       <td>
                         {((p.categories || []) as string[]).map((c) => {
@@ -440,6 +656,55 @@ export function AdminServicesClient() {
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Bottom Pagination Bar */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, padding: "8px 4px", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ fontSize: 13, color: "#64748b" }}>
+              Showing Page {currentPartnerPage} of {totalPartnerPages} ({filteredPartners.length} total partners)
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <button
+                type="button"
+                disabled={currentPartnerPage <= 1}
+                onClick={() => {
+                  setPartnerPage(p => Math.max(1, p - 1));
+                  window.scrollTo({ top: 400, behavior: "smooth" });
+                }}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 6,
+                  border: "1px solid #cbd5e1",
+                  background: currentPartnerPage <= 1 ? "#f1f5f9" : "#fff",
+                  color: currentPartnerPage <= 1 ? "#94a3b8" : "#0f172a",
+                  cursor: currentPartnerPage <= 1 ? "not-allowed" : "pointer",
+                  fontSize: 13,
+                  fontWeight: 600
+                }}
+              >
+                ◀ Previous 25
+              </button>
+              <button
+                type="button"
+                disabled={currentPartnerPage >= totalPartnerPages}
+                onClick={() => {
+                  setPartnerPage(p => Math.min(totalPartnerPages, p + 1));
+                  window.scrollTo({ top: 400, behavior: "smooth" });
+                }}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: 6,
+                  border: "1px solid #cbd5e1",
+                  background: currentPartnerPage >= totalPartnerPages ? "#f1f5f9" : "#fff",
+                  color: currentPartnerPage >= totalPartnerPages ? "#94a3b8" : "#0f172a",
+                  cursor: currentPartnerPage >= totalPartnerPages ? "not-allowed" : "pointer",
+                  fontSize: 13,
+                  fontWeight: 600
+                }}
+              >
+                Next 25 ▶
+              </button>
+            </div>
           </div>
         </section>
       )}
@@ -684,12 +949,7 @@ export function AdminServicesClient() {
         </section>
       )}
 
-      {tab === "banners" && (
-        <AdminBannersManager
-          onSaved={(m) => setMessage(m)}
-          onError={(m) => setError(m)}
-        />
-      )}
+
 
       {tab === "catalog" && (
         <AdminCategoriesServicesManager
@@ -1099,13 +1359,56 @@ function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; 
         <label>Minimum top-up (₹)</label>{num("minTopup")}
       </div>
 
-      <h3 style={{ marginTop: 24 }}>Coupons &amp; festive offers</h3>
-      <p style={{ maxWidth: 760 }}>
-        Offers never stack: a customer gets the first-booking offer or the best coupon. A discount is capped at
-        DutyPe&apos;s own take on the booking (booking fee + partner fee{s.commissionPct ? " + commission" : ""}, now up to ₹{maxOff}),
-        so an offer never costs DutyPe money and the partner still earns the full service price minus the ₹{s.partnerFee} fee.
-        Each customer can use a coupon once. Hidden coupons are not shown in the app; share them on posters and WhatsApp.
-      </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 28, flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <h3 style={{ margin: 0 }}>Coupons &amp; festive offers</h3>
+          <p style={{ margin: "4px 0 0", maxWidth: 760, fontSize: 13, color: "#64748b" }}>
+            Offers never stack: a customer gets the first-booking offer or the best coupon. A discount is capped at
+            DutyPe&apos;s own take on the booking (booking fee + partner fee{s.commissionPct ? " + commission" : ""}, now up to ₹{maxOff}),
+            so an offer never costs DutyPe money and the partner still earns the full service price minus the ₹{s.partnerFee} fee.
+            Each customer can use a coupon once. Hidden coupons are not shown in the app; share them on posters and WhatsApp.
+          </p>
+        </div>
+        <button className="btn btn-approve" onClick={() => void save()} style={{ padding: "8px 18px", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+          💾 Save Coupons Now
+        </button>
+      </div>
+
+      {/* Active Coupons Summary */}
+      {(() => {
+        const activeList = s.coupons.filter((c) => c.active !== false && c.code.trim().length > 0);
+        return (
+          <div style={{ margin: "14px 0", padding: "12px 16px", background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+              <span>🏷️ Active Coupons Live in App ({activeList.length}):</span>
+            </div>
+            {activeList.length === 0 ? (
+              <div style={{ fontSize: 13, color: "#94a3b8" }}>No active coupons currently. Add one below and click &quot;Save Coupons Now&quot;.</div>
+            ) : (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {activeList.map((c, idx) => (
+                  <div key={c.code || idx} style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 6, padding: "6px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontWeight: 800, color: "#15803d", letterSpacing: 0.5, fontFamily: "monospace", fontSize: 13 }}>{c.code}</span>
+                    <span style={{ fontSize: 12, color: "#166534", fontWeight: 600 }}>
+                      {c.type === "PCT" ? `${c.value}% OFF` : `₹${c.value} FLAT OFF`}
+                      {c.maxOff ? ` (max ₹${c.maxOff})` : ""}
+                    </span>
+                    {c.firstBookingOnly && (
+                      <span style={{ background: "#fef3c7", color: "#92400e", fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 4 }}>
+                        New Users Only
+                      </span>
+                    )}
+                    {c.minOrder ? (
+                      <span style={{ fontSize: 11, color: "#64748b" }}>Min ₹{c.minOrder}</span>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
         {PRESETS.map((p) => (
           <button key={p.coupon.code} className="btn" onClick={() => addCoupon(p.coupon)}>+ {p.label}</button>
@@ -1154,6 +1457,7 @@ function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; 
           </tbody>
         </table>
       </div>
+      <button className="btn btn-approve" onClick={() => void save()} style={{ marginTop: 10, marginBottom: 20 }}>💾 Save Coupons</button>
 
       <h3 style={{ marginTop: 24 }}>Service prices &amp; discounts</h3>
       <p style={{ maxWidth: 760, fontSize: 13, color: "#64748b" }}>

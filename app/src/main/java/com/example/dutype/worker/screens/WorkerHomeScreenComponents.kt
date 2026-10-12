@@ -59,6 +59,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.LocalShipping
@@ -73,6 +74,7 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Headset
+import androidx.compose.material.icons.filled.HomeRepairService
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PowerSettingsNew
@@ -710,6 +712,11 @@ fun HomeSectionsContent(
         onLocationBarAlphaChange(locationBarAlpha)
     }
 
+    // Promotional Carousel matching top banner requirement - shows live announcements dynamically
+    val dynamicPromoSlides = remember(announcements) {
+        announcements.map { com.example.dutype.components.announcementToSlide(it) }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Scrollable content - header and all body sections scroll together seamlessly
         ScrollAwareLazyColumn(
@@ -727,6 +734,30 @@ fun HomeSectionsContent(
             item(key = "worker_home_header_item") {
                 headerContent()
             }
+
+            if (dynamicPromoSlides.isNotEmpty() || promoBannerUrl.isNotBlank()) {
+                item(key = "worker_home_promo_carousel") {
+                    com.example.dutype.components.PromotionalBannerCarousel(
+                        isWorker = true,
+                        onAction = { target ->
+                            when {
+                                target.startsWith("dutype://") || target.contains("://") -> {
+                                    DeepLinkHandler.handleAnnouncementAction(target, navController, context)
+                                }
+                                target == "jobs" -> com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS)
+                                target == "profile" -> com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.PROFILE)
+                                target == "refer_earn" -> navController.navigate(Routes.WORKER_REFER_EARN)
+                                else -> DeepLinkHandler.handleAnnouncementAction(target, navController, context)
+                            }
+                        },
+                        customSlides = dynamicPromoSlides,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
             if (showOnlineToggle) {
                 item(key = "worker_home_online_toggle") {
                     com.example.dutype.worker.components.OnlineToggleCard(
@@ -776,34 +807,6 @@ fun HomeSectionsContent(
                         }
                     }
                 }
-            }
-
-        if (promoBannerUrl.isNotBlank() || announcements.isNotEmpty()) {
-            item(key = "worker_home_announcements") {
-                AnnouncementList(
-                    announcements = announcements,
-                    promoBannerUrl = promoBannerUrl,
-                    onDismiss = { announcementId ->
-                        onDismissAnnouncement(announcementId)
-                    },
-                    onAction = { announcement ->
-                        announcement.actionRoute?.let { route: String ->
-                            DeepLinkHandler.handleAnnouncementAction(route, navController, context)
-                        }
-                    }
-                )
-            }
-        }
-
-            // Shortcuts only once there is something to browse: hidden while there are no jobs here
-            // and while location is off, so the empty / permission state is the clear next step.
-            if (hasLocationPermission && !showEmptyJobsState && !jobsFailed && availableJobs.isNotEmpty()) item(key = "worker_home_quick_actions") {
-                HomeQuickActionsGrid(
-                    onBrowseJobs = { com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS) },
-                    onAppliedJobs = { com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.MY_JOBS) },
-                    onEarnings = { navController.navigate(Routes.WORKER_EARNINGS) },
-                    onHelpDesk = { navController.navigate(Routes.HELP) }
-                )
             }
 
             // Hidden for now: the "jobs near you · view map" hero card (the map tab is hidden too).
@@ -1155,6 +1158,192 @@ private fun InstantRequestSection(
 }
 
 @Composable
+private fun ServiceBookingCard(
+    request: InstantRequest,
+    isUpdating: Boolean,
+    onApply: () -> Unit,
+    onIgnore: () -> Unit
+) {
+    val responseStatus = request.workerResponseStatus.trim().lowercase()
+    val hasWorkerResponded = responseStatus in setOf("applied", "called", "accepted", "completed")
+    val cleanTitle = request.title.removePrefix("Home Service:").removePrefix("Home Service :").trim()
+    val payout = request.perPersonPayment.toInt()
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onApply),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header: Category Icon + Brand Badge + Close
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFEFF6FF)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.HomeRepairService,
+                        contentDescription = null,
+                        tint = Color(0xFF2563EB),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFFDBEAFE))
+                                .padding(horizontal = 7.dp, vertical = 2.5.dp)
+                        ) {
+                            Text(
+                                text = "DUTYPE HOME SERVICE",
+                                color = Color(0xFF1D4ED8),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+                        if (request.distanceKm != null) {
+                            Text(
+                                text = "• %.1f km away".format(request.distanceKm),
+                                color = Color(0xFF64748B),
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = cleanTitle,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            color = Color(0xFF0F172A),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                if (!hasWorkerResponded) {
+                    IconButton(
+                        onClick = onIgnore,
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = stringResource(R.string.close),
+                            tint = Color(0xFF94A3B8),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+
+            // Address Row
+            if (request.addressText.isNotBlank()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.LocationOn,
+                        contentDescription = null,
+                        tint = Color(0xFF64748B),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Text(
+                        text = request.addressText,
+                        color = Color(0xFF475569),
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+
+            // Payout highlight strip
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFFF0FDF4))
+                    .border(1.dp, Color(0xFFDCFCE7), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(15.dp))
+                    Text(
+                        text = "Partner Earning",
+                        color = Color(0xFF166534),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Text(
+                    text = if (payout > 0) "₹$payout" else "Verified Payout",
+                    color = Color(0xFF15803D),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // Action Button
+            Button(
+                onClick = onApply,
+                enabled = !isUpdating,
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (hasWorkerResponded) Color(0xFF15803D) else Color(0xFF16A34A)
+                )
+            ) {
+                if (isUpdating) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                } else {
+                    if (hasWorkerResponded) {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Accepted • View Booking Details", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    } else {
+                        Text(
+                            text = if (payout > 0) "Accept Order • ₹$payout" else "Accept Service Order",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.5.sp
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun InstantRequestCard(
     request: InstantRequest,
     isUpdating: Boolean,
@@ -1162,13 +1351,25 @@ private fun InstantRequestCard(
     onCall: () -> Unit,
     onIgnore: () -> Unit = {}
 ) {
+    if (request.requestId.startsWith("svc_")) {
+        ServiceBookingCard(
+            request = request,
+            isUpdating = isUpdating,
+            onApply = onApply,
+            onIgnore = onIgnore
+        )
+        return
+    }
+
     val responseStatus = request.workerResponseStatus.trim().lowercase()
     val hasWorkerResponded = responseStatus in setOf("applied", "called", "accepted", "completed")
     val applyLabel = instantWorkerApplyButtonLabel(responseStatus)
     val workersNeededLabel = stringResource(R.string.urgent_workers_needed_count, request.workersNeeded)
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onApply),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -1301,9 +1502,10 @@ private fun InstantRequestCard(
             }
 
             run {
+                val isSvc = request.requestId.startsWith("svc_")
                 Button(
                     onClick = onApply,
-                    enabled = !isUpdating && !hasWorkerResponded,
+                    enabled = !isUpdating && (!hasWorkerResponded || isSvc),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
@@ -1315,24 +1517,26 @@ private fun InstantRequestCard(
                     if (isUpdating) {
                         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = WorkerColors.CardBackground)
                     } else {
-                        if (hasWorkerResponded) {
+                        if (hasWorkerResponded && !isSvc) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(17.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                         }
-                        Text(applyLabel)
+                        Text(if (isSvc && hasWorkerResponded) "View Booking Details" else applyLabel)
                     }
                 }
 
-                Button(
-                    onClick = onCall,
-                    enabled = request.employerPhone.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A).bg())
-                ) {
-                    Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(17.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(stringResource(R.string.call))
+                if (!isSvc || request.employerPhone.isNotBlank()) {
+                    Button(
+                        onClick = onCall,
+                        enabled = request.employerPhone.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A).bg())
+                    ) {
+                        Icon(Icons.Default.Call, contentDescription = null, modifier = Modifier.size(17.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(stringResource(R.string.call))
+                    }
                 }
             }
         }
@@ -1792,7 +1996,7 @@ private fun HomeBrandWordmark(modifier: Modifier = Modifier) {
     )
 }
 
-/** Header row: DutyPe wordmark on the left, location chip + bell on the right. */
+/** Header row: DutyPe wordmark + location on the left, wallet icon + bell on the right. */
 @Composable
 internal fun WorkerHomeGreetingHeader(
     areaName: String,
@@ -1800,6 +2004,7 @@ internal fun WorkerHomeGreetingHeader(
     unreadNotificationCount: Int,
     onNotificationClick: () -> Unit,
     onLocationClick: () -> Unit,
+    onWalletClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -1815,19 +2020,83 @@ internal fun WorkerHomeGreetingHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            HomeBrandWordmark(modifier = Modifier.weight(1f))
+            // Left: DutyPe wordmark + small location text underneath
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onLocationClick)
+            ) {
+                HomeBrandWordmark()
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    modifier = Modifier.padding(top = 1.dp)
+                ) {
+                    if (isLocationLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(10.dp),
+                            strokeWidth = 1.2.dp,
+                            color = HomeEmerald.fg()
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.LocationOn,
+                            contentDescription = null,
+                            tint = HomeEmerald.fg(),
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                    Text(
+                        text = areaName.ifBlank { "Select Location" },
+                        color = Color(0xFF64748B),
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = Color(0xFF64748B),
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.width(10.dp))
-            HomeLocationChip(
-                areaName = areaName,
-                isLoading = isLocationLoading,
-                onClick = onLocationClick
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            HomeBellButton(
-                hasUnread = unreadNotificationCount > 0,
-                onClick = onNotificationClick
-            )
+
+            // Right: Wallet icon + Bell icon
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                HomeWalletButton(onClick = onWalletClick)
+                HomeBellButton(
+                    hasUnread = unreadNotificationCount > 0,
+                    onClick = onNotificationClick
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun HomeWalletButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(Color.White.bg())
+            .border(1.dp, HomeBorder.bd(), CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.AccountBalanceWallet,
+            contentDescription = "Wallet",
+            tint = HomeInk.fg(),
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 

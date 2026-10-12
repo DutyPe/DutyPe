@@ -46,7 +46,7 @@ object FirestoreSchema {
         const val COLLECTION = "worker_profiles"
         const val NAME = "name"
         const val PHONE = "phone"
-        const val EMAIL = "email"                 // optional, from Truecaller (server-written)
+        const val EMAIL = "email"                 // optional
         const val PHOTO_URL = "photoUrl"
         const val GENDER = "gender"
         const val DATE_OF_BIRTH = "dateOfBirth"
@@ -101,18 +101,16 @@ object FirestoreSchema {
 
     /**
      * employer_profiles/{uid}.
-     * INDIVIDUAL: ownerName, phone, address/area — businessName/businessType/gstin absent.
-     * COMPANY:    + businessName (required), businessType (required), gstin (optional).
+     * INDIVIDUAL: ownerName, phone, address/area — businessName absent.
+     * COMPANY:    + businessName.
      */
     object EmployerProfiles {
         const val COLLECTION = "employer_profiles"
         const val EMPLOYER_TYPE = "employerType"      // Values.EmployerType
         const val OWNER_NAME = "ownerName"
         const val BUSINESS_NAME = "businessName"      // COMPANY only
-        const val BUSINESS_TYPE = "businessType"      // COMPANY only: shop | hotel | pg | office | warehouse | factory | other
-        const val GSTIN = "gstin"                     // COMPANY only, optional
         const val PHONE = "phone"
-        const val EMAIL = "email"                 // optional, from Truecaller (server-written)
+        const val EMAIL = "email"                 // optional
         const val PHOTO_URL = "photoUrl"
         const val ADDRESS = "address"
         const val AREA = "area"
@@ -222,7 +220,6 @@ object FirestoreSchema {
         const val GENDER = "gender"
         const val EXPERIENCE_REQUIRED = "experienceRequired"
         const val EDUCATION_REQUIRED = "educationRequired"
-        const val BENEFITS = "benefits"
     }
 
     /**

@@ -693,7 +693,7 @@
     <string name="jobs_listed">Jobs Listed</string>
     <string name="open_jobs">Open Jobs</string>
     <string name="rating_label">Rating</string>
-    <string name="manage_addresses">Manage Addresses</string>
+    <string name="manage_addresses">My Addresses</string>
     <string name="no_saved_addresses">No Saved Addresses</string>
     <string name="verified_label">Verified</string>
     <string name="clear_search">Clear Search</string>
@@ -1929,7 +1929,7 @@
     <string name="emp_profile_account">Account</string>
     <string name="emp_profile_help_desk">Help Desk</string>
     <string name="emp_profile_company_details">Company Details &amp; Photos</string>
-    <string name="emp_profile_my_posted_jobs">My Posted Jobs</string>
+    <string name="emp_profile_my_posted_jobs">Job Posting History</string>
     <string name="emp_profile_work_locations">My Addresses</string>
     <string name="emp_profile_subscription_credits">Subscription</string>
     <string name="emp_profile_hiring_history">Job Posting History</string>
@@ -2520,6 +2520,9 @@
     <string name="general_helper">General Helper</string>
     <string name="duration_half_day">Half Day (4 hrs)</string>
     <string name="duration_full_day">Full Day (8 hrs)</string>
+    <string name="duration_per_hour">Per Hour</string>
+    <string name="duration_per_task">Per Task</string>
+    <string name="duration_per_day">Per Day</string>
     <string name="duration_2_3_days">2-3 Days</string>
     <string name="duration_1_week">1 Week</string>
     <string name="duration_monthly">Monthly</string>
@@ -2575,8 +2578,8 @@
     <string name="status_interested">Interested</string>
     <string name="status_called">Called</string>
     <string name="status_busy">Busy</string>
-    <!-- DutyPe AI -->
-    <string name="dutype_ai_greeting">Hi, I am DutyPe AI. Tell me what you need: post a job, ask how many applied, or who is hired.</string>
+    <!-- Liri AI -->
+    <string name="dutype_ai_greeting">Hi, I am Liri. Tell me what you need: post a job, ask how many applied, or who is hired.</string>
     <string name="dutype_ai_error">Sorry, something went wrong. Check your internet and try again.</string>
     <string name="dutype_ai_cancelled">Okay, I did not do it.</string>
     <string name="dutype_ai_need_profile">Please finish your business profile first.</string>
@@ -2588,14 +2591,14 @@
     <string name="dutype_ai_done_closed">Done. The job is closed.</string>
     <string name="dutype_ai_done_renewed">Done! The job is live again for 30 days.</string>
     <string name="dutype_ai_done_opening">Opening the job and its applicants.</string>
-    <string name="dutype_ai_shortcut_long">Talk to DutyPe AI</string>
+    <string name="dutype_ai_shortcut_long">Talk to Liri</string>
     <string name="dutype_ai_listening">Speak now</string>
     <string name="dutype_ai_plan_included">Included in your plan</string>
     <string name="dutype_ai_trial_left">%1$d free tries left</string>
-    <string name="dutype_ai_plan_needed">Basic answers only. Get DutyPe AI with ₹199 / ₹299</string>
+    <string name="dutype_ai_plan_needed">Basic answers only. Get Liri AI with ₹199 / ₹299</string>
     <string name="dutype_ai_pin">Add to home screen</string>
-    <string name="dutype_ai_pin_ok">Look for DutyPe AI on your home screen</string>
-    <string name="dutype_ai_pin_unsupported">Long-press the DutyPe app icon to find DutyPe AI</string>
+    <string name="dutype_ai_pin_ok">Look for Liri on your home screen</string>
+    <string name="dutype_ai_pin_unsupported">Long-press the DutyPe app icon to find Liri</string>
     <string name="dutype_ai_chip_post">Post a job</string>
     <string name="dutype_ai_chip_urgent">I need workers today</string>
     <string name="dutype_ai_chip_applied">How many applied today?</string>
@@ -2605,18 +2608,18 @@
     <string name="dutype_ai_confirm_title">Shall I do this?</string>
     <string name="dutype_ai_yes">Yes, do it</string>
     <string name="dutype_ai_no">No</string>
-    <string name="dutype_ai_upgrade_title">Hire by talking with DutyPe AI</string>
+    <string name="dutype_ai_upgrade_title">Hire by talking with Liri</string>
     <string name="dutype_ai_upgrade_body">Post jobs by voice, get the best 3 workers picked for you, and manage hiring in your language. In the ₹199 and ₹299 plans.</string>
     <string name="dutype_ai_see_plans">See plans</string>
     <!-- AI plans -->
-    <string name="sub_ai_talk_to_post">DutyPe AI: talk to post jobs</string>
+    <string name="sub_ai_talk_to_post">Liri: talk to post jobs</string>
     <string name="sub_ai_top_picks">AI picks your best 3 workers</string>
     <string name="sub_ai_voice_assistant">Voice assistant in Telugu, Hindi, English</string>
     <string name="sub_ai_per_day">%1$d AI actions a day</string>
-    <string name="sub_ai_not_included">DutyPe AI not included</string>
-    <string name="sub_ai_badge">DutyPe AI</string>
-    <string name="sub_ai_status_included">DutyPe AI included · %1$d a day</string>
-    <string name="sub_ai_status_trial">DutyPe AI · %1$d free tries left</string>
+    <string name="sub_ai_not_included">Liri not included</string>
+    <string name="sub_ai_badge">Liri</string>
+    <string name="sub_ai_status_included">Liri included · %1$d a day</string>
+    <string name="sub_ai_status_trial">Liri · %1$d free tries left</string>
     <string name="auth_app_not_verified">This copy of DutyPe could not be verified. Please install or update DutyPe from the Play Store and try again.</string>
     <string name="auth_phone_check_failed">Could not check your number. Please check your internet and try again.</string>
     <!-- Empty states -->
@@ -2651,11 +2654,11 @@
     <string name="job_location_bike_hint">Opens Google Maps with two-wheeler directions</string>
     <string name="job_location_km_away">%1$s km away</string>
     <string name="job_location_no_maps">No maps app found on this phone</string>
-    <string name="dutype_ai_login_title">Log in to use DutyPe AI</string>
-    <string name="dutype_ai_login_body">DutyPe AI works with your own jobs and applicants, so please log in to your employer account first.</string>
+    <string name="dutype_ai_login_title">Log in to use Liri</string>
+    <string name="dutype_ai_login_body">Liri works with your own jobs and applicants, so please log in to your employer account first.</string>
     <string name="dutype_ai_login_button">Log in</string>
-    <string name="dutype_ai_employer_only">DutyPe AI is for employer accounts. Please log in with your business number.</string>
-    <string name="dutype_ai_busy">DutyPe AI is busy right now. Please try again in a minute.</string>
+    <string name="dutype_ai_employer_only">Liri is for employer accounts. Please log in with your business number.</string>
+    <string name="dutype_ai_busy">Liri is busy right now. Please try again in a minute.</string>
     <string name="dutype_ai_hello">Hi, how can I help you hire?</string>
     <string name="dutype_ai_hello_name">Hi %1$s, how can I help you hire?</string>
     <string name="dutype_ai_hero_sub">Speak or type in Telugu, Hindi or English. I will post jobs, tell you who applied and help you hire.</string>
@@ -2689,7 +2692,7 @@
     <string name="employer_welcome_urgent">Need workers today</string>
     <string name="employer_welcome_urgent_sub">Urgent request</string>
     <string name="employer_welcome_voice">Post by voice</string>
-    <string name="employer_welcome_voice_sub">With DutyPe AI</string>
+    <string name="employer_welcome_voice_sub">With Liri</string>
     <string name="employer_welcome_how">How it works</string>
     <string name="employer_step1_title">Post your job</string>
     <string name="employer_step1_body">Work, pay and place. It takes a minute.</string>
@@ -2701,14 +2704,12 @@
     <string name="location_needed_title">Find jobs near you</string>
     <string name="location_needed_body">Turn on location to see jobs and daily wage work in your area, nearest first.</string>
     <string name="urgent_job_title_label">Job title</string>
-    <string name="urgent_job_title_hint">e.g. 2 loaders for godown work</string>
+    <string name="urgent_job_title_hint">e.g., Shop Helper, Cook, Driver, Electrician, Cleaner...</string>
     <string name="urgent_pick_work_type">Or tap a work type</string>
     <string name="auth_code_sent_whatsapp">We sent the code on WhatsApp. Open WhatsApp to see it.</string>
     <string name="auth_get_sms_instead">Didn\'t get it? Get code by SMS</string>
     <string name="auth_get_sms_in">Get code by SMS in %1$d:%2$02d</string>
-    <string name="auth_continue_with_truecaller">Continue with Truecaller</string>
     <string name="auth_or">or</string>
-    <string name="auth_truecaller_failed">Truecaller verification did not work. Please use OTP.</string>
     <string name="auth_enter_name_first">Please enter your name first.</string>
     <string name="auth_get_sms_short">Get SMS</string>
     <string name="auth_code_sent_sms">Verification code sent via SMS.</string>
@@ -2953,4 +2954,32 @@
     <string name="referral_enter_code_placeholder">Enter referral code</string>
     <string name="referral_referred_by_friend">Referred by a friend?</string>
     <string name="referral_redeem_within_7_days">Enter their referral code within 7 days of joining to earn your bonus</string>
+
+    <!-- Partner Onboarding -->
+    <string name="partner_apply_badge">VERIFIED TECHNICIAN</string>
+    <string name="partner_apply_hero_title">Register as Service Partner</string>
+    <string name="partner_apply_hero_subtitle">Earn daily with direct home service bookings across Khammam</string>
+    <string name="partner_section_trades">Select Your Services</string>
+    <string name="partner_section_trades_sub">Choose all categories you can provide (%1$d selected)</string>
+    <string name="partner_skilled_trades">Technical Trades (AC, Wiring, Plumbing)</string>
+    <string name="partner_general_trades">General Doorstep Services (Cleaning, Wash, Help)</string>
+    <string name="partner_section_exp">Experience &amp; Locality</string>
+    <string name="partner_section_exp_sub">Help customers know your work background</string>
+    <string name="partner_exp_years_hint">Years of Field Experience (e.g. 3)</string>
+    <string name="partner_skill_details_hint">Past Shop / Contractor / Skill Details (optional)</string>
+    <string name="partner_area_hint">Your Service Area / Locality in Khammam (e.g. Wyra Road)</string>
+    <string name="partner_section_identity">Govt ID &amp; Bank Payouts</string>
+    <string name="partner_section_identity_sub">For platform safety and daily direct settlements</string>
+    <string name="partner_aadhaar_label">Aadhaar Number</string>
+    <string name="partner_aadhaar_hint">12-Digit Aadhaar (XXXX XXXX XXXX) *</string>
+    <string name="partner_aadhaar_valid">12-digit Aadhaar Number Entered</string>
+    <string name="partner_aadhaar_need_12">Aadhaar must be 12 digits</string>
+    <string name="partner_upi_label">Payout UPI ID</string>
+    <string name="partner_upi_hint">Payout UPI ID (e.g. yourname@ybl or mobile@upi) *</string>
+    <string name="partner_upi_sub">Daily earnings are disbursed directly to this UPI address</string>
+    <string name="partner_tools_vehicle">I own professional tools &amp; a 2-wheeler vehicle for fast arrival across Khammam</string>
+    <string name="partner_agree_terms">I agree to DutyPe Partner Conduct, transparent pricing and polite behavior</string>
+    <string name="partner_read_rules">Read Partner Rules &amp; Code of Conduct →</string>
+    <string name="partner_submit_btn">Submit Application</string>
+    <string name="partner_fill_required">Fill required details to submit</string>
 </resources>

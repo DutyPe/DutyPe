@@ -113,8 +113,7 @@ data class EmployerProfile(
     /** Name shown on job cards: business name for companies, the owner's name otherwise. */
     val displayName: String get() = if (isCompany && businessName.isNotBlank()) businessName else ownerName
 
-    val isComplete: Boolean get() = ownerName.isNotBlank() && phone.isNotBlank() &&
-        (!isCompany || (businessName.isNotBlank() && businessType.isNotBlank()))
+    val isComplete: Boolean get() = ownerName.trim().length >= 2
 
     val completionPercent: Int get() {
         var score = 0
@@ -129,21 +128,32 @@ data class EmployerProfile(
     val missingFields: List<String> get() = buildList {
         if (ownerName.isBlank()) add("Your name")
         if (isCompany && businessName.isBlank()) add("Business name")
-        if (isCompany && businessType.isBlank()) add("Business type")
         if (address.isBlank()) add("Address")
     }
 
     companion object {
-        fun from(uid: String, d: Map<String, Any?>): EmployerProfile = EmployerProfile(
-            uid = uid,
-            employerType = d[EmployerProfiles.EMPLOYER_TYPE] as? String ?: Values.EmployerType.INDIVIDUAL,
-            ownerName = d[EmployerProfiles.OWNER_NAME] as? String ?: "",
-            businessName = d[EmployerProfiles.BUSINESS_NAME] as? String ?: "",
-            businessType = d[EmployerProfiles.BUSINESS_TYPE] as? String ?: "",
-            gstin = d[EmployerProfiles.GSTIN] as? String ?: "",
-            phone = d[EmployerProfiles.PHONE] as? String ?: "",
-            photoUrl = d[EmployerProfiles.PHOTO_URL] as? String ?: "",
-            address = d[EmployerProfiles.ADDRESS] as? String ?: "",
+        fun from(uid: String, d: Map<String, Any?>): EmployerProfile {
+            val owner = (d[EmployerProfiles.OWNER_NAME] as? String)?.takeIf { it.isNotBlank() }
+                ?: (d["name"] as? String)?.takeIf { it.isNotBlank() }
+                ?: (d["fullName"] as? String)?.takeIf { it.isNotBlank() }
+                ?: ""
+            val biz = (d[EmployerProfiles.BUSINESS_NAME] as? String)?.takeIf { it.isNotBlank() }
+                ?: (d["companyName"] as? String)?.takeIf { it.isNotBlank() }
+                ?: ""
+            val ph = (d[EmployerProfiles.PHONE] as? String)?.takeIf { it.isNotBlank() }
+                ?: (d["phone"] as? String)?.takeIf { it.isNotBlank() }
+                ?: (d["phoneNumber"] as? String)?.takeIf { it.isNotBlank() }
+                ?: ""
+            return EmployerProfile(
+                uid = uid,
+                employerType = d[EmployerProfiles.EMPLOYER_TYPE] as? String ?: Values.EmployerType.INDIVIDUAL,
+                ownerName = owner,
+                businessName = biz,
+                businessType = "",
+                gstin = "",
+                phone = ph,
+                photoUrl = d[EmployerProfiles.PHOTO_URL] as? String ?: "",
+                address = d[EmployerProfiles.ADDRESS] as? String ?: "",
             area = d[EmployerProfiles.AREA] as? String ?: "",
             lat = (d[EmployerProfiles.LAT] as? Number)?.toDouble() ?: 0.0,
             lng = (d[EmployerProfiles.LNG] as? Number)?.toDouble() ?: 0.0,
@@ -161,6 +171,7 @@ data class EmployerProfile(
             createdAt = d[EmployerProfiles.CREATED_AT].epochMillis()
         )
     }
+}
 }
 
 /** Worker experience choices shown in setup, stored as whole years. */

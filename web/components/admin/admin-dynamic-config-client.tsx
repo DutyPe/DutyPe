@@ -6,6 +6,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 import { getFirebaseServices } from "@/lib/firebase/client";
 import { LottiePreview } from "./lottie-preview";
+import { optimizeBannerImage } from "./admin-banners-manager";
 
 type DynamicConfig = {
   isDirectCallEnabled: boolean;
@@ -22,6 +23,8 @@ type DynamicConfig = {
   launchPromoMediaType: "IMAGE" | "ANIMATION";
   launchPromoBannerUrl: string;
   launchPromoAnimationUrl: string;
+  launchPromoTitle: string;
+  launchPromoActionRoute: string;
   updatedAt?: Timestamp | null;
   updatedBy?: string | null;
 };
@@ -40,7 +43,9 @@ const DEFAULTS: DynamicConfig = {
   launchPromoEnabled: false,
   launchPromoMediaType: "IMAGE",
   launchPromoBannerUrl: "",
-  launchPromoAnimationUrl: ""
+  launchPromoAnimationUrl: "",
+  launchPromoTitle: "",
+  launchPromoActionRoute: "services"
 };
 
 export function AdminDynamicConfigClient() {
@@ -90,7 +95,9 @@ export function AdminDynamicConfigClient() {
           launchPromoEnabled: Boolean(data.launchPromoEnabled ?? DEFAULTS.launchPromoEnabled),
           launchPromoMediaType: ((data.launchPromoMediaType ?? DEFAULTS.launchPromoMediaType) as DynamicConfig["launchPromoMediaType"]),
           launchPromoBannerUrl: String(data.launchPromoBannerUrl ?? DEFAULTS.launchPromoBannerUrl),
-          launchPromoAnimationUrl: String(data.launchPromoAnimationUrl ?? DEFAULTS.launchPromoAnimationUrl)
+          launchPromoAnimationUrl: String(data.launchPromoAnimationUrl ?? DEFAULTS.launchPromoAnimationUrl),
+          launchPromoTitle: String(data.launchPromoTitle ?? DEFAULTS.launchPromoTitle),
+          launchPromoActionRoute: String(data.launchPromoActionRoute ?? DEFAULTS.launchPromoActionRoute)
         });
 
         const updatedAt = (data.updatedAt as Timestamp | undefined)?.toDate?.();
@@ -133,6 +140,8 @@ export function AdminDynamicConfigClient() {
             launchPromoMediaType: config.launchPromoMediaType,
             launchPromoBannerUrl: config.launchPromoBannerUrl.trim(),
             launchPromoAnimationUrl: config.launchPromoAnimationUrl.trim(),
+            launchPromoTitle: config.launchPromoTitle.trim(),
+            launchPromoActionRoute: config.launchPromoActionRoute.trim(),
             updatedAt: serverTimestamp(),
             updatedBy: services.auth.currentUser?.email ?? services.auth.currentUser?.uid ?? "admin"
           },
@@ -158,16 +167,32 @@ export function AdminDynamicConfigClient() {
     setMessage(null);
 
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${field}_${Date.now()}.${fileExt}`;
+      let uploadBlob: Blob = file;
+      let fileName = `${field}_${Date.now()}`;
+      let contentType = file.type || "application/octet-stream";
+
+      if (file.type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(file.name)) {
+        const opt = await optimizeBannerImage(file);
+        uploadBlob = opt.webpBlob;
+        fileName = `${fileName}.webp`;
+        contentType = "image/webp";
+        setMessage(`Auto-converted to lightweight WebP: ${opt.webpSizeKb} KB (saved ${opt.savingsPct}% data). Uploading...`);
+      } else {
+        const fileExt = file.name.split('.').pop();
+        fileName = `${fileName}.${fileExt}`;
+      }
+
       const storageRef = ref(services.storage, `dynamic_assets/${fileName}`);
 
-      await uploadBytes(storageRef, file);
+      await uploadBytes(storageRef, uploadBlob, {
+        contentType,
+        cacheControl: "public, max-age=31536000, immutable"
+      });
       const url = await getDownloadURL(storageRef);
 
       setConfig((prev) => ({ ...prev, [field]: url }));
       setDirty(true);
-      setMessage(`Successfully uploaded to ${field}`);
+      setMessage(`Successfully uploaded optimized asset to ${field}`);
     } catch (uploadError: unknown) {
       setError(uploadError instanceof Error ? uploadError.message : "Failed to upload file.");
     } finally {
@@ -349,6 +374,35 @@ export function AdminDynamicConfigClient() {
               )}
             </label>
           )}
+
+          {/* Launch Promo Campaign Title & CTA Route */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+              <span style={{ color: "#374151", fontWeight: 500 }}>Promo Headline / Campaign Name</span>
+              <input
+                type="text"
+                value={config.launchPromoTitle}
+                placeholder="e.g. Mega Khammam Launch Offer ⚡ Flat 20% Off"
+                onChange={(e) => { setConfig({ ...config, launchPromoTitle: e.target.value }); setDirty(true); }}
+                style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14 }}
+              />
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+              <span style={{ color: "#374151", fontWeight: 500 }}>Target Screen on Click (CTA Route)</span>
+              <select
+                value={config.launchPromoActionRoute}
+                onChange={(e) => { setConfig({ ...config, launchPromoActionRoute: e.target.value }); setDirty(true); }}
+                style={{ padding: 8, borderRadius: 6, border: "1px solid #d1d5db", outline: "none", fontSize: 14, backgroundColor: "#fff" }}
+              >
+                <option value="services">Home Services Catalog (AC, Cleaning, Repairs)</option>
+                <option value="jobs">Browse Jobs (Worker Vacancies)</option>
+                <option value="post_job">Post a Job (Employer)</option>
+                <option value="urgent_need">Post Urgent Worker Need</option>
+                <option value="refer_earn">Refer &amp; Earn (₹100 Bonus)</option>
+                <option value="profile">Complete Profile</option>
+              </select>
+            </label>
+          </div>
         </div>
 
         {/* Tab Headers */}

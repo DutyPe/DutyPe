@@ -95,6 +95,8 @@ data class DynamicFeaturesConfig(
     val launchPromoMediaType: String = "IMAGE",
     val launchPromoBannerUrl: String = "",
     val launchPromoAnimationUrl: String = "",
+    val launchPromoTitle: String = "",
+    val launchPromoActionRoute: String = "",
     val supportEmail: String = "support@dutype.com",
     val headerTextColor: String = "#FFFFFF",
     val isRemoteLoaded: Boolean = false
@@ -217,6 +219,8 @@ class AppConfigRepository @Inject constructor(
                     ?.takeIf { it == "IMAGE" || it == "ANIMATION" } ?: "IMAGE",
                 launchPromoBannerUrl = (data["launchPromoBannerUrl"] as? String) ?: "",
                 launchPromoAnimationUrl = (data["launchPromoAnimationUrl"] as? String) ?: "",
+                launchPromoTitle = (data["launchPromoTitle"] as? String) ?: "",
+                launchPromoActionRoute = (data["launchPromoActionRoute"] as? String) ?: "",
                 supportEmail = (data["supportEmail"] as? String) ?: "support@dutype.com",
                 headerTextColor = (data["headerTextColor"] as? String) ?: "#FFFFFF",
                 isRemoteLoaded = true
@@ -248,6 +252,8 @@ class AppConfigRepository @Inject constructor(
                     .takeIf { it == "IMAGE" || it == "ANIMATION" } ?: "IMAGE",
                 launchPromoBannerUrl = json.optString("launchPromoBannerUrl", ""),
                 launchPromoAnimationUrl = json.optString("launchPromoAnimationUrl", ""),
+                launchPromoTitle = json.optString("launchPromoTitle", ""),
+                launchPromoActionRoute = json.optString("launchPromoActionRoute", ""),
                 supportEmail = json.optString("supportEmail", "support@dutype.com"),
                 headerTextColor = json.optString("headerTextColor", "#FFFFFF"),
                 isRemoteLoaded = json.optBoolean("isRemoteLoaded", true)
@@ -275,6 +281,8 @@ class AppConfigRepository @Inject constructor(
         put("launchPromoMediaType", launchPromoMediaType)
         put("launchPromoBannerUrl", launchPromoBannerUrl)
         put("launchPromoAnimationUrl", launchPromoAnimationUrl)
+        put("launchPromoTitle", launchPromoTitle)
+        put("launchPromoActionRoute", launchPromoActionRoute)
         put("supportEmail", supportEmail)
         put("headerTextColor", headerTextColor)
         put("isRemoteLoaded", isRemoteLoaded)

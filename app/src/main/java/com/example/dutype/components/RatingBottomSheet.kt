@@ -1,4 +1,4 @@
-﻿package com.example.dutype.components
+package com.example.dutype.components
 
 import com.dutype.app.R
 import androidx.compose.animation.animateColorAsState
@@ -187,7 +187,6 @@ fun RatingBottomSheet(
                 value = reviewText,
                 onValueChange = { if (it.length <= 300) reviewText = it },
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.write_review_optional)) },
                 placeholder = { Text(stringResource(R.string.review_hint)) },
                 minLines = 2,
                 maxLines = 4,

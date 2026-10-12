@@ -53,8 +53,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 823
-        versionName = "4.6"
+        versionCode = 827
+        versionName = "4.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -384,12 +384,6 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.13.0"))
     implementation("com.google.firebase:firebase-analytics-ktx")
     implementation("com.google.firebase:firebase-auth-ktx")
-    // Truecaller one-tap login (OAuth SDK; free number verification, no SMS).
-    // 3.2.1 is the newest built with Kotlin 1.9 metadata; 3.3.0 needs Kotlin 2.1+ (this app uses 2.0.21).
-    implementation("com.truecaller.android.sdk:truecaller-sdk:3.2.1")
-    // The SDK's consent flow needs a FragmentActivity (TruecallerActivity).
-    implementation("androidx.fragment:fragment-ktx:1.8.5")
-    
     implementation("com.google.firebase:firebase-firestore-ktx")
     implementation("com.firebase:geofire-android-common:3.2.0")
     // NOTE: firebase-iid has been REMOVED (deprecated service with old Registrar).

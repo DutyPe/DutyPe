@@ -37,6 +37,9 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -107,6 +110,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -197,6 +201,7 @@ import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
 import com.example.dutype.utils.LocaleHelper
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -213,6 +218,77 @@ internal val SvcLine = Color(0xFFE2E8F0)
 internal val SvcPage = Color(0xFFF8FAFC)
 private val IST: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
 
+/**
+ * Operating hours: 7:00 AM to 9:00 PM IST (07:00 - 21:00).
+ * After 9:00 PM (and before 7:00 AM), immediate / right-now service dispatch is closed.
+ * Customers can still book in advance for tomorrow morning onwards.
+ */
+fun isServiceHoursClosedNow(now: Long = System.currentTimeMillis()): Boolean {
+    val cal = Calendar.getInstance(IST).apply { timeInMillis = now }
+    val hour = cal.get(Calendar.HOUR_OF_DAY)
+    return hour < 7 || hour >= 21
+}
+
+@Composable
+fun ServiceHoursNightClosedBanner(
+    modifier: Modifier = Modifier,
+    onScheduleClick: (() -> Unit)? = null
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+        border = BorderStroke(1.dp, Color(0xFF334155))
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF1E293B)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("🌙", fontSize = 20.sp)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Closed for Tonight",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.5.sp,
+                        color = Color.White
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFFF59E0B).copy(alpha = 0.2f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            "7 AM – 9 PM",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFFBBF24)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    "Doorstep visits are closed tonight. You can easily schedule your slot for tomorrow morning onwards!",
+                    fontSize = 12.sp,
+                    color = Color(0xFF94A3B8),
+                    lineHeight = 16.sp
+                )
+            }
+        }
+    }
+}
+
 internal fun categoryIcon(category: String): ImageVector = when (category) {
     "AC" -> Icons.Filled.AcUnit
     "CLEANING" -> Icons.Filled.CleaningServices
@@ -223,6 +299,12 @@ internal fun categoryIcon(category: String): ImageVector = when (category) {
     "PAINTER" -> Icons.Filled.FormatPaint
     "HOME_HELP" -> Icons.Filled.Handyman
     "VEHICLE" -> Icons.Filled.LocalCarWash
+    "BEAUTICIAN" -> Icons.Filled.Star
+    "MEHENDI" -> Icons.Filled.Build
+    "COOK_MAID" -> Icons.Filled.Kitchen
+    "BABYSITTER" -> Icons.Filled.Work
+    "ELDERLY_CARE" -> Icons.Filled.Verified
+    "TAILORING" -> Icons.Filled.Handyman
     else -> Icons.Filled.HomeRepairService
 }
 
@@ -237,6 +319,12 @@ internal fun categoryTint(category: String): Color = when (category) {
     "PAINTER" -> Color(0xFF8B5CF6)
     "HOME_HELP" -> Color(0xFF16A34A)
     "VEHICLE" -> Color(0xFF0284C7)
+    "BEAUTICIAN" -> Color(0xFFEC4899)
+    "MEHENDI" -> Color(0xFFD97706)
+    "COOK_MAID" -> Color(0xFFF97316)
+    "BABYSITTER" -> Color(0xFF8B5CF6)
+    "ELDERLY_CARE" -> Color(0xFF059669)
+    "TAILORING" -> Color(0xFF6366F1)
     else -> SvcBlue
 }
 
@@ -884,7 +972,7 @@ internal fun ActiveBookingStrip(b: ServiceBooking, onClick: () -> Unit, modifier
     }
 }
 
-/** Automatic Post-Booking Rating Modal to build platform trust & reviews */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PostBookingRatingModal(
     booking: ServiceBooking,
@@ -898,125 +986,130 @@ fun PostBookingRatingModal(
 
     val quickTags = listOf("On Time ⏰", "Polite & Professional 👔", "Great Work 🛠️", "Fair Price 💰", "Clean Work 🧹")
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                Box(
-                    modifier = Modifier
-                        .size(54.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFFEF3C7)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Star,
-                        contentDescription = null,
-                        tint = Color(0xFFF59E0B),
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-                Spacer(Modifier.height(10.dp))
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Color.White,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(54.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFEF3C7)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Star,
+                    contentDescription = null,
+                    tint = Color(0xFFF59E0B),
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "How was your service?",
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
+                    fontSize = 19.sp,
                     color = Color(0xFF0F172A),
                     textAlign = TextAlign.Center
                 )
+                Spacer(Modifier.height(4.dp))
                 Text(
                     text = "${booking.serviceName} with ${booking.partnerName.ifBlank { "Partner" }}",
-                    fontSize = 12.5.sp,
+                    fontSize = 13.sp,
                     color = Color(0xFF64748B),
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+
+            // Interactive 5 Star Row
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                // Interactive 5 Star Row
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    (1..5).forEach { i ->
-                        IconButton(
-                            onClick = { stars = i },
-                            modifier = Modifier.size(44.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Star,
-                                contentDescription = "$i stars",
-                                tint = if (i <= stars) Color(0xFFF59E0B) else Color(0xFFE2E8F0),
-                                modifier = Modifier.size(34.dp)
-                            )
-                        }
+                (1..5).forEach { i ->
+                    IconButton(
+                        onClick = { stars = i },
+                        modifier = Modifier.size(46.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Star,
+                            contentDescription = "$i stars",
+                            tint = if (i <= stars) Color(0xFFF59E0B) else Color(0xFFE2E8F0),
+                            modifier = Modifier.size(36.dp)
+                        )
                     }
                 }
-
-                // Dynamic label for stars
-                val ratingLabel = when (stars) {
-                    5 -> "🌟 Excellent Service!"
-                    4 -> "👍 Very Good"
-                    3 -> "👌 Good / Satisfactory"
-                    2 -> "👎 Needs Improvement"
-                    else -> "⚠️ Poor Experience"
-                }
-                Text(
-                    text = ratingLabel,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                    color = if (stars >= 4) Color(0xFF166534) else if (stars == 3) Color(0xFFB45309) else Color(0xFFDC2626)
-                )
-
-                // Quick Feedback Tags
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(quickTags) { tag ->
-                        val isSelected = selectedTag == tag
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = if (isSelected) Color(0xFF0F172A) else Color(0xFFF1F5F9),
-                            modifier = Modifier.clickable {
-                                selectedTag = if (isSelected) null else tag
-                                if (!isSelected && review.isBlank()) {
-                                    review = tag
-                                }
-                            }
-                        ) {
-                            Text(
-                                text = tag,
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = if (isSelected) Color.White else Color(0xFF334155),
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-                }
-
-                // Optional Review comment
-                OutlinedTextField(
-                    value = review,
-                    onValueChange = { review = it.take(300) },
-                    placeholder = { Text("Write a quick review for ${booking.partnerName.ifBlank { "partner" }}...", fontSize = 12.5.sp) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    minLines = 2,
-                    maxLines = 3
-                )
             }
-        },
-        confirmButton = {
+
+            // Dynamic label for stars
+            val ratingLabel = when (stars) {
+                5 -> "🌟 Excellent Service!"
+                4 -> "👍 Very Good"
+                3 -> "👌 Good / Satisfactory"
+                2 -> "👎 Needs Improvement"
+                else -> "⚠️ Poor Experience"
+            }
+            Text(
+                text = ratingLabel,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.5.sp,
+                color = if (stars >= 4) Color(0xFF166534) else if (stars == 3) Color(0xFFB45309) else Color(0xFFDC2626)
+            )
+
+            // Quick Feedback Tags
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(quickTags) { tag ->
+                    val isSelected = selectedTag == tag
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isSelected) Color(0xFF0F172A) else Color(0xFFF1F5F9),
+                        modifier = Modifier.clickable {
+                            selectedTag = if (isSelected) null else tag
+                            if (!isSelected && review.isBlank()) {
+                                review = tag
+                            }
+                        }
+                    ) {
+                        Text(
+                            text = tag,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (isSelected) Color.White else Color(0xFF334155),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+                        )
+                    }
+                }
+            }
+
+            // Optional Review comment
+            OutlinedTextField(
+                value = review,
+                onValueChange = { review = it.take(300) },
+                placeholder = { Text("Write a quick review for ${booking.partnerName.ifBlank { "partner" }}...", fontSize = 13.sp) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                minLines = 2,
+                maxLines = 3
+            )
+
+            // Submit Button
             Button(
                 onClick = {
                     if (stars > 0 && !isSubmitting) {
@@ -1027,24 +1120,26 @@ fun PostBookingRatingModal(
                 },
                 enabled = stars > 0 && !isSubmitting,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
-                shape = RoundedCornerShape(10.dp),
-                modifier = Modifier.fillMaxWidth()
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
             ) {
                 if (isSubmitting) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
                 } else {
-                    Text("Submit Rating", fontWeight = FontWeight.Bold, color = Color.White)
+                    Text("Submit Rating", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
                 }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Text("Ask Me Later", color = Color(0xFF64748B), fontSize = 13.sp)
             }
-        },
-        containerColor = Color.White,
-        shape = RoundedCornerShape(20.dp)
-    )
+        }
+    }
 }
 
 /** "How was the AC service? Rate Kiran" — for the latest completed booking not rated yet. */
@@ -1121,21 +1216,31 @@ private fun ServicesSearchBar(
         Spacer(Modifier.width(10.dp))
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (query.isEmpty()) {
-                AnimatedContent(
-                    targetState = currentSuggestion,
-                    transitionSpec = {
-                        (slideInVertically { it } + fadeIn()) togetherWith
-                        (slideOutVertically { -it } + fadeOut())
-                    },
-                    label = "searchPlaceholderAnim"
-                ) { suggestion ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text(
-                        text = "Search for '$suggestion'...",
+                        text = "Search for ",
                         color = Color(0xFF94A3B8),
-                        fontSize = 13.5.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        fontSize = 13.5.sp
                     )
+                    AnimatedContent(
+                        targetState = currentSuggestion,
+                        transitionSpec = {
+                            (slideInVertically { it } + fadeIn()) togetherWith
+                            (slideOutVertically { -it } + fadeOut())
+                        },
+                        label = "searchPlaceholderAnim"
+                    ) { suggestion ->
+                        Text(
+                            text = "'$suggestion'...",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 13.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
             androidx.compose.foundation.text.BasicTextField(
@@ -1217,56 +1322,48 @@ private fun ServicesLocationTopRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Location row on left with pin icon
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
+        // Location row on left with pin icon directly left to "In X minutes"
+        Column(
             modifier = Modifier
                 .weight(1f, fill = false)
                 .clickable(onClick = onLocationClick)
         ) {
-            Icon(
-                Icons.Filled.LocationOn,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(26.dp)
-            )
-            Spacer(Modifier.width(8.dp))
-            Column {
-                if (isOutOfArea) {
-                    Text(
-                        text = "Coming Soon",
-                        color = Color(0xFFFDE68A),
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-0.2).sp
-                    )
-                } else {
-                    Text(
-                        text = "In $etaMinutes minutes",
-                        color = Color.White,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-0.2).sp
-                    )
-                }
-                Spacer(Modifier.height(1.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = if (isOutOfArea) "$displayLocation • OUTSIDE ZONE".uppercase() else displayLocation.uppercase(),
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(Modifier.width(2.dp))
-                    Icon(
-                        Icons.Filled.KeyboardArrowDown,
-                        contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Filled.LocationOn,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text = if (isOutOfArea) "Coming Soon" else "In $etaMinutes minutes",
+                    color = if (isOutOfArea) Color(0xFFFDE68A) else Color.White,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.2).sp
+                )
+            }
+            Spacer(Modifier.height(1.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 26.dp)
+            ) {
+                Text(
+                    text = if (isOutOfArea) "$displayLocation • OUTSIDE ZONE".uppercase() else displayLocation.uppercase(),
+                    color = Color.White.copy(alpha = 0.85f),
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.width(2.dp))
+                Icon(
+                    Icons.Filled.KeyboardArrowDown,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier.size(16.dp)
+                )
             }
         }
 
@@ -1317,45 +1414,16 @@ private fun ServicesLocationTopRow(
 }
 
 @Composable
-fun RunningBorderPill(
+fun NormalBannerBookButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "running_border")
-    val angle by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2800, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "angle"
-    )
-
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(999.dp))
-            .clickable(onClick = onClick)
-            .drawBehind {
-                rotate(angle) {
-                    drawCircle(
-                        brush = Brush.sweepGradient(
-                            listOf(
-                                Color(0xFFFFD700), // Gold
-                                Color(0xFF38BDF8), // Cyan
-                                Color(0xFFFFFFFF), // White spark
-                                Color(0xFF818CF8), // Indigo
-                                Color(0xFFFFD700)  // Gold
-                            )
-                        ),
-                        radius = size.maxDimension
-                    )
-                }
-            }
-            .padding(1.8.dp)
-            .clip(RoundedCornerShape(999.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(Color.White)
+            .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -1374,7 +1442,7 @@ fun RunningBorderPill(
             Icon(
                 Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = null,
-                tint = Color(0xFF2563EB),
+                tint = Color(0xFF0F172A),
                 modifier = Modifier.size(13.dp)
             )
         }
@@ -1439,7 +1507,7 @@ private fun ServicesIntegratedHeroBanner(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
-                        RunningBorderPill(
+                        NormalBannerBookButton(
                             text = banner.cta.ifBlank { "Book Now" },
                             onClick = { onBookPromo(banner.targetServiceId, banner.targetCategoryId) }
                         )
@@ -2139,6 +2207,8 @@ fun CategoryServicesScreen(
             return@Scaffold
         }
 
+        val isNightClosed = remember { isServiceHoursClosedNow() }
+
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(16.dp),
@@ -2228,6 +2298,11 @@ fun CategoryServicesScreen(
                             Spacer(Modifier.width(5.dp))
                             Text("Pay Post-Work", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF1E40AF))
                         }
+                    }
+                }
+                if (isNightClosed) {
+                    item(key = "night_closed_banner") {
+                        ServiceHoursNightClosedBanner()
                     }
                 }
 
@@ -2357,36 +2432,17 @@ fun CategoryServicesScreen(
 
 @Composable
 fun ServicesHomeShimmer() {
-    val infiniteTransition = rememberInfiniteTransition(label = "services_home_shimmer")
-    val translateAnim by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1200f,
+    val infiniteTransition = rememberInfiniteTransition(label = "services_shimmer")
+    val alphaAnim by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.85f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Restart
+            animation = tween(800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
         ),
-        label = "shimmer_translate"
+        label = "shimmer_alpha"
     )
-
-    val lightShimmerBrush = Brush.linearGradient(
-        colors = listOf(
-            Color(0xFFE2E8F0),
-            Color(0xFFF8FAFC),
-            Color(0xFFE2E8F0)
-        ),
-        start = Offset(translateAnim - 400f, translateAnim - 400f),
-        end = Offset(translateAnim, translateAnim)
-    )
-
-    val darkShimmerBrush = Brush.linearGradient(
-        colors = listOf(
-            Color(0xFF1E293B),
-            Color(0xFF334155),
-            Color(0xFF1E293B)
-        ),
-        start = Offset(translateAnim - 400f, translateAnim - 400f),
-        end = Offset(translateAnim, translateAnim)
-    )
+    val shimmerColor = Color(0xFFE2E8F0).copy(alpha = alphaAnim)
 
     Column(
         modifier = Modifier
@@ -2394,300 +2450,90 @@ fun ServicesHomeShimmer() {
             .background(Color(0xFFF8FAFC).bg())
             .verticalScroll(rememberScrollState())
     ) {
-        // Dark Navy Header Skeleton
+        // Sleek Header Placeholder
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(0xFF0F172A))
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 14.dp)
+                .padding(16.dp)
         ) {
             Column {
-                // Top location row & action buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Box(
-                            modifier = Modifier
-                                .width(90.dp)
-                                .height(14.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(darkShimmerBrush)
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        Box(
-                            modifier = Modifier
-                                .width(160.dp)
-                                .height(12.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(darkShimmerBrush)
-                        )
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(darkShimmerBrush)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(darkShimmerBrush)
-                        )
-                    }
+                    Box(Modifier.size(120.dp, 20.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFF334155)))
+                    Box(Modifier.size(36.dp).clip(CircleShape).background(Color(0xFF334155)))
                 }
                 Spacer(Modifier.height(14.dp))
-                // Search bar placeholder
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White)
-                        .padding(horizontal = 14.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .width(180.dp)
-                            .height(14.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(lightShimmerBrush)
-                    )
-                }
+                Box(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(12.dp)).background(Color.White))
             }
         }
 
-        // Hero Banner Shimmer Card
+        // Hero Banner Skeleton
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color(0xFF0F172A),
-                            Color(0xFF0F172A).copy(alpha = 0.85f),
-                            Color(0xFFF8FAFC).bg()
-                        )
-                    )
-                )
-                .padding(start = 8.dp, end = 8.dp, top = 2.dp, bottom = 14.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(146.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xFF1E293B))
-                    .padding(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .weight(1.2f)
-                            .fillMaxHeight(),
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column {
-                            Box(
-                                modifier = Modifier
-                                    .width(110.dp)
-                                    .height(14.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(darkShimmerBrush)
-                            )
-                            Spacer(Modifier.height(10.dp))
-                            Box(
-                                modifier = Modifier
-                                    .width(170.dp)
-                                    .height(18.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(darkShimmerBrush)
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .width(120.dp)
-                                    .height(16.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(darkShimmerBrush)
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .width(110.dp)
-                                .height(32.dp)
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(darkShimmerBrush)
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .weight(0.85f)
-                            .fillMaxHeight(),
-                        contentAlignment = Alignment.CenterEnd
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(100.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(darkShimmerBrush)
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        // "What needs fixing?" Section Heading Shimmer
-        Box(
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .width(140.dp)
-                .height(18.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(lightShimmerBrush)
+                .padding(16.dp)
+                .height(140.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(shimmerColor)
         )
 
-        Spacer(Modifier.height(12.dp))
-
-        // 4x2 Category Grid Shimmer
-        Column(
+        // Category Grid Skeleton
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            repeat(2) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+            repeat(4) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(84.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color.White)
+                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(14.dp)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    repeat(4) {
-                        Card(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(94.dp),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(42.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(lightShimmerBrush)
-                                )
-                                Spacer(Modifier.height(8.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .width(50.dp)
-                                        .height(10.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(lightShimmerBrush)
-                                )
-                            }
-                        }
-                    }
+                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(8.dp)).background(shimmerColor))
                 }
             }
         }
 
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(16.dp))
 
-        // Featured Service Cards Shimmer
-        Box(
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .width(160.dp)
-                .height(18.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(lightShimmerBrush)
-        )
-
-        Spacer(Modifier.height(10.dp))
-
+        // Featured Service Cards Skeleton
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            repeat(2) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            repeat(3) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(90.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White)
+                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
+                        .padding(12.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(58.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(lightShimmerBrush)
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(64.dp).clip(RoundedCornerShape(10.dp)).background(shimmerColor))
                         Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Box(
-                                modifier = Modifier
-                                    .width(140.dp)
-                                    .height(14.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(lightShimmerBrush)
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .width(80.dp)
-                                    .height(12.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(lightShimmerBrush)
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Box(
-                                modifier = Modifier
-                                    .width(60.dp)
-                                    .height(14.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(lightShimmerBrush)
-                            )
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(Modifier.size(140.dp, 16.dp).clip(RoundedCornerShape(4.dp)).background(shimmerColor))
+                            Box(Modifier.size(80.dp, 12.dp).clip(RoundedCornerShape(4.dp)).background(shimmerColor))
                         }
-                        Box(
-                            modifier = Modifier
-                                .width(70.dp)
-                                .height(30.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(lightShimmerBrush)
-                        )
                     }
                 }
             }
         }
-        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -2766,15 +2612,15 @@ fun ServicesHomeScreen(
         }
     }
 
-    val c = catalog
-    if (c == null) {
+    val c = catalog ?: viewModel.getCachedCatalog()
+    if (error != null && catalog == null) {
         Box(Modifier.fillMaxSize()) {
-            if (error != null) DutyPeErrorState(error, onRetry = { viewModel.loadCatalog(force = true) })
-            else ServicesHomeShimmer()
+            DutyPeErrorState(error, onRetry = { viewModel.loadCatalog(force = true) })
         }
         return
     }
 
+    val reviewTriggerService = rememberInAppReviewTriggerService()
     val unratedBooking = ratingBookingToPrompt
     if (unratedBooking != null) {
         PostBookingRatingModal(
@@ -2786,7 +2632,12 @@ fun ServicesHomeScreen(
             onSubmitRating = { stars, review ->
                 scope.launch {
                     viewModel.rate(unratedBooking.id, stars, review)
-                        .onSuccess { Toast.makeText(context, "Thank you for rating!", Toast.LENGTH_SHORT).show() }
+                        .onSuccess {
+                            Toast.makeText(context, "Thank you for rating!", Toast.LENGTH_SHORT).show()
+                            context.findActivity()?.let { act ->
+                                reviewTriggerService.onServiceCompleted(act, stars)
+                            }
+                        }
                         .onFailure { Toast.makeText(context, it.message, Toast.LENGTH_SHORT).show() }
                     ratingBookingToPrompt = null
                     ratingPromptDismissed = true
@@ -2840,7 +2691,7 @@ fun ServicesHomeScreen(
     // Detect whether user has scrolled down past the top location bar
     val isScrolled by remember {
         derivedStateOf {
-            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 24
+            listState.firstVisibleItemIndex >= 1
         }
     }
 
@@ -2851,6 +2702,8 @@ fun ServicesHomeScreen(
         }
     }
 
+    val isNightClosed = remember { isServiceHoursClosedNow() }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -2858,7 +2711,8 @@ fun ServicesHomeScreen(
     ) {
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 96.dp)
         ) {
             // Item 0: Top location row + History & Profile buttons
             // Scrolls away when user scrolls down
@@ -2995,6 +2849,13 @@ fun ServicesHomeScreen(
                     }
                 }
             } else {
+                if (isNightClosed) {
+                    item(key = "night_closed_banner") {
+                        Box(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                            ServiceHoursNightClosedBanner()
+                        }
+                    }
+                }
                 if (active != null) {
                     item(key = "active") {
                         Box(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
@@ -3034,8 +2895,45 @@ fun ServicesHomeScreen(
                     Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
                         EmployerExecutiveHeroCard(
                             companyName = "",
-                            onPostJob = { nav.navigate(Routes.EMPLOYER_POST_JOB) },
-                            onVoiceJob = { nav.navigate(Routes.dutypeAiRoute(listen = true)) }
+                            onCardClick = {
+                                runCatching {
+                                    navController.navigate(Routes.EMPLOYER_DASHBOARD) {
+                                        launchSingleTop = true
+                                    }
+                                }.onFailure {
+                                    runCatching {
+                                        nav.navigate(Routes.EMPLOYER_HOME) {
+                                            launchSingleTop = true
+                                        }
+                                    }
+                                }
+                            },
+                            onPostJob = {
+                                runCatching {
+                                    navController.navigate(Routes.EMPLOYER_POST_JOB) {
+                                        launchSingleTop = true
+                                    }
+                                }.onFailure {
+                                    runCatching {
+                                        nav.navigate(Routes.EMPLOYER_HOME) {
+                                            launchSingleTop = true
+                                        }
+                                    }
+                                }
+                            },
+                            onVoiceJob = {
+                                runCatching {
+                                    navController.navigate(Routes.dutypeAiRoute(listen = true)) {
+                                        launchSingleTop = true
+                                    }
+                                }.onFailure {
+                                    runCatching {
+                                        nav.navigate(Routes.dutypeAiRoute(listen = true)) {
+                                            launchSingleTop = true
+                                        }
+                                    }
+                                }
+                            }
                         )
                     }
                 }
@@ -3151,19 +3049,25 @@ fun ServicesHomeScreen(
                     }
                 }
 
+                // 9. Brand Signature Footer (Blinkit / Swiggy style: large bold signature + Crafted with love in India)
+                item(key = "services_brand_footer") {
+                    ServicesBrandFooter()
+                }
+
                 // Extra bottom spacer
                 item(key = "bottom_spacer") {
-                    Spacer(Modifier.height(36.dp).navigationBarsPadding())
+                    Spacer(Modifier.height(56.dp).navigationBarsPadding())
                 }
             }
 
         }
 
-        // Floating Pulsing Voice AI FAB (DutyPe AI Assistant for voice booking/hiring)
-        VoicePulsingFab(
+        // Floating Expanding Voice AI FAB (Liri AI Assistant for voice booking/hiring)
+        LiriExpandingFab(
             onClick = {
                 nav.navigate(Routes.dutypeAiRoute(listen = true))
             },
+            expanded = !isScrolled,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 16.dp, bottom = 105.dp)
@@ -3200,6 +3104,76 @@ fun ServicesHomeScreen(
     }
 }
 
+@Composable
+fun LiriExpandingFab(
+    onClick: () -> Unit,
+    expanded: Boolean = true,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(28.dp),
+        color = Color(0xFF0F172A),
+        shadowElevation = 6.dp,
+        border = BorderStroke(1.dp, Color(0x33FFFFFF)),
+        modifier = modifier.height(52.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Mic,
+                contentDescription = "Ask Liri",
+                tint = Color.White,
+                modifier = Modifier.size(22.dp)
+            )
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn() + expandHorizontally(),
+                exit = fadeOut() + shrinkHorizontally()
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Ask Liri",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.5.sp,
+                        maxLines = 1
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF7C3AED))
+                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "AI",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Modern Blinkit / Swiggy style brand footer for the services home screen.
+ * Displays a large bold signature statement followed by "Crafted with 💙 in India".
+ */
+@Composable
+fun ServicesBrandFooter(modifier: Modifier = Modifier) {
+    com.example.dutype.components.MadeWithLoveFooter(
+        modifier = modifier.padding(start = 24.dp, end = 16.dp, top = 24.dp, bottom = 28.dp)
+    )
+}
+
 private data class LocalityOption(val name: String, val desc: String, val lat: Double, val lng: Double, val isOutside: Boolean = false)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -3234,8 +3208,7 @@ private fun LocalityPickerBottomSheet(
             LocalityOption("Burhanpuram", "Central Khammam", 17.2460, 80.1490),
             LocalityOption("Mayuri Centre", "Commercial Junction", 17.2490, 80.1560),
             LocalityOption("Srinivasa Nagar / Bank Colony", "Residential Area", 17.2540, 80.1620),
-            LocalityOption("RTC Bus Stand Area", "Transit Hub", 17.2478, 80.1535),
-            LocalityOption("Outside Zone Test (Hyderabad)", "185 km Away • Out of Service Zone", 17.3850, 78.4867, isOutside = true)
+            LocalityOption("RTC Bus Stand Area", "Transit Hub", 17.2478, 80.1535)
         )
     }
 
@@ -3489,6 +3462,95 @@ private fun LocalityPickerBottomSheet(
 }
 
 @Composable
+fun ServiceRatingBadge(
+    rating: Double,
+    ratingCount: String,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+    ) {
+        Icon(
+            Icons.Filled.Star,
+            contentDescription = null,
+            tint = Color(0xFFF59E0B),
+            modifier = Modifier.size(13.dp)
+        )
+        Spacer(Modifier.width(3.dp))
+        Text(
+            "$rating ($ratingCount)",
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Medium,
+            color = SvcMuted.fg()
+        )
+    }
+}
+
+@Composable
+fun ServicePriceRow(
+    price: Int,
+    mrp: Int = 0,
+    discountPercent: Int = 0,
+    durationMin: Int = 0,
+    priceFontSize: androidx.compose.ui.unit.TextUnit = 16.sp,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+    ) {
+        Text(
+            text = "₹$price",
+            fontWeight = FontWeight.Bold,
+            fontSize = priceFontSize,
+            color = SvcInk.fg()
+        )
+        if (mrp > price) {
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = "₹$mrp",
+                fontSize = if (priceFontSize > 18.sp) 13.sp else 12.sp,
+                color = Color(0xFF94A3B8),
+                textDecoration = TextDecoration.LineThrough
+            )
+            if (discountPercent > 0) {
+                Spacer(Modifier.width(6.dp))
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFFDCFCE7))
+                        .padding(horizontal = 5.dp, vertical = 1.5.dp)
+                ) {
+                    Text(
+                        text = "$discountPercent% OFF",
+                        color = Color(0xFF15803D),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+        if (durationMin > 0) {
+            Spacer(Modifier.width(8.dp))
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(Color(0xFFF1F5F9))
+                    .padding(horizontal = 7.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = "⏱ $durationMin min",
+                    color = Color(0xFF475569),
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ServiceRow(
     service: ServiceItem,
     lang: String,
@@ -3522,70 +3584,18 @@ private fun ServiceRow(
                 )
                 Spacer(Modifier.height(4.dp))
                 // Micro-Rating Row
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Filled.Star,
-                        contentDescription = null,
-                        tint = Color(0xFFF59E0B),
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(Modifier.width(3.dp))
-                    Text(
-                        "${service.rating} (${service.ratingCount})",
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = SvcMuted.fg()
-                    )
-                }
+                ServiceRatingBadge(
+                    rating = service.rating,
+                    ratingCount = service.ratingCount
+                )
                 Spacer(Modifier.height(6.dp))
                 // Price & Duration
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "₹${service.price}",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = SvcInk.fg()
-                    )
-                    if (service.mrp > service.price) {
-                        Spacer(Modifier.width(6.dp))
-                        Text(
-                            text = "₹${service.mrp}",
-                            fontSize = 12.sp,
-                            color = Color(0xFF94A3B8),
-                            textDecoration = TextDecoration.LineThrough
-                        )
-                        if (service.discountPercent > 0) {
-                            Spacer(Modifier.width(6.dp))
-                            Box(
-                                Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color(0xFFDCFCE7))
-                                    .padding(horizontal = 5.dp, vertical = 1.5.dp)
-                            ) {
-                                Text(
-                                    text = "${service.discountPercent}% OFF",
-                                    color = Color(0xFF15803D),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Box(
-                        Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(Color(0xFFF1F5F9))
-                            .padding(horizontal = 7.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = "⏱ ${service.durationMin} min",
-                            color = Color(0xFF475569),
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
+                ServicePriceRow(
+                    price = service.price,
+                    mrp = service.mrp,
+                    discountPercent = service.discountPercent,
+                    durationMin = service.durationMin
+                )
                 if (service.inspection) {
                     Spacer(Modifier.height(4.dp))
                     Pill(stringResource(R.string.svc_inspection_badge), SvcOrange)
@@ -4039,24 +4049,12 @@ fun ServiceDetailsBottomSheet(
                         lineHeight = 22.sp
                     )
                     Spacer(Modifier.height(6.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("₹${service.price}", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = SvcInk.fg())
-                        if (service.mrp > service.price) {
-                            Spacer(Modifier.width(8.dp))
-                            Text("₹${service.mrp}", fontSize = 14.sp, color = Color(0xFF94A3B8), textDecoration = TextDecoration.LineThrough)
-                            if (service.discountPercent > 0) {
-                                Spacer(Modifier.width(8.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(Color(0xFFDCFCE7))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text("${service.discountPercent}% OFF", color = Color(0xFF15803D), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
+                    ServicePriceRow(
+                        price = service.price,
+                        mrp = service.mrp,
+                        discountPercent = service.discountPercent,
+                        priceFontSize = 20.sp
+                    )
                 }
             }
 
@@ -4107,25 +4105,25 @@ fun ServiceDetailsBottomSheet(
                         title = "Kitchen cleaning",
                         included = listOf("Crockery & lunch boxes", "Wiping cabinet exterior"),
                         excluded = listOf("Hard food stains", "Chimney"),
-                        imageRes = R.drawable.svc_scope_kitchen
+                        imageUrl = "https://firebasestorage.googleapis.com/v0/b/dutype-860ac.firebasestorage.app/o/categories%2Fcleaning.webp?alt=media"
                     )
                     ServiceScopeCard(
                         title = "Meal prep & serving",
                         included = listOf("Veggies chopping & salad prep", "Meat marination", "Serving food"),
                         excluded = listOf("Cooking full meals"),
-                        imageRes = R.drawable.svc_scope_mealprep
+                        imageUrl = "https://firebasestorage.googleapis.com/v0/b/dutype-860ac.firebasestorage.app/o/categories%2Fhome_help.webp?alt=media"
                     )
                     ServiceScopeCard(
                         title = "Mopping, dusting & wiping",
                         included = listOf("Dusting & Mopping floor", "Wet wiping furniture"),
                         excluded = listOf("Wiping walls", "Hard to reach areas"),
-                        imageRes = R.drawable.svc_scope_mopping
+                        imageUrl = "https://firebasestorage.googleapis.com/v0/b/dutype-860ac.firebasestorage.app/o/categories%2Fcleaning.webp?alt=media"
                     )
                     ServiceScopeCard(
                         title = "Bathroom cleaning",
                         included = listOf("Toilet seat & wash basin", "Tiles scrub & mirror wipe"),
                         excluded = listOf("Acid wash & severe scale", "Ceiling / exhaust motor"),
-                        imageRes = R.drawable.svc_scope_bathroom
+                        imageUrl = "https://firebasestorage.googleapis.com/v0/b/dutype-860ac.firebasestorage.app/o/categories%2Fcleaning.webp?alt=media"
                     )
                 } else {
                     val inclusionsList = if (service.inclusions.isNotEmpty()) service.inclusions
@@ -4263,7 +4261,8 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
         baseAddressTags + custom
     }
     var selectedTag by remember { mutableStateOf<String?>("🏠 Home") }
-    var showAddAddressDialog by remember { mutableStateOf(false) }
+    var showAddAddressSheet by remember { mutableStateOf(false) }
+    var showCouponSheet by remember { mutableStateOf(false) }
     var newAddressTag by remember { mutableStateOf("🏠 Home") }
     var newAddressText by remember { mutableStateOf("") }
     var newAddressArea by remember { mutableStateOf("") }
@@ -4274,8 +4273,9 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
     var lat by remember { mutableStateOf<Double?>(null) }
     var lng by remember { mutableStateOf<Double?>(null) }
     var locating by remember { mutableStateOf(false) }
-    var scheduled by remember { mutableStateOf(false) }
-    var dayOffset by remember { mutableIntStateOf(0) }
+    val isNightClosed = remember { isServiceHoursClosedNow() }
+    var scheduled by remember { mutableStateOf(isNightClosed) }
+    var dayOffset by remember { mutableIntStateOf(if (isNightClosed) 1 else 0) }
     var slot by remember { mutableStateOf<Long?>(null) }
     var submitting by remember { mutableStateOf(false) }
 
@@ -4412,9 +4412,15 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
     val isOutOfArea = remember(lat, lng, distanceToKhammamKm) {
         lat != null && lng != null && distanceToKhammamKm > 15.0
     }
-    val canBook = !submitting && !quoting && !isOutOfArea && address.trim().length >= 5 && (!scheduled || slot != null)
+    val canBook = !submitting && !quoting && !isOutOfArea && address.trim().length >= 5 && (!scheduled || slot != null) && (!isNightClosed || (scheduled && slot != null))
 
     fun doBook() {
+        if (isNightClosed && (!scheduled || slot == null)) {
+            Toast.makeText(context, "Services are closed for tonight (7:00 AM – 9:00 PM IST). Please pick a slot for tomorrow.", Toast.LENGTH_LONG).show()
+            scheduled = true
+            if (dayOffset == 0) dayOffset = 1
+            return
+        }
         if (!canBook || service == null) return
         submitting = true
         scope.launch {
@@ -4452,6 +4458,8 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
         }
     }
 
+    var showLaunchFeedbackSheet by remember { mutableStateOf(false) }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = Color.White.bg(),
@@ -4487,13 +4495,19 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                             )
                         }
                         Button(
-                            onClick = { doBook() },
-                            enabled = canBook,
+                            onClick = {
+                                if (isOutOfArea) {
+                                    showLaunchFeedbackSheet = true
+                                } else {
+                                    doBook()
+                                }
+                            },
+                            enabled = canBook || isOutOfArea,
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF0F172A),
-                                disabledContainerColor = if (isOutOfArea) Color(0xFFFEE2E2) else Color(0xFFE2E8F0),
-                                disabledContentColor = if (isOutOfArea) Color(0xFFDC2626) else Color(0xFF94A3B8)
+                                containerColor = if (isOutOfArea) Color(0xFFEF4444) else Color(0xFF0F172A),
+                                disabledContainerColor = Color(0xFFE2E8F0),
+                                disabledContentColor = Color(0xFF94A3B8)
                             ),
                             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                         ) {
@@ -4501,10 +4515,10 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                                 CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
                             } else {
                                 Text(
-                                    text = if (isOutOfArea) "Outside Service Area" else "Confirm Booking",
+                                    text = if (isOutOfArea) "Outside Khammam (Notify Me)" else "Confirm Booking",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp,
-                                    color = if (canBook) Color.White else if (isOutOfArea) Color(0xFFDC2626) else Color(0xFF94A3B8),
+                                    color = if (canBook || isOutOfArea) Color.White else Color(0xFF94A3B8),
                                     letterSpacing = 0.3.sp,
                                     maxLines = 1,
                                     softWrap = false
@@ -4588,6 +4602,24 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                 ) {
                     OfflineCachedNote()
 
+                    if (isOutOfArea) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
+                            border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.Warning, contentDescription = null, tint = SvcRed, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text("Coming Soon to Your Area", fontWeight = FontWeight.Bold, color = SvcRed, fontSize = 13.sp)
+                                    Text("Home services are currently operational within Khammam city (15 km radius). Tap below to request service in your area.", color = SvcMuted.fg(), fontSize = 11.5.sp)
+                                }
+                            }
+                        }
+                    }
+
                     // Title & Price Section
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Text(
@@ -4605,24 +4637,12 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                             Text("⏱ ${service.durationMin} mins", fontSize = 12.5.sp, color = Color(0xFF475569), fontWeight = FontWeight.Medium)
                         }
                         Spacer(Modifier.height(10.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("₹${service.price}", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = SvcInk.fg())
-                            if (service.mrp > service.price) {
-                                Spacer(Modifier.width(8.dp))
-                                Text("₹${service.mrp}", fontSize = 13.sp, color = Color(0xFF94A3B8), textDecoration = TextDecoration.LineThrough)
-                                if (service.discountPercent > 0) {
-                                    Spacer(Modifier.width(8.dp))
-                                    Box(
-                                        Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(Color(0xFFDCFCE7))
-                                            .padding(horizontal = 6.dp, vertical = 2.5.dp)
-                                    ) {
-                                        Text("${service.discountPercent}% OFF", color = Color(0xFF15803D), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
+                        ServicePriceRow(
+                            price = service.price,
+                            mrp = service.mrp,
+                            discountPercent = service.discountPercent,
+                            priceFontSize = 20.sp
+                        )
                     }
 
                     // 3. Service Scope & What's Included
@@ -4661,7 +4681,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                                     title = service.label(lang),
                                     included = if (service.inclusions.isNotEmpty()) service.inclusions else listOf("Toilet seat, tiles scrub & mirror wipe", "Wash basin & tap descaling", "Floor disinfection & stain cleanup"),
                                     excluded = if (service.exclusions.isNotEmpty()) service.exclusions else listOf("Acid wash & severe scale", "Ceiling / exhaust motor repair"),
-                                    imageRes = R.drawable.svc_scope_bathroom
+                                    imageUrl = "https://firebasestorage.googleapis.com/v0/b/dutype-860ac.firebasestorage.app/o/categories%2Fcleaning.webp?alt=media"
                                 )
                             }
                             isKitchen -> {
@@ -4669,7 +4689,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                                     title = service.label(lang),
                                     included = if (service.inclusions.isNotEmpty()) service.inclusions else listOf("Crockery, sink & countertop cleaning", "Wiping appliance & cabinet exteriors", "Floor degreasing & trash clearing"),
                                     excluded = if (service.exclusions.isNotEmpty()) service.exclusions else listOf("Deep chimney internal motor degrease", "Hard burnt-on stove encrustations"),
-                                    imageRes = R.drawable.svc_scope_kitchen
+                                    imageUrl = "https://firebasestorage.googleapis.com/v0/b/dutype-860ac.firebasestorage.app/o/categories%2Fcleaning.webp?alt=media"
                                 )
                             }
                             isMopping -> {
@@ -4677,7 +4697,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                                     title = service.label(lang),
                                     included = if (service.inclusions.isNotEmpty()) service.inclusions else listOf("Floor sweeping & wet mopping", "Under-furniture surface dusting", "Disinfectant floor wipe"),
                                     excluded = if (service.exclusions.isNotEmpty()) service.exclusions else listOf("Wall washing & ceiling dusting", "Severe construction debris cleanup"),
-                                    imageRes = R.drawable.svc_scope_mopping
+                                    imageUrl = "https://firebasestorage.googleapis.com/v0/b/dutype-860ac.firebasestorage.app/o/categories%2Fcleaning.webp?alt=media"
                                 )
                             }
                             isCooking -> {
@@ -4685,7 +4705,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                                     title = service.label(lang),
                                     included = if (service.inclusions.isNotEmpty()) service.inclusions else listOf("Vegetable chopping & salad preparation", "Meat/paneer marination", "Serving food & dining table setup"),
                                     excluded = if (service.exclusions.isNotEmpty()) service.exclusions else listOf("Full multi-course gourmet chef cooking", "Post-dinner heavy vessel washing"),
-                                    imageRes = R.drawable.svc_scope_mealprep
+                                    imageUrl = "https://firebasestorage.googleapis.com/v0/b/dutype-860ac.firebasestorage.app/o/categories%2Fhome_help.webp?alt=media"
                                 )
                             }
                             isGeneralHelper -> {
@@ -4693,13 +4713,13 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                                     title = "Mopping, dusting & wiping",
                                     included = listOf("Dusting & Mopping floor", "Wet wiping furniture"),
                                     excluded = listOf("Wiping walls", "Hard to reach areas"),
-                                    imageRes = R.drawable.svc_scope_mopping
+                                    imageUrl = "https://firebasestorage.googleapis.com/v0/b/dutype-860ac.firebasestorage.app/o/categories%2Fcleaning.webp?alt=media"
                                 )
                                 ServiceScopeCard(
                                     title = "Kitchen & meal assistance",
                                     included = listOf("Veggies chopping & prep", "Crockery & sink washing"),
                                     excluded = listOf("Cooking full meals"),
-                                    imageRes = R.drawable.svc_scope_kitchen
+                                    imageUrl = "https://firebasestorage.googleapis.com/v0/b/dutype-860ac.firebasestorage.app/o/categories%2Fcleaning.webp?alt=media"
                                 )
                             }
                             else -> {
@@ -4756,30 +4776,68 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
             // When section (Side-by-side Pronto/UC style option cards)
             SvcSection {
                 Text(stringResource(R.string.svc_when), fontWeight = FontWeight.Bold, fontSize = 14.sp, color = SvcInk.fg())
+                if (isNightClosed) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "🌙 Closed for tonight (7 AM – 9 PM IST). Pick a slot for tomorrow morning onwards.",
+                        fontSize = 11.5.sp,
+                        color = Color(0xFFD97706),
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.height(6.dp))
+                }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    val instantSelected = !scheduled
+                    val instantSelected = !scheduled && !isNightClosed
                     Column(
                         Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(14.dp))
-                            .background(if (instantSelected) Color(0xFFF8FAFC).bg() else Color.White.bg())
+                            .background(
+                                if (isNightClosed) Color(0xFFF1F5F9).bg()
+                                else if (instantSelected) Color(0xFFF8FAFC).bg()
+                                else Color.White.bg()
+                            )
                             .border(
                                 width = if (instantSelected) 1.5.dp else 1.dp,
                                 color = if (instantSelected) Color(0xFF0F172A).bg() else SvcLine.bg(),
                                 shape = RoundedCornerShape(14.dp)
                             )
-                            .clickable { scheduled = false }
+                            .clickable {
+                                if (isNightClosed) {
+                                    Toast.makeText(context, "Services closed for tonight (7 AM – 9 PM IST). Please schedule for tomorrow.", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    scheduled = false
+                                }
+                            }
                             .padding(12.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.Bolt, contentDescription = null, tint = SvcOrange, modifier = Modifier.size(18.dp))
+                            Icon(
+                                Icons.Filled.Bolt,
+                                contentDescription = null,
+                                tint = if (isNightClosed) Color(0xFF94A3B8) else SvcOrange,
+                                modifier = Modifier.size(18.dp)
+                            )
                             Spacer(Modifier.width(6.dp))
-                            Text("Now", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = SvcInk.fg())
+                            Text(
+                                "Now",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = if (isNightClosed) Color(0xFF94A3B8).fg() else SvcInk.fg()
+                            )
+                            if (isNightClosed) {
+                                Spacer(Modifier.width(4.dp))
+                                Text("Closed", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFEF4444))
+                            }
                         }
                         Spacer(Modifier.height(4.dp))
-                        Text("Partner in ~60 min", fontSize = 11.5.sp, color = SvcMuted.fg())
+                        Text(
+                            if (isNightClosed) "Opens 7 AM tomorrow" else "Partner in ~60 min",
+                            fontSize = 11.5.sp,
+                            color = SvcMuted.fg()
+                        )
                     }
-                    val schedSelected = scheduled
+                    val schedSelected = scheduled || isNightClosed
                     Column(
                         Modifier
                             .weight(1f)
@@ -4799,7 +4857,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                             Text("Schedule", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = SvcInk.fg())
                         }
                         Spacer(Modifier.height(4.dp))
-                        Text("Pick date & slot", fontSize = 11.5.sp, color = SvcMuted.fg())
+                        Text(if (isNightClosed) "Book for tomorrow" else "Pick date & slot", fontSize = 11.5.sp, color = SvcMuted.fg())
                     }
                 }
                 if (scheduled) {
@@ -4839,177 +4897,103 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                 }
             }
 
-            // Address section with detect location button on top right
+            // Professional minimal Address card (Blinkit / Urban Company style)
             SvcSection {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(stringResource(R.string.svc_address), fontWeight = FontWeight.Bold, fontSize = 14.sp, color = SvcInk.fg())
-                    OutlinedButton(
-                        onClick = { requestLocation() },
-                        enabled = !locating,
-                        shape = RoundedCornerShape(50),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        border = BorderStroke(1.dp, if (lat != null) SvcGreen else SvcLine.bg())
-                    ) {
-                        if (locating) {
-                            CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 1.5.dp)
-                        } else {
-                            Icon(
-                                if (lat != null) Icons.Filled.CheckCircle else Icons.Filled.LocationOn,
-                                contentDescription = null,
-                                tint = if (lat != null) SvcGreen else SvcInk.fg(),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                stringResource(if (lat != null) R.string.svc_location_set else R.string.svc_use_location),
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (lat != null) SvcGreen else SvcInk.fg()
-                            )
-                        }
-                    }
-                }
-
-                // Quick Saved Address Tags Row (Home, Work, Shop, Other + Custom Saved Locations)
-                LazyRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    items(addressTags) { tag ->
-                        val isSelected = selectedTag == tag
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = {
-                                selectedTag = tag
-                                val saved = getSavedAddressForTag(tag)
-                                if (saved != null) {
-                                    address = saved.first
-                                    if (saved.second.isNotBlank()) area = saved.second
-                                }
-                            },
-                            label = { Text(tag, fontSize = 11.5.sp) }
-                        )
-                    }
-                    item {
-                        OutlinedButton(
-                            onClick = { showAddAddressDialog = true },
-                            shape = RoundedCornerShape(50),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp)
-                        ) {
-                            Icon(Icons.Filled.AddCircle, contentDescription = null, modifier = Modifier.size(13.dp))
-                            Spacer(Modifier.width(3.dp))
-                            Text("New Address", fontSize = 11.sp)
-                        }
-                    }
-                }
-
-                if (isOutOfArea) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)),
-                        border = BorderStroke(1.dp, Color(0xFFFECACA)),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("📍", fontSize = 16.sp)
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    text = "Coming Soon to Your Area",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.5.sp,
-                                    color = Color(0xFF991B1B)
-                                )
-                            }
-                            Spacer(Modifier.height(4.dp))
-                            Text(
-                                text = "DutyPe Home Services is currently operational only within Khammam City (15 km radius). Your selected location is ${String.format("%.1f", distanceToKhammamKm)} km away.",
-                                fontSize = 12.sp,
-                                color = Color(0xFF7F1D1D),
-                                lineHeight = 16.sp
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Button(
-                                    onClick = { requestLocation() },
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E40AF)),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Filled.MyLocation, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
-                                        Spacer(Modifier.width(4.dp))
-                                        Text(
-                                            text = "Detect Phone GPS",
-                                            fontSize = 11.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
-                                            maxLines = 1
-                                        )
-                                    }
-                                }
-                                OutlinedButton(
-                                    onClick = {
-                                        lat = 17.2473
-                                        lng = 80.1514
-                                        area = "Wyra Road"
-                                        address = "Wyra Road, Khammam, Telangana 507001"
-                                    },
-                                    shape = RoundedCornerShape(8.dp),
-                                    border = BorderStroke(1.dp, Color(0xFFDC2626)),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text(
-                                        text = "📍 Test Wyra Road",
-                                        fontSize = 11.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFFDC2626),
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = address,
-                    onValueChange = { address = it.take(300) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.svc_address_hint)) },
-                    shape = RoundedCornerShape(12.dp),
-                    minLines = 2
-                )
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    if (address.trim().length >= 5) {
+                    Text(
+                        text = stringResource(R.string.svc_address),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.5.sp,
+                        color = SvcInk.fg()
+                    )
+                    if (address.isNotBlank()) {
                         TextButton(
-                            onClick = {
-                                selectedTag?.let { saveCurrentAddress(it, address, area) }
-                            },
-                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                            onClick = { showAddAddressSheet = true },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                         ) {
-                            Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(14.dp), tint = SvcGreen)
-                            Spacer(Modifier.width(4.dp))
-                            Text("Save as ${selectedTag ?: "Home"}", fontSize = 11.5.sp, color = SvcGreen, fontWeight = FontWeight.SemiBold)
+                            Text("Change", color = SvcBlue, fontWeight = FontWeight.Bold, fontSize = 12.5.sp)
                         }
-                    } else {
-                        Spacer(Modifier.width(1.dp))
                     }
-                    TextButton(
-                        onClick = { showAddAddressDialog = true },
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                }
+
+
+
+                // Sleek, minimal address box
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showAddAddressSheet = true },
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC).bg()),
+                    border = BorderStroke(1.dp, SvcLine.bg())
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("+ Add another address", fontSize = 11.5.sp, color = SvcInk.fg(), fontWeight = FontWeight.SemiBold)
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(if (address.isNotBlank()) Color(0xFFEFF6FF) else Color(0xFFF1F5F9)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.LocationOn,
+                                contentDescription = null,
+                                tint = if (address.isNotBlank()) Color(0xFF2563EB) else SvcMuted,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            if (address.isNotBlank()) {
+                                Text(
+                                    text = area.ifBlank { "Service Location" },
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.5.sp,
+                                    color = SvcInk.fg()
+                                )
+                                Spacer(Modifier.height(3.dp))
+                                Text(
+                                    text = address,
+                                    color = SvcMuted.fg(),
+                                    fontSize = 12.5.sp,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    lineHeight = 16.sp
+                                )
+                            } else {
+                                Text(
+                                    text = "Add Service Address",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = SvcInk.fg()
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = "Tap to set doorstep service address",
+                                    color = SvcMuted.fg(),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                        if (address.isBlank()) {
+                            OutlinedButton(
+                                onClick = { showAddAddressSheet = true },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                border = BorderStroke(1.dp, Color(0xFF2563EB))
+                            ) {
+                                Text("Add", color = Color(0xFF2563EB), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            }
+                        }
                     }
                 }
             }
@@ -5030,7 +5014,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                     value = note,
                     onValueChange = { note = it.take(300) },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.svc_note_hint)) },
+                    placeholder = { Text(stringResource(R.string.svc_note_hint)) },
                     shape = RoundedCornerShape(12.dp),
                     minLines = 2
                 )
@@ -5045,46 +5029,82 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                 }
                 if (q != null && q.couponCode.isNotBlank()) {
                     Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFFF0FDF4).bg()).padding(12.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFFF0FDF4).bg())
+                            .border(1.dp, Color(0xFF86EFAC), RoundedCornerShape(14.dp))
+                            .padding(14.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = SvcGreen)
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            stringResource(R.string.svc_coupon_applied, q.couponCode, q.discount),
-                            color = SvcGreen, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f)
-                        )
-                        TextButton(onClick = { appliedCode = ""; couponInput = ""; couponErrorText = null }) {
-                            Text(stringResource(R.string.svc_remove))
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFDCFCE7)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = SvcGreen, modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "🎉 '${q.couponCode}' Applied!",
+                                color = SvcGreen,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "You're saving ₹${q.discount} on this booking!",
+                                color = Color(0xFF166534),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        TextButton(
+                            onClick = { appliedCode = ""; couponInput = ""; couponErrorText = null },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(stringResource(R.string.svc_remove), color = Color(0xFFEF4444), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                         }
                     }
                 } else {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(
-                            value = couponInput,
-                            onValueChange = {
-                                couponInput = it.uppercase().filter { ch -> ch.isLetterOrDigit() }.take(20)
-                                couponErrorText = null
-                            },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            label = { Text(stringResource(R.string.svc_coupon_hint)) },
-                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Button(
-                            onClick = {
-                                couponErrorText = null
-                                appliedCode = couponInput.trim()
-                            },
-                            enabled = couponInput.trim().length >= 3 && !quoting,
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            if (quoting) {
-                                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
-                            } else {
-                                Text(stringResource(R.string.svc_apply))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFFF8FAFC).bg())
+                            .border(1.dp, SvcLine.bg(), RoundedCornerShape(14.dp))
+                            .clickable { showCouponSheet = true }
+                            .padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color(0xFFFEF3C7)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Filled.LocalOffer, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(18.dp))
                             }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text("Apply Coupon", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = SvcInk.fg())
+                                val availableOffersCount = q?.offers.orEmpty().size
+                                Text(
+                                    if (availableOffersCount > 0) "$availableOffersCount offers available for you" else "Save extra with coupon code",
+                                    fontSize = 12.sp,
+                                    color = if (availableOffersCount > 0) SvcGreen else SvcMuted.fg(),
+                                    fontWeight = if (availableOffersCount > 0) FontWeight.SemiBold else FontWeight.Normal
+                                )
+                            }
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("View", color = SvcBlue, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = SvcBlue, modifier = Modifier.size(16.dp))
                         }
                     }
                     if (!couponErrorText.isNullOrBlank()) {
@@ -5093,26 +5113,65 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                     }
                 }
                 if (q != null && q.couponNote.isNotBlank()) Text(q.couponNote, color = SvcOrange, fontSize = 12.sp)
-                val offers = q?.offers.orEmpty().filter { it.code != q?.couponCode }
-                if (offers.isNotEmpty()) {
-                    OfferTickets(offers, onApply = {
-                        couponInput = it.code
-                        couponErrorText = null
-                        appliedCode = it.code
-                    })
-                }
             }
 
             // Bill
             SvcSection {
-                Text(stringResource(R.string.svc_bill), fontWeight = FontWeight.Bold, color = SvcInk.fg())
-                PriceLine(stringResource(R.string.svc_price_service), service.price)
-                PriceLine(stringResource(R.string.svc_price_fee), fee, struck = discount > 0 && discount >= fee && q?.couponCode.isNullOrBlank())
-                if (discount > 0) DiscountLine(q?.discountLabel.orEmpty(), discount)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(stringResource(R.string.svc_bill), fontWeight = FontWeight.Bold, color = SvcInk.fg(), fontSize = 15.sp)
+                    if (discount > 0) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFFDCFCE7),
+                            border = BorderStroke(1.dp, Color(0xFF86EFAC))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Filled.LocalOffer, contentDescription = null, tint = Color(0xFF15803D), modifier = Modifier.size(12.dp))
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = "You saved ₹$discount",
+                                    color = Color(0xFF15803D),
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+                // All-inclusive transparent pricing: platform fees and technician costs are unified
+                PriceLine("Service Amount (All-inclusive)", total + (if (discount > 0) discount else 0))
+                if (discount > 0) DiscountLine(q?.discountLabel.orEmpty().ifBlank { "Discount Applied" }, discount)
                 HorizontalDivider(color = SvcLine.bg())
                 PriceLine(stringResource(R.string.svc_price_total), total, bold = true)
-                if (discount > 0) Pill(stringResource(R.string.svc_you_save, discount), SvcGreen, icon = Icons.Filled.LocalOffer)
-                Text(stringResource(R.string.svc_pay_after), color = SvcMuted.fg(), fontSize = 12.sp)
+
+                // Transparent Trust Reassurance Banner
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFFF0FDF4),
+                    border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                    modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "All taxes, platform fees & technician visits included • Zero hidden charges",
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF15803D)
+                        )
+                    }
+                }
             }
 
             if (lat == null) {
@@ -5172,60 +5231,709 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
 } // outer Box
 } // Scaffold
 
-    if (showAddAddressDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddAddressDialog = false },
-            title = { Text(stringResource(R.string.add_address), fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf("🏠 Home", "🏢 Work", "🏬 Shop", "📍 Other").forEach { tag ->
-                            FilterChip(
-                                selected = newAddressTag == tag,
-                                onClick = { newAddressTag = tag },
-                                label = { Text(tag, fontSize = 11.5.sp) }
-                            )
-                        }
-                    }
-                    OutlinedTextField(
-                        value = newAddressArea,
-                        onValueChange = { newAddressArea = it },
-                        label = { Text("Locality / Landmark") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = newAddressText,
-                        onValueChange = { newAddressText = it },
-                        label = { Text("Complete Address") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (newAddressText.trim().length >= 5) {
-                            selectedTag = newAddressTag
-                            address = newAddressText.trim()
-                            if (newAddressArea.isNotBlank()) area = newAddressArea.trim()
-                            saveCurrentAddress(newAddressTag, newAddressText.trim(), newAddressArea.trim())
-                            showAddAddressDialog = false
-                            newAddressText = ""
-                            newAddressArea = ""
-                        }
-                    },
-                    enabled = newAddressText.trim().length >= 5
-                ) {
-                    Text("Save & Select")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddAddressDialog = false }) {
-                    Text(stringResource(R.string.close))
-                }
+    if (showAddAddressSheet) {
+        val hasExistingHome = remember(savedWorkLocations, prefs) { getSavedAddressForTag("🏠 Home") != null }
+        val hasExistingWork = remember(savedWorkLocations, prefs) { getSavedAddressForTag("🏢 Work") != null }
+        AddAddressBottomSheet(
+            onDismiss = { showAddAddressSheet = false },
+            hasExistingHome = hasExistingHome,
+            hasExistingWork = hasExistingWork,
+            currentDetectedArea = area,
+            currentDetectedAddress = address,
+            onDetectCurrentLocation = { requestLocation() },
+            onSaveAndSelect = { tag, fullAddress, areaText ->
+                selectedTag = tag
+                address = fullAddress
+                if (areaText.isNotBlank()) area = areaText
+                saveCurrentAddress(tag, fullAddress, areaText)
             }
         )
+    }
+
+    if (showCouponSheet) {
+        CouponsBottomSheet(
+            onDismiss = { showCouponSheet = false },
+            quote = q,
+            appliedCode = appliedCode,
+            quoting = quoting,
+            couponErrorText = couponErrorText,
+            onApplyCode = { code ->
+                couponInput = code
+                couponErrorText = null
+                appliedCode = code
+            },
+            onRemoveCode = {
+                couponInput = ""
+                couponErrorText = null
+                appliedCode = ""
+            }
+        )
+    }
+
+    if (showLaunchFeedbackSheet && service != null) {
+        ServiceLaunchFeedbackBottomSheet(
+            serviceName = service.label(lang),
+            serviceId = service.id,
+            detectedArea = area,
+            detectedAddress = address,
+            onDismiss = { showLaunchFeedbackSheet = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ServiceLaunchFeedbackBottomSheet(
+    serviceName: String,
+    serviceId: String,
+    detectedArea: String,
+    detectedAddress: String,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val auth = remember { com.google.firebase.auth.FirebaseAuth.getInstance() }
+    val initialPhone = remember { auth.currentUser?.phoneNumber.orEmpty().replace("+91", "").trim() }
+    var phone by remember { mutableStateOf(initialPhone) }
+    var userArea by remember { mutableStateOf(detectedArea.ifBlank { "Khammam" }) }
+    var note by remember { mutableStateOf("") }
+    var isSubmitting by remember { mutableStateOf(false) }
+    var isSubmitted by remember { mutableStateOf(false) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color.White.bg(),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 12.dp)
+                .navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (isSubmitted) {
+                Box(
+                    modifier = Modifier.size(56.dp).clip(CircleShape).background(Color(0xFFDCFCE7)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(32.dp))
+                }
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    text = "Request Received! 🎉",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Color(0xFF0F172A).fg()
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "Thank you! You are added to our priority VIP launch list for $serviceName in $userArea. Our local team will notify you first with exclusive launch discounts!",
+                    fontSize = 13.sp,
+                    color = Color(0xFF64748B).fg(),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    lineHeight = 18.sp
+                )
+                Spacer(Modifier.height(20.dp))
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                ) {
+                    Text("Done", fontWeight = FontWeight.Bold, color = Color.White)
+                }
+                Spacer(Modifier.height(16.dp))
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier.size(44.dp).clip(CircleShape).background(Color(0xFFEFF6FF)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🚀", fontSize = 22.sp)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            text = "Services Launching Soon! ⚡",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = Color(0xFF0F172A).fg()
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "We're currently onboarding top verified technicians in Khammam.",
+                            fontSize = 12.sp,
+                            color = Color(0xFF64748B).fg(),
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider(color = Color(0xFFF1F5F9))
+                Spacer(Modifier.height(16.dp))
+
+                // Service Badge
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFF8FAFC).bg(),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Selected Service:", fontSize = 12.sp, color = Color(0xFF64748B))
+                        Spacer(Modifier.width(8.dp))
+                        Text(serviceName, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF0F172A).fg())
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // Phone Input
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = { phone = it.filter { ch -> ch.isDigit() }.take(10) },
+                    placeholder = { Text("Your Contact Number *") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                // Area Input
+                OutlinedTextField(
+                    value = userArea,
+                    onValueChange = { userArea = it.take(80) },
+                    placeholder = { Text("Locality / Colony in Khammam") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                // What do you need?
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it.take(300) },
+                    placeholder = { Text("What do you need? (Feedback / Requirements)") },
+                    minLines = 2,
+                    maxLines = 4,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                Spacer(Modifier.height(18.dp))
+
+                Button(
+                    onClick = {
+                        if (phone.length < 10) {
+                            Toast.makeText(context, "Please enter a valid 10-digit phone number", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
+                        isSubmitting = true
+                        scope.launch {
+                            runCatching {
+                                val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                                val docData = hashMapOf(
+                                    "serviceId" to serviceId,
+                                    "serviceName" to serviceName,
+                                    "phone" to phone,
+                                    "area" to userArea,
+                                    "detectedAddress" to detectedAddress,
+                                    "note" to note,
+                                    "uid" to (auth.currentUser?.uid ?: "anonymous"),
+                                    "createdAt" to com.google.firebase.Timestamp.now()
+                                )
+                                db.collection("service_waitlist_feedback").add(docData).await()
+                                isSubmitted = true
+                            }.onFailure { err ->
+                                Toast.makeText(context, err.message ?: "Failed to submit request", Toast.LENGTH_SHORT).show()
+                            }
+                            isSubmitting = false
+                        }
+                    },
+                    enabled = !isSubmitting,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                ) {
+                    if (isSubmitting) {
+                        CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                    } else {
+                        Text("Notify Me at Launch & Submit 🔔", fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = Color.White)
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddAddressBottomSheet(
+    onDismiss: () -> Unit,
+    hasExistingHome: Boolean,
+    hasExistingWork: Boolean,
+    onSaveAndSelect: (tag: String, fullAddress: String, area: String) -> Unit,
+    onDetectCurrentLocation: () -> Unit,
+    currentDetectedArea: String = "",
+    currentDetectedAddress: String = ""
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var selectedTagType by remember { mutableStateOf("🏠 Home") }
+    var customTagLabel by remember { mutableStateOf("") }
+    var houseFlatNo by remember { mutableStateOf("") }
+    var landmarkArea by remember { mutableStateOf(currentDetectedArea) }
+    var completeAddress by remember { mutableStateOf(currentDetectedAddress) }
+
+    val isHomeDuplicate = selectedTagType == "🏠 Home" && hasExistingHome
+    val isWorkDuplicate = selectedTagType == "🏢 Work" && hasExistingWork
+
+    val finalTag = when (selectedTagType) {
+        "📍 Other" -> if (customTagLabel.isNotBlank()) "📍 ${customTagLabel.trim()}" else "📍 Other"
+        else -> selectedTagType
+    }
+
+    val isValid = completeAddress.trim().length >= 5 && (selectedTagType != "📍 Other" || customTagLabel.isNotBlank())
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Color.White.bg(),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = if (isHomeDuplicate) "Update Home Address" else "Add New Address",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = SvcInk.fg()
+                    )
+                    Text(
+                        text = "Saved locations make service bookings instant",
+                        fontSize = 12.sp,
+                        color = SvcMuted.fg()
+                    )
+                }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Filled.Close, contentDescription = "Close", tint = SvcMuted.fg())
+                }
+            }
+
+            // Tag Selection (Home, Work, Other)
+            Text(
+                text = "Save address as",
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                color = SvcInk.fg()
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("🏠 Home", "🏢 Work", "📍 Other").forEach { tag ->
+                    val isSelected = selectedTagType == tag
+                    val isTagSaved = (tag == "🏠 Home" && hasExistingHome) || (tag == "🏢 Work" && hasExistingWork)
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { selectedTagType = tag },
+                        label = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(tag, fontSize = 12.sp, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                                if (isTagSaved) {
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("(Saved)", fontSize = 10.sp, color = if (isSelected) Color.White else SvcMuted.fg())
+                                }
+                            }
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color(0xFF0F172A),
+                            selectedLabelColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(50)
+                    )
+                }
+            }
+
+            // Swiggy / Urban Company deduplication notice
+            if (isHomeDuplicate) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFEFF6FF),
+                    border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Filled.HomeRepairService, contentDescription = null, tint = SvcBlue, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "You already have a Home address saved. Saving here will update your Home address. To save another location, select 'Other' below.",
+                            fontSize = 12.sp,
+                            color = Color(0xFF1E40AF),
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+            }
+
+            if (selectedTagType == "📍 Other") {
+                OutlinedTextField(
+                    value = customTagLabel,
+                    onValueChange = { customTagLabel = it.take(25) },
+                    placeholder = { Text("Save As Label (e.g. Parents, Shop, Gym)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
+            }
+
+            // Quick Use Current Location Strip
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFF8FAFC),
+                border = BorderStroke(1.dp, SvcLine.bg()),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        onDetectCurrentLocation()
+                        if (currentDetectedAddress.isNotBlank()) completeAddress = currentDetectedAddress
+                        if (currentDetectedArea.isNotBlank()) landmarkArea = currentDetectedArea
+                    }
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.MyLocation, contentDescription = null, tint = SvcGreen, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text("Use Current GPS Location", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = SvcInk.fg())
+                            if (currentDetectedArea.isNotBlank()) {
+                                Text(currentDetectedArea, fontSize = 11.5.sp, color = SvcMuted.fg(), maxLines = 1)
+                            }
+                        }
+                    }
+                    Text("Auto-fill", color = SvcGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            // Input Fields
+            OutlinedTextField(
+                value = houseFlatNo,
+                onValueChange = { houseFlatNo = it },
+                placeholder = { Text("Flat / House No. / Building (Optional)") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = landmarkArea,
+                onValueChange = { landmarkArea = it },
+                placeholder = { Text("Locality / Landmark") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = completeAddress,
+                onValueChange = { completeAddress = it },
+                placeholder = { Text("Complete Address *") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                minLines = 2
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            Button(
+                onClick = {
+                    val full = if (houseFlatNo.isNotBlank()) {
+                        "${houseFlatNo.trim()}, ${completeAddress.trim()}"
+                    } else {
+                        completeAddress.trim()
+                    }
+                    val areaLabel = if (landmarkArea.isNotBlank()) landmarkArea.trim() else finalTag.substringAfter(" ").trim()
+                    onSaveAndSelect(finalTag, full, areaLabel)
+                    onDismiss()
+                },
+                enabled = isValid,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF0F172A),
+                    disabledContainerColor = Color(0xFFE2E8F0)
+                )
+            ) {
+                Text(
+                    text = if (isHomeDuplicate) "Update & Use Home Address" else "Save & Use Address",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CouponsBottomSheet(
+    onDismiss: () -> Unit,
+    quote: ServiceQuote?,
+    appliedCode: String,
+    quoting: Boolean,
+    couponErrorText: String?,
+    onApplyCode: (String) -> Unit,
+    onRemoveCode: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var inputCode by remember { mutableStateOf("") }
+    var localError by remember { mutableStateOf<String?>(null) }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Color.White.bg(),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFEF3C7)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Filled.LocalOffer, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = "Apply Coupon",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = SvcInk.fg()
+                    )
+                }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
+                    Icon(Icons.Filled.Close, contentDescription = "Close", tint = SvcMuted.fg())
+                }
+            }
+
+            // Input Bar
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = inputCode,
+                        onValueChange = {
+                            inputCode = it.uppercase().filter { ch -> ch.isLetterOrDigit() }.take(20)
+                            localError = null
+                        },
+                        modifier = Modifier.weight(1f),
+                        singleLine = true,
+                        placeholder = { Text("Enter Coupon Code (e.g. DUTY50)") },
+                        shape = RoundedCornerShape(12.dp),
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            if (inputCode.trim().length >= 3) {
+                                onApplyCode(inputCode.trim())
+                                onDismiss()
+                            }
+                        },
+                        enabled = inputCode.trim().length >= 3 && !quoting,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.height(54.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                    ) {
+                        if (quoting) {
+                            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                        } else {
+                            Text("APPLY", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                val activeError = localError ?: couponErrorText
+                if (!activeError.isNullOrBlank()) {
+                    Text(activeError, color = SvcRed, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                }
+            }
+
+            // Currently Applied Coupon (if any)
+            if (quote != null && quote.couponCode.isNotBlank()) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFFF0FDF4),
+                    border = BorderStroke(1.dp, Color(0xFF86EFAC)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = SvcGreen, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "'${quote.couponCode}' Applied",
+                                fontWeight = FontWeight.Bold,
+                                color = SvcGreen,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "Saving ₹${quote.discount} on this service",
+                                color = Color(0xFF166534),
+                                fontSize = 12.sp
+                            )
+                        }
+                        TextButton(onClick = { onRemoveCode(); onDismiss() }) {
+                            Text("Remove", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+                }
+            }
+
+            // Available Offers List
+            val offers = quote?.offers.orEmpty()
+            if (offers.isNotEmpty()) {
+                HorizontalDivider(color = SvcLine.bg())
+                Text(
+                    text = "Available Offers (${offers.size})",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = SvcInk.fg()
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    offers.forEach { o ->
+                        val isThisApplied = quote?.couponCode.equals(o.code, ignoreCase = true)
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = if (isThisApplied) Color(0xFFF0FDF4) else Color.White,
+                            border = BorderStroke(1.dp, if (isThisApplied) Color(0xFF86EFAC) else Color(0xFFE2E8F0)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color(0xFFEFF6FF),
+                                            border = BorderStroke(1.dp, Color(0xFFBFDBFE))
+                                        ) {
+                                            Text(
+                                                text = o.code,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                fontSize = 12.sp,
+                                                color = SvcBlue,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                                letterSpacing = 0.5.sp
+                                            )
+                                        }
+                                        if (o.headline.isNotBlank()) {
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(
+                                                text = o.headline,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp,
+                                                color = SvcGreen
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        text = o.title,
+                                        fontSize = 12.sp,
+                                        color = SvcInk.fg(),
+                                        lineHeight = 16.sp
+                                    )
+                                    if (o.minOrder > 0) {
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(
+                                            text = "Applicable on orders above ₹${o.minOrder}",
+                                            fontSize = 11.sp,
+                                            color = SvcMuted.fg()
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.width(10.dp))
+                                if (isThisApplied) {
+                                    Text(
+                                        text = "APPLIED",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = SvcGreen
+                                    )
+                                } else {
+                                    Button(
+                                        onClick = {
+                                            onApplyCode(o.code)
+                                            onDismiss()
+                                        },
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                                    ) {
+                                        Text("APPLY", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
     }
 }
 
@@ -5452,8 +6160,13 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
         ) {
             OfflineCachedNote()
             // Live Booking Progress Tracker Hero
+            val cityOrArea = b.area.trim().ifEmpty {
+                b.addressText.split(",").map { it.trim() }.filter { it.isNotBlank() }.let { parts ->
+                    if (parts.size >= 2) parts[parts.size - 2] else parts.firstOrNull()
+                }?.takeIf { it.isNotBlank() } ?: "your area"
+            }
             val trackerStatusText = when (b.status) {
-                BookingStatus.SEARCHING -> "Searching for Technician..."
+                BookingStatus.SEARCHING -> "Finding the best partner near you"
                 BookingStatus.ASSIGNED -> "Technician Assigned"
                 BookingStatus.ON_THE_WAY -> "Technician On The Way"
                 BookingStatus.STARTED -> "Service In Progress"
@@ -5463,7 +6176,7 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                 else -> "Booking Placed"
             }
             val trackerSubtext = when (b.status) {
-                BookingStatus.SEARCHING -> "Matching you with the nearest background-verified professional in Khammam..."
+                BookingStatus.SEARCHING -> "Matching you with the nearest verified professional in $cityOrArea..."
                 BookingStatus.ASSIGNED -> "Your partner has accepted and is preparing their tools."
                 BookingStatus.ON_THE_WAY -> "Partner is en route to your doorstep. Keep your start OTP ready."
                 BookingStatus.STARTED -> "Work is underway. OTP successfully verified."
@@ -5589,8 +6302,7 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
 
             SvcSection {
                 Text(stringResource(R.string.svc_bill), fontWeight = FontWeight.Bold, color = SvcInk.fg())
-                PriceLine(stringResource(R.string.svc_price_service), b.price)
-                PriceLine(stringResource(R.string.svc_price_fee), b.bookingFee)
+                PriceLine("Service Charge (All-inclusive)", b.price + b.bookingFee)
                 if (b.discount > 0) DiscountLine(b.discountLabel, b.discount)
                 if (b.extras > 0) PriceLine(stringResource(R.string.svc_extras, b.extras, b.extrasNote), b.extras)
                 if (b.status == BookingStatus.CANCELLED && b.cancellationFee > 0) {
@@ -5637,7 +6349,8 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                             value = review,
                             onValueChange = { review = it.take(500) },
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text(stringResource(R.string.svc_review_hint)) }
+                            placeholder = { Text(stringResource(R.string.svc_review_hint)) },
+                            shape = RoundedCornerShape(12.dp)
                         )
                         Button(
                             onClick = {

@@ -196,7 +196,6 @@ data class JobForm(
         JobDetails.GENDER to gender,
         JobDetails.EXPERIENCE_REQUIRED to experienceRequired,
         JobDetails.EDUCATION_REQUIRED to educationRequired,
-        JobDetails.BENEFITS to benefits,
         "businessName" to businessName
     )
 }

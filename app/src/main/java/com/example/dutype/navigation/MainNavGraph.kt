@@ -395,19 +395,6 @@ fun MainNavGraph(
                 isRegisterMode = false
             )
         }
-        composable(
-            route = "${Routes.REGISTER}?role={role}",
-            arguments = listOf(navArgument("role") { type = NavType.StringType; defaultValue = "WORKER" })
-        ) { backStackEntry ->
-            val role = backStackEntry.arguments?.getString("role") ?: "WORKER"
-            Timber.d("Register route accessed with role: $role -> routing to unified auth")
-            EnhancedLoginScreen(
-                navController = navController,
-                skipRoleSelection = true,
-                initialRole = role,
-                isRegisterMode = false
-            )
-        }
         composable(Routes.SELECT_ROLE) {
             RoleSelectionWithNavigation(
                 navController = navController,

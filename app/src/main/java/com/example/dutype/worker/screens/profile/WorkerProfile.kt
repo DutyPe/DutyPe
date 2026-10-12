@@ -53,7 +53,9 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.HomeRepairService
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -492,6 +494,7 @@ fun WorkerProfileScreen(
                     modifier = Modifier
                         .height(32.dp)
                         .clip(RoundedCornerShape(16.dp))
+                        .border(1.dp, androidx.compose.ui.graphics.Color(0xFF10B981).bd(), RoundedCornerShape(16.dp))
                         .clickable {
                             localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP)
                         }
@@ -758,6 +761,12 @@ fun WorkerProfileScreen(
                                 showLoginBottomSheet = true
                             }
                         },
+                        onBookServices = {
+                            rootNavController.navigate(Routes.SERVICES)
+                        },
+                        onServicesBookings = {
+                            rootNavController.navigate(Routes.SERVICES_BOOKINGS)
+                        },
                         onGuidelines = {
                             val route = Routes.guidelinesRoute(com.example.dutype.guidelines.GuidelineRole.WORKER)
                             localNavController?.navigate(route) ?: rootNavController.navigate(route)
@@ -772,6 +781,8 @@ fun WorkerProfileScreen(
                         onTerms = { rootNavController.navigate(Routes.TERMS_OF_SERVICE) }
                     )
                 }
+
+
 
                 item {
                     Spacer(modifier = Modifier.height(24.dp))
@@ -1305,6 +1316,8 @@ private fun ProfileSettingsCard(
     onWorkHistory: () -> Unit,
     onEarnings: () -> Unit,
     onReferEarn: () -> Unit,
+    onBookServices: () -> Unit = {},
+    onServicesBookings: () -> Unit = {},
     onGuidelines: () -> Unit = {},
     onRateApp: () -> Unit,
     onJoinCommunity: () -> Unit,
@@ -1319,7 +1332,7 @@ private fun ProfileSettingsCard(
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Flat Menu Card: Work History, My Earnings, Help Desk
+        // Flat Menu Card: Work History, My Earnings, Booked Services, Help Desk
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -1338,6 +1351,18 @@ private fun ProfileSettingsCard(
                     title = stringResource(R.string.my_earnings),
                     onClick = onEarnings,
                     iconRes = R.drawable.ic_profile_wallet
+                )
+                ProfileRowDivider()
+                ProfileListRow(
+                    title = "Book Home Services",
+                    onClick = onBookServices,
+                    icon = Icons.Filled.HomeRepairService
+                )
+                ProfileRowDivider()
+                ProfileListRow(
+                    title = "My Booked Services",
+                    onClick = onServicesBookings,
+                    icon = Icons.Filled.History
                 )
                 ProfileRowDivider()
                 ProfileListRow(

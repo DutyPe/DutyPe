@@ -150,10 +150,10 @@ fun ReportNonPaymentSheet(
                     amountText = input.filter { it.isDigit() || it == '.' }
                     errorMessage = null
                 },
-                label = { Text(stringResource(R.string.report_non_payment_amount_label)) },
-                placeholder = { Text(stringResource(R.string.report_non_payment_amount_hint)) },
+                placeholder = { Text(stringResource(R.string.report_non_payment_amount_label)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 singleLine = true,
+                shape = RoundedCornerShape(12.dp),
                 isError = amountText.isNotBlank() && amount == null,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -177,9 +177,9 @@ fun ReportNonPaymentSheet(
             OutlinedTextField(
                 value = description,
                 onValueChange = { if (it.length <= 1000) description = it },
-                label = { Text(stringResource(R.string.report_non_payment_details_label)) },
-                placeholder = { Text(stringResource(R.string.report_non_payment_details_hint)) },
+                placeholder = { Text(stringResource(R.string.report_non_payment_details_label)) },
                 minLines = 3,
+                shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth()
             )
 

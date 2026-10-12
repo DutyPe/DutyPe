@@ -288,10 +288,15 @@ fun WorkerReferEarnScreen(
                     // Who referred you / Referral Code Redemption
                     item {
                         if (uiState.myReferrer != null) {
-                            ReferrerInfoCard(referrer = uiState.myReferrer)
+                            val currentWorkerName = profileCompletionViewModel.profileStore.worker.value?.name?.ifBlank { "You" } ?: "You"
+                            com.example.dutype.components.ReferralConnectionHandshakeCard(
+                                referrer = uiState.myReferrer!!,
+                                currentUserName = currentWorkerName
+                            )
                         } else {
                             ReferAndEarnRedemptionCard(
                                 hasExistingReferrer = false,
+                                ownReferralCode = uiState.wallet?.referralCode.orEmpty(),
                                 onSuccess = { viewModel.loadReferralData() }
                             )
                         }
@@ -359,6 +364,8 @@ fun WorkerReferEarnScreen(
                     item {
                         ReferralHistorySection(referralHistory = uiState.referralHistory)
                     }
+
+
 
 
                     item { Spacer(modifier = Modifier.height(24.dp)) }

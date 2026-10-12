@@ -63,6 +63,8 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalAutofill
 import androidx.compose.ui.platform.LocalAutofillTree
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -70,6 +72,7 @@ import androidx.navigation.NavController
 import kotlinx.coroutines.delay
 
 import com.example.dutype.components.LanguageSelectionBottomSheet
+
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
 import com.example.dutype.utils.FirestoreUtils
@@ -141,7 +144,6 @@ private fun OtpLoginScreen(
     var otpValue by remember { mutableStateOf("") }
     var isCheckingPhone by remember { mutableStateOf(false) }
     var showLanguageBottomSheet by remember { mutableStateOf(false) }
-    var truecallerBusy by remember { mutableStateOf(false) }
 
     val selectedCountryCode = "+91"
     val context = LocalContext.current
@@ -177,16 +179,19 @@ private fun OtpLoginScreen(
         val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) }
         val originalLightStatusBars = insetsController?.isAppearanceLightStatusBars ?: true
         val originalLightNavBars = insetsController?.isAppearanceLightNavigationBars ?: true
+        val originalStatusBarColor = window?.statusBarColor
         val originalNavBarColor = window?.navigationBarColor
 
         // Status bar: Dark hero background -> White icons (signal, wifi, battery, clock)
         insetsController?.isAppearanceLightStatusBars = false
         insetsController?.isAppearanceLightNavigationBars = true
+        window?.statusBarColor = android.graphics.Color.BLACK
         window?.navigationBarColor = android.graphics.Color.WHITE
 
         onDispose {
             insetsController?.isAppearanceLightStatusBars = originalLightStatusBars
             insetsController?.isAppearanceLightNavigationBars = originalLightNavBars
+            originalStatusBarColor?.let { window?.statusBarColor = it }
             originalNavBarColor?.let { window?.navigationBarColor = it }
         }
     }
@@ -215,20 +220,14 @@ private fun OtpLoginScreen(
                 val currentUser = FirebaseAuth.getInstance().currentUser
 
                 if (currentUser != null) {
-                    val tcInfo = otpViewModel.lastTruecallerResult
-                    val tcName = tcInfo?.name?.takeIf { it.isNotBlank() }
-                    val tcEmail = tcInfo?.email?.orEmpty() ?: ""
-
                     val authResult = otpViewModel.resolveUnifiedAuth(
-                        role = role,
-                        fullName = tcName
+                        role = role
                     )
                     authResult.fold(
                         onSuccess = { outcome ->
                             val resolvedName = outcome.user?.name?.trim()?.takeIf { it.isNotBlank() && !it.equals("User", ignoreCase = true) }
-                                ?: tcName
                             profileCompletionViewModel.saveUserInfoToLocalStorage(
-                                email = tcEmail,
+                                email = "",
                                 name = resolvedName ?: "",
                                 role = outcome.role
                             )
@@ -249,9 +248,9 @@ private fun OtpLoginScreen(
                         onFailure = { error ->
                             Timber.e(error, "OTP VERIFICATION SUCCESS - Auth resolution failed")
                             val msg = error.message.orEmpty()
-                            val toastText = if (msg.startsWith("phone-already-registered-as:")) {
-                                val existingRole = msg.substringAfter(":").lowercase()
-                                val existingRoleLabel = if (existingRole == "employer") context.getString(R.string.employer) else context.getString(R.string.worker)
+                            val toastText = if (msg.contains("phone-already-registered-as:")) {
+                                val existingRole = msg.substringAfter("phone-already-registered-as:").substringBefore(" ").substringBefore("\n").trim().lowercase()
+                                val existingRoleLabel = if (existingRole.contains("employer")) context.getString(R.string.employer) else context.getString(R.string.worker)
                                 context.getString(R.string.auth_phone_registered_as_role, existingRoleLabel, existingRoleLabel)
                             } else {
                                 error.message ?: context.getString(R.string.auth_verification_failed)
@@ -289,8 +288,8 @@ private fun OtpLoginScreen(
     LaunchedEffect(otpState.error) {
         val err = otpState.error
         if (!err.isNullOrBlank()) {
-            val toastText = if (err.startsWith("phone-already-registered-as:")) {
-                val existingRole = err.substringAfter(":").trim().lowercase()
+            val toastText = if (err.contains("phone-already-registered-as:")) {
+                val existingRole = err.substringAfter("phone-already-registered-as:").substringBefore(" ").substringBefore("\n").trim().lowercase()
                 val existingRoleLabel = if (existingRole.contains("employer")) {
                     context.getString(R.string.employer)
                 } else {
@@ -491,21 +490,46 @@ private fun OtpLoginScreen(
         } else {
         // Phone-entry screen — matches media_1791261378906.png pixel-for-pixel:
         // Top black hero (Help pill, DutyPe 46sp, tagline, 3 badges) +
-        // Bottom white card (Enter your number, +91 input, Send OTP arrow button, or divider, Continue with Truecaller, 18+ T&C footer)
+        // Bottom white card (Enter your number, +91 input, Send OTP arrow button, 18+ T&C footer)
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black)
         ) {
-            // Top Hero Section with Pure Black Base and Dark Depth Circles
+            // Top Hero Section with Pure Black Base, Saffron Warm Shade & Dark Depth Circles
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
+                    .weight(0.9f)
                     .background(Color.Black)
                     .statusBarsPadding()
             ) {
+                    // Saffron warm shade covering top half and above branding section
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.60f)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color(0xFFE65100).copy(alpha = 0.38f), // DutyPe Rich Saffron
+                                        Color(0xFFFF9800).copy(alpha = 0.18f), // Soft ambient glow
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                    )
                     Canvas(modifier = Modifier.matchParentSize()) {
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color(0xFFFF6D00).copy(alpha = 0.30f),
+                                    Color.Transparent
+                                ),
+                                center = Offset(x = size.width * 0.5f, y = size.height * 0.20f),
+                                radius = size.width * 0.70f
+                            )
+                        )
                         drawCircle(
                             color = Color(0xFF141416),
                             radius = size.width * 0.48f,
@@ -573,56 +597,61 @@ private fun OtpLoginScreen(
                             }
                         }
 
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            // DutyPe Wordmark
-                            Text(
-                                text = "DutyPe",
-                                modifier = Modifier.padding(horizontal = 24.dp),
-                                style = MaterialTheme.typography.displayMedium.copy(
-                                    fontSize = 46.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White,
-                                    letterSpacing = (-1.5).sp
-                                )
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // Tagline: "Jobs & home services, made simple."
-                            Text(
-                                text = buildAnnotatedString {
-                                    withStyle(SpanStyle(color = Color(0xFFCBD5E1), fontWeight = FontWeight.Normal, fontSize = 18.sp)) {
-                                        append("Jobs & home services,\n")
-                                    }
-                                    withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)) {
-                                        append("made simple.")
-                                    }
-                                },
-                                lineHeight = 25.sp,
-                                modifier = Modifier.padding(horizontal = 24.dp)
-                            )
-                        }
-
-                        // 3 Badges Row - crisp single row matching mockup (no clipping or scrolling)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
                         ) {
-                            LoginFeatureBadge(
-                                icon = Icons.Outlined.LocationOn,
-                                text = "Jobs near you"
-                            )
-                            LoginFeatureBadge(
-                                icon = Icons.Outlined.Home,
-                                text = "Home services"
-                            )
-                            LoginFeatureBadge(
-                                icon = Icons.Outlined.AddCircleOutline,
-                                text = "Hire in minutes"
-                            )
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                // DutyPe Wordmark
+                                Text(
+                                    text = "DutyPe",
+                                    modifier = Modifier.padding(horizontal = 24.dp),
+                                    style = MaterialTheme.typography.displayMedium.copy(
+                                        fontSize = 46.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color.White,
+                                        letterSpacing = (-1.5).sp
+                                    )
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Tagline: "Jobs & home services, made simple."
+                                Text(
+                                    text = buildAnnotatedString {
+                                        withStyle(SpanStyle(color = Color(0xFFCBD5E1), fontWeight = FontWeight.Normal, fontSize = 18.sp)) {
+                                            append("Jobs & home services,\n")
+                                        }
+                                        withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)) {
+                                            append("made simple.")
+                                        }
+                                    },
+                                    lineHeight = 25.sp,
+                                    modifier = Modifier.padding(horizontal = 24.dp)
+                                )
+                            }
+
+                            // 3 Badges Row - placed directly below DutyPe wordmark & tagline
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                LoginFeatureBadge(
+                                    icon = Icons.Outlined.LocationOn,
+                                    text = "Jobs near you"
+                                )
+                                LoginFeatureBadge(
+                                    icon = Icons.Outlined.Home,
+                                    text = "Home services"
+                                )
+                                LoginFeatureBadge(
+                                    icon = Icons.Outlined.AddCircleOutline,
+                                    text = "Hire in minutes"
+                                )
+                            }
                         }
                     }
                 }
@@ -631,7 +660,7 @@ private fun OtpLoginScreen(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
+                        .weight(1.25f),
                     shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
                     color = Color.White
                 ) {
@@ -639,24 +668,23 @@ private fun OtpLoginScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .navigationBarsPadding()
-                            .padding(horizontal = 24.dp, vertical = 24.dp),
+                            .imePadding()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 24.dp, vertical = 20.dp),
                         verticalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column(modifier = Modifier.fillMaxWidth()) {
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            // Title: "Enter your number" (reduced 3dp: 24.sp -> 21.sp)
+                            // Title: "Enter your number"
                             Text(
                                 text = stringResource(R.string.auth_enter_mobile_number),
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontSize = 21.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Ink900.fg(),
-                                letterSpacing = (-0.4).sp
+                                style = MaterialTheme.typography.titleLarge.copy(
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Ink900.fg(),
+                                    letterSpacing = (-0.4).sp
+                                )
                             )
-                        )
-
-                        Spacer(modifier = Modifier.height(18.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
                         // Phone Input Box: Flag | +91 | Divider | Number
                         Surface(
@@ -752,8 +780,14 @@ private fun OtpLoginScreen(
                                                         AnimatedContent(
                                                             targetState = char,
                                                             transitionSpec = {
-                                                                (slideInVertically { it / 2 } + fadeIn(tween(150)))
-                                                                    .togetherWith(slideOutVertically { -it / 2 } + fadeOut(tween(150)))
+                                                                (slideInVertically(animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.6f, stiffness = androidx.compose.animation.core.Spring.StiffnessMedium)) { it / 2 } +
+                                                                 scaleIn(initialScale = 0.5f, animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.55f, stiffness = androidx.compose.animation.core.Spring.StiffnessMedium)) +
+                                                                 fadeIn(tween(130)))
+                                                                    .togetherWith(
+                                                                        slideOutVertically { -it / 2 } +
+                                                                        scaleOut(targetScale = 0.6f) +
+                                                                        fadeOut(tween(100))
+                                                                    )
                                                             },
                                                             label = "phone_digit_$index"
                                                         ) { digit ->
@@ -845,85 +879,6 @@ private fun OtpLoginScreen(
                                 }
                             }
                         }
-
-                        /*
-                        // Truecaller temporarily disabled for 1-2 days pending Play Store verification
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // "or" Divider
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            HorizontalDivider(
-                                modifier = Modifier.weight(1f),
-                                color = Color(0xFFE2E8F0),
-                                thickness = 1.dp
-                            )
-                            Text(
-                                text = "or",
-                                modifier = Modifier.padding(horizontal = 14.dp),
-                                color = Color(0xFF94A3B8),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            HorizontalDivider(
-                                modifier = Modifier.weight(1f),
-                                color = Color(0xFFE2E8F0),
-                                thickness = 1.dp
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(20.dp))
-
-                        // Continue with Truecaller Button
-                        TruecallerLoginButton(
-                            busy = truecallerBusy,
-                            enabled = !truecallerBusy && !otpState.isLoading && !isCheckingPhone,
-                            onAuthorized = { code, verifier ->
-                                truecallerBusy = true
-                                scope.launch {
-                                    otpViewModel.truecallerExchange(code, verifier, mode = "unified").fold(
-                                        onSuccess = { tc ->
-                                            truecallerBusy = false
-                                            when {
-                                                tc.allowed -> {
-                                                    profileCompletionViewModel.saveAuthMethod("TRUECALLER")
-                                                    profileCompletionViewModel.savePhoneNumber(tc.phone)
-                                                    if (tc.name.isNotBlank()) {
-                                                        profileCompletionViewModel.saveUserInfoToLocalStorage(
-                                                            email = tc.email,
-                                                            name = tc.name,
-                                                            role = role
-                                                        )
-                                                    }
-                                                    otpViewModel.signInWithTruecaller(tc)
-                                                }
-                                                tc.roleConflict || (tc.existingRole != null && tc.existingRole != role.name) -> {
-                                                    val label = context.getString(
-                                                        if (tc.existingRole == "EMPLOYER") R.string.employer else R.string.worker
-                                                    )
-                                                    Toast.makeText(
-                                                        context, context.getString(R.string.auth_phone_registered_as_role, label, label), Toast.LENGTH_LONG
-                                                    ).show()
-                                                }
-                                                else -> {
-                                                    Toast.makeText(context, context.getString(R.string.auth_truecaller_failed), Toast.LENGTH_LONG).show()
-                                                }
-                                            }
-                                        },
-                                        onFailure = {
-                                            truecallerBusy = false
-                                            Toast.makeText(context, context.getString(R.string.auth_truecaller_failed), Toast.LENGTH_LONG).show()
-                                        }
-                                    )
-                                }
-                            },
-                            onFailed = {
-                                Toast.makeText(context, context.getString(R.string.auth_truecaller_failed), Toast.LENGTH_LONG).show()
-                            }
-                        )
-                        */
 
                         // DEV-ONLY: Skip OTP
                         if (LocalContext.current.isDebuggableBuild()) {
@@ -1019,20 +974,20 @@ private fun LoginFeatureBadge(
         shadowElevation = 0.dp
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.5.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = Color.Black,
-                modifier = Modifier.size(13.dp)
+                modifier = Modifier.size(13.5.dp)
             )
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(5.dp))
             Text(
                 text = text,
                 style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 11.sp,
+                    fontSize = 11.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black
                 ),
@@ -1135,7 +1090,16 @@ private fun OtpInputSection(
             }
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(14.dp))
+        Text(
+            text = "Enter 6-Digit Code",
+            style = MaterialTheme.typography.titleMedium.copy(
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Ink900.fg()
+            )
+        )
+        Spacer(modifier = Modifier.height(12.dp))
 
         AuthOtpBoxes(
             otpValue = otpValue,
@@ -1165,7 +1129,7 @@ private fun OtpInputSection(
                 )
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
@@ -1209,7 +1173,7 @@ private fun OtpInputSection(
                 )
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {

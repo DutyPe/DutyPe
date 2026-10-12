@@ -279,6 +279,8 @@ private class PostJobController(
 
     // Dialog / sheet state
     var showNoCreditsDialog by mutableStateOf(false)
+    var employerSubscription by mutableStateOf<com.example.dutype.models.EmployerSubscription?>(null)
+    var employerProfile by mutableStateOf<com.example.dutype.profile.EmployerProfile?>(null)
     var isCheckingProfile by mutableStateOf(false)
     var profileCheckResult by mutableStateOf<com.example.dutype.services.ProfileCompletionService.PreJobPostCheckResult?>(null)
     var showProfileIncompleteDialog by mutableStateOf(false)
@@ -594,7 +596,7 @@ private class PostJobController(
         try {
             val currentUser = FirebaseAuth.getInstance().currentUser
             if (currentUser != null) {
-                val fileName = "job_image_${System.currentTimeMillis()}.jpg"
+                val fileName = "job_image_${System.currentTimeMillis()}.webp"
                 val storagePath = "job_images/${currentUser.uid}/$fileName"
 
                 Timber.d("JOB IMAGE: Starting upload with compression...")
@@ -787,6 +789,19 @@ private class PostJobController(
             return
         }
 
+        // Subscription & Credit gating: enforce that employer has active credits or referral posts
+        val sub = employerSubscription
+        val profile = employerProfile
+        val normalCredits = sub?.normalCredits ?: 0
+        val referralCredits = profile?.referralPostsLeft ?: 0
+        val isUnlimited = sub?.isUnlimitedCampaign == true
+
+        if (normalCredits <= 0 && referralCredits <= 0 && !isUnlimited) {
+            Timber.w("CREDIT CHECK: Employer has no job credits left (normal=$normalCredits, referral=$referralCredits, unlimited=$isUnlimited)")
+            showNoCreditsDialog = true
+            return
+        }
+
         ensureCompanyName(uid, displayName)
 
         var finalLatitude = locationLatitude
@@ -873,12 +888,57 @@ private class PostJobController(
         submitJob()
     }
 
-    fun goNext() {
-        when (currentStep) {
-            1 -> goNextFromStep1()
-            2 -> goNextFromStep2()
-            else -> goNextFromStep3()
+    fun submitJobUnified() {
+        if (title.isBlank()) {
+            Toast.makeText(context, "Enter a job title", Toast.LENGTH_SHORT).show()
+            return
         }
+        if (description.trim().length < MIN_DESCRIPTION_CHARS) {
+            Toast.makeText(context, R.string.post_job_description_required, Toast.LENGTH_LONG).show()
+            return
+        }
+        val scamCheck = JobValidationUtils.validateAgainstScamKeywords(title, description)
+        scamValidationResult = scamCheck
+        if (!scamCheck.isValid) {
+            showScamWarningDialog = true
+            return
+        }
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        if (currentUser == null) {
+            showLoginBottomSheet = true
+            return
+        }
+        if (!postJobVacanciesValid(vacancies)) {
+            vacancies = "1"
+        }
+        if (location.isBlank()) {
+            locationError = context.getString(R.string.valid_job_location_required)
+            Toast.makeText(context, R.string.valid_job_location_required, Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (payType != PayType.NEGOTIABLE && (payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L) <= 0L) {
+            Toast.makeText(context, "Enter the wage", Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (payType != PayType.NEGOTIABLE &&
+            (payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L) > com.example.dutype.utils.SalaryFormatter.MAX_PAY_RUPEES
+        ) {
+            Toast.makeText(context, R.string.pay_max_limit, Toast.LENGTH_SHORT).show()
+            return
+        }
+        com.example.dutype.utils.PayRules.vacancyError(context, payType, employmentType, payAmount.filter { it.isDigit() }.toLongOrNull() ?: 0L)?.let {
+            Toast.makeText(context, it, Toast.LENGTH_LONG).show()
+            return
+        }
+        if (contactNumber.isBlank()) {
+            Toast.makeText(context, "Enter a contact number", Toast.LENGTH_SHORT).show()
+            return
+        }
+        attemptPublishJob()
+    }
+
+    fun goNext() {
+        submitJobUnified()
     }
 
     private fun goNextFromStep1() {
@@ -978,11 +1038,16 @@ fun PostJobScreen(
     val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
     val subscriptionViewModel: SubscriptionViewModel = hiltViewModel()
     val employerSubscription by subscriptionViewModel.activeSubscription.collectAsState()
+    val employerProfile by subscriptionViewModel.employer.collectAsState()
     val stepState = rememberSaveable { mutableStateOf(1) }
     var selectedPostJobTab by rememberSaveable { mutableIntStateOf(0) } // 0: Instant Job, 1: Regular Job
 
     val c = remember {
         PostJobController(context, navController, employerJobViewModel, scope, stepState)
+    }
+    LaunchedEffect(employerSubscription, employerProfile) {
+        c.employerSubscription = employerSubscription
+        c.employerProfile = employerProfile
     }
     c.context = context
     c.navController = navController
@@ -1122,26 +1187,6 @@ fun PostJobScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.width(6.dp))
-
-                // DutyPe AI Voice Assistant Button
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF0F172A).bg())
-                        .clickable {
-                            (rootNavController ?: navController).navigate(Routes.dutypeAiRoute(listen = true))
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Mic,
-                        contentDescription = "Voice Job Post",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
             }
         }
 
@@ -1170,17 +1215,12 @@ fun PostJobScreen(
                     PostJobSideEffects(c)
                     PostJobDialogs(c)
                     Column(modifier = Modifier.fillMaxSize()) {
-                        // Talk-to-post + "workers available nearby" (first step only).
-                        if (c.currentStep == 1) {
-                            com.example.dutype.employer.ai.AiPostBanner(
-                                lat = c.locationLatitude,
-                                lng = c.locationLongitude,
-                                category = c.category.name,
-                                onTalk = { showAiAssistant = true },
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        Box(modifier = Modifier.weight(1f)) {
+                            PostJobWizard(
+                                c = c,
+                                onOpenAiVoice = { showAiAssistant = true }
                             )
                         }
-                        Box(modifier = Modifier.weight(1f)) { PostJobWizard(c) }
                     }
                     PostJobSheets(c)
                     if (showAiAssistant) {
@@ -1594,16 +1634,8 @@ private fun PostJobSheets(c: PostJobController) {
 
 // ------------------------------------------------------------------- wizard
 @Composable
-private fun PostJobWizard(c: PostJobController) {
-    val currentStep = c.currentStep
+private fun PostJobWizard(c: PostJobController, onOpenAiVoice: () -> Unit) {
     val wizardScrollState = rememberScrollState()
-    LaunchedEffect(currentStep) {
-        wizardScrollState.scrollTo(0)
-    }
-    androidx.activity.compose.BackHandler(enabled = currentStep > 1) {
-        c.currentStep = c.currentStep - 1
-    }
-
     val employerJobUiState by c.employerJobViewModel.uiState.collectAsState()
     val ctaBusy = employerJobUiState.isCreatingJob || c.isSubmittingJob
 
@@ -1616,10 +1648,10 @@ private fun PostJobWizard(c: PostJobController) {
             modifier = Modifier.fillMaxSize()
         ) {
             PostJobOfflineBanner()
-            PostJobWizardBody(c, currentStep, wizardScrollState)
+            PostJobSinglePageForm(c, wizardScrollState)
         }
 
-        PostJobBottomCta(c, currentStep, ctaBusy)
+        PostJobBottomCta(c, ctaBusy, onOpenAiVoice)
     }
 }
 
@@ -1631,56 +1663,221 @@ private fun PostJobOfflineBanner() {
 }
 
 @Composable
-private fun PostJobWizardBody(
+private fun PostJobSinglePageForm(
     c: PostJobController,
-    currentStep: Int,
     scrollState: androidx.compose.foundation.ScrollState
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            // Room for the fixed Next / Post button bar (80dp + the phone's navigation bar) and a
-            // little breathing space, so the last field is never hidden behind it.
             .navigationBarsPadding()
             .padding(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 112.dp)
     ) {
-        PjProgressRow(currentStep = currentStep, totalSteps = PostJobTotalSteps)
-        Text(
-            text = postJobStepTitle(currentStep),
-            fontSize = 20.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = PjInk.fg()
+        // Job Title
+        PjField(
+            value = c.title,
+            onValueChange = {
+                c.title = it
+                c.customCategory = it.trim()
+            },
+            label = stringResource(R.string.post_job_title_label),
+            placeholder = stringResource(R.string.job_title_placeholder)
         )
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(10.dp))
+        PostJobQuickTitleChips(c)
 
-        if (currentStep == 1) {
-            PostJobStep1(c)
-        } else if (currentStep == 2) {
-            PostJobStep2(c)
-        } else {
-            PostJobStep3(c)
+        PjSectionLabel("Workers needed")
+        PjCountStepper(
+            count = c.vacancies.toIntOrNull()?.coerceIn(1, 50) ?: 1,
+            onCountChange = { c.vacancies = it.toString() },
+            min = 1,
+            max = 50
+        )
+
+        PjSectionLabel("Job Description")
+        PjField(
+            value = c.description,
+            onValueChange = { c.description = it },
+            label = "Job Description",
+            placeholder = "Describe the work, timings, what you expect",
+            singleLine = false,
+            minHeight = 96.dp
+        )
+        if (c.description.isNotEmpty() && c.description.trim().length < MIN_DESCRIPTION_CHARS) {
+            Text(
+                text = stringResource(R.string.post_job_description_required),
+                fontSize = 11.sp,
+                color = EmployerColors.Error,
+                modifier = Modifier.padding(top = 4.dp)
+            )
         }
+
+        // Job Location
+        Spacer(modifier = Modifier.height(8.dp))
+        val savedWorkLocations by c.employerJobViewModel.savedWorkLocationsStore.locations.collectAsState()
+        EnhancedLocationSection(
+            location = c.location,
+            onLocationChange = { c.location = it },
+            locationService = c.locationService,
+            isLoadingLocation = c.isLoadingLocation,
+            locationError = c.locationError,
+            onLocationButtonClick = { c.onLocationButtonClick() },
+            onLocationSelected = { lat, lon -> c.onLocationSelected(lat, lon) },
+            locationLatitude = c.locationLatitude,
+            locationLongitude = c.locationLongitude,
+            savedLocations = savedWorkLocations
+        )
+
+        // Wage
+        PjSectionLabel("Wage")
+        PjWageField(
+            amount = c.payAmount,
+            onAmountChange = { c.payAmount = it },
+            payType = c.payType,
+            onPayTypeChange = { c.payType = it }
+        )
+        if ((c.payAmount.toLongOrNull() ?: 0L) > com.example.dutype.utils.SalaryFormatter.MAX_PAY_RUPEES) {
+            Text(
+                text = stringResource(R.string.pay_max_limit),
+                fontSize = 11.sp,
+                color = EmployerColors.Error,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val amountValue = c.payAmount.toLongOrNull() ?: 0L
+        val payError = com.example.dutype.utils.PayRules.vacancyError(context, c.payType, c.employmentType, amountValue)
+        if (payError != null) {
+            Text(text = payError, fontSize = 12.sp, color = EmployerColors.Error, modifier = Modifier.padding(top = 4.dp))
+        } else if (com.example.dutype.utils.PayRules.minimumWageHint(c.payType, c.employmentType, amountValue)) {
+            Text(text = stringResource(R.string.pay_rule_min_wage_hint), fontSize = 12.sp, color = Color(0xFFB45309), modifier = Modifier.padding(top = 4.dp))
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(text = stringResource(R.string.pay_rule_vacancy_info), fontSize = 12.sp, color = PjSlate400.fg(), lineHeight = 16.sp)
+
+        // Shift
+        PjSectionLabel("Shift")
+        PjFlow {
+            JobShift.entries.forEach { option ->
+                PjChip(
+                    label = option.displayName,
+                    selected = c.shift == option,
+                    onClick = { c.shift = option }
+                )
+            }
+        }
+
+        // Job type
+        PjSectionLabel("Job type")
+        PjFlow {
+            com.example.dutype.utils.PayRules.VACANCY_EMPLOYMENT_TYPES.forEach { type ->
+                PjChip(
+                    label = type.displayName,
+                    selected = c.employmentType == type,
+                    onClick = { c.employmentType = type }
+                )
+            }
+        }
+
+        // Experience
+        val experienceLevels = remember(c.experienceLevel) {
+            postJobWithCustomOption(PostJobBaseExperienceLevels, c.experienceLevel)
+        }
+        PjOptionGroup(
+            label = stringResource(R.string.experience_required),
+            options = experienceLevels,
+            selected = c.experienceLevel,
+            onSelect = { c.experienceLevel = it },
+            allowCustom = true,
+            customHint = stringResource(R.string.add_own_experience)
+        )
+
+        // Education
+        val educationRequirements = remember(c.educationRequired) {
+            postJobWithCustomOption(PostJobBaseEducationRequirements, c.educationRequired)
+        }
+        PjOptionGroup(
+            label = stringResource(R.string.education_required),
+            options = educationRequirements,
+            selected = c.educationRequired,
+            onSelect = { c.educationRequired = it },
+            allowCustom = true,
+            customHint = "Add education requirement"
+        )
+
+        // Gender preference
+        PjSectionLabel(stringResource(R.string.post_job_gender_preference))
+        PjFlow {
+            PostJobGenders.forEach { g ->
+                PjChip(
+                    label = g,
+                    selected = c.gender == g,
+                    onClick = { c.gender = g }
+                )
+            }
+        }
+
+        // Contact Number
+        PjSectionLabel("Contact")
+        PjField(
+            value = c.contactNumber,
+            onValueChange = { c.contactNumber = it },
+            label = stringResource(R.string.contact_number_label),
+            placeholder = "+91 9876543210",
+            keyboardType = KeyboardType.Phone
+        )
+        Spacer(modifier = Modifier.height(10.dp))
+        PjField(
+            value = c.employerName,
+            onValueChange = { c.employerName = it },
+            label = stringResource(R.string.your_name),
+            placeholder = stringResource(R.string.enter_your_name)
+        )
+        // Business / Shop name: Only asked once if not already provided!
+        if (c.companyName.isBlank()) {
+            Spacer(modifier = Modifier.height(10.dp))
+            PjField(
+                value = c.companyName,
+                onValueChange = { c.companyName = it.take(80) },
+                label = stringResource(R.string.post_job_business_name),
+                placeholder = stringResource(R.string.post_job_business_name_hint)
+            )
+        }
+
+        // Photo (optional)
+        PjSectionLabel("Photo (optional)")
+        JobImageUploadSection(
+            selectedImageUri = c.jobImageUri,
+            isUploading = c.isUploadingJobImage,
+            onImageSelected = { uri -> c.onJobImageSelected(uri) },
+            onImageRemoved = { c.onJobImageRemoved() }
+        )
     }
 }
 
 @Composable
-private fun BoxScope.PostJobBottomCta(c: PostJobController, currentStep: Int, ctaBusy: Boolean) {
-    val ctaEnabled = if (currentStep == 3) (!ctaBusy && !c.isLoadingLocation) else true
-    val ctaLabel = if (currentStep == 3) stringResource(R.string.post_job) + " →" else "Next →"
-    Box(
+private fun BoxScope.PostJobBottomCta(
+    c: PostJobController,
+    ctaBusy: Boolean,
+    onOpenAiVoice: () -> Unit
+) {
+    val ctaEnabled = !ctaBusy && !c.isLoadingLocation
+    Row(
         modifier = Modifier
             .align(Alignment.BottomCenter)
             .fillMaxWidth()
             .background(Color.White.bg())
             .navigationBarsPadding()
-            .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 12.dp)
+            .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Button(
-            onClick = { c.goNext() },
+            onClick = { c.submitJobUnified() },
             enabled = ctaEnabled,
             modifier = Modifier
-                .fillMaxWidth()
+                .weight(1f)
                 .height(56.dp),
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(
@@ -1691,16 +1888,33 @@ private fun BoxScope.PostJobBottomCta(c: PostJobController, currentStep: Int, ct
             ),
             elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
         ) {
-            if (currentStep == 3 && ctaBusy) {
+            if (ctaBusy) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
             } else {
                 Text(
-                    text = ctaLabel,
+                    text = stringResource(R.string.post_job),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White
                 )
             }
+        }
+
+        // AI Voice Assistant Button
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF0F172A).bg())
+                .clickable { onOpenAiVoice() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Mic,
+                contentDescription = "Voice Assistant",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
         }
     }
 }
@@ -1820,18 +2034,6 @@ private fun PostJobStep2(c: PostJobController) {
         savedLocations = savedWorkLocations
     )
 
-    PjSectionLabel("Start date")
-    PjFlow {
-        PostJobStartDateOptions.forEach { opt ->
-            PjChip(
-                label = opt,
-                selected = c.startDate == opt,
-                onClick = { c.startDate = opt },
-                leadingIcon = Icons.Default.CalendarToday
-            )
-        }
-    }
-
     PjSectionLabel("Shift")
     PjFlow {
         JobShift.entries.forEach { option ->
@@ -1882,11 +2084,6 @@ private fun PostJobStep3(c: PostJobController) {
         Text(text = stringResource(R.string.pay_rule_min_wage_hint), fontSize = 12.sp, color = Color(0xFFB45309), modifier = Modifier.padding(top = 4.dp))
     }
     Spacer(modifier = Modifier.height(6.dp))
-    Text(text = stringResource(R.string.pay_rule_vacancy_info), fontSize = 12.sp, color = PjSlate400.fg(), lineHeight = 16.sp)
-
-    PjSectionLabel("Perks")
-    PostJobPerkChips(c)
-
     val educationRequirements = remember(c.educationRequired) {
         postJobWithCustomOption(PostJobBaseEducationRequirements, c.educationRequired)
     }
@@ -2549,12 +2746,10 @@ private fun RequirementChipSection(
                 onValueChange = { customOptionText = it },
                 modifier = Modifier.weight(1f),
                 singleLine = true,
-                label = { Text(customOptionHint) },
-                placeholder = { Text(stringResource(R.string.education_example_hint)) },
+                placeholder = { Text(customOptionHint.ifEmpty { stringResource(R.string.education_example_hint) }) },
                 shape = RoundedCornerShape(10.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = selectedColor,
-                    focusedLabelColor = selectedColor,
                     unfocusedBorderColor = EmployerColors.Border,
                     cursorColor = selectedColor
                 )
@@ -2746,44 +2941,38 @@ private fun PjField(
             .heightIn(min = minHeight)
             .background(Color.White.bg(), shape)
             .border(1.dp, borderColor, shape)
-            .padding(start = 14.dp, top = 8.dp, end = 14.dp, bottom = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (leading != null) {
             leading()
             Spacer(modifier = Modifier.width(10.dp))
         }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                fontSize = 11.sp,
-                color = PjSlate400.fg()
-            )
-            Box {
-                if (value.isEmpty() && placeholder.isNotEmpty()) {
-                    Text(
-                        text = placeholder,
-                        fontSize = 15.sp,
-                        color = PjSlate400.fg(),
-                        maxLines = if (singleLine) 1 else 2
-                    )
-                }
-                BasicTextField(
-                    value = value,
-                    onValueChange = onValueChange,
-                    singleLine = singleLine,
-                    textStyle = TextStyle(
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = PjInk.fg()
-                    ),
-                    cursorBrush = SolidColor(PjInk.fg()),
-                    keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .onFocusChanged { focused = it.isFocused }
+        val effectivePlaceholder = placeholder.ifEmpty { label }
+        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (value.isEmpty() && effectivePlaceholder.isNotEmpty()) {
+                Text(
+                    text = effectivePlaceholder,
+                    fontSize = 15.sp,
+                    color = Color(0xFF94A3B8),
+                    maxLines = if (singleLine) 1 else 2
                 )
             }
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = singleLine,
+                textStyle = TextStyle(
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = PjInk.fg()
+                ),
+                cursorBrush = SolidColor(Color(0xFF00A859)),
+                keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { focused = it.isFocused }
+            )
         }
         if (trailing != null) {
             Spacer(modifier = Modifier.width(10.dp))

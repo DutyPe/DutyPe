@@ -13,13 +13,12 @@ exports.resentExpiry = resentExpiry;
 exports.sealCode = sealCode;
 exports.openCode = openCode;
 exports.ipKey = ipKey;
-exports.parseTruecallerUserInfo = parseTruecallerUserInfo;
 exports.whatsappConfigured = whatsappConfigured;
 exports.smsGatewayConfigured = smsGatewayConfigured;
 exports.smsGatewayRequest = smsGatewayRequest;
 exports.whatsappTemplateBody = whatsappTemplateBody;
 /**
- * Pure helpers for WhatsApp login codes and Truecaller profiles (no Firebase, unit tested).
+ * Pure helpers for WhatsApp login codes (no Firebase, unit tested).
  */
 const crypto_1 = require("crypto");
 /**
@@ -133,20 +132,6 @@ function openCode(sealed, env = process.env) {
 function ipKey(ip, nowMs) {
     const hour = Math.floor(nowMs / HOUR_MS);
     return (0, crypto_1.createHash)("sha256").update(`ip:${ip}`).digest("hex").slice(0, 20) + `_${hour}`;
-}
-/** The fields DutyPe uses from Truecaller's userinfo response. */
-function parseTruecallerUserInfo(raw) {
-    var _a, _b, _c;
-    const u = (raw && typeof raw === "object" ? raw : {});
-    const phone = indianE164((_a = u.phone_number) !== null && _a !== void 0 ? _a : u.phoneNumber);
-    const name = [u.given_name, u.family_name].map((v) => String(v !== null && v !== void 0 ? v : "").trim()).filter(Boolean).join(" ") ||
-        String((_b = u.name) !== null && _b !== void 0 ? _b : "").trim();
-    const email = String((_c = u.email) !== null && _c !== void 0 ? _c : "").trim().toLowerCase();
-    return {
-        phone,
-        name: name.replace(/\s+/g, " ").slice(0, 80),
-        email: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) && email.length <= 120 ? email : "",
-    };
 }
 /** WhatsApp is set up when the token secret holds a real value (a placeholder like "unset" is not). */
 function whatsappConfigured(env = process.env) {

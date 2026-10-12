@@ -2659,9 +2659,7 @@
     <string name="auth_code_sent_whatsapp">మేము కోడ్‌ను WhatsAppలో పంపాము. చూడటానికి WhatsApp తెరవండి.</string>
     <string name="auth_get_sms_instead">రాలేదా? SMS ద్వారా కోడ్ పొందండి</string>
     <string name="auth_get_sms_in">%1$d:%2$02d తర్వాత SMS ద్వారా కోడ్ పొందండి</string>
-    <string name="auth_continue_with_truecaller">Truecallerతో కొనసాగండి</string>
     <string name="auth_or">లేదా</string>
-    <string name="auth_truecaller_failed">Truecaller ధృవీకరణ పని చేయలేదు. దయచేసి OTP ఉపయోగించండి.</string>
     <string name="auth_enter_name_first">దయచేసి ముందుగా మీ పేరు నమోదు చేయండి.</string>
     <string name="auth_get_sms_short">SMS పొందండి</string>
     <string name="auth_resend_via_whatsapp">మళ్లీ పంపండి</string>
@@ -2905,4 +2903,32 @@
     <string name="referral_enter_code_placeholder">రిఫెరల్ కోడ్ నమోదు చేయండి</string>
     <string name="referral_referred_by_friend">స్నేహితుడు రిఫర్ చేశారా?</string>
     <string name="referral_redeem_within_7_days">మీ బోనస్ పొందడానికి చేరిన 7 రోజులలోపు వారి రిఫెరల్ కోడ్ నమోదు చేయండి</string>
+
+    <!-- Partner Onboarding -->
+    <string name="partner_apply_badge">ధృవీకరించిన టెక్నీషియన్</string>
+    <string name="partner_apply_hero_title">సర్వీస్ పార్ట్‌నర్‌గా నమోదు చేసుకోండి</string>
+    <string name="partner_apply_hero_subtitle">ఖమ్మంలో డైరెక్ట్ హోమ్ సర్వీస్ బుకింగ్‌లతో ప్రతిరోజూ సంపాదించండి</string>
+    <string name="partner_section_trades">మీ సేవలను ఎంచుకోండి</string>
+    <string name="partner_section_trades_sub">మీరు అందించే సేవలన్నింటినీ ఎంచుకోండి (%1$d ఎంపికయ్యాయి)</string>
+    <string name="partner_skilled_trades">టెక్నికల్ సేవలు (AC, ఎలక్ట్రికల్, ప్లంబింగ్)</string>
+    <string name="partner_general_trades">సాధారణ సేవలు (క్లీనింగ్, వాష్, సహాయం)</string>
+    <string name="partner_section_exp">అనుభవం &amp; ప్రాంతం</string>
+    <string name="partner_section_exp_sub">మీ పని అనుభవం వివరాలు</string>
+    <string name="partner_exp_years_hint">పని అనుభవం సంవత్సరాలు (ఉదా. 3)</string>
+    <string name="partner_skill_details_hint">గత షాప్ / కాంట్రాక్టర్ / నైపుణ్య వివరాలు (ఐచ్ఛికం)</string>
+    <string name="partner_area_hint">ఖమ్మంలో మీ సేవా ప్రాంతం (ఉదా. వైరా రోడ్)</string>
+    <string name="partner_section_identity">ప్రభుత్వ ID &amp; బ్యాంక్ చెల్లింపులు</string>
+    <string name="partner_section_identity_sub">భద్రత మరియు రోజువారీ నేరుగా జమ కోసం</string>
+    <string name="partner_aadhaar_label">ఆధార్ నంబర్</string>
+    <string name="partner_aadhaar_hint">12-అంకెల ఆధార్ నంబర్ (XXXX XXXX XXXX) *</string>
+    <string name="partner_aadhaar_valid">12-అంకెల ఆధార్ నంబర్ నమోదు చేయబడింది</string>
+    <string name="partner_aadhaar_need_12">ఆధార్ నంబర్ 12 అంకెలు ఉండాలి</string>
+    <string name="partner_upi_label">చెల్లింపుల UPI ID</string>
+    <string name="partner_upi_hint">చెల్లింపుల UPI ID (ఉదా. yourname@ybl లేదా mobile@upi) *</string>
+    <string name="partner_upi_sub">రోజువారీ సంపాదన నేరుగా ఈ UPI చిరునామాకు జమ అవుతుంది</string>
+    <string name="partner_tools_vehicle">ఖమ్మంలో వేగంగా వెళ్లడానికి నా వద్ద పనిముట్లు &amp; 2-వీలర్ వాహనం ఉన్నాయి</string>
+    <string name="partner_agree_terms">నేను DutyPe పార్ట్‌నర్ నిబంధనలు మరియు పారదర్శక ధరకు అంగీకరిస్తున్నాను</string>
+    <string name="partner_read_rules">పార్ట్‌నర్ నియమాలు &amp; ప్రవర్తనా నియమావళి చదవండి →</string>
+    <string name="partner_submit_btn">దరఖాస్తు సమర్పించండి</string>
+    <string name="partner_fill_required">సమర్పించడానికి అవసరమైన వివరాలు నింపండి</string>
 </resources>

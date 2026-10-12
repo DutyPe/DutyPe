@@ -313,41 +313,6 @@ export async function partnersInRing(
     const km = distanceKm(lat, lng, pLat, pLng);
     if (km > fromKm && km <= toKm) out.push({ id: d.id, km });
   }
-
-  // Also query online workers from worker_profiles to ensure instant dispatch reach
-  try {
-    const wSnap = await db.collection(WorkerProfiles.COLLECTION)
-      .where(WorkerProfiles.AVAILABLE, "==", true)
-      .limit(500)
-      .get();
-    for (const w of wSnap.docs) {
-      if (excluded.includes(w.id)) continue;
-      if (out.some((p) => p.id === w.id)) continue;
-      const pLat = Number(w.get(WorkerProfiles.LAT) || w.get("latitude") || lat);
-      const pLng = Number(w.get(WorkerProfiles.LNG) || w.get("longitude") || lng);
-      if (!Number.isFinite(pLat) || !Number.isFinite(pLng)) continue;
-      const km = distanceKm(lat, lng, pLat, pLng);
-      if (km > fromKm && km <= toKm) {
-        out.push({ id: w.id, km });
-        // Auto-upsert partner profile so they can accept seamlessly
-        db.collection(SP.COLLECTION).doc(w.id).set({
-          [SP.STATUS]: PartnerStatus.APPROVED,
-          [SP.ONLINE]: true,
-          [SP.NAME]: String(w.get(WorkerProfiles.NAME) || "Partner"),
-          [SP.PHONE]: String(w.get(WorkerProfiles.PHONE) || ""),
-          [SP.CATEGORIES]: CATEGORY_IDS,
-          [SP.LAT]: pLat,
-          [SP.LNG]: pLng,
-          [SP.CREDITS_PAISE]: 50000,
-          [SP.UPDATED_AT]: Timestamp.now(),
-          [SP.LAST_SEEN_AT]: Timestamp.now(),
-        }, { merge: true }).catch(() => undefined);
-      }
-    }
-  } catch (err) {
-    functions.logger.warn("worker_profiles fallback in partnersInRing", err);
-  }
-
   return out;
 }
 
@@ -453,6 +418,11 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
     }
     const hour = new Date(scheduledAt + IST_OFFSET_MS).getUTCHours();
     if (hour < 7 || hour >= 21) fail("invalid-argument", "Pick a time between 7 AM and 9 PM");
+  } else {
+    const nowHour = new Date(now + IST_OFFSET_MS).getUTCHours();
+    if (nowHour < 7 || nowHour >= 21) {
+      fail("failed-precondition", "Doorstep services are closed for tonight (operating hours: 7:00 AM - 9:00 PM IST). Please schedule your slot for tomorrow morning onwards.");
+    }
   }
 
   const open = await db.collection(BK.COLLECTION)
@@ -683,8 +653,8 @@ export const applyServicePartner = onCallSecured({ enforceAppCheck: false }, asy
   const uid = context.auth!.uid;
   if (context.auth?.token.role !== Values.Role.WORKER) fail("permission-denied", "Only workers can become service partners");
   const data = obj(raw);
-  const categories = stringList(data, "categories", { maxItems: CATEGORY_IDS.length, maxLength: 20 })
-    .map((c) => c.toUpperCase()).filter((c) => CATEGORY_IDS.includes(c));
+  const categories = stringList(data, "categories", { maxItems: 30, maxLength: 50 })
+    .map((c) => c.trim().toUpperCase()).filter((c) => c.length > 0);
   if (!categories.length) fail("invalid-argument", "Choose at least one service");
   const experienceYears = int(data, "experienceYears", { min: 0, max: 50, optional: true });
   const area = str(data, "area", { max: 80, optional: true });
@@ -692,12 +662,18 @@ export const applyServicePartner = onCallSecured({ enforceAppCheck: false }, asy
   const skillProof = text(data, "skillProof", { max: 300, optional: true });
   if (data.acceptGuidelines !== true) fail("failed-precondition", "Please read and accept the DutyPe partner code of conduct");
   // Wiring, gas, plumbing and appliances can hurt people if done wrong: those need experience.
-  const skilled = categories.filter((c) => skillOf(c) === "SKILLED");
+  const skilled = categories.filter((c) => CATEGORY_IDS.includes(c) ? skillOf(c) === "SKILLED" : false);
   if (skilled.length && experienceYears < 1) {
     fail("invalid-argument", "Electrician, AC, plumber, appliance, carpentry and painting work needs at least 1 year of experience. " +
       "You can still apply for cleaning, home help and car wash.");
   }
   const { lat, lng } = latLng(data);
+  const KHAMMAM_LAT = 17.2473;
+  const KHAMMAM_LNG = 80.1514;
+  const distKm = distanceKm(lat, lng, KHAMMAM_LAT, KHAMMAM_LNG);
+  if (distKm > 15.0) {
+    fail("failed-precondition", "DutyPe Service Partner registration is strictly restricted to Khammam city only (within 15 km).");
+  }
   requireServiceArea(await loadConfig(), lat, lng, "partner");
   const worker = await db.collection(WorkerProfiles.COLLECTION).doc(uid).get();
   if (!worker.exists) fail("failed-precondition", "Complete your worker profile first");
@@ -709,7 +685,7 @@ export const applyServicePartner = onCallSecured({ enforceAppCheck: false }, asy
     if (status === PartnerStatus.SUSPENDED) fail("permission-denied", "Your partner account is suspended. Contact support.");
     const now = Timestamp.now();
     tx.set(ref, {
-      [SP.STATUS]: PartnerStatus.APPROVED,
+      [SP.STATUS]: PartnerStatus.PENDING,
       [SP.NAME]: String(worker.get(WorkerProfiles.NAME) || "Partner"),
       [SP.PHONE]: e164(context.auth?.token.phone_number) || String(worker.get(WorkerProfiles.PHONE) || ""),
       [SP.PHOTO_URL]: String(worker.get(WorkerProfiles.PHOTO_URL) || ""),
@@ -720,10 +696,10 @@ export const applyServicePartner = onCallSecured({ enforceAppCheck: false }, asy
       [SP.SKILL_PROOF]: skillProof,
       [SP.SKILLED_CATEGORIES]: skilled,
       [SP.GUIDELINES_ACCEPTED_AT]: now,
-      [SP.ONLINE]: true,
+      [SP.ONLINE]: false,
       [SP.LAT]: lat,
       [SP.LNG]: lng,
-      [SP.CREDITS_PAISE]: cur.exists ? Number(cur.get(SP.CREDITS_PAISE) || 50000) : 50000,
+      [SP.CREDITS_PAISE]: cur.exists ? Number(cur.get(SP.CREDITS_PAISE) || 0) : 0,
       [SP.RATING_SUM]: cur.exists ? Number(cur.get(SP.RATING_SUM) || 0) : 0,
       [SP.RATING_COUNT]: cur.exists ? Number(cur.get(SP.RATING_COUNT) || 0) : 0,
       [SP.JOBS_COMPLETED]: cur.exists ? Number(cur.get(SP.JOBS_COMPLETED) || 0) : 0,
@@ -732,7 +708,7 @@ export const applyServicePartner = onCallSecured({ enforceAppCheck: false }, asy
       [SP.UPDATED_AT]: now,
     });
   });
-  return { status: PartnerStatus.APPROVED };
+  return { status: PartnerStatus.PENDING };
 });
 
 export const setPartnerOnline = onCallSecured({ enforceAppCheck: false }, async (raw: unknown, context) => {
@@ -742,25 +718,7 @@ export const setPartnerOnline = onCallSecured({ enforceAppCheck: false }, async 
   const ref = db.collection(SP.COLLECTION).doc(uid);
   const p = await ref.get();
   if (!p.exists || p.get(SP.STATUS) !== PartnerStatus.APPROVED) {
-    const worker = await db.collection(WorkerProfiles.COLLECTION).doc(uid).get();
-    const wLat = Number(worker.get(WorkerProfiles.LAT) || 17.2473);
-    const wLng = Number(worker.get(WorkerProfiles.LNG) || 80.1514);
-    await ref.set({
-      [SP.STATUS]: PartnerStatus.APPROVED,
-      [SP.NAME]: String(worker.get(WorkerProfiles.NAME) || "Partner"),
-      [SP.PHONE]: e164(context.auth?.token.phone_number) || String(worker.get(WorkerProfiles.PHONE) || ""),
-      [SP.PHOTO_URL]: String(worker.get(WorkerProfiles.PHOTO_URL) || ""),
-      [SP.CATEGORIES]: CATEGORY_IDS,
-      [SP.ONLINE]: online,
-      [SP.LAT]: wLat,
-      [SP.LNG]: wLng,
-      [SP.CREDITS_PAISE]: 50000,
-      [SP.JOBS_COMPLETED]: 0,
-      [SP.APPLIED_AT]: Timestamp.now(),
-      [SP.UPDATED_AT]: Timestamp.now(),
-      [SP.LAST_SEEN_AT]: Timestamp.now(),
-    }, { merge: true });
-    return { online };
+    fail("failed-precondition", "Only approved DutyPe service partners can go online. Your application is currently under review by admin.");
   }
   const update: Record<string, unknown> = { [SP.ONLINE]: online, [SP.UPDATED_AT]: Timestamp.now() };
   if (online || data.lat !== undefined) {
@@ -775,22 +733,12 @@ export const setPartnerOnline = onCallSecured({ enforceAppCheck: false }, async 
 export const getServiceOffer = onCallSecured({ timeoutSeconds: 10, enforceAppCheck: false }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   const bookingId = str(obj(raw), "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
-  let [p, b] = await Promise.all([
+  const [p, b] = await Promise.all([
     db.collection(SP.COLLECTION).doc(uid).get(),
     db.collection(BK.COLLECTION).doc(bookingId).get(),
   ]);
   if (!p.exists || p.get(SP.STATUS) !== PartnerStatus.APPROVED) {
-    const worker = await db.collection(WorkerProfiles.COLLECTION).doc(uid).get();
-    if (worker.exists) {
-      await db.collection(SP.COLLECTION).doc(uid).set({
-        [SP.STATUS]: PartnerStatus.APPROVED,
-        [SP.CATEGORIES]: CATEGORY_IDS,
-        [SP.ONLINE]: true,
-        [SP.CREDITS_PAISE]: 50000,
-        [SP.UPDATED_AT]: Timestamp.now(),
-      }, { merge: true });
-      p = await db.collection(SP.COLLECTION).doc(uid).get();
-    }
+    return { available: false, status: "NOT_APPROVED" };
   }
   if (!b.exists) return { available: false, status: "GONE" };
   const d = b.data() || {};
@@ -839,13 +787,7 @@ export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceA
   const out = await db.runTransaction(async (tx) => {
     const [b, p] = await Promise.all([tx.get(ref), tx.get(partnerRef)]);
     if (!p.exists || p.get(SP.STATUS) !== PartnerStatus.APPROVED) {
-      tx.set(partnerRef, {
-        [SP.STATUS]: PartnerStatus.APPROVED,
-        [SP.CATEGORIES]: CATEGORY_IDS,
-        [SP.ONLINE]: true,
-        [SP.CREDITS_PAISE]: 50000,
-        [SP.UPDATED_AT]: Timestamp.now(),
-      }, { merge: true });
+      fail("permission-denied", "Only approved DutyPe service partners can accept bookings.");
     }
     if (!b.exists) return { result: "closed" as const };
     const d = b.data() || {};
@@ -869,7 +811,7 @@ export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceA
     const credits = Number(p.get(SP.CREDITS_PAISE) || 0);
     const needed = requiredCredits(d, fee);
     if (credits < needed) {
-      tx.set(partnerRef, { [SP.CREDITS_PAISE]: needed + 50000 }, { merge: true });
+      fail("failed-precondition", "Insufficient credits in partner wallet. Please top up your wallet to accept this booking.");
     }
     const now = Timestamp.now();
     const ratingCount = Number(p.get(SP.RATING_COUNT) || 0);

@@ -1,5 +1,5 @@
 /**
- * Pure helpers for WhatsApp login codes and Truecaller profiles (no Firebase, unit tested).
+ * Pure helpers for WhatsApp login codes (no Firebase, unit tested).
  */
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomInt, timingSafeEqual } from "crypto";
 
@@ -134,26 +134,6 @@ export function openCode(sealed: string, env: NodeJS.ProcessEnv = process.env): 
 export function ipKey(ip: string, nowMs: number): string {
   const hour = Math.floor(nowMs / HOUR_MS);
   return createHash("sha256").update(`ip:${ip}`).digest("hex").slice(0, 20) + `_${hour}`;
-}
-
-export interface TruecallerUser {
-  phone: string | null;
-  name: string;
-  email: string;
-}
-
-/** The fields DutyPe uses from Truecaller's userinfo response. */
-export function parseTruecallerUserInfo(raw: unknown): TruecallerUser {
-  const u = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const phone = indianE164(u.phone_number ?? u.phoneNumber);
-  const name = [u.given_name, u.family_name].map((v) => String(v ?? "").trim()).filter(Boolean).join(" ") ||
-    String(u.name ?? "").trim();
-  const email = String(u.email ?? "").trim().toLowerCase();
-  return {
-    phone,
-    name: name.replace(/\s+/g, " ").slice(0, 80),
-    email: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) && email.length <= 120 ? email : "",
-  };
 }
 
 /** WhatsApp is set up when the token secret holds a real value (a placeholder like "unset" is not). */

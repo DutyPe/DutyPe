@@ -1,17 +1,16 @@
-﻿package com.example.dutype.components
+package com.example.dutype.components
 
-import com.example.dutype.ui.theme.fg
-import com.dutype.app.R
-import androidx.compose.ui.res.stringResource
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,46 +19,47 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.dutype.ui.theme.WorkerColors
 
 /**
- * Shared "Made with [heart] in Bharat" footer used at the bottom of both
- * worker and employer home screens. Rendered large, left-aligned, with a
- * brand-blue heart so it reads as a signature rather than fine print.
+ * Shared signature brand footer for DutyPe.
+ * Displays the large bold signature statement followed by the blue heart icon inline on line 2,
+ * exactly matching the reference design layout.
+ * Used across Worker Home, Hire Workers, and Customer Services screens.
  */
 @Composable
-fun MadeWithLoveFooter(modifier: Modifier = Modifier) {
-    val labelColor = WorkerColors.TextPrimary
-    val heartColor = Color(0xFF2563EB).fg()
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 64.dp, bottom = 48.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Start
+fun MadeWithLoveFooter(
+    modifier: Modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 28.dp)
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.Start
     ) {
         Text(
-            text = stringResource(R.string.auto_made_with),
-            style = MaterialTheme.typography.titleLarge.copy(
-                color = labelColor,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 22.sp
+            text = "India's local",
+            fontSize = 32.sp,
+            fontWeight = FontWeight.Black,
+            color = Color(0xFF94A3B8),
+            lineHeight = 36.sp,
+            letterSpacing = (-0.8).sp
+        )
+        Spacer(Modifier.height(2.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "jobs & service app",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Black,
+                color = Color(0xFF94A3B8),
+                letterSpacing = (-0.8).sp
             )
-        )
-        Icon(
-            imageVector = Icons.Filled.Favorite,
-            contentDescription = null,
-            tint = heartColor,
-            modifier = Modifier.size(24.dp)
-        )
-        Text(
-            text = stringResource(R.string.auto_in_bharat),
-            style = MaterialTheme.typography.titleLarge.copy(
-                color = labelColor,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 22.sp
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                imageVector = Icons.Filled.Favorite,
+                contentDescription = "DutyPe Blue Heart",
+                tint = Color(0xFF0284C7),
+                modifier = Modifier.size(28.dp)
             )
-        )
+        }
     }
 }

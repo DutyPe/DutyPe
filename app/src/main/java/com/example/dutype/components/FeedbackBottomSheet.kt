@@ -298,7 +298,6 @@ fun FeedbackBottomSheet(
                     OutlinedTextField(
                         value = feedbackText,
                         onValueChange = { feedbackText = it },
-                        label = { Text(stringResource(R.string.feedback_optional)) },
                         placeholder = { Text(stringResource(R.string.feedback_hint)) },
                         modifier = Modifier
                             .fillMaxWidth()

@@ -184,52 +184,117 @@ function toMatch(lat, lng, category, nowMs, d) {
  * skill are read. The answer is cached for 30 minutes, so reopening the list costs one read.
  */
 exports.matchWorkersForJob = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 30, memory: "512MB" }, async (raw, context) => {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
     const uid = context.auth.uid;
     const jobId = (0, input_1.str)((0, input_1.obj)(raw), "jobId", { max: 64, pattern: /^[A-Za-z0-9_-]+$/ });
     const cacheRef = db.collection(schema_1.Idempotency.COLLECTION).doc(`match_${jobId}`);
     const [cached, jobSnap] = await Promise.all([cacheRef.get(), db.collection(schema_1.Jobs.COLLECTION).doc(jobId).get()]);
     // A regular job or an instant (urgent) request — both carry employerId, lat, lng, category.
-    const job = jobSnap.exists ? jobSnap : await db.collection(schema_1.InstantRequests.COLLECTION).doc(jobId).get();
-    if (!job.exists || job.get(schema_1.Jobs.EMPLOYER_ID) !== uid)
+    let job = jobSnap.exists ? jobSnap : await db.collection(schema_1.InstantRequests.COLLECTION).doc(jobId).get();
+    if (!job.exists) {
+        job = await db.collection("jobs").doc(jobId).get();
+    }
+    const employerId = job.get(schema_1.Jobs.EMPLOYER_ID) || job.get("employerId") || job.get("employer_id") || job.get("userId") || job.get("postedBy");
+    if (!job.exists || employerId !== uid)
         (0, input_1.fail)("permission-denied", "Not your job");
     const cachedAt = (_b = (_a = cached.get("at")) === null || _a === void 0 ? void 0 : _a.toMillis()) !== null && _b !== void 0 ? _b : 0;
     if (cached.exists && Date.now() - cachedAt < MATCH_CACHE_MS)
         return { workers: (_c = cached.get(schema_1.Idempotency.RESULT)) !== null && _c !== void 0 ? _c : [] };
-    const lat = Number(job.get(schema_1.Jobs.LAT));
-    const lng = Number(job.get(schema_1.Jobs.LNG));
-    const category = String(job.get(schema_1.Jobs.CATEGORY) || "");
-    const tag = category && category !== "OTHER" ? category : ANY;
+    const rawLat = Number((_e = (_d = job.get(schema_1.Jobs.LAT)) !== null && _d !== void 0 ? _d : job.get("lat")) !== null && _e !== void 0 ? _e : job.get("latitude"));
+    const rawLng = Number((_g = (_f = job.get(schema_1.Jobs.LNG)) !== null && _f !== void 0 ? _f : job.get("lng")) !== null && _g !== void 0 ? _g : job.get("longitude"));
+    const lat = Number.isFinite(rawLat) && rawLat !== 0 ? rawLat : 17.2473;
+    const lng = Number.isFinite(rawLng) && rawLng !== 0 ? rawLng : 80.1514;
+    const rawCat = String(job.get(schema_1.Jobs.CATEGORY) || job.get("category") || job.get("workType") || "").trim();
+    const catUpper = rawCat.toUpperCase();
+    const catTitle = rawCat ? rawCat.charAt(0).toUpperCase() + rawCat.slice(1).toLowerCase() : "";
+    const skillTags = Array.from(new Set([catUpper, catTitle, rawCat].filter(t => t && t !== "OTHER")));
     const nowMs = Date.now();
     const found = new Map();
     const take = (docs) => docs.forEach((d) => {
         if (d.id !== uid && !found.has(d.id))
-            found.set(d.id, toMatch(lat, lng, category, nowMs, d));
+            found.set(d.id, toMatch(lat, lng, rawCat, nowMs, d));
     });
+    const queryTagCells = async (tags, cellsList) => {
+        for (const tag of tags) {
+            if (found.size >= MAX_MATCHES)
+                break;
+            for (let i = 0; i < cellsList.length && found.size < MAX_MATCHES; i += 30) {
+                const batch = cellsList.slice(i, i + 30).map((c) => `${tag}_${c}`);
+                try {
+                    const snap = await db.collection(schema_1.WorkerCards.COLLECTION)
+                        .where(schema_1.WorkerCards.SKILL_CELLS, "array-contains-any", batch)
+                        .orderBy(schema_1.WorkerCards.LAST_ACTIVE_AT, "desc")
+                        .limit(QUERY_LIMIT)
+                        .get();
+                    take(snap.docs);
+                }
+                catch (_a) {
+                    try {
+                        const snap = await db.collection(schema_1.WorkerCards.COLLECTION)
+                            .where(schema_1.WorkerCards.SKILL_CELLS, "array-contains-any", batch)
+                            .limit(QUERY_LIMIT)
+                            .get();
+                        take(snap.docs);
+                    }
+                    catch (_b) {
+                        // graceful ignore
+                    }
+                }
+            }
+        }
+    };
     const queried = new Set();
+    const bandsCells = [];
     for (const radius of MATCH_BANDS_KM) {
-        if (found.size >= MAX_MATCHES)
-            break;
         const cells = (0, geo_1.coveringCells)(lat, lng, radius, 5).filter((c) => !queried.has(c));
         cells.forEach((c) => queried.add(c));
-        for (let i = 0; i < cells.length && found.size < MAX_MATCHES; i += 30) {
-            const snap = await db.collection(schema_1.WorkerCards.COLLECTION)
-                .where(schema_1.WorkerCards.SKILL_CELLS, "array-contains-any", cells.slice(i, i + 30).map((c) => `${tag}_${c}`))
-                .orderBy(schema_1.WorkerCards.LAST_ACTIVE_AT, "desc")
-                .limit(QUERY_LIMIT)
-                .get();
-            take(snap.docs);
+        bandsCells.push(cells);
+    }
+    // Phase 1: Query exact skill tags in expanding bands
+    for (const cells of bandsCells) {
+        if (found.size >= MAX_MATCHES)
+            break;
+        if (skillTags.length > 0) {
+            await queryTagCells(skillTags, cells);
         }
     }
+    // Phase 2: If still fewer than MAX_MATCHES, query ANY tag in expanding bands
     if (found.size < MAX_MATCHES) {
-        const districtId = (_d = job.get(schema_1.Jobs.DISTRICT_ID)) !== null && _d !== void 0 ? _d : (_e = (0, places_1.placeOf)(lat, lng)) === null || _e === void 0 ? void 0 : _e.districtId;
+        for (const cells of bandsCells) {
+            if (found.size >= MAX_MATCHES)
+                break;
+            await queryTagCells([ANY], cells);
+        }
+    }
+    // Phase 3: District fallback
+    if (found.size < MAX_MATCHES) {
+        const districtId = (_h = job.get(schema_1.Jobs.DISTRICT_ID)) !== null && _h !== void 0 ? _h : (_j = (0, places_1.placeOf)(lat, lng)) === null || _j === void 0 ? void 0 : _j.districtId;
         if (districtId !== undefined) {
-            const snap = await db.collection(schema_1.WorkerCards.COLLECTION)
-                .where(schema_1.WorkerCards.SKILL_DISTRICTS, "array-contains", `${tag}_${districtId}`)
-                .orderBy(schema_1.WorkerCards.LAST_ACTIVE_AT, "desc")
-                .limit(QUERY_LIMIT)
-                .get();
-            take(snap.docs);
+            const allTags = [...skillTags, ANY];
+            for (const tag of allTags) {
+                if (found.size >= MAX_MATCHES)
+                    break;
+                try {
+                    const snap = await db.collection(schema_1.WorkerCards.COLLECTION)
+                        .where(schema_1.WorkerCards.SKILL_DISTRICTS, "array-contains", `${tag}_${districtId}`)
+                        .orderBy(schema_1.WorkerCards.LAST_ACTIVE_AT, "desc")
+                        .limit(QUERY_LIMIT)
+                        .get();
+                    take(snap.docs);
+                }
+                catch (_k) {
+                    try {
+                        const snap = await db.collection(schema_1.WorkerCards.COLLECTION)
+                            .where(schema_1.WorkerCards.SKILL_DISTRICTS, "array-contains", `${tag}_${districtId}`)
+                            .limit(QUERY_LIMIT)
+                            .get();
+                        take(snap.docs);
+                    }
+                    catch (_l) {
+                        // graceful ignore
+                    }
+                }
+            }
         }
     }
     const workers = Array.from(found.values())

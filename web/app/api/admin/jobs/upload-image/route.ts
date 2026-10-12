@@ -1,27 +1,15 @@
 import { randomUUID } from "node:crypto";
 
 import { NextRequest, NextResponse } from "next/server";
+import sharp from "sharp";
 
 import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
 import { getFirebaseAdminStorageBucket } from "@/lib/firebase/admin-server";
 
 export const runtime = "nodejs";
 
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024;
 const SUPPORTED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-
-function extensionForMimeType(mimeType: string) {
-  switch (mimeType) {
-    case "image/jpeg":
-      return "jpg";
-    case "image/png":
-      return "png";
-    case "image/webp":
-      return "webp";
-    default:
-      return "jpg";
-  }
-}
 
 function sanitizePathSegment(value: string) {
   const sanitized = value.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
@@ -52,7 +40,7 @@ export async function POST(request: NextRequest) {
 
   if (uploaded.size > MAX_IMAGE_SIZE_BYTES) {
     return NextResponse.json(
-      { error: "Image must be 5 MB or smaller." },
+      { error: "Image must be 10 MB or smaller." },
       { status: 400 }
     );
   }
@@ -69,19 +57,37 @@ export async function POST(request: NextRequest) {
   const employerId = sanitizePathSegment(employerIdRaw);
 
   try {
-    const bytes = Buffer.from(await uploaded.arrayBuffer());
+    let uploadBytes: Buffer<ArrayBufferLike> = Buffer.from(await uploaded.arrayBuffer());
+
+    try {
+      let processed = await sharp(uploadBytes)
+        .resize({ width: 800, height: 800, fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 75, effort: 4 })
+        .toBuffer();
+
+      if (processed.length > 45 * 1024) {
+        processed = await sharp(uploadBytes)
+          .resize({ width: 640, height: 640, fit: "inside", withoutEnlargement: true })
+          .webp({ quality: 60, effort: 6 })
+          .toBuffer();
+      }
+      uploadBytes = processed;
+    } catch (sharpError) {
+      console.warn("Sharp WebP compression failed for job image, using original buffer:", sharpError);
+    }
+
     const token = randomUUID();
-    const extension = extensionForMimeType(mimeType);
-    const filename = `job_image_${Date.now()}_${randomUUID().slice(0, 8)}.${extension}`;
+    const filename = `job_image_${Date.now()}_${randomUUID().slice(0, 8)}.webp`;
     const objectPath = `job_images/${employerId}/${filename}`;
 
     const bucket = getFirebaseAdminStorageBucket();
     const file = bucket.file(objectPath);
 
-    await file.save(bytes, {
+    await file.save(uploadBytes, {
       resumable: false,
       metadata: {
-        contentType: mimeType,
+        contentType: "image/webp",
+        cacheControl: "public, max-age=31536000, immutable",
         metadata: {
           firebaseStorageDownloadTokens: token
         }
@@ -95,8 +101,8 @@ export async function POST(request: NextRequest) {
       ok: true,
       url: publicUrl,
       path: objectPath,
-      contentType: mimeType,
-      size: uploaded.size
+      contentType: "image/webp",
+      size: uploadBytes.length
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to upload image.";

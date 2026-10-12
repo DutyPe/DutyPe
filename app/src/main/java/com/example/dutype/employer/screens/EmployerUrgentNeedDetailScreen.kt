@@ -60,6 +60,7 @@ fun EmployerUrgentNeedDetailScreen(
 
     LaunchedEffect(requestId) {
         instantHelpViewModel.loadEmployerUrgentNeeds()
+        instantHelpViewModel.loadResponsesForSingleRequest(requestId)
         applicationViewModel.loadMatchedWorkers(requestId, force = true)
     }
 
@@ -199,28 +200,16 @@ fun EmployerUrgentNeedDetailScreen(
         )
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(EmployerColors.ScreenBackground)
-    ) {
-        CommonHeader(
-            title = stringResource(R.string.instant_hiring_room),
-            subtitle = request?.title ?: stringResource(R.string.instant_hiring_room_subtitle),
-            navController = navController,
-            onBackClick = onNavigateBack,
-            backgroundColor = EmployerColors.ScreenBackground
-        )
-
-        EmployerUrgentNeedDetailContent(
-            request = request,
-            responses = responses,
-            isLoading = instantHelpState.isLoadingEmployerUrgentNeeds,
-            isRequestUpdating = instantHelpState.updatingEmployerRequestId == requestId,
-            updatingResponseId = instantHelpState.updatingEmployerResponseId,
-            ratedResponseIds = ratedResponseIds,
-            matchedWorkersState = matchedWorkersState,
-            onRefreshMatchedWorkers = { applicationViewModel.loadMatchedWorkers(requestId, force = true) },
+    EmployerUrgentNeedDetailContent(
+        request = request,
+        responses = responses,
+        isLoading = instantHelpState.isLoadingEmployerUrgentNeeds,
+        isRequestUpdating = instantHelpState.updatingEmployerRequestId == requestId,
+        updatingResponseId = instantHelpState.updatingEmployerResponseId,
+        ratedResponseIds = ratedResponseIds,
+        matchedWorkersState = matchedWorkersState,
+        onRefreshMatchedWorkers = { applicationViewModel.loadMatchedWorkers(requestId, force = true) },
+        onBackClick = onNavigateBack,
             onCallMatchedWorker = { worker ->
                 if (worker.phone.isNotBlank()) {
                     openDialer(context, worker.phone)
@@ -270,7 +259,6 @@ fun EmployerUrgentNeedDetailScreen(
             onDeleteRequest = { showDeleteConfirm = true },
             onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
         )
-    }
 }
 
 @Composable

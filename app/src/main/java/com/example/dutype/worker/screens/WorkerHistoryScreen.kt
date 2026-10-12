@@ -67,8 +67,10 @@ fun WorkerHistoryScreen(
 ) {
     val jobApplicationViewModel: SmartJobApplicationViewModel = hiltViewModel()
     val instantHelpViewModel: InstantHelpViewModel = hiltViewModel()
+    val homeServicesViewModel: com.example.dutype.homeservices.HomeServicesViewModel = hiltViewModel()
     val uiState by jobApplicationViewModel.legacyUiState.collectAsStateWithLifecycle()
     val instantHelpState by instantHelpViewModel.uiState.collectAsStateWithLifecycle()
+    val bookingsLoad by homeServicesViewModel.bookingsLoad.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val currentUser = FirebaseAuth.getInstance().currentUser
 
@@ -77,9 +79,11 @@ fun WorkerHistoryScreen(
         stringResource(R.string.tab_timeline),
         stringResource(R.string.tab_completed),
         stringResource(R.string.tab_all_history),
-        stringResource(R.string.urgent)
+        stringResource(R.string.urgent),
+        "Booked Services"
     )
     val urgentTabIndex = 3
+    val servicesTabIndex = 4
 
     val screenBg = com.example.dutype.ui.theme.WorkerColors.ScreenBackground
     LaunchedEffect(screenBg) {
@@ -164,7 +168,13 @@ fun WorkerHistoryScreen(
         }
 
         // Content
-        if (selectedTab == urgentTabIndex) {
+        if (selectedTab == servicesTabIndex) {
+            WorkerBookedServicesContent(
+                bookings = bookingsLoad.list,
+                isLoading = !bookingsLoad.loaded,
+                navController = navController
+            )
+        } else if (selectedTab == urgentTabIndex) {
             WorkerUrgentHistoryContent(
                 responses = instantHelpState.workerInstantResponses,
                 isLoading = instantHelpState.isLoadingWorkerUrgentHistory,
@@ -757,4 +767,105 @@ private fun InfoChip(
 
 private fun formatTimelineDate(timestamp: Long): String {
     return DateTimeUtils.formatDate(timestamp)
+}
+
+@Composable
+private fun WorkerBookedServicesContent(
+    bookings: List<com.example.dutype.homeservices.ServiceBooking>,
+    isLoading: Boolean,
+    navController: NavController
+) {
+    if (isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
+        }
+        return
+    }
+
+    if (bookings.isEmpty()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .background(Color(0xFFEFF6FF), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.HomeRepairService,
+                    contentDescription = null,
+                    tint = Color(0xFF2563EB),
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "No Home Services Booked Yet",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F172A)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Book doorstep appliance repair, plumbing, electrician or cleaning for your home at verified all-inclusive rates.",
+                fontSize = 13.5.sp,
+                color = Color(0xFF64748B),
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            Button(
+                onClick = { navController.navigate(Routes.SERVICES) },
+                shape = RoundedCornerShape(24.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+            ) {
+                Icon(Icons.Filled.HomeRepairService, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Book a Home Service", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            }
+        }
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "My Booked Services (${bookings.size})",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
+                )
+                TextButton(onClick = { navController.navigate(Routes.SERVICES) }) {
+                    Text("+ Book Another", color = Color(0xFF2563EB), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+            }
+        }
+
+        items(
+            items = bookings,
+            key = { it.id }
+        ) { booking ->
+            com.example.dutype.homeservices.BookingRow(booking) {
+                navController.navigate(Routes.servicesBookingRoute(booking.id))
+            }
+        }
+    }
 }

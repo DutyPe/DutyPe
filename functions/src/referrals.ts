@@ -162,9 +162,15 @@ export async function registerReferral(uid: string, rawCode: string): Promise<st
       .count().get();
     const fraudScore = recent.data().count >= MAX_REFERRALS_PER_HOUR ? 60 : 0;
 
-    return await db.runTransaction(async (tx) => {
+    const config = await getReferralConfig();
+
+    const txResult = await db.runTransaction(async (tx) => {
       const ref = db.collection(Referrals.COLLECTION).doc(uid);
-      const [existing, referrerWallet] = await Promise.all([tx.get(ref), tx.get(walletRef(referrerUid))]);
+      const [existing, referrerWallet, refereeWallet] = await Promise.all([
+        tx.get(ref),
+        tx.get(walletRef(referrerUid)),
+        readWallet(tx, uid)
+      ]);
       if (existing.exists) return "A referral code was already used";
       if (referrerWallet.get(Wallets.BLOCKED) === true) return "This referral code is not active";
       const now = Date.now();
@@ -176,8 +182,44 @@ export async function registerReferral(uid: string, rawCode: string): Promise<st
         [Referrals.CREATED_AT]: Timestamp.fromMillis(now),
         [Referrals.EXPIRES_AT]: Timestamp.fromMillis(now + REFERRAL_EXPIRY_MS),
       });
+
+      // Instant credit: referee receives their signup bonus immediately upon entering code
+      if (fraudScore === 0) {
+        const bonusPaise = Math.round(config.signupBonus * 100);
+        const bonusEventId = `referral_${uid}_referee`;
+        const bonusEntry = await tx.get(ledgerRef(bonusEventId));
+        if (!bonusEntry.exists && bonusPaise > 0) {
+          postEntry(tx, uid, refereeWallet, bonusEventId, Values.LedgerType.SIGNUP_BONUS, bonusPaise, code);
+        }
+      }
+
+      // Mark user record
+      tx.set(db.collection("users").doc(uid), {
+        hasUsedReferralCode: true,
+        referredBy: referrerUid,
+        referredByCode: code,
+        updatedAt: Timestamp.now()
+      }, { merge: true });
+
       return null;
     });
+
+    if (txResult === null && fraudScore === 0) {
+      // Notify referee of instant credit
+      notify(uid, {
+        type: "SIGNUP_BONUS",
+        templateId: "SIGNUP_BONUS",
+        params: { amount: config.signupBonus }
+      }).catch(() => {});
+      // Notify referrer of new friend joining
+      notify(referrerUid, {
+        type: "REFERRAL",
+        templateId: "REFERRAL_REWARD_BASIC",
+        params: { name: "Friend", amount: config.rewardPerReferral }
+      }).catch(() => {});
+    }
+
+    return txResult;
   } catch (error) {
     functions.logger.warn(`registerReferral(${uid}) failed`, error);
     return "Referral could not be applied";

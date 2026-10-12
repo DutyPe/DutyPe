@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
+import android.content.Context
+import com.google.gson.Gson
+import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -307,11 +310,23 @@ private fun Map<String, Any?>.long(key: String): Long = (this[key] as? Number)?.
 
 @Singleton
 class HomeServicesRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val functions: FirebaseFunctions,
     private val firestore: FirebaseFirestore,
     private val auth: FirebaseAuth
 ) {
-    fun getCachedCatalog(): ServicesCatalog? = cachedCatalog?.second
+    fun getCachedCatalog(): ServicesCatalog {
+        cachedCatalog?.second?.let { return it }
+        val disk = runCatching {
+            val json = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_CATALOG_JSON, null)
+            if (!json.isNullOrBlank()) {
+                Gson().fromJson(json, ServicesCatalog::class.java)
+            } else null
+        }.getOrNull()
+        val result = disk ?: DefaultServicesCatalog.get()
+        cachedCatalog = System.currentTimeMillis() to result
+        return result
+    }
 
     val uid: String? get() = auth.currentUser?.uid
 
@@ -522,6 +537,11 @@ class HomeServicesRepository @Inject constructor(
             items = d["items"].asMap().mapValues { (_, v) -> v.asMap().mapValues { (_, t) -> t.toString() } }
         )
         cachedCatalog = System.currentTimeMillis() to catalog
+        runCatching {
+            val json = Gson().toJson(catalog)
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putString(KEY_CATALOG_JSON, json).apply()
+        }
         return catalog
     }
 
@@ -551,21 +571,42 @@ class HomeServicesRepository @Inject constructor(
     fun offersFromSnapshot(snap: DocumentSnapshot): List<PromoOffer> =
         offersOf(snap.get("offers"))
 
-    @Suppress("UNCHECKED_CAST")
-    internal fun bannersOf(raw: Any?): List<PromoBanner> = (raw as? List<Any?>).orEmpty().map { it.asMap() }.map {
-        PromoBanner(
-            id = it.str("id"),
-            headline = it.str("headline"),
-            subheadline = it.str("subheadline"),
-            cta = it.str("cta").ifBlank { "Know more" },
-            imageUrl = it["imageUrl"] as? String,
-            bgStartColor = it.str("bgStartColor").ifBlank { "#0F172A" },
-            bgEndColor = it.str("bgEndColor").ifBlank { "#1E3A8A" },
-            targetServiceId = it["targetServiceId"] as? String,
-            targetCategoryId = it["targetCategoryId"] as? String,
-            imageScale = (it["imageScale"] as? Number)?.toFloat() ?: 1.0f
+    fun updateRealtimeConfig(
+        banners: List<PromoBanner>,
+        offers: List<PromoOffer>,
+        mostBooked: List<String>
+    ) {
+        val current = cachedCatalog?.second ?: getCachedCatalog()
+        val updated = current.copy(
+            promoBanners = banners,
+            offers = offers,
+            mostBookedServiceIds = if (mostBooked.isNotEmpty()) mostBooked else current.mostBookedServiceIds
         )
-    }.filter { it.headline.isNotBlank() }
+        cachedCatalog = System.currentTimeMillis() to updated
+        runCatching {
+            val json = Gson().toJson(updated)
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putString(KEY_CATALOG_JSON, json).apply()
+        }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    internal fun bannersOf(raw: Any?): List<PromoBanner> = (raw as? List<Any?>).orEmpty().map { it.asMap() }
+        .filter { it["active"] != false }
+        .map {
+            PromoBanner(
+                id = it.str("id"),
+                headline = it.str("headline"),
+                subheadline = it.str("subheadline"),
+                cta = it.str("cta").ifBlank { "Know more" },
+                imageUrl = it["imageUrl"] as? String,
+                bgStartColor = it.str("bgStartColor").ifBlank { "#0F172A" },
+                bgEndColor = it.str("bgEndColor").ifBlank { "#1E3A8A" },
+                targetServiceId = it["targetServiceId"] as? String,
+                targetCategoryId = it["targetCategoryId"] as? String,
+                imageScale = (it["imageScale"] as? Number)?.toFloat() ?: 1.0f
+            )
+        }.filter { it.headline.isNotBlank() }
 
     @Suppress("UNCHECKED_CAST")
     internal fun offersOf(raw: Any?): List<PromoOffer> = (raw as? List<Any?>).orEmpty().map { it.asMap() }.map {
@@ -891,6 +932,8 @@ class HomeServicesRepository @Inject constructor(
         const val BOOKINGS = "service_bookings"
         const val PARTNERS = "service_partners"
         const val CATALOG_TTL_MS = 10 * 60 * 1000L
+        private const val PREFS_NAME = "dutype_services_catalog_store"
+        private const val KEY_CATALOG_JSON = "cached_catalog_json"
         @Volatile private var cachedCatalog: Pair<Long, ServicesCatalog>? = null
     }
 }

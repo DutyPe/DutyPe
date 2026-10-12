@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -51,7 +52,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -128,7 +132,6 @@ fun PartnerEntryIfInArea(
     if (inArea) {
         Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             PartnerEntryCard(onClick = onClick)
-            if (onBookServices != null) HomeServicesEntryCard(onClick = onBookServices)
         }
     }
 }
@@ -155,7 +158,7 @@ fun PartnerEntryCard(onClick: () -> Unit, modifier: Modifier = Modifier) {
             Box(
                 Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0F172A))
+                    .background(Color(0xFF2563EB))
                     .clickable(onClick = onClick)
                     .padding(horizontal = 14.dp, vertical = 7.dp)
             ) {
@@ -222,8 +225,29 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
             }
             when (p.status) {
                 PartnerStatus.PENDING -> {
-                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF7ED)), modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.svc_partner_pending), modifier = Modifier.padding(16.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        border = BorderStroke(1.dp, Color(0xFFFED7AA)),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFEF3C7)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Filled.Schedule, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("Application Under Review", fontWeight = FontWeight.Bold, color = Color(0xFF0F172A), fontSize = 15.sp)
+                                Spacer(Modifier.height(4.dp))
+                                Text(stringResource(R.string.svc_partner_pending), color = Color(0xFF64748B), fontSize = 12.5.sp, lineHeight = 17.sp)
+                            }
+                        }
                     }
                     if (catalog?.upiId?.isNotBlank() == true) {
                         OutlinedButton(onClick = { navController.navigate(Routes.PARTNER_TOPUP) }, modifier = Modifier.fillMaxWidth()) {
@@ -233,6 +257,42 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
                 }
                 PartnerStatus.SUSPENDED -> Text(stringResource(R.string.svc_partner_suspended), color = SvcRed)
                 else -> {
+                    // Partner Onboarding Phase Status Card
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                        border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier.size(42.dp).clip(CircleShape).background(Color(0xFFDBEAFE)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("🚀", fontSize = 20.sp)
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    text = "Partner Onboarding Active ⚡",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    color = Color(0xFF1E3A8A)
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    text = "You are an approved DutyPe Service Partner! We are currently onboarding local technicians across Khammam. Once customer doorstep bookings go live, orders will be dispatched directly to your phone.",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF1E40AF),
+                                    lineHeight = 16.5.sp
+                                )
+                            }
+                        }
+                    }
+
                     // Online switch
                     Card(
                         colors = CardDefaults.cardColors(containerColor = if (p.online) Color(0xFFF0FDF4) else Color(0xFFF1F5F9)),
@@ -312,40 +372,42 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
                     }
 
                     Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
                         shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                     ) {
                         Column(Modifier.padding(16.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
-                                    modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFF1E293B)),
+                                    modifier = Modifier.size(36.dp).clip(CircleShape).background(Color(0xFFDCFCE7)),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(Icons.Filled.TrendingUp, contentDescription = null, tint = SvcGreen, modifier = Modifier.size(20.dp))
                                 }
                                 Spacer(Modifier.width(10.dp))
                                 Column(Modifier.weight(1f)) {
-                                    Text("My Earnings", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                    Text("DutyPe Partner Income", color = Color(0xFF94A3B8), fontSize = 11.5.sp)
+                                    Text("My Earnings", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Text("DutyPe Partner Income", color = Color(0xFF64748B), fontSize = 11.5.sp)
                                 }
-                                Text("₹$totalEarnings", color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+                                Text("₹$totalEarnings", color = Color(0xFF0F172A), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
                             }
                             Spacer(Modifier.height(14.dp))
-                            HorizontalDivider(color = Color(0xFF1E293B))
+                            HorizontalDivider(color = Color(0xFFF1F5F9))
                             Spacer(Modifier.height(12.dp))
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                 Column {
-                                    Text("Today", color = Color(0xFF94A3B8), fontSize = 11.5.sp)
+                                    Text("Today", color = Color(0xFF64748B), fontSize = 11.5.sp)
                                     Text("₹$todayEarnings", color = SvcGreen, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 }
                                 Column {
-                                    Text("Last 7 Days", color = Color(0xFF94A3B8), fontSize = 11.5.sp)
-                                    Text("₹$weekEarnings", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Text("Last 7 Days", color = Color(0xFF64748B), fontSize = 11.5.sp)
+                                    Text("₹$weekEarnings", color = Color(0xFF0284C7), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 }
                                 Column {
-                                    Text("Jobs Done", color = Color(0xFF94A3B8), fontSize = 11.5.sp)
-                                    Text("${p.jobsCompleted}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                    Text("Jobs Done", color = Color(0xFF64748B), fontSize = 11.5.sp)
+                                    Text("${p.jobsCompleted}", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 }
                             }
                         }
@@ -446,6 +508,8 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     val lang = LocaleHelper.getLanguage(context)
     val scope = rememberCoroutineScope()
     val chosen = remember { mutableStateListOf<String>() }
+    var customServiceInput by remember { mutableStateOf("") }
+    val customServicesList = remember { mutableStateListOf<String>() }
     var years by remember { mutableStateOf("") }
     var area by remember { mutableStateOf("") }
     var proof by remember { mutableStateOf("") }
@@ -455,103 +519,10 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     var showRules by remember { mutableStateOf(false) }
     var submitting by remember { mutableStateOf(false) }
 
-    // Official Aadhaar Identity Verification State
+    // Aadhaar State (collected directly without OTP)
     var aadhaarNumber by remember { mutableStateOf("") }
-    var isAadhaarVerified by remember { mutableStateOf(false) }
-    var showAadhaarOtpDialog by remember { mutableStateOf(false) }
-    var aadhaarOtp by remember { mutableStateOf("") }
-    var isVerifyingAadhaar by remember { mutableStateOf(false) }
-    var aadhaarError by remember { mutableStateOf<String?>(null) }
-
     val cleanAadhaar = aadhaarNumber.filter { it.isDigit() }
     val isValidAadhaarLength = cleanAadhaar.length == 12
-
-    // Aadhaar OTP Verification Modal Dialog
-    if (showAadhaarOtpDialog) {
-        AlertDialog(
-            onDismissRequest = { if (!isVerifyingAadhaar) showAadhaarOtpDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFEFF6FF)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Security,
-                            contentDescription = null,
-                            tint = Color(0xFF2563EB),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Text("Aadhaar UIDAI Verification", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = Color(0xFF0F172A))
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        "Enter the 6-digit OTP sent to your mobile registered with Aadhaar (ending in •••• ${cleanAadhaar.takeLast(4)}):",
-                        fontSize = 13.sp,
-                        color = Color(0xFF475569)
-                    )
-                    OutlinedTextField(
-                        value = aadhaarOtp,
-                        onValueChange = { v -> aadhaarOtp = v.filter { it.isDigit() }.take(6) },
-                        placeholder = { Text("Enter 6-digit OTP") },
-                        keyboardOptions = NumberKeyboard,
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
-                    )
-                    Text(
-                        "🔒 Verified directly via Official UIDAI Sandbox / e-KYC Gateway",
-                        fontSize = 11.5.sp,
-                        color = Color(0xFF16A34A),
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (aadhaarOtp.length == 6) {
-                            isVerifyingAadhaar = true
-                            scope.launch {
-                                kotlinx.coroutines.delay(900)
-                                isVerifyingAadhaar = false
-                                isAadhaarVerified = true
-                                showAadhaarOtpDialog = false
-                                aadhaarError = null
-                                Toast.makeText(context, "Aadhaar Identity Successfully Verified with UIDAI!", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    },
-                    enabled = aadhaarOtp.length == 6 && !isVerifyingAadhaar,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    if (isVerifyingAadhaar) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color.White, strokeWidth = 2.dp)
-                    } else {
-                        Text("Verify OTP", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showAadhaarOtpDialog = false },
-                    enabled = !isVerifyingAadhaar
-                ) {
-                    Text("Cancel", color = Color(0xFF64748B))
-                }
-            },
-            containerColor = Color.White,
-            shape = RoundedCornerShape(20.dp)
-        )
-    }
 
     if (catalog == null) {
         CircularProgressIndicator()
@@ -561,64 +532,69 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     // Hero Header Banner
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-        border = BorderStroke(1.dp, Color(0xFF1E293B))
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(Modifier.padding(20.dp)) {
+        Column(Modifier.padding(18.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .clip(RoundedCornerShape(50))
-                    .background(Color.White.copy(alpha = 0.12f))
+                    .background(Color(0xFFDCFCE7))
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
-                Icon(Icons.Filled.Verified, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(13.dp))
+                Icon(Icons.Filled.Verified, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(13.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    text = "DUTYPE PARTNER ONBOARDING",
-                    color = Color.White,
+                    text = stringResource(R.string.partner_apply_badge),
+                    color = Color(0xFF166534),
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.8.sp
                 )
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
-                text = "Register as a Verified Technician",
-                color = Color.White,
-                fontSize = 20.sp,
+                text = stringResource(R.string.partner_apply_hero_title),
+                color = Color(0xFF0F172A),
+                fontSize = 19.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Earn ₹800 - ₹2,500 daily with direct home service bookings across Khammam. 100% genuine UIDAI Aadhaar verified professionals.",
-                color = Color(0xFF94A3B8),
+                text = stringResource(R.string.partner_apply_hero_subtitle),
+                color = Color(0xFF64748B),
                 fontSize = 12.5.sp,
                 lineHeight = 17.sp
             )
         }
     }
 
-    // Card 1: Choose Your Services & Skill Level
+    // Section 1: Choose Your Services & Skill Level (Styled matching Worker Profile Setup screen)
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0))
     ) {
         Column(Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFF1F5F9)),
+                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFECFDF5)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("1", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF0F172A))
+                    Text("1", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF00B159))
                 }
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("Choose Your Trade Categories", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0F172A))
-                    Text("Select all services you can provide (${chosen.size} selected)", fontSize = 11.5.sp, color = Color(0xFF64748B))
+                    Text("SELECT YOUR SERVICES *", fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = Color(0xFF0F172A), letterSpacing = 0.5.sp)
+                    Text(
+                        stringResource(R.string.partner_section_trades_sub, chosen.size),
+                        fontSize = 11.5.sp,
+                        color = Color(0xFF64748B)
+                    )
                 }
             }
             Spacer(Modifier.height(14.dp))
@@ -627,52 +603,182 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                 val cats = catalog.categories.filter { it.isSkilled == skilled }
                 if (cats.isNotEmpty()) {
                     Text(
-                        text = if (skilled) "Skilled Technical Trades ⚡ (AC, Wiring, Plumbing)" else "General Doorstep Services (Cleaning, Wash, Help)",
-                        fontSize = 12.sp,
+                        text = stringResource(if (skilled) R.string.partner_skilled_trades else R.string.partner_general_trades),
+                        fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (skilled) Color(0xFFD97706) else Color(0xFF0F172A),
                         modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
                     )
-                    for (row in cats.chunked(2)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (row in cats.chunked(3)) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             for (cat in row) {
                                 val isSelected = cat.id in chosen
-                                Box(
+                                Surface(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(if (isSelected) Color(0xFF0F172A) else Color(0xFFF8FAFC))
-                                        .border(1.dp, if (isSelected) Color(0xFF0F172A) else Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
+                                        .height(40.dp)
                                         .clickable {
                                             if (isSelected) chosen.remove(cat.id) else chosen.add(cat.id)
-                                        }
+                                        },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isSelected) Color(0xFFECFDF5) else Color(0xFFF8FAFC),
+                                    border = BorderStroke(
+                                        1.dp,
+                                        if (isSelected) Color(0xFF00B159) else Color(0xFFE2E8F0)
+                                    )
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier.padding(horizontal = 4.dp)
                                     ) {
-                                        Icon(
-                                            categoryIcon(cat.id),
-                                            contentDescription = null,
-                                            tint = if (isSelected) Color.White else Color(0xFF475569),
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(Modifier.width(6.dp))
                                         Text(
                                             text = cat.label(lang),
-                                            fontSize = 12.sp,
+                                            fontSize = 11.sp,
                                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isSelected) Color.White else Color(0xFF1E293B),
+                                            color = if (isSelected) Color(0xFF065F46) else Color(0xFF334155),
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
                                     }
                                 }
                             }
-                            if (row.size == 1) Spacer(Modifier.weight(1f))
+                            for (i in 0 until (3 - row.size)) {
+                                Spacer(Modifier.weight(1f))
+                            }
                         }
                         Spacer(Modifier.height(8.dp))
                     }
+                }
+            }
+
+            // Custom Service Entry Field
+            Spacer(Modifier.height(6.dp))
+            HorizontalDivider(color = Color(0xFFF1F5F9))
+            Spacer(Modifier.height(10.dp))
+
+            Text(
+                text = "OTHER / CUSTOM SERVICE",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF64748B),
+                letterSpacing = 0.5.sp
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = "Can't find your service? Type below to add it directly to your profile",
+                fontSize = 11.sp,
+                color = Color(0xFF94A3B8)
+            )
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = customServiceInput,
+                    onValueChange = { customServiceInput = it.take(40) },
+                    placeholder = {
+                        Text(
+                            "E.g. Mehendi Artist, Boutique, Patient Care...",
+                            fontSize = 11.5.sp,
+                            color = Color(0xFF94A3B8)
+                        )
+                    },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFF00B159),
+                        unfocusedBorderColor = Color(0xFFCBD5E1),
+                        focusedContainerColor = Color(0xFFF8FAFC),
+                        unfocusedContainerColor = Color(0xFFF8FAFC)
+                    )
+                )
+                Button(
+                    onClick = {
+                        val trimmed = customServiceInput.trim()
+                        if (trimmed.isNotBlank()) {
+                            if (trimmed !in chosen) chosen.add(trimmed)
+                            if (trimmed !in customServicesList) customServicesList.add(trimmed)
+                            customServiceInput = ""
+                        }
+                    },
+                    enabled = customServiceInput.isNotBlank(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF00B159),
+                        disabledContainerColor = Color(0xFFE2E8F0)
+                    ),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
+                ) {
+                    Text("+ Add", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.White)
+                }
+            }
+
+            // Display added custom services chips with delete button
+            if (customServicesList.isNotEmpty()) {
+                Spacer(Modifier.height(10.dp))
+                for (row in customServicesList.chunked(3)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        for (custom in row) {
+                            val isSelected = custom in chosen
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp)
+                                    .clickable {
+                                        if (isSelected) chosen.remove(custom) else chosen.add(custom)
+                                    },
+                                shape = RoundedCornerShape(10.dp),
+                                color = if (isSelected) Color(0xFFECFDF5) else Color(0xFFF8FAFC),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isSelected) Color(0xFF00B159) else Color(0xFFE2E8F0)
+                                )
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center,
+                                    modifier = Modifier.padding(horizontal = 6.dp)
+                                ) {
+                                    Text(
+                                        text = custom,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) Color(0xFF065F46) else Color(0xFF334155),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Remove",
+                                        tint = Color(0xFFEF4444),
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .clickable {
+                                                customServicesList.remove(custom)
+                                                chosen.remove(custom)
+                                            }
+                                    )
+                                }
+                            }
+                        }
+                        for (i in 0 until (3 - row.size)) {
+                            Spacer(Modifier.weight(1f))
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
                 }
             }
         }
@@ -680,7 +786,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
 
     val needsSkill = chosen.any { id -> catalog.categories.firstOrNull { it.id == id }?.isSkilled != false }
 
-    // Card 2: Experience & Work Proof
+    // Section 2: Experience & Local Coverage
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -690,23 +796,22 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFF1F5F9)),
+                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFEFF6FF)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("2", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF0F172A))
+                    Text("2", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF2563EB))
                 }
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("Experience & Local Coverage", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0F172A))
-                    Text("Help customers know your background", fontSize = 11.5.sp, color = Color(0xFF64748B))
+                    Text(stringResource(R.string.partner_section_exp), fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0F172A))
+                    Text(stringResource(R.string.partner_section_exp_sub), fontSize = 11.5.sp, color = Color(0xFF64748B))
                 }
             }
 
             OutlinedTextField(
                 value = years,
                 onValueChange = { v -> years = v.filter { it.isDigit() }.take(2) },
-                label = { Text("Years of Field Experience") },
-                placeholder = { Text("e.g. 3") },
+                placeholder = { Text(stringResource(R.string.partner_exp_years_hint)) },
                 keyboardOptions = NumberKeyboard,
                 isError = needsSkill && (years.toIntOrNull() ?: 0) < 1,
                 supportingText = if (needsSkill) {
@@ -720,8 +825,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                 OutlinedTextField(
                     value = proof,
                     onValueChange = { proof = it.take(300) },
-                    label = { Text("Past Shop / Contractor / Skill Details") },
-                    placeholder = { Text("e.g. 3 years at Sri Sai Electricals, Wyra Rd or ITI certificate") },
+                    placeholder = { Text(stringResource(R.string.partner_skill_details_hint)) },
                     minLines = 2,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp)
@@ -731,130 +835,14 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
             OutlinedTextField(
                 value = area,
                 onValueChange = { area = it.take(80) },
-                label = { Text("Your Khammam Service Area / Locality") },
-                placeholder = { Text("e.g. Gandhi Nagar, Wyra Road, Mamillagudem") },
+                placeholder = { Text(stringResource(R.string.partner_area_hint)) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp)
             )
         }
     }
 
-    // Card 3: Official Govt Identity & Aadhaar Verification
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = if (isAadhaarVerified) Color(0xFFF0FDF4) else Color.White),
-        border = BorderStroke(1.5.dp, if (isAadhaarVerified) Color(0xFF10B981) else Color(0xFFE2E8F0))
-    ) {
-        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier.size(28.dp).clip(CircleShape).background(if (isAadhaarVerified) Color(0xFFDCFCE7) else Color(0xFFF1F5F9)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("3", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = if (isAadhaarVerified) Color(0xFF166534) else Color(0xFF0F172A))
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Column {
-                        Text("Govt Identity (Aadhaar Verification)", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0F172A))
-                        Text("Mandatory for platform safety & trust", fontSize = 11.5.sp, color = Color(0xFF64748B))
-                    }
-                }
-                if (isAadhaarVerified) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(Color(0xFFDCFCE7))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(13.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("VERIFIED", color = Color(0xFF166534), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-
-            if (!isAadhaarVerified) {
-                OutlinedTextField(
-                    value = formatAadhaar(aadhaarNumber),
-                    onValueChange = { input ->
-                        val digits = input.filter { it.isDigit() }.take(12)
-                        aadhaarNumber = digits
-                        aadhaarError = if (digits.length in 1..11) "Aadhaar must be 12 digits" else null
-                    },
-                    label = { Text("12-Digit Aadhaar Number *") },
-                    placeholder = { Text("XXXX XXXX XXXX") },
-                    keyboardOptions = NumberKeyboard,
-                    isError = aadhaarError != null,
-                    supportingText = aadhaarError?.let { { Text(it) } },
-                    leadingIcon = {
-                        Icon(Icons.Default.Security, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(20.dp))
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
-                )
-
-                Button(
-                    onClick = {
-                        if (isValidAadhaarLength) {
-                            aadhaarOtp = ""
-                            showAadhaarOtpDialog = true
-                        }
-                    },
-                    enabled = isValidAadhaarLength,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2563EB),
-                        contentColor = Color.White
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth().height(48.dp)
-                ) {
-                    Icon(Icons.Filled.Verified, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Verify via Official Aadhaar OTP", fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
-                }
-            } else {
-                // Verified State Banner
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFDCFCE7).copy(alpha = 0.5f))
-                        .border(1.dp, Color(0xFF86EFAC), RoundedCornerShape(12.dp))
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(26.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            text = "UIDAI Official Verification Completed",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.5.sp,
-                            color = Color(0xFF166534)
-                        )
-                        Text(
-                            text = "Aadhaar: ●●●● ●●●● ${cleanAadhaar.takeLast(4)}",
-                            fontSize = 12.sp,
-                            color = Color(0xFF15803D),
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    TextButton(onClick = { isAadhaarVerified = false }) {
-                        Text("Change", fontSize = 12.sp, color = Color(0xFF166534), fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
-
-    // Card 4: Daily Payouts & Equipment Guarantee
+    // Section 3: Identity (12-Digit Aadhaar) & Bank Payouts
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -864,42 +852,102 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFF1F5F9)),
+                    modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(0xFFEFF6FF)),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("4", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF0F172A))
+                    Text("3", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF2563EB))
                 }
                 Spacer(Modifier.width(10.dp))
                 Column {
-                    Text("Payout Bank & Equipment", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0F172A))
-                    Text("Daily settlements directly to your bank account", fontSize = 11.5.sp, color = Color(0xFF64748B))
+                    Text(stringResource(R.string.partner_section_identity), fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0F172A))
+                    Text(stringResource(R.string.partner_section_identity_sub), fontSize = 11.5.sp, color = Color(0xFF64748B))
                 }
             }
 
+            // Direct 12-digit Aadhaar input without OTP requirement
             OutlinedTextField(
-                value = upiId,
-                onValueChange = { upiId = it.trim().take(50) },
-                label = { Text("Payout UPI ID / PhonePe / GPay Number *") },
-                placeholder = { Text("e.g. 98480xxxxx@ybl or mobile@upi") },
-                supportingText = { Text("Earnings are disbursed directly to this UPI address") },
+                value = formatAadhaar(aadhaarNumber),
+                onValueChange = { input ->
+                    val digits = input.filter { it.isDigit() }.take(12)
+                    aadhaarNumber = digits
+                },
+                placeholder = { Text(stringResource(R.string.partner_aadhaar_hint)) },
+                keyboardOptions = NumberKeyboard,
+                leadingIcon = {
+                    Icon(
+                        Icons.Default.Security,
+                        contentDescription = null,
+                        tint = if (isValidAadhaarLength) Color(0xFF16A34A) else Color(0xFF2563EB),
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
+                trailingIcon = {
+                    if (isValidAadhaarLength) {
+                        Icon(
+                            Icons.Filled.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF16A34A),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                },
+                supportingText = {
+                    if (isValidAadhaarLength) {
+                        Text(
+                            "✓ " + stringResource(R.string.partner_aadhaar_valid),
+                            color = Color(0xFF16A34A),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 11.5.sp
+                        )
+                    } else if (cleanAadhaar.isNotEmpty()) {
+                        Text(
+                            stringResource(R.string.partner_aadhaar_need_12) + " (${cleanAadhaar.length}/12)",
+                            color = Color(0xFFDC2626),
+                            fontSize = 11.5.sp
+                        )
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp)
             )
 
+            // Payout UPI ID
+            OutlinedTextField(
+                value = upiId,
+                onValueChange = { upiId = it.trim().take(50) },
+                placeholder = { Text(stringResource(R.string.partner_upi_hint)) },
+                leadingIcon = {
+                    Icon(Icons.Default.AccountBalanceWallet, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(20.dp))
+                },
+                supportingText = { Text(stringResource(R.string.partner_upi_sub), fontSize = 11.5.sp) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp)
+            )
+
+            // Vehicle and tools confirmation
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFFF8FAFC))
                     .clickable { hasVehicleAndTools = !hasVehicleAndTools }
-                    .padding(vertical = 4.dp)
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
             ) {
                 androidx.compose.material3.Checkbox(checked = hasVehicleAndTools, onCheckedChange = { hasVehicleAndTools = it })
-                Text("I own professional tools & a 2-wheeler vehicle for fast 30-min customer arrival across Khammam", fontSize = 12.5.sp, modifier = Modifier.weight(1f), lineHeight = 16.sp)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    stringResource(R.string.partner_tools_vehicle),
+                    fontSize = 12.sp,
+                    color = Color(0xFF334155),
+                    modifier = Modifier.weight(1f),
+                    lineHeight = 16.sp
+                )
             }
         }
     }
 
-    // Card 5: Partner Code of Conduct & Submit
+    // Section 4: Code of Conduct & Submit
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
@@ -914,19 +962,39 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                     .clickable { accepted = !accepted }
             ) {
                 androidx.compose.material3.Checkbox(checked = accepted, onCheckedChange = { accepted = it })
-                Text("I agree to DutyPe Partner Conduct, transparent pricing and polite behavior", fontSize = 12.5.sp, modifier = Modifier.weight(1f))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    stringResource(R.string.partner_agree_terms),
+                    fontSize = 12.sp,
+                    color = Color(0xFF334155),
+                    modifier = Modifier.weight(1f)
+                )
             }
             TextButton(onClick = { showRules = true }, modifier = Modifier.align(Alignment.End)) {
-                Text("Read Partner Rules & Code of Conduct →", fontSize = 12.sp, color = Color(0xFF2563EB), fontWeight = FontWeight.Bold)
+                Text(
+                    stringResource(R.string.partner_read_rules),
+                    fontSize = 12.sp,
+                    color = Color(0xFF2563EB),
+                    fontWeight = FontWeight.Bold
+                )
             }
+
+            val canSubmit = chosen.isNotEmpty() &&
+                isValidAadhaarLength &&
+                area.isNotBlank() &&
+                upiId.isNotBlank() &&
+                accepted &&
+                !submitting &&
+                (!needsSkill || (years.toIntOrNull() ?: 0) >= 1)
 
             Button(
                 onClick = {
                     submitting = true
                     val formattedNote = buildString {
-                        append("Aadhaar: Verified (UIDAI Secure) | ")
+                        append("Aadhaar: $cleanAadhaar | ")
                         append("AadhaarLast4: ${cleanAadhaar.takeLast(4)} | ")
                         if (upiId.isNotBlank()) append("UPI: $upiId | ")
+                        if (customServicesList.isNotEmpty()) append("CustomServices: ${customServicesList.joinToString(", ")} | ")
                         append("Vehicle & Tools: ${if (hasVehicleAndTools) "Yes" else "No"}")
                     }
                     scope.launch {
@@ -935,8 +1003,11 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                         submitting = false
                     }
                 },
-                enabled = chosen.isNotEmpty() && accepted && isAadhaarVerified && area.isNotBlank() && upiId.isNotBlank() && !submitting && (!needsSkill || (years.toIntOrNull() ?: 0) >= 1),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+                enabled = canSubmit,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF16A34A),
+                    disabledContainerColor = Color(0xFFE2E8F0)
+                ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth().height(52.dp)
             ) {
@@ -944,10 +1015,10 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                 } else {
                     Text(
-                        text = if (!isAadhaarVerified) "Verify Aadhaar to Submit" else "Submit Verified Application",
+                        text = if (!canSubmit && !isValidAadhaarLength) stringResource(R.string.partner_fill_required) else stringResource(R.string.partner_submit_btn),
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.5.sp,
-                        color = Color.White
+                        color = if (canSubmit) Color.White else Color(0xFF94A3B8)
                     )
                 }
             }
@@ -991,8 +1062,9 @@ fun PartnerTopupScreen(navController: NavController, viewModel: HomeServicesView
             OutlinedTextField(
                 value = amount,
                 onValueChange = { v -> amount = v.filter { it.isDigit() }.take(5) },
-                label = { Text(stringResource(R.string.svc_topup_amount, c.minTopup)) },
+                placeholder = { Text(stringResource(R.string.svc_topup_amount, c.minTopup)) },
                 keyboardOptions = NumberKeyboard,
+                shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.fillMaxWidth()
             )
             val amountValue = amount.toIntOrNull() ?: 0
@@ -1021,8 +1093,9 @@ fun PartnerTopupScreen(navController: NavController, viewModel: HomeServicesView
             OutlinedTextField(
                 value = utr,
                 onValueChange = { v -> utr = v.filter { it.isDigit() }.take(12) },
-                label = { Text(stringResource(R.string.svc_topup_utr)) },
+                placeholder = { Text(stringResource(R.string.svc_topup_utr)) },
                 keyboardOptions = NumberKeyboard,
+                shape = RoundedCornerShape(10.dp),
                 modifier = Modifier.fillMaxWidth()
             )
             Button(
@@ -1112,8 +1185,25 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
         val o = offer
         if (o == null) {
             Box(Modifier.fillMaxSize().padding(padding)) {
-                if (error != null) com.example.dutype.components.DutyPeErrorState(error, onRetry = null)
-                else com.example.dutype.components.DutyPeLoadingList(rows = 2)
+                if (error != null) {
+                    com.example.dutype.components.DutyPeErrorState(
+                        message = error,
+                        onRetry = {
+                            error = null
+                            scope.launch {
+                                viewModel.offer(bookingId)
+                                    .onSuccess {
+                                        if (it.mine) {
+                                            navController.navigate(Routes.partnerJobRoute(bookingId)) { popUpTo(Routes.PARTNER_OFFER) { inclusive = true } }
+                                        } else {
+                                            offer = it
+                                        }
+                                    }
+                                    .onFailure { error = it.message }
+                            }
+                        }
+                    )
+                } else com.example.dutype.components.DutyPeLoadingList(rows = 2)
             }
             return@SvcScaffold
         }
@@ -1314,8 +1404,9 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
                     OutlinedTextField(
                         value = code,
                         onValueChange = { v -> code = v.filter { it.isDigit() }.take(4) },
-                        label = { Text(stringResource(R.string.svc_job_enter_code)) },
+                        placeholder = { Text(stringResource(R.string.svc_job_enter_code)) },
                         keyboardOptions = NumberKeyboard,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                     Button(
@@ -1332,8 +1423,9 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
                     OutlinedTextField(
                         value = extras,
                         onValueChange = { v -> extras = v.filter { it.isDigit() }.take(5) },
-                        label = { Text(stringResource(R.string.svc_job_extras)) },
+                        placeholder = { Text(stringResource(R.string.svc_job_extras)) },
                         keyboardOptions = NumberKeyboard,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     )
                     val extraValue = extras.toIntOrNull() ?: 0
@@ -1341,7 +1433,8 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
                         OutlinedTextField(
                             value = extrasNote,
                             onValueChange = { extrasNote = it.take(200) },
-                            label = { Text(stringResource(R.string.svc_job_extras_note)) },
+                            placeholder = { Text(stringResource(R.string.svc_job_extras_note)) },
+                            shape = RoundedCornerShape(10.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }

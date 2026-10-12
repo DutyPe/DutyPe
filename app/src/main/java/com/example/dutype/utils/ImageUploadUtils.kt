@@ -34,8 +34,8 @@ object ImageUploadUtils {
     // exponential backoff (≈30s) was producing minute-long stalls on Wi-Fi
     // hiccups and blocking the post-job flow.
     private const val MAX_WIDTH = 720
-    private const val JPEG_QUALITY = 78
-    private const val MAX_FILE_SIZE_BYTES = 320 * 1024  // 320KB target
+    private const val DEFAULT_QUALITY = 75
+    private const val MAX_FILE_SIZE_BYTES = 120 * 1024  // 120KB max target WebP payload
     private const val MAX_RETRIES = 2
     private const val INITIAL_DELAY_MS = 600L
     private const val MAX_DELAY_MS = 3_000L
@@ -63,7 +63,7 @@ object ImageUploadUtils {
         context: Context,
         uri: Uri,
         maxWidth: Int = MAX_WIDTH,
-        quality: Int = JPEG_QUALITY
+        quality: Int = DEFAULT_QUALITY
     ): ByteArray? {
         return try {
             // Load bitmap bounds first
@@ -109,29 +109,36 @@ object ImageUploadUtils {
                 bitmap
             }
             
-            // Compress to JPEG with adaptive quality to hit the lightweight target.
+            // Compress to WebP (lossy) with adaptive quality to hit the lightweight target.
+            val compressFormat = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                Bitmap.CompressFormat.WEBP_LOSSY
+            } else {
+                @Suppress("DEPRECATION")
+                Bitmap.CompressFormat.WEBP
+            }
+
             var currentQuality = quality
             var compressedBytes: ByteArray
             val outputStream = ByteArrayOutputStream()
             
             do {
                 outputStream.reset()
-                scaledBitmap.compress(Bitmap.CompressFormat.JPEG, currentQuality, outputStream)
+                scaledBitmap.compress(compressFormat, currentQuality, outputStream)
                 compressedBytes = outputStream.toByteArray()
                 
                 val sizeKB = compressedBytes.size / 1024
                 val sizeMB = sizeKB / 1024.0
                 
-                Timber.d("📸 COMPRESS: Quality $currentQuality -> ${sizeKB}KB (${String.format("%.2f", sizeMB)}MB)")
+                Timber.d("📸 COMPRESS: WebP Quality $currentQuality -> ${sizeKB}KB (${String.format("%.2f", sizeMB)}MB)")
                 
                 // If still over target and quality can be reduced, try again.
-                if (compressedBytes.size > MAX_FILE_SIZE_BYTES && currentQuality > 50) {
+                if (compressedBytes.size > MAX_FILE_SIZE_BYTES && currentQuality > 40) {
                     currentQuality -= 10
                     Timber.d("📸 COMPRESS: File too large, reducing quality to $currentQuality")
                 } else {
                     break
                 }
-            } while (compressedBytes.size > MAX_FILE_SIZE_BYTES && currentQuality >= 50)
+            } while (compressedBytes.size > MAX_FILE_SIZE_BYTES && currentQuality >= 40)
             
             // Cleanup
             scaledBitmap.recycle()
@@ -189,8 +196,12 @@ object ImageUploadUtils {
                 
                 kotlinx.coroutines.withTimeout(PER_ATTEMPT_TIMEOUT_MS) {
                     val uploadTask = if (compressedBytes != null) {
-                        Timber.d("📸 UPLOAD: Uploading compressed image (${compressedBytes.size / 1024}KB)")
-                        storageRef.putBytes(compressedBytes)
+                        Timber.d("📸 UPLOAD: Uploading compressed WebP image (${compressedBytes.size / 1024}KB)")
+                        val metadata = com.google.firebase.storage.StorageMetadata.Builder()
+                            .setContentType("image/webp")
+                            .setCacheControl("public, max-age=31536000, immutable")
+                            .build()
+                        storageRef.putBytes(compressedBytes, metadata)
                     } else {
                         Timber.d("📸 UPLOAD: Uploading original file (compression failed)")
                         storageRef.putFile(uri)

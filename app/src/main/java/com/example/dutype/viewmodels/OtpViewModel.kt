@@ -41,23 +41,11 @@ private fun Any?.asStringMap(): Map<String, Any?>? = this as? Map<String, Any?>
 /** SMS = Firebase SMS; WHATSAPP and SERVER_SMS are codes from our server (verifyWhatsappOtp). */
 enum class OtpChannel { SMS, WHATSAPP, SERVER_SMS }
 
-/** What Truecaller one-tap returned for this number (the server checked the role). */
-data class TruecallerSignInResult(
-    val allowed: Boolean,
-    val phone: String,
-    val name: String,
-    val email: String,
-    val existingRole: String?,
-    val token: String?,
-    val isNewUser: Boolean = false,
-    val roleConflict: Boolean = false
-)
-
 /**
  * OtpViewModel - Handles phone authentication.
  *
  * Codes go on WhatsApp first (sendWhatsappOtp, ~₹0.12 each); Firebase SMS (~₹6.7 each) is used
- * when WhatsApp is not available and as the "Get code by SMS" backup. WhatsApp codes and Truecaller
+ * when WhatsApp is not available and as the "Get code by SMS" backup. WhatsApp codes
  * sign in with a Firebase custom token for the same phone account, so everything after login is
  * the same as SMS login.
  *
@@ -326,7 +314,7 @@ class OtpViewModel @Inject constructor(
         }
     }
 
-    /** After any successful Firebase sign-in (SMS credential, WhatsApp code or Truecaller). */
+    /** After any successful Firebase sign-in (SMS credential or WhatsApp code). */
     private fun onFirebaseSignedIn(firebaseUser: com.google.firebase.auth.FirebaseUser?) {
         activeOtpSession = null
         if (firebaseUser != null) {
@@ -413,8 +401,8 @@ class OtpViewModel @Inject constructor(
                     )
                     return true
                 }
-                msg.startsWith("phone-already-registered-as:") -> {
-                    val existingRole = msg.substringAfter(":").lowercase()
+                msg.contains("phone-already-registered-as:") -> {
+                    val existingRole = msg.substringAfter("phone-already-registered-as:").substringBefore(" ").substringBefore("\n").trim().lowercase()
                     _otpState.value = _otpState.value.copy(
                         isLoading = false,
                         otpSent = false,
@@ -477,6 +465,12 @@ class OtpViewModel @Inject constructor(
                 .call(mapOf("phone" to phone, "code" to otp))
                 .await().data.asStringMap()
             val token = data?.get("token") as? String ?: error("No sign-in token")
+            val serverRole = data?.get("role") as? String
+            val serverName = data?.get("name") as? String
+            val isComplete = data?.get("isProfileComplete") == true || (data?.get("isProfileComplete") as? String) == "true"
+            val photoUrl = data?.get("photoUrl") as? String
+            lastVerifiedServerProfile = VerifiedServerProfile(serverRole, serverName, isComplete, photoUrl)
+
             val result = auth.signInWithCustomToken(token).await()
             errorHandler.logEvent("whatsapp_otp_verified", true)
             onFirebaseSignedIn(result.user)
@@ -491,59 +485,15 @@ class OtpViewModel @Inject constructor(
         }
     }
 
-    var lastTruecallerResult: TruecallerSignInResult? = null
+    data class VerifiedServerProfile(
+        val role: String?,
+        val name: String?,
+        val isProfileComplete: Boolean,
+        val photoUrl: String?
+    )
+
+    var lastVerifiedServerProfile: VerifiedServerProfile? = null
         private set
-
-    /**
-     * Truecaller one-tap: the server exchanges the authorization code for the verified number,
-     * name and email, and returns a sign-in token only when [mode] ("unified", "login", "register")
-     * is allowed for this number and the current role.
-     */
-    suspend fun truecallerExchange(authorizationCode: String, codeVerifier: String, mode: String = "unified"): Result<TruecallerSignInResult> =
-        runCatching {
-            val data = functions.getHttpsCallable("truecallerSignIn")
-                .call(
-                    mapOf(
-                        "authorizationCode" to authorizationCode,
-                        "codeVerifier" to codeVerifier,
-                        "role" to pendingRole.name,
-                        "mode" to mode
-                    )
-                ).await().data.asStringMap() ?: error("Empty response")
-            TruecallerSignInResult(
-                allowed = data["allowed"] == true,
-                phone = data["phone"] as? String ?: "",
-                name = data["name"] as? String ?: "",
-                email = data["email"] as? String ?: "",
-                existingRole = (data["existingRole"] as? String)?.uppercase(),
-                token = data["token"] as? String,
-                isNewUser = data["isNewUser"] == true,
-                roleConflict = data["roleConflict"] == true
-            )
-        }.onFailure {
-            Timber.w(it, "Truecaller sign-in failed")
-            errorHandler.logEvent("truecaller_signin_failed", it.message ?: "unknown")
-        }
-
-    /** Signs in with the token from [truecallerExchange]; the screen then resolves login / sign-up as after OTP. */
-    fun signInWithTruecaller(result: TruecallerSignInResult) {
-        val token = result.token ?: return
-        lastTruecallerResult = result
-        viewModelScope.launch {
-            _otpState.value = _otpState.value.copy(isLoading = true, error = null)
-            try {
-                whatsappPhone = result.phone
-                val signedIn = auth.signInWithCustomToken(token).await()
-                errorHandler.logEvent("truecaller_signin_ok", true)
-                onFirebaseSignedIn(signedIn.user)
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Timber.w(e, "Truecaller custom-token sign-in failed")
-                _otpState.value = _otpState.value.copy(isLoading = false, error = "Truecaller sign-in failed. Please use OTP.")
-            }
-        }
-    }
 
     private fun cacheResolvedUser(user: AuthFlowService.SessionUser, fallbackRole: UserRole) {
         try {
@@ -620,6 +570,46 @@ class OtpViewModel @Inject constructor(
         employerType: String? = null
     ): Result<PostOtpNavigation> {
         val phone = whatsappPhone ?: auth.currentUser?.phoneNumber ?: authManager.getCurrentUser()?.phone
+
+        // Fast-path: If verifyWhatsappOtp already resolved the profile from server, complete instantly in 0ms!
+        val serverProf = lastVerifiedServerProfile
+        if (serverProf != null) {
+            if (!serverProf.role.isNullOrBlank()) {
+                val serverRoleUpper = serverProf.role.uppercase()
+                if (serverRoleUpper != role.name) {
+                    runCatching { auth.signOut() }
+                    return Result.failure(IllegalStateException("phone-already-registered-as:${serverProf.role.lowercase()}"))
+                }
+                val resolvedName = serverProf.name?.takeIf { it.isNotBlank() } ?: fullName.orEmpty()
+                val user = AuthFlowService.SessionUser(
+                    uid = auth.currentUser?.uid.orEmpty(),
+                    role = role.name,
+                    name = resolvedName,
+                    phone = phone.orEmpty(),
+                    photoUrl = serverProf.photoUrl
+                )
+                cacheResolvedUser(user, role)
+                registerFcmInBackground(user.role)
+                return Result.success(
+                    PostOtpNavigation(
+                        destination = if (serverProf.isProfileComplete) PostOtpDestination.HOME else PostOtpDestination.PROFILE_SETUP,
+                        role = role,
+                        user = user,
+                        isNewUser = false
+                    )
+                )
+            } else {
+                // Brand new user from server verification
+                val nameToUse = fullName?.trim()?.takeIf { it.isNotBlank() } ?: "User"
+                return completeRegistration(
+                    role = role,
+                    fullName = nameToUse,
+                    referralCode = referralCode,
+                    employerType = employerType
+                )
+            }
+        }
+
         return try {
             authFlowService.resolveLogin(role.name, phone).fold(
                 onSuccess = { resolution ->
@@ -652,7 +642,7 @@ class OtpViewModel @Inject constructor(
                             employerType = employerType
                         )
                     } else {
-                        if (msg.startsWith("phone-already-registered-as:")) {
+                        if (msg.contains("phone-already-registered-as:")) {
                             runCatching { authManager.logout() }
                         }
                         Result.failure(error)
@@ -694,7 +684,7 @@ class OtpViewModel @Inject constructor(
                 },
                 onFailure = { error ->
                     val msg = error.message.orEmpty()
-                    if (msg.startsWith("phone-already-registered-as:")) {
+                    if (msg.contains("phone-already-registered-as:")) {
                         runCatching { authManager.logout() }
                     }
                     Result.failure(error)
@@ -986,7 +976,6 @@ class OtpViewModel @Inject constructor(
             whatsappPhone = null
             activeOtpSession = null
         }
-        lastTruecallerResult = null
     }
 
     // ─────────────────────────────────────────────────────────────────────

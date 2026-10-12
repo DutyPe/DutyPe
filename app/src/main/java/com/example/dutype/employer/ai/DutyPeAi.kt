@@ -347,7 +347,7 @@ object DutyPeAiShortcut {
 
     private fun info(context: Context): ShortcutInfoCompat =
         ShortcutInfoCompat.Builder(context, ID)
-            .setShortLabel("DutyPe AI")
+            .setShortLabel("Liri")
             .setLongLabel(context.getString(R.string.dutype_ai_shortcut_long))
             .setIcon(IconCompat.createWithResource(context, R.mipmap.ic_launcher))
             .setIntent(Intent(Intent.ACTION_VIEW, Uri.parse(DEEP_LINK)).setPackage(context.packageName))
@@ -625,7 +625,7 @@ fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false
                     )
                     Spacer(Modifier.width(7.dp))
                     Text(
-                        text = "DutyPe AI Assistant",
+                        text = "Liri AI Assistant",
                         color = Color(0xFF0F172A),
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 13.5.sp,
@@ -1001,7 +1001,7 @@ private fun AiDarkWelcome(name: String, modifier: Modifier, onAsk: (String) -> U
             }
             Spacer(Modifier.height(16.dp))
             Text(
-                text = if (name.isNotBlank()) "Hi $name 👋" else "DutyPe AI Assistant",
+                text = if (name.isNotBlank()) "Hi $name 👋" else "Liri AI Assistant",
                 color = AiMuted,
                 fontSize = 14.sp,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center

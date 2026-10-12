@@ -1,35 +1,24 @@
 package com.example.dutype.components
 
-import com.example.dutype.ui.theme.bg
-import com.example.dutype.ui.theme.fg
-import com.example.dutype.ui.theme.bd
-import com.dutype.app.R
-import androidx.annotation.StringRes
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Assignment
-import androidx.compose.material.icons.automirrored.outlined.Assignment
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.HomeRepairService
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Work
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.HomeRepairService
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.WorkOutline
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -37,9 +26,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -47,122 +36,150 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
-import com.example.dutype.navigation.WorkerBottomRoutes
+import com.dutype.app.R
 import com.example.dutype.navigation.Routes
+import com.example.dutype.navigation.WorkerBottomRoutes
 import com.example.dutype.ui.theme.WorkerColors
 
 /**
- * Worker bottom bar — flat, docked bottom navigation with sleek vector icons.
- * Tabs: Home, Jobs, Services, My Jobs, Account.
+ * Custom Worker Floating Bottom Navigation Bar.
+ * Matches the Employer floating capsule specification with deep black active pill:
+ * - Elevated white capsule container with smooth corner radius (36.dp)
+ * - Active tab highlighted as a solid deep black pill (#0F172A) with white icon + title
+ * - Inactive tabs displayed as minimalist outline vector icons
  */
 @Composable
 fun WorkerBottomBar(
     navController: NavController,
     backgroundColor: Color = WorkerColors.BottomNavBackground,
-    selectedItemColor: Color = WorkerColors.BottomNavSelected,
-    unselectedItemColor: Color = WorkerColors.BottomNavUnselected,
+    selectedItemColor: Color = Color(0xFF0F172A),
+    unselectedItemColor: Color = Color(0xFF64748B),
     modifier: Modifier = Modifier
 ) {
     val navBackStackEntry = navController.currentBackStackEntryAsState().value
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val items = listOf(
-        WorkerBottomBarItem(
+    data class WorkerNavTab(
+        val route: String,
+        val title: String,
+        val filledIconRes: Int,
+        val outlinedIconRes: Int,
+        val isMatchingRoute: (String?) -> Boolean
+    )
+
+    val navTabs = listOf(
+        WorkerNavTab(
             route = WorkerBottomRoutes.HOME,
-            labelResId = R.string.bottom_nav_home,
-            iconRes = R.drawable.ic_home_unfilled,
-            iconFilledRes = R.drawable.ic_home_filled
+            title = stringResource(R.string.bottom_nav_home),
+            filledIconRes = R.drawable.ic_home_filled,
+            outlinedIconRes = R.drawable.ic_home_unfilled,
+            isMatchingRoute = { it == WorkerBottomRoutes.HOME }
         ),
-        WorkerBottomBarItem(
+        WorkerNavTab(
             route = WorkerBottomRoutes.JOBS,
-            matchPrefix = Routes.WORKER_ALL_JOBS,
-            labelResId = R.string.bottom_nav_jobs,
-            iconRes = R.drawable.ic_emp_briefcase,
-            iconFilledRes = R.drawable.ic_emp_briefcase_filled
+            title = stringResource(R.string.bottom_nav_jobs),
+            filledIconRes = R.drawable.ic_emp_briefcase_filled,
+            outlinedIconRes = R.drawable.ic_emp_briefcase,
+            isMatchingRoute = {
+                it == WorkerBottomRoutes.JOBS ||
+                it?.startsWith(Routes.WORKER_ALL_JOBS) == true
+            }
         ),
-        WorkerBottomBarItem(
+        WorkerNavTab(
             route = WorkerBottomRoutes.MY_JOBS,
-            labelResId = R.string.bottom_nav_my_jobs,
-            iconRes = R.drawable.ic_profile_history,
-            iconFilledRes = R.drawable.ic_profile_history_filled
+            title = stringResource(R.string.bottom_nav_my_jobs),
+            filledIconRes = R.drawable.ic_profile_history_filled,
+            outlinedIconRes = R.drawable.ic_profile_history,
+            isMatchingRoute = { it == WorkerBottomRoutes.MY_JOBS }
         ),
-        WorkerBottomBarItem(
+        WorkerNavTab(
             route = WorkerBottomRoutes.PROFILE,
-            labelResId = R.string.bottom_nav_account,
-            iconRes = R.drawable.ic_person_unfilled,
-            iconFilledRes = R.drawable.ic_person_filled
+            title = stringResource(R.string.bottom_nav_account),
+            filledIconRes = R.drawable.ic_person_filled,
+            outlinedIconRes = R.drawable.ic_person_unfilled,
+            isMatchingRoute = {
+                it == WorkerBottomRoutes.PROFILE ||
+                it?.startsWith("worker_profile") == true
+            }
         )
     )
-    val selectedColor = Color(0xFF0F172A).fg()
-    val unselectedColor = Color(0xFF64748B).fg()
 
+    // Floating Capsule Surface
     Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = Color.White.bg(),
-        shape = RectangleShape,
-        shadowElevation = 6.dp,
-        tonalElevation = 0.dp
+        modifier = modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(WindowInsets.navigationBars)
+            .padding(horizontal = 24.dp, vertical = 12.dp),
+        color = Color.White,
+        shape = RoundedCornerShape(36.dp),
+        shadowElevation = 8.dp,
+        tonalElevation = 0.dp,
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9))
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.navigationBars)
+                .height(64.dp)
+                .padding(horizontal = 10.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            HorizontalDivider(thickness = 1.dp, color = Color(0xFFE2E8F0).bd())
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                items.forEach { item ->
-                    val isSelected = if (item.matchPrefix != null) {
-                        currentRoute?.startsWith(item.matchPrefix) == true
-                    } else {
-                        currentRoute == item.route
-                    }
-                    val label = stringResource(id = item.labelResId)
-                    val tint = if (isSelected) selectedColor else unselectedColor
-                    val activeIconRes = if (isSelected) (item.iconFilledRes ?: item.iconRes) else item.iconRes
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
+            navTabs.forEach { tab ->
+                val isSelected = tab.isMatchingRoute(currentRoute)
+
+                if (isSelected) {
+                    // Active Pill Capsule (Black-based #0F172A)
+                    Box(
                         modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(26.dp))
+                            .background(selectedItemColor)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) {
-                                if (!isSelected) navigateToWorkerTab(navController, item.route)
-                            }
-                    ) {
-                        if (activeIconRes != null) {
-                            Icon(
-                                painter = androidx.compose.ui.res.painterResource(id = activeIconRes),
-                                contentDescription = label,
-                                modifier = Modifier.size(25.dp),
-                                tint = tint
+                                indication = null,
+                                onClick = { navigateToWorkerTab(navController, tab.route) }
                             )
-                        } else {
-                            val vectorIcon = if (isSelected) (item.iconSelected ?: item.icon) else item.icon
-                            if (vectorIcon != null) {
-                                Icon(
-                                    imageVector = vectorIcon,
-                                    contentDescription = label,
-                                    modifier = Modifier.size(25.dp),
-                                    tint = tint
-                                )
-                            }
+                            .padding(horizontal = 18.dp, vertical = 10.dp)
+                            .animateContentSize(animationSpec = tween(180)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                painter = painterResource(id = tab.filledIconRes),
+                                contentDescription = tab.title,
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(7.dp))
+                            Text(
+                                text = tab.title,
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
                         }
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Text(
-                            text = label,
-                            fontSize = 11.sp,
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                            color = tint,
-                            maxLines = 1
+                    }
+                } else {
+                    // Inactive Icon Button
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { navigateToWorkerTab(navController, tab.route) }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = tab.outlinedIconRes),
+                            contentDescription = tab.title,
+                            tint = unselectedItemColor,
+                            modifier = Modifier.size(25.dp)
                         )
                     }
                 }
@@ -172,7 +189,7 @@ fun WorkerBottomBar(
 }
 
 /**
- * Switch worker tabs (Home / Jobs / Services / My Jobs / Account) cleanly from the bottom bar.
+ * Switch worker tabs (Home / Jobs / My Jobs / Account) cleanly from the bottom bar.
  */
 fun navigateToWorkerTab(navController: NavController, route: String, restoreState: Boolean = true) {
     val startId = navController.graph.findStartDestination().id
@@ -188,14 +205,3 @@ fun navigateToWorkerTab(navController: NavController, route: String, restoreStat
         this.restoreState = restoreState
     }
 }
-
-// Data class for worker bottom bar items
-private data class WorkerBottomBarItem(
-    val route: String,
-    @StringRes val labelResId: Int,
-    val icon: ImageVector? = null,
-    val iconSelected: ImageVector? = null,
-    val iconRes: Int? = null,
-    val iconFilledRes: Int? = null,
-    val matchPrefix: String? = null
-)

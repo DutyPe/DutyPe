@@ -108,17 +108,16 @@ service cloud.firestore {
       allow list: if signedIn() && request.query.limit <= 30;
     }
 
-    // Private: phone, GSTIN, address and billing. Others see employer_cards.
+    // Private: phone, address and billing. Others see employer_cards.
     match /employer_profiles/{uid} {
       allow get: if isSelf(uid);
       allow update: if isSelf(uid) &&
-        onlyChanges(['employerType', 'ownerName', 'businessName', 'businessType', 'gstin', 'photoUrl',
+        onlyChanges(['employerType', 'ownerName', 'businessName', 'photoUrl',
                      'address', 'area', 'lat', 'lng', 'geohash', 'updatedAt']) &&
         (!('employerType' in request.resource.data) ||
           request.resource.data.employerType in ['INDIVIDUAL', 'COMPANY']) &&
         optString(request.resource.data, 'ownerName', 80) &&
         optString(request.resource.data, 'businessName', 100) &&
-        optString(request.resource.data, 'gstin', 15) &&
         validPlace(request.resource.data);
 
       // Workers whose phone this employer revealed (server-written).
@@ -260,8 +259,7 @@ service cloud.firestore {
     // ───────────────────────── DutyPe Services (services.ts writes everything) ─────────────────────────
 
     match /service_bookings/{bookingId} {
-      allow get: if signedIn() && (resource.data.customerId == me() || resource.data.partnerId == me() || resource.data.status == 'SEARCHING');
-      allow list: if signedIn();
+      allow get, list: if signedIn();
     }
 
     match /service_booking_secrets/{bookingId} {

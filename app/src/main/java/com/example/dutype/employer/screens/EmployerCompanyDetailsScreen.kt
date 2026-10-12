@@ -68,19 +68,7 @@ private val CdGreen = Color(0xFF16A34A)
 private val CdGreenBg = Color(0xFFF0FDF4)
 private val CdGstGreen = Color(0xFF10B981)
 
-private data class CdCategoryItem(val key: String, val labelRes: Int)
 
-private val CdCategories = listOf(
-    CdCategoryItem("Retail Shop", R.string.company_category_retail),
-    CdCategoryItem("Construction", R.string.company_category_construction),
-    CdCategoryItem("Logistics", R.string.company_category_logistics),
-    CdCategoryItem("Hotel/Restaurant", R.string.company_category_hotel),
-    CdCategoryItem("Manufacturing", R.string.company_category_manufacturing),
-    CdCategoryItem("Individual", R.string.company_category_individual)
-)
-
-// Local format check only. Server-side GST verification is NOT implemented.
-private val CdGstinRegex = Regex("^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$")
 
 /**
  * Employer Company Details screen (business profile editor).
@@ -100,9 +88,6 @@ fun EmployerCompanyDetailsScreen(
     var contactPerson by remember { mutableStateOf("") }
     var contactPhone by remember { mutableStateOf("") }
     var businessAddress by remember { mutableStateOf("") }
-    var industry by remember { mutableStateOf("") }
-    var gstin by remember { mutableStateOf("") }
-    var gstVerified by remember { mutableStateOf(false) }
 
     // Profile image
     var profileImageUrl by remember { mutableStateOf<String?>(null) }
@@ -172,9 +157,6 @@ fun EmployerCompanyDetailsScreen(
                             contactPerson = saved.ownerName
                             contactPhone = saved.phone
                             businessAddress = saved.address
-                            industry = saved.businessType
-                            gstin = saved.gstin
-                            gstVerified = CdGstinRegex.matches(gstin)
                             profileImageUrl = saved.photoUrl.ifBlank { null }
                         }
                     }
@@ -187,41 +169,35 @@ fun EmployerCompanyDetailsScreen(
 
     val doSave: () -> Unit = {
         if (!isSaving) {
-            if (gstin.isNotBlank() && !CdGstinRegex.matches(gstin)) {
-                Toast.makeText(context, context.getString(R.string.valid_gstin_required), Toast.LENGTH_SHORT).show()
-            } else {
-                isSaving = true
-                scope.launch {
-                    try {
-                        val currentUser = FirebaseAuth.getInstance().currentUser
-                        if (currentUser != null) {
-                            val isCompany = employerType == Values.EmployerType.COMPANY
-                            profileCompletionViewModel.saveEmployer(
-                                mapOf(
-                                    EmployerProfiles.EMPLOYER_TYPE to employerType,
-                                    EmployerProfiles.OWNER_NAME to (if (isCompany) contactPerson.ifBlank { companyName } else companyName).trim(),
-                                    EmployerProfiles.BUSINESS_NAME to if (isCompany) companyName.trim() else "",
-                                    EmployerProfiles.BUSINESS_TYPE to industry.trim(),
-                                    EmployerProfiles.GSTIN to gstin,
-                                    EmployerProfiles.ADDRESS to businessAddress.trim()
-                                )
-                            ).getOrThrow()
-                            Toast.makeText(
-                                context,
-                                context.getString(R.string.profile_saved_success),
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    } catch (e: Exception) {
-                        Timber.e(e, "Error saving company details")
+            isSaving = true
+            scope.launch {
+                try {
+                    val currentUser = FirebaseAuth.getInstance().currentUser
+                    if (currentUser != null) {
+                        val isCompany = employerType == Values.EmployerType.COMPANY
+                        profileCompletionViewModel.saveEmployer(
+                            mapOf(
+                                EmployerProfiles.EMPLOYER_TYPE to employerType,
+                                EmployerProfiles.OWNER_NAME to (if (isCompany) contactPerson.ifBlank { companyName } else companyName).trim(),
+                                EmployerProfiles.BUSINESS_NAME to if (isCompany) companyName.trim() else "",
+                                EmployerProfiles.ADDRESS to businessAddress.trim()
+                            )
+                        ).getOrThrow()
                         Toast.makeText(
                             context,
-                            context.getString(R.string.profile_saved_failed),
+                            context.getString(R.string.profile_saved_success),
                             Toast.LENGTH_SHORT
                         ).show()
-                    } finally {
-                        isSaving = false
                     }
+                } catch (e: Exception) {
+                    Timber.e(e, "Error saving company details")
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.profile_saved_failed),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } finally {
+                    isSaving = false
                 }
             }
         }
@@ -262,29 +238,6 @@ fun EmployerCompanyDetailsScreen(
                     contactPerson = contactPerson,
                     onContactPerson = { contactPerson = it },
                     contactPhone = contactPhone
-                )
-                CdCategoryTaxCard(
-                    industry = industry,
-                    onIndustry = { industry = it },
-                    gstin = gstin,
-                    gstVerified = gstVerified,
-                    onGstin = { input ->
-                        gstin = input.uppercase().filter { it.isLetterOrDigit() }.take(15)
-                        gstVerified = false
-                    },
-                    onVerify = {
-                        // Format validation only; server verification not implemented.
-                        if (CdGstinRegex.matches(gstin)) {
-                            gstVerified = true
-                        } else {
-                            gstVerified = false
-                            Toast.makeText(
-                                context,
-                                context.getString(R.string.valid_gstin_required),
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
                 )
             }
         }
@@ -496,73 +449,7 @@ private fun CdBasicsCard(
     }
 }
 
-@Composable
-private fun CdCategoryTaxCard(
-    industry: String,
-    onIndustry: (String) -> Unit,
-    gstin: String,
-    gstVerified: Boolean,
-    onGstin: (String) -> Unit,
-    onVerify: () -> Unit
-) {
-    CdCard {
-        Text(
-            text = stringResource(R.string.business_category),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = CdNavy.fg()
-        )
-        Row(
-            modifier = Modifier
-                .padding(top = 10.dp)
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            CdCategories.forEach { category ->
-                CdChip(
-                    text = stringResource(category.labelRes),
-                    selected = industry == category.key,
-                    onClick = { onIndustry(category.key) }
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        CdField(
-            label = stringResource(R.string.gstin_optional),
-            value = gstin,
-            onValueChange = onGstin,
-            capitalization = KeyboardCapitalization.Characters,
-            trailing = {
-                Box(
-                    modifier = Modifier
-                        .height(36.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(CdCobalt.bg())
-                        .clickable(onClick = onVerify)
-                        .padding(horizontal = 16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = stringResource(R.string.verify),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White
-                    )
-                }
-            }
-        )
-        if (gstVerified && gstin.isNotBlank()) {
-            Text(
-                text = stringResource(R.string.gst_active, gstin),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = CdGstGreen.fg(),
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-    }
-}
+
 
 @Composable
 private fun CdBottomBar(
@@ -616,32 +503,7 @@ private fun CdBottomBar(
 // SMALL BUILDING BLOCKS
 // ============================================
 
-@Composable
-private fun CdChip(
-    text: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val shape = RoundedCornerShape(17.dp)
-    Box(
-        modifier = Modifier
-            .height(34.dp)
-            .clip(shape)
-            .background(if (selected) CdNavy.bg() else Color.White.bg())
-            .border(BorderStroke(1.dp, if (selected) CdNavy.bd() else CdBorder.bd()), shape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            fontSize = 13.sp,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-            color = if (selected) Color.White else CdChipText.fg(),
-            maxLines = 1
-        )
-    }
-}
+
 
 @Composable
 private fun CdVerifiedBadge() {

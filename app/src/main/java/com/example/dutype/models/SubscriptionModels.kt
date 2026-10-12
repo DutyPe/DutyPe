@@ -20,13 +20,13 @@ data class EmployerSubscription(
     val ai: Boolean = false,
     val aiPerDay: Int = 0
 ) {
-    val isActive: Boolean get() = status == STATUS_ACTIVE && (expiresAt == 0L || expiresAt > System.currentTimeMillis())
+    val isActive: Boolean get() = status == STATUS_ACTIVE && (expiresAt == 0L || expiresAt > System.currentTimeMillis()) && planId.isNotBlank() && planId != PLAN_UNLIMITED_CAMPAIGN
 
-    /** DutyPe AI included right now (an active AI plan, or the launch campaign). */
-    val hasAi: Boolean get() = isActive && (ai || planId == PLAN_UNLIMITED_CAMPAIGN)
+    /** DutyPe AI included right now (an active AI plan). */
+    val hasAi: Boolean get() = isActive && (ai || planId.contains("ai", ignoreCase = true))
 
     /** Referral / launch campaign: unlimited job posts while active. */
-    val isUnlimitedCampaign: Boolean get() = isActive && planId == PLAN_UNLIMITED_CAMPAIGN
+    val isUnlimitedCampaign: Boolean get() = false
 
     companion object {
         const val STATUS_NONE = "NONE"

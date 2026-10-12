@@ -61,6 +61,51 @@ export function AdminReferralsClient() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
+  // Manual Credit Modal States
+  const [creditModalOpen, setCreditModalOpen] = useState(false);
+  const [creditTarget, setCreditTarget] = useState("");
+  const [creditAmount, setCreditAmount] = useState("");
+  const [creditReason, setCreditReason] = useState("Bug bounty reward");
+  const [creditSubmitting, setCreditSubmitting] = useState(false);
+
+  async function handleManualCredit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!creditTarget.trim() || !creditAmount.trim()) {
+      setError("Please fill in user phone/UID and amount.");
+      return;
+    }
+    const amt = parseFloat(creditAmount);
+    if (isNaN(amt) || amt <= 0) {
+      setError("Enter a valid positive amount in Rupees.");
+      return;
+    }
+    setCreditSubmitting(true);
+    setError(null);
+    try {
+      const res = await adminApiFetch("/api/admin/referrals/credit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uidOrPhone: creditTarget.trim(),
+          amountRupees: amt,
+          reason: creditReason.trim()
+        })
+      });
+      const data = (await res.json()) as { error?: string; uid?: string };
+      if (!res.ok) throw new Error(data.error || "Failed to credit user.");
+      setMessage(`Successfully credited ₹${amt} to ${creditTarget.trim()}.`);
+      setCreditModalOpen(false);
+      setCreditAmount("");
+      if (tab === "lookup" && lookupQuery.trim()) {
+        void runLookup();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to credit user.");
+    } finally {
+      setCreditSubmitting(false);
+    }
+  }
+
   const load = useCallback(async (append: boolean, cursor: string | null) => {
     if (tab === "lookup") return;
     setLoading(true);
@@ -147,6 +192,19 @@ export function AdminReferralsClient() {
             <option value="">All</option>
           </select>
         ) : null}
+        <div style={{ marginLeft: "auto" }}>
+          <button
+            type="button"
+            className="button"
+            style={{ background: "#059669", color: "white" }}
+            onClick={() => {
+              setCreditTarget(lookup?.uid || "");
+              setCreditModalOpen(true);
+            }}
+          >
+            + Credit Money / Reward
+          </button>
+        </div>
       </div>
 
       {tab === "withdrawals" ? (
@@ -220,7 +278,20 @@ export function AdminReferralsClient() {
           </div>
           {lookup ? (
             <div className="admin-section-stack">
-              <h3>{lookup.name || lookup.uid}</h3>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <h3>{lookup.name || lookup.uid}</h3>
+                <button
+                  type="button"
+                  className="button"
+                  style={{ background: "#059669", color: "white", padding: "6px 14px", fontSize: "0.85rem" }}
+                  onClick={() => {
+                    setCreditTarget(lookup.uid);
+                    setCreditModalOpen(true);
+                  }}
+                >
+                  + Credit This User
+                </button>
+              </div>
               {lookup.wallet ? (
                 <div className="admin-stats-grid small">
                   <div className="admin-stat-card compact"><strong>{rupees(lookup.wallet.balancePaise)}</strong><span>Balance</span></div>
@@ -245,6 +316,110 @@ export function AdminReferralsClient() {
             </div>
           ) : null}
         </section>
+      ) : null}
+
+      {creditModalOpen ? (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "1rem"
+          }}
+          onClick={() => setCreditModalOpen(false)}
+        >
+          <div
+            style={{
+              backgroundColor: "white",
+              borderRadius: "12px",
+              padding: "1.75rem",
+              width: "100%",
+              maxWidth: "460px",
+              boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.25rem", color: "#0F172A" }}>Manual Wallet Credit / Reward</h3>
+            <p style={{ margin: "0 0 1.25rem 0", fontSize: "0.85rem", color: "#64748B" }}>
+              Credit money directly to a user&apos;s wallet for bug bounties, rewards, or compensation.
+            </p>
+            <form onSubmit={handleManualCredit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "#334155", marginBottom: "0.25rem" }}>
+                  User Mobile, Referral Code, or UID
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="+919876543210, DUTY123, or UID"
+                  className="admin-input"
+                  value={creditTarget}
+                  onChange={(e) => setCreditTarget(e.target.value)}
+                  style={{ width: "100%", padding: "0.6rem 0.75rem", border: "1px solid #CBD5E1", borderRadius: "6px" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "#334155", marginBottom: "0.25rem" }}>
+                  Amount to Credit (₹ Rupees)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  required
+                  placeholder="e.g. 50"
+                  className="admin-input"
+                  value={creditAmount}
+                  onChange={(e) => setCreditAmount(e.target.value)}
+                  style={{ width: "100%", padding: "0.6rem 0.75rem", border: "1px solid #CBD5E1", borderRadius: "6px" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.85rem", fontWeight: 600, color: "#334155", marginBottom: "0.25rem" }}>
+                  Reward Reason / Note
+                </label>
+                <select
+                  value={creditReason}
+                  onChange={(e) => setCreditReason(e.target.value)}
+                  style={{ width: "100%", padding: "0.6rem 0.75rem", border: "1px solid #CBD5E1", borderRadius: "6px", backgroundColor: "white" }}
+                >
+                  <option value="Bug bounty reward">Bug bounty reward</option>
+                  <option value="Special contest reward">Special contest reward</option>
+                  <option value="App issue compensation">App issue compensation</option>
+                  <option value="Promotional bonus credit">Promotional bonus credit</option>
+                  <option value="Support adjustment">Support adjustment</option>
+                </select>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1rem" }}>
+                <button
+                  type="button"
+                  className="button ghost"
+                  onClick={() => setCreditModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="button"
+                  disabled={creditSubmitting}
+                  style={{ backgroundColor: "#059669", color: "white" }}
+                >
+                  {creditSubmitting ? "Crediting..." : "Confirm & Credit"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       ) : null}
     </div>
   );

@@ -50,11 +50,6 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({ requireAut
         const userRec = await admin.auth().getUser(uid).catch(() => null);
         phone = e164(userRec === null || userRec === void 0 ? void 0 : userRec.phoneNumber);
     }
-    if (!phone) {
-        const tcDoc = await db.collection(schema_1.TruecallerProfiles.COLLECTION).doc(uid).get();
-        if (tcDoc.exists)
-            phone = e164(tcDoc.get(schema_1.TruecallerProfiles.PHONE));
-    }
     if (!phone)
         (0, input_1.fail)("failed-precondition", "Sign in with your mobile number first");
     const role = (0, input_1.oneOf)(data, "role", ROLES);
@@ -67,11 +62,9 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({ requireAut
     const profileRef = db.collection(role === schema_1.Values.Role.WORKER ? schema_1.WorkerProfiles.COLLECTION : schema_1.EmployerProfiles.COLLECTION).doc(uid);
     const config = role === schema_1.Values.Role.EMPLOYER ? await (0, app_config_1.getReferralConfig)() : null;
     const created = await db.runTransaction(async (tx) => {
-        const [phoneDoc, profile, truecaller] = await Promise.all([
-            tx.get(phoneRef), tx.get(profileRef), tx.get(db.collection(schema_1.TruecallerProfiles.COLLECTION).doc(uid)),
+        const [phoneDoc, profile] = await Promise.all([
+            tx.get(phoneRef), tx.get(profileRef),
         ]);
-        // Email shared through Truecaller one-tap sign-up (same number only).
-        const tcEmail = truecaller.get(schema_1.TruecallerProfiles.PHONE) === phone ? String(truecaller.get(schema_1.TruecallerProfiles.EMAIL) || "") : "";
         if (phoneDoc.exists) {
             if (phoneDoc.get(schema_1.PhoneRoles.UID) !== uid)
                 (0, input_1.fail)("already-exists", "This number is linked to another account");
@@ -86,14 +79,22 @@ exports.completeRegistration = (0, secure_callable_1.onCallSecured)({ requireAut
             return false;
         const now = Timestamp.now();
         if (role === schema_1.Values.Role.WORKER) {
-            tx.create(profileRef, Object.assign(Object.assign({ [schema_1.WorkerProfiles.NAME]: name, [schema_1.WorkerProfiles.PHONE]: phone }, (tcEmail ? { [schema_1.WorkerProfiles.EMAIL]: tcEmail } : {})), { [schema_1.WorkerProfiles.SKILLS]: [], [schema_1.WorkerProfiles.AVAILABLE]: false, [schema_1.WorkerProfiles.BLOCKED]: false, [schema_1.WorkerProfiles.CREATED_AT]: now, [schema_1.WorkerProfiles.UPDATED_AT]: now }));
+            tx.create(profileRef, {
+                [schema_1.WorkerProfiles.NAME]: name,
+                [schema_1.WorkerProfiles.PHONE]: phone,
+                [schema_1.WorkerProfiles.SKILLS]: [],
+                [schema_1.WorkerProfiles.AVAILABLE]: false,
+                [schema_1.WorkerProfiles.BLOCKED]: false,
+                [schema_1.WorkerProfiles.CREATED_AT]: now,
+                [schema_1.WorkerProfiles.UPDATED_AT]: now,
+            });
         }
         else {
             const S = schema_1.EmployerProfiles.Subscription;
             const campaign = (config === null || config === void 0 ? void 0 : config.employerUnlimitedJobPostingEnabled) === true;
-            tx.create(profileRef, Object.assign(Object.assign(Object.assign(Object.assign({ [schema_1.EmployerProfiles.EMPLOYER_TYPE]: employerType }, (employerType === schema_1.Values.EmployerType.COMPANY ?
+            tx.create(profileRef, Object.assign(Object.assign({ [schema_1.EmployerProfiles.EMPLOYER_TYPE]: employerType }, (employerType === schema_1.Values.EmployerType.COMPANY ?
                 { [schema_1.EmployerProfiles.BUSINESS_NAME]: name, [schema_1.EmployerProfiles.OWNER_NAME]: "" } :
-                { [schema_1.EmployerProfiles.OWNER_NAME]: name })), { [schema_1.EmployerProfiles.PHONE]: phone }), (tcEmail ? { [schema_1.EmployerProfiles.EMAIL]: tcEmail } : {})), { [schema_1.EmployerProfiles.SUBSCRIPTION]: Object.assign(Object.assign({ [S.PLAN_ID]: campaign ? "UNLIMITED_CAMPAIGN" : "", [S.STATUS]: campaign ? "ACTIVE" : "NONE" }, (campaign ? { [S.START_AT]: now } : {})), { [S.CREDITS]: { [S.CREDITS_NORMAL]: 0, [S.CREDITS_INSTANT]: 0 } }), [schema_1.EmployerProfiles.FREE_URGENT_POSTS_USED]: 0, [schema_1.EmployerProfiles.VERIFIED]: false, [schema_1.EmployerProfiles.TOTAL_HIRES]: 0, [schema_1.EmployerProfiles.BLOCKED]: false, [schema_1.EmployerProfiles.CREATED_AT]: now, [schema_1.EmployerProfiles.UPDATED_AT]: now }));
+                { [schema_1.EmployerProfiles.OWNER_NAME]: name })), { [schema_1.EmployerProfiles.PHONE]: phone, [schema_1.EmployerProfiles.SUBSCRIPTION]: Object.assign(Object.assign({ [S.PLAN_ID]: campaign ? "UNLIMITED_CAMPAIGN" : "", [S.STATUS]: campaign ? "ACTIVE" : "NONE" }, (campaign ? { [S.START_AT]: now } : {})), { [S.CREDITS]: { [S.CREDITS_NORMAL]: 0, [S.CREDITS_INSTANT]: 0 } }), [schema_1.EmployerProfiles.FREE_URGENT_POSTS_USED]: 0, [schema_1.EmployerProfiles.VERIFIED]: false, [schema_1.EmployerProfiles.TOTAL_HIRES]: 0, [schema_1.EmployerProfiles.BLOCKED]: false, [schema_1.EmployerProfiles.CREATED_AT]: now, [schema_1.EmployerProfiles.UPDATED_AT]: now }));
         }
         return true;
     });
@@ -189,7 +190,6 @@ exports.deleteAccount = (0, secure_callable_1.onCallSecured)({}, async (_raw, co
     batch.delete(db.collection(schema_1.WorkerProfiles.COLLECTION).doc(uid));
     batch.delete(db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid));
     batch.delete(db.collection(schema_1.UserTokens.COLLECTION).doc(uid));
-    batch.delete(db.collection(schema_1.TruecallerProfiles.COLLECTION).doc(uid));
     if (wallet.exists)
         batch.update(wallet.ref, { [schema_1.Wallets.BLOCKED]: true });
     if (code)

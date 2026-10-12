@@ -49,142 +49,120 @@ import com.example.dutype.utils.NotificationDialogData
  * 
  * Based on Google Material Design 3 guidelines
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationDialog(
     data: NotificationDialogData,
     onDismiss: () -> Unit,
     visible: Boolean = true
 ) {
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(animationSpec = tween(300)) + 
-                scaleIn(
-                    initialScale = 0.8f,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessLow
-                    )
-                ),
-        exit = fadeOut(animationSpec = tween(200)) + 
-               scaleOut(targetScale = 0.8f, animationSpec = tween(200))
+    if (!visible) return
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Color.White,
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
-        Dialog(
-            onDismissRequest = onDismiss,
-            properties = DialogProperties(
-                dismissOnBackPress = true,
-                dismissOnClickOutside = true,
-                usePlatformDefaultWidth = false
-            )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Card(
+            // Icon with type-based background
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth(0.9f)
-                    .wrapContentHeight(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
-                ),
-                elevation = CardDefaults.cardElevation(
-                    defaultElevation = 8.dp
-                )
+                    .size(68.dp)
+                    .background(
+                        color = getNotificationDialogColor(data.type).copy(alpha = 0.12f),
+                        shape = RoundedCornerShape(20.dp)
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                Column(
+                Icon(
+                    imageVector = getNotificationDialogIcon(data.type),
+                    contentDescription = null,
+                    tint = getNotificationDialogColor(data.type),
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            // Title
+            Text(
+                text = data.title,
+                style = AppTypography.pageTitle,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F172A),
+                textAlign = TextAlign.Center
+            )
+
+            // Message
+            Text(
+                text = data.message,
+                style = AppTypography.bodyMedium,
+                color = Color(0xFF475569),
+                textAlign = TextAlign.Center,
+                lineHeight = 22.sp
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Actions
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Primary Action
+                Button(
+                    onClick = {
+                        data.primaryAction.action()
+                        onDismiss()
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                        .height(50.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = getNotificationDialogColor(data.type)
+                    ),
+                    shape = RoundedCornerShape(14.dp)
                 ) {
-                    // Icon with background
-                    Box(
+                    Text(
+                        text = data.primaryAction.label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                }
+
+                // Secondary Action (if provided)
+                data.secondaryAction?.let { secondaryAction ->
+                    OutlinedButton(
+                        onClick = {
+                            secondaryAction.action()
+                            onDismiss()
+                        },
                         modifier = Modifier
-                            .size(72.dp)
-                            .background(
-                                color = getNotificationDialogColor(data.type).copy(alpha = 0.1f),
-                                shape = RoundedCornerShape(20.dp)
-                            ),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFF475569)
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            Color(0xFFE2E8F0)
+                        ),
+                        shape = RoundedCornerShape(14.dp)
                     ) {
-                        Icon(
-                            imageVector = getNotificationDialogIcon(data.type),
-                            contentDescription = null,
-                            tint = getNotificationDialogColor(data.type),
-                            modifier = Modifier.size(32.dp)
+                        Text(
+                            text = secondaryAction.label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Medium
                         )
-                    }
-                    
-                    // Title
-                    Text(
-                        text = data.title,
-                        style = AppTypography.pageTitle,
-                        fontWeight = FontWeight.Bold,
-                        color = WorkerColors.TextPrimary,
-                        textAlign = TextAlign.Center
-                    )
-                    
-                    // Message
-                    Text(
-                        text = data.message,
-                        style = AppTypography.bodyMedium,
-                        color = WorkerColors.TextSecondary,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 22.sp
-                    )
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Actions
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Primary Action
-                        Button(
-                            onClick = {
-                                data.primaryAction.action()
-                                onDismiss()
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = getNotificationDialogColor(data.type)
-                            ),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Text(
-                                text = data.primaryAction.label,
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-                        
-                        // Secondary Action (if provided)
-                        data.secondaryAction?.let { secondaryAction ->
-                            OutlinedButton(
-                                onClick = {
-                                    secondaryAction.action()
-                                    onDismiss()
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = WorkerColors.TextSecondary
-                                ),
-                                border = androidx.compose.foundation.BorderStroke(
-                                    1.dp,
-                                    WorkerColors.Border
-                                ),
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Text(
-                                    text = secondaryAction.label,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
                     }
                 }
             }

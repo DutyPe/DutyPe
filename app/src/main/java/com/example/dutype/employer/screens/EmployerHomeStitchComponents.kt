@@ -891,85 +891,94 @@ fun EmployerHomeHeader(
     unreadCount: Int,
     onNotificationClick: () -> Unit,
     onPostJobClick: (() -> Unit)? = null,
+    onVoiceClick: (() -> Unit)? = null,
+    onAvatarClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
-    val displayName = companyName.ifBlank { "My Business" }
-    val initial = displayName.trim().firstOrNull()?.uppercase() ?: "M"
-    Column(
+    val cleanName = companyName.trim()
+    val greetingName = if (cleanName.isNotBlank() && !cleanName.equals("User", ignoreCase = true)) {
+        cleanName.split(" ").firstOrNull()?.replaceFirstChar { it.uppercase() } ?: cleanName
+    } else {
+        "DutyPe Employer"
+    }
+
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color.White.bg())
             .statusBarsPadding()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
+        // Left: Clean greeting text directly in header
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .weight(1f)
+                .clickable(enabled = onAvatarClick != null) { onAvatarClick?.invoke() }
+        ) {
+            Text(
+                text = "Hi, $greetingName",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF111827),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        // Right Action Buttons: Mic (Orange) + Notification Bell (White)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically
+            // Liri Voice Assistant Circle Button
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE85D04))
+                    .clickable { onVoiceClick?.invoke() },
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFEFF6FF).bg()),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = initial,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = EhCobalt.fg()
-                    )
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = displayName,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = EhInk.fg(),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                Icon(
+                    imageVector = Icons.Default.Mic,
+                    contentDescription = "DutyPe Voice Assistant",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
                 )
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clickable { onNotificationClick() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.NotificationsNone,
-                        contentDescription = "Notifications",
-                        tint = EhInk.fg(),
-                        modifier = Modifier.size(24.dp)
+
+            // Notification Bell Pill Button
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(Color.White)
+                    .border(1.dp, Color(0xFFF1F5F9), CircleShape)
+                    .clickable { onNotificationClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.NotificationsNone,
+                    contentDescription = "Notifications",
+                    tint = Color(0xFF0F172A),
+                    modifier = Modifier.size(22.dp)
+                )
+                if (unreadCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 10.dp, end = 10.dp)
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFDC2626))
+                            .border(1.5.dp, Color.White, CircleShape)
                     )
-                    if (unreadCount > 0) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(EhRed.bg())
-                                .border(1.5.dp, Color.White.bd(), CircleShape)
-                        )
-                    }
                 }
             }
         }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(EhBorder.bg())
-        )
     }
 }
 

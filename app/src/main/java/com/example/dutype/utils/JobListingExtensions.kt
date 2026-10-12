@@ -91,7 +91,7 @@ fun Map<String, Any?>.toJobListing(
         gender = d.str(JobDetails.GENDER),
         experienceRequired = d.str(JobDetails.EXPERIENCE_REQUIRED),
         educationRequired = d.str(JobDetails.EDUCATION_REQUIRED),
-        benefits = (d[JobDetails.BENEFITS] as? List<*>)?.mapNotNull { it as? String }.orEmpty(),
+        benefits = emptyList(),
         isSaved = isSaved
     )
 }

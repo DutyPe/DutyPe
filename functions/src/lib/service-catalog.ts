@@ -11,7 +11,8 @@
 import { randomInt } from "crypto";
 
 export type CategoryId =
-  "AC" | "CLEANING" | "ELECTRICIAN" | "PLUMBER" | "APPLIANCE" | "CARPENTER" | "PAINTER" | "HOME_HELP" | "VEHICLE";
+  | "AC" | "CLEANING" | "ELECTRICIAN" | "PLUMBER" | "APPLIANCE" | "CARPENTER" | "PAINTER" | "HOME_HELP" | "VEHICLE"
+  | "BEAUTICIAN" | "MEHENDI" | "COOK_MAID" | "BABYSITTER" | "ELDERLY_CARE" | "TAILORING";
 
 /**
  * BASIC work (cleaning, helpers, car wash) needs care and honesty, not training: any verified
@@ -106,6 +107,12 @@ const CATEGORY_ITEMS: Record<CategoryId, { provide: string[]; bring: string[] }>
   PAINTER: { provide: ["PAINT", "CLEAR_SPACE", "LADDER"], bring: ["PAINT_TOOLS"] },
   HOME_HELP: { provide: ["CLEAR_SPACE"], bring: ["GLOVES"] },
   VEHICLE: { provide: ["WATER", "POWER"], bring: ["CAR_KIT"] },
+  BEAUTICIAN: { provide: ["POWER", "WATER", "CLEAR_SPACE"], bring: ["TOOLKIT", "GLOVES"] },
+  MEHENDI: { provide: ["CLEAR_SPACE"], bring: ["TOOLKIT"] },
+  COOK_MAID: { provide: ["WATER", "POWER", "CLEAR_SPACE"], bring: ["GLOVES"] },
+  BABYSITTER: { provide: ["CLEAR_SPACE"], bring: [] },
+  ELDERLY_CARE: { provide: ["CLEAR_SPACE"], bring: ["GLOVES"] },
+  TAILORING: { provide: ["CLEAR_SPACE"], bring: ["TOOLKIT"] },
 };
 
 export function provideFor(s: ServiceItem): string[] {
@@ -180,6 +187,12 @@ export const CATEGORIES: ServiceCategory[] = [
   { id: "PAINTER", name: "Painting", te: "పెయింటింగ్", hi: "पेंटिंग", skill: "SKILLED" },
   { id: "HOME_HELP", name: "Home Help & Shifting", te: "ఇంటి సహాయం & షిఫ్టింగ్", hi: "घर की मदद और शिफ़्टिंग", skill: "BASIC" },
   { id: "VEHICLE", name: "Car & Bike Wash", te: "కార్ & బైక్ వాష్", hi: "कार और बाइक वॉश", skill: "BASIC" },
+  { id: "BEAUTICIAN", name: "Salon & Beautician", te: "బ్యూటీషియన్ & సెలూన్", hi: "ब्यूटीशियन और सैलून", skill: "SKILLED" },
+  { id: "MEHENDI", name: "Mehendi & Bridal Art", te: "మెహందీ & బ్రైడల్ డిజైన్", hi: "मेहंदी और ब्राइडल आर्ट", skill: "SKILLED" },
+  { id: "COOK_MAID", name: "Cook & Maid", te: "వంటమనిషి & మేడ్", hi: "रसोइया और कुक", skill: "BASIC" },
+  { id: "BABYSITTER", name: "Babysitting & Child Care", te: "పిల్లల సంరక్షణ & బేబీ సిట్టింగ్", hi: "बच्चों की देखभाल और बेबीसिटिंग", skill: "BASIC" },
+  { id: "ELDERLY_CARE", name: "Elderly & Patient Care", te: "వృద్ధుల సంరక్షణ & పేషెంట్ కేర్", hi: "बुजुर्गों और मरीजों की देखभाल", skill: "BASIC" },
+  { id: "TAILORING", name: "Ladies Tailoring", te: "లేడీస్ టైలరింగ్", hi: "लेडीज टेलरिंग", skill: "SKILLED" },
 ];
 
 export function skillOf(category: string): SkillLevel {
@@ -429,7 +442,7 @@ export function mergeConfig(raw: unknown): ServicesConfig {
 
   // New services added only by the admin (can reference any default or custom category)
   for (const ov of overrides.values()) {
-    const targetCat = categories.find((c) => c.id.toUpperCase() === String(ov.category || "").toUpperCase())?.id || (ov.category as CategoryId);
+    const targetCat = categories.find((c) => c.id.toUpperCase() === String(ov.category || "").toUpperCase())?.id;
     const price = Number(ov.price);
     const originalPrice = Number(ov.originalPrice);
     if (!targetCat || typeof ov.name !== "string" || !ov.name.trim() || !Number.isFinite(price) || price < 0) continue;
