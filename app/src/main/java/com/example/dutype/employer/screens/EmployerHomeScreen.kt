@@ -270,7 +270,11 @@ fun EmployerHomeScreen(
             instantHelpViewModel.loadEmployerUrgentNeeds()
             applicationViewModel.loadEmployerApplications()
         } else {
-            Timber.w("EMPLOYER_HOME: No employerId - user not authenticated")
+            Timber.w("EMPLOYER_HOME: No employerId - user not authenticated, redirecting to select_role")
+            rootNavController.navigate(com.example.dutype.navigation.Routes.SELECT_ROLE) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
         }
     }
 

@@ -42,6 +42,19 @@ import com.example.dutype.ui.theme.MeeshoFontFamily
 import com.example.dutype.ui.theme.WorkerColors
 
 internal fun safeAuthBackNavigation(navController: NavController) {
+    val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+    if (currentUser == null) {
+        val prevRoute = navController.previousBackStackEntry?.destination?.route
+        if (prevRoute == Routes.SELECT_ROLE || prevRoute == Routes.ONBOARDING) {
+            navController.popBackStack()
+        } else {
+            navController.navigate(Routes.SELECT_ROLE) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+        return
+    }
     val popped = navController.popBackStack()
     if (!popped) {
         navController.navigate(Routes.SELECT_ROLE) {

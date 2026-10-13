@@ -37,15 +37,24 @@ class AppStartupViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val initialCachedDestination: String by lazy {
+        val currentUser = FirebaseAuth.getInstance().currentUser
         val cached = StartDestinationCache.read(context)
-        // Profile-setup routes need a signed-in uid.
-        // Home routes (WORKER_HOME / EMPLOYER_HOME) support guest exploration.
-        val isAuthGated = cached == Routes.PROFILE_SETUP ||
-            cached == Routes.EMPLOYER_PROFILE_SETUP
-        if (isAuthGated && FirebaseAuth.getInstance().currentUser == null) {
-            Routes.SELECT_ROLE
+        if (currentUser == null) {
+            // Unauthenticated users can never be routed to home screens or profile setup.
+            // Guest mode was removed, so they must be on ONBOARDING (fresh) or SELECT_ROLE.
+            if (cached == Routes.ONBOARDING || cached == null) {
+                Routes.ONBOARDING
+            } else {
+                Routes.SELECT_ROLE
+            }
         } else {
-            cached ?: Routes.ONBOARDING
+            val isAuthGated = cached == Routes.PROFILE_SETUP ||
+                cached == Routes.EMPLOYER_PROFILE_SETUP
+            if (isAuthGated) {
+                Routes.SELECT_ROLE
+            } else {
+                cached ?: Routes.ONBOARDING
+            }
         }
     }
 

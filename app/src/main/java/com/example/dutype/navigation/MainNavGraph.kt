@@ -122,8 +122,13 @@ fun MainNavGraph(
         )
         navController.currentBackStackEntryFlow.collect { entry ->
             val route = entry.destination.route ?: return@collect
+            val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
             if (route in stableEntryPoints) {
-                runCatching { StartDestinationCache.save(context, route) }
+                if (currentUser == null && route != Routes.ONBOARDING && route != Routes.SELECT_ROLE) {
+                    runCatching { StartDestinationCache.save(context, Routes.SELECT_ROLE) }
+                } else {
+                    runCatching { StartDestinationCache.save(context, route) }
+                }
             }
         }
     }
@@ -151,6 +156,19 @@ fun MainNavGraph(
                 navigationDetermined = true
                 runCatching { onReady() }
                 Timber.d("🚀 MainNavGraph - AppStartupViewModel resolved startDestination: ${state.startDestination}")
+
+                // Reconcile NavController backstack if startDestination resolution corrected an initial guess
+                val currentRoute = navController.currentDestination?.route
+                if (currentRoute != null && currentRoute != state.startDestination) {
+                    val isLoginFlow = currentRoute.startsWith(Routes.ENHANCED_LOGIN)
+                    if (!isLoginFlow) {
+                        Timber.d("🚀 MainNavGraph - Reconciling NavController destination: $currentRoute -> ${state.startDestination}")
+                        navController.navigate(state.startDestination) {
+                            popUpTo(0) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                }
             }
             com.example.dutype.viewmodels.StartupState.Loading -> {
                 // Keep loading until resolved

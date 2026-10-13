@@ -556,6 +556,12 @@ fun WorkerHomeScreen(
             }.onFailure {
                 Timber.w(it, "Failed to load worker rating summary for home header")
             }
+        } else {
+            Timber.w("WORKER_HOME: User is not authenticated, redirecting to select_role")
+            rootNavController.navigate(com.example.dutype.navigation.Routes.SELECT_ROLE) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
         }
     }
 
