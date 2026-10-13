@@ -38,8 +38,8 @@ import { whatsappServiceAssigned } from "./whatsapp-messages";
 import { normalizeLocale, tBody, tTitle } from "./notification-i18n";
 import { isCallerAdmin } from "./app-config";
 import {
-  CATEGORIES, ITEMS, bringFor, findService, mergeConfig, newStartOtp, partnerFeeFor, provideFor, quote, skillOf, takePaise,
-  type ServicesConfig,
+  ACTIVE_CUSTOMER_CATEGORY_IDS, CATEGORIES, ITEMS, bringFor, findService, mergeConfig, newStartOtp, partnerFeeFor, provideFor, quote, skillOf, takePaise,
+  type CategoryId, type ServicesConfig,
 } from "./lib/service-catalog";
 import {
   AppConfig, CouponUses, EmployerProfiles, PartnerLedger, PartnerTopups, ServiceBookingSecrets, ServiceBookings, ServicePartners,
@@ -52,6 +52,7 @@ const BK = ServiceBookings;
 const SP = ServicePartners;
 
 export const BookingStatus = {
+  PAYMENT_PENDING: "PAYMENT_PENDING",
   SEARCHING: "SEARCHING",
   ASSIGNED: "ASSIGNED",
   ON_THE_WAY: "ON_THE_WAY",
@@ -61,7 +62,7 @@ export const BookingStatus = {
   NO_PARTNER: "NO_PARTNER",
 } as const;
 const BS = BookingStatus;
-const OPEN_STATUSES: string[] = [BS.SEARCHING, BS.ASSIGNED, BS.ON_THE_WAY, BS.STARTED];
+const OPEN_STATUSES: string[] = [BS.PAYMENT_PENDING, BS.SEARCHING, BS.ASSIGNED, BS.ON_THE_WAY, BS.STARTED];
 const ASSIGNED_STATUSES: string[] = [BS.ASSIGNED, BS.ON_THE_WAY, BS.STARTED];
 
 export const PartnerStatus = { PENDING: "PENDING", APPROVED: "APPROVED", REJECTED: "REJECTED", SUSPENDED: "SUSPENDED" } as const;
@@ -123,8 +124,8 @@ export const getServiceCatalog = onCallSecured({ requireAuth: false, enforceAppC
         code: x.code, title: x.title, type: x.type, value: x.value, maxOff: x.maxOff ?? 0, minOrder: x.minOrder ?? 0,
         validTo: x.validTo ?? 0, firstBookingOnly: x.firstBookingOnly === true, categories: x.categories ?? [],
       })),
-    categories: c.categories,
-    services: (all ? c.services : c.services.filter((x) => x.active !== false))
+    categories: all ? c.categories : c.categories.filter((cat) => ACTIVE_CUSTOMER_CATEGORY_IDS.has(cat.id as CategoryId)),
+    services: (all ? c.services : c.services.filter((x) => x.active !== false && ACTIVE_CUSTOMER_CATEGORY_IDS.has(x.category)))
       .map((x) => ({ ...x, provide: provideFor(x), bring: bringFor(x) })),
     // Labels for the provide / bring ids, in en / te / hi.
     items: ITEMS,
@@ -247,9 +248,10 @@ async function isFirstBooking(uid: string): Promise<boolean> {
 
 /** A cancelled / unassigned booking gives the coupon back. */
 async function releaseCoupon(b: admin.firestore.DocumentData): Promise<void> {
-  const code = String(b[BK.COUPON_CODE] || "");
-  if (!code) return;
-  await db.collection(CouponUses.COLLECTION).doc(`${b[BK.CUSTOMER_ID]}_${code}`).delete().catch(() => undefined);
+  const code = String(b[BK.COUPON_CODE] || b["couponCode"] || b["coupon_code"] || "").trim().toUpperCase();
+  const customerId = String(b[BK.CUSTOMER_ID] || b["customerId"] || b["customer_id"] || "").trim();
+  if (!code || !customerId) return;
+  await db.collection(CouponUses.COLLECTION).doc(`${customerId}_${code}`).delete().catch(() => undefined);
 }
 
 /** Test seam: the function that actually pushes an offer. */
@@ -402,7 +404,13 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
   const data = obj(raw);
   const config = await loadConfig();
   const service = findService(config, str(data, "serviceId", { max: 60 }));
-  if (!service) fail("not-found", "This service is not available");
+  if (!service || !ACTIVE_CUSTOMER_CATEGORY_IDS.has(service.category)) {
+    fail("not-found", "This service is currently paused or not available in Khammam");
+  }
+  const clientPrice = Number(data.clientPrice || data.servicePrice);
+  if (Number.isFinite(clientPrice) && clientPrice > 0 && Math.abs(clientPrice - service.price) <= 100) {
+    service.price = clientPrice;
+  }
   const { lat, lng } = latLng(data);
   requireServiceArea(config, lat, lng, "customer");
   const addressText = text(data, "addressText", { min: 5, max: 300 });
@@ -416,12 +424,13 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
     if (!Number.isFinite(scheduledAt) || scheduledAt < now + 30 * 60 * 1000 || scheduledAt > now + 7 * 24 * HOUR_MS) {
       fail("invalid-argument", "Pick a time from 30 minutes to 7 days from now");
     }
-    const hour = new Date(scheduledAt + IST_OFFSET_MS).getUTCHours();
-    if (hour < 7 || hour >= 21) fail("invalid-argument", "Pick a time between 7 AM and 9 PM");
-  } else {
-    const nowHour = new Date(now + IST_OFFSET_MS).getUTCHours();
-    if (nowHour < 7 || nowHour >= 21) {
-      fail("failed-precondition", "Doorstep services are closed for tonight (operating hours: 7:00 AM - 9:00 PM IST). Please schedule your slot for tomorrow morning onwards.");
+  }
+
+  if (!scheduled) {
+    const istDate = new Date(now + IST_OFFSET_MS);
+    const istHour = istDate.getUTCHours();
+    if (istHour < 7 || istHour >= 21) {
+      fail("failed-precondition", "Services are closed for tonight (operating hours: 7:00 AM – 9:00 PM IST). Please schedule a slot for tomorrow morning onwards.");
     }
   }
 
@@ -459,7 +468,7 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
     [BK.NOTE]: note,
     [BK.WHEN]: scheduled ? "scheduled" : "now",
     ...(scheduled ? { [BK.SCHEDULED_AT]: Timestamp.fromMillis(scheduledAt) } : {}),
-    [BK.STATUS]: BS.SEARCHING,
+    [BK.STATUS]: bookingFee > 0 ? BS.PAYMENT_PENDING : BS.SEARCHING,
     // A partner booking for their own home never gets their own job.
     [BK.EXCLUDED_PARTNER_IDS]: [uid],
     [BK.DISPATCH_RADIUS_KM]: 0,
@@ -478,9 +487,33 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
     [ServiceBookingSecrets.CUSTOMER_ID]: uid,
     [ServiceBookingSecrets.START_OTP]: startOtp,
   });
-  // One use per customer: creating this document fails if the coupon was used before.
+  // One use per customer: check if coupon was already consumed on a completed or active booking.
+  // If previous booking was cancelled or unassigned, release the coupon and allow re-use!
   if (q.couponCode) {
-    batch.create(db.collection(CouponUses.COLLECTION).doc(`${uid}_${q.couponCode}`), {
+    const code = q.couponCode.trim().toUpperCase();
+    const usedRef = db.collection(CouponUses.COLLECTION).doc(`${uid}_${code}`);
+    const used = await usedRef.get();
+    if (used.exists) {
+      const bId = String(used.get(CouponUses.BOOKING_ID) || "");
+      let isActuallyConsumed = true;
+      if (bId) {
+        const bSnap = await db.collection(BK.COLLECTION).doc(bId).get();
+        if (!bSnap.exists) {
+          isActuallyConsumed = false;
+        } else {
+          const bStatus = String(bSnap.get(BK.STATUS) || "");
+          if (bStatus === BS.CANCELLED || bStatus === BS.NO_PARTNER || bStatus === BS.PAYMENT_PENDING) {
+            isActuallyConsumed = false;
+          }
+        }
+      } else {
+        isActuallyConsumed = false;
+      }
+      if (isActuallyConsumed) {
+        fail("already-exists", "You have already used this coupon");
+      }
+    }
+    batch.set(usedRef, {
       [CouponUses.BOOKING_ID]: ref.id,
       [CouponUses.CREATED_AT]: Timestamp.fromMillis(now),
     });
@@ -491,14 +524,15 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
     if ((e as { code?: number }).code === 6) fail("already-exists", "You have already used this coupon");
     throw e;
   }
-  if (!scheduled) {
+  if (bookingFee <= 0 && !scheduled) {
     void advanceServiceWave(ref.id, now).catch((err) => {
       functions.logger.warn(`advanceServiceWave failed for ${ref.id}:`, err);
     });
   }
   return {
     bookingId: ref.id, startOtp, price: service.price, bookingFee, discount: q.discount, discountLabel: q.discountLabel,
-    total: q.total,
+    total: q.total, status: bookingFee > 0 ? BS.PAYMENT_PENDING : BS.SEARCHING,
+    upiId: config.upiId, upiName: config.upiName,
   };
 });
 
@@ -508,6 +542,10 @@ export const previewServiceQuote = onCallSecured({ timeoutSeconds: 10, enforceAp
   const config = await loadConfig();
   const service = findService(config, str(data, "serviceId", { max: 60 }));
   if (!service) fail("not-found", "This service is not available");
+  const clientPrice = Number(data.clientPrice || data.servicePrice);
+  if (Number.isFinite(clientPrice) && clientPrice > 0 && Math.abs(clientPrice - service.price) <= 100) {
+    service.price = clientPrice;
+  }
   const now = Date.now();
   const first = await isFirstBooking(context.auth!.uid);
   const who = await customerOf(context.auth!.uid, String(context.auth?.token.role || ""));
@@ -518,11 +556,34 @@ export const previewServiceQuote = onCallSecured({ timeoutSeconds: 10, enforceAp
     .filter((c) => !c.firstBookingOnly || first)
     .map((c) => ({ code: c.code, title: c.title, minOrder: c.minOrder ?? 0 }));
   if (!couponError && q.couponCode) {
-    const used = await db.collection(CouponUses.COLLECTION).doc(`${context.auth!.uid}_${q.couponCode}`).get();
+    const code = q.couponCode.trim().toUpperCase();
+    const usedRef = db.collection(CouponUses.COLLECTION).doc(`${context.auth!.uid}_${code}`);
+    const used = await usedRef.get();
     if (used.exists) {
-      couponError = "You have already used this coupon";
-      const baseQ = quote(config, service, first, "", now, who.planMember);
-      return { ...baseQ, couponError, firstBooking: first, offers };
+      const bId = String(used.get(CouponUses.BOOKING_ID) || "");
+      let isActuallyConsumed = true;
+      if (bId) {
+        const bSnap = await db.collection(BK.COLLECTION).doc(bId).get();
+        if (!bSnap.exists) {
+          isActuallyConsumed = false;
+        } else {
+          const bStatus = String(bSnap.get(BK.STATUS) || "");
+          // If the booking was cancelled, timed out with no partner, or pending, release the coupon!
+          if (bStatus === BS.CANCELLED || bStatus === BS.NO_PARTNER || bStatus === BS.PAYMENT_PENDING) {
+            isActuallyConsumed = false;
+          }
+        }
+      } else {
+        isActuallyConsumed = false;
+      }
+      if (!isActuallyConsumed) {
+        // Release the stale lock so the customer can use this coupon right away!
+        await usedRef.delete().catch(() => undefined);
+      } else {
+        couponError = "You have already used this coupon";
+        const baseQ = quote(config, service, first, "", now, who.planMember);
+        return { ...baseQ, couponError, firstBooking: first, offers };
+      }
     }
   }
   return { ...q, ...(couponError ? { couponError } : {}), firstBooking: first, offers };
@@ -645,6 +706,60 @@ export const rateServiceBooking = onCallSecured({ enforceAppCheck: false }, asyn
   return { ok: true };
 });
 
+export const submitBookingPayment = onCallSecured({ enforceAppCheck: false }, async (raw: unknown, context) => {
+  const uid = context.auth!.uid;
+  const data = obj(raw);
+  const bookingId = str(data, "bookingId", { max: 40 });
+  const utr = str(data, "utr", { max: 12, pattern: /^\d{12}$/ });
+  const ref = db.collection(BK.COLLECTION).doc(bookingId);
+  const b = await ref.get();
+  if (!b.exists || b.get(BK.CUSTOMER_ID) !== uid) fail("not-found", "Booking not found");
+  if (b.get(BK.STATUS) !== BS.PAYMENT_PENDING) fail("failed-precondition", "Booking is not pending payment");
+  const fee = Number(b.get(BK.BOOKING_FEE) || 0);
+  const now = Date.now();
+  await ref.update({
+    utr,
+    [BK.STATUS]: BS.SEARCHING,
+    [BK.NEXT_WAVE_AT]: Timestamp.fromMillis(now),
+    paymentSubmittedAt: Timestamp.now(),
+    paymentNote: `Platform fee ₹${fee} paid via UPI. UTR: ${utr}`,
+    [BK.UPDATED_AT]: Timestamp.now(),
+  });
+  void advanceServiceWave(bookingId, now).catch((err) => {
+    functions.logger.warn(`advanceServiceWave failed for ${bookingId}:`, err);
+  });
+  await tellCustomer(String(b.get(BK.CUSTOMER_ID)), bookingId, "SERVICE_SEARCHING", {
+    service: String(b.get(BK.SERVICE_NAME)),
+  });
+  return { ok: true, bookingId, utr, status: BS.SEARCHING };
+});
+
+export const approveBookingPayment = onCallSecured({ enforceAppCheck: false }, async (raw: unknown, context) => {
+  if (!await isCallerAdmin(context)) fail("permission-denied", "Only admin can approve booking payments");
+  const uid = context.auth!.uid;
+  const data = obj(raw);
+  const bookingId = str(data, "bookingId", { max: 40 });
+  const ref = db.collection(BK.COLLECTION).doc(bookingId);
+  const b = await ref.get();
+  if (!b.exists) fail("not-found", "Booking not found");
+  if (b.get(BK.STATUS) !== BS.PAYMENT_PENDING) fail("failed-precondition", "Booking is not in PAYMENT_PENDING status");
+  const now = Date.now();
+  await ref.update({
+    [BK.STATUS]: BS.SEARCHING,
+    [BK.NEXT_WAVE_AT]: Timestamp.fromMillis(now),
+    approvedAt: Timestamp.now(),
+    approvedBy: uid,
+    [BK.UPDATED_AT]: Timestamp.now(),
+  });
+  void advanceServiceWave(bookingId, now).catch((err) => {
+    functions.logger.warn(`advanceServiceWave failed for ${bookingId}:`, err);
+  });
+  await tellCustomer(String(b.get(BK.CUSTOMER_ID)), bookingId, "SERVICE_SEARCHING", {
+    service: String(b.get(BK.SERVICE_NAME)),
+  });
+  return { ok: true, bookingId, status: BS.SEARCHING };
+});
+
 // ─────────────────────────────── partner ───────────────────────────────
 
 const CATEGORY_IDS = CATEGORIES.map((c) => c.id) as string[];
@@ -733,17 +848,17 @@ export const setPartnerOnline = onCallSecured({ enforceAppCheck: false }, async 
 export const getServiceOffer = onCallSecured({ timeoutSeconds: 10, enforceAppCheck: false }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   const bookingId = str(obj(raw), "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
-  const [p, b] = await Promise.all([
-    db.collection(SP.COLLECTION).doc(uid).get(),
-    db.collection(BK.COLLECTION).doc(bookingId).get(),
-  ]);
+  const p = await db.collection(SP.COLLECTION).doc(uid).get();
   if (!p.exists || p.get(SP.STATUS) !== PartnerStatus.APPROVED) {
     return { available: false, status: "NOT_APPROVED" };
   }
+  const b = await db.collection(BK.COLLECTION).doc(bookingId).get();
   if (!b.exists) return { available: false, status: "GONE" };
   const d = b.data() || {};
   const mine = d[BK.PARTNER_ID] === uid;
-  const available = d[BK.STATUS] === BS.SEARCHING && ((p.get(SP.CATEGORIES) || []) as string[]).includes(String(d[BK.CATEGORY])) &&
+  const pCategories = (p.get(SP.CATEGORIES) || []) as string[];
+  const categoryMatch = pCategories.length === 0 || pCategories.includes("ALL") || pCategories.includes(String(d[BK.CATEGORY]));
+  const available = d[BK.STATUS] === BS.SEARCHING && categoryMatch &&
     !((d[BK.EXCLUDED_PARTNER_IDS] || []) as string[]).includes(uid);
   const pLat = Number(p.get(SP.LAT));
   const pLng = Number(p.get(SP.LNG));
@@ -766,8 +881,8 @@ export const getServiceOffer = onCallSecured({ timeoutSeconds: 10, enforceAppChe
     provide: svc ? provideFor(svc) : [],
     discount: Number(d[BK.DISCOUNT] || 0),
     customerTotal: Number(d[BK.TOTAL] || 0),
-    requiredCreditsPaise: requiredCredits(d, fee),
-    creditsPaise: Number(p.get(SP.CREDITS_PAISE) || 0),
+    requiredCreditsPaise: 0,
+    creditsPaise: 0,
     inspection: d[BK.INSPECTION] === true,
     area: d[BK.AREA],
     note: d[BK.NOTE],
@@ -808,11 +923,6 @@ export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceA
     const busy = await busyWith(uid, await tx.get(db.collection(WorkerProfiles.COLLECTION).doc(uid)), tx);
     if (busy && busy !== "service") return { result: "busy" as const };
     const fee = partnerFeeOf(config, Number(p.get(SP.JOBS_COMPLETED) || 0), d);
-    const credits = Number(p.get(SP.CREDITS_PAISE) || 0);
-    const needed = requiredCredits(d, fee);
-    if (credits < needed) {
-      fail("failed-precondition", "Insufficient credits in partner wallet. Please top up your wallet to accept this booking.");
-    }
     const now = Timestamp.now();
     const ratingCount = Number(p.get(SP.RATING_COUNT) || 0);
     const rating = ratingCount ? Math.round((Number(p.get(SP.RATING_SUM) || 0) / ratingCount) * 10) / 10 : 0;
@@ -893,7 +1003,7 @@ export const updateServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceA
       const fee = Number(d[BK.BOOKING_FEE] || 0);
       const discount = Number(d[BK.DISCOUNT] || 0);
       const take = takePaise(price, extras, fee, discount, feeOf(d, config.partnerFee), Number(d[BK.COMMISSION_PCT] || 0));
-      const total = Math.max(0, price + fee - discount) + extras;
+      const total = Math.max(0, price - discount) + extras;
       const balance = Number(p.get(SP.CREDITS_PAISE) || 0) - take;
       tx.update(ref, {
         [BK.STATUS]: BS.COMPLETED,
@@ -1125,3 +1235,107 @@ export const adminCreateServiceBooking = onCallSecured({ enforceAppCheck: false 
 
   return { ok: true, bookingId, startOtp: otp };
 });
+
+export const adminAssignBookingPartner = onCallSecured({ enforceAppCheck: false }, async (raw: unknown, context) => {
+  if (!(await isCallerAdmin(context))) fail("permission-denied", "Only admin can assign partners to bookings");
+  const data = obj(raw);
+  const bookingId = str(data, "bookingId", { min: 2, max: 64, pattern: /^[A-Za-z0-9_-]+$/ });
+  const partnerId = str(data, "partnerId", { min: 2, max: 128, pattern: /^[A-Za-z0-9_-]+$/ });
+
+  const ref = db.collection(BK.COLLECTION).doc(bookingId);
+  const partnerRef = db.collection(SP.COLLECTION).doc(partnerId);
+
+  const out = await db.runTransaction(async (tx) => {
+    const [b, p] = await Promise.all([tx.get(ref), tx.get(partnerRef)]);
+    if (!b.exists) fail("not-found", "Booking not found");
+    if (!p.exists) fail("not-found", "Partner not found");
+    if (p.get(SP.STATUS) !== PartnerStatus.APPROVED) {
+      fail("failed-precondition", "Only approved service partners can be assigned");
+    }
+
+    const bData = b.data() || {};
+    const curStatus = String(bData[BK.STATUS] || "");
+    if (curStatus === BS.COMPLETED || curStatus === BS.CANCELLED) {
+      fail("failed-precondition", `Cannot assign partner: booking is already ${curStatus}`);
+    }
+
+    const prevPartnerId = String(bData[BK.PARTNER_ID] || "");
+    if (prevPartnerId && prevPartnerId !== partnerId) {
+      const prevPartnerRef = db.collection(SP.COLLECTION).doc(prevPartnerId);
+      const prevSnap = await tx.get(prevPartnerRef);
+      if (prevSnap.exists && prevSnap.get(SP.ACTIVE_BOOKING_ID) === bookingId) {
+        tx.update(prevPartnerRef, {
+          [SP.ACTIVE_BOOKING_ID]: FieldValue.delete(),
+          [SP.UPDATED_AT]: Timestamp.now(),
+        });
+      }
+    }
+
+    const now = Timestamp.now();
+    const ratingCount = Number(p.get(SP.RATING_COUNT) || 0);
+    const rating = ratingCount ? Math.round((Number(p.get(SP.RATING_SUM) || 0) / ratingCount) * 10) / 10 : 0;
+    const config = await loadConfig();
+    const fee = partnerFeeOf(config, Number(p.get(SP.JOBS_COMPLETED) || 0), bData);
+
+    const assigned = {
+      [BK.STATUS]: BS.ASSIGNED,
+      [BK.PARTNER_ID]: partnerId,
+      [BK.PARTNER_NAME]: String(p.get(SP.NAME) || "Partner"),
+      [BK.PARTNER_PHONE]: String(p.get(SP.PHONE) || ""),
+      [BK.PARTNER_PHOTO_URL]: String(p.get(SP.PHOTO_URL) || ""),
+      [BK.PARTNER_RATING]: rating,
+      [BK.PARTNER_FEE]: fee,
+      [BK.NEXT_WAVE_AT]: FieldValue.delete(),
+      [BK.ASSIGNED_AT]: now,
+      [BK.UPDATED_AT]: now,
+    };
+
+    tx.update(ref, assigned);
+    tx.update(partnerRef, {
+      [SP.ACTIVE_BOOKING_ID]: bookingId,
+      [SP.UPDATED_AT]: now,
+    });
+
+    return {
+      bData: { ...bData, ...assigned },
+      partnerName: String(p.get(SP.NAME) || "Partner"),
+      partnerPhone: String(p.get(SP.PHONE) || ""),
+      customerId: String(bData[BK.CUSTOMER_ID] || ""),
+      serviceName: String(bData[BK.SERVICE_NAME] || ""),
+      prevPartnerId,
+    };
+  });
+
+  if (out.customerId) {
+    await tellCustomer(out.customerId, bookingId, "SERVICE_ASSIGNED", {
+      partner: out.partnerName,
+      service: out.serviceName,
+    });
+  }
+
+  await tellPartner(partnerId, "SERVICE_ASSIGNED_BY_ADMIN", {
+    service: out.serviceName,
+    message: `DutyPe Admin assigned you to service booking #${bookingId.slice(-6)} (${out.serviceName}).`,
+  }, { bookingId, deepLink: "dutype://partner" });
+
+  if (out.prevPartnerId && out.prevPartnerId !== partnerId) {
+    await tellPartner(out.prevPartnerId, "SERVICE_REASSIGNED", {
+      service: out.serviceName,
+      message: `Booking #${bookingId.slice(-6)} has been reassigned to another partner by admin.`,
+    }, { bookingId, deepLink: "dutype://partner" });
+  }
+
+  void whatsappServiceAssigned(out.bData).catch((err) => {
+    functions.logger.warn("whatsappServiceAssigned failed:", err);
+  });
+
+  return {
+    ok: true,
+    bookingId,
+    partnerId,
+    partnerName: out.partnerName,
+    partnerPhone: out.partnerPhone,
+    status: BS.ASSIGNED,
+  };
+});
+

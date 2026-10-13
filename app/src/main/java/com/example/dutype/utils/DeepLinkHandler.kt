@@ -111,6 +111,36 @@ object DeepLinkHandler {
         navController: NavController,
         context: Context
     ): Boolean {
+        val trimmed = deepLinkUrl.trim()
+        when {
+            trimmed.startsWith("promo_showcase/") -> {
+                safeNavigate(navController, trimmed, "showcase")
+                return true
+            }
+            trimmed.startsWith("showcase:") -> {
+                val scId = trimmed.removePrefix("showcase:")
+                safeNavigate(navController, Routes.promoShowcaseRoute(scId), "showcase-$scId")
+                return true
+            }
+            trimmed.startsWith("showcase/") -> {
+                val scId = trimmed.removePrefix("showcase/")
+                safeNavigate(navController, Routes.promoShowcaseRoute(scId), "showcase-$scId")
+                return true
+            }
+            trimmed == "promote_business" ||
+            trimmed == "dutype://promote-business" ||
+            trimmed.contains("promote-business") ||
+            trimmed.contains("partner-with-us") -> {
+                runCatching {
+                    val intent = Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://wa.me/918019151847?text=Hi%20DutyPe,%20I%20want%20to%20promote%20my%20business/shop%20on%20the%20DutyPe%20App")
+                    ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                    context.startActivity(intent)
+                    return true
+                }
+            }
+        }
         if (handleDeepLink(deepLinkUrl, navController)) {
             return true
         }
@@ -332,6 +362,27 @@ object DeepLinkHandler {
             data.scheme == SCHEME && data.host == HOST_CONTACT -> {
                 navigateToContact(navController)
                 true
+            }
+
+            // App scheme: dutype://showcase/{id} or dutype://promo_showcase/{id}
+            data.scheme == SCHEME && (data.host == "showcase" || data.host == "promo_showcase") -> {
+                val showcaseId = data.pathSegments.firstOrNull() ?: data.lastPathSegment
+                if (!showcaseId.isNullOrBlank()) {
+                    safeNavigate(navController, Routes.promoShowcaseRoute(showcaseId), "showcase-$showcaseId")
+                    true
+                } else false
+            }
+
+            // App scheme: dutype://promote-business or dutype://partner
+            data.scheme == SCHEME && (data.host == "promote-business" || data.host == "promote_business" || data.host == "partner") -> {
+                runCatching {
+                    val intent = Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://wa.me/918019151847?text=Hi%20DutyPe,%20I%20want%20to%20promote%20my%20business/shop%20on%20the%20DutyPe%20App")
+                    ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                    navController.context.startActivity(intent)
+                    true
+                }.getOrDefault(false)
             }
 
             // App scheme: dutype://jobs

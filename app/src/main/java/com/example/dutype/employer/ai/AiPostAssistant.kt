@@ -6,7 +6,7 @@ import com.example.dutype.ui.theme.fg
 import android.app.Activity
 import android.content.Intent
 import android.speech.RecognizerIntent
-import android.speech.tts.TextToSpeech
+import com.example.dutype.employer.voice.NaturalVoiceEngine
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -178,20 +178,18 @@ fun AiPostAssistantSheet(onDismiss: () -> Unit, onApply: (AiJobDraft) -> Unit) {
     val firstQuestion = stringResource(R.string.ai_post_first_question)
     var typed by remember { mutableStateOf("") }
 
-    var tts by remember { mutableStateOf<TextToSpeech?>(null) }
-    DisposableEffect(Unit) {
-        var engine: TextToSpeech? = null
-        engine = TextToSpeech(context.applicationContext) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                engine?.language = Locale(lang, "IN")
-                tts = engine
-            }
-        }
-        onDispose { engine?.stop(); engine?.shutdown() }
+    val voiceEngine = remember { NaturalVoiceEngine(context) }
+    DisposableEffect(voiceEngine) {
+        onDispose { voiceEngine.shutdown() }
     }
-    val speak: (String) -> Unit = { text -> if (text.isNotBlank()) tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "ai_post") }
-    LaunchedEffect(Unit) { viewModel.start(firstQuestion) }
-    LaunchedEffect(tts) { if (tts != null && state.heard.isEmpty()) speak(firstQuestion) }
+    val speak: (String) -> Unit = { text -> if (text.isNotBlank()) voiceEngine.speak(text) }
+    LaunchedEffect(Unit) {
+        viewModel.start(firstQuestion)
+        if (state.heard.isEmpty()) {
+            kotlinx.coroutines.delay(350)
+            speak(firstQuestion)
+        }
+    }
 
     // The phone's own speech recogniser (no microphone permission needed by the app).
     val listen = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -202,7 +200,7 @@ fun AiPostAssistantSheet(onDismiss: () -> Unit, onApply: (AiJobDraft) -> Unit) {
         }
     }
     val startListening = {
-        tts?.stop()
+        voiceEngine.stop()
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "$lang-IN")
@@ -211,7 +209,11 @@ fun AiPostAssistantSheet(onDismiss: () -> Unit, onApply: (AiJobDraft) -> Unit) {
         runCatching { listen.launch(intent) }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Color.White.bg()) {
+    ModalBottomSheet(
+        onDismissRequest = {
+            voiceEngine.stop()
+            onDismiss()
+        }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Color.White.bg()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -253,7 +255,7 @@ fun AiPostAssistantSheet(onDismiss: () -> Unit, onApply: (AiJobDraft) -> Unit) {
                 onValueChange = { typed = it },
                 placeholder = { Text(stringResource(R.string.ai_post_type_hint)) },
                 trailingIcon = {
-                    IconButton(onClick = { viewModel.said(typed, speak); typed = "" }, enabled = typed.isNotBlank() && !state.thinking) {
+                    IconButton(onClick = { voiceEngine.stop(); viewModel.said(typed, speak); typed = "" }, enabled = typed.isNotBlank() && !state.thinking) {
                         Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Purple.fg())
                     }
                 },
@@ -261,7 +263,7 @@ fun AiPostAssistantSheet(onDismiss: () -> Unit, onApply: (AiJobDraft) -> Unit) {
                 modifier = Modifier.fillMaxWidth()
             )
             Button(
-                onClick = { onApply(state.draft) },
+                onClick = { voiceEngine.stop(); onApply(state.draft) },
                 enabled = state.ready && !state.thinking,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A).bg(), contentColor = Color.White),
                 shape = RoundedCornerShape(14.dp),

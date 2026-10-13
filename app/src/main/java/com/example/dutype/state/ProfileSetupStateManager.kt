@@ -36,7 +36,8 @@ class ProfileSetupStateManager @Inject constructor(
         private val USER_EMAIL = stringPreferencesKey("user_email")
         private val USER_NAME = stringPreferencesKey("user_name")
         private val USER_PHONE = stringPreferencesKey("user_phone")
-        private val AUTH_METHOD = stringPreferencesKey("auth_method") // "GOOGLE" or "PHONE_OTP"
+        private val USER_PHOTO_URL = stringPreferencesKey("user_photo_url")
+        private val AUTH_METHOD = stringPreferencesKey("auth_method") // "GOOGLE", "PHONE_OTP" or "TRUECALLER"
         private val REFERRAL_CODE = stringPreferencesKey("referral_code") // Referral code from signup
         
         // Profile completion percentage keys
@@ -113,6 +114,7 @@ class ProfileSetupStateManager @Inject constructor(
             preferences.remove(USER_EMAIL)
             preferences.remove(USER_NAME)
             preferences.remove(USER_PHONE)
+            preferences.remove(USER_PHOTO_URL)
             preferences.remove(AUTH_METHOD)
             preferences.remove(WORKER_COMPLETION_PERCENTAGE)
             preferences.remove(EMPLOYER_COMPLETION_PERCENTAGE)
@@ -122,17 +124,33 @@ class ProfileSetupStateManager @Inject constructor(
     }
     
     /**
-     * Save user information from Google Sign-In
+     * Save user information from Auth (Phone OTP, Google, or Truecaller)
      */
     suspend fun saveUserInfo(email: String, name: String, role: UserRole) {
-        Timber.i("saveUserInfo - name: $name, role: $role")
+        Timber.i("saveUserInfo - name: $name, role: $role, email: $email")
         
         context.dataStore.edit { preferences ->
-            preferences[USER_NAME] = name
+            if (name.isNotBlank()) preferences[USER_NAME] = name
+            if (email.isNotBlank()) preferences[USER_EMAIL] = email
             preferences[USER_ROLE] = role.name
         }
         
         Timber.i("User info saved successfully")
+    }
+
+    suspend fun saveUserPhotoUrl(photoUrl: String) {
+        Timber.i("saveUserPhotoUrl - photoUrl: $photoUrl")
+        context.dataStore.edit { preferences ->
+            if (photoUrl.isNotBlank()) {
+                preferences[USER_PHOTO_URL] = photoUrl
+            }
+        }
+    }
+
+    suspend fun getUserPhotoUrl(): String? {
+        return context.dataStore.data.map { preferences ->
+            preferences[USER_PHOTO_URL]
+        }.first()
     }
     
     suspend fun saveUserRole(role: UserRole) {

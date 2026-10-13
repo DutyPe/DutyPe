@@ -34,9 +34,11 @@ const adminRoutes = [
   { href: "/admin/services", label: "DutyPe Services", description: "Home services: approve partners, verify credit top-ups, bookings and prices." },
   { href: "/admin/service-catalog", label: "Service 3D Icons & Catalog", description: "Upload 3D clay renders, inspect real-time KB sizes, and perform CRUD operations on services." },
   { href: "/admin/payments", label: "Subscription Payments", description: "Verify employer UTRs, manage active QR codes, and extend job postings." },
-  { href: "/admin/check-and-create-code", label: "Check/Create Code", description: "Referral utility tools." },
-  { href: "/admin/create-test-referral", label: "Create Test Referral", description: "Generate test referral entries." },
-  { href: "/admin/test-referral", label: "Test Referral", description: "Validate referral behavior and logs." }
+  { href: "/admin/founder-playbook", label: "Founder Playbook", description: "Khammam GTM strategy, business checklist, and unit economics calculator." },
+  { href: "/admin/promotional-banners", label: "Promotional Banners & Showcases", description: "Manage carousel banners across customer, worker, and employer homes plus brand showcases." },
+  { href: "/admin/whatsapp-offers", label: "WhatsApp Offers & Promos", description: "Send bulk WhatsApp promotional messages to opted-in users." },
+  { href: "/admin/field-leads", label: "Field Registrations & Desks", description: "Track offline umbrella-desk registrations, leads, and agent payouts." },
+  { href: "/admin/expenses", label: "Marketing Expenses & ROI", description: "Track offline marketing expenses, print runs, and unit CAC." }
 ];
 
 export const metadata = {

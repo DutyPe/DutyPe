@@ -86,6 +86,24 @@ fun announcementToSlide(announcement: com.example.dutype.models.Announcement): H
     )
 }
 
+fun showcaseToSlide(showcase: com.example.dutype.homeservices.PromoShowcase): HomePromoSlide {
+    val offerOrTagline = showcase.discountOfferTitle.ifBlank { showcase.tagline.ifBlank { showcase.address } }
+    val ctaText = if (showcase.discountOfferCode.isNotBlank()) "Code: ${showcase.discountOfferCode}" else "View Special"
+    val badge = if (showcase.categoryBadge.isNotBlank()) "🏪 ${showcase.categoryBadge}" else "🏪 LOCAL SPECIAL"
+    return HomePromoSlide(
+        tag = badge,
+        tagBgColor = Color(0xFFF59E0B),
+        headline = showcase.title,
+        subheadline = offerOrTagline,
+        cta = ctaText,
+        targetKey = "showcase:${showcase.id}",
+        gradientColors = listOf(Color(0xFF7C2D12), Color(0xFF9A3412), Color(0xFFC2410C)),
+        ctaBgColor = Color(0xFFFBBF24),
+        ctaTextColor = Color(0xFF1E293B),
+        imageUrl = showcase.heroImageUrl.ifBlank { showcase.galleryImages.firstOrNull().orEmpty() }
+    )
+}
+
 private val DEFAULT_WORKER_PROMOS = listOf(
     HomePromoSlide(
         tag = "⚡ ZERO COMMISSION",
@@ -170,9 +188,13 @@ fun PromotionalBannerCarousel(
     customSlides: List<HomePromoSlide> = emptyList()
 ) {
     val slides = remember(isWorker, customSlides) {
-        if (customSlides.isNotEmpty()) customSlides
-        else if (isWorker) DEFAULT_WORKER_PROMOS
-        else DEFAULT_EMPLOYER_PROMOS
+        val baseSlides = if (isWorker) DEFAULT_WORKER_PROMOS else DEFAULT_EMPLOYER_PROMOS
+        if (customSlides.isNotEmpty()) {
+            val combined = customSlides + baseSlides
+            combined.distinctBy { it.targetKey.ifBlank { it.headline } }
+        } else {
+            baseSlides
+        }
     }
 
     if (slides.isEmpty()) return

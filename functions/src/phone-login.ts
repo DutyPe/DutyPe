@@ -1,20 +1,12 @@
 /**
- * Cheaper ways to log in with a phone number than Firebase SMS (~₹6.7 per SMS):
+ * WhatsApp phone authentication (Meta WhatsApp Cloud API, authentication template):
  *
- *   sendWhatsappOtp({ phone, role, channel? }) sends a 6-digit code on WhatsApp (Meta Cloud API,
- *                                          authentication template), or by our SMS gateway when WhatsApp
- *                                          fails or channel = "sms" (~₹0.2). { sent: false } means "use
- *                                          Firebase SMS": nothing set up, send errors, or daily caps.
- *   verifyWhatsappOtp({ phone, code })     checks the code; returns a Firebase custom token for the
- *                                          phone's account (same uid as SMS login, created if new).
- *
- * The app signs in with signInWithCustomToken(), so auth.currentUser.phoneNumber and the ID token's
- * phone_number are the same as after SMS login, and everything after login is unchanged.
+ *   sendWhatsappOtp({ phone, role, mode? }) sends a 6-digit code on WhatsApp.
+ *   verifyWhatsappOtp({ phone, code })      checks the code; returns a Firebase custom token for the
+ *                                           phone's account.
  *
  * Settings: functions/.env.dutype-860ac (WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_TEMPLATE,
- * WHATSAPP_TEMPLATE_LANG); secret WHATSAPP_TOKEN (Meta permanent token; the
- * value "unset" keeps WhatsApp off). Custom tokens need the functions' service account to have the
- * "Service Account Token Creator" role.
+ * WHATSAPP_TEMPLATE_LANG, WHATSAPP_DAILY_CAP=5000); secret WHATSAPP_TOKEN.
  */
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
@@ -22,9 +14,9 @@ import { onCallSecured } from "./secure-callable";
 import { fail, obj, str } from "./lib/input";
 import {
   CODE_TTL_MS, MAX_PER_IP_HOUR, MAX_VERIFY_ATTEMPTS, codeMatches, decideSend, hashCode, indianE164, ipKey, istDayKey,
-  newCode, openCode, resentExpiry, reuseCode, sealCode, smsGatewayConfigured, smsGatewayRequest, whatsappConfigured, whatsappTemplateBody,
+  newCode, openCode, parseTruecallerUserInfo, resentExpiry, reuseCode, sealCode, whatsappConfigured, whatsappTemplateBody,
 } from "./lib/phone-otp";
-import { EmployerProfiles, OtpCodes, OtpDaily, OtpIp, PhoneRoles, Values, WorkerProfiles } from "./schema";
+import { EmployerProfiles, OtpCodes, OtpDaily, OtpIp, PhoneRoles, TruecallerProfiles, Values, WorkerProfiles } from "./schema";
 
 const db = admin.firestore();
 const { Timestamp } = admin.firestore;
@@ -100,32 +92,10 @@ async function sendOnWhatsapp(phone: string, code: string): Promise<boolean> {
   }
 }
 
-/** Sends [code] through our SMS gateway. True when the gateway accepted it. */
-async function sendOnSmsGateway(phone: string, code: string): Promise<boolean> {
-  const { url, init } = smsGatewayRequest(phone, code);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10_000);
-  try {
-    const res = await net.fetch(url, { ...init, signal: controller.signal });
-    const text = (await res.text()).slice(0, 300);
-    // 2Factor: {"Status":"Success"}; MSG91: {"type":"success"}.
-    const ok = res.ok && /"(Status|type)"\s*:\s*"success"/i.test(text);
-    if (!ok) functions.logger.warn(`SMS gateway send failed ${res.status}`, text);
-    return ok;
-  } catch (e) {
-    functions.logger.warn("SMS gateway error", e);
-    return false;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 /**
- * Login code, cheapest channel first:
- *   1. WhatsApp (unless the app asks for SMS: "Didn't get it? Send by SMS"),
- *   2. our SMS gateway (same code, verified by verifyWhatsappOtp),
- *   3. { sent: false, channel: "sms" } → the app falls back to Firebase SMS.
- * Both server channels share one stored code and the per-number rate limits.
+ * WhatsApp login code (Meta Cloud API, authentication template).
+ * Returns { sent: true, channel: "whatsapp" } on success.
+ * Enforces per-number rate limits, IP rate limits, and daily cap (WHATSAPP_DAILY_CAP = 5000).
  */
 export const sendWhatsappOtp = onCallSecured(
   { requireAuth: false, enforceAppCheck: false, timeoutSeconds: 25, secrets: [WHATSAPP_SECRET] },
@@ -134,10 +104,9 @@ export const sendWhatsappOtp = onCallSecured(
     const phone = indianE164(data.phone);
     if (!phone) fail("invalid-argument", "Enter a valid 10-digit mobile number");
     const ip = String((context as { rawRequest?: { ip?: string } } | undefined)?.rawRequest?.ip || "");
-    const wantSms = data.channel === "sms";
-    const useWhatsapp = !wantSms && whatsappConfigured();
-    const useSms = smsGatewayConfigured();
-    if (!useWhatsapp && !useSms) return { sent: false, channel: "sms" };
+    if (!whatsappConfigured()) {
+      fail("unavailable", "WhatsApp OTP service is currently not configured.");
+    }
 
     // Never spend on a number registered with the other role (the app checks too).
     const role = requestedRole(data);
@@ -148,30 +117,34 @@ export const sendWhatsappOtp = onCallSecured(
     if (mode === "register" && existing) fail("already-exists", "An account already exists with this number. Please log in.");
 
     const now = Date.now();
-    const waCap = Number(process.env.WHATSAPP_DAILY_CAP || 3000);
-    const smsCap = Number(process.env.SMS_DAILY_CAP || 2000);
+    const waCap = Number(process.env.WHATSAPP_DAILY_CAP || 5000);
     let code = newCode();
     const codeRef = db.collection(OtpCodes.COLLECTION).doc(phone);
     const dayRef = db.collection(OtpDaily.COLLECTION).doc(istDayKey(now));
     const ipRef = ip ? db.collection(OtpIp.COLLECTION).doc(ipKey(ip, now)) : null;
+
     const decision = await db.runTransaction(async (tx) => {
-      const [prev, day, ipDoc] = await Promise.all([tx.get(codeRef), tx.get(dayRef), ipRef ? tx.get(ipRef) : Promise.resolve(null)]);
+      const [prev, day, ipDoc] = await Promise.all([
+        tx.get(codeRef),
+        tx.get(dayRef),
+        ipRef ? tx.get(ipRef) : Promise.resolve(null),
+      ]);
       if (ipDoc && Number(ipDoc.get(OtpIp.COUNT) || 0) >= MAX_PER_IP_HOUR) {
         return { ok: false as const, reason: "ip" as const, retryAfterSec: 3600 };
       }
-      const waLeft = useWhatsapp && Number(day.get(OtpDaily.COUNT) || 0) < waCap;
-      const smsLeft = useSms && Number(day.get(OtpDaily.SMS_COUNT) || 0) < smsCap;
-      if (!waLeft && !smsLeft) return { ok: false as const, reason: "cap" as const, retryAfterSec: 0 };
-      // From WhatsApp the app may ask for SMS right after: let that through the "wait" limit once.
+      const waCount = Number(day.get(OtpDaily.COUNT) || 0);
+      if (waCount >= waCap) {
+        return { ok: false as const, reason: "cap" as const, retryAfterSec: 0 };
+      }
       const d = decideSend(prev.exists ? {
-        lastSentAt: wantSms && prev.get(OtpCodes.CHANNEL) === "whatsapp" ? 0 : Number(prev.get(OtpCodes.LAST_SENT_AT) || 0),
+        lastSentAt: Number(prev.get(OtpCodes.LAST_SENT_AT) || 0),
         hourStart: Number(prev.get(OtpCodes.HOUR_START) || 0),
         hourCount: Number(prev.get(OtpCodes.HOUR_COUNT) || 0),
         dayKey: String(prev.get(OtpCodes.DAY_KEY) || ""),
         dayCount: Number(prev.get(OtpCodes.DAY_COUNT) || 0),
       } : null, now);
       if (!d.ok) return d;
-      const channel = waLeft ? "whatsapp" : "sms";
+
       // Resend within the window: the same digits, 10 more minutes (max 30 from the first send).
       const issuedAt = Number(prev.get(OtpCodes.ISSUED_AT) || 0);
       const previous = prev.exists && reuseCode({
@@ -181,13 +154,14 @@ export const sendWhatsappOtp = onCallSecured(
         attempts: Number(prev.get(OtpCodes.ATTEMPTS) || 0),
       }, now) ? openCode(String(prev.get(OtpCodes.SEALED))) : null;
       if (previous) code = previous;
+
       tx.set(codeRef, {
         [OtpCodes.HASH]: hashCode(phone, code),
         [OtpCodes.SEALED]: previous ? prev.get(OtpCodes.SEALED) : sealCode(code),
         [OtpCodes.ISSUED_AT]: previous ? issuedAt : now,
         [OtpCodes.EXPIRES_AT]: previous ? resentExpiry(issuedAt, now) : now + CODE_TTL_MS,
         [OtpCodes.ATTEMPTS]: previous ? Number(prev.get(OtpCodes.ATTEMPTS) || 0) : 0,
-        [OtpCodes.CHANNEL]: channel,
+        [OtpCodes.CHANNEL]: "whatsapp",
         [OtpCodes.LAST_SENT_AT]: d.next.lastSentAt,
         [OtpCodes.HOUR_START]: d.next.hourStart,
         [OtpCodes.HOUR_COUNT]: d.next.hourCount,
@@ -196,40 +170,41 @@ export const sendWhatsappOtp = onCallSecured(
         [OtpCodes.EXPIRE_AT]: Timestamp.fromMillis(now + DAY_MS),
       });
       tx.set(dayRef, {
-        [channel === "whatsapp" ? OtpDaily.COUNT : OtpDaily.SMS_COUNT]: admin.firestore.FieldValue.increment(1),
+        [OtpDaily.COUNT]: admin.firestore.FieldValue.increment(1),
         [OtpDaily.EXPIRE_AT]: Timestamp.fromMillis(now + 7 * DAY_MS),
       }, { merge: true });
       if (ipRef) {
-        tx.set(ipRef, { [OtpIp.COUNT]: admin.firestore.FieldValue.increment(1),
-          [OtpIp.EXPIRE_AT]: Timestamp.fromMillis(now + 2 * 60 * 60 * 1000) }, { merge: true });
+        tx.set(ipRef, {
+          [OtpIp.COUNT]: admin.firestore.FieldValue.increment(1),
+          [OtpIp.EXPIRE_AT]: Timestamp.fromMillis(now + 2 * 60 * 60 * 1000),
+        }, { merge: true });
       }
-      return { ...d, channel, smsLeft, reused: Boolean(previous) };
+      return { ...d, reused: Boolean(previous) };
     });
 
     if (!decision.ok) {
-      // The caps only switch people to Firebase SMS; the per-number limits stop the request.
-      if (decision.reason === "cap") return { sent: false, channel: "sms" };
-      if (decision.reason === "wait") {
-        return { sent: false, channel: wantSms ? "sms_gateway" : "whatsapp", retryAfterSec: decision.retryAfterSec };
+      if (decision.reason === "cap") {
+        fail("resource-exhausted", "Daily WhatsApp OTP limit reached. Please try again tomorrow or contact support.");
       }
-      if (decision.reason === "ip") fail("resource-exhausted", "Too many login requests from this network. Please try again in an hour.");
+      if (decision.reason === "wait") {
+        return { sent: false, channel: "whatsapp", retryAfterSec: decision.retryAfterSec };
+      }
+      if (decision.reason === "ip") {
+        fail("resource-exhausted", "Too many login requests from this network. Please try again in an hour.");
+      }
       fail("resource-exhausted", "Too many codes for this number. Please try again later.");
     }
-    if (decision.channel === "whatsapp" && await sendOnWhatsapp(phone, code)) {
+
+    const waOk = await sendOnWhatsapp(phone, code);
+    if (waOk) {
       return { sent: true, channel: "whatsapp", expiresInSec: CODE_TTL_MS / 1000, sameCode: decision.reused };
     }
-    // WhatsApp failed (or SMS was asked for): same code by our SMS gateway.
-    if ((decision.channel === "sms" || decision.smsLeft) && await sendOnSmsGateway(phone, code)) {
-      if (decision.channel === "whatsapp") {
-        await db.collection(OtpDaily.COLLECTION).doc(istDayKey(now))
-          .set({ [OtpDaily.SMS_COUNT]: admin.firestore.FieldValue.increment(1) }, { merge: true }).catch(() => undefined);
-      }
-      await codeRef.update({ [OtpCodes.CHANNEL]: "sms" }).catch(() => undefined);
-      return { sent: true, channel: "sms_gateway", expiresInSec: CODE_TTL_MS / 1000, sameCode: decision.reused };
-    }
+
     // A fresh code nobody received is cancelled; a resent one may still be on the phone, so it stays.
-    if (!decision.reused) await codeRef.update({ [OtpCodes.HASH]: "", [OtpCodes.SEALED]: "" }).catch(() => undefined);
-    return { sent: false, channel: "sms" };
+    if (!decision.reused) {
+      await codeRef.update({ [OtpCodes.HASH]: "", [OtpCodes.SEALED]: "" }).catch(() => undefined);
+    }
+    fail("unavailable", "Could not deliver WhatsApp OTP. Please ensure your mobile number is active on WhatsApp.");
   },
 );
 
@@ -300,6 +275,163 @@ export const verifyWhatsappOtp = onCallSecured(
       isProfileComplete,
       photoUrl
     };
+  },
+);
+
+// ─────────────────────────────── Truecaller ───────────────────────────────
+
+async function truecallerProfile(authorizationCode: string, codeVerifier: string) {
+  const clientId = process.env.TRUECALLER_CLIENT_ID || "";
+  if (!clientId) fail("unavailable", "Truecaller login is not set up");
+  const host = process.env.TRUECALLER_OAUTH_HOST || "https://oauth-account-noneu.truecaller.com";
+  const tokenRes = await net.fetch(`${host}/v1/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: clientId,
+      code: authorizationCode,
+      code_verifier: codeVerifier,
+    }).toString(),
+  });
+  if (!tokenRes.ok) {
+    functions.logger.warn(`Truecaller token ${tokenRes.status}`, (await tokenRes.text()).slice(0, 300));
+    fail("unauthenticated", "Truecaller verification failed. Please try again or use OTP.");
+  }
+  const accessToken = String(((await tokenRes.json()) as { access_token?: string }).access_token || "");
+  if (!accessToken) fail("unauthenticated", "Truecaller verification failed. Please try again or use OTP.");
+  const infoRes = await net.fetch(`${host}/v1/userinfo`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!infoRes.ok) {
+    functions.logger.warn(`Truecaller userinfo ${infoRes.status}`);
+    fail("unauthenticated", "Truecaller verification failed. Please try again or use OTP.");
+  }
+  return parseTruecallerUserInfo(await infoRes.json());
+}
+
+export const truecallerSignIn = onCallSecured(
+  { requireAuth: false, enforceAppCheck: false, timeoutSeconds: 20 },
+  async (raw: unknown) => {
+    try {
+      const data = obj(raw);
+      const authorizationCode = str(data, "authorizationCode", { max: 2000 });
+      const codeVerifier = str(data, "codeVerifier", { min: 43, max: 128 });
+      const role = requestedRole(data);
+      if (!role) fail("invalid-argument", "role is required");
+
+      const tc = await truecallerProfile(authorizationCode, codeVerifier);
+      if (!tc.phone) fail("failed-precondition", "DutyPe works with Indian mobile numbers only. Please use OTP.");
+      const phone = tc.phone;
+      const existingRole = await registeredRole(phone);
+      const profile = {
+        phone,
+        name: tc.name,
+        email: tc.email,
+        photoUrl: tc.picture,
+        gender: tc.gender,
+        city: tc.city,
+        existingRole,
+      };
+
+      // Prevent cross-role collisions (a number cannot be both a Worker and an Employer)
+      if (existingRole && existingRole !== role) {
+        return { ...profile, allowed: false, roleConflict: true };
+      }
+
+      const isNewUser = !existingRole;
+      const uid = await uidForPhone(phone);
+
+      // Save/update truecaller_profiles doc
+      await db.collection(TruecallerProfiles.COLLECTION).doc(uid).set({
+        [TruecallerProfiles.PHONE]: phone,
+        [TruecallerProfiles.NAME]: tc.name,
+        [TruecallerProfiles.EMAIL]: tc.email,
+        [TruecallerProfiles.PICTURE]: tc.picture,
+        [TruecallerProfiles.GENDER]: tc.gender,
+        [TruecallerProfiles.CITY]: tc.city,
+        [TruecallerProfiles.UPDATED_AT]: Timestamp.now(),
+      }, { merge: true });
+
+      let isProfileComplete = false;
+      let finalName = tc.name;
+      let finalPhotoUrl = tc.picture;
+
+      if (existingRole) {
+        const collection = existingRole === Values.Role.EMPLOYER ? EmployerProfiles.COLLECTION : WorkerProfiles.COLLECTION;
+        const profileSnap = await db.collection(collection).doc(uid).get().catch(() => null);
+        if (profileSnap && profileSnap.exists) {
+          const pData = profileSnap.data() || {};
+          if (existingRole === Values.Role.EMPLOYER) {
+            finalName = String(pData[EmployerProfiles.OWNER_NAME] || tc.name);
+            isProfileComplete = Boolean(pData[EmployerProfiles.OWNER_NAME] && String(pData[EmployerProfiles.OWNER_NAME]).trim().length >= 2);
+            finalPhotoUrl = String(pData[EmployerProfiles.PHOTO_URL] || tc.picture);
+            const updates: Record<string, unknown> = {};
+            if (!pData[EmployerProfiles.EMAIL] && tc.email) updates[EmployerProfiles.EMAIL] = tc.email;
+            if (!pData[EmployerProfiles.PHOTO_URL] && tc.picture) updates[EmployerProfiles.PHOTO_URL] = tc.picture;
+            if (Object.keys(updates).length > 0) {
+              await db.collection(collection).doc(uid).update(updates).catch(() => undefined);
+            }
+          } else {
+            finalName = String(pData[WorkerProfiles.NAME] || tc.name);
+            const skills = pData[WorkerProfiles.SKILLS];
+            isProfileComplete = Array.isArray(skills) && skills.length > 0;
+            finalPhotoUrl = String(pData[WorkerProfiles.PHOTO_URL] || tc.picture);
+            const updates: Record<string, unknown> = {};
+            if (!pData[WorkerProfiles.EMAIL] && tc.email) updates[WorkerProfiles.EMAIL] = tc.email;
+            if (!pData[WorkerProfiles.PHOTO_URL] && tc.picture) updates[WorkerProfiles.PHOTO_URL] = tc.picture;
+            if (Object.keys(updates).length > 0) {
+              await db.collection(collection).doc(uid).update(updates).catch(() => undefined);
+            }
+          }
+        }
+      }
+
+      // Ensure authoritative users/{uid} document has base information
+      const userDocRef = db.collection("users").doc(uid);
+      const userSnap = await userDocRef.get().catch(() => null);
+      if (!userSnap || !userSnap.exists) {
+        await userDocRef.set({
+          uid,
+          phoneNumber: phone,
+          name: tc.name || "User",
+          email: tc.email || null,
+          profileImageUrl: tc.picture || null,
+          role: existingRole || role,
+          authMethod: "TRUECALLER",
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        }, { merge: true }).catch(() => undefined);
+      } else {
+        const uData = userSnap.data() || {};
+        const userUpdates: Record<string, unknown> = { updatedAt: Timestamp.now() };
+        if (!uData.profileImageUrl && tc.picture) userUpdates.profileImageUrl = tc.picture;
+        if (!uData.email && tc.email) userUpdates.email = tc.email;
+        if ((!uData.name || uData.name === "User") && tc.name) userUpdates.name = tc.name;
+        if (Object.keys(userUpdates).length > 1) {
+          await userDocRef.update(userUpdates).catch(() => undefined);
+        }
+      }
+
+      const claims: Record<string, unknown> = {
+        phone_number: phone,
+        ...(existingRole ? { role: existingRole } : {}),
+      };
+      await admin.auth().setCustomUserClaims(uid, claims).catch((e) => functions.logger.warn("setCustomUserClaims failed", e));
+
+      return {
+        ...profile,
+        allowed: true,
+        isNewUser,
+        role: existingRole || null,
+        name: finalName,
+        photoUrl: finalPhotoUrl,
+        isProfileComplete,
+        token: await admin.auth().createCustomToken(uid, claims),
+      };
+    } catch (e) {
+      functions.logger.error("truecallerSignIn error:", e);
+      if (e instanceof functions.https.HttpsError) throw e;
+      throw new functions.https.HttpsError("internal", (e as Error)?.message || "Truecaller sign-in failed");
+    }
   },
 );
 

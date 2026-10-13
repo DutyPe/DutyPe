@@ -210,7 +210,11 @@ service cloud.firestore {
     // referrals/{refereeUid}
     match /referrals/{refereeUid} {
       allow get: if isSelf(refereeUid) || (signedIn() && resource != null && resource.data.referrerUid == me());
-      allow list: if signedIn() && resource.data.referrerUid == me();
+      allow list: if signedIn();
+    }
+
+    match /wallets/{uid} {
+      allow get: if isSelf(uid);
     }
 
     match /referral_stats/{uid} {
@@ -256,10 +260,17 @@ service cloud.firestore {
       allow get, list: if true;
     }
 
+    match /promo_showcases/{showcaseId} {
+      allow get, list: if true;
+    }
+
     // ───────────────────────── DutyPe Services (services.ts writes everything) ─────────────────────────
 
     match /service_bookings/{bookingId} {
       allow get, list: if signedIn();
+      // Allow assigned partner to update their live tracking GPS coordinates while en route
+      allow update: if signedIn() && resource.data.partnerId == me() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['partnerLat', 'partnerLng', 'partnerBearing', 'partnerLocationUpdatedAt']);
     }
 
     match /service_booking_secrets/{bookingId} {
@@ -282,6 +293,12 @@ service cloud.firestore {
         (request.resource.data.uid == '' || (signedIn() && request.resource.data.uid == me())) &&
         request.resource.data.area is string && request.resource.data.area.size() <= 80 &&
         optString(request.resource.data, 'category', 40);
+    }
+
+    match /service_waitlist_feedback/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['uid', 'area', 'detectedAddress', 'note', 'createdAt']) &&
+        request.resource.data.area is string && request.resource.data.area.size() <= 120 &&
+        (request.resource.data.uid == 'anonymous' || (signedIn() && request.resource.data.uid == me()));
     }
 
     // Everything else (idempotency, withdrawal_daily, broadcast_notifications, admins, …) is

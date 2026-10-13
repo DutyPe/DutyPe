@@ -1,11 +1,35 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs, deleteDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getFirebaseServices } from "@/lib/firebase/client";
 import Lottie from "lottie-react";
-import { Plus, Trash2, Smartphone, Eye, Sparkles, Check, RefreshCw, ExternalLink, Upload, Film, FileCheck, AlertCircle } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Smartphone,
+  Eye,
+  Sparkles,
+  Check,
+  RefreshCw,
+  ExternalLink,
+  Upload,
+  Film,
+  FileCheck,
+  AlertCircle,
+  Store,
+  Phone,
+  MessageCircle,
+  MapPin,
+  Globe,
+  Star,
+  Copy,
+  Edit3,
+  X,
+  Tag,
+  Share2
+} from "lucide-react";
 
 export interface PromoBannerDef {
   id: string;
@@ -19,9 +43,165 @@ export interface PromoBannerDef {
   bgEndColor: string;
   targetServiceId?: string;
   targetCategoryId?: string;
+  targetShowcaseId?: string;
   imageScale?: number;
   active: boolean;
 }
+
+export interface PromoShowcaseButtonDef {
+  label: string;
+  icon: "call" | "whatsapp" | "maps" | "url" | string;
+  actionUrl: string;
+  isPrimary: boolean;
+}
+
+export interface PromoShowcaseDef {
+  id: string;
+  title: string;
+  tagline: string;
+  categoryBadge: string;
+  rating: string;
+  heroImageUrl: string;
+  videoUrl: string;
+  aboutDescription: string;
+  address: string;
+  mapLink: string;
+  discountOfferTitle: string;
+  discountOfferCode: string;
+  discountOfferTerms: string;
+  highlights: string[];
+  galleryImages: string[];
+  actionButtons: PromoShowcaseButtonDef[];
+  district?: string;
+  scope?: "DISTRICT" | "STATE" | "NATIONAL" | string;
+  active?: boolean;
+  updatedAt?: number;
+}
+
+export const EMPTY_SHOWCASE: PromoShowcaseDef = {
+  id: "",
+  title: "",
+  tagline: "",
+  categoryBadge: "RESTAURANT",
+  rating: "4.8",
+  heroImageUrl: "",
+  videoUrl: "",
+  aboutDescription: "",
+  address: "",
+  mapLink: "",
+  discountOfferTitle: "",
+  discountOfferCode: "",
+  discountOfferTerms: "",
+  highlights: [],
+  galleryImages: [],
+  district: "Khammam",
+  scope: "DISTRICT",
+  active: true,
+  actionButtons: [
+    { label: "Call Store", icon: "call", actionUrl: "tel:+91", isPrimary: true },
+    { label: "WhatsApp", icon: "whatsapp", actionUrl: "https://wa.me/91", isPrimary: false }
+  ]
+};
+
+export const PRESET_SHOWCASES: PromoShowcaseDef[] = [
+  {
+    id: "paradise_biryani_khammam",
+    title: "Paradise Biryani & Grill",
+    tagline: "Authentic Nizami Dum Biryani, Sizzling Kebabs & AC Family Dining",
+    categoryBadge: "RESTAURANT",
+    rating: "4.8",
+    district: "Khammam",
+    scope: "DISTRICT",
+    active: true,
+    heroImageUrl: "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=800&q=80",
+    videoUrl: "",
+    aboutDescription: "Khammam's favorite destination for royal Hyderabadi Dum Biryani cooked with fragrant aged basmati rice, tender farm-fresh meat, and secret Nizami spices. Featuring comfortable family seating, ambient AC dining hall, and lightning-fast takeaway service.",
+    address: "Beside RTC Bus Stand, Wyra Road, Khammam, Telangana 507001",
+    mapLink: "https://maps.google.com/?q=Paradise+Biryani+Khammam",
+    discountOfferTitle: "Flat 20% Off Food Bill",
+    discountOfferCode: "PARADISE20",
+    discountOfferTerms: "Valid on dine-in & takeaway bills above ₹499. Show this voucher code to billing staff before bill generation.",
+    highlights: [
+      "AC Family Dining Hall",
+      "Authentic Hyderabadi Dum Cooking",
+      "Free Valet Parking",
+      "100% Halal Certified Meat",
+      "Party & Banquet Hall Available",
+      "Open 11:30 AM to 11:00 PM"
+    ],
+    galleryImages: [
+      "https://images.unsplash.com/photo-1589302168068-964664d93dc0?w=600&q=80",
+      "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&q=80",
+      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&q=80"
+    ],
+    actionButtons: [
+      { label: "Call for Table", icon: "call", actionUrl: "tel:+918742223456", isPrimary: true },
+      { label: "WhatsApp Order", icon: "whatsapp", actionUrl: "https://wa.me/918742223456?text=Hi%20Paradise%20Biryani,%20I%20would%20like%20to%20order", isPrimary: false },
+      { label: "Directions", icon: "maps", actionUrl: "https://maps.google.com/?q=Paradise+Biryani+Wyra+Road+Khammam", isPrimary: false }
+    ]
+  },
+  {
+    id: "lotus_grand_mall_khammam",
+    title: "Lotus Grand Shopping Mall",
+    tagline: "Fashion, Electronics, Food Court & 4K Cinema Under One Roof",
+    categoryBadge: "SHOPPING MALL",
+    rating: "4.7",
+    heroImageUrl: "https://images.unsplash.com/photo-1519567241046-7f570eee3ce6?w=800&q=80",
+    videoUrl: "",
+    aboutDescription: "Spread over 4 expansive floors in the heart of Khammam, Lotus Grand Mall brings together top international fashion brands, state-of-the-art multi-cuisine food court, and gaming zones for complete family entertainment.",
+    address: "Mayuri Centre, Bypass Road, Khammam, Telangana 507002",
+    mapLink: "https://maps.google.com/?q=Lotus+Mall+Khammam",
+    discountOfferTitle: "Extra ₹500 Off On Shopping",
+    discountOfferCode: "LOTUSFEST",
+    discountOfferTerms: "Valid across fashion & lifestyle outlets on shopping of ₹2999+. Show voucher at store counter.",
+    highlights: [
+      "50+ Leading Retail Brands",
+      "4-Screen Multiplex Cinema",
+      "Multicuisine Food Court",
+      "Kids VR Gaming Arcade",
+      "2-Level Basement Parking"
+    ],
+    galleryImages: [
+      "https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?w=600&q=80",
+      "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&q=80"
+    ],
+    actionButtons: [
+      { label: "Call Helpdesk", icon: "call", actionUrl: "tel:+918742234567", isPrimary: false },
+      { label: "Get Directions", icon: "maps", actionUrl: "https://maps.google.com/?q=Mayuri+Centre+Khammam", isPrimary: true },
+      { label: "Mall Directory", icon: "url", actionUrl: "https://dutype.com", isPrimary: false }
+    ]
+  },
+  {
+    id: "khammam_bike_care_service",
+    title: "Khammam Multi-Brand Bike Clinic",
+    tagline: "Computerized Tuning, Foam Wash & Genuine Spares with 6-Month Warranty",
+    categoryBadge: "AUTO CARE",
+    rating: "4.9",
+    heroImageUrl: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=800&q=80",
+    videoUrl: "",
+    aboutDescription: "Specialized service center for Royal Enfield, KTM, Yamaha, Honda, and electric 2-wheelers. Equipped with computerized diagnostic scanners, ultrasonic injector cleaning, and certified master mechanics.",
+    address: "Near Mamatha Hospital Junction, Khammam, Telangana 507002",
+    mapLink: "https://maps.google.com/?q=Mamatha+Hospital+Khammam",
+    discountOfferTitle: "Free Foam Wash + 15% Off Service",
+    discountOfferCode: "BIKECLEAN",
+    discountOfferTerms: "Valid on complete general bike service booking. Show code during vehicle check-in.",
+    highlights: [
+      "Computerized Fuel Injection Tuning",
+      "Genuine OEM Spare Parts",
+      "High-Pressure Foam Wash",
+      "Free Pickup & Drop in 5 km",
+      "6-Month Service Warranty"
+    ],
+    galleryImages: [
+      "https://images.unsplash.com/photo-1486006920555-c77dce18193b?w=600&q=80"
+    ],
+    actionButtons: [
+      { label: "Call Garage", icon: "call", actionUrl: "tel:+918742245678", isPrimary: true },
+      { label: "WhatsApp Service", icon: "whatsapp", actionUrl: "https://wa.me/918742245678?text=Hi%20Bike%20Clinic,%20I%20want%20to%20book%20service", isPrimary: false },
+      { label: "Directions", icon: "maps", actionUrl: "https://maps.google.com/?q=Mamatha+Hospital+Khammam", isPrimary: false }
+    ]
+  }
+];
 
 export type BannerSurface = "services" | "worker" | "employer";
 
@@ -73,6 +253,18 @@ const PRESET_BANNERS_BY_SURFACE: Record<BannerSurface, Array<{ label: string; ba
         targetCategoryId: "HOME_HELP",
         active: true,
       }
+    },
+    {
+      label: "🏪 Partner With Us (Promote Shop / Brand)",
+      banner: {
+        headline: "Promote Your Shop or Brand on DutyPe",
+        subheadline: "Reach 5,000+ local customers in your district. Tap to partner with us.",
+        cta: "Partner With Us",
+        bgStartColor: "#0F172A",
+        bgEndColor: "#1D4ED8",
+        targetCategoryId: "promote_business",
+        active: true,
+      }
     }
   ],
   worker: [
@@ -111,6 +303,18 @@ const PRESET_BANNERS_BY_SURFACE: Record<BannerSurface, Array<{ label: string; ba
         targetCategoryId: "refer_earn",
         active: true
       }
+    },
+    {
+      label: "🏪 Partner With Us (Promote Shop / Brand)",
+      banner: {
+        headline: "Promote Your Shop or Business",
+        subheadline: "Reach thousands of customers and workers across your district on DutyPe.",
+        cta: "Partner With Us",
+        bgStartColor: "#0F172A",
+        bgEndColor: "#1D4ED8",
+        targetCategoryId: "promote_business",
+        active: true
+      }
     }
   ],
   employer: [
@@ -147,6 +351,18 @@ const PRESET_BANNERS_BY_SURFACE: Record<BannerSurface, Array<{ label: string; ba
         bgStartColor: "#312E81",
         bgEndColor: "#4338CA",
         targetCategoryId: "refer_earn",
+        active: true
+      }
+    },
+    {
+      label: "🏪 Partner With Us (Promote Shop / Brand)",
+      banner: {
+        headline: "Promote Your Business or Brand",
+        subheadline: "Reach 5,000+ local consumers & verified workers daily on DutyPe.",
+        cta: "Partner With Us",
+        bgStartColor: "#0F172A",
+        bgEndColor: "#1D4ED8",
+        targetCategoryId: "promote_business",
         active: true
       }
     }
@@ -239,6 +455,7 @@ export function AdminBannersManager({
   onError?: (msg: string) => void;
 } = {}) {
   const services = useMemo(() => getFirebaseServices(), []);
+  const [mainTab, setMainTab] = useState<"banners" | "showcases">("banners");
   const [surface, setSurface] = useState<BannerSurface>("services");
   const [banners, setBanners] = useState<PromoBannerDef[]>([]);
   const [loading, setLoading] = useState(true);
@@ -246,6 +463,35 @@ export function AdminBannersManager({
   const [selectedIdx, setSelectedIdx] = useState<number>(0);
   const [rawConfig, setRawConfig] = useState<Record<string, unknown>>({});
   const [optStats, setOptStats] = useState<{ originalKb: number; webpKb: number; savings: number } | null>(null);
+
+  // Dynamic Brand & Shop Showcases State
+  const [showcases, setShowcases] = useState<PromoShowcaseDef[]>([]);
+  const [loadingShowcases, setLoadingShowcases] = useState(false);
+  const [editingShowcase, setEditingShowcase] = useState<PromoShowcaseDef | null>(null);
+  const [showcaseSaving, setShowcaseSaving] = useState(false);
+  const [showcaseUploading, setShowcaseUploading] = useState(false);
+  const [newHighlight, setNewHighlight] = useState("");
+  const [newGalleryUrl, setNewGalleryUrl] = useState("");
+  const [linkToBannerOnSave, setLinkToBannerOnSave] = useState(false);
+
+  // Load existing Showcases from Firestore collection promo_showcases
+  const loadShowcases = async () => {
+    if (!services) return;
+    try {
+      setLoadingShowcases(true);
+      const snap = await getDocs(collection(services.db, "promo_showcases"));
+      const list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) } as PromoShowcaseDef));
+      setShowcases(list);
+    } catch (e) {
+      console.warn("Could not fetch promo_showcases:", e);
+    } finally {
+      setLoadingShowcases(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadShowcases();
+  }, [services]);
 
   useEffect(() => {
     if (!services) return;
@@ -295,7 +541,7 @@ export function AdminBannersManager({
     setSelectedIdx(banners.length);
   }
 
-  function addPreset(preset: typeof PRESET_BANNERS[0]) {
+  function addPreset(preset: typeof PRESET_BANNERS_BY_SURFACE.services[0]) {
     const newId = `banner_${Date.now().toString(36)}`;
     const newB: PromoBannerDef = { id: newId, ...preset.banner };
     setBanners([...banners, newB]);
@@ -350,7 +596,6 @@ export function AdminBannersManager({
       let contentType = file.type || "application/octet-stream";
 
       if (isLottie) {
-        // Parse JSON locally for instant zero-latency preview
         const text = await file.text();
         try {
           const json = JSON.parse(text);
@@ -361,7 +606,6 @@ export function AdminBannersManager({
         contentType = "application/json";
         uploadFileName = `${bannerId}_${Date.now()}.json`;
       } else {
-        // Automatically optimize image (PNG, JPG, etc.) to low-KB WebP directly in browser
         const opt = await optimizeBannerImage(file);
         uploadBlob = opt.webpBlob;
         uploadFileName = `${bannerId}_${Date.now()}.webp`;
@@ -375,7 +619,6 @@ export function AdminBannersManager({
 
       let downloadUrl = "";
 
-      // 1. Try server-side admin upload API route (bypasses client storage permission limits & 403 errors)
       try {
         const formData = new FormData();
         formData.append("image", uploadBlob, uploadFileName);
@@ -405,7 +648,6 @@ export function AdminBannersManager({
         console.warn("Server-side banner upload failed, falling back to client upload:", apiErr);
       }
 
-      // 2. Client-side fallback if server-side upload was not completed
       if (!downloadUrl) {
         const storageRef = ref(services.storage, `banners/${uploadFileName}`);
         await uploadBytes(storageRef, uploadBlob, {
@@ -449,6 +691,7 @@ export function AdminBannersManager({
         bgEndColor: b.bgEndColor.trim() || "#1E3A8A",
         targetCategoryId: b.targetCategoryId?.trim() || "",
         targetServiceId: b.targetServiceId?.trim() || "",
+        targetShowcaseId: b.targetShowcaseId?.trim() || "",
         imageUrl: b.imageUrl?.trim() || "",
         lottieUrl: b.lottieUrl?.trim() || "",
         fileSizeBytes: typeof b.fileSizeBytes === "number" ? b.fileSizeBytes : 0,
@@ -485,6 +728,160 @@ export function AdminBannersManager({
     }
   }
 
+  // Showcase Handlers
+  function openNewShowcase(preset?: PromoShowcaseDef, linkToActive = false) {
+    const base = preset ? JSON.parse(JSON.stringify(preset)) : JSON.parse(JSON.stringify(EMPTY_SHOWCASE));
+    if (!preset) {
+      base.id = `showcase_${Date.now().toString(36)}`;
+    }
+    setEditingShowcase(base);
+    setLinkToBannerOnSave(linkToActive);
+  }
+
+  function openEditShowcase(sc: PromoShowcaseDef, linkToActive = false) {
+    setEditingShowcase(JSON.parse(JSON.stringify(sc)));
+    setLinkToBannerOnSave(linkToActive);
+  }
+
+  async function handleShowcaseSave() {
+    if (!services || !editingShowcase) return;
+    const rawId = editingShowcase.id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+    if (!rawId) {
+      onError?.("Showcase ID cannot be empty. Please enter a unique ID (e.g. paradise_biryani).");
+      return;
+    }
+    if (!editingShowcase.title.trim()) {
+      onError?.("Business / Brand title is required.");
+      return;
+    }
+
+    setShowcaseSaving(true);
+    try {
+      const payload: PromoShowcaseDef = {
+        id: rawId,
+        title: editingShowcase.title.trim(),
+        tagline: editingShowcase.tagline.trim(),
+        categoryBadge: editingShowcase.categoryBadge.trim() || "BRAND",
+        rating: editingShowcase.rating.trim() || "4.8",
+        heroImageUrl: editingShowcase.heroImageUrl.trim(),
+        videoUrl: editingShowcase.videoUrl.trim(),
+        aboutDescription: editingShowcase.aboutDescription.trim(),
+        address: editingShowcase.address.trim(),
+        mapLink: editingShowcase.mapLink.trim(),
+        discountOfferTitle: editingShowcase.discountOfferTitle.trim(),
+        discountOfferCode: editingShowcase.discountOfferCode.trim(),
+        discountOfferTerms: editingShowcase.discountOfferTerms.trim(),
+        highlights: (editingShowcase.highlights || []).map((h) => h.trim()).filter(Boolean),
+        galleryImages: (editingShowcase.galleryImages || []).map((g) => g.trim()).filter(Boolean),
+        actionButtons: (editingShowcase.actionButtons || []).map((b) => ({
+          label: b.label.trim() || "Contact",
+          icon: b.icon.trim() || "call",
+          actionUrl: b.actionUrl.trim(),
+          isPrimary: !!b.isPrimary
+        })),
+        district: editingShowcase.district?.trim() || "Khammam",
+        scope: editingShowcase.scope || "DISTRICT",
+        active: editingShowcase.active !== false,
+        updatedAt: Date.now()
+      };
+
+      await setDoc(doc(services.db, "promo_showcases", rawId), payload, { merge: true });
+
+      setShowcases((prev) => {
+        const idx = prev.findIndex((s) => s.id === rawId);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = payload;
+          return next;
+        }
+        return [payload, ...prev];
+      });
+
+      if (linkToBannerOnSave && activeBanner) {
+        updateBanner(selectedIdx, { targetShowcaseId: rawId });
+      }
+
+      onSaved?.(`Brand Showcase "${payload.title}" published! Mobile app loads this immediately.`);
+      setEditingShowcase(null);
+    } catch (e) {
+      onError?.("Failed to save showcase: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setShowcaseSaving(false);
+    }
+  }
+
+  async function handleDeleteShowcase(id: string) {
+    if (!services) return;
+    if (!confirm(`Permanently delete Showcase "${id}"? Banners linking to this ID will no longer open this showcase.`)) return;
+    try {
+      await deleteDoc(doc(services.db, "promo_showcases", id));
+      setShowcases((prev) => prev.filter((s) => s.id !== id));
+      setBanners((prev) => prev.map((b) => (b.targetShowcaseId === id ? { ...b, targetShowcaseId: "" } : b)));
+      onSaved?.(`Showcase "${id}" has been deleted.`);
+    } catch (e) {
+      onError?.("Failed to delete showcase: " + (e instanceof Error ? e.message : String(e)));
+    }
+  }
+
+  async function handleShowcaseImageUpload(file: File, target: "hero" | "gallery") {
+    if (!services || !editingShowcase) return;
+    setShowcaseUploading(true);
+    try {
+      const opt = await optimizeBannerImage(file);
+      const scId = (editingShowcase.id || "showcase").toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+      const uploadFileName = `${scId}_${target}_${Date.now()}.webp`;
+
+      let downloadUrl = "";
+      try {
+        const formData = new FormData();
+        formData.append("image", opt.webpBlob, uploadFileName);
+        formData.append("id", scId);
+        formData.append("type", "banner");
+
+        const headers: Record<string, string> = {};
+        if (services.auth.currentUser) {
+          const idToken = await services.auth.currentUser.getIdToken();
+          headers["Authorization"] = `Bearer ${idToken}`;
+        }
+
+        const apiRes = await fetch("/api/admin/service-catalog/upload-image", {
+          method: "POST",
+          headers,
+          body: formData
+        });
+
+        if (apiRes.ok) {
+          const resJson = await apiRes.json();
+          downloadUrl = resJson.url;
+        }
+      } catch (err) {
+        console.warn("Showcase server upload failed, falling back to client upload:", err);
+      }
+
+      if (!downloadUrl) {
+        const storageRef = ref(services.storage, `showcases/${uploadFileName}`);
+        await uploadBytes(storageRef, opt.webpBlob, {
+          contentType: "image/webp",
+          cacheControl: "public, max-age=31536000, immutable"
+        });
+        downloadUrl = await getDownloadURL(storageRef);
+      }
+
+      if (target === "hero") {
+        setEditingShowcase({ ...editingShowcase, heroImageUrl: downloadUrl });
+      } else {
+        setEditingShowcase({
+          ...editingShowcase,
+          galleryImages: [...(editingShowcase.galleryImages || []), downloadUrl]
+        });
+      }
+    } catch (e) {
+      onError?.("Failed to upload image: " + (e instanceof Error ? e.message : String(e)));
+    } finally {
+      setShowcaseUploading(false);
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ padding: 32, textAlign: "center", color: "#64748b" }}>
@@ -501,80 +898,141 @@ export function AdminBannersManager({
           <div>
             <h2 className="admin-section-title" style={{ display: "flex", alignItems: "center", gap: 8, margin: 0 }}>
               <Sparkles size={20} color="#2563eb" />
-              Promotional Banners &amp; Carousel Hub
+              Promotional Banners &amp; Showcase Hub
             </h2>
             <p style={{ margin: "4px 0 0 0", color: "#64748b", fontSize: 14, maxWidth: 720 }}>
-              Configure top-of-screen promotional hero banners across DutyPe Home Services, Worker Home Screen, and Employer Home Screen.
-              The mobile app automatically converts uploaded images to high-quality lightweight WebP (20–40 KB) and synchronizes header gradient colors.
+              Configure top-of-screen promotional hero banners across DutyPe Home Services, Worker Home Screen, and Employer Home Screen,
+              or create full-screen Brand &amp; Shop Showcase microsite pages for local Khammam businesses!
             </p>
           </div>
-          <button
-            onClick={saveBanners}
-            disabled={saving}
-            className="btn btn-approve"
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 20px", fontWeight: 700, fontSize: 15 }}
-          >
-            {saving ? <RefreshCw className="animate-spin" size={16} /> : <Check size={16} />}
-            {saving ? "Saving Banners..." : `Publish ${surface.toUpperCase()} Banners`}
-          </button>
+          {mainTab === "banners" ? (
+            <button
+              onClick={saveBanners}
+              disabled={saving}
+              className="btn btn-approve"
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 20px", fontWeight: 700, fontSize: 15 }}
+            >
+              {saving ? <RefreshCw className="animate-spin" size={16} /> : <Check size={16} />}
+              {saving ? "Saving Banners..." : `Publish ${surface.toUpperCase()} Banners`}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openNewShowcase()}
+              className="btn btn-approve"
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 20px", fontWeight: 700, fontSize: 15 }}
+            >
+              <Plus size={16} />
+              + Create New Showcase
+            </button>
+          )}
         </div>
 
-        {/* Target Surface Selector */}
+        {/* Top Mode Switcher */}
         <div style={{ marginTop: 16, display: "flex", gap: 10, borderBottom: "1px solid #cbd5e1", paddingBottom: 12 }}>
-          {([
-            ["services", "🛠️ DutyPe Home Services"],
-            ["worker", "👷 Worker Home Screen"],
-            ["employer", "🏢 Employer Home Screen"]
-          ] as const).map(([s, label]) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setSurface(s)}
-              className="btn"
-              style={{
-                padding: "8px 16px",
-                fontWeight: surface === s ? 700 : 500,
-                background: surface === s ? "#1e293b" : "#ffffff",
-                color: surface === s ? "#ffffff" : "#334155",
-                border: surface === s ? "1px solid #0f172a" : "1px solid #cbd5e1",
-                borderRadius: 8,
-                fontSize: 13,
-                cursor: "pointer"
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Quick Presets */}
-        <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>One-Click Templates:</span>
-          {(PRESET_BANNERS_BY_SURFACE[surface] || PRESET_BANNERS_BY_SURFACE.services).map((p, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => addPreset(p)}
-              className="btn"
-              style={{ fontSize: 12.5, padding: "4px 10px", background: "#fff", border: "1px solid #cbd5e1" }}
-            >
-              + {p.label}
-            </button>
-          ))}
           <button
             type="button"
-            onClick={addBlankBanner}
-            className="btn"
-            style={{ fontSize: 12.5, padding: "4px 10px", background: "#eff6ff", borderColor: "#93c5fd", color: "#1d4ed8", fontWeight: 600 }}
+            onClick={() => setMainTab("banners")}
+            style={{
+              padding: "9px 18px",
+              borderRadius: 8,
+              border: mainTab === "banners" ? "2px solid #2563eb" : "1px solid #cbd5e1",
+              background: mainTab === "banners" ? "#eff6ff" : "#fff",
+              color: mainTab === "banners" ? "#1d4ed8" : "#475569",
+              fontWeight: mainTab === "banners" ? 800 : 600,
+              fontSize: 13.5,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 8
+            }}
           >
-            <Plus size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 2 }} />
-            Add Custom Slide
+            <Sparkles size={16} />
+            Promotional Carousel Banners ({banners.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setMainTab("showcases")}
+            style={{
+              padding: "9px 18px",
+              borderRadius: 8,
+              border: mainTab === "showcases" ? "2px solid #16a34a" : "1px solid #cbd5e1",
+              background: mainTab === "showcases" ? "#f0fdf4" : "#fff",
+              color: mainTab === "showcases" ? "#15803d" : "#475569",
+              fontWeight: mainTab === "showcases" ? 800 : 600,
+              fontSize: 13.5,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 8
+            }}
+          >
+            <Store size={16} />
+            🏪 Brand &amp; Shop Showcase Microsites ({showcases.length})
           </button>
         </div>
+
+        {mainTab === "banners" && (
+          <>
+            {/* Target Surface Selector */}
+            <div style={{ marginTop: 14, display: "flex", gap: 10, borderBottom: "1px solid #e2e8f0", paddingBottom: 12 }}>
+              {([
+                ["services", "🛠️ DutyPe Home Services"],
+                ["worker", "👷 Worker Home Screen"],
+                ["employer", "🏢 Employer Home Screen"]
+              ] as const).map(([s, label]) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setSurface(s)}
+                  className="btn"
+                  style={{
+                    padding: "7px 14px",
+                    fontWeight: surface === s ? 700 : 500,
+                    background: surface === s ? "#1e293b" : "#ffffff",
+                    color: surface === s ? "#ffffff" : "#334155",
+                    border: surface === s ? "1px solid #0f172a" : "1px solid #cbd5e1",
+                    borderRadius: 8,
+                    fontSize: 12.5,
+                    cursor: "pointer"
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Quick Presets */}
+            <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>One-Click Templates:</span>
+              {(PRESET_BANNERS_BY_SURFACE[surface] || PRESET_BANNERS_BY_SURFACE.services).map((p, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => addPreset(p)}
+                  className="btn"
+                  style={{ fontSize: 12, padding: "4px 10px", background: "#fff", border: "1px solid #cbd5e1" }}
+                >
+                  + {p.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={addBlankBanner}
+                className="btn"
+                style={{ fontSize: 12, padding: "4px 10px", background: "#eff6ff", borderColor: "#93c5fd", color: "#1d4ed8", fontWeight: 600 }}
+              >
+                <Plus size={14} style={{ display: "inline", verticalAlign: "middle", marginRight: 2 }} />
+                Add Custom Slide
+              </button>
+            </div>
+          </>
+        )}
       </section>
 
       {/* Main Grid: Left is live preview & slide selector, Right is active slide editor */}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(340px, 420px) 1fr", gap: 24, alignItems: "start" }}>
+      {mainTab === "banners" && (
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(340px, 420px) 1fr", gap: 24, alignItems: "start" }}>
         {/* Left: Mobile App Simulator & Slide Selector */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", textTransform: "uppercase", letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 6 }}>
@@ -1205,6 +1663,89 @@ export function AdminBannersManager({
                   />
                 </div>
 
+                <div style={{ gridColumn: "span 2", background: "#f0fdf4", border: "1px solid #bbf7d0", padding: 14, borderRadius: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+                    <label style={{ fontSize: 13, fontWeight: 800, color: "#166534", display: "flex", alignItems: "center", gap: 6 }}>
+                      <span>🏪</span>
+                      <span>Target Brand / Shop Showcase Microsite Page (Optional)</span>
+                    </label>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {activeBanner.targetShowcaseId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const found = showcases.find((s) => s.id === activeBanner.targetShowcaseId);
+                            if (found) {
+                              openEditShowcase(found, true);
+                            } else {
+                              openNewShowcase({ ...EMPTY_SHOWCASE, id: activeBanner.targetShowcaseId || "" }, true);
+                            }
+                          }}
+                          className="btn"
+                          style={{ fontSize: 11, padding: "4px 8px", background: "#ecfdf5", borderColor: "#a7f3d0", color: "#047857", fontWeight: 700 }}
+                        >
+                          ✏️ Edit This Showcase
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => openNewShowcase(undefined, true)}
+                        className="btn"
+                        style={{ fontSize: 11, padding: "4px 8px", background: "#dcfce7", borderColor: "#86efac", color: "#15803d", fontWeight: 700 }}
+                      >
+                        ✨ + Create New Showcase
+                      </button>
+                    </div>
+                  </div>
+
+                  <select
+                    value={activeBanner.targetShowcaseId || ""}
+                    onChange={(e) => updateBanner(selectedIdx, { targetShowcaseId: e.target.value })}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "1px solid #86efac", background: "#fff", fontSize: 13, fontWeight: 600, color: "#0f172a" }}
+                  >
+                    <option value="">None (Standard Category / In-App Route)</option>
+                    {showcases.map((sc) => (
+                      <option key={sc.id} value={sc.id}>
+                        [{sc.categoryBadge || "BRAND"}] {sc.title} (ID: {sc.id})
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Active showcase preview pill */}
+                  {activeBanner.targetShowcaseId && (
+                    <div style={{ marginTop: 10, padding: "8px 12px", background: "#fff", border: "1px solid #bbf7d0", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        {showcases.find((s) => s.id === activeBanner.targetShowcaseId)?.heroImageUrl ? (
+                          <img
+                            src={showcases.find((s) => s.id === activeBanner.targetShowcaseId)?.heroImageUrl}
+                            alt="Showcase Hero"
+                            style={{ width: 36, height: 36, borderRadius: 6, objectFit: "cover" }}
+                          />
+                        ) : (
+                          <div style={{ width: 36, height: 36, borderRadius: 6, background: "#d1fae5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>
+                            🏪
+                          </div>
+                        )}
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: "#065f46" }}>
+                            {showcases.find((s) => s.id === activeBanner.targetShowcaseId)?.title || activeBanner.targetShowcaseId}
+                          </div>
+                          <div style={{ fontSize: 11, color: "#047857" }}>
+                            {showcases.find((s) => s.id === activeBanner.targetShowcaseId)?.tagline || `Custom Showcase ID: ${activeBanner.targetShowcaseId}`}
+                          </div>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 10.5, background: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: 12, fontWeight: 800 }}>
+                        LINKED TO BANNER
+                      </span>
+                    </div>
+                  )}
+
+                  <div style={{ fontSize: 11, color: "#15803d", marginTop: 8 }}>
+                    When users tap this banner on the Android app, it opens a rich Brand Landing Page with hero visual, video, story, voucher code, Google Maps navigation &amp; contact buttons.
+                  </div>
+                </div>
+
                 {/* Gradient Colors */}
                 <div>
                   <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#475569", marginBottom: 4 }}>
@@ -1306,28 +1847,1175 @@ export function AdminBannersManager({
           </div>
         )}
       </div>
+      )}
+
+      {/* Brand & Shop Showcases Hub */}
+      {mainTab === "showcases" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Showcases Action Bar */}
+          <section className="admin-section" style={{ background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a", display: "flex", alignItems: "center", gap: 8 }}>
+                  <Store size={18} color="#16a34a" />
+                  Local Brand &amp; Shop Showcase Microsites ({showcases.length})
+                </h3>
+                <p style={{ margin: "4px 0 0 0", color: "#64748b", fontSize: 13 }}>
+                  Custom in-app landing pages for featured restaurants, shopping malls, clinics, and showrooms in Khammam.
+                </p>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => openNewShowcase()}
+                  className="btn btn-approve"
+                  style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}
+                >
+                  <Plus size={16} />
+                  + Create New Showcase
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Templates */}
+            <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", borderTop: "1px solid #e2e8f0", paddingTop: 12 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, color: "#475569" }}>One-Click Khammam Presets:</span>
+              {PRESET_SHOWCASES.map((ps) => (
+                <button
+                  key={ps.id}
+                  type="button"
+                  onClick={() => openNewShowcase(ps)}
+                  className="btn"
+                  style={{ fontSize: 12, padding: "5px 10px", background: "#fff", border: "1px solid #cbd5e1" }}
+                >
+                  + {ps.title} ({ps.categoryBadge})
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Grid of Showcases */}
+          {loadingShowcases ? (
+            <div style={{ padding: 48, textAlign: "center", color: "#64748b" }}>
+              <RefreshCw className="animate-spin" size={24} style={{ margin: "0 auto 8px" }} />
+              Loading brand showcases...
+            </div>
+          ) : showcases.length === 0 ? (
+            <div className="admin-section" style={{ background: "#fff", border: "2px dashed #cbd5e1", borderRadius: 12, padding: 48, textAlign: "center" }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🏪</div>
+              <h3 style={{ margin: "0 0 8px 0", fontSize: 18, fontWeight: 700, color: "#1e293b" }}>No Brand Showcases Yet</h3>
+              <p style={{ margin: "0 0 20px 0", color: "#64748b", fontSize: 14, maxWidth: 500, marginInline: "auto" }}>
+                Promote popular local businesses on DutyPe! Create a rich interactive showcase microsite with videos, photos, discount coupons, and direct contact buttons.
+              </p>
+              <div style={{ display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => openNewShowcase(PRESET_SHOWCASES[0])}
+                  className="btn btn-primary"
+                  style={{ fontSize: 13, padding: "8px 16px" }}
+                >
+                  🍽️ Load Paradise Biryani Preset
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openNewShowcase(PRESET_SHOWCASES[1])}
+                  className="btn btn-primary"
+                  style={{ fontSize: 13, padding: "8px 16px" }}
+                >
+                  🛍️ Load Lotus Mall Preset
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openNewShowcase()}
+                  className="btn"
+                  style={{ fontSize: 13, padding: "8px 16px", background: "#fff", border: "1px solid #cbd5e1" }}
+                >
+                  + Custom Blank Showcase
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 20 }}>
+              {showcases.map((sc) => {
+                const linkedBannersCount = banners.filter((b) => b.targetShowcaseId === sc.id).length;
+                return (
+                  <div
+                    key={sc.id}
+                    className="admin-section"
+                    style={{
+                      background: "#fff",
+                      border: "1px solid #e2e8f0",
+                      borderRadius: 12,
+                      overflow: "hidden",
+                      padding: 0,
+                      display: "flex",
+                      flexDirection: "column"
+                    }}
+                  >
+                    {/* Card Cover */}
+                    <div style={{ position: "relative", height: 140, background: "#0f172a" }}>
+                      {sc.heroImageUrl ? (
+                        <img
+                          src={sc.heroImageUrl}
+                          alt={sc.title}
+                          style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.85 }}
+                        />
+                      ) : (
+                        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#64748b", fontSize: 32 }}>
+                          🏪
+                        </div>
+                      )}
+                      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(15,23,42,0.95), transparent 60%)" }} />
+
+                      <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <span style={{ background: "rgba(15,23,42,0.85)", color: "#38bdf8", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, border: "1px solid rgba(56,189,248,0.3)" }}>
+                          {sc.categoryBadge || "FEATURED"}
+                        </span>
+                        <span style={{ background: "rgba(234,179,8,0.2)", color: "#facc15", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 700, border: "1px solid rgba(250,204,21,0.4)", display: "flex", alignItems: "center", gap: 3 }}>
+                          <Star size={11} fill="#facc15" />
+                          {sc.rating || "4.8"}
+                        </span>
+                      </div>
+
+                      {linkedBannersCount > 0 && (
+                        <div style={{ position: "absolute", top: 12, right: 12 }}>
+                          <span style={{ background: "#22c55e", color: "#fff", padding: "3px 8px", borderRadius: 12, fontSize: 10, fontWeight: 800 }}>
+                            🔗 {linkedBannersCount} {linkedBannersCount === 1 ? "BANNER" : "BANNERS"} LINKED
+                          </span>
+                        </div>
+                      )}
+
+                      <div style={{ position: "absolute", bottom: 10, left: 14, right: 14 }}>
+                        <h4 style={{ margin: 0, color: "#fff", fontSize: 16, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {sc.title}
+                        </h4>
+                        <div style={{ color: "#94a3b8", fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          ID: <code style={{ color: "#38bdf8" }}>{sc.id}</code>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Content */}
+                    <div style={{ padding: 14, flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                      <p style={{ margin: 0, fontSize: 12.5, color: "#475569", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                        {sc.tagline || sc.aboutDescription || "No tagline provided."}
+                      </p>
+
+                      {sc.discountOfferCode && (
+                        <div style={{ background: "#f0fdf4", border: "1px dashed #86efac", borderRadius: 6, padding: "6px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ fontSize: 11.5, color: "#166534", fontWeight: 700 }}>
+                            🎁 {sc.discountOfferTitle || "Special Offer"}:
+                          </span>
+                          <span style={{ background: "#dcfce7", color: "#15803d", padding: "1px 6px", borderRadius: 4, fontFamily: "monospace", fontSize: 11, fontWeight: 800 }}>
+                            {sc.discountOfferCode}
+                          </span>
+                        </div>
+                      )}
+
+                      {sc.address && (
+                        <div style={{ fontSize: 11.5, color: "#64748b", display: "flex", alignItems: "flex-start", gap: 4 }}>
+                          <MapPin size={13} style={{ flexShrink: 0, marginTop: 2, color: "#94a3b8" }} />
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sc.address}</span>
+                        </div>
+                      )}
+
+                      <div style={{ display: "flex", gap: 12, fontSize: 11, color: "#64748b", marginTop: "auto", paddingTop: 8, borderTop: "1px solid #f1f5f9" }}>
+                        <span>✨ {(sc.highlights || []).length} Highlights</span>
+                        <span>📷 {(sc.galleryImages || []).length} Photos</span>
+                        <span>⚡ {(sc.actionButtons || []).length} Actions</span>
+                      </div>
+                    </div>
+
+                    {/* Card Actions Footer */}
+                    <div style={{ padding: "10px 14px", background: "#f8fafc", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => openEditShowcase(sc)}
+                        className="btn"
+                        style={{ fontSize: 12, padding: "5px 12px", background: "#eff6ff", borderColor: "#93c5fd", color: "#1d4ed8", fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}
+                      >
+                        <Edit3 size={13} />
+                        Edit Microsite
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteShowcase(sc.id)}
+                        className="btn"
+                        style={{ fontSize: 12, padding: "5px 10px", background: "#fef2f2", borderColor: "#fecaca", color: "#dc2626" }}
+                        title="Delete Showcase"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Testing Instructions & Verification Guide */}
       <section className="admin-section" style={{ background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
         <h4 style={{ margin: "0 0 8px 0", color: "#166534", fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
           <Check size={18} />
-          How to Test Promotional Banners on Mobile:
+          How Promotional Banners &amp; Brand Showcases Work on Mobile:
         </h4>
         <ol style={{ margin: 0, paddingLeft: 20, color: "#15803d", fontSize: 13.5, lineHeight: 1.6 }}>
           <li>
-            <b>Instant Mobile Sync:</b> Tap <i>&quot;Publish Banners to App&quot;</i> above. The configuration is immediately saved to Firestore <code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 5px", borderRadius: 4 }}>app_config/services</code>.
+            <b>Instant Mobile Sync:</b> Save banners or showcases above. The configuration is immediately saved to Firestore collections <code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 5px", borderRadius: 4 }}>app_config</code> and <code style={{ background: "rgba(0,0,0,0.06)", padding: "1px 5px", borderRadius: 4 }}>promo_showcases</code>.
           </li>
           <li>
-            <b>Open DutyPe Android App:</b> Launch the app as an Employer or Customer. The home screen checks Firestore and renders the updated carousel at the top of the Services screen.
+            <b>Open DutyPe Android App:</b> Launch the app as an Employer, Worker, or Customer. The home screen checks Firestore and renders the updated carousel at the top of the screen.
           </li>
           <li>
             <b>Observe Dynamic Header Colors:</b> Notice how as the carousel auto-scrolls through slides (every 5 seconds), the entire top status bar and search header smoothly morph their gradient color to match each banner!
           </li>
           <li>
-            <b>Test Click-Through:</b> Tapping the banner button immediately navigates customers directly into the target category or service booking modal.
+            <b>One-Tap Brand Landing Page:</b> When users tap any promotional banner linked to a Showcase ID (e.g., <i>paradise_biryani_khammam</i>), the app smoothly navigates directly to the rich Brand Showcase page complete with hero photos, voucher codes, Google Maps navigation, and Call/WhatsApp buttons!
           </li>
         </ol>
       </section>
+
+      {/* Dynamic Showcase Microsite Builder & Editor Modal */}
+      {editingShowcase && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.75)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16
+          }}
+        >
+          <div
+            style={{
+              background: "#ffffff",
+              borderRadius: 16,
+              width: "100%",
+              maxWidth: 1240,
+              maxHeight: "94vh",
+              display: "flex",
+              flexDirection: "column",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+              overflow: "hidden"
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: "16px 24px",
+                borderBottom: "1px solid #e2e8f0",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                background: "#f8fafc"
+              }}
+            >
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <Store size={22} color="#16a34a" />
+                  <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#0f172a" }}>
+                    Brand &amp; Shop Showcase Microsite Builder
+                  </h3>
+                  <span
+                    style={{
+                      background: "#dcfce7",
+                      color: "#166534",
+                      padding: "2px 8px",
+                      borderRadius: 12,
+                      fontSize: 11,
+                      fontWeight: 700
+                    }}
+                  >
+                    Mobile Landing Page
+                  </span>
+                </div>
+                <div style={{ fontSize: 12.5, color: "#64748b", marginTop: 2 }}>
+                  Create or edit full showcase page in Firestore <code style={{ color: "#2563eb" }}>promo_showcases/{editingShowcase.id || "ID"}</code>
+                </div>
+              </div>
+
+              {/* Template quick-loaders & Close */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b" }}>Quick Template:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const preset = PRESET_SHOWCASES[0];
+                    setEditingShowcase({ ...preset, id: editingShowcase.id || preset.id });
+                  }}
+                  className="btn"
+                  style={{ fontSize: 11.5, padding: "4px 8px", background: "#fff", border: "1px solid #cbd5e1" }}
+                >
+                  🍽️ Restaurant
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const preset = PRESET_SHOWCASES[1];
+                    setEditingShowcase({ ...preset, id: editingShowcase.id || preset.id });
+                  }}
+                  className="btn"
+                  style={{ fontSize: 11.5, padding: "4px 8px", background: "#fff", border: "1px solid #cbd5e1" }}
+                >
+                  🛍️ Mall
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const preset = PRESET_SHOWCASES[2];
+                    setEditingShowcase({ ...preset, id: editingShowcase.id || preset.id });
+                  }}
+                  className="btn"
+                  style={{ fontSize: 11.5, padding: "4px 8px", background: "#fff", border: "1px solid #cbd5e1" }}
+                >
+                  🚗 Auto Care
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingShowcase(null)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#64748b",
+                    padding: 4,
+                    display: "flex",
+                    alignItems: "center"
+                  }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Two-Column Body */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", flex: 1, minHeight: 0 }}>
+              {/* Left Column: Form Controls */}
+              <div style={{ padding: 24, overflowY: "auto", display: "flex", flexDirection: "column", gap: 20 }}>
+                {/* 1. Basic Identity */}
+                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#1e293b", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>🏷️</span>
+                    <span>1. Business Identity &amp; Badges</span>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                        Showcase ID (Slug, e.g. paradise_biryani) *
+                      </label>
+                      <input
+                        type="text"
+                        value={editingShowcase.id}
+                        onChange={(e) =>
+                          setEditingShowcase({
+                            ...editingShowcase,
+                            id: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "_")
+                          })
+                        }
+                        placeholder="e.g. paradise_biryani_khammam"
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13, fontFamily: "monospace" }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                        Category Badge (e.g. RESTAURANT, MALL)
+                      </label>
+                      <input
+                        type="text"
+                        value={editingShowcase.categoryBadge}
+                        onChange={(e) => setEditingShowcase({ ...editingShowcase, categoryBadge: e.target.value.toUpperCase() })}
+                        placeholder="e.g. RESTAURANT or SHOPPING MALL"
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                        Business / Brand Title *
+                      </label>
+                      <input
+                        type="text"
+                        value={editingShowcase.title}
+                        onChange={(e) => setEditingShowcase({ ...editingShowcase, title: e.target.value })}
+                        placeholder="e.g. Paradise Biryani & Grill"
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13, fontWeight: 600 }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                        Customer Rating (e.g. 4.8)
+                      </label>
+                      <input
+                        type="text"
+                        value={editingShowcase.rating}
+                        onChange={(e) => setEditingShowcase({ ...editingShowcase, rating: e.target.value })}
+                        placeholder="4.8"
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+                      />
+                    </div>
+
+                    <div style={{ gridColumn: "span 2" }}>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                        Tagline / Catchphrase
+                      </label>
+                      <input
+                        type="text"
+                        value={editingShowcase.tagline}
+                        onChange={(e) => setEditingShowcase({ ...editingShowcase, tagline: e.target.value })}
+                        placeholder="e.g. Authentic Nizami Dum Biryani, Sizzling Kebabs & AC Family Dining"
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                        Target District (e.g. Khammam or ALL)
+                      </label>
+                      <input
+                        type="text"
+                        value={editingShowcase.district ?? "Khammam"}
+                        onChange={(e) => setEditingShowcase({ ...editingShowcase, district: e.target.value })}
+                        placeholder="e.g. Khammam, Warangal, or ALL"
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                        Geographic Scope &amp; Tier
+                      </label>
+                      <select
+                        value={editingShowcase.scope ?? "DISTRICT"}
+                        onChange={(e) => setEditingShowcase({ ...editingShowcase, scope: e.target.value })}
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13, background: "#fff" }}
+                      >
+                        <option value="DISTRICT">Tier 1: Local District (e.g. Khammam only)</option>
+                        <option value="STATE">Tier 2: State-Level Regional (Telangana / AP)</option>
+                        <option value="NATIONAL">Tier 3: National Big Brand (Pan-India)</option>
+                      </select>
+                    </div>
+
+                    <div style={{ gridColumn: "span 2", display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#f1f5f9", borderRadius: 8 }}>
+                      <input
+                        type="checkbox"
+                        id="showcase_active_toggle"
+                        checked={editingShowcase.active !== false}
+                        onChange={(e) => setEditingShowcase({ ...editingShowcase, active: e.target.checked })}
+                        style={{ width: 16, height: 16, cursor: "pointer" }}
+                      />
+                      <label htmlFor="showcase_active_toggle" style={{ fontSize: 12.5, fontWeight: 700, color: "#1e293b", cursor: "pointer" }}>
+                        Active &amp; Live on App (Uncheck to pause/hide promotion)
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Visual Media: Hero & Gallery */}
+                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#1e293b", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>📷</span>
+                    <span>2. Visual Media: Hero Photo, Video &amp; Gallery</span>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                        Hero Cover Image URL
+                      </label>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <input
+                          type="text"
+                          value={editingShowcase.heroImageUrl}
+                          onChange={(e) => setEditingShowcase({ ...editingShowcase, heroImageUrl: e.target.value })}
+                          placeholder="https://images.unsplash.com/... or upload image"
+                          style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12.5 }}
+                        />
+                        <label
+                          className="btn"
+                          style={{
+                            fontSize: 12,
+                            padding: "7px 12px",
+                            background: "#eff6ff",
+                            color: "#1d4ed8",
+                            borderColor: "#bfdbfe",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4
+                          }}
+                        >
+                          <Upload size={14} />
+                          {showcaseUploading ? "Compressing..." : "Upload Photo"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            style={{ display: "none" }}
+                            disabled={showcaseUploading}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) void handleShowcaseImageUpload(f, "hero");
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                        Promo Video URL (Optional: YouTube or Direct MP4)
+                      </label>
+                      <input
+                        type="text"
+                        value={editingShowcase.videoUrl}
+                        onChange={(e) => setEditingShowcase({ ...editingShowcase, videoUrl: e.target.value })}
+                        placeholder="https://www.youtube.com/watch?v=... or .mp4 URL"
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12.5 }}
+                      />
+                    </div>
+
+                    {/* Gallery Images */}
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                        <label style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>
+                          Photo Gallery ({(editingShowcase.galleryImages || []).length} photos)
+                        </label>
+                        <label
+                          className="btn"
+                          style={{
+                            fontSize: 11,
+                            padding: "3px 8px",
+                            background: "#eff6ff",
+                            color: "#1d4ed8",
+                            borderColor: "#bfdbfe",
+                            fontWeight: 700,
+                            cursor: "pointer",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4
+                          }}
+                        >
+                          <Plus size={12} />
+                          Upload to Gallery
+                          <input
+                            type="file"
+                            accept="image/*"
+                            style={{ display: "none" }}
+                            disabled={showcaseUploading}
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) void handleShowcaseImageUpload(f, "gallery");
+                            }}
+                          />
+                        </label>
+                      </div>
+
+                      {/* Gallery thumbnails */}
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                        {(editingShowcase.galleryImages || []).map((imgUrl, gIdx) => (
+                          <div
+                            key={gIdx}
+                            style={{
+                              position: "relative",
+                              width: 64,
+                              height: 64,
+                              borderRadius: 6,
+                              overflow: "hidden",
+                              border: "1px solid #cbd5e1"
+                            }}
+                          >
+                            <img src={imgUrl} alt="Gallery item" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = [...(editingShowcase.galleryImages || [])];
+                                next.splice(gIdx, 1);
+                                setEditingShowcase({ ...editingShowcase, galleryImages: next });
+                              }}
+                              style={{
+                                position: "absolute",
+                                top: 2,
+                                right: 2,
+                                background: "rgba(0,0,0,0.6)",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "50%",
+                                width: 18,
+                                height: 18,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                cursor: "pointer",
+                                fontSize: 10
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Add photo by URL */}
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input
+                          type="text"
+                          value={newGalleryUrl}
+                          onChange={(e) => setNewGalleryUrl(e.target.value)}
+                          placeholder="Or paste image URL (https://...)"
+                          style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!newGalleryUrl.trim()) return;
+                            setEditingShowcase({
+                              ...editingShowcase,
+                              galleryImages: [...(editingShowcase.galleryImages || []), newGalleryUrl.trim()]
+                            });
+                            setNewGalleryUrl("");
+                          }}
+                          className="btn"
+                          style={{ fontSize: 12, padding: "6px 12px" }}
+                        >
+                          Add URL
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. About Description & Highlights */}
+                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#1e293b", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>📝</span>
+                    <span>3. Business Story &amp; Key Highlights</span>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                        About Business Story
+                      </label>
+                      <textarea
+                        rows={4}
+                        value={editingShowcase.aboutDescription}
+                        onChange={(e) => setEditingShowcase({ ...editingShowcase, aboutDescription: e.target.value })}
+                        placeholder="Detailed description of what makes this business special, history, specialties, timings..."
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13, lineHeight: 1.5 }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 6 }}>
+                        Key Highlights (Bullet Points / Chips)
+                      </label>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                        {(editingShowcase.highlights || []).map((h, hIdx) => (
+                          <span
+                            key={hIdx}
+                            style={{
+                              background: "#e2e8f0",
+                              color: "#1e293b",
+                              padding: "4px 10px",
+                              borderRadius: 16,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 6
+                            }}
+                          >
+                            <span>✓ {h}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = [...(editingShowcase.highlights || [])];
+                                next.splice(hIdx, 1);
+                                setEditingShowcase({ ...editingShowcase, highlights: next });
+                              }}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "#64748b", padding: 0 }}
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input
+                          type="text"
+                          value={newHighlight}
+                          onChange={(e) => setNewHighlight(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && newHighlight.trim()) {
+                              e.preventDefault();
+                              setEditingShowcase({
+                                ...editingShowcase,
+                                highlights: [...(editingShowcase.highlights || []), newHighlight.trim()]
+                              });
+                              setNewHighlight("");
+                            }
+                          }}
+                          placeholder="e.g. Free Valet Parking, AC Family Dining, 100% Halal Certified"
+                          style={{ flex: 1, padding: "6px 10px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!newHighlight.trim()) return;
+                            setEditingShowcase({
+                              ...editingShowcase,
+                              highlights: [...(editingShowcase.highlights || []), newHighlight.trim()]
+                            });
+                            setNewHighlight("");
+                          }}
+                          className="btn"
+                          style={{ fontSize: 12, padding: "6px 12px" }}
+                        >
+                          Add Chip
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Location & Map Navigation */}
+                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#1e293b", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>📍</span>
+                    <span>4. Location &amp; Google Maps Navigation</span>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div style={{ gridColumn: "span 2" }}>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                        Physical Store / Shop Address
+                      </label>
+                      <input
+                        type="text"
+                        value={editingShowcase.address}
+                        onChange={(e) => setEditingShowcase({ ...editingShowcase, address: e.target.value })}
+                        placeholder="e.g. Beside RTC Bus Stand, Wyra Road, Khammam, Telangana 507001"
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+                      />
+                    </div>
+
+                    <div style={{ gridColumn: "span 2" }}>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#334155", marginBottom: 4 }}>
+                        Google Maps Link (Opens GPS turn-by-turn navigation in app)
+                      </label>
+                      <input
+                        type="text"
+                        value={editingShowcase.mapLink}
+                        onChange={(e) => setEditingShowcase({ ...editingShowcase, mapLink: e.target.value })}
+                        placeholder="https://maps.google.com/?q=Paradise+Biryani+Khammam"
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Special Promotional Voucher / Coupon */}
+                <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 10, padding: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#166534", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>🎁</span>
+                    <span>5. Exclusive Discount Voucher / Offer (Optional)</span>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#166534", marginBottom: 4 }}>
+                        Discount Offer Title
+                      </label>
+                      <input
+                        type="text"
+                        value={editingShowcase.discountOfferTitle}
+                        onChange={(e) => setEditingShowcase({ ...editingShowcase, discountOfferTitle: e.target.value })}
+                        placeholder="e.g. Flat 20% Off Food Bill"
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #86efac", background: "#fff", fontSize: 13 }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#166534", marginBottom: 4 }}>
+                        Voucher Promo Code
+                      </label>
+                      <input
+                        type="text"
+                        value={editingShowcase.discountOfferCode}
+                        onChange={(e) => setEditingShowcase({ ...editingShowcase, discountOfferCode: e.target.value.toUpperCase() })}
+                        placeholder="e.g. PARADISE20"
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #86efac", background: "#fff", fontSize: 13, fontFamily: "monospace", fontWeight: 700 }}
+                      />
+                    </div>
+
+                    <div style={{ gridColumn: "span 2" }}>
+                      <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#166534", marginBottom: 4 }}>
+                        Offer Terms &amp; Conditions
+                      </label>
+                      <input
+                        type="text"
+                        value={editingShowcase.discountOfferTerms}
+                        onChange={(e) => setEditingShowcase({ ...editingShowcase, discountOfferTerms: e.target.value })}
+                        placeholder="e.g. Valid on dine-in above ₹499. Show code to billing staff before bill generation."
+                        style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #86efac", background: "#fff", fontSize: 12 }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 6. Sticky Action Buttons (Call, WhatsApp, Maps, URL) */}
+                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: "#1e293b", display: "flex", alignItems: "center", gap: 6 }}>
+                      <span>⚡</span>
+                      <span>6. Mobile Bottom Action Buttons (CTA Bar)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingShowcase({
+                          ...editingShowcase,
+                          actionButtons: [
+                            ...(editingShowcase.actionButtons || []),
+                            { label: "New Button", icon: "call", actionUrl: "tel:+91", isPrimary: false }
+                          ]
+                        });
+                      }}
+                      className="btn"
+                      style={{ fontSize: 11, padding: "4px 8px", background: "#eff6ff", color: "#1d4ed8", borderColor: "#bfdbfe", fontWeight: 700 }}
+                    >
+                      + Add Action Button
+                    </button>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {(editingShowcase.actionButtons || []).map((btn, bIdx) => (
+                      <div
+                        key={bIdx}
+                        style={{
+                          background: "#ffffff",
+                          border: "1px solid #cbd5e1",
+                          borderRadius: 8,
+                          padding: 12,
+                          display: "grid",
+                          gridTemplateColumns: "140px 100px 1fr auto auto",
+                          gap: 8,
+                          alignItems: "center"
+                        }}
+                      >
+                        <input
+                          type="text"
+                          value={btn.label}
+                          onChange={(e) => {
+                            const next = [...(editingShowcase.actionButtons || [])];
+                            next[bIdx] = { ...next[bIdx], label: e.target.value };
+                            setEditingShowcase({ ...editingShowcase, actionButtons: next });
+                          }}
+                          placeholder="Button Label"
+                          style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12, fontWeight: 600 }}
+                        />
+
+                        <select
+                          value={btn.icon}
+                          onChange={(e) => {
+                            const next = [...(editingShowcase.actionButtons || [])];
+                            next[bIdx] = { ...next[bIdx], icon: e.target.value };
+                            setEditingShowcase({ ...editingShowcase, actionButtons: next });
+                          }}
+                          style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12 }}
+                        >
+                          <option value="call">📞 Call</option>
+                          <option value="whatsapp">💬 WhatsApp</option>
+                          <option value="maps">📍 Maps</option>
+                          <option value="url">🌐 Website</option>
+                        </select>
+
+                        <input
+                          type="text"
+                          value={btn.actionUrl}
+                          onChange={(e) => {
+                            const next = [...(editingShowcase.actionButtons || [])];
+                            next[bIdx] = { ...next[bIdx], actionUrl: e.target.value };
+                            setEditingShowcase({ ...editingShowcase, actionButtons: next });
+                          }}
+                          placeholder="tel:+91..., https://wa.me/..., https://maps... or website"
+                          style={{ padding: "6px 8px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 12 }}
+                        />
+
+                        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 600, color: "#334155", cursor: "pointer", whiteSpace: "nowrap" }}>
+                          <input
+                            type="checkbox"
+                            checked={btn.isPrimary}
+                            onChange={(e) => {
+                              const next = [...(editingShowcase.actionButtons || [])];
+                              next[bIdx] = { ...next[bIdx], isPrimary: e.target.checked };
+                              setEditingShowcase({ ...editingShowcase, actionButtons: next });
+                            }}
+                          />
+                          Primary
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const next = [...(editingShowcase.actionButtons || [])];
+                            next.splice(bIdx, 1);
+                            setEditingShowcase({ ...editingShowcase, actionButtons: next });
+                          }}
+                          style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", padding: 4 }}
+                          title="Remove Button"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Live Dark Mode Mobile App Simulator */}
+              <div
+                style={{
+                  background: "#0b1120",
+                  borderLeft: "1px solid #e2e8f0",
+                  padding: 16,
+                  overflowY: "auto",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center"
+                }}
+              >
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                  <Smartphone size={14} />
+                  Live Mobile Landing Page
+                </div>
+
+                {/* Mobile Phone Mockup */}
+                <div
+                  style={{
+                    width: 320,
+                    borderRadius: 28,
+                    overflow: "hidden",
+                    border: "4px solid #1e293b",
+                    boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
+                    background: "#0f172a",
+                    color: "#ffffff",
+                    display: "flex",
+                    flexDirection: "column",
+                    minHeight: 560
+                  }}
+                >
+                  {/* Status Bar */}
+                  <div style={{ padding: "8px 16px 4px", display: "flex", justifyContent: "space-between", fontSize: 11, color: "#94a3b8", background: "#0f172a" }}>
+                    <span>9:41</span>
+                    <span>5G 🔋</span>
+                  </div>
+
+                  {/* Top Bar with Back & Category */}
+                  <div style={{ padding: "6px 14px 10px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#1e293b", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>
+                      ←
+                    </div>
+                    <span style={{ fontSize: 10, background: "rgba(56,189,248,0.15)", color: "#38bdf8", padding: "2px 8px", borderRadius: 10, fontWeight: 700, border: "1px solid rgba(56,189,248,0.3)" }}>
+                      {editingShowcase.categoryBadge || "FEATURED"}
+                    </span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 11, color: "#facc15", fontWeight: 700 }}>
+                      <Star size={11} fill="#facc15" />
+                      {editingShowcase.rating || "4.8"}
+                    </div>
+                  </div>
+
+                  {/* Scrollable Screen Content */}
+                  <div style={{ flex: 1, overflowY: "auto", padding: "0 14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
+                    {/* Hero Image */}
+                    <div style={{ position: "relative", height: 160, borderRadius: 14, overflow: "hidden", background: "#1e293b" }}>
+                      {editingShowcase.heroImageUrl ? (
+                        <img src={editingShowcase.heroImageUrl} alt="Hero" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32 }}>
+                          🏪
+                        </div>
+                      )}
+                      {editingShowcase.videoUrl && (
+                        <div style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.7)", color: "#fff", padding: "3px 8px", borderRadius: 12, fontSize: 10, display: "flex", alignItems: "center", gap: 4 }}>
+                          ▶ Watch Video
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Title & Tagline */}
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: 17, fontWeight: 800, color: "#fff" }}>
+                        {editingShowcase.title || "Brand Name"}
+                      </h4>
+                      <p style={{ margin: "3px 0 0", fontSize: 11.5, color: "#94a3b8", lineHeight: 1.3 }}>
+                        {editingShowcase.tagline || "Brand tagline and specialties appear here."}
+                      </p>
+                    </div>
+
+                    {/* Voucher Card */}
+                    {editingShowcase.discountOfferCode && (
+                      <div
+                        style={{
+                          background: "#064e3b",
+                          border: "1px dashed #34d399",
+                          borderRadius: 10,
+                          padding: 10,
+                          color: "#fff"
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                          <span style={{ fontSize: 11.5, fontWeight: 800, color: "#6ee7b7" }}>
+                            🎁 {editingShowcase.discountOfferTitle || "Special Offer"}
+                          </span>
+                          <span style={{ background: "#047857", color: "#ecfdf5", padding: "1px 6px", borderRadius: 4, fontFamily: "monospace", fontSize: 10, fontWeight: 800 }}>
+                            {editingShowcase.discountOfferCode}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 9.5, color: "#a7f3d0" }}>
+                          {editingShowcase.discountOfferTerms || "Show this code at counter"}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Highlights */}
+                    {(editingShowcase.highlights || []).length > 0 && (
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {editingShowcase.highlights.map((h, i) => (
+                          <span key={i} style={{ background: "#1e293b", color: "#cbd5e1", padding: "2px 7px", borderRadius: 8, fontSize: 9.5, fontWeight: 600 }}>
+                            ✓ {h}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* About */}
+                    {editingShowcase.aboutDescription && (
+                      <div style={{ background: "#1e293b", borderRadius: 10, padding: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", marginBottom: 3 }}>About Store</div>
+                        <div style={{ fontSize: 10.5, color: "#cbd5e1", lineHeight: 1.4 }}>
+                          {editingShowcase.aboutDescription}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Gallery Preview */}
+                    {(editingShowcase.galleryImages || []).length > 0 && (
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", marginBottom: 6 }}>Photo Gallery</div>
+                        <div style={{ display: "flex", gap: 6, overflowX: "auto" }}>
+                          {editingShowcase.galleryImages.map((g, i) => (
+                            <img key={i} src={g} alt="Gallery" style={{ width: 60, height: 60, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Address */}
+                    {editingShowcase.address && (
+                      <div style={{ background: "#1e293b", borderRadius: 10, padding: 10, display: "flex", alignItems: "flex-start", gap: 6 }}>
+                        <MapPin size={13} style={{ color: "#38bdf8", flexShrink: 0, marginTop: 1 }} />
+                        <div style={{ fontSize: 10.5, color: "#cbd5e1" }}>{editingShowcase.address}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sticky Mobile Bottom Bar */}
+                  <div
+                    style={{
+                      background: "#1e293b",
+                      borderTop: "1px solid #334155",
+                      padding: "8px 12px",
+                      display: "flex",
+                      gap: 8
+                    }}
+                  >
+                    {(editingShowcase.actionButtons || []).length > 0 ? (
+                      editingShowcase.actionButtons.map((btn, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            flex: 1,
+                            background: btn.isPrimary ? "#2563eb" : "#334155",
+                            color: "#ffffff",
+                            padding: "8px 6px",
+                            borderRadius: 8,
+                            fontSize: 10.5,
+                            fontWeight: 700,
+                            textAlign: "center",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap"
+                          }}
+                        >
+                          {btn.icon === "call" ? "📞 " : btn.icon === "whatsapp" ? "💬 " : btn.icon === "maps" ? "📍 " : "🌐 "}
+                          {btn.label}
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ flex: 1, background: "#2563eb", color: "#fff", padding: "8px", borderRadius: 8, fontSize: 11, textAlign: "center", fontWeight: 700 }}>
+                        Contact Store
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: "14px 24px",
+                borderTop: "1px solid #e2e8f0",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                background: "#f8fafc"
+              }}
+            >
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "#334155", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={linkToBannerOnSave}
+                  onChange={(e) => setLinkToBannerOnSave(e.target.checked)}
+                />
+                <span>🔗 Auto-link this showcase page to active banner slide ({activeBanner?.headline || "Slide"})</span>
+              </label>
+
+              <div style={{ display: "flex", gap: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => setEditingShowcase(null)}
+                  className="btn"
+                  style={{ padding: "8px 18px", fontSize: 13 }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleShowcaseSave()}
+                  disabled={showcaseSaving}
+                  className="btn btn-approve"
+                  style={{ padding: "8px 24px", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}
+                >
+                  {showcaseSaving ? <RefreshCw className="animate-spin" size={16} /> : <Check size={16} />}
+                  {showcaseSaving ? "Publishing Showcase..." : "Save & Publish Showcase Microsite"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -223,6 +223,7 @@
     <string name="auth_mobile_number">मोबाइल नंबर</string>
     <string name="auth_help">सहायता</string>
     <string name="auth_send_otp">ओटीपी भेजें</string>
+    <string name="auth_continue_with_truecaller">Truecaller के साथ जारी रखें</string>
     <string name="auth_dont_have_account">क्या खाता नहीं है? </string>
     <string name="auth_create_account">खाता बनाएं</string>
     <string name="auth_enter_otp">ओटीपी दर्ज करें</string>
@@ -2694,6 +2695,7 @@
     <string name="svc_inspection_info">यह विज़िट चार्ज है। पार्टनर समस्या देखकर काम शुरू करने से पहले रिपेयर का दाम बताएंगे।</string>
     <string name="svc_warranty">कुछ ठीक न हो तो 7 दिन में मुफ़्त दोबारा काम</string>
     <string name="svc_confirm">बुकिंग पक्की करें</string>
+    <string name="svc_status_payment_pending">भुगतान लंबित है</string>
     <string name="svc_status_searching">आपके पास पार्टनर ढूंढ रहे हैं…</string>
     <string name="svc_status_assigned">पार्टनर तय हो गए</string>
     <string name="svc_status_on_the_way">पार्टनर रास्ते में हैं</string>

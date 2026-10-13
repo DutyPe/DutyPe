@@ -107,7 +107,7 @@ fun ContactUsScreen(
             title = stringResource(R.string.contact_email_title),
             subtitle = stringResource(R.string.contact_email_subtitle),
             onClick = {
-                val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@dutypeapp.com"))
+                val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@dutype.in"))
                 intent.putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.email_subject_support_request))
                 context.startActivity(Intent.createChooser(intent, context.getString(R.string.send_email)))
             }
@@ -125,14 +125,14 @@ fun ContactUsScreen(
                 val intent = if (shot != null) {
                     Intent(Intent.ACTION_SEND).apply {
                         type = "image/*"
-                        putExtra(Intent.EXTRA_EMAIL, arrayOf("support@dutypeapp.com"))
+                        putExtra(Intent.EXTRA_EMAIL, arrayOf("support@dutype.in"))
                         putExtra(Intent.EXTRA_SUBJECT, subject)
                         putExtra(Intent.EXTRA_TEXT, body)
                         putExtra(Intent.EXTRA_STREAM, shot)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
                 } else {
-                    Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@dutypeapp.com")).apply {
+                    Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@dutype.in")).apply {
                         putExtra(Intent.EXTRA_SUBJECT, subject)
                         putExtra(Intent.EXTRA_TEXT, body)
                     }
@@ -365,7 +365,7 @@ fun HelpMainScreen(
                 },
                 onEmail = {
                     val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@dutype.in")).apply {
-                        putExtra(Intent.EXTRA_EMAIL, arrayOf("support@dutype.in", "dutypein@gmail.com"))
+                        putExtra(Intent.EXTRA_EMAIL, arrayOf("support@dutype.in"))
                         putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.email_subject_worker_support))
                     }
                     runCatching { context.startActivity(Intent.createChooser(intent, "Send Email")) }

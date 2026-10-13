@@ -143,17 +143,16 @@ describe("WhatsApp OTP (emulator)", () => {
     assert.equal(sent.length, 1);
   });
 
-  it("switches to SMS when Meta refuses the message, and that code cannot be used", async () => {
+  it("fails with unavailable when Meta refuses the message, and that code cannot be used", async () => {
     respond = () => new Response('{"error":{"code":131026}}', { status: 400 });
-    const r = await call(login.sendWhatsappOtp)({ phone: PHONE }, app);
-    assert.deepEqual(r, { sent: false, channel: "sms" });
+    await assert.rejects(call(login.sendWhatsappOtp)({ phone: PHONE }, app), (e) => errorCode(e) === "unavailable");
     await assert.rejects(call(login.verifyWhatsappOtp)({ phone: PHONE, code: sentCode() }, app), (e) => errorCode(e) === "deadline-exceeded");
   });
 
-  it("switches everyone to SMS once the daily cap is reached", async () => {
+  it("blocks with resource-exhausted once the daily cap is reached", async () => {
     process.env.WHATSAPP_DAILY_CAP = "1";
     assert.equal((await call(login.sendWhatsappOtp)({ phone: PHONE }, app)).sent, true);
-    assert.deepEqual(await call(login.sendWhatsappOtp)({ phone: "+919876543211" }, app), { sent: false, channel: "sms" });
+    await assert.rejects(call(login.sendWhatsappOtp)({ phone: "+919876543211" }, app), (e) => errorCode(e) === "resource-exhausted");
     assert.equal(sent.length, 1);
   });
 });

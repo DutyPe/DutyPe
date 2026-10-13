@@ -60,6 +60,16 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     deepLink: ""
   },
   {
+    id: "promote_business",
+    label: "🏪 Promote Your Shop or Brand (Partner With Us)",
+    title: "Promote Your Business on DutyPe",
+    message: "Reach 5,000+ local customers & workers across your district. Tap to advertise your shop or brand with us.",
+    type: "PROMOTION",
+    priority: "HIGH",
+    targetRole: "ALL",
+    deepLink: "dutype://promote-business"
+  },
+  {
     id: "new_jobs_nearby",
     label: "📍 New jobs available nearby",
     title: "New jobs near you!",

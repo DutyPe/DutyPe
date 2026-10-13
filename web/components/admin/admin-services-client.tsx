@@ -37,7 +37,10 @@ function calcDistanceKm(lat1?: number, lon1?: number, lat2 = KHAMMAM_LAT, lon2 =
 type Row = Record<string, unknown> & { id: string };
 type Tab = "partners" | "topups" | "bookings" | "catalog" | "settings";
 
-const CATEGORY_IDS = ["CLEANING", "AC", "ELECTRICIAN", "PLUMBER", "APPLIANCE", "CARPENTER", "PAINTER", "HOME_HELP", "VEHICLE"];
+const CATEGORY_IDS = [
+  "CLEANING", "AC", "ELECTRICIAN", "PLUMBER", "APPLIANCE", "CARPENTER", "PAINTER", "HOME_HELP", "VEHICLE",
+  "BEAUTICIAN", "MEHENDI", "COOK_MAID", "BABYSITTER", "ELDERLY_CARE", "TAILORING"
+];
 
 function useLive(path: string, order: string, max = 200): Row[] {
   const services = useMemo(() => getFirebaseServices(), []);
@@ -63,11 +66,16 @@ export function AdminServicesClient() {
   const topups = useLive("partner_topups", "createdAt");
   const bookings = useLive("service_bookings", "createdAt", 300);
 
-  const [bookingFilter, setBookingFilter] = useState<"ALL" | "TODAY" | "ACTIVE" | "COMPLETED" | "CANCELLED">("ALL");
+  const [bookingFilter, setBookingFilter] = useState<"ALL" | "TODAY" | "PAYMENT_PENDING" | "ACTIVE" | "COMPLETED" | "CANCELLED">("ALL");
   const [partnerSearch, setPartnerSearch] = useState("");
   const [partnerStatusFilter, setPartnerStatusFilter] = useState<"ALL" | "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED">("ALL");
   const [partnerPage, setPartnerPage] = useState(1);
   const PARTNER_PAGE_SIZE = 25;
+
+  const [assigningBooking, setAssigningBooking] = useState<Row | null>(null);
+  const [assignSearch, setAssignSearch] = useState("");
+  const [assignFilter, setAssignFilter] = useState<"ALL" | "MATCHING" | "ONLINE">("MATCHING");
+  const [assignLoading, setAssignLoading] = useState(false);
 
   const startOfTodayMs = useMemo(() => {
     const d = new Date();
@@ -78,6 +86,7 @@ export function AdminServicesClient() {
   const bookingAnalytics = useMemo(() => {
     const total = bookings.length;
     const today = bookings.filter((b) => millis(b.createdAt) >= startOfTodayMs).length;
+    const pendingPayment = bookings.filter((b) => b.status === "PAYMENT_PENDING").length;
     const completed = bookings.filter((b) => b.status === "COMPLETED");
     const active = bookings.filter((b) => ["SEARCHING", "ASSIGNED", "ON_THE_WAY", "STARTED"].includes(String(b.status)));
     const cancelled = bookings.filter((b) => b.status === "CANCELLED" || b.status === "NO_PARTNER");
@@ -99,6 +108,7 @@ export function AdminServicesClient() {
     return {
       total,
       today,
+      pendingPayment,
       completed: completed.length,
       active: active.length,
       cancelled: cancelled.length,
@@ -113,6 +123,7 @@ export function AdminServicesClient() {
 
   const filteredBookings = useMemo(() => {
     if (bookingFilter === "TODAY") return bookings.filter((b) => millis(b.createdAt) >= startOfTodayMs);
+    if (bookingFilter === "PAYMENT_PENDING") return bookings.filter((b) => b.status === "PAYMENT_PENDING");
     if (bookingFilter === "ACTIVE") return bookings.filter((b) => ["SEARCHING", "ASSIGNED", "ON_THE_WAY", "STARTED"].includes(String(b.status)));
     if (bookingFilter === "COMPLETED") return bookings.filter((b) => b.status === "COMPLETED");
     if (bookingFilter === "CANCELLED") return bookings.filter((b) => b.status === "CANCELLED" || b.status === "NO_PARTNER");
@@ -263,6 +274,69 @@ export function AdminServicesClient() {
       confirm(`Reject UTR ${String(t.utrNumber)}?`);
     if (!ok) return;
     void run("Saving...", () => httpsCallable(services.functions, "verifyPartnerTopup")({ topupId: t.id, approve, reason }));
+  }
+
+  function approveBooking(b: Row) {
+    if (!services) return;
+    if (!confirm(`Approve platform fee payment for booking ${b.id.slice(0, 8)} (${String(b.serviceName)}) and dispatch to nearby technicians?`)) return;
+    void run("Activating booking...", () => httpsCallable(services.functions, "approveBookingPayment")({ bookingId: b.id }));
+  }
+
+  const approvedPartners = useMemo(() => {
+    return partners.filter((p) => p.status === "APPROVED");
+  }, [partners]);
+
+  const filteredAssignPartners = useMemo(() => {
+    if (!assigningBooking) return [];
+    const bookingCat = String(assigningBooking.category || "").toUpperCase();
+    let list = approvedPartners;
+
+    if (assignFilter === "MATCHING") {
+      list = list.filter((p) => {
+        const cats = ((p.categories || []) as string[]).map((c) => c.toUpperCase());
+        return cats.includes("ALL") || cats.includes(bookingCat);
+      });
+    } else if (assignFilter === "ONLINE") {
+      list = list.filter((p) => !!p.online);
+    }
+
+    if (assignSearch.trim()) {
+      const q = assignSearch.trim().toLowerCase();
+      list = list.filter((p) =>
+        String(p.name || "").toLowerCase().includes(q) ||
+        String(p.phone || "").toLowerCase().includes(q) ||
+        String(p.area || "").toLowerCase().includes(q) ||
+        ((p.categories || []) as string[]).some((c) => String(c).toLowerCase().includes(q))
+      );
+    }
+
+    return [...list].sort((a, b) => {
+      const aCats = ((a.categories || []) as string[]).map((c) => c.toUpperCase());
+      const bCats = ((b.categories || []) as string[]).map((c) => c.toUpperCase());
+      const aMatches = aCats.includes("ALL") || aCats.includes(bookingCat) ? 1 : 0;
+      const bMatches = bCats.includes("ALL") || bCats.includes(bookingCat) ? 1 : 0;
+      if (bMatches !== aMatches) return bMatches - aMatches;
+      const aOnline = a.online ? 1 : 0;
+      const bOnline = b.online ? 1 : 0;
+      if (bOnline !== aOnline) return bOnline - aOnline;
+      return Number(b.jobsCompleted || 0) - Number(a.jobsCompleted || 0);
+    });
+  }, [approvedPartners, assigningBooking, assignFilter, assignSearch]);
+
+  async function assignPartner(bookingId: string, partnerId: string, partnerName: string) {
+    if (!services) return;
+    if (!confirm(`Assign approved partner "${partnerName}" to booking #${bookingId.slice(-6)}?`)) return;
+    setAssignLoading(true);
+    try {
+      const call = httpsCallable(services.functions, "adminAssignBookingPartner");
+      await call({ bookingId, partnerId });
+      setMessage(`Successfully assigned ${partnerName} to booking #${bookingId.slice(-6)}!`);
+      setAssigningBooking(null);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to assign partner");
+    } finally {
+      setAssignLoading(false);
+    }
   }
 
   const pendingPartners = partners.filter((p) => p.status === "PENDING").length;
@@ -618,20 +692,46 @@ export function AdminServicesClient() {
                         )}
                       </td>
                       <td>
-                        {((p.categories || []) as string[]).map((c) => {
-                          const skilled = ((p.skilledCategories || []) as string[]).includes(c);
-                          const list = checked[p.id] ?? ((p.categories || []) as string[]).filter((x) => !((p.skilledCategories || []) as string[]).includes(x));
+                        {(() => {
+                          const isApproved = p.status === "APPROVED";
+                          const partnerCats = (p.categories || []) as string[];
+                          const list = checked[p.id] ?? (isApproved ? partnerCats : partnerCats.filter((x) => !((p.skilledCategories || []) as string[]).includes(x)));
+                          const allAvailableToToggle = Array.from(new Set([...partnerCats, ...list]));
                           return (
-                            <label key={c} style={{ display: "block", whiteSpace: "nowrap" }}>
-                              <input
-                                type="checkbox"
-                                checked={list.includes(c)}
-                                onChange={(e) => setChecked({ ...checked, [p.id]: e.target.checked ? [...list, c] : list.filter((x) => x !== c) })}
-                              />{" "}
-                              {skilled ? "⚡ " : ""}{c}
-                            </label>
+                            <>
+                              {allAvailableToToggle.map((c) => {
+                                const skilled = ((p.skilledCategories || []) as string[]).includes(c);
+                                return (
+                                  <label key={c} style={{ display: "block", whiteSpace: "nowrap" }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={list.includes(c)}
+                                      onChange={(e) => setChecked({ ...checked, [p.id]: e.target.checked ? [...list, c] : list.filter((x) => x !== c) })}
+                                    />{" "}
+                                    {skilled ? "⚡ " : ""}{c}
+                                  </label>
+                                );
+                              })}
+                              <div style={{ marginTop: 6 }}>
+                                <select
+                                  value=""
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val && !list.includes(val)) {
+                                      setChecked({ ...checked, [p.id]: [...list, val] });
+                                    }
+                                  }}
+                                  style={{ fontSize: 11, padding: "2px 4px", borderRadius: 4, border: "1px solid #cbd5e1", maxWidth: 130 }}
+                                >
+                                  <option value="">+ Add Skill</option>
+                                  {CATEGORY_IDS.filter((c) => !list.includes(c)).map((c) => (
+                                    <option key={c} value={c}>{c}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            </>
                           );
-                        })}
+                        })()}
                         {p.skillProof ? <div style={{ fontSize: 12, marginTop: 4 }}>Proof: {String(p.skillProof)}</div> : null}
                         {p.guidelinesAcceptedAt ? <div style={{ fontSize: 12, opacity: 0.7 }}>✓ accepted code of conduct</div> : null}
                       </td>
@@ -645,8 +745,18 @@ export function AdminServicesClient() {
                           onChange={(e) => setReasons({ ...reasons, [p.id]: e.target.value })}
                           style={{ width: 180 }}
                         />
-                        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                        <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                           {p.status !== "APPROVED" && <button className="btn btn-approve" onClick={() => review(p, "approve")}>Approve</button>}
+                          {p.status === "APPROVED" && (
+                            <button
+                              className="btn"
+                              style={{ background: "#0284c7", color: "#fff", borderColor: "#0284c7" }}
+                              onClick={() => review(p, "approve")}
+                              title="Save verified skills"
+                            >
+                              Update Skills
+                            </button>
+                          )}
                           {p.status === "PENDING" && <button className="btn" onClick={() => review(p, "reject")}>Reject</button>}
                           {p.status === "APPROVED" && <button className="btn" onClick={() => review(p, "suspend")}>Suspend</button>}
                         </div>
@@ -756,7 +866,7 @@ export function AdminServicesClient() {
               <p style={{ fontSize: "12.5px", color: "#64748b", margin: "2px 0 0" }}>Live tracking of customer requests, fill rates, GMV, and technician performance.</p>
             </div>
             <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-              {(["ALL", "TODAY", "ACTIVE", "COMPLETED", "CANCELLED"] as const).map((f) => (
+              {(["ALL", "TODAY", "PAYMENT_PENDING", "ACTIVE", "COMPLETED", "CANCELLED"] as const).map((f) => (
                 <button
                   key={f}
                   type="button"
@@ -774,7 +884,10 @@ export function AdminServicesClient() {
                     transition: "all 0.15s ease"
                   }}
                 >
-                  {f === "ALL" ? `All (${bookings.length})` : f === "TODAY" ? `Today (${bookingAnalytics.today})` : f === "ACTIVE" ? `Active (${bookingAnalytics.active})` : f}
+                  {f === "ALL" ? `All (${bookings.length})` :
+                   f === "TODAY" ? `Today (${bookingAnalytics.today})` :
+                   f === "PAYMENT_PENDING" ? `Pending Approval (${bookingAnalytics.pendingPayment})` :
+                   f === "ACTIVE" ? `Active (${bookingAnalytics.active})` : f}
                 </button>
               ))}
             </div>
@@ -859,12 +972,13 @@ export function AdminServicesClient() {
                   <th>Offer</th>
                   <th>DutyPe Take</th>
                   <th>Rating</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredBookings.length === 0 ? (
                   <tr>
-                    <td colSpan={9} style={{ textAlign: "center", padding: "24px", color: "#94a3b8" }}>
+                    <td colSpan={10} style={{ textAlign: "center", padding: "24px", color: "#94a3b8" }}>
                       No bookings found for filter &apos;{bookingFilter}&apos;.
                     </td>
                   </tr>
@@ -903,14 +1017,39 @@ export function AdminServicesClient() {
                           </div>
                         </td>
                         <td>
-                          <div>{String(b.partnerName || "–")}</div>
-                          {b.partnerPhone ? (
-                            <div style={{ fontSize: "12px" }}>
-                              <a href={`tel:${String(b.partnerPhone || "")}`} style={{ color: "#0284c7" }}>
-                                {String(b.partnerPhone || "")}
-                              </a>
+                          {b.partnerName ? (
+                            <div>
+                              <strong style={{ color: "#0f172a" }}>{String(b.partnerName)}</strong>
+                              {b.partnerPhone ? (
+                                <div style={{ fontSize: "12px" }}>
+                                  <a href={`tel:${String(b.partnerPhone || "")}`} style={{ color: "#0284c7" }}>
+                                    📞 {String(b.partnerPhone || "")}
+                                  </a>
+                                </div>
+                              ) : null}
                             </div>
-                          ) : null}
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAssigningBooking(b);
+                                setAssignSearch("");
+                                setAssignFilter("MATCHING");
+                              }}
+                              style={{
+                                background: "#eff6ff",
+                                color: "#2563eb",
+                                border: "1px dashed #93c5fd",
+                                borderRadius: "6px",
+                                padding: "4px 8px",
+                                fontSize: "11.5px",
+                                fontWeight: 700,
+                                cursor: "pointer"
+                              }}
+                            >
+                              + Assign Partner
+                            </button>
+                          )}
                         </td>
                         <td>
                           <span className={pillClass} style={{ fontSize: "11px" }}>
@@ -939,6 +1078,60 @@ export function AdminServicesClient() {
                             <span style={{ color: "#cbd5e1" }}>–</span>
                           )}
                         </td>
+                        <td>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                            {st === "PAYMENT_PENDING" && (
+                              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                                <span style={{ fontSize: "11px", color: "#b45309", fontWeight: 600 }}>
+                                  {b.utr ? `UTR: ${String(b.utr)}` : "Awaiting UTR"}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => approveBooking(b)}
+                                  style={{
+                                    background: "#087f68",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    padding: "4px 8px",
+                                    fontSize: "11px",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    whiteSpace: "nowrap"
+                                  }}
+                                >
+                                  Approve &amp; Go Live
+                                </button>
+                              </div>
+                            )}
+                            {st !== "COMPLETED" && st !== "CANCELLED" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAssigningBooking(b);
+                                  setAssignSearch("");
+                                  setAssignFilter("MATCHING");
+                                }}
+                                style={{
+                                  background: b.partnerId ? "#f8fafc" : "#0284c7",
+                                  color: b.partnerId ? "#0284c7" : "#fff",
+                                  border: b.partnerId ? "1px solid #bae6fd" : "none",
+                                  borderRadius: "6px",
+                                  padding: "5px 10px",
+                                  fontSize: "11.5px",
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                  whiteSpace: "nowrap",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "4px"
+                                }}
+                              >
+                                👤 {b.partnerId ? "Reassign Partner" : "Assign Partner"}
+                              </button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     );
                   })
@@ -959,6 +1152,332 @@ export function AdminServicesClient() {
       )}
 
       {tab === "settings" && <ServicesSettings onSaved={(m) => setMessage(m)} onError={(m) => setError(m)} />}
+
+      {/* Modal: Assign Approved Partner with Skills to Booking */}
+      {assigningBooking && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: 16,
+            backdropFilter: "blur(4px)"
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !assignLoading) setAssigningBooking(null);
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: "16px",
+              padding: "24px",
+              maxWidth: "680px",
+              width: "100%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px"
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 800, color: "#0f172a" }}>
+                  👤 Assign Approved Partner
+                </h3>
+                <p style={{ margin: "4px 0 0", fontSize: "13px", color: "#64748b" }}>
+                  Select an approved technician with verified skills for this booking.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={assignLoading}
+                onClick={() => setAssigningBooking(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "22px",
+                  cursor: assignLoading ? "not-allowed" : "pointer",
+                  color: "#64748b"
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Booking Details Summary Card */}
+            <div
+              style={{
+                background: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                borderRadius: "12px",
+                padding: "14px 16px"
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                <div>
+                  <div style={{ fontSize: "14.5px", fontWeight: 700, color: "#0f172a" }}>
+                    {String(assigningBooking.serviceName)}
+                  </div>
+                  <div style={{ fontSize: "12px", color: "#64748b", marginTop: 2 }}>
+                    Category: <strong style={{ color: "#0284c7" }}>{String(assigningBooking.category)}</strong> • Order #{assigningBooking.id.slice(-6)}
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: "16px", fontWeight: 800, color: "#059669" }}>
+                    ₹{String(assigningBooking.total ?? "")}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#64748b" }}>
+                    {String(assigningBooking.status)}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "12px", paddingTop: "10px", borderTop: "1px solid #e2e8f0", fontSize: "12px" }}>
+                <div>
+                  <span style={{ color: "#64748b" }}>Customer: </span>
+                  <strong>{String(assigningBooking.customerName || "Customer")}</strong> (
+                  <a href={`tel:${String(assigningBooking.customerPhone || "")}`} style={{ color: "#0284c7" }}>
+                    {String(assigningBooking.customerPhone || "")}
+                  </a>)
+                </div>
+                <div>
+                  <span style={{ color: "#64748b" }}>Location: </span>
+                  <strong>{String(assigningBooking.addressText || assigningBooking.area || "Khammam")}</strong>
+                </div>
+                <div>
+                  <span style={{ color: "#64748b" }}>When: </span>
+                  <strong>{assigningBooking.when === "SCHEDULED" ? when(millis(assigningBooking.scheduledAt)) : "Immediate (Now)"}</strong>
+                </div>
+                <div>
+                  <span style={{ color: "#64748b" }}>Currently Assigned: </span>
+                  <strong style={{ color: assigningBooking.partnerName ? "#0284c7" : "#d97706" }}>
+                    {assigningBooking.partnerName ? `${String(assigningBooking.partnerName)} (${String(assigningBooking.partnerPhone || "")})` : "None (Awaiting Partner)"}
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter and Search Controls */}
+            <div style={{ display: "flex", gap: "8px", flexDirection: "column" }}>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+                <input
+                  type="text"
+                  placeholder="🔍 Search approved partners by name, phone or skill..."
+                  value={assignSearch}
+                  onChange={(e) => setAssignSearch(e.target.value)}
+                  style={{
+                    flex: 1,
+                    minWidth: "200px",
+                    padding: "8px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid #cbd5e1",
+                    fontSize: "13px"
+                  }}
+                />
+                <div style={{ display: "flex", gap: "6px" }}>
+                  {(["MATCHING", "ALL", "ONLINE"] as const).map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setAssignFilter(f)}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: "8px",
+                        border: "1px solid",
+                        borderColor: assignFilter === f ? "#0284c7" : "#cbd5e1",
+                        background: assignFilter === f ? "#0284c7" : "#fff",
+                        color: assignFilter === f ? "#fff" : "#475569",
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        cursor: "pointer"
+                      }}
+                    >
+                      {f === "MATCHING" ? `Matching Skills (${approvedPartners.filter(p => {
+                        const cats = ((p.categories || []) as string[]).map(c => c.toUpperCase());
+                        return cats.includes("ALL") || cats.includes(String(assigningBooking.category).toUpperCase());
+                      }).length})` :
+                       f === "ALL" ? `All Approved (${approvedPartners.length})` :
+                       `Online (${approvedPartners.filter(p => !!p.online).length})`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Partners List */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "360px", overflowY: "auto", paddingRight: "4px" }}>
+              {filteredAssignPartners.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "32px 16px", color: "#64748b", background: "#f8fafc", borderRadius: "10px" }}>
+                  <div style={{ fontSize: "28px", marginBottom: "6px" }}>🔍</div>
+                  <div style={{ fontWeight: 600 }}>No approved partners found matching this filter</div>
+                  <div style={{ fontSize: "12px", marginTop: "4px" }}>
+                    Try switching filter to &apos;All Approved&apos; or check the Partners tab to verify partner skills.
+                  </div>
+                </div>
+              ) : (
+                filteredAssignPartners.map((p) => {
+                  const bookingCat = String(assigningBooking.category || "").toUpperCase();
+                  const partnerCats = ((p.categories || []) as string[]).map(c => c.toUpperCase());
+                  const matchesCategory = partnerCats.includes("ALL") || partnerCats.includes(bookingCat);
+                  const isAssignedToThis = assigningBooking.partnerId === p.id;
+                  const isBusyWithOther = !!p.activeBookingId && p.activeBookingId !== assigningBooking.id;
+                  const pCount = Number(p.ratingCount || 0);
+                  const pRating = pCount ? (Number(p.ratingSum || 0) / pCount).toFixed(1) : "–";
+
+                  return (
+                    <div
+                      key={p.id}
+                      style={{
+                        border: "1px solid",
+                        borderColor: isAssignedToThis ? "#86efac" : matchesCategory ? "#bfdbfe" : "#e2e8f0",
+                        background: isAssignedToThis ? "#f0fdf4" : matchesCategory ? "#f8fafc" : "#fff",
+                        borderRadius: "12px",
+                        padding: "12px 14px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "12px",
+                        transition: "all 0.15s ease"
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                          <strong style={{ fontSize: "14px", color: "#0f172a" }}>{String(p.name || "Partner")}</strong>
+                          <span style={{ fontSize: "12px", color: "#0284c7" }}>
+                            <a href={`tel:${String(p.phone || "")}`} style={{ color: "#0284c7", textDecoration: "none" }}>
+                              📞 {String(p.phone || "")}
+                            </a>
+                          </span>
+                          <span
+                            style={{
+                              fontSize: "11px",
+                              padding: "2px 6px",
+                              borderRadius: "12px",
+                              fontWeight: 600,
+                              background: p.online ? "#ecfdf5" : "#f1f5f9",
+                              color: p.online ? "#059669" : "#64748b",
+                              border: `1px solid ${p.online ? "#a7f3d0" : "#cbd5e1"}`
+                            }}
+                          >
+                            {p.online ? "🟢 Online" : "⚪ Offline"}
+                          </span>
+                          {isBusyWithOther && (
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                padding: "2px 6px",
+                                borderRadius: "12px",
+                                fontWeight: 600,
+                                background: "#fef3c7",
+                                color: "#b45309",
+                                border: "1px solid #fde68a"
+                              }}
+                            >
+                              ⚠️ Busy on #{String(p.activeBookingId).slice(-6)}
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ fontSize: "12px", color: "#64748b", marginTop: "3px" }}>
+                          📍 {String(p.area || "Khammam")} • {pRating !== "–" ? `★ ${pRating}` : "New"} ({String(p.jobsCompleted || 0)} jobs completed) • {String(p.experienceYears ?? 0)} yrs exp
+                        </div>
+
+                        {/* Verified Skills Badges */}
+                        <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginTop: "6px" }}>
+                          <span style={{ fontSize: "11px", color: "#475569", fontWeight: 600, alignSelf: "center", marginRight: 2 }}>
+                            Verified Skills:
+                          </span>
+                          {((p.categories || []) as string[]).length === 0 ? (
+                            <span style={{ fontSize: "11px", color: "#94a3b8" }}>No categories assigned</span>
+                          ) : (
+                            ((p.categories || []) as string[]).map((c) => {
+                              const isSkillMatch = c.toUpperCase() === bookingCat || c.toUpperCase() === "ALL";
+                              return (
+                                <span
+                                  key={c}
+                                  style={{
+                                    fontSize: "10.5px",
+                                    padding: "2px 6px",
+                                    borderRadius: "4px",
+                                    fontWeight: 700,
+                                    background: isSkillMatch ? "#dcfce7" : "#f1f5f9",
+                                    color: isSkillMatch ? "#15803d" : "#475569",
+                                    border: `1px solid ${isSkillMatch ? "#86efac" : "#cbd5e1"}`
+                                  }}
+                                >
+                                  {isSkillMatch ? "✓ " : ""}{c}
+                                </span>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action Button */}
+                      <div>
+                        {isAssignedToThis ? (
+                          <div style={{ fontSize: "12px", fontWeight: 700, color: "#16a34a", padding: "6px 12px", background: "#dcfce7", borderRadius: "8px", border: "1px solid #86efac", textAlign: "center" }}>
+                            Assigned ✓
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={assignLoading}
+                            onClick={() => assignPartner(assigningBooking.id, p.id, String(p.name || "Partner"))}
+                            style={{
+                              background: matchesCategory ? "#0284c7" : "#475569",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: "8px",
+                              padding: "7px 14px",
+                              fontSize: "12px",
+                              fontWeight: 700,
+                              cursor: assignLoading ? "not-allowed" : "pointer",
+                              whiteSpace: "nowrap",
+                              boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)"
+                            }}
+                          >
+                            {assignLoading ? "Assigning..." : assigningBooking.partnerId ? "Reassign" : "Assign Partner"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Bottom Modal Footer */}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", borderTop: "1px solid #e2e8f0", paddingTop: "14px" }}>
+              <button
+                type="button"
+                disabled={assignLoading}
+                onClick={() => setAssigningBooking(null)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  border: "1px solid #cbd5e1",
+                  background: "#fff",
+                  color: "#475569",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  cursor: assignLoading ? "not-allowed" : "pointer"
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal: Book Service for Customer & Directly Assign Worker */}
       {showBookModal && (
@@ -1247,7 +1766,7 @@ function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; 
       const d = (snap.data() || {}) as Partial<Settings>;
       setRaw((snap.data() || {}) as Record<string, unknown>);
       setS({
-        upiId: d.upiId || "",
+        upiId: d.upiId?.trim() ? d.upiId : "dutypein@ybl",
         upiName: d.upiName || "DutyPe",
         bookingFee: d.bookingFee ?? 19,
         inspectionFee: d.inspectionFee ?? 49,
@@ -1346,7 +1865,7 @@ function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; 
       <p>Partners pay their credit top-ups to this UPI ID. Fees apply to new bookings.</p>
       <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 10, alignItems: "center", maxWidth: 640 }}>
         <label>UPI ID for top-ups</label>
-        <input value={s.upiId} onChange={(e) => setS({ ...s, upiId: e.target.value.trim() })} placeholder="yourname@okaxis" />
+        <input value={s.upiId} onChange={(e) => setS({ ...s, upiId: e.target.value.trim() })} placeholder="dutypein@ybl" />
         <label>UPI name</label>
         <input value={s.upiName} onChange={(e) => setS({ ...s, upiName: e.target.value })} />
         <label>Customer booking fee (₹)</label>{num("bookingFee")}

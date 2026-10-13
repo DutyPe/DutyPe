@@ -341,11 +341,21 @@ fun MandatoryWorkerProfileSetupScreen(
                     )
                 }
 
+                val savedPhoto = profileCompletionViewModel.getUserPhotoUrl()
+                if (!savedPhoto.isNullOrBlank() && !workerProfileData.containsKey(WorkerProfiles.PHOTO_URL)) {
+                    workerProfileData[WorkerProfiles.PHOTO_URL] = savedPhoto
+                }
+                val savedEmail = profileCompletionViewModel.getUserEmail()
+                if (!savedEmail.isNullOrBlank() && !workerProfileData.containsKey(WorkerProfiles.EMAIL)) {
+                    workerProfileData[WorkerProfiles.EMAIL] = savedEmail
+                }
+
                 // Save to Firestore
                 profileCompletionViewModel.saveWorker(workerProfileData).getOrThrow()
 
                 // Save to local storage
                 profileCompletionViewModel.saveUserInfoToLocalStorage(
+                    email = savedEmail.orEmpty(),
                     name = fullNameInput.trim(),
                     role = UserRole.WORKER
                 )

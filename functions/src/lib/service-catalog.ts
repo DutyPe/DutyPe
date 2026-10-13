@@ -14,6 +14,17 @@ export type CategoryId =
   | "AC" | "CLEANING" | "ELECTRICIAN" | "PLUMBER" | "APPLIANCE" | "CARPENTER" | "PAINTER" | "HOME_HELP" | "VEHICLE"
   | "BEAUTICIAN" | "MEHENDI" | "COOK_MAID" | "BABYSITTER" | "ELDERLY_CARE" | "TAILORING";
 
+export const ACTIVE_CUSTOMER_CATEGORY_IDS = new Set<CategoryId>([
+  "CLEANING",
+  "ELECTRICIAN",
+  "PLUMBER",
+  "CARPENTER",
+  "PAINTER",
+  "HOME_HELP",
+  "COOK_MAID",
+  "BABYSITTER",
+]);
+
 /**
  * BASIC work (cleaning, helpers, car wash) needs care and honesty, not training: any verified
  * worker can do it. SKILLED work (wiring, AC, plumbing, appliances, carpentry, painting) is risky
@@ -218,14 +229,14 @@ export const DEFAULT_SERVICES: ServiceItem[] = [
     { provide: ["BROOM", "MOP", "CLEANER", "WATER"], bring: ["GLOVES"] }),
   s("clean_utensils", "CLEANING", "Utensils washing (1 hr)", "పాత్రలు కడగడం (1 గంట)", "बर्तन धोना (1 घंटा)", 149, 60,
     "Washing and arranging utensils, one helper for 1 hour.", { provide: ["DISH_SOAP", "WATER"], bring: ["GLOVES"] }),
-  s("clean_bathroom", "CLEANING", "Bathroom deep cleaning", "బాత్రూమ్ డీప్ క్లీనింగ్", "बाथरूम डीप क्लीनिंग", 399, 60,
-    "One bathroom: tiles, taps, toilet and stain removal with machine."),
-  s("clean_kitchen", "CLEANING", "Kitchen deep cleaning", "కిచెన్ డీప్ క్లీనింగ్", "किचन डीप क्लीनिंग", 1199, 150,
-    "Slab, tiles, sink, chimney outside and cabinets outside."),
-  s("clean_1bhk", "CLEANING", "Full home deep cleaning (1BHK)", "ఇల్లు మొత్తం డీప్ క్లీనింగ్ (1BHK)", "पूरे घर की डीप क्लीनिंग (1BHK)", 2799, 300,
-    "All rooms, kitchen and bathroom, floors scrubbed, fans and windows."),
-  s("clean_2bhk", "CLEANING", "Full home deep cleaning (2BHK)", "ఇల్లు మొత్తం డీప్ క్లీనింగ్ (2BHK)", "पूरे घर की डीप क्लीनिंग (2BHK)", 3699, 420,
-    "All rooms, kitchen and bathrooms, floors scrubbed, fans and windows."),
+  s("clean_bathroom", "CLEANING", "Bathroom deep cleaning", "బాత్రూమ్ డీప్ క్లీనింగ్", "बाथरूम डीप क्लीनिंग", 349, 60,
+    "One bathroom: tiles, taps, toilet and stain removal with machine.", { originalPrice: 499 }),
+  s("clean_kitchen", "CLEANING", "Kitchen deep cleaning", "కిచెన్ డీప్ క్లీనింగ్", "किचन डीप क्लीनिंग", 499, 90,
+    "Slab, tiles, sink, chimney outside and cabinets outside.", { originalPrice: 799 }),
+  s("clean_1bhk", "CLEANING", "Full home deep cleaning (1BHK)", "ఇల్లు మొత్తం డీప్ క్లీనింగ్ (1BHK)", "पूरे घर की डीप क्लीनिंग (1BHK)", 899, 240,
+    "All rooms, kitchen and bathroom, floors scrubbed, fans and windows.", { originalPrice: 1299 }),
+  s("clean_2bhk", "CLEANING", "Full home deep cleaning (2BHK)", "ఇల్లు మొత్తం డీప్ క్లీనింగ్ (2BHK)", "पूరే घर की डीप क्लीनिंग (2BHK)", 1299, 300,
+    "All rooms, kitchen and bathrooms, floors scrubbed, fans and windows.", { originalPrice: 1799 }),
   s("clean_sofa", "CLEANING", "Sofa cleaning (5 seats)", "సోఫా క్లీనింగ్ (5 సీట్లు)", "सोफ़ा सफ़ाई (5 सीट)", 649, 90,
     "Shampoo and vacuum cleaning of fabric sofa.", { provide: ["POWER", "WATER"], bring: ["VACUUM", "GLOVES"] }),
   s("clean_fans", "CLEANING", "Fans, cobwebs & windows (2 hrs)", "ఫ్యాన్లు, బూజు, కిటికీలు (2 గంటలు)", "पंखे, जाले और खिड़कियाँ (2 घंटे)", 349, 120,
@@ -241,12 +252,12 @@ export const DEFAULT_SERVICES: ServiceItem[] = [
   s("clean_wardrobe", "CLEANING", "Complete wardrobe organization (2 hrs)", "వార్డ్‌రోబ్ ఆర్గనైజేషన్ (2 గంటలు)", "वार्डरोब संगठन (2 घंटे)", 349, 120,
     "Folding, categorizing and neat organizing of one master wardrobe.", { provide: ["CLEAR_SPACE"], bring: ["GLOVES"] }),
   // AC (SKILLED)
-  s("ac_service", "AC", "AC service (foam-jet)", "AC సర్వీస్ (ఫోమ్-జెట్)", "AC सर्विस (फोम-जेट)", 449, 60,
-    "Filter, coil and drain cleaning, cooling check. Split or window, one AC."),
+  s("ac_service", "AC", "Split AC Deep Jet Service", "స్ప్లిట్ AC డీప్ జెట్ సర్వీస్", "स्प्लिट AC डीप जेट सर्विस", 399, 45,
+    "Filter, coil and drain cleaning, cooling check. Split or window, one AC.", { originalPrice: 599 }),
   s("ac_deep", "AC", "AC deep cleaning (indoor + outdoor)", "AC డీప్ క్లీనింగ్ (ఇండోర్ + అవుట్‌డోర్)", "AC डीप क्लीनिंग (इनडोर + आउटडोर)", 899, 90,
     "Indoor coil, blower and outdoor unit jet wash. One split AC."),
-  s("ac_repair_visit", "AC", "AC not cooling / repair visit", "AC కూలింగ్ లేదు / రిపేర్ విజిట్", "AC ठंडा नहीं / रिपेयर विज़िट", 249, 45,
-    "Technician finds the problem and tells the repair price before starting.", VISIT),
+  s("ac_repair_visit", "AC", "AC Repair & Diagnosis Visit", "AC రిపేర్ & సమస్య పరిశీలన", "AC रिपेयर और जांच विज़िट", 149, 30,
+    "Technician finds the problem and tells the repair price before starting.", { ...VISIT, originalPrice: 199 }),
   s("ac_gas", "AC", "AC gas refill", "AC గ్యాస్ రీఫిల్", "AC गैस रिफिल", 2199, 90,
     "Leak check and gas top-up for one AC.", { bring: ["TOOLKIT", "GAS_KIT"] }),
   s("ac_install", "AC", "Split AC installation", "స్ప్లిట్ AC ఇన్‌స్టలేషన్", "स्प्लिट AC इंस्टॉलेशन", 1299, 120,
@@ -255,10 +266,10 @@ export const DEFAULT_SERVICES: ServiceItem[] = [
     "Safe removal with gas pump-down."),
 
   // Electrician (SKILLED)
-  s("elec_fan", "ELECTRICIAN", "Fan installation / repair", "ఫ్యాన్ ఫిట్టింగ్ / రిపేర్", "पंखा फिटिंग / रिपेयर", 149, 30,
-    "One ceiling or wall fan. Parts extra."),
+  s("elec_fan", "ELECTRICIAN", "Fan installation / repair", "ఫ్యాన్ ఫిట్టింగ్ / రిపేర్", "पंखा फिटिंग / रिपेयर", 129, 30,
+    "One ceiling or wall fan. Parts extra.", { originalPrice: 199 }),
   s("elec_switch", "ELECTRICIAN", "Switch / socket repair", "స్విచ్ / సాకెట్ రిపేర్", "स्विच / सॉकेट रिपेयर", 99, 20,
-    "Up to 2 switches or sockets. Parts extra."),
+    "Up to 2 switches or sockets. Parts extra.", { originalPrice: 149 }),
   s("elec_light", "ELECTRICIAN", "Light / tube fitting", "లైట్ / ట్యూబ్ ఫిట్టింగ్", "लाइट / ट्यूब फिटिंग", 99, 20,
     "Up to 2 lights. Parts extra."),
   s("elec_decor", "ELECTRICIAN", "Decorative light / chandelier fitting", "డెకరేటివ్ లైట్ / షాండ్లియర్", "डेकोरेटिव लाइट / झूमर", 299, 45,
@@ -275,12 +286,14 @@ export const DEFAULT_SERVICES: ServiceItem[] = [
     "Electrician checks the problem and tells the price before starting.", VISIT),
 
   // Plumber (SKILLED)
-  s("plumb_tap", "PLUMBER", "Tap / mixer fitting", "ట్యాప్ / మిక్సర్ ఫిట్టింగ్", "नल / मिक्सर फिटिंग", 129, 30,
-    "One tap or mixer. Parts extra."),
+  s("plumb_visit", "PLUMBER", "Plumber inspection visit", "ప్లంబర్ విజిట్ (సమస్య పరిశీలన)", "प्लंबर विज़िट (जांच)", 99, 30,
+    "Doorstep plumbing inspection, root cause diagnosis and direct price quote.", { ...VISIT, originalPrice: 149 }),
+  s("plumb_tap", "PLUMBER", "Tap / mixer fitting", "ట్యాప్ / మిక్సర్ ఫిట్టింగ్", "नल / मिक्सर फिटिंग", 99, 30,
+    "One tap or mixer. Parts extra.", { originalPrice: 149 }),
   s("plumb_leak", "PLUMBER", "Leakage repair", "లీకేజ్ రిపేర్", "लीकेज रिपेयर", 199, 45,
     "Pipe, tap or tank leak. Parts extra."),
-  s("plumb_block", "PLUMBER", "Drain / toilet blockage", "డ్రెయిన్ / టాయిలెట్ బ్లాకేజ్", "नाली / टॉयलेट ब्लॉकेज", 299, 45,
-    "Clear one blocked drain, sink or toilet."),
+  s("plumb_block", "PLUMBER", "Drain / toilet blockage", "డ్రెయిన్ / టాయిలెట్ బ్లాకేజ్", "नाली / टॉयलेट ब्लॉकेज", 229, 45,
+    "Clear one blocked drain, sink or toilet.", { originalPrice: 349 }),
   s("plumb_flush", "PLUMBER", "Flush tank repair", "ఫ్లష్ ట్యాంక్ రిపేర్", "फ्लश टैंक रिपेयर", 199, 40,
     "Fix one flush tank (parts extra)."),
   s("plumb_basin", "PLUMBER", "Wash basin / sink installation", "వాష్ బేసిన్ / సింక్ ఫిట్టింగ్", "वॉश बेसिन / सिंक फिटिंग", 399, 60,
@@ -295,8 +308,8 @@ export const DEFAULT_SERVICES: ServiceItem[] = [
     "Cleaning, TDS check and pre-filter change. Other filters extra."),
   s("ro_install", "APPLIANCE", "RO installation / uninstallation", "RO ఇన్‌స్టలేషన్ / అన్‌ఇన్‌స్టలేషన్", "RO इंस्टॉलेशन / अनइंस्टॉलेशन", 349, 45,
     "Fitting or removal of one purifier.", { bring: ["TOOLKIT", "DRILL"] }),
-  s("wm_repair", "APPLIANCE", "Washing machine repair visit", "వాషింగ్ మెషిన్ రిపేర్ విజిట్", "वॉशिंग मशीन रिपेयर विज़िट", 249, 45,
-    "Technician finds the problem and tells the repair price before starting.", VISIT),
+  s("wm_repair", "APPLIANCE", "Washing machine repair visit", "వాషింగ్ మెషిన్ రిపేర్ విజిట్", "वॉशिंग मशीन रिपेयर विज़िट", 149, 45,
+    "Technician finds the problem and tells the repair price before starting.", { ...VISIT, originalPrice: 199 }),
   s("fridge_repair", "APPLIANCE", "Fridge repair visit", "ఫ్రిజ్ రిపేర్ విజిట్", "फ्रिज रिपेयर विज़िट", 249, 45,
     "Technician finds the problem and tells the repair price before starting.", VISIT),
   s("tv_repair", "APPLIANCE", "TV repair visit", "TV రిపేర్ విజిట్", "TV रिपेयर विज़िट", 249, 45,
@@ -317,12 +330,12 @@ export const DEFAULT_SERVICES: ServiceItem[] = [
     "Up to 2 rods or brackets on the customer's material."),
   s("carp_assembly", "CARPENTER", "Bed / furniture assembly", "బెడ్ / ఫర్నిచర్ అసెంబ్లీ", "बेड / फ़र्नीचर असेंबली", 449, 90,
     "Assembly of one bed, wardrobe or table."),
-  s("carp_visit", "CARPENTER", "Carpenter visit (repairs)", "కార్పెంటర్ విజిట్ (రిపేర్లు)", "बढ़ई विज़िट (रिपेयर)", 99, 30,
-    "Carpenter checks the work and tells the price before starting.", VISIT),
+  s("carp_visit", "CARPENTER", "Carpenter visit (repairs)", "కార్పెంటర్ విజిట్ (రిపేర్లు)", "बढ़ई विज़िट (रिपेयर)", 149, 30,
+    "Carpenter checks the work and tells the price before starting.", { ...VISIT, originalPrice: 199 }),
 
   // Painting (SKILLED)
-  s("paint_touchup", "PAINTER", "Wall touch-up painting (1 wall, labour)", "గోడ టచ్-అప్ పెయింటింగ్ (1 గోడ, కూలీ)", "दीवार टच-अप पेंटिंग (1 दीवार, मज़दूरी)", 699, 180,
-    "Putty patches and two coats on one wall. Paint extra."),
+  s("paint_touchup", "PAINTER", "Wall touch-up painting (1 wall, labour)", "గోడ టచ్-అప్ పెయింటింగ్ (1 గోడ, కూలీ)", "दीवार टच-अप पेंटिंग (1 दीवार, मज़दूरी)", 599, 180,
+    "Putty patches and two coats on one wall. Paint extra.", { originalPrice: 799 }),
   s("paint_visit", "PAINTER", "Painting / waterproofing quote visit", "పెయింటింగ్ / వాటర్‌ప్రూఫింగ్ కొటేషన్ విజిట్", "पेंटिंग / वॉटरप्रूफ़िंग कोटेशन विज़िट", 99, 30,
     "Painter measures the area and gives a written price before work.", { ...VISIT, provide: ["CLEAR_SPACE"], bring: ["TOOLKIT"] }),
 
@@ -341,6 +354,29 @@ export const DEFAULT_SERVICES: ServiceItem[] = [
     "One verified helper for up to 2 hours of home tasks and organizing.", { provide: ["CLEAR_SPACE"], bring: ["GLOVES"] }),
   s("help_laundry", "HOME_HELP", "Laundry & clothes ironing help (1.5 hrs)", "లాండ్రీ & బట్టల ఇస్త్రీ సహాయం (1.5 గంటలు)", "कपड़े धोना और इस्त्री मदद (1.5 घंटे)", 249, 90,
     "Help with washing machine loads, hanging clothes to dry, and neat ironing.", { provide: ["POWER", "WATER"], bring: ["GLOVES"] }),
+
+  // Cook & Maid (BASIC)
+  s("cook_meal", "COOK_MAID", "Cook for one meal (up to 6 people)", "ఒక పూట వంట (6 మంది వరకు)", "एक समय का खाना (6 लोगों तक)", 299, 120,
+    "Home-style fresh cooking in your kitchen. Vegetables prepped, dishes made, kitchen tidied.",
+    { provide: ["GROCERIES", "DISH_SOAP"], bring: ["GLOVES"], originalPrice: 399 }),
+  s("maid_help", "COOK_MAID", "Maid house help & utensils (2 hrs)", "మేడ్ ఇంటి పని & గిన్నెలు (2 గంటలు)", "घरेलू काम और बर्तन (2 घंटे)", 249, 120,
+    "Utensils washing, kitchen counter cleaning, dusting and light sweeping.",
+    { provide: ["DISH_SOAP", "BROOM", "WATER"], bring: ["GLOVES"], originalPrice: 349 }),
+  s("cook_maid_combo", "COOK_MAID", "Cook & maid combo service (3 hrs)", "వంటమనిషి & మేడ్ కాంబో సర్వీస్ (3 గంటలు)", "कुक और मेड कॉम्बो सर्विस (3 घंटे)", 549, 180,
+    "One meal cooking plus full utensils washing and kitchen cleanup.",
+    { provide: ["GROCERIES", "DISH_SOAP", "WATER"], bring: ["GLOVES"], originalPrice: 799 }),
+
+  // Babysitting & Child Care (BASIC)
+  s("baby_care_2hr", "BABYSITTER", "Babysitting & child care (2 hrs)", "పిల్లల సంరక్షణ & బేబీ సిట్టింగ్ (2 గంటలు)", "बच्चों की देखभाल (2 घंटे)", 299, 120,
+    "Attentive care, play assistance, feeding help and safe supervision by verified caregiver.",
+    { originalPrice: 449 }),
+  s("baby_care_4hr", "BABYSITTER", "Babysitter half-day care (4 hrs)", "హాఫ్ డే బేబీ సిట్టింగ్ (4 గంటలు)", "हाफ डे बेबीसिटिंग (4 घंटे)", 549, 240,
+    "Four hours of patient care, reading, engaging activities and nap supervision.",
+    { originalPrice: 799 }),
+  s("baby_care_full", "BABYSITTER", "Full day nanny & child support (8 hrs)", "ఫుల్ డే బేబీ సిట్టర్ కేర్ (8 గంటలు)", "फुल डे नैनी और चाइल्ड केयर (8 घंटे)", 999, 480,
+    "Full day child care assistance, feeding, playtime and safety monitoring.",
+    { originalPrice: 1499 }),
+
   // Car & bike (BASIC)
   s("car_wash", "VEHICLE", "Car wash at home (outside + inside vacuum)", "ఇంటి వద్ద కార్ వాష్ (బయట + లోపల వాక్యూమ్)", "घर पर कार वॉश (बाहर + अंदर वैक्यूम)", 349, 60,
     "Foam wash, wipe and interior vacuum of one car."),
@@ -350,19 +386,19 @@ export const DEFAULT_SERVICES: ServiceItem[] = [
 
 export const DEFAULT_CONFIG: ServicesConfig = {
   bookingFee: 19,
-  inspectionFee: 49,
+  inspectionFee: 19,
   commissionPct: 0,
-  upiId: "",
+  upiId: "dutypein@ybl",
   upiName: "DutyPe",
   minTopup: 200,
   city: "Khammam",
   districtIds: [509],
   cityLat: 17.2473,
   cityLng: 80.1514,
-  serviceRadiusKm: 25,
+  serviceRadiusKm: 15,
   partnerFee: 19,
   partnerFirstJobFree: true,
-  firstBookingFeeFree: true,
+  firstBookingFeeFree: false,
   planMembersFeeFree: true,
   coupons: [],
   categories: CATEGORIES,
@@ -427,12 +463,22 @@ export function mergeConfig(raw: unknown): ServicesConfig {
     const ov = overrides.get(d.id);
     overrides.delete(d.id);
     if (!ov) return d;
-    const price = Number(ov.price);
-    const originalPrice = Number(ov.originalPrice);
+    let price = Number(ov.price);
+    let originalPrice = Number(ov.originalPrice);
+
+    // Normalize legacy prices that were saved from old pre-discount defaults in app_config/services
+    if (d.id === "ac_repair_visit" && price === 249) { price = 149; originalPrice = 199; }
+    if (d.id === "ac_service" && price === 449) { price = 399; originalPrice = 599; }
+    if (d.id === "clean_bathroom" && price === 399) { price = 299; originalPrice = 449; }
+    if (d.id === "clean_kitchen" && price === 1199) { price = 499; originalPrice = 799; }
+    if (d.id === "elec_fan" && price === 149) { price = 129; originalPrice = 199; }
+    if (d.id === "wm_repair" && price === 249) { price = 149; originalPrice = 199; }
+    if (d.id === "plumb_tap" && price === 129) { price = 99; originalPrice = 149; }
+
     return {
       ...d,
       ...(Number.isFinite(price) && price >= 0 && price <= 100_000 ? { price: Math.round(price) } : {}),
-      ...(Number.isFinite(originalPrice) && originalPrice > 0 ? { originalPrice: Math.round(originalPrice) } : (ov.originalPrice === 0 ? { originalPrice: undefined } : {})),
+      ...(Number.isFinite(originalPrice) && originalPrice > 0 ? { originalPrice: Math.round(originalPrice) } : (d.originalPrice ? { originalPrice: d.originalPrice } : {})),
       ...(typeof ov.name === "string" && ov.name.trim() ? { name: ov.name.trim() } : {}),
       ...(typeof ov.includes === "string" ? { includes: ov.includes } : {}),
       ...(typeof ov.imageUrl === "string" && ov.imageUrl.trim() ? { imageUrl: ov.imageUrl.trim() } : {}),
@@ -459,7 +505,7 @@ export function mergeConfig(raw: unknown): ServicesConfig {
     bookingFee: num("bookingFee", 0, 500),
     inspectionFee: num("inspectionFee", 0, 500),
     commissionPct: num("commissionPct", 0, 50),
-    upiId: str("upiId"),
+    upiId: (str("upiId") && !str("upiId").toLowerCase().includes("icici")) ? str("upiId") : "dutypein@ybl",
     upiName: str("upiName") || "DutyPe",
     minTopup: num("minTopup", 1, 100_000),
     city: str("city") || DEFAULT_CONFIG.city,
@@ -502,19 +548,41 @@ function cleanCoupon(raw: unknown): Coupon | null {
   };
 }
 
+export const SERVICE_ID_ALIASES: Record<string, string> = {
+  bathroom_clean: "clean_bathroom",
+  kitchen_clean: "clean_kitchen",
+  fan_install: "elec_fan",
+  switchboard_repair: "elec_switch",
+  tap_leak_fix: "plumb_tap",
+  washing_machine_repair: "wm_repair",
+  plumb_visit: "plumb_visit",
+  cook_one_meal: "cook_meal",
+  maid_house_help: "maid_help",
+  baby_sitting_2hr: "baby_care_2hr",
+  baby_sitting_4hr: "baby_care_4hr",
+  baby_sitting_day: "baby_care_full",
+};
+
 export function findService(config: ServicesConfig, serviceId: string): ServiceItem | null {
   const sid = String(serviceId || "").trim().toLowerCase();
-  return config.services.find((x) => x.id.toLowerCase() === sid && x.active !== false) ?? null;
+  const targetId = SERVICE_ID_ALIASES[sid] || sid;
+  return config.services.find((x) => x.id.toLowerCase() === targetId && x.active !== false) ??
+         config.services.find((x) => x.id.toLowerCase() === sid && x.active !== false) ?? null;
+}
+
+export function platformFeeFor(price: number): number {
+  if (price <= 149) return 9;
+  return 19;
 }
 
 export function bookingFeeFor(config: ServicesConfig, service: ServiceItem): number {
-  return service.inspection ? config.inspectionFee : config.bookingFee;
+  return platformFeeFor(service.price);
 }
 
 /** Paise DutyPe takes from the partner for a job: booking fee + commission on (price + extras). */
 export function platformTakePaise(price: number, extras: number, bookingFee: number, commissionPct: number): number {
-  const commission = Math.round(((price + extras) * 100 * commissionPct) / 100);
-  return bookingFee * 100 + commission;
+  const fee = bookingFee > 0 ? bookingFee : platformFeeFor(price);
+  return fee * 100;
 }
 
 /** 4-digit start code the customer tells the partner on arrival. */
@@ -542,7 +610,8 @@ export interface Quote {
 
 /** Most DutyPe can give away on a booking: booking fee + the partner fee + commission on the price. */
 export function maxDiscount(config: ServicesConfig, service: ServiceItem): number {
-  return bookingFeeFor(config, service) + config.partnerFee + Math.floor((service.price * config.commissionPct) / 100);
+  const base = bookingFeeFor(config, service) + config.partnerFee + Math.floor((service.price * config.commissionPct) / 100);
+  return Math.min(service.price, base);
 }
 
 /** Why a coupon cannot be used here, or null when it can. */
@@ -602,7 +671,7 @@ export function quote(
   discount = Math.min(discount, cap);
   return {
     price: service.price, bookingFee, discount, discountLabel, couponCode: code,
-    total: service.price + bookingFee - discount, ...(couponError ? { couponError } : {}),
+    total: Math.max(0, service.price - discount), ...(couponError ? { couponError } : {}),
     ...(couponNote ? { couponNote } : {}),
   };
 }
@@ -624,6 +693,7 @@ export function partnerFeeFor(
 export function takePaise(
   price: number, extras: number, bookingFee: number, discount: number, partnerFee: number, commissionPct: number,
 ): number {
+  const fee = bookingFee > 0 ? bookingFee : platformFeeFor(price);
   const commission = Math.round(((price + extras) * 100 * commissionPct) / 100);
-  return Math.max(0, (bookingFee - discount + partnerFee) * 100 + commission);
+  return Math.max(0, (fee - discount + partnerFee) * 100 + commission);
 }

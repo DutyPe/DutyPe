@@ -169,4 +169,7 @@ object Routes {
     fun servicesCategoryRoute(categoryId: String): String = "services/category/$categoryId"
     fun partnerOfferRoute(bookingId: String): String = "partner/offer/$bookingId"
     fun partnerJobRoute(bookingId: String): String = "partner/job/$bookingId"
+
+    const val PROMO_SHOWCASE = "promo_showcase/{showcaseId}"
+    fun promoShowcaseRoute(showcaseId: String): String = "promo_showcase/${android.net.Uri.encode(showcaseId)}"
 }

@@ -55,6 +55,12 @@ class ProfileCompletionViewModel @Inject constructor(
     suspend fun saveUserInfoToLocalStorage(name: String, role: UserRole) =
         profileSetupStateManager.saveUserInfo("", name, role)
 
+    suspend fun saveUserPhotoUrl(photoUrl: String) =
+        profileSetupStateManager.saveUserPhotoUrl(photoUrl)
+
+    suspend fun getUserPhotoUrl() =
+        profileSetupStateManager.getUserPhotoUrl()
+
     suspend fun hasProfileSetupBeenShown(role: UserRole) = profileSetupStateManager.hasProfileSetupBeenShown(role)
 
     suspend fun isProfileComplete(role: UserRole) = profileSetupStateManager.isProfileComplete(role)

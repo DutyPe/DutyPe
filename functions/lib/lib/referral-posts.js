@@ -10,7 +10,7 @@ exports.refundReferralPost = refundReferralPost;
  */
 const admin = require("firebase-admin");
 const schema_1 = require("../schema");
-exports.REFERRAL_POST_VALID_MS = 24 * 60 * 60 * 1000;
+exports.REFERRAL_POST_VALID_MS = 30 * 24 * 60 * 60 * 1000;
 /** Free referral posts the employer can use right now. */
 function referralPostsLeft(employer, nowMs) {
     if (!employer)

@@ -39,7 +39,7 @@ type Lookup = {
   };
   ledger: Array<{ id: string; type: string; amountPaise: number; balanceAfterPaise: number; createdAt: string | null }>;
   referredBy: null | { referrerUid: string; code: string; status: string };
-  referrals: Array<{ refereeUid: string; status: string; createdAt: string | null }>;
+  referrals: Array<{ refereeUid: string; refereeName?: string; status: string; createdAt: string | null }>;
   withdrawals: Array<{ id: string; amountPaise: number; status: string; createdAt: string | null }>;
 };
 
@@ -312,7 +312,17 @@ export function AdminReferralsClient() {
                 </tbody>
               </table>
               <h4>People they referred ({lookup.referrals.length})</h4>
-              <ul>{lookup.referrals.map((r) => <li key={r.refereeUid}><code>{r.refereeUid}</code> — {r.status} · {when(r.createdAt)}</li>)}</ul>
+              <ul style={{ paddingLeft: "1.2rem", display: "flex", flexDirection: "column", gap: "6px" }}>
+                {lookup.referrals.map((r) => (
+                  <li key={r.refereeUid}>
+                    <strong>{r.refereeName || r.refereeUid}</strong> —{" "}
+                    <span className={`status-pill ${r.status === "COMPLETED" ? "success" : r.status === "PENDING" ? "warning" : "danger"}`} style={{ fontSize: "0.75rem", padding: "1px 6px" }}>
+                      {r.status}
+                    </span>{" "}
+                    · {when(r.createdAt)}
+                  </li>
+                ))}
+              </ul>
             </div>
           ) : null}
         </section>

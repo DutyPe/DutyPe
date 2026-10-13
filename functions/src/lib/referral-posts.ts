@@ -5,7 +5,7 @@
 import * as admin from "firebase-admin";
 import { EmployerProfiles } from "../schema";
 
-export const REFERRAL_POST_VALID_MS = 24 * 60 * 60 * 1000;
+export const REFERRAL_POST_VALID_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** Free referral posts the employer can use right now. */
 export function referralPostsLeft(employer: admin.firestore.DocumentData | undefined, nowMs: number): number {

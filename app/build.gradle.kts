@@ -53,8 +53,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 827
-        versionName = "4.9"
+        versionCode = 830
+        versionName = "5.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -363,6 +363,10 @@ dependencies {
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("androidx.compose.material:material-icons-extended")
+
+    // Truecaller one-tap login (official SDK). 3.2.1 is built for Kotlin 1.9/2.0 metadata; 3.3.0 requires Kotlin 2.1+.
+    implementation("com.truecaller.android.sdk:truecaller-sdk:3.2.1")
+    implementation("androidx.fragment:fragment-ktx:1.8.5")
 
     // P1 FIX: Image loading with WebP support (30% smaller images)
     implementation("io.coil-kt:coil-compose:2.4.0")

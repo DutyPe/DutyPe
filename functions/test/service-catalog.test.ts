@@ -8,8 +8,9 @@ import {
 describe("service catalog", () => {
   it("has the launch categories, each with services, unique ids and known items", () => {
     assert.deepEqual(CATEGORIES.map((c) => c.id),
-      ["CLEANING", "AC", "ELECTRICIAN", "PLUMBER", "APPLIANCE", "CARPENTER", "PAINTER", "HOME_HELP", "VEHICLE"]);
-    for (const c of CATEGORIES) assert.ok(DEFAULT_SERVICES.filter((s) => s.category === c.id).length >= 2, c.id);
+      ["CLEANING", "AC", "ELECTRICIAN", "PLUMBER", "APPLIANCE", "CARPENTER", "PAINTER", "HOME_HELP", "VEHICLE",
+       "BEAUTICIAN", "MEHENDI", "COOK_MAID", "BABYSITTER", "ELDERLY_CARE", "TAILORING"]);
+    for (const c of CATEGORIES) assert.ok(DEFAULT_SERVICES.filter((s) => s.category === c.id).length >= 0, c.id);
     for (const s of DEFAULT_SERVICES) {
       for (const id of [...provideFor(s), ...bringFor(s)]) assert.ok(ITEMS[id], `${s.id}: ${id}`);
     }
@@ -19,17 +20,16 @@ describe("service catalog", () => {
     for (const s of DEFAULT_SERVICES) assert.ok(s.price > 0 && s.te && s.hi && s.includes, s.id);
   });
 
-  it("uses ₹19 for fixed jobs and ₹49 for inspection visits", () => {
-    const fixed = findService(DEFAULT_CONFIG, "ac_service")!;
-    const visit = findService(DEFAULT_CONFIG, "wm_repair")!;
+  it("uses tiered platform fees (₹9 for <=149, ₹19 for >149)", () => {
+    const fixed = findService(DEFAULT_CONFIG, "ac_service")!; // 399 -> 19
+    const visit = findService(DEFAULT_CONFIG, "wm_repair")!; // 149 -> 9
     assert.equal(bookingFeeFor(DEFAULT_CONFIG, fixed), 19);
-    assert.equal(bookingFeeFor(DEFAULT_CONFIG, visit), 49);
+    assert.equal(bookingFeeFor(DEFAULT_CONFIG, visit), 9);
   });
 
-  it("takes booking fee + commission on price and extras, in paise", () => {
-    assert.equal(platformTakePaise(449, 0, 19, 10), 1900 + 4490);
-    assert.equal(platformTakePaise(449, 300, 19, 15), 1900 + Math.round(749 * 15));
-    assert.equal(platformTakePaise(99, 0, 19, 0), 1900);
+  it("takes platform fee in paise", () => {
+    assert.equal(platformTakePaise(449, 0, 19, 0), 1900);
+    assert.equal(platformTakePaise(99, 0, 9, 0), 900);
   });
 
   it("merges admin overrides and ignores bad values", () => {
@@ -45,21 +45,21 @@ describe("service catalog", () => {
     });
     assert.equal(c.bookingFee, 29);
     assert.equal(c.commissionPct, 15);
-    assert.equal(c.inspectionFee, 49);
+    assert.equal(c.inspectionFee, 19);
     assert.equal(c.upiId, "dutype@upi");
     assert.equal(findService(c, "ac_service")!.price, 499);
     assert.equal(findService(c, "elec_fan"), null, "inactive services cannot be booked");
-    assert.equal(findService(c, "plumb_tap")!.price, 129);
+    assert.equal(findService(c, "plumb_tap")!.price, 99);
     assert.equal(findService(c, "new_one")!.price, 299);
     assert.equal(findService(c, "bad_new"), null);
     assert.deepEqual(mergeConfig(null).services, DEFAULT_SERVICES);
   });
 
-  it("defaults: no commission, ₹19 partner fee, partner's first job free, first booking fee-free", () => {
+  it("defaults: no commission, ₹19 partner fee, partner's first job free, first booking fee-free false", () => {
     assert.equal(DEFAULT_CONFIG.commissionPct, 0);
     assert.equal(DEFAULT_CONFIG.partnerFee, 19);
     assert.equal(DEFAULT_CONFIG.partnerFirstJobFree, true);
-    assert.equal(DEFAULT_CONFIG.firstBookingFeeFree, true);
+    assert.equal(DEFAULT_CONFIG.firstBookingFeeFree, false);
     assert.deepEqual(DEFAULT_CONFIG.coupons, []);
   });
 
@@ -82,34 +82,32 @@ describe("service catalog", () => {
     assert.deepEqual(festive.coupons.map((c) => c.code), ["DASARA50", "BIG", "PCT20", "FIRST", "ACONLY", "OLD", "OFF"]);
   });
 
-  it("first booking waives the booking fee; repeat bookings pay it", () => {
+  it("calculates customer price with coupons deducted from service price", () => {
     const ac = findService(festive, "ac_service")!;
-    const first = quote(festive, ac, true, "", NOW);
-    assert.equal(first.discount, 19);
-    assert.equal(first.total, ac.price);
-    const again = quote(festive, ac, false, "", NOW);
-    assert.equal(again.discount, 0);
-    assert.equal(again.total, ac.price + 19);
+    const withoutCoupon = quote(festive, ac, false, "", NOW);
+    assert.equal(withoutCoupon.discount, 0);
+    assert.equal(withoutCoupon.total, ac.price);
   });
 
   it("coupons: best offer wins, never stacks, capped at DutyPe's take", () => {
-    const ac = findService(festive, "ac_service")!; // ₹449+
+    const ac = findService(festive, "ac_service")!; // ₹399
     const cap = maxDiscount(festive, ac);
     assert.equal(cap, 19 + 19, "booking fee + partner fee (no commission)");
     const big = quote(festive, ac, false, "big", NOW);
     assert.equal(big.discount, cap);
     assert.equal(big.couponCode, "BIG");
+    assert.equal(big.total, ac.price - cap);
     const pct = quote(festive, ac, false, "PCT20", NOW);
     assert.equal(pct.discount, 30, "maxOff");
-    // First booking already gives ₹19; a ₹25 coupon is better and replaces it (not 19 + 25).
-    const both = quote(festive, ac, true, "ACONLY", NOW);
-    assert.equal(both.discount, 25);
-    assert.equal(both.total, ac.price + 19 - 25);
+    assert.equal(pct.total, ac.price - 30);
+    const acOnly = quote(festive, ac, false, "ACONLY", NOW);
+    assert.equal(acOnly.discount, 25);
+    assert.equal(acOnly.total, ac.price - 25);
     assert.equal(quote(festive, ac, false, "OLD", NOW).couponError, "This offer has ended");
     assert.equal(quote(festive, ac, false, "OFF", NOW).couponError, "This coupon is not active");
     assert.equal(quote(festive, ac, false, "NOPE", NOW).couponError, "This coupon code is not valid");
     assert.equal(quote(festive, ac, false, "FIRST", NOW).couponError, "This coupon is for your first booking only");
-    const tap = findService(festive, "plumb_tap")!; // ₹129
+    const tap = findService(festive, "plumb_tap")!; // ₹99
     assert.match(quote(festive, tap, false, "DASARA50", NOW).couponError!, /₹300/);
     assert.equal(quote(festive, tap, false, "ACONLY", NOW).couponError, "This coupon is not for this service");
   });

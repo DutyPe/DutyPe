@@ -27,6 +27,7 @@ import javax.inject.Singleton
  */
 
 object BookingStatus {
+    const val PAYMENT_PENDING = "PAYMENT_PENDING"
     const val SEARCHING = "SEARCHING"
     const val ASSIGNED = "ASSIGNED"
     const val ON_THE_WAY = "ON_THE_WAY"
@@ -35,7 +36,7 @@ object BookingStatus {
     const val CANCELLED = "CANCELLED"
     const val NO_PARTNER = "NO_PARTNER"
 
-    val OPEN = setOf(SEARCHING, ASSIGNED, ON_THE_WAY, STARTED)
+    val OPEN = setOf(PAYMENT_PENDING, SEARCHING, ASSIGNED, ON_THE_WAY, STARTED)
 }
 
 object PartnerStatus {
@@ -177,7 +178,38 @@ data class PromoBanner(
     val bgEndColor: String = "#1E3A8A",
     val targetServiceId: String? = null,
     val targetCategoryId: String? = null,
+    val targetShowcaseId: String? = null,
     val imageScale: Float = 1.0f
+)
+
+/** Dynamic brand / restaurant / shop showcase microsite model */
+data class PromoShowcaseButton(
+    val label: String = "Contact",
+    val icon: String = "call", // call, whatsapp, maps, url
+    val actionUrl: String = "", // tel:+91..., https://wa.me/..., https://maps.google.com/..., https://...
+    val isPrimary: Boolean = false
+)
+
+data class PromoShowcase(
+    val id: String = "",
+    val title: String = "",
+    val tagline: String = "",
+    val categoryBadge: String = "",
+    val rating: String = "4.8",
+    val heroImageUrl: String = "",
+    val videoUrl: String = "",
+    val aboutDescription: String = "",
+    val address: String = "",
+    val mapLink: String = "",
+    val discountOfferTitle: String = "",
+    val discountOfferCode: String = "",
+    val discountOfferTerms: String = "",
+    val highlights: List<String> = emptyList(),
+    val galleryImages: List<String> = emptyList(),
+    val actionButtons: List<PromoShowcaseButton> = emptyList(),
+    val district: String = "",
+    val scope: String = "DISTRICT",
+    val active: Boolean = true
 )
 
 /** A coupon / festive offer the app can show. [type] FLAT (₹[value]) or PCT ([value]%, up to ₹[maxOff]). */
@@ -254,7 +286,12 @@ data class ServiceBooking(
     val completedAt: Long = 0,
     val cancellationFee: Int = 0,
     val cancellationReason: String = "",
-    val cancellationNotice: String = ""
+    val cancellationNotice: String = "",
+    val utr: String = "",
+    val partnerLat: Double = 0.0,
+    val partnerLng: Double = 0.0,
+    val partnerBearing: Float = 0f,
+    val partnerLocationUpdatedAt: Long = 0L
 ) {
     val isOpen: Boolean get() = status in BookingStatus.OPEN
 }
@@ -323,7 +360,11 @@ class HomeServicesRepository @Inject constructor(
                 Gson().fromJson(json, ServicesCatalog::class.java)
             } else null
         }.getOrNull()
-        val result = disk ?: DefaultServicesCatalog.get()
+        val raw = disk ?: DefaultServicesCatalog.get()
+        val result = raw.copy(
+            upiId = if (raw.upiId.isBlank() || raw.upiId.contains("icici", ignoreCase = true) || raw.upiId.contains("dutype@", ignoreCase = true)) "dutypein@ybl" else raw.upiId,
+            commissionPct = 0
+        )
         cachedCatalog = System.currentTimeMillis() to result
         return result
     }
@@ -513,12 +554,14 @@ class HomeServicesRepository @Inject constructor(
                 seenSvcIds.add(svcIdLower)
             }
         }
+        val rawUpi = d.str("upiId")
+        val sanitizedUpi = if (rawUpi.isBlank() || rawUpi.contains("icici", ignoreCase = true) || rawUpi.contains("dutype@", ignoreCase = true)) "dutypein@ybl" else rawUpi
         val catalog = ServicesCatalog(
             city = d.str("city").ifBlank { "Khammam" },
             bookingFee = d.int("bookingFee"),
             inspectionFee = d.int("inspectionFee"),
-            commissionPct = d.int("commissionPct"),
-            upiId = d.str("upiId"),
+            commissionPct = 0,
+            upiId = sanitizedUpi,
             upiName = d.str("upiName").ifBlank { "DutyPe" },
             minTopup = d.int("minTopup").coerceAtLeast(1),
             categories = categories,
@@ -578,6 +621,8 @@ class HomeServicesRepository @Inject constructor(
     ) {
         val current = cachedCatalog?.second ?: getCachedCatalog()
         val updated = current.copy(
+            upiId = if (current.upiId.isBlank() || current.upiId.contains("icici", ignoreCase = true) || current.upiId.contains("dutype@", ignoreCase = true)) "dutypein@ybl" else current.upiId,
+            commissionPct = 0,
             promoBanners = banners,
             offers = offers,
             mostBookedServiceIds = if (mostBooked.isNotEmpty()) mostBooked else current.mostBookedServiceIds
@@ -604,9 +649,76 @@ class HomeServicesRepository @Inject constructor(
                 bgEndColor = it.str("bgEndColor").ifBlank { "#1E3A8A" },
                 targetServiceId = it["targetServiceId"] as? String,
                 targetCategoryId = it["targetCategoryId"] as? String,
+                targetShowcaseId = it["targetShowcaseId"] as? String,
                 imageScale = (it["imageScale"] as? Number)?.toFloat() ?: 1.0f
             )
         }.filter { it.headline.isNotBlank() }
+
+    fun getShowcasesFlow(): Flow<List<PromoShowcase>> = callbackFlow {
+        val listener = firestore.collection("promo_showcases")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Timber.w(error, "promo_showcases listener failed")
+                    trySend(emptyList())
+                    return@addSnapshotListener
+                }
+                val list = snapshot?.documents.orEmpty().mapNotNull { doc ->
+                    parseShowcase(doc)
+                }
+                trySend(list)
+            }
+        awaitClose { listener.remove() }
+    }
+
+    private fun parseShowcase(doc: DocumentSnapshot): PromoShowcase? {
+        if (!doc.exists()) return null
+        val data = doc.data.orEmpty()
+        @Suppress("UNCHECKED_CAST")
+        val rawButtons = (data["actionButtons"] as? List<*>)?.mapNotNull { b ->
+            val bm = b as? Map<*, *> ?: return@mapNotNull null
+            PromoShowcaseButton(
+                label = (bm["label"] as? String) ?: "Contact",
+                icon = (bm["icon"] as? String) ?: "call",
+                actionUrl = (bm["actionUrl"] as? String) ?: "",
+                isPrimary = bm["isPrimary"] == true
+            )
+        } ?: emptyList()
+        @Suppress("UNCHECKED_CAST")
+        val highlights = (data["highlights"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList()
+        @Suppress("UNCHECKED_CAST")
+        val gallery = (data["galleryImages"] as? List<*>)?.mapNotNull { it?.toString() } ?: emptyList()
+        val district = (data["district"] as? String) ?: ""
+        val scope = (data["scope"] as? String) ?: if (district.isBlank() || district.equals("ALL", ignoreCase = true)) "NATIONAL" else "DISTRICT"
+        val active = (data["active"] as? Boolean) ?: true
+        return PromoShowcase(
+            id = doc.id,
+            title = (data["title"] as? String) ?: "",
+            tagline = (data["tagline"] as? String) ?: "",
+            categoryBadge = (data["categoryBadge"] as? String) ?: "",
+            rating = (data["rating"] as? String) ?: "4.8",
+            heroImageUrl = (data["heroImageUrl"] as? String) ?: "",
+            videoUrl = (data["videoUrl"] as? String) ?: "",
+            aboutDescription = (data["aboutDescription"] as? String) ?: "",
+            address = (data["address"] as? String) ?: "",
+            mapLink = (data["mapLink"] as? String) ?: "",
+            discountOfferTitle = (data["discountOfferTitle"] as? String) ?: "",
+            discountOfferCode = (data["discountOfferCode"] as? String) ?: "",
+            discountOfferTerms = (data["discountOfferTerms"] as? String) ?: "",
+            highlights = highlights,
+            galleryImages = gallery,
+            actionButtons = rawButtons,
+            district = district,
+            scope = scope,
+            active = active
+        )
+    }
+
+    suspend fun getShowcase(showcaseId: String): PromoShowcase? {
+        return runCatching {
+            val doc = firestore.collection("promo_showcases").document(showcaseId).get().await()
+            parseShowcase(doc)
+        }.getOrNull()
+    }
 
     @Suppress("UNCHECKED_CAST")
     internal fun offersOf(raw: Any?): List<PromoOffer> = (raw as? List<Any?>).orEmpty().map { it.asMap() }.map {
@@ -624,8 +736,10 @@ class HomeServicesRepository @Inject constructor(
     }.filter { it.code.isNotBlank() }
 
     /** What the customer pays for [serviceId] with an optional coupon (nothing is booked). */
-    suspend fun previewQuote(serviceId: String, couponCode: String): ServiceQuote {
-        val d = call("previewServiceQuote", mapOf("serviceId" to serviceId, "couponCode" to couponCode))
+    suspend fun previewQuote(serviceId: String, couponCode: String, clientPrice: Int? = null): ServiceQuote {
+        val payload = mutableMapOf<String, Any?>("serviceId" to serviceId, "couponCode" to couponCode)
+        if (clientPrice != null && clientPrice > 0) payload["clientPrice"] = clientPrice
+        val d = call("previewServiceQuote", payload)
         return ServiceQuote(
             price = d.int("price"),
             bookingFee = d.int("bookingFee"),
@@ -662,22 +776,22 @@ class HomeServicesRepository @Inject constructor(
         lng: Double,
         note: String,
         scheduledAt: Long?,
-        couponCode: String = ""
+        couponCode: String = "",
+        clientPrice: Int? = null
     ): String {
-        val d = call(
-            "createServiceBooking",
-            mapOf(
-                "serviceId" to serviceId,
-                "addressText" to addressText,
-                "area" to area,
-                "lat" to lat,
-                "lng" to lng,
-                "note" to note,
-                "when" to if (scheduledAt != null) "scheduled" else "now",
-                "scheduledAt" to scheduledAt,
-                "couponCode" to couponCode
-            )
+        val payload = mutableMapOf<String, Any?>(
+            "serviceId" to serviceId,
+            "addressText" to addressText,
+            "area" to area,
+            "lat" to lat,
+            "lng" to lng,
+            "note" to note,
+            "when" to if (scheduledAt != null) "scheduled" else "now",
+            "scheduledAt" to scheduledAt,
+            "couponCode" to couponCode
         )
+        if (clientPrice != null && clientPrice > 0) payload["clientPrice"] = clientPrice
+        val d = call("createServiceBooking", payload)
         return d.str("bookingId")
     }
 
@@ -737,6 +851,10 @@ class HomeServicesRepository @Inject constructor(
     /** The 4-digit start code (only the customer can read it). */
     suspend fun startCode(bookingId: String): String =
         firestore.collection("service_booking_secrets").document(bookingId).get().await().getString("startOtp").orEmpty()
+
+    suspend fun submitBookingPayment(bookingId: String, utr: String) {
+        call("submitBookingPayment", mapOf("bookingId" to bookingId, "utr" to utr))
+    }
 
     suspend fun cancel(bookingId: String, reason: String = "") {
         val payload = mutableMapOf<String, Any?>("bookingId" to bookingId)
@@ -880,6 +998,19 @@ class HomeServicesRepository @Inject constructor(
         call("requestPartnerTopup", mapOf("amount" to amount, "utr" to utr))
     }
 
+    suspend fun updatePartnerLiveLocation(bookingId: String, lat: Double, lng: Double, bearing: Float = 0f) {
+        runCatching {
+            firestore.collection(BOOKINGS).document(bookingId).update(
+                mapOf(
+                    "partnerLat" to lat,
+                    "partnerLng" to lng,
+                    "partnerBearing" to bearing,
+                    "partnerLocationUpdatedAt" to System.currentTimeMillis()
+                )
+            ).await()
+        }.onFailure { Timber.w(it, "Failed to update partner live location for $bookingId") }
+    }
+
     // ─────────────────────────── mapping ───────────────────────────
 
     private fun observeList(query: Query): Flow<List<ServiceBooking>> = callbackFlow {
@@ -925,7 +1056,12 @@ class HomeServicesRepository @Inject constructor(
         completedAt = d.getTimestamp("completedAt")?.toDate()?.time ?: 0L,
         cancellationFee = (d.getLong("cancellationFee") ?: 0L).toInt(),
         cancellationReason = d.getString("cancelReason").orEmpty(),
-        cancellationNotice = d.getString("cancellationNotice").orEmpty()
+        cancellationNotice = d.getString("cancellationNotice").orEmpty(),
+        utr = d.getString("utr").orEmpty(),
+        partnerLat = d.getDouble("partnerLat") ?: 0.0,
+        partnerLng = d.getDouble("partnerLng") ?: 0.0,
+        partnerBearing = (d.getDouble("partnerBearing") ?: 0.0).toFloat(),
+        partnerLocationUpdatedAt = d.getLong("partnerLocationUpdatedAt") ?: 0L
     )
 
     companion object {

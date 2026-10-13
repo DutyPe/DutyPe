@@ -97,7 +97,7 @@ data class DynamicFeaturesConfig(
     val launchPromoAnimationUrl: String = "",
     val launchPromoTitle: String = "",
     val launchPromoActionRoute: String = "",
-    val supportEmail: String = "support@dutype.com",
+    val supportEmail: String = "support@dutype.in",
     val headerTextColor: String = "#FFFFFF",
     val isRemoteLoaded: Boolean = false
 )
@@ -221,7 +221,7 @@ class AppConfigRepository @Inject constructor(
                 launchPromoAnimationUrl = (data["launchPromoAnimationUrl"] as? String) ?: "",
                 launchPromoTitle = (data["launchPromoTitle"] as? String) ?: "",
                 launchPromoActionRoute = (data["launchPromoActionRoute"] as? String) ?: "",
-                supportEmail = (data["supportEmail"] as? String) ?: "support@dutype.com",
+                supportEmail = (data["supportEmail"] as? String) ?: "support@dutype.in",
                 headerTextColor = (data["headerTextColor"] as? String) ?: "#FFFFFF",
                 isRemoteLoaded = true
             )
@@ -254,7 +254,7 @@ class AppConfigRepository @Inject constructor(
                 launchPromoAnimationUrl = json.optString("launchPromoAnimationUrl", ""),
                 launchPromoTitle = json.optString("launchPromoTitle", ""),
                 launchPromoActionRoute = json.optString("launchPromoActionRoute", ""),
-                supportEmail = json.optString("supportEmail", "support@dutype.com"),
+                supportEmail = json.optString("supportEmail", "support@dutype.in"),
                 headerTextColor = json.optString("headerTextColor", "#FFFFFF"),
                 isRemoteLoaded = json.optBoolean("isRemoteLoaded", true)
             )

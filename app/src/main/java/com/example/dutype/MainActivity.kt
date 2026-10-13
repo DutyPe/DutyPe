@@ -591,8 +591,15 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch(Dispatchers.IO) {
             runCatching {
-                if (FirebaseAuth.getInstance().currentUser != null) {
-                    fcmTokenManager.registerToken()
+                val user = FirebaseAuth.getInstance().currentUser
+                if (user != null) {
+                    val prefs = applicationContext.getSharedPreferences("fcm_token_state", Context.MODE_PRIVATE)
+                    val lastReg = prefs.getLong("last_reg_ts", 0L)
+                    val now = System.currentTimeMillis()
+                    if (now - lastReg > 24 * 60 * 60 * 1000L) {
+                        fcmTokenManager.registerToken()
+                        prefs.edit().putLong("last_reg_ts", now).apply()
+                    }
                 }
             }.onFailure { error ->
                 Timber.w(error, "FCM token refresh on app open failed")

@@ -198,6 +198,8 @@ fun WorkerHomeScreen(
     val locationService = jobViewModel.locationService
     val locationRepository = remember { com.example.dutype.di.locationRepositoryFromHilt(context) }
     val jobUiState by jobViewModel.uiState.collectAsStateWithLifecycle()
+    val homeServicesViewModel: com.example.dutype.homeservices.HomeServicesViewModel = hiltViewModel()
+    val showcases by homeServicesViewModel.showcases.collectAsStateWithLifecycle()
 
     var unreadNotificationCount by remember { mutableIntStateOf(0) }
     var workerRating by remember { mutableStateOf(0f) }
@@ -632,68 +634,191 @@ fun WorkerHomeScreen(
         }
     }
 
-    // Real-time home service bookings (cleaning, etc.) while worker is online
+    // Real-time home service bookings (cleaning, repair, etc.)
+    // Real-time home service bookings (cleaning, repair, etc.)
     var searchingServiceRequests by remember { mutableStateOf<List<com.example.dutype.models.InstantRequest>>(emptyList()) }
-    DisposableEffect(workerOnline) {
-        if (!workerOnline) {
+    var assignedServiceRequests by remember { mutableStateOf<List<com.example.dutype.models.InstantRequest>>(emptyList()) }
+
+    DisposableEffect(currentUser?.uid) {
+        val uid = currentUser?.uid
+        if (uid == null) {
             searchingServiceRequests = emptyList()
+            assignedServiceRequests = emptyList()
             return@DisposableEffect onDispose {}
         }
         val reg = com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("service_bookings")
-            .whereEqualTo("status", "SEARCHING")
+            .whereIn("status", listOf("SEARCHING", "PAYMENT_PENDING"))
             .limit(10)
             .addSnapshotListener { snap, err ->
-                if (err != null || snap == null) return@addSnapshotListener
+                if (err != null) {
+                    timber.log.Timber.e(err, "service_bookings SEARCHING snapshot listener error")
+                    return@addSnapshotListener
+                }
+                if (snap == null) return@addSnapshotListener
                 val now = System.currentTimeMillis()
                 searchingServiceRequests = snap.documents.mapNotNull { doc ->
                     runCatching {
-                        val exp = doc.getTimestamp("expiresAt")?.toDate()?.time ?: (now + 30 * 60 * 1000L)
+                        val expRaw = doc.get("expiresAt")
+                        val exp = when (expRaw) {
+                            is com.google.firebase.Timestamp -> expRaw.toDate().time
+                            is Number -> expRaw.toLong()
+                            is java.util.Date -> expRaw.time
+                            else -> now + 30 * 60 * 1000L
+                        }
                         if (exp <= now) return@mapNotNull null
                         val cat = doc.getString("category").orEmpty()
                         val svcName = doc.getString("serviceName").orEmpty().ifBlank { cat }
-                        val price = (doc.getLong("price") ?: 0L).toDouble()
+                        val priceRaw = doc.get("price")
+                        val price = when (priceRaw) {
+                            is Number -> priceRaw.toDouble()
+                            is String -> priceRaw.toDoubleOrNull() ?: 0.0
+                            else -> 0.0
+                        }
                         val addr = doc.getString("addressText").orEmpty()
                         val area = doc.getString("area").orEmpty()
+                        val bStatus = doc.getString("status").orEmpty()
+                        val desc = if (bStatus == "PAYMENT_PENDING") "Incoming Booking • Ready to Accept" else doc.getString("note").orEmpty().ifBlank { "Customer requested $svcName in ${area.ifBlank { addr }}" }
+                        val latRaw = doc.get("lat")
+                        val lat = when (latRaw) {
+                            is Number -> latRaw.toDouble()
+                            is String -> latRaw.toDoubleOrNull() ?: 0.0
+                            else -> 0.0
+                        }
+                        val lngRaw = doc.get("lng")
+                        val lng = when (lngRaw) {
+                            is Number -> lngRaw.toDouble()
+                            is String -> lngRaw.toDoubleOrNull() ?: 0.0
+                            else -> 0.0
+                        }
+                        val createdRaw = doc.get("createdAt")
+                        val createdTime = when (createdRaw) {
+                            is com.google.firebase.Timestamp -> createdRaw.toDate().time
+                            is Number -> createdRaw.toLong()
+                            is java.util.Date -> createdRaw.time
+                            else -> now
+                        }
                         com.example.dutype.models.InstantRequest(
                             requestId = "svc_${doc.id}",
                             employerId = doc.getString("customerId").orEmpty(),
                             employerName = doc.getString("customerName").orEmpty().ifBlank { "DutyPe Customer" },
                             title = "Home Service: $svcName",
-                            description = doc.getString("note").orEmpty().ifBlank { "Customer requested $svcName in ${area.ifBlank { addr }}" },
+                            description = desc,
                             category = cat.ifBlank { "Services" },
                             perPersonPayment = price,
                             workersNeeded = 1,
                             status = "open",
                             addressText = addr.ifBlank { area },
-                            lat = doc.getDouble("lat") ?: 0.0,
-                            lng = doc.getDouble("lng") ?: 0.0,
+                            lat = lat,
+                            lng = lng,
                             expiresAt = exp,
-                            createdAt = doc.getTimestamp("createdAt")?.toDate()?.time ?: now
+                            createdAt = createdTime
                         )
+                    }.onFailure {
+                        timber.log.Timber.w(it, "Error parsing searching service_booking ${doc.id}")
                     }.getOrNull()
                 }
             }
-        onDispose { reg.remove() }
+
+        val assignedReg = com.google.firebase.firestore.FirebaseFirestore.getInstance().collection("service_bookings")
+            .whereEqualTo("partnerId", uid)
+            .whereIn("status", listOf("ASSIGNED", "ON_THE_WAY", "STARTED"))
+            .limit(5)
+            .addSnapshotListener { snap, err ->
+                if (err != null) {
+                    timber.log.Timber.e(err, "service_bookings assigned snapshot listener error")
+                    return@addSnapshotListener
+                }
+                if (snap == null) return@addSnapshotListener
+                val now = System.currentTimeMillis()
+                assignedServiceRequests = snap.documents.mapNotNull { doc ->
+                    runCatching {
+                        val cat = doc.getString("category").orEmpty()
+                        val svcName = doc.getString("serviceName").orEmpty().ifBlank { cat }
+                        val priceRaw = doc.get("price")
+                        val price = when (priceRaw) {
+                            is Number -> priceRaw.toDouble()
+                            is String -> priceRaw.toDoubleOrNull() ?: 0.0
+                            else -> 0.0
+                        }
+                        val addr = doc.getString("addressText").orEmpty()
+                        val area = doc.getString("area").orEmpty()
+                        val bStatus = doc.getString("status").orEmpty()
+                        val statusLabel = when (bStatus) {
+                            "ON_THE_WAY" -> "On The Way"
+                            "STARTED" -> "In Progress"
+                            else -> "Assigned to You"
+                        }
+                        val latRaw = doc.get("lat")
+                        val lat = when (latRaw) {
+                            is Number -> latRaw.toDouble()
+                            is String -> latRaw.toDoubleOrNull() ?: 0.0
+                            else -> 0.0
+                        }
+                        val lngRaw = doc.get("lng")
+                        val lng = when (lngRaw) {
+                            is Number -> lngRaw.toDouble()
+                            is String -> lngRaw.toDoubleOrNull() ?: 0.0
+                            else -> 0.0
+                        }
+                        val createdRaw = doc.get("createdAt")
+                        val createdTime = when (createdRaw) {
+                            is com.google.firebase.Timestamp -> createdRaw.toDate().time
+                            is Number -> createdRaw.toLong()
+                            is java.util.Date -> createdRaw.time
+                            else -> now
+                        }
+                        com.example.dutype.models.InstantRequest(
+                            requestId = "svc_${doc.id}",
+                            employerId = doc.getString("customerId").orEmpty(),
+                            employerName = doc.getString("customerName").orEmpty().ifBlank { "DutyPe Customer" },
+                            title = "Service Job: $svcName",
+                            description = "⚡ Status: $statusLabel • Tap to open and start job",
+                            category = cat.ifBlank { "Services" },
+                            perPersonPayment = price,
+                            workersNeeded = 1,
+                            status = "accepted",
+                            workerResponseStatus = "accepted",
+                            addressText = addr.ifBlank { area },
+                            lat = lat,
+                            lng = lng,
+                            expiresAt = now + 24 * 60 * 60 * 1000L,
+                            createdAt = createdTime
+                        )
+                    }.onFailure {
+                        timber.log.Timber.w(it, "Error parsing assigned service_booking ${doc.id}")
+                    }.getOrNull()
+                }
+            }
+
+        onDispose {
+            reg.remove()
+            assignedReg.remove()
+        }
     }
 
     // Urgent job audio & vibration alert: rings when urgent jobs or home services arrive in worker's location.
     // If worker ignores/dismisses, it will NOT play sound again for those jobs.
     var ignoredInstantRequestIds by remember { mutableStateOf(setOf<String>()) }
 
-    // Service bookings are kept separate during partner onboarding phase
-    val combinedWorkerRequests: List<com.example.dutype.models.InstantRequest> = remember(instantHelpState.instantRequests) {
-        instantHelpState.instantRequests
+    // Service bookings combined with urgent requests (assigned orders first!)
+    val combinedWorkerRequests: List<com.example.dutype.models.InstantRequest> = remember(instantHelpState.instantRequests, searchingServiceRequests, assignedServiceRequests) {
+        (assignedServiceRequests + instantHelpState.instantRequests + searchingServiceRequests).distinctBy { it.requestId }
     }
 
     val activeWorkerRequests: List<com.example.dutype.models.InstantRequest> = remember(combinedWorkerRequests, ignoredInstantRequestIds) {
-        combinedWorkerRequests.filter {
-            it.requestId !in ignoredInstantRequestIds && !com.example.dutype.urgent.UrgentSoundAlertManager.isIgnored(context, it.requestId)
+        combinedWorkerRequests.filter { req ->
+            if (req.requestId in ignoredInstantRequestIds) return@filter false
+            // Active service bookings stay visible on the screen even if sound was silenced
+            if (req.requestId.startsWith("svc_")) true
+            else !com.example.dutype.urgent.UrgentSoundAlertManager.isIgnored(context, req.requestId)
         }
     }
 
     val skippedWorkerRequests: List<com.example.dutype.models.InstantRequest> = remember(combinedWorkerRequests, ignoredInstantRequestIds) {
-        combinedWorkerRequests.filter {
-            it.requestId in ignoredInstantRequestIds || com.example.dutype.urgent.UrgentSoundAlertManager.isIgnored(context, it.requestId)
+        combinedWorkerRequests.filter { req ->
+            if (req.requestId in ignoredInstantRequestIds) return@filter true
+            if (req.requestId.startsWith("svc_")) false
+            else com.example.dutype.urgent.UrgentSoundAlertManager.isIgnored(context, req.requestId)
         }
     }
 
@@ -886,6 +1011,14 @@ fun WorkerHomeScreen(
                                     onJobClick = { /* P1-2: was assigning to dead `clickedJobId` state; no-op now */ },
                                     onNavigateToJob = { jobId ->
                                         navController.navigate(Routes.jobDetailRoute(jobId))
+                                    },
+                                    showcases = showcases,
+                                    onShowcaseClick = { showcaseId ->
+                                        runCatching {
+                                            navController.navigate(Routes.promoShowcaseRoute(showcaseId))
+                                        }.onFailure {
+                                            rootNavController.navigate(Routes.promoShowcaseRoute(showcaseId))
+                                        }
                                     },
                                     currentLocation = currentLocation,
                                     onLocationChipSelected = onLocationChipSelected,

@@ -54,8 +54,16 @@ function aiConfigured() {
 exports.ai = {
     /** Azure OpenAI when configured (paid from the Azure credits), otherwise Gemini. */
     async json(prompt) {
-        if ((0, azure_1.azureOpenAiConfigured)())
-            return (0, azure_1.chatJson)(prompt);
+        if ((0, azure_1.azureOpenAiConfigured)()) {
+            try {
+                const res = await (0, azure_1.chatJson)(prompt);
+                if (res !== null)
+                    return res;
+            }
+            catch (err) {
+                functions.logger.warn("Azure OpenAI chatJson failed, falling back", err);
+            }
+        }
         return geminiJson(prompt);
     },
 };
@@ -92,8 +100,8 @@ async function geminiJson(prompt) {
     }
 }
 /**
- * Spends one DutyPe AI action if the employer may: an active AI plan (or the launch campaign) within
- * its daily allowance, else one of the free trial actions. "upgrade" / "limit" mean no AI this time.
+ * DutyPe AI assistant access: only active subscribed employers can use the AI assistant.
+ * Unsubscribed employers receive "upgrade" to view and select a subscription plan.
  */
 async function useAi(uid) {
     const S = schema_1.EmployerProfiles.Subscription;
@@ -108,20 +116,14 @@ async function useAi(uid) {
         const sub = (0, input_1.obj)(profile.get(schema_1.EmployerProfiles.SUBSCRIPTION));
         const expires = (_c = (_b = (_a = sub[S.EXPIRES_AT]) === null || _a === void 0 ? void 0 : _a.toMillis) === null || _b === void 0 ? void 0 : _b.call(_a)) !== null && _c !== void 0 ? _c : 0;
         const active = sub[S.STATUS] === "ACTIVE" && (expires === 0 || expires > Date.now());
-        const campaign = active && sub[S.PLAN_ID] === "UNLIMITED_CAMPAIGN";
-        if (active && (campaign || sub[S.AI] === true)) {
-            const cap = Number(sub[S.AI_PER_DAY]) || 100;
-            const used = Number(dayDoc.get(schema_1.Idempotency.RESULT) || 0);
-            if (used >= cap)
-                return "limit";
-            tx.set(dayRef, { [schema_1.Idempotency.RESULT]: used + 1, [schema_1.Idempotency.EXPIRE_AT]: Timestamp.fromMillis(Date.now() + 2 * DAY_MS) });
-            return "plan";
-        }
-        const trialUsed = Number(profile.get(schema_1.EmployerProfiles.AI_TRIAL_USED) || 0);
-        if (trialUsed >= exports.FREE_AI_TRIAL)
+        if (!active)
             return "upgrade";
-        tx.update(profileRef, { [schema_1.EmployerProfiles.AI_TRIAL_USED]: trialUsed + 1 });
-        return "trial";
+        const cap = Number(sub[S.AI_PER_DAY]) || 100;
+        const used = Number(dayDoc.get(schema_1.Idempotency.RESULT) || 0);
+        if (used >= cap)
+            return "limit";
+        tx.set(dayRef, { [schema_1.Idempotency.RESULT]: used + 1, [schema_1.Idempotency.EXPIRE_AT]: Timestamp.fromMillis(Date.now() + 2 * DAY_MS) });
+        return "plan";
     });
 }
 const canUseAi = (a) => a === "plan" || a === "trial";

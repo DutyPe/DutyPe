@@ -238,6 +238,7 @@
     <string name="auth_we_will_send_otp">మేము 6 అంకెల OTP పంపుతాము</string>
     <string name="auth_or_divider">లేదా</string>
     <string name="auth_continue_with_google">Google తో కొనసాగండి</string>
+    <string name="auth_continue_with_truecaller">ట్రూకాలర్‌తో కొనసాగండి</string>
     <string name="auth_google_coming_soon">Google సైన్ ఇన్ త్వరలో వస్తుంది</string>
     <string name="auth_by_continuing_agree">కొనసాగించడం ద్వారా, మీరు 18 సంవత్సరాల వయస్సు కలిగి ఉన్నారని మరియు వీటిని అంగీకరిస్తున్నారని ధృవీకరిస్తున్నారు: </string>
     <string name="auth_terms">నిబంధనలు &amp; షరతులు</string>
@@ -2696,6 +2697,7 @@
     <string name="svc_inspection_info">ఇది విజిట్ చార్జ్. పార్ట్‌నర్ సమస్యను చూసి, పని మొదలుపెట్టే ముందు రిపేర్ ధర చెబుతారు.</string>
     <string name="svc_warranty">సరిగ్గా లేకపోతే 7 రోజుల్లో ఉచితంగా మళ్లీ చేస్తాం</string>
     <string name="svc_confirm">బుకింగ్ నిర్ధారించండి</string>
+    <string name="svc_status_payment_pending">చెల్లింపు పెండింగ్‌లో ఉంది</string>
     <string name="svc_status_searching">మీ దగ్గర పార్ట్‌నర్‌ను వెతుకుతున్నాం…</string>
     <string name="svc_status_assigned">పార్ట్‌నర్ కేటాయించబడ్డారు</string>
     <string name="svc_status_on_the_way">పార్ట్‌నర్ వస్తున్నారు</string>

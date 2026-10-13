@@ -86,7 +86,22 @@ class ReferralService @Inject constructor(
     suspend fun myReferrer(): Referral? {
         val uid = uid() ?: return null
         val doc = runCatching { firestore.collection(Referrals.COLLECTION).document(uid).get().await() }.getOrNull()
-        return doc?.data?.let { Referral.from(doc.id, it) }
+        val fromReferral = doc?.data?.let { Referral.from(doc.id, it) }
+        if (fromReferral != null) return fromReferral
+
+        // Fallback: check users/{uid} in case referral code was entered during profile setup / onboarding
+        val userDoc = runCatching { firestore.collection("users").document(uid).get().await() }.getOrNull()
+        if (userDoc != null && (userDoc.getBoolean("hasUsedReferralCode") == true || !userDoc.getString("referredByCode").isNullOrBlank())) {
+            val code = userDoc.getString("referredByCode").orEmpty()
+            val referrerUid = userDoc.getString("referredBy").orEmpty()
+            return Referral(
+                refereeUid = uid,
+                referrerUid = referrerUid,
+                code = code,
+                status = com.example.dutype.models.ReferralStatus.COMPLETED
+            )
+        }
+        return null
     }
 
     fun withdrawals(): Flow<List<WithdrawalRequest>> = listenQuery { uid ->

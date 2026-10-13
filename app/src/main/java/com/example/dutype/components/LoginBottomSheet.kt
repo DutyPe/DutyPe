@@ -789,11 +789,9 @@ private fun OtpInputContent(
                     }
                 }
 
-                // Resend hint text (from WhatsApp, resend is the SMS backup)
+                // Resend button label
                 Text(
-                    text = if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) {
-                        androidx.compose.ui.res.stringResource(com.dutype.app.R.string.auth_get_sms_short)
-                    } else if (isTelugu) "OTP మళ్లీ పంపండి" else "Resend OTP",
+                    text = if (isTelugu) "OTP మళ్లీ పంపండి" else "Resend OTP",
                     style = AppTypography.labelSmall.copy(
                         color = if (timerActive && remainingSeconds > 0) WorkerColors.TextDisabled else WorkerColors.TextSecondary
                     )

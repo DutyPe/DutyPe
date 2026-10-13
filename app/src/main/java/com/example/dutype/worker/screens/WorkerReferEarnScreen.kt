@@ -285,15 +285,9 @@ fun WorkerReferEarnScreen(
                         )
                     }
 
-                    // Who referred you / Referral Code Redemption
-                    item {
-                        if (uiState.myReferrer != null) {
-                            val currentWorkerName = profileCompletionViewModel.profileStore.worker.value?.name?.ifBlank { "You" } ?: "You"
-                            com.example.dutype.components.ReferralConnectionHandshakeCard(
-                                referrer = uiState.myReferrer!!,
-                                currentUserName = currentWorkerName
-                            )
-                        } else {
+                    // Referral Code Redemption (only shown if user hasn't provided a referral code)
+                    if (uiState.myReferrer == null) {
+                        item {
                             ReferAndEarnRedemptionCard(
                                 hasExistingReferrer = false,
                                 ownReferralCode = uiState.wallet?.referralCode.orEmpty(),
@@ -997,9 +991,17 @@ private fun ReferralHistoryItem(referral: Referral) {
             modifier = Modifier.size(20.dp)
         )
         Spacer(Modifier.width(12.dp))
+        val displayName = referral.refereeName.ifBlank {
+            if (referral.refereePhone.isNotBlank()) {
+                val p = referral.refereePhone
+                if (p.length >= 10) p.take(5) + "*****" else p
+            } else {
+                context.getString(R.string.refer_default_user_name)
+            }
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                context.getString(R.string.refer_default_user_name),
+                displayName,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.Medium,
                     color = com.example.dutype.ui.theme.WorkerColors.TextPrimary

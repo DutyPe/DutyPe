@@ -35,8 +35,7 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
-import android.speech.tts.TextToSpeech
-import android.speech.tts.Voice
+import com.example.dutype.employer.voice.NaturalVoiceEngine
 import java.util.Locale
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -201,6 +200,19 @@ class DutyPeAiViewModel @Inject constructor(
         if (clean.isEmpty() || _state.value.thinking) return
         if (com.google.firebase.auth.FirebaseAuth.getInstance().currentUser == null) {
             _state.update { it.copy(needsLogin = true) }
+            return
+        }
+        val isSubscribed = subscription.value.status == "ACTIVE" && (subscription.value.expiresAt == 0L || subscription.value.expiresAt > System.currentTimeMillis())
+        if (!isSubscribed) {
+            val lockMsg = "DutyPe AI Assistant (Liri) is exclusively available for subscribed members. Please subscribe to a plan to use AI assistance!"
+            _state.update {
+                it.copy(
+                    messages = it.messages + AiMessage(false, clean) + AiMessage(true, lockMsg),
+                    locked = "upgrade",
+                    thinking = false
+                )
+            }
+            speak(lockMsg)
             return
         }
         val history = _state.value.messages.map { it.fromAi to it.text }
@@ -411,50 +423,25 @@ fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false
     var showKeyboard by remember { mutableStateOf(false) }
     val greeting = stringResource(R.string.dutype_ai_greeting)
 
-    var tts by remember { mutableStateOf<TextToSpeech?>(null) }
-    DisposableEffect(Unit) {
-        var engine: TextToSpeech? = null
-        engine = TextToSpeech(context.applicationContext) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                engine?.let { e ->
-                    e.setSpeechRate(0.92f)
-                    e.setPitch(1.02f)
-                    tts = e
-                }
-            }
+    val voiceEngine = remember { NaturalVoiceEngine(context) }
+    DisposableEffect(voiceEngine) {
+        onDispose {
+            voiceEngine.shutdown()
         }
-        onDispose { engine?.stop(); engine?.shutdown() }
     }
 
     val speak: (String) -> Unit = { text ->
         if (!muted && text.isNotBlank()) {
-            tts?.let { engine ->
-                val targetLocale = when {
-                    text.any { it in '\u0C00'..'\u0C7F' } -> Locale("te", "IN")
-                    text.any { it in '\u0900'..'\u097F' } -> Locale("hi", "IN")
-                    else -> Locale("en", "IN")
-                }
-                runCatching {
-                    if (engine.isLanguageAvailable(targetLocale) >= TextToSpeech.LANG_AVAILABLE) {
-                        engine.language = targetLocale
-                    }
-                    engine.setSpeechRate(0.92f)
-                    engine.setPitch(1.02f)
-                    engine.voices?.filter { v -> v.locale.language == targetLocale.language }
-                        ?.maxByOrNull { v -> if (v.quality >= Voice.QUALITY_HIGH) 2 else 1 }
-                        ?.let { bestVoice -> engine.voice = bestVoice }
-                }
-                engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "dutype_ai_${System.currentTimeMillis()}")
-            }
+            voiceEngine.speak(text)
         }
     }
 
     var spokeHello by rememberSaveable { mutableStateOf(false) }
     val helloPlain = stringResource(R.string.dutype_ai_voice_hello)
-    LaunchedEffect(tts, startListening) {
-        if (tts == null || spokeHello || startListening) return@LaunchedEffect
+    LaunchedEffect(startListening) {
+        if (spokeHello || startListening) return@LaunchedEffect
         spokeHello = true
-        kotlinx.coroutines.delay(300)
+        kotlinx.coroutines.delay(350)
         val first = viewModel.employer.value?.ownerName?.trim()?.substringBefore(' ').orEmpty()
         speak(if (first.isNotBlank()) context.getString(R.string.dutype_ai_voice_hello_name, first) else helloPlain)
     }
@@ -508,7 +495,7 @@ fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false
     }
 
     val startMic: () -> Unit = {
-        tts?.stop()
+        voiceEngine.stop()
         isListening = true
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -532,15 +519,38 @@ fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false
         }
     }
 
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            startMic()
+        } else {
+            android.widget.Toast.makeText(context, "Microphone permission is required for voice assistant", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val checkAndStartMic: () -> Unit = {
+        val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.RECORD_AUDIO
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+
+        if (hasPermission) {
+            startMic()
+        } else {
+            audioPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
     val stopMic: () -> Unit = {
         isListening = false
         runCatching { speechRecognizer?.stopListening() }
-        tts?.stop()
+        voiceEngine.stop()
     }
     LaunchedEffect(startListening, state.needsLogin) {
         if (startListening && !autoListened && !state.needsLogin) {
             autoListened = true
-            startMic()
+            checkAndStartMic()
         }
     }
     LaunchedEffect(state.openRoute) {
@@ -601,11 +611,11 @@ fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .imePadding()
         ) {
-            // ── Top bar: Clean centered "DutyPe AI Assistant" pill ──
+            // ── Top bar: Clean centered "DutyPe AI Assistant" pill + Mute toggle ──
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 18.dp, bottom = 10.dp),
+                    .padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Row(
@@ -631,6 +641,57 @@ fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false
                         fontSize = 13.5.sp,
                         letterSpacing = 0.3.sp
                     )
+                }
+
+                // Voice Mute / Unmute Toggle Button
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(if (muted) Color(0xFFFEE2E2) else Color(0xFFF1F5F9))
+                        .clickable {
+                            muted = !muted
+                            if (muted) voiceEngine.stop()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        if (muted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+                        contentDescription = if (muted) "Unmute voice" else "Mute voice",
+                        tint = if (muted) Color(0xFFEF4444) else Color(0xFF7C3AED),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            val isSubscribed = subscription.status == "ACTIVE" && (subscription.expiresAt == 0L || subscription.expiresAt > System.currentTimeMillis())
+            if (!isSubscribed && !state.needsLogin) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFFEF3C7))
+                        .border(1.dp, Color(0xFFFDE68A), RoundedCornerShape(12.dp))
+                        .clickable {
+                            runCatching { (rootNavController ?: navController).navigate(com.example.dutype.navigation.Routes.EMPLOYER_SUBSCRIPTION) }
+                        }
+                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Liri AI is for Subscribed Members. Tap to view plans.",
+                            color = Color(0xFF92400E),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Text("View Plans", color = Color(0xFFB45309), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
             }
 
@@ -740,7 +801,7 @@ fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false
                             onValueChange = { typed = it },
                             placeholder = { Text(stringResource(R.string.dutype_ai_type_hint), color = Color(0xFF94A3B8)) },
                             trailingIcon = {
-                                if (typed.isNotBlank()) IconButton(onClick = { viewModel.send(typed, speak); typed = "" }, enabled = !state.thinking) {
+                                if (typed.isNotBlank()) IconButton(onClick = { voiceEngine.stop(); viewModel.send(typed, speak); typed = "" }, enabled = !state.thinking) {
                                     Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = AiAccent)
                                 }
                             },
@@ -803,7 +864,7 @@ fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false
                                 if (isListening) {
                                     stopMic()
                                 } else {
-                                    startMic()
+                                    checkAndStartMic()
                                 }
                             }
                         )
@@ -814,7 +875,7 @@ fun DutyPeAiScreen(navController: NavController, startListening: Boolean = false
                                 .size(46.dp)
                                 .background(Color(0xFFF1F5F9), CircleShape)
                                 .clickable {
-                                    tts?.stop()
+                                    voiceEngine.stop()
                                     navController.popBackStack()
                                 },
                             contentAlignment = Alignment.Center

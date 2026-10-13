@@ -19,6 +19,9 @@ type UserRow = {
   blocked: boolean;
   verified: boolean;
   createdAt: string | null;
+  referralCode?: string;
+  referralBalanceRupees?: number;
+  successfulReferrals?: number;
 };
 
 type Payload = {
@@ -110,7 +113,7 @@ export function AdminUsersClient() {
 
   const needle = filter.trim().toLowerCase();
   const visible = needle
-    ? users.filter((u) => `${u.name} ${u.businessName} ${u.phone} ${u.area} ${u.id}`.toLowerCase().includes(needle))
+    ? users.filter((u) => `${u.name} ${u.businessName} ${u.phone} ${u.referralCode ?? ""} ${u.area} ${u.id}`.toLowerCase().includes(needle))
     : users;
 
   return (
@@ -140,7 +143,7 @@ export function AdminUsersClient() {
           onClick={() => (phone.trim() ? load(`phone=${encodeURIComponent(phone.trim())}`, false) : load(`role=${role}`, false))}>
           {phone.trim() ? "Find" : "Refresh"}
         </button>
-        <input className="admin-search" placeholder="Filter loaded rows…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+        <input className="admin-search" placeholder="Filter loaded rows by name, phone, code…" value={filter} onChange={(e) => setFilter(e.target.value)} />
         <span className="admin-count">{visible.length} shown</span>
       </div>
 
@@ -153,7 +156,7 @@ export function AdminUsersClient() {
           <table className="data-table admin-users-table">
             <thead>
               <tr>
-                <th>Name</th><th>Phone</th><th>Role</th><th>Area</th><th>Joined</th><th>Status</th><th>Actions</th>
+                <th>Name</th><th>Phone</th><th>Role</th><th>Referral Code</th><th>Area</th><th>Joined</th><th>Status</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -164,10 +167,41 @@ export function AdminUsersClient() {
                     {user.businessName ? <div className="admin-cell-sub">{user.businessName}</div> : null}
                     <div className="admin-cell-sub"><code className="admin-code">{user.id}</code></div>
                   </td>
-                  <td>{user.phone || "—"}</td>
+                  <td>
+                    <strong>{user.phone || "—"}</strong>
+                  </td>
                   <td>
                     {user.role === "EMPLOYER" ? `Employer${user.employerType ? ` · ${user.employerType.toLowerCase()}` : ""}` : "Worker"}
                     {user.skills.length ? <div className="admin-cell-sub">{user.skills.join(", ").toLowerCase()}</div> : null}
+                  </td>
+                  <td>
+                    {user.referralCode ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <code className="admin-code" style={{ fontWeight: 700, fontSize: "0.85rem", color: "#3730a3", backgroundColor: "#e0e7ff", padding: "2px 6px" }}>
+                            {user.referralCode}
+                          </code>
+                          <button
+                            type="button"
+                            className="table-action"
+                            style={{ padding: "1px 5px", fontSize: "0.7rem", lineHeight: 1 }}
+                            title="Copy Referral Code"
+                            onClick={() => {
+                              navigator.clipboard.writeText(user.referralCode!);
+                            }}
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        {(user.successfulReferrals ?? 0) > 0 || (user.referralBalanceRupees ?? 0) > 0 ? (
+                          <span style={{ fontSize: "0.72rem", color: "#059669", fontWeight: 600 }}>
+                            ₹{user.referralBalanceRupees ?? 0} · {user.successfulReferrals ?? 0} refs
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="admin-cell-sub">—</span>
+                    )}
                   </td>
                   <td>{user.area || "—"}</td>
                   <td>{formatDate(user.createdAt)}</td>

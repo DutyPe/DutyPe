@@ -79,11 +79,13 @@ object LocaleHelper {
             val messaging = FirebaseMessaging.getInstance()
             if (previous != null) {
                 FCM_BASE_TOPICS.forEach { base ->
-                    messaging.unsubscribeFromTopic("${base}_$previous")
+                    val cleanOld = "${base}_$previous".replace(Regex("[^a-zA-Z0-9-_.~%]"), "_").trim('_')
+                    if (cleanOld.isNotBlank()) messaging.unsubscribeFromTopic(cleanOld)
                 }
             }
             FCM_BASE_TOPICS.forEach { base ->
-                messaging.subscribeToTopic("${base}_$language")
+                val cleanNew = "${base}_$language".replace(Regex("[^a-zA-Z0-9-_.~%]"), "_").trim('_')
+                if (cleanNew.isNotBlank()) messaging.subscribeToTopic(cleanNew)
             }
         }
     }

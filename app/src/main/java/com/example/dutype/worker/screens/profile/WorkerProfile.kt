@@ -596,14 +596,12 @@ fun WorkerProfileScreen(
                                 modifier = Modifier.clickable { openProfileDetails() }
                             )
 
-                            val subtitleText = if (hasName) {
-                                listOf(profileSkills.firstOrNull().orEmpty(), profileCity)
-                                    .filter { it.isNotBlank() }
-                                    .joinToString(" · ")
-                            } else if (userPhone.isNotBlank()) {
+                            val subtitleText = if (!hasName && userPhone.isNotBlank()) {
                                 stringResource(R.string.profile_tap_add_name)
-                            } else {
+                            } else if (!hasName) {
                                 stringResource(R.string.profile_tap_add_details)
+                            } else {
+                                ""
                             }
                             if (subtitleText.isNotBlank()) {
                                 Spacer(modifier = Modifier.height(2.dp))
@@ -613,62 +611,7 @@ fun WorkerProfileScreen(
                                     textAlign = TextAlign.Center
                                 )
                             }
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            val joinMillis = memberSinceMillis
-                            val hasRating = profileReviewCount > 0 && profileRating > 0.0
-                            // Rating always sits left of "Member since" (shows "No reviews yet" until rated).
-                            run {
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .clickable { openReviewsSheet() }
-                                            .padding(horizontal = 4.dp, vertical = 2.dp)
-                                    ) {
-                                        Text(
-                                            text = if (hasRating) {
-                                                val reviewText = if (profileReviewCount == 1) {
-                                                    stringResource(R.string.worker_stat_review_single)
-                                                } else {
-                                                    stringResource(R.string.worker_stat_reviews_count, profileReviewCount)
-                                                }
-                                                "★ " + String.format(java.util.Locale.US, "%.1f", profileRating) + " ($reviewText)"
-                                            } else {
-                                                stringResource(R.string.emp_profile_no_reviews_yet)
-                                            },
-                                            style = profileTextStyle(13.sp, FontWeight.Medium, if (hasRating) Color(0xFFD97706) else Color(0xFF64748B).fg())
-                                        )
-                                        Icon(
-                                            imageVector = Icons.Default.ChevronRight,
-                                            contentDescription = null,
-                                            tint = Color(0xFF94A3B8),
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    }
-                                    if (joinMillis > 0L) {
-                                        Box(
-                                            modifier = Modifier
-                                                .padding(horizontal = 10.dp)
-                                                .size(3.dp)
-                                                .background(Color(0xFFCBD5E1).bg(), CircleShape)
-                                        )
-                                    }
-                                    if (joinMillis > 0L) {
-                                        val joinLabel = java.text.SimpleDateFormat("MMM yyyy", java.util.Locale.getDefault())
-                                            .format(java.util.Date(joinMillis))
-                                        Text(
-                                            text = stringResource(R.string.emp_profile_member_since, joinLabel),
-                                            style = profileTextStyle(11.sp, FontWeight.Normal, Color(0xFF94A3B8).fg())
-                                        )
-                                    }
-                                }
-                            }
+                            Spacer(modifier = Modifier.height(4.dp))
                         } else {
                             // Guest mode: login CTA inside the same hero card
                             Box(

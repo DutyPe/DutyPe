@@ -336,6 +336,20 @@ fun WorkerNavGraph(
         composable(Routes.SETTINGS) {
             com.example.dutype.common.screens.SettingsScreen(navController = rootNavController)
         }
+
+        // Promo Showcase Microsite
+        composable(
+            route = Routes.PROMO_SHOWCASE,
+            arguments = listOf(navArgument("showcaseId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val showcaseId = backStackEntry.arguments?.getString("showcaseId").orEmpty()
+            val repo: com.example.dutype.homeservices.HomeServicesRepository = androidx.hilt.navigation.compose.hiltViewModel<com.example.dutype.homeservices.HomeServicesViewModel>().repo
+            com.example.dutype.components.PromoShowcaseScreen(
+                showcaseId = showcaseId,
+                navController = rootNavController,
+                repository = repo
+            )
+        }
     }
 }
 

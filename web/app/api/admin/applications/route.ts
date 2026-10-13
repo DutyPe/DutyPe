@@ -4,7 +4,7 @@ import { Timestamp } from "firebase-admin/firestore";
 import { cachedAdminGet } from "@/lib/firebase/admin-response-cache";
 import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
 import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
-import { Applications, Jobs, Values } from "@/lib/firebase/schema";
+import { Applications, Jobs, Values, WorkerProfiles } from "@/lib/firebase/schema";
 
 export const runtime = "nodejs";
 
@@ -24,21 +24,34 @@ async function getUncached(request: NextRequest) {
     }
     const snap = await query.limit(PAGE).get();
     const jobIds = Array.from(new Set(snap.docs.map((d) => String(d.get(Applications.JOB_ID) ?? "")))).filter(Boolean);
+    const workerIds = Array.from(new Set(snap.docs.map((d) => String(d.get(Applications.WORKER_ID) ?? "")))).filter(Boolean);
     const titles = new Map<string, string>();
+    const workerPhones = new Map<string, string>();
+    const workerEmails = new Map<string, string>();
     if (jobIds.length) {
       const cards = await db.getAll(...jobIds.map((id) => db.collection(Jobs.COLLECTION).doc(id)), { fieldMask: [Jobs.TITLE] });
       cards.forEach((c) => titles.set(c.id, String(c.get(Jobs.TITLE) ?? "")));
     }
+    if (workerIds.length) {
+      const workers = await db.getAll(...workerIds.map((id) => db.collection(WorkerProfiles.COLLECTION).doc(id)), { fieldMask: [WorkerProfiles.PHONE, WorkerProfiles.EMAIL] });
+      workers.forEach((w) => {
+        if (w.exists) {
+          workerPhones.set(w.id, String(w.get(WorkerProfiles.PHONE) ?? ""));
+          workerEmails.set(w.id, String(w.get(WorkerProfiles.EMAIL) ?? ""));
+        }
+      });
+    }
     const applications = snap.docs.map((d) => {
       const created = d.get(Applications.CREATED_AT);
+      const wId = String(d.get(Applications.WORKER_ID) ?? "");
       return {
         id: d.id,
         jobId: String(d.get(Applications.JOB_ID) ?? ""),
         employerId: String(d.get(Applications.EMPLOYER_ID) ?? ""),
-        workerId: String(d.get(Applications.WORKER_ID) ?? ""),
+        workerId: wId,
         workerName: String(d.get(Applications.WORKER_NAME) ?? ""),
-        workerPhone: "",
-        workerEmail: "",
+        workerPhone: workerPhones.get(wId) || "",
+        workerEmail: workerEmails.get(wId) || "",
         jobTitle: titles.get(String(d.get(Applications.JOB_ID))) || "(job removed)",
         status: String(d.get(Applications.STATUS) ?? "").toUpperCase(),
         callCount: Number(d.get(Applications.CALL_COUNT) ?? 0),

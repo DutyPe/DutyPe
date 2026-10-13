@@ -20,7 +20,7 @@ import javax.inject.Inject
 /** Shared by the customer and partner screens of DutyPe Services. */
 @HiltViewModel
 class HomeServicesViewModel @Inject constructor(
-    private val repo: HomeServicesRepository,
+    val repo: HomeServicesRepository,
     private val locationRepository: LocationRepository,
     val savedWorkLocationsStore: com.example.dutype.services.SavedWorkLocationsStore
 ) : ViewModel() {
@@ -58,14 +58,17 @@ class HomeServicesViewModel @Inject constructor(
     val myBookings: StateFlow<List<ServiceBooking>> =
         repo.observeMyBookings().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    val showcases: StateFlow<List<PromoShowcase>> =
+        repo.getShowcasesFlow().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
     /** My bookings with load / error state (history screen). */
     val bookingsLoad: StateFlow<BookingsLoad> =
         repo.observeMyBookingsLoad().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BookingsLoad(false, emptyList(), null))
 
     fun bookingLoad(bookingId: String): Flow<BookingLoad> = repo.observeBookingLoad(bookingId)
 
-    suspend fun quote(serviceId: String, couponCode: String): Result<ServiceQuote> =
-        runCatching { repo.previewQuote(serviceId, couponCode) }.mapError()
+    suspend fun quote(serviceId: String, couponCode: String, clientPrice: Int? = null): Result<ServiceQuote> =
+        runCatching { repo.previewQuote(serviceId, couponCode, clientPrice) }.mapError()
 
     /** [loaded] is false until the first answer, so the screen does not flash the apply form. */
     data class PartnerUi(val loaded: Boolean, val profile: PartnerProfile?)
@@ -130,10 +133,13 @@ class HomeServicesViewModel @Inject constructor(
         service: ServiceItem, addressText: String, area: String, lat: Double, lng: Double, note: String, scheduledAt: Long?,
         couponCode: String = ""
     ): Result<String> = runCatching {
-        repo.createBooking(service.id, addressText, area, lat, lng, note, scheduledAt, couponCode)
+        repo.createBooking(service.id, addressText, area, lat, lng, note, scheduledAt, couponCode, service.price)
     }.mapError()
 
     suspend fun startCode(bookingId: String): String = runCatching { repo.startCode(bookingId) }.getOrDefault("")
+
+    suspend fun submitBookingPayment(bookingId: String, utr: String): Result<Unit> =
+        runCatching { repo.submitBookingPayment(bookingId, utr) }.mapError()
 
     suspend fun cancel(bookingId: String, reason: String = ""): Result<Unit> = runCatching { repo.cancel(bookingId, reason) }.mapError()
 
@@ -173,6 +179,10 @@ class HomeServicesViewModel @Inject constructor(
 
     suspend fun requestTopup(amount: Int, utr: String): Result<Unit> =
         runCatching { repo.requestTopup(amount, utr) }.mapError()
+
+    suspend fun updatePartnerLiveLocation(bookingId: String, lat: Double, lng: Double, bearing: Float = 0f) {
+        repo.updatePartnerLiveLocation(bookingId, lat, lng, bearing)
+    }
 
     private fun <T> Result<T>.mapError(): Result<T> =
         fold(onSuccess = { Result.success(it) }, onFailure = { Result.failure(Exception(message(it), it)) })

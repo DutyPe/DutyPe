@@ -85,7 +85,7 @@ class PlaceRepository @Inject constructor(
         val editor = prefs.edit().putBoolean(KEY_ONLINE, online)
         if (online) {
             // Join the last known area now; the next GPS fix moves it if the worker has moved.
-            prefs.getString(KEY_LAST_CELL, null)?.let { cell ->
+            prefs.getString(KEY_LAST_CELL, null)?.takeIf { it.isNotBlank() }?.let { cell ->
                 val topic = urgentTopic(cell, LocaleHelper.getLanguage(context))
                 messaging.subscribeToTopic(topic)
                 editor.putString(KEY_URGENT_TOPIC, topic)
@@ -196,7 +196,11 @@ class PlaceRepository @Inject constructor(
         const val CELL_PRECISION = 5
 
         /** Mirrors the server's `urgentTopic` (instant.ts). */
-        fun urgentTopic(cell: String, lang: String): String = "urgent_${cell}_$lang"
+        fun urgentTopic(cell: String, lang: String): String {
+            val cleanCell = cell.trim().replace(Regex("[^a-zA-Z0-9-_.~%]"), "_").trim('_')
+            val cleanLang = lang.trim().replace(Regex("[^a-zA-Z0-9-_.~%]"), "_").trim('_').ifBlank { "en" }
+            return if (cleanCell.isNotBlank()) "urgent_${cleanCell}_$cleanLang" else "urgent_default_$cleanLang"
+        }
 
         /** On sign-out: stop urgent offers for the old account's area and go Offline. */
         fun clearUrgentTopic(context: Context) {

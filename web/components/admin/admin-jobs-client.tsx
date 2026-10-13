@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { httpsCallable } from "firebase/functions";
+import { getFirebaseServices } from "@/lib/firebase/client";
 import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { formatCurrencyRange } from "@/lib/firebase/firestore-helpers";
 import { AdminTablePagination, paginateRows } from "./admin-table-pagination";
+import { Gift, ShieldAlert, CheckCircle, RefreshCw, UserCheck } from "lucide-react";
 
 type JobRow = {
   id: string;
@@ -74,6 +77,87 @@ export function AdminJobsClient() {
   const [pageSize, setPageSize] = useState(25);
   const [activatingExpired, setActivatingExpired] = useState(false);
 
+  // Free Job Posting Policy Config & Specific Grant State
+  const [freeConfigLoading, setFreeConfigLoading] = useState(false);
+  const [freeConfigSaving, setFreeConfigSaving] = useState(false);
+  const [freeConfigMsg, setFreeConfigMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [freeJobPostingEnabled, setFreeJobPostingEnabled] = useState(false);
+  const [freeJobsCount, setFreeJobsCount] = useState(0);
+  const [applicableTo, setApplicableTo] = useState<"NONE" | "NEW_USERS" | "ALL_USERS">("NONE");
+
+  // User-specific free jobs grant state
+  const [grantPhoneOrUid, setGrantPhoneOrUid] = useState("");
+  const [grantCount, setGrantCount] = useState(1);
+  const [granting, setGranting] = useState(false);
+  const [grantMsg, setGrantMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  async function loadFreeJobConfig() {
+    try {
+      setFreeConfigLoading(true);
+      const services = getFirebaseServices();
+      if (!services) return;
+      const getCfg = httpsCallable(services.functions, "getJobPostingConfig");
+      const res: any = await getCfg();
+      const cfg = res.data;
+      if (cfg) {
+        setFreeJobPostingEnabled(Boolean(cfg.freeJobPostingEnabled));
+        setFreeJobsCount(Number(cfg.freeJobsCount) || 0);
+        setApplicableTo(cfg.applicableTo || (cfg.freeJobPostingEnabled ? "NEW_USERS" : "NONE"));
+      }
+    } catch (e: any) {
+      console.warn("Could not load job posting config:", e);
+    } finally {
+      setFreeConfigLoading(false);
+    }
+  }
+
+  async function handleSaveFreeConfig() {
+    try {
+      setFreeConfigSaving(true);
+      setFreeConfigMsg(null);
+      const services = getFirebaseServices();
+      if (!services) throw new Error("Firebase not initialized");
+      const updateCfg = httpsCallable(services.functions, "updateJobPostingConfig");
+      await updateCfg({
+        freeJobPostingEnabled,
+        freeJobsCount: Number(freeJobsCount) || 0,
+        applicableTo
+      });
+      setFreeConfigMsg({ type: "success", text: "Free job posting policy saved successfully!" });
+    } catch (e: any) {
+      setFreeConfigMsg({ type: "error", text: e.message || "Failed to save policy." });
+    } finally {
+      setFreeConfigSaving(false);
+    }
+  }
+
+  async function handleGrantUserFreeJobs() {
+    if (!grantPhoneOrUid.trim()) {
+      setGrantMsg({ type: "error", text: "Please enter employer phone number or UID." });
+      return;
+    }
+    try {
+      setGranting(true);
+      setGrantMsg(null);
+      const services = getFirebaseServices();
+      if (!services) throw new Error("Firebase not initialized");
+      const grantFn = httpsCallable(services.functions, "grantEmployerFreeJobs");
+      const res: any = await grantFn({
+        phoneOrUid: grantPhoneOrUid.trim(),
+        freeJobPosts: Number(grantCount) || 1
+      });
+      setGrantMsg({
+        type: "success",
+        text: `Granted ${grantCount} free jobs to employer (${res.data?.name || res.data?.phone || "Employer"}). Total free jobs now: ${res.data?.grantedFreeJobPosts}`
+      });
+      setGrantPhoneOrUid("");
+    } catch (e: any) {
+      setGrantMsg({ type: "error", text: e.message || "Failed to grant free jobs." });
+    } finally {
+      setGranting(false);
+    }
+  }
+
   async function loadJobs() {
     try {
       setLoading(true);
@@ -115,6 +199,7 @@ export function AdminJobsClient() {
 
   useEffect(() => {
     void loadJobs();
+    void loadFreeJobConfig();
   }, []);
 
   useEffect(() => {
@@ -358,6 +443,175 @@ export function AdminJobsClient() {
           </div>
         </div>
       )}
+
+      {/* FREE JOB POSTING CONFIG & USER GRANT PANEL */}
+      <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16, marginBottom: 20 }}>
+        {/* Global Policy Card */}
+        <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 18, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
+              <ShieldAlert size={18} color="#e11d48" />
+              <span>Free Job Posting Policy (Employer Side)</span>
+            </div>
+            {freeConfigLoading && <RefreshCw size={14} className="animate-spin" color="#64748b" />}
+          </div>
+
+          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 14, lineHeight: "17px" }}>
+            Control whether employers can post jobs without paying an active subscription. Default is <b>STOPPED (0 free jobs)</b>.
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={freeJobPostingEnabled}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setFreeJobPostingEnabled(checked);
+                  if (checked && applicableTo === "NONE") setApplicableTo("NEW_USERS");
+                  if (checked && freeJobsCount === 0) setFreeJobsCount(3);
+                  if (!checked) setApplicableTo("NONE");
+                }}
+              />
+              <span>Enable Free Job Postings</span>
+              <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: freeJobPostingEnabled ? "#dcfce7" : "#fee2e2", color: freeJobPostingEnabled ? "#15803d" : "#dc2626", fontWeight: 700 }}>
+                {freeJobPostingEnabled ? "ACTIVE" : "COMPLETELY STOPPED"}
+              </span>
+            </label>
+
+            {freeJobPostingEnabled && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, padding: 12, background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#334155", marginBottom: 4 }}>
+                    Free Jobs Count:
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={freeJobsCount}
+                    onChange={(e) => setFreeJobsCount(parseInt(e.target.value) || 0)}
+                    style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#334155", marginBottom: 4 }}>
+                    Applies To:
+                  </label>
+                  <select
+                    value={applicableTo}
+                    onChange={(e) => setApplicableTo(e.target.value as any)}
+                    style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+                  >
+                    <option value="NEW_USERS">New Users (from activation)</option>
+                    <option value="ALL_USERS">All Users (New + Existing)</option>
+                    <option value="NONE">Disabled (None)</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {freeConfigMsg && (
+              <div style={{ fontSize: 12, color: freeConfigMsg.type === "success" ? "#166534" : "#dc2626", fontWeight: 600 }}>
+                {freeConfigMsg.text}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleSaveFreeConfig}
+              disabled={freeConfigSaving}
+              style={{
+                alignSelf: "flex-start",
+                padding: "7px 16px",
+                background: "#0f172a",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6
+              }}
+            >
+              {freeConfigSaving ? "Saving Policy..." : "Save Policy"}
+            </button>
+          </div>
+        </div>
+
+        {/* User-specific Grant Card */}
+        <div style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 18, boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 12 }}>
+            <Gift size={18} color="#2563eb" />
+            <span>Grant Free Jobs to Specific User</span>
+          </div>
+
+          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 14, lineHeight: "17px" }}>
+            Add free job post credits directly to any specific employer by phone number or UID.
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#334155", marginBottom: 4 }}>
+                Employer Phone Number or UID:
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. 9876543210 or user UID"
+                value={grantPhoneOrUid}
+                onChange={(e) => setGrantPhoneOrUid(e.target.value)}
+                style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#334155", marginBottom: 4 }}>
+                Number of Free Jobs to Grant:
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="50"
+                value={grantCount}
+                onChange={(e) => setGrantCount(parseInt(e.target.value) || 1)}
+                style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #cbd5e1", fontSize: 13 }}
+              />
+            </div>
+
+            {grantMsg && (
+              <div style={{ fontSize: 12, color: grantMsg.type === "success" ? "#166534" : "#dc2626", fontWeight: 600 }}>
+                {grantMsg.text}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleGrantUserFreeJobs}
+              disabled={granting || !grantPhoneOrUid.trim()}
+              style={{
+                alignSelf: "flex-start",
+                padding: "7px 16px",
+                background: "#2563eb",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6
+              }}
+            >
+              <UserCheck size={14} />
+              {granting ? "Granting..." : "Grant Free Jobs"}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div className="admin-stats-grid small">
         <div className="admin-stat-card compact">

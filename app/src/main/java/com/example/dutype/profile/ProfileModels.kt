@@ -92,6 +92,8 @@ data class EmployerProfile(
     val lat: Double = 0.0,
     val lng: Double = 0.0,
     val subscription: EmployerSubscription = EmployerSubscription(),
+    val freeJobPostsUsed: Int = 0,
+    val grantedFreeJobPosts: Int = 0,
     val freeUrgentPostsUsed: Int = 0,
     /** Free posts (normal or urgent) earned by referring friends, usable until [referralFreePostsUntil]. */
     val referralFreePosts: Int = 0,
@@ -160,6 +162,9 @@ data class EmployerProfile(
             subscription = EmployerSubscription.fromMap(
                 (d[EmployerProfiles.SUBSCRIPTION] as? Map<*, *>)?.entries?.associate { it.key.toString() to it.value }
             ),
+            freeJobPostsUsed = (d[EmployerProfiles.FREE_JOB_POSTS_USED] as? Number)?.toInt()
+                ?: (d["freeJobPostsUsed"] as? Number)?.toInt() ?: 0,
+            grantedFreeJobPosts = (d["grantedFreeJobPosts"] as? Number)?.toInt() ?: 0,
             freeUrgentPostsUsed = (d[EmployerProfiles.FREE_URGENT_POSTS_USED] as? Number)?.toInt() ?: 0,
             referralFreePosts = (d[EmployerProfiles.REFERRAL_FREE_POSTS] as? Number)?.toInt() ?: 0,
             referralFreePostsUntil = d[EmployerProfiles.REFERRAL_FREE_POSTS_UNTIL].epochMillis(),

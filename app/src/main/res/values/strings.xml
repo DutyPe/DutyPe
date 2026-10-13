@@ -225,6 +225,7 @@
     <string name="auth_mobile_number">Mobile Number</string>
     <string name="auth_help">Help</string>
     <string name="auth_send_otp">Send OTP</string>
+    <string name="auth_continue_with_truecaller">Continue with Truecaller</string>
     <string name="auth_dont_have_account">Don\'t have an account? </string>
     <string name="auth_create_account">Create Account</string>
     <string name="auth_enter_otp">Enter OTP</string>
@@ -2747,6 +2748,7 @@
     <string name="svc_inspection_info">This is the visit charge. The partner checks the problem and tells you the repair price before starting.</string>
     <string name="svc_warranty">7-day free re-work if something is not right</string>
     <string name="svc_confirm">Confirm Booking</string>
+    <string name="svc_status_payment_pending">Payment Pending</string>
     <string name="svc_status_searching">Finding a partner near you…</string>
     <string name="svc_status_assigned">Partner assigned</string>
     <string name="svc_status_on_the_way">Partner is on the way</string>

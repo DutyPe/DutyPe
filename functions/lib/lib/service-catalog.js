@@ -1,11 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DEFAULT_CONFIG = exports.DEFAULT_SERVICES = exports.CATEGORIES = exports.ITEMS = void 0;
+exports.SERVICE_ID_ALIASES = exports.DEFAULT_CONFIG = exports.DEFAULT_SERVICES = exports.CATEGORIES = exports.ITEMS = exports.ACTIVE_CUSTOMER_CATEGORY_IDS = void 0;
 exports.provideFor = provideFor;
 exports.bringFor = bringFor;
 exports.skillOf = skillOf;
 exports.mergeConfig = mergeConfig;
 exports.findService = findService;
+exports.platformFeeFor = platformFeeFor;
 exports.bookingFeeFor = bookingFeeFor;
 exports.platformTakePaise = platformTakePaise;
 exports.newStartOtp = newStartOtp;
@@ -25,6 +26,16 @@ exports.takePaise = takePaise;
  * prepaid credits when the job is completed.
  */
 const crypto_1 = require("crypto");
+exports.ACTIVE_CUSTOMER_CATEGORY_IDS = new Set([
+    "CLEANING",
+    "ELECTRICIAN",
+    "PLUMBER",
+    "CARPENTER",
+    "PAINTER",
+    "HOME_HELP",
+    "COOK_MAID",
+    "BABYSITTER",
+]);
 /** Things to keep ready / bring, in three languages (ids used by services). */
 exports.ITEMS = {
     BROOM: { en: "Broom", te: "చీపురు", hi: "झाड़ू" },
@@ -113,10 +124,10 @@ exports.DEFAULT_SERVICES = [
     // Cleaning (BASIC). Light cleaning: the customer gives broom / mop; deep cleaning: partner's machine.
     s("clean_sweep", "CLEANING", "House sweeping & mopping (2 hrs)", "ఇల్లు ఊడ్చడం & తుడవడం (2 గంటలు)", "घर की झाड़ू-पोछा (2 घंटे)", 299, 120, "Sweeping, mopping and dusting of all rooms, one helper for 2 hours.", { provide: ["BROOM", "MOP", "CLEANER", "WATER"], bring: ["GLOVES"] }),
     s("clean_utensils", "CLEANING", "Utensils washing (1 hr)", "పాత్రలు కడగడం (1 గంట)", "बर्तन धोना (1 घंटा)", 149, 60, "Washing and arranging utensils, one helper for 1 hour.", { provide: ["DISH_SOAP", "WATER"], bring: ["GLOVES"] }),
-    s("clean_bathroom", "CLEANING", "Bathroom deep cleaning", "బాత్రూమ్ డీప్ క్లీనింగ్", "बाथरूम डीप क्लीनिंग", 399, 60, "One bathroom: tiles, taps, toilet and stain removal with machine."),
-    s("clean_kitchen", "CLEANING", "Kitchen deep cleaning", "కిచెన్ డీప్ క్లీనింగ్", "किचन डीप क्लीनिंग", 1199, 150, "Slab, tiles, sink, chimney outside and cabinets outside."),
-    s("clean_1bhk", "CLEANING", "Full home deep cleaning (1BHK)", "ఇల్లు మొత్తం డీప్ క్లీనింగ్ (1BHK)", "पूरे घर की डीप क्लीनिंग (1BHK)", 2799, 300, "All rooms, kitchen and bathroom, floors scrubbed, fans and windows."),
-    s("clean_2bhk", "CLEANING", "Full home deep cleaning (2BHK)", "ఇల్లు మొత్తం డీప్ క్లీనింగ్ (2BHK)", "पूरे घर की डीप क्लीनिंग (2BHK)", 3699, 420, "All rooms, kitchen and bathrooms, floors scrubbed, fans and windows."),
+    s("clean_bathroom", "CLEANING", "Bathroom deep cleaning", "బాత్రూమ్ డీప్ క్లీనింగ్", "बाथरूम डीप क्लीनिंग", 349, 60, "One bathroom: tiles, taps, toilet and stain removal with machine.", { originalPrice: 499 }),
+    s("clean_kitchen", "CLEANING", "Kitchen deep cleaning", "కిచెన్ డీప్ క్లీనింగ్", "किचन डीप क्लीनिंग", 499, 90, "Slab, tiles, sink, chimney outside and cabinets outside.", { originalPrice: 799 }),
+    s("clean_1bhk", "CLEANING", "Full home deep cleaning (1BHK)", "ఇల్లు మొత్తం డీప్ క్లీనింగ్ (1BHK)", "पूरे घर की डीप क्लीनिंग (1BHK)", 899, 240, "All rooms, kitchen and bathroom, floors scrubbed, fans and windows.", { originalPrice: 1299 }),
+    s("clean_2bhk", "CLEANING", "Full home deep cleaning (2BHK)", "ఇల్లు మొత్తం డీప్ క్లీనింగ్ (2BHK)", "पूరే घर की डीप क्लीनिंग (2BHK)", 1299, 300, "All rooms, kitchen and bathrooms, floors scrubbed, fans and windows.", { originalPrice: 1799 }),
     s("clean_sofa", "CLEANING", "Sofa cleaning (5 seats)", "సోఫా క్లీనింగ్ (5 సీట్లు)", "सोफ़ा सफ़ाई (5 सीट)", 649, 90, "Shampoo and vacuum cleaning of fabric sofa.", { provide: ["POWER", "WATER"], bring: ["VACUUM", "GLOVES"] }),
     s("clean_fans", "CLEANING", "Fans, cobwebs & windows (2 hrs)", "ఫ్యాన్లు, బూజు, కిటికీలు (2 గంటలు)", "पंखे, जाले और खिड़कियाँ (2 घंटे)", 349, 120, "Ceiling fans, cobwebs, window grills and glass of the house.", { provide: ["LADDER", "WATER", "CLEANER"], bring: ["GLOVES"] }),
     s("clean_balcony", "CLEANING", "Balcony deep cleaning", "బాల్కనీ డీప్ క్లీనింగ్", "बालकनी डीप क्लीनिंग", 249, 45, "Floor scrubbing, railing wipe and dust removal for one balcony.", { provide: ["WATER", "BROOM"], bring: ["GLOVES"] }),
@@ -125,15 +136,15 @@ exports.DEFAULT_SERVICES = [
     s("clean_kitchen_prep", "CLEANING", "Kitchen prep & chopping (1 hr)", "కిచెన్ ప్రిపరేషన్ & కూరగాయలు తరగడం (1 గంట)", "किचन प्रेप और सब्ज़ी कटिंग (1 घंटा)", 149, 60, "Vegetable washing, chopping, kneading and kitchen counter organizing.", { provide: ["GROCERIES", "DISH_SOAP"], bring: ["GLOVES"] }),
     s("clean_wardrobe", "CLEANING", "Complete wardrobe organization (2 hrs)", "వార్డ్‌రోబ్ ఆర్గనైజేషన్ (2 గంటలు)", "वार्डरोब संगठन (2 घंटे)", 349, 120, "Folding, categorizing and neat organizing of one master wardrobe.", { provide: ["CLEAR_SPACE"], bring: ["GLOVES"] }),
     // AC (SKILLED)
-    s("ac_service", "AC", "AC service (foam-jet)", "AC సర్వీస్ (ఫోమ్-జెట్)", "AC सर्विस (फोम-जेट)", 449, 60, "Filter, coil and drain cleaning, cooling check. Split or window, one AC."),
+    s("ac_service", "AC", "Split AC Deep Jet Service", "స్ప్లిట్ AC డీప్ జెట్ సర్వీస్", "स्प्लिट AC डीप जेट सर्विस", 399, 45, "Filter, coil and drain cleaning, cooling check. Split or window, one AC.", { originalPrice: 599 }),
     s("ac_deep", "AC", "AC deep cleaning (indoor + outdoor)", "AC డీప్ క్లీనింగ్ (ఇండోర్ + అవుట్‌డోర్)", "AC डीप क्लीनिंग (इनडोर + आउटडोर)", 899, 90, "Indoor coil, blower and outdoor unit jet wash. One split AC."),
-    s("ac_repair_visit", "AC", "AC not cooling / repair visit", "AC కూలింగ్ లేదు / రిపేర్ విజిట్", "AC ठंडा नहीं / रिपेयर विज़िट", 249, 45, "Technician finds the problem and tells the repair price before starting.", VISIT),
+    s("ac_repair_visit", "AC", "AC Repair & Diagnosis Visit", "AC రిపేర్ & సమస్య పరిశీలన", "AC रिपेयर और जांच विज़िट", 149, 30, "Technician finds the problem and tells the repair price before starting.", Object.assign(Object.assign({}, VISIT), { originalPrice: 199 })),
     s("ac_gas", "AC", "AC gas refill", "AC గ్యాస్ రీఫిల్", "AC गैस रिफिल", 2199, 90, "Leak check and gas top-up for one AC.", { bring: ["TOOLKIT", "GAS_KIT"] }),
     s("ac_install", "AC", "Split AC installation", "స్ప్లిట్ AC ఇన్‌స్టలేషన్", "स्प्लिट AC इंस्टॉलेशन", 1299, 120, "Indoor + outdoor unit fitting with existing pipe. Extra pipe/stand charged separately.", { bring: ["TOOLKIT", "DRILL", "GAS_KIT"] }),
     s("ac_uninstall", "AC", "AC uninstallation", "AC అన్‌ఇన్‌స్టలేషన్", "AC अनइंस्टॉलेशन", 599, 60, "Safe removal with gas pump-down."),
     // Electrician (SKILLED)
-    s("elec_fan", "ELECTRICIAN", "Fan installation / repair", "ఫ్యాన్ ఫిట్టింగ్ / రిపేర్", "पंखा फिटिंग / रिपेयर", 149, 30, "One ceiling or wall fan. Parts extra."),
-    s("elec_switch", "ELECTRICIAN", "Switch / socket repair", "స్విచ్ / సాకెట్ రిపేర్", "स्विच / सॉकेट रिपेयर", 99, 20, "Up to 2 switches or sockets. Parts extra."),
+    s("elec_fan", "ELECTRICIAN", "Fan installation / repair", "ఫ్యాన్ ఫిట్టింగ్ / రిపేర్", "पंखा फिटिंग / रिपेयर", 129, 30, "One ceiling or wall fan. Parts extra.", { originalPrice: 199 }),
+    s("elec_switch", "ELECTRICIAN", "Switch / socket repair", "స్విచ్ / సాకెట్ రిపేర్", "स्विच / सॉकेट रिपेयर", 99, 20, "Up to 2 switches or sockets. Parts extra.", { originalPrice: 149 }),
     s("elec_light", "ELECTRICIAN", "Light / tube fitting", "లైట్ / ట్యూబ్ ఫిట్టింగ్", "लाइट / ट्यूब फिटिंग", 99, 20, "Up to 2 lights. Parts extra."),
     s("elec_decor", "ELECTRICIAN", "Decorative light / chandelier fitting", "డెకరేటివ్ లైట్ / షాండ్లియర్", "डेकोरेटिव लाइट / झूमर", 299, 45, "One chandelier or decorative fixture."),
     s("elec_point", "ELECTRICIAN", "New socket / switch point", "కొత్త సాకెట్ / స్విచ్ పాయింట్", "नया सॉकेट / स्विच पॉइंट", 199, 45, "One new point from a nearby board, surface wiring. Wire extra."),
@@ -142,9 +153,10 @@ exports.DEFAULT_SERVICES = [
     s("elec_tv", "ELECTRICIAN", "TV wall mounting", "TV వాల్ మౌంటింగ్", "TV वॉल माउंटिंग", 349, 45, "Mounting one TV up to 55 inch on the customer's bracket.", { provide: ["NEW_ITEM", "POWER"] }),
     s("elec_visit", "ELECTRICIAN", "Electrician visit (other work)", "ఎలక్ట్రీషియన్ విజిట్ (ఇతర పని)", "इलेक्ट्रीशियन विज़िट (अन्य काम)", 99, 30, "Electrician checks the problem and tells the price before starting.", VISIT),
     // Plumber (SKILLED)
-    s("plumb_tap", "PLUMBER", "Tap / mixer fitting", "ట్యాప్ / మిక్సర్ ఫిట్టింగ్", "नल / मिक्सर फिटिंग", 129, 30, "One tap or mixer. Parts extra."),
+    s("plumb_visit", "PLUMBER", "Plumber inspection visit", "ప్లంబర్ విజిట్ (సమస్య పరిశీలన)", "प्लंबर विज़िट (जांच)", 99, 30, "Doorstep plumbing inspection, root cause diagnosis and direct price quote.", Object.assign(Object.assign({}, VISIT), { originalPrice: 149 })),
+    s("plumb_tap", "PLUMBER", "Tap / mixer fitting", "ట్యాప్ / మిక్సర్ ఫిట్టింగ్", "नल / मिक्सर फिटिंग", 99, 30, "One tap or mixer. Parts extra.", { originalPrice: 149 }),
     s("plumb_leak", "PLUMBER", "Leakage repair", "లీకేజ్ రిపేర్", "लीकेज रिपेयर", 199, 45, "Pipe, tap or tank leak. Parts extra."),
-    s("plumb_block", "PLUMBER", "Drain / toilet blockage", "డ్రెయిన్ / టాయిలెట్ బ్లాకేజ్", "नाली / टॉयलेट ब्लॉकेज", 299, 45, "Clear one blocked drain, sink or toilet."),
+    s("plumb_block", "PLUMBER", "Drain / toilet blockage", "డ్రెయిన్ / టాయిలెట్ బ్లాకేజ్", "नाली / टॉयलेट ब्लॉकेज", 229, 45, "Clear one blocked drain, sink or toilet.", { originalPrice: 349 }),
     s("plumb_flush", "PLUMBER", "Flush tank repair", "ఫ్లష్ ట్యాంక్ రిపేర్", "फ्लश टैंक रिपेयर", 199, 40, "Fix one flush tank (parts extra)."),
     s("plumb_basin", "PLUMBER", "Wash basin / sink installation", "వాష్ బేసిన్ / సింక్ ఫిట్టింగ్", "वॉश बेसिन / सिंक फिटिंग", 399, 60, "Fitting of one basin or kitchen sink with waste pipe."),
     s("plumb_tank", "PLUMBER", "Water tank cleaning (up to 1000 L)", "వాటర్ ట్యాంక్ క్లీనింగ్ (1000 L వరకు)", "पानी टंकी सफ़ाई (1000 L तक)", 699, 90, "Drain, scrub and disinfect one overhead or sump tank.", { provide: ["LADDER", "POWER"], bring: ["SCRUBBER", "GLOVES"] }),
@@ -152,7 +164,7 @@ exports.DEFAULT_SERVICES = [
     // Appliance (SKILLED)
     s("ro_service", "APPLIANCE", "RO water purifier service", "RO వాటర్ ప్యూరిఫైయర్ సర్వీస్", "RO वाटर प्यूरीफायर सर्विस", 399, 45, "Cleaning, TDS check and pre-filter change. Other filters extra."),
     s("ro_install", "APPLIANCE", "RO installation / uninstallation", "RO ఇన్‌స్టలేషన్ / అన్‌ఇన్‌స్టలేషన్", "RO इंस्टॉलेशन / अनइंस्टॉलेशन", 349, 45, "Fitting or removal of one purifier.", { bring: ["TOOLKIT", "DRILL"] }),
-    s("wm_repair", "APPLIANCE", "Washing machine repair visit", "వాషింగ్ మెషిన్ రిపేర్ విజిట్", "वॉशिंग मशीन रिपेयर विज़िट", 249, 45, "Technician finds the problem and tells the repair price before starting.", VISIT),
+    s("wm_repair", "APPLIANCE", "Washing machine repair visit", "వాషింగ్ మెషిన్ రిపేర్ విజిట్", "वॉशिंग मशीन रिपेयर विज़िट", 149, 45, "Technician finds the problem and tells the repair price before starting.", Object.assign(Object.assign({}, VISIT), { originalPrice: 199 })),
     s("fridge_repair", "APPLIANCE", "Fridge repair visit", "ఫ్రిజ్ రిపేర్ విజిట్", "फ्रिज रिपेयर विज़िट", 249, 45, "Technician finds the problem and tells the repair price before starting.", VISIT),
     s("tv_repair", "APPLIANCE", "TV repair visit", "TV రిపేర్ విజిట్", "TV रिपेयर विज़िट", 249, 45, "Technician checks the TV and tells the repair price before starting.", VISIT),
     s("mixer_repair", "APPLIANCE", "Mixer / grinder repair visit", "మిక్సీ / గ్రైండర్ రిపేర్ విజిట్", "मिक्सर / ग्राइंडर रिपेयर विज़िट", 149, 30, "Check and repair price for one mixer or grinder.", VISIT),
@@ -163,9 +175,9 @@ exports.DEFAULT_SERVICES = [
     s("carp_door", "CARPENTER", "Door / window alignment & hinges", "డోర్ / కిటికీ అలైన్‌మెంట్, హింజెస్", "दरवाज़ा / खिड़की अलाइनमेंट, कब्ज़े", 249, 45, "Fix one door or window that does not close properly."),
     s("carp_curtain", "CARPENTER", "Curtain rod / bracket fitting", "కర్టెన్ రాడ్ / బ్రాకెట్ ఫిట్టింగ్", "पर्दे की रॉड / ब्रैकेट फिटिंग", 149, 30, "Up to 2 rods or brackets on the customer's material."),
     s("carp_assembly", "CARPENTER", "Bed / furniture assembly", "బెడ్ / ఫర్నిచర్ అసెంబ్లీ", "बेड / फ़र्नीचर असेंबली", 449, 90, "Assembly of one bed, wardrobe or table."),
-    s("carp_visit", "CARPENTER", "Carpenter visit (repairs)", "కార్పెంటర్ విజిట్ (రిపేర్లు)", "बढ़ई विज़िट (रिपेयर)", 99, 30, "Carpenter checks the work and tells the price before starting.", VISIT),
+    s("carp_visit", "CARPENTER", "Carpenter visit (repairs)", "కార్పెంటర్ విజిట్ (రిపేర్లు)", "बढ़ई विज़िट (रिपेयर)", 149, 30, "Carpenter checks the work and tells the price before starting.", Object.assign(Object.assign({}, VISIT), { originalPrice: 199 })),
     // Painting (SKILLED)
-    s("paint_touchup", "PAINTER", "Wall touch-up painting (1 wall, labour)", "గోడ టచ్-అప్ పెయింటింగ్ (1 గోడ, కూలీ)", "दीवार टच-अप पेंटिंग (1 दीवार, मज़दूरी)", 699, 180, "Putty patches and two coats on one wall. Paint extra."),
+    s("paint_touchup", "PAINTER", "Wall touch-up painting (1 wall, labour)", "గోడ టచ్-అప్ పెయింటింగ్ (1 గోడ, కూలీ)", "दीवार टच-अप पेंटिंग (1 दीवार, मज़दूरी)", 599, 180, "Putty patches and two coats on one wall. Paint extra.", { originalPrice: 799 }),
     s("paint_visit", "PAINTER", "Painting / waterproofing quote visit", "పెయింటింగ్ / వాటర్‌ప్రూఫింగ్ కొటేషన్ విజిట్", "पेंटिंग / वॉटरप्रूफ़िंग कोटेशन विज़िट", 99, 30, "Painter measures the area and gives a written price before work.", Object.assign(Object.assign({}, VISIT), { provide: ["CLEAR_SPACE"], bring: ["TOOLKIT"] })),
     // Home help (BASIC)
     s("help_shifting", "HOME_HELP", "Shifting / loading helpers (2 people, 3 hrs)", "షిఫ్టింగ్ / లోడింగ్ హెల్పర్లు (2 మంది, 3 గంటలు)", "शिफ़्टिंग / लोडिंग हेल्पर (2 लोग, 3 घंटे)", 999, 180, "Two helpers to pack, carry and load. Vehicle not included.", { provide: ["PACKING", "CLEAR_SPACE"], bring: ["ROPES", "GLOVES"] }),
@@ -175,25 +187,33 @@ exports.DEFAULT_SERVICES = [
     s("help_hourly_1hr", "HOME_HELP", "Hourly home helper (1 hr)", "గంటల ప్రాతిపదికన ఇంటి సహాయం (1 గంట)", "प्रति घंटा घरेलू मदद (1 घंटा)", 149, 60, "One verified helper for general house work, folding, sorting, errands or assistance.", { provide: ["CLEAR_SPACE"], bring: ["GLOVES"] }),
     s("help_hourly_2hr", "HOME_HELP", "Hourly home helper (2 hrs)", "గంటల ప్రాతిపదికన ఇంటి సహాయం (2 గంటలు)", "प्रति घंटा घरेलू मदद (2 घंटे)", 249, 120, "One verified helper for up to 2 hours of home tasks and organizing.", { provide: ["CLEAR_SPACE"], bring: ["GLOVES"] }),
     s("help_laundry", "HOME_HELP", "Laundry & clothes ironing help (1.5 hrs)", "లాండ్రీ & బట్టల ఇస్త్రీ సహాయం (1.5 గంటలు)", "कपड़े धोना और इस्त्री मदद (1.5 घंटे)", 249, 90, "Help with washing machine loads, hanging clothes to dry, and neat ironing.", { provide: ["POWER", "WATER"], bring: ["GLOVES"] }),
+    // Cook & Maid (BASIC)
+    s("cook_meal", "COOK_MAID", "Cook for one meal (up to 6 people)", "ఒక పూట వంట (6 మంది వరకు)", "एक समय का खाना (6 लोगों तक)", 299, 120, "Home-style fresh cooking in your kitchen. Vegetables prepped, dishes made, kitchen tidied.", { provide: ["GROCERIES", "DISH_SOAP"], bring: ["GLOVES"], originalPrice: 399 }),
+    s("maid_help", "COOK_MAID", "Maid house help & utensils (2 hrs)", "మేడ్ ఇంటి పని & గిన్నెలు (2 గంటలు)", "घरेलू काम और बर्तन (2 घंटे)", 249, 120, "Utensils washing, kitchen counter cleaning, dusting and light sweeping.", { provide: ["DISH_SOAP", "BROOM", "WATER"], bring: ["GLOVES"], originalPrice: 349 }),
+    s("cook_maid_combo", "COOK_MAID", "Cook & maid combo service (3 hrs)", "వంటమనిషి & మేడ్ కాంబో సర్వీస్ (3 గంటలు)", "कुक और मेड कॉम्बो सर्विस (3 घंटे)", 549, 180, "One meal cooking plus full utensils washing and kitchen cleanup.", { provide: ["GROCERIES", "DISH_SOAP", "WATER"], bring: ["GLOVES"], originalPrice: 799 }),
+    // Babysitting & Child Care (BASIC)
+    s("baby_care_2hr", "BABYSITTER", "Babysitting & child care (2 hrs)", "పిల్లల సంరక్షణ & బేబీ సిట్టింగ్ (2 గంటలు)", "बच्चों की देखभाल (2 घंटे)", 299, 120, "Attentive care, play assistance, feeding help and safe supervision by verified caregiver.", { originalPrice: 449 }),
+    s("baby_care_4hr", "BABYSITTER", "Babysitter half-day care (4 hrs)", "హాఫ్ డే బేబీ సిట్టింగ్ (4 గంటలు)", "हाफ डे बेबीसिटिंग (4 घंटे)", 549, 240, "Four hours of patient care, reading, engaging activities and nap supervision.", { originalPrice: 799 }),
+    s("baby_care_full", "BABYSITTER", "Full day nanny & child support (8 hrs)", "ఫుల్ డే బేబీ సిట్టర్ కేర్ (8 గంటలు)", "फुल डे नैनी और चाइल्ड केयर (8 घंटे)", 999, 480, "Full day child care assistance, feeding, playtime and safety monitoring.", { originalPrice: 1499 }),
     // Car & bike (BASIC)
     s("car_wash", "VEHICLE", "Car wash at home (outside + inside vacuum)", "ఇంటి వద్ద కార్ వాష్ (బయట + లోపల వాక్యూమ్)", "घर पर कार वॉश (बाहर + अंदर वैक्यूम)", 349, 60, "Foam wash, wipe and interior vacuum of one car."),
     s("bike_wash", "VEHICLE", "Bike / scooter wash at home", "ఇంటి వద్ద బైక్ / స్కూటర్ వాష్", "घर पर बाइक / स्कूटर वॉश", 149, 30, "Foam wash and wipe of one two-wheeler.", { provide: ["WATER"], bring: ["CAR_KIT"] }),
 ];
 exports.DEFAULT_CONFIG = {
     bookingFee: 19,
-    inspectionFee: 49,
+    inspectionFee: 19,
     commissionPct: 0,
-    upiId: "",
+    upiId: "dutypein@ybl",
     upiName: "DutyPe",
     minTopup: 200,
     city: "Khammam",
     districtIds: [509],
     cityLat: 17.2473,
     cityLng: 80.1514,
-    serviceRadiusKm: 25,
+    serviceRadiusKm: 15,
     partnerFee: 19,
     partnerFirstJobFree: true,
-    firstBookingFeeFree: true,
+    firstBookingFeeFree: false,
     planMembersFeeFree: true,
     coupons: [],
     categories: exports.CATEGORIES,
@@ -244,9 +264,38 @@ function mergeConfig(raw) {
         overrides.delete(d.id);
         if (!ov)
             return d;
-        const price = Number(ov.price);
-        const originalPrice = Number(ov.originalPrice);
-        return Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, d), (Number.isFinite(price) && price >= 0 && price <= 100000 ? { price: Math.round(price) } : {})), (Number.isFinite(originalPrice) && originalPrice > 0 ? { originalPrice: Math.round(originalPrice) } : (ov.originalPrice === 0 ? { originalPrice: undefined } : {}))), (typeof ov.name === "string" && ov.name.trim() ? { name: ov.name.trim() } : {})), (typeof ov.includes === "string" ? { includes: ov.includes } : {})), (typeof ov.imageUrl === "string" && ov.imageUrl.trim() ? { imageUrl: ov.imageUrl.trim() } : {})), (typeof ov.active === "boolean" ? { active: ov.active } : {}));
+        let price = Number(ov.price);
+        let originalPrice = Number(ov.originalPrice);
+        // Normalize legacy prices that were saved from old pre-discount defaults in app_config/services
+        if (d.id === "ac_repair_visit" && price === 249) {
+            price = 149;
+            originalPrice = 199;
+        }
+        if (d.id === "ac_service" && price === 449) {
+            price = 399;
+            originalPrice = 599;
+        }
+        if (d.id === "clean_bathroom" && price === 399) {
+            price = 299;
+            originalPrice = 449;
+        }
+        if (d.id === "clean_kitchen" && price === 1199) {
+            price = 499;
+            originalPrice = 799;
+        }
+        if (d.id === "elec_fan" && price === 149) {
+            price = 129;
+            originalPrice = 199;
+        }
+        if (d.id === "wm_repair" && price === 249) {
+            price = 149;
+            originalPrice = 199;
+        }
+        if (d.id === "plumb_tap" && price === 129) {
+            price = 99;
+            originalPrice = 149;
+        }
+        return Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, d), (Number.isFinite(price) && price >= 0 && price <= 100000 ? { price: Math.round(price) } : {})), (Number.isFinite(originalPrice) && originalPrice > 0 ? { originalPrice: Math.round(originalPrice) } : (d.originalPrice ? { originalPrice: d.originalPrice } : {}))), (typeof ov.name === "string" && ov.name.trim() ? { name: ov.name.trim() } : {})), (typeof ov.includes === "string" ? { includes: ov.includes } : {})), (typeof ov.imageUrl === "string" && ov.imageUrl.trim() ? { imageUrl: ov.imageUrl.trim() } : {})), (typeof ov.active === "boolean" ? { active: ov.active } : {}));
     });
     // New services added only by the admin (can reference any default or custom category)
     for (const ov of overrides.values()) {
@@ -261,7 +310,7 @@ function mergeConfig(raw) {
         bookingFee: num("bookingFee", 0, 500),
         inspectionFee: num("inspectionFee", 0, 500),
         commissionPct: num("commissionPct", 0, 50),
-        upiId: str("upiId"),
+        upiId: (str("upiId") && !str("upiId").toLowerCase().includes("icici")) ? str("upiId") : "dutypein@ybl",
         upiName: str("upiName") || "DutyPe",
         minTopup: num("minTopup", 1, 100000),
         city: str("city") || exports.DEFAULT_CONFIG.city,
@@ -292,18 +341,38 @@ function cleanCoupon(raw) {
     return Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({ code, title: String(c.title || code).slice(0, 80), type,
         value }, (n(c.maxOff) ? { maxOff: n(c.maxOff) } : {})), (n(c.minOrder) ? { minOrder: n(c.minOrder) } : {})), (n(c.validFrom) ? { validFrom: n(c.validFrom) } : {})), (n(c.validTo) ? { validTo: n(c.validTo) } : {})), (c.firstBookingOnly === true ? { firstBookingOnly: true } : {})), (Array.isArray(c.categories) && c.categories.length ? { categories: c.categories.map(String) } : {})), { visible: c.visible !== false, active: c.active !== false });
 }
+exports.SERVICE_ID_ALIASES = {
+    bathroom_clean: "clean_bathroom",
+    kitchen_clean: "clean_kitchen",
+    fan_install: "elec_fan",
+    switchboard_repair: "elec_switch",
+    tap_leak_fix: "plumb_tap",
+    washing_machine_repair: "wm_repair",
+    plumb_visit: "plumb_visit",
+    cook_one_meal: "cook_meal",
+    maid_house_help: "maid_help",
+    baby_sitting_2hr: "baby_care_2hr",
+    baby_sitting_4hr: "baby_care_4hr",
+    baby_sitting_day: "baby_care_full",
+};
 function findService(config, serviceId) {
-    var _a;
+    var _a, _b;
     const sid = String(serviceId || "").trim().toLowerCase();
-    return (_a = config.services.find((x) => x.id.toLowerCase() === sid && x.active !== false)) !== null && _a !== void 0 ? _a : null;
+    const targetId = exports.SERVICE_ID_ALIASES[sid] || sid;
+    return (_b = (_a = config.services.find((x) => x.id.toLowerCase() === targetId && x.active !== false)) !== null && _a !== void 0 ? _a : config.services.find((x) => x.id.toLowerCase() === sid && x.active !== false)) !== null && _b !== void 0 ? _b : null;
+}
+function platformFeeFor(price) {
+    if (price <= 149)
+        return 9;
+    return 19;
 }
 function bookingFeeFor(config, service) {
-    return service.inspection ? config.inspectionFee : config.bookingFee;
+    return platformFeeFor(service.price);
 }
 /** Paise DutyPe takes from the partner for a job: booking fee + commission on (price + extras). */
 function platformTakePaise(price, extras, bookingFee, commissionPct) {
-    const commission = Math.round(((price + extras) * 100 * commissionPct) / 100);
-    return bookingFee * 100 + commission;
+    const fee = bookingFee > 0 ? bookingFee : platformFeeFor(price);
+    return fee * 100;
 }
 /** 4-digit start code the customer tells the partner on arrival. */
 function newStartOtp() {
@@ -311,7 +380,8 @@ function newStartOtp() {
 }
 /** Most DutyPe can give away on a booking: booking fee + the partner fee + commission on the price. */
 function maxDiscount(config, service) {
-    return bookingFeeFor(config, service) + config.partnerFee + Math.floor((service.price * config.commissionPct) / 100);
+    const base = bookingFeeFor(config, service) + config.partnerFee + Math.floor((service.price * config.commissionPct) / 100);
+    return Math.min(service.price, base);
 }
 /** Why a coupon cannot be used here, or null when it can. */
 function couponProblem(c, service, firstBooking, nowMs) {
@@ -375,7 +445,7 @@ function quote(config, service, firstBooking, couponCode, nowMs, planMember = fa
         }
     }
     discount = Math.min(discount, cap);
-    return Object.assign(Object.assign({ price: service.price, bookingFee, discount, discountLabel, couponCode: code, total: service.price + bookingFee - discount }, (couponError ? { couponError } : {})), (couponNote ? { couponNote } : {}));
+    return Object.assign(Object.assign({ price: service.price, bookingFee, discount, discountLabel, couponCode: code, total: Math.max(0, service.price - discount) }, (couponError ? { couponError } : {})), (couponNote ? { couponNote } : {}));
 }
 /**
  * Partner fee charged to the partner who accepts. Their first job is free, except for the part of a
@@ -390,7 +460,8 @@ function partnerFeeFor(config, jobsCompleted, price, bookingFee, discount, commi
 }
 /** Paise DutyPe takes from the partner's credits for a job. Never negative. */
 function takePaise(price, extras, bookingFee, discount, partnerFee, commissionPct) {
+    const fee = bookingFee > 0 ? bookingFee : platformFeeFor(price);
     const commission = Math.round(((price + extras) * 100 * commissionPct) / 100);
-    return Math.max(0, (bookingFee - discount + partnerFee) * 100 + commission);
+    return Math.max(0, (fee - discount + partnerFee) * 100 + commission);
 }
 //# sourceMappingURL=service-catalog.js.map

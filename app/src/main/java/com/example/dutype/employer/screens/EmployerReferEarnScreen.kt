@@ -85,6 +85,7 @@ fun EmployerReferEarnScreen(
     var showCopySuccess by remember { mutableStateOf(false) }
     var isCheckingProfileStatus by remember { mutableStateOf(true) }
     var isProfileCompleted by remember { mutableStateOf(false) }
+    val employerProfile by profileCompletionViewModel.profileStore.employer.collectAsStateWithLifecycle()
     // Removed: showQRCode state
 
     val context = LocalContext.current
@@ -199,6 +200,18 @@ fun EmployerReferEarnScreen(
 
                     // Removed: QR Code section
 
+                    // 🎯 2 Referrals = 1 Free Job Post Milestone Perk Card
+                    item {
+                        val freePosts = employerProfile?.referralPostsLeft ?: 0
+                        val successful = uiState.wallet?.successfulReferrals ?: 0
+                        val progressInPair = successful % 2
+                        EmployerFreeJobPostPerkCard(
+                            freePostsAvailable = freePosts,
+                            progressInPair = progressInPair,
+                            onPostJobClick = { navController.navigate(Routes.EMPLOYER_POST_JOB) }
+                        )
+                    }
+
                     // Referral Code Card
                     item {
                         EmployerReferralCodeCard(
@@ -235,15 +248,9 @@ fun EmployerReferEarnScreen(
                         )
                     }
 
-                    // Who referred you / Referral Code Redemption
-                    item {
-                        if (uiState.myReferrer != null) {
-                            val currentEmployerName = profileCompletionViewModel.profileStore.employer.value?.ownerName?.ifBlank { "You" } ?: "You"
-                            com.example.dutype.components.ReferralConnectionHandshakeCard(
-                                referrer = uiState.myReferrer!!,
-                                currentUserName = currentEmployerName
-                            )
-                        } else {
+                    // Referral Code Redemption (only shown if employer hasn't provided a referral code)
+                    if (uiState.myReferrer == null) {
+                        item {
                             ReferAndEarnRedemptionCard(
                                 hasExistingReferrer = false,
                                 ownReferralCode = uiState.wallet?.referralCode.orEmpty(),
@@ -532,6 +539,117 @@ private fun EmployerReferArrow(color: Color) {
     )
 }
 
+@Composable
+private fun EmployerFreeJobPostPerkCard(
+    freePostsAvailable: Int,
+    progressInPair: Int,
+    onPostJobClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+        border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFDCFCE7)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🎁", fontSize = 16.sp)
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            text = "2 Referrals = 1 Free Job Post",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = Color(0xFF14532D)
+                        )
+                        Text(
+                            text = "Valid for 30 Days • Worth ₹99",
+                            fontSize = 11.5.sp,
+                            color = Color(0xFF15803D)
+                        )
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFDCFCE7)
+                ) {
+                    Text(
+                        text = "$progressInPair / 2 Friends",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF15803D)
+                    )
+                }
+            }
+
+            Text(
+                text = "Refer 2 fellow business owners, contractors or shopkeepers. Every 2 friends who join unlock 1 full Free Job Post credit for you!",
+                fontSize = 12.sp,
+                color = Color(0xFF166534),
+                lineHeight = 16.sp
+            )
+
+            LinearProgressIndicator(
+                progress = { progressInPair / 2f },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = Color(0xFF16A34A),
+                trackColor = Color(0xFFDCFCE7)
+            )
+
+            if (freePostsAvailable > 0) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFF15803D),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable(onClick = onPostJobClick)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "🎉 $freePostsAvailable Free Post${if (freePostsAvailable > 1) "s" else ""} Ready to Use",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                        Text(
+                            text = "Post Job →",
+                            color = Color.White,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 private fun copyTextToClipboard(context: android.content.Context, label: String, text: String) {
     val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
     clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
@@ -774,8 +892,16 @@ private fun EmployerReferralHistoryItem(referral: Referral) {
             modifier = Modifier.size(20.dp)
         )
         Spacer(Modifier.width(12.dp))
+        val displayName = referral.refereeName.ifBlank {
+            if (referral.refereePhone.isNotBlank()) {
+                val p = referral.refereePhone
+                if (p.length >= 10) p.take(5) + "*****" else p
+            } else {
+                stringResource(R.string.refer_default_user_name)
+            }
+        }
         Column(modifier = Modifier.weight(1f)) {
-            Text(stringResource(R.string.refer_default_user_name), style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
+            Text(displayName, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium, color = com.example.dutype.ui.theme.EmployerColors.TextPrimary))
             Text(dateStr, style = MaterialTheme.typography.bodySmall.copy(color = EmployerColors.TextSecondary))
             if (rewardBreakdown.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))

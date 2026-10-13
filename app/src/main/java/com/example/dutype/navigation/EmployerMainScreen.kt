@@ -115,6 +115,8 @@ fun EmployerMainScreen(
         Routes.EMPLOYER_HISTORY,
         Routes.EMPLOYER_REFER_EARN,
         Routes.GUIDELINES,
+        Routes.PROMO_SHOWCASE,
+        "promo_showcase",
     )
     
     // Check if current route should hide bottom bar
@@ -493,6 +495,20 @@ fun EmployerMainScreen(
                         com.example.dutype.employer.screens.EmployerHistoryScreen(
                             navController = navController,
                             initialTab = backStackEntry.arguments?.getString("tab")
+                        )
+                    }
+
+                    // Promo Showcase Microsite
+                    composable(
+                        route = Routes.PROMO_SHOWCASE,
+                        arguments = listOf(navArgument("showcaseId") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val showcaseId = backStackEntry.arguments?.getString("showcaseId").orEmpty()
+                        val repo: com.example.dutype.homeservices.HomeServicesRepository = androidx.hilt.navigation.compose.hiltViewModel<com.example.dutype.homeservices.HomeServicesViewModel>().repo
+                        com.example.dutype.components.PromoShowcaseScreen(
+                            showcaseId = showcaseId,
+                            navController = rootNavController,
+                            repository = repo
                         )
                     }
                 }

@@ -216,6 +216,8 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
      * reminders); cancel the device workers that older app versions scheduled.
      */
     private fun cancelRetiredWork() {
+        val prefs = getSharedPreferences("dutype_startup_cleanup", Context.MODE_PRIVATE)
+        if (prefs.getBoolean("retired_work_cancelled_v2", false)) return
         runCatching {
             val workManager = androidx.work.WorkManager.getInstance(this)
             listOf(
@@ -223,6 +225,7 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
                 "guest_engagement_background",
                 "role_engagement_recurring"
             ).forEach(workManager::cancelUniqueWork)
+            prefs.edit().putBoolean("retired_work_cancelled_v2", true).apply()
         }.onFailure { Timber.w(it, "Failed to cancel retired work") }
     }
 

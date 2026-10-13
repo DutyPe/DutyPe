@@ -520,6 +520,19 @@ fun MainNavGraph(
                 navController = navController
             )
         }
+        composable(
+            route = Routes.PROMO_SHOWCASE,
+            arguments = listOf(navArgument("showcaseId") { type = NavType.StringType }),
+            deepLinks = listOf(androidx.navigation.navDeepLink { uriPattern = "dutype://showcase/{showcaseId}" })
+        ) { backStackEntry ->
+            val showcaseId = backStackEntry.arguments?.getString("showcaseId").orEmpty()
+            val repo: com.example.dutype.homeservices.HomeServicesRepository = androidx.hilt.navigation.compose.hiltViewModel<com.example.dutype.homeservices.HomeServicesViewModel>().repo
+            com.example.dutype.components.PromoShowcaseScreen(
+                showcaseId = showcaseId,
+                navController = navController,
+                repository = repo
+            )
+        }
 
         // Root-level job detail destination for app-link/deep-link handling.
         // Deep links are processed on MainNavGraph's navController, so this route

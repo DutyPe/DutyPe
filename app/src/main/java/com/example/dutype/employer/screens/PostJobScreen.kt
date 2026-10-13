@@ -202,7 +202,7 @@ private val PostJobBaseEducationRequirements = listOf(
     "Any qualification"
 )
 private val PostJobGenders = listOf("Male", "Female", "Both")
-private val PostJobQuickTitles = listOf("Cook", "Electrician", "Driver", "Helper")
+private val PostJobQuickTitles = listOf("Cook", "Electrician", "Driver", "Teacher", "Helper")
 private val PostJobBaseCategoryChips = listOf(
     JobCategory.COOK,
     JobCategory.MAID,
@@ -210,6 +210,8 @@ private val PostJobBaseCategoryChips = listOf(
     JobCategory.HELPER,
     JobCategory.SECURITY,
     JobCategory.DELIVERY,
+    JobCategory.TEACHER,
+    JobCategory.TUTOR,
     JobCategory.OTHER
 )
 private val PostJobStartDateOptions = listOf("Immediately", "Tomorrow", "Next Week")
@@ -795,9 +797,11 @@ private class PostJobController(
         val normalCredits = sub?.normalCredits ?: 0
         val referralCredits = profile?.referralPostsLeft ?: 0
         val isUnlimited = sub?.isUnlimitedCampaign == true
+        val grantedFreeJobs = profile?.grantedFreeJobPosts ?: 0
 
-        if (normalCredits <= 0 && referralCredits <= 0 && !isUnlimited) {
-            Timber.w("CREDIT CHECK: Employer has no job credits left (normal=$normalCredits, referral=$referralCredits, unlimited=$isUnlimited)")
+        // Free job posting is completely stopped by default. Only active subscription credits or admin-granted free jobs allow posting.
+        if (grantedFreeJobs <= 0 && normalCredits <= 0 && referralCredits <= 0 && !isUnlimited) {
+            Timber.w("CREDIT CHECK: Free job postings stopped. Subscription required (grantedFree=$grantedFreeJobs, normal=$normalCredits, referral=$referralCredits, unlimited=$isUnlimited)")
             showNoCreditsDialog = true
             return
         }

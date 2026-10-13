@@ -562,7 +562,32 @@
   - `createdAt` (`Timestamp`) — 🟢 **Live Now**: Creation date.
   - `expiresAt` (`Timestamp`) — 🟢 **Live Now**: Expiry date.
 
-### 11.3 `location_demand`
+### 11.3 `promo_showcases`
+- **Path**: `promo_showcases/{showcaseId}`
+- **Purpose**: Local brand, restaurant, and shop promotional showcase microsites and carousel slides with geo-fencing.
+- **Fields**:
+  - `id` (`String`) — 🟢 **Live Now**: Unique showcase slug (e.g. `paradise_biryani_khammam`).
+  - `title` (`String`) — 🟢 **Live Now**: Business / Brand name.
+  - `tagline` (`String`) — 🟢 **Live Now**: Catchphrase and specialty summary.
+  - `categoryBadge` (`String`) — 🟢 **Live Now**: Category tag (e.g. `RESTAURANT`, `MALL`, `CLINIC`).
+  - `rating` (`String`) — 🟢 **Live Now**: Star rating (e.g. `4.8`).
+  - `heroImageUrl` (`String`) — 🟢 **Live Now**: High-res cover image URL.
+  - `videoUrl` (`String`) — 🟢 **Live Now**: YouTube or MP4 video URL.
+  - `aboutDescription` (`String`) — 🟢 **Live Now**: Detailed story / description.
+  - `address` (`String`) — 🟢 **Live Now**: Physical shop address.
+  - `mapLink` (`String`) — 🟢 **Live Now**: Google Maps navigation URL.
+  - `district` (`String`) — 🟢 **Live Now**: Geo-targeting district (e.g. `"Khammam"`, `"Warangal"`, or `"ALL"`).
+  - `scope` (`String`) — 🟢 **Live Now**: Geographic scope tier (`"DISTRICT"` | `"STATE"` | `"NATIONAL"`).
+  - `active` (`Boolean`) — 🟢 **Live Now**: Live visibility switch.
+  - `discountOfferTitle` (`String`) — 🟢 **Live Now**: Offer title (e.g. `"Flat 20% Off Food Bill"`).
+  - `discountOfferCode` (`String`) — 🟢 **Live Now**: Promo code (e.g. `"PARADISE20"`).
+  - `discountOfferTerms` (`String`) — 🟢 **Live Now**: Terms & conditions.
+  - `highlights` (`Array<String>`) — 🟢 **Live Now**: Bulleted feature chips.
+  - `galleryImages` (`Array<String>`) — 🟢 **Live Now**: Photo gallery array.
+  - `actionButtons` (`Array<Map>`) — 🟢 **Live Now**: Contact buttons (`label`, `icon`, `actionUrl`, `isPrimary`).
+  - `updatedAt` (`Number`) — 🟢 **Live Now**: Last edit epoch millis.
+
+### 11.4 `location_demand`
 - **Path**: `location_demand/{leadId}`
 - **Purpose**: Records search requests in unlaunched areas to gauge expansion demand.
 - **Fields**:

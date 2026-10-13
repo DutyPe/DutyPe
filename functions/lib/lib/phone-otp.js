@@ -14,9 +14,8 @@ exports.sealCode = sealCode;
 exports.openCode = openCode;
 exports.ipKey = ipKey;
 exports.whatsappConfigured = whatsappConfigured;
-exports.smsGatewayConfigured = smsGatewayConfigured;
-exports.smsGatewayRequest = smsGatewayRequest;
 exports.whatsappTemplateBody = whatsappTemplateBody;
+exports.parseTruecallerUserInfo = parseTruecallerUserInfo;
 /**
  * Pure helpers for WhatsApp login codes (no Firebase, unit tested).
  */
@@ -138,32 +137,6 @@ function whatsappConfigured(env = process.env) {
     const token = (env.WHATSAPP_TOKEN || "").trim();
     return Boolean(token && token.toLowerCase() !== "unset" && env.WHATSAPP_PHONE_NUMBER_ID && env.WHATSAPP_TEMPLATE);
 }
-/**
- * Our own SMS gateway (DLT-registered OTP template), ~₹0.15–0.25 per SMS instead of Firebase's
- * ~₹6.7. SMS_PROVIDER = "2factor" (SMS_TEMPLATE = the 2Factor template name) or "msg91"
- * (SMS_TEMPLATE = MSG91 template id), in functions/.env.<project>. The key is the Firebase secret
- * SMS_API_KEY (2Factor API key / MSG91 authkey); the value "unset" keeps the gateway off.
- */
-function smsGatewayConfigured(env = process.env) {
-    const provider = (env.SMS_PROVIDER || "").toLowerCase();
-    const key = (env.SMS_API_KEY || "").trim();
-    return (provider === "2factor" || provider === "msg91") && Boolean(key) && key.toLowerCase() !== "unset" &&
-        Boolean((env.SMS_TEMPLATE || "").trim());
-}
-/** The HTTP request for the configured gateway (pure, so it can be tested). */
-function smsGatewayRequest(toE164, code, env = process.env) {
-    const ten = toE164.replace(/^\+91/, "");
-    const key = (env.SMS_API_KEY || "").trim();
-    const template = (env.SMS_TEMPLATE || "").trim();
-    if ((env.SMS_PROVIDER || "").toLowerCase() === "msg91") {
-        const q = new URLSearchParams({ template_id: template, mobile: `91${ten}`, otp: code });
-        return { url: `https://control.msg91.com/api/v5/otp?${q}`, init: { method: "POST", headers: { authkey: key, "Content-Type": "application/json" } } };
-    }
-    return {
-        url: `https://2factor.in/API/V1/${encodeURIComponent(key)}/SMS/${ten}/${code}/${encodeURIComponent(template)}`,
-        init: { method: "GET" },
-    };
-}
 /** Meta Cloud API body for an authentication template (body code + copy-code button). */
 function whatsappTemplateBody(toE164, code, template, lang) {
     return {
@@ -178,6 +151,28 @@ function whatsappTemplateBody(toE164, code, template, lang) {
                 { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: code }] },
             ],
         },
+    };
+}
+/** The fields DutyPe uses from Truecaller's userinfo response. */
+function parseTruecallerUserInfo(raw) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
+    const u = (raw && typeof raw === "object" ? raw : {});
+    const phone = indianE164((_a = u.phone_number) !== null && _a !== void 0 ? _a : u.phoneNumber) || "";
+    const name = [u.given_name, u.family_name].map((v) => String(v !== null && v !== void 0 ? v : "").trim()).filter(Boolean).join(" ") ||
+        String((_b = u.name) !== null && _b !== void 0 ? _b : "").trim();
+    const email = String((_c = u.email) !== null && _c !== void 0 ? _c : "").trim().toLowerCase();
+    const rawPic = String((_f = (_e = (_d = u.picture) !== null && _d !== void 0 ? _d : u.avatar_url) !== null && _e !== void 0 ? _e : u.picture_url) !== null && _f !== void 0 ? _f : "").trim();
+    const picture = /^https?:\/\//i.test(rawPic) ? rawPic : "";
+    const genderRaw = String((_g = u.gender) !== null && _g !== void 0 ? _g : "").trim().toUpperCase();
+    const gender = ["MALE", "FEMALE", "OTHER"].includes(genderRaw) ? genderRaw : "";
+    const city = String((_k = (_h = u.city) !== null && _h !== void 0 ? _h : (_j = u.address) === null || _j === void 0 ? void 0 : _j.city) !== null && _k !== void 0 ? _k : "").trim().slice(0, 50);
+    return {
+        phone,
+        name: name.replace(/\s+/g, " ").slice(0, 80),
+        email: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) && email.length <= 120 ? email : "",
+        picture,
+        gender,
+        city,
     };
 }
 //# sourceMappingURL=phone-otp.js.map

@@ -81,3 +81,19 @@ When a worker opens DutyPe in a city/state with no active vacancies:
 2. **Capture Worker Demand**: A 1-tap **"Notify Me First"** button registers user location demand in Firestore (`location_demand_leads`), giving the sales team data on where to acquire employers next.
 3. **Viral Employer Referrals**: 1-tap **"Invite Local Employers"** WhatsApp button lets workers invite neighborhood shops/contractors to post jobs for free.
 4. **Hub Discovery**: Quick-switch chips for active hubs (Hyderabad, Vijayawada, Warangal, Visakhapatnam, etc.).
+
+---
+
+## 💰 Commercial Revenue Engine & Monetization Architecture
+
+> For the comprehensive monetization playbook, see [DUTYPE_REVENUE_MODEL.md](file:///c:/Users/vamsi/StudioProjects/DutyPe/DUTYPE_REVENUE_MODEL.md).
+
+1. **Zero Worker Commission**: Workers keep 100% of their earnings. Eliminates offline leakage and enables complete monopoly on local skilled labor supply.
+2. **Customer Convenience Fee (₹9 / ₹19)**: Charged dynamically at checkout (₹9 for $\le ₹149$, ₹19 for $> ₹149$). Projects ₹90,000–₹1,70,000/mo in pure gross margin at 300 daily orders.
+3. **Employer Subscriptions**: Launch Pass (₹199/mo) and Business Pro (₹499/mo) for local business staffing.
+4. **Local Brand & Merchant Advertising**:
+   - **Tier 1 (Local District Khammam)**: ₹1,499/week, ₹4,999/month for restaurants, clinics, showrooms. (20 clients = ₹1,00,000/mo).
+   - **Tier 2 (State-Level Regional)**: ₹25,000–₹45,000/month for hospital & biryani chains.
+   - **Tier 3 (National Big Brands)**: ₹1,00,000–₹2,50,000/month for building materials & FMCG (Havells, Asian Paints, Polycab).
+   - **Target Run-Rate**: **₹6.6 Lakhs – ₹10.2 Lakhs / month**.
+

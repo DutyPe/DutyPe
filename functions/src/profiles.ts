@@ -120,8 +120,8 @@ export const completeRegistration = onCallSecured(
     customClaims.admin = true;
   }
   await admin.auth().setCustomUserClaims(uid, customClaims);
-  const code = await ensureWallet(uid, role);
-  const referralError = created && referralCode ? await registerReferral(uid, referralCode) : null;
+  const code = await ensureWallet(uid, role, name);
+  const referralError = referralCode ? await registerReferral(uid, referralCode) : null;
   // Registered earlier at a DutyPe help desk? Credit that field agent.
   if (created) await markFieldLeadJoined(phone, uid);
   return { role, created, referralCode: code, referralError };

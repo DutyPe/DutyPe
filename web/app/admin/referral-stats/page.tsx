@@ -2,17 +2,16 @@
 
 import { AdminShell } from "@/components/admin-shell";
 import { AdminAuthGate } from "@/components/admin/admin-auth-gate";
-import { AdminCollectionViewer } from "@/components/admin/admin-collection-viewer";
+import { AdminReferralStatsClient } from "@/components/admin/admin-referral-stats-client";
 
 export default function AdminReferralStatsPage() {
   return (
     <AdminAuthGate>
-      <AdminShell title="Referral Stats" description="All referral_stats documents with every field.">
-        <AdminCollectionViewer
-          apiPath="/api/admin/referral-stats"
-          dataKey="items"
-          label="Referral Stats"
-        />
+      <AdminShell
+        title="Referral Stats & Wallets"
+        description="Monitor user wallets, earnings, balances in Rupees (₹), and manage referral payouts."
+      >
+        <AdminReferralStatsClient />
       </AdminShell>
     </AdminAuthGate>
   );

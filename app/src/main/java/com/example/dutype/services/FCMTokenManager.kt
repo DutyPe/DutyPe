@@ -285,7 +285,7 @@ class FCMTokenManager @Inject constructor(
      * Subscribe to topic for broadcast notifications
      */
     fun subscribeToTopic(topic: String) {
-        val sanitizedTopic = topic.trim().replace(Regex("[^a-zA-Z0-9-_.~%]"), "_")
+        val sanitizedTopic = topic.trim().replace(Regex("[^a-zA-Z0-9-_.~%]"), "_").trim('_')
         if (sanitizedTopic.isBlank() || sanitizedTopic.length > 900) return
         FirebaseMessaging.getInstance().subscribeToTopic(sanitizedTopic)
             .addOnSuccessListener {
@@ -300,7 +300,7 @@ class FCMTokenManager @Inject constructor(
      * Unsubscribe from topic
      */
     fun unsubscribeFromTopic(topic: String) {
-        val sanitizedTopic = topic.trim().replace(Regex("[^a-zA-Z0-9-_.~%]"), "_")
+        val sanitizedTopic = topic.trim().replace(Regex("[^a-zA-Z0-9-_.~%]"), "_").trim('_')
         if (sanitizedTopic.isBlank() || sanitizedTopic.length > 900) return
         FirebaseMessaging.getInstance().unsubscribeFromTopic(sanitizedTopic)
             .addOnSuccessListener {

@@ -69,6 +69,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.runtime.mutableIntStateOf
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.remember
@@ -249,11 +250,6 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
                             }
                         }
                     }
-                    if (catalog?.upiId?.isNotBlank() == true) {
-                        OutlinedButton(onClick = { navController.navigate(Routes.PARTNER_TOPUP) }, modifier = Modifier.fillMaxWidth()) {
-                            Text(stringResource(R.string.svc_partner_add_credits))
-                        }
-                    }
                 }
                 PartnerStatus.SUSPENDED -> Text(stringResource(R.string.svc_partner_suspended), color = SvcRed)
                 else -> {
@@ -313,32 +309,6 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
                                     changeOnline(on)
                                 }
                             })
-                        }
-                    }
-
-                    // Credits
-                    val low = p.creditsPaise < 5_000
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = if (low) Color(0xFFFEF2F2) else Color(0xFFEFF6FF)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null, tint = SvcBlue)
-                                Spacer(Modifier.width(8.dp))
-                                Text(stringResource(R.string.svc_partner_credits), modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
-                                Text("₹" + rupees(p.creditsPaise), fontWeight = FontWeight.Bold, fontSize = 20.sp,
-                                    color = if (p.creditsPaise < 0) SvcRed else Color(0xFF0F172A))
-                            }
-                            if (low) Text(stringResource(R.string.svc_partner_low_credits), color = SvcRed, fontSize = 13.sp)
-                            Text(
-                                stringResource(R.string.svc_partner_credits_info, catalog?.partnerFee ?: 19),
-                                color = SvcMuted, fontSize = 12.sp
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Button(onClick = { navController.navigate(Routes.PARTNER_TOPUP) }) {
-                                Text(stringResource(R.string.svc_partner_add_credits))
-                            }
                         }
                     }
 
@@ -1243,7 +1213,6 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
             SvcSection {
                 PriceLine(stringResource(R.string.svc_offer_price), o.price)
                 PriceLine(stringResource(R.string.svc_offer_collect), o.customerTotal)
-                PriceLine(stringResource(R.string.svc_offer_fee_from_credits), (o.requiredCreditsPaise / 100).toInt())
                 HorizontalDivider()
                 PriceLine(stringResource(R.string.svc_offer_you_keep), o.earning, bold = true)
                 if (o.discount > 0) Text(stringResource(R.string.svc_offer_discount_note, o.discount), color = SvcGreen, fontSize = 12.sp)
@@ -1269,11 +1238,6 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
                 Text(stringResource(R.string.svc_offer_gone), color = SvcRed, textAlign = TextAlign.Center)
                 return@Column
             }
-            if (o.creditsPaise < o.requiredCreditsPaise) {
-                Text(stringResource(R.string.svc_offer_low_credits), color = SvcRed, textAlign = TextAlign.Center)
-                Button(onClick = { navController.navigate(Routes.PARTNER_TOPUP) }) { Text(stringResource(R.string.svc_partner_add_credits)) }
-                return@Column
-            }
             Button(
                 onClick = {
                     accepting = true
@@ -1283,7 +1247,6 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
                                 val msg = when (r.result) {
                                     "accepted" -> null
                                     "busy" -> context.getString(R.string.svc_offer_busy)
-                                    "low_credits" -> context.getString(R.string.svc_offer_low_credits)
                                     else -> context.getString(R.string.svc_offer_gone)
                                 }
                                 if (msg == null) {
@@ -1346,6 +1309,31 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
         }
     }
 
+    LaunchedEffect(booking?.status) {
+        val b = booking
+        if (b != null && b.status == BookingStatus.ON_THE_WAY) {
+            val fused = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context)
+            val hasPerm = androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (hasPerm) {
+                while (isActive && booking?.status == BookingStatus.ON_THE_WAY) {
+                    runCatching {
+                        fused.lastLocation.addOnSuccessListener { loc ->
+                            if (loc != null) {
+                                scope.launch {
+                                    viewModel.updatePartnerLiveLocation(bookingId, loc.latitude, loc.longitude, loc.bearing)
+                                }
+                            }
+                        }
+                    }
+                    kotlinx.coroutines.delay(8000L)
+                }
+            }
+        }
+    }
+
     SvcScaffold(title = stringResource(R.string.svc_partner_active_job), onBack = { navController.popBackStack() }) { padding ->
         val b = booking
         if (b == null) {
@@ -1381,6 +1369,21 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
                         }
                     }
                 }
+            }
+
+            // ── Live OpenFreeMap Navigation Route to Customer ──
+            if (b.status in setOf(BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY) && b.lat != 0.0) {
+                com.example.dutype.components.OpenFreeMapTrackerView(
+                    customerLat = b.lat,
+                    customerLng = b.lng,
+                    partnerLat = b.partnerLat,
+                    partnerLng = b.partnerLng,
+                    customerLabel = b.addressText.ifBlank { "Customer Doorstep" },
+                    partnerName = "My Location",
+                    partnerBearing = b.partnerBearing,
+                    isPartnerMode = true,
+                    onNavigateClick = { openMaps(context, b.lat, b.lng) }
+                )
             }
 
             HorizontalDivider()

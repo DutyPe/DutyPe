@@ -200,17 +200,17 @@ export function AdminApplicationsClient() {
         </div>
         <div className="admin-stat-card compact">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <strong>{statusCounts.PENDING ?? 0}</strong>
+            <strong>{(statusCounts.APPLIED ?? 0) + (statusCounts.PENDING ?? 0)}</strong>
             <Clock size={18} style={{ opacity: 0.6, color: "#f59e0b" }} />
           </div>
-          <span>Pending</span>
+          <span>Applied / Pending</span>
         </div>
         <div className="admin-stat-card compact">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <strong>{(statusCounts.ACCEPTED ?? 0) + (statusCounts.SHORTLISTED ?? 0)}</strong>
+            <strong>{(statusCounts.HIRED ?? 0) + (statusCounts.ACCEPTED ?? 0) + (statusCounts.SHORTLISTED ?? 0)}</strong>
             <CheckCircle2 size={18} style={{ opacity: 0.6, color: "#10b981" }} />
           </div>
-          <span>Accepted / Shortlisted</span>
+          <span>Hired / Shortlisted</span>
         </div>
         <div className="admin-stat-card compact">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>

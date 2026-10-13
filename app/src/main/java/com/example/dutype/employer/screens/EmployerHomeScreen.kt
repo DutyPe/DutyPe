@@ -199,6 +199,8 @@ fun EmployerHomeScreen(
     val dynamicFeatures by appConfigViewModel.dynamicFeaturesConfig.collectAsStateWithLifecycle()
     val subscriptionViewModel: com.example.dutype.viewmodels.SubscriptionViewModel = hiltViewModel()
     val subscription by subscriptionViewModel.activeSubscription.collectAsStateWithLifecycle()
+    val homeServicesViewModel: com.example.dutype.homeservices.HomeServicesViewModel = hiltViewModel()
+    val showcases by homeServicesViewModel.showcases.collectAsStateWithLifecycle()
     val appVersionInfo = remember(context) { context.appVersionInfo() }
 
     // NotificationService for unread count (lightweight)
@@ -491,6 +493,7 @@ fun EmployerHomeScreen(
             }
         ) {
             DashboardContent(
+                showcases = showcases,
                 onOpenHomeServices = {
                     navController.navigate(com.example.dutype.navigation.Routes.SERVICES) {
                         launchSingleTop = true
@@ -1526,6 +1529,7 @@ fun DashboardContent(
     onVoiceJobClick: () -> Unit = {},
     onOpenHomeServices: () -> Unit = {},
     referralPostsLeft: Int = 0,
+    showcases: List<com.example.dutype.homeservices.PromoShowcase> = emptyList(),
     onBookService: (String) -> Unit = {},
     onOpenServiceBooking: (String) -> Unit = {},
     applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
@@ -1539,6 +1543,7 @@ fun DashboardContent(
     val hasUrgentNeeds = urgentRequests.isNotEmpty()
 
     val applicationUiState by applicationViewModel.uiState.collectAsStateWithLifecycle()
+    val employerProfile by applicationViewModel.profileStore.employer.collectAsStateWithLifecycle()
     var dismissedNudgeApplicationId by remember { mutableStateOf<String?>(null) }
     var showNudgeStopCallsDialog by remember { mutableStateOf(false) }
     var pendingNudgeHiredApp by remember { mutableStateOf<com.example.dutype.models.JobApplication?>(null) }
@@ -1629,22 +1634,53 @@ fun DashboardContent(
             ) {
                 val activeOpenJobs = recentJobs.filter { it.status.equals("open", ignoreCase = true) }
                 val hasActiveJobs = activeOpenJobs.isNotEmpty()
+                val employerCity = employerProfile?.address.orEmpty().trim().ifBlank { employerProfile?.area.orEmpty().trim() }
 
-                // Promotional Carousel matching Services screen style
+                // Promotional Carousel matching Services screen style with live announcements & brand showcases
                 item(key = "employer_promo_carousel") {
+                    val filteredShowcases = remember(showcases, employerCity) {
+                        showcases.filter { sc ->
+                            sc.active && (sc.scope.equals("NATIONAL", ignoreCase = true) ||
+                                    sc.district.isBlank() ||
+                                    sc.district.equals("ALL", ignoreCase = true) ||
+                                    (employerCity.isNotBlank() && (
+                                        sc.district.contains(employerCity, ignoreCase = true) ||
+                                        employerCity.contains(sc.district, ignoreCase = true) ||
+                                        sc.address.contains(employerCity, ignoreCase = true)
+                                    )) ||
+                                    employerCity.isBlank())
+                        }
+                    }
+                    val dynamicPromoSlides = remember(announcements, filteredShowcases) {
+                        val announcementSlides = announcements.map { com.example.dutype.components.announcementToSlide(it) }
+                        val showcaseSlides = filteredShowcases.map { com.example.dutype.components.showcaseToSlide(it) }
+                        announcementSlides + showcaseSlides
+                    }
                     com.example.dutype.components.PromotionalBannerCarousel(
                         isWorker = false,
+                        customSlides = dynamicPromoSlides,
                         onAction = { target ->
-                            when (target) {
-                                "post_job" -> navController.navigate(Routes.EMPLOYER_POST_JOB)
-                                "urgent_need" -> navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED)
-                                "refer_earn" -> navController.navigate(Routes.EMPLOYER_REFER_EARN)
-                                else -> navController.navigate(Routes.EMPLOYER_POST_JOB)
+                            val trimmed = target.trim()
+                            when {
+                                trimmed.startsWith("promo_showcase/") -> navController.navigate(trimmed)
+                                trimmed.startsWith("showcase:") -> navController.navigate(Routes.promoShowcaseRoute(trimmed.removePrefix("showcase:")))
+                                trimmed.startsWith("showcase/") -> navController.navigate(Routes.promoShowcaseRoute(trimmed.removePrefix("showcase/")))
+                                trimmed == "promote_business" || trimmed.contains("promote-business") || trimmed.contains("partner") -> {
+                                    DeepLinkHandler.handleAnnouncementAction(trimmed, navController, context)
+                                }
+                                trimmed == "post_job" -> navController.navigate(Routes.EMPLOYER_POST_JOB)
+                                trimmed == "urgent_need" -> navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED)
+                                trimmed == "refer_earn" -> navController.navigate(Routes.EMPLOYER_REFER_EARN)
+                                trimmed.startsWith("dutype://") || trimmed.contains("://") -> {
+                                    DeepLinkHandler.handleAnnouncementAction(trimmed, navController, context)
+                                }
+                                else -> DeepLinkHandler.handleAnnouncementAction(trimmed, navController, context)
                             }
                         },
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
                 }
+
 
                 // Bento Grid Metrics Cards (Active Job Ring, Call-ready Heartbeat, Nearby)
                 item(key = "employer_bento_grid") {

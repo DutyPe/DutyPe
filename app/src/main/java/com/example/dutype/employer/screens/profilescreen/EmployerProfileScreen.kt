@@ -235,51 +235,36 @@ private fun EmpHero(ui: EmpProfileUi, actions: EmpProfileActions) {
             )
             return@Column
         }
+        val hasName = ui.businessName.isNotBlank() && ui.businessName != "Employer" && ui.businessName != "Business"
+        val displayName = when {
+            hasName -> ui.businessName
+            ui.phone.isNotBlank() -> ui.phone
+            else -> stringResource(R.string.profile_set_up_profile)
+        }
         Text(
-            text = ui.businessName.ifBlank { ui.phone.ifBlank { stringResource(R.string.profile_set_up_profile) } },
-            style = profileTextStyle(22.sp, FontWeight.Bold, Color(0xFF0F0F0F).fg()),
+            text = displayName,
+            style = profileTextStyle(20.sp, FontWeight.SemiBold, Color(0xFF0F0F0F).fg()),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
             modifier = Modifier.clickable(onClick = actions.onEdit)
         )
-        val subtitle = listOf(ui.contact, ui.city.takeIf { ui.locCount > 0 }.orEmpty())
-            .filter { it.isNotBlank() }
-            .joinToString(" · ")
-            .ifBlank { stringResource(R.string.profile_tap_add_details) }
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = subtitle,
-            style = profileTextStyle(14.sp, FontWeight.Normal, Color(0xFF64748B).fg()),
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-            Text(
-                text = if (ui.ratingCount > 0 && ui.rating > 0.0) {
-                    "★ " + String.format(java.util.Locale.US, "%.1f", ui.rating) +
-                        " (" + ui.ratingCount + " " + (if (ui.ratingCount == 1) "review" else "reviews") + ")"
-                } else stringResource(R.string.emp_profile_no_reviews_yet),
-                style = profileTextStyle(13.sp, FontWeight.Normal, Color(0xFF64748B).fg())
-            )
-            if (ui.memberSinceMillis > 0L) {
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 10.dp)
-                        .size(3.dp)
-                        .background(Color(0xFFCBD5E1).bg(), CircleShape)
-                )
-                Text(
-                    text = stringResource(
-                        R.string.emp_profile_member_since,
-                        java.text.SimpleDateFormat("MMM yyyy", java.util.Locale.ENGLISH).format(java.util.Date(ui.memberSinceMillis))
-                    ),
-                    style = profileTextStyle(11.sp, FontWeight.Normal, Color(0xFF94A3B8).fg())
-                )
-            }
+        val subtitleText = if (!hasName && ui.phone.isNotBlank()) {
+            stringResource(R.string.profile_tap_add_name)
+        } else if (!hasName) {
+            stringResource(R.string.profile_tap_add_details)
+        } else {
+            ""
         }
+        if (subtitleText.isNotBlank()) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = subtitleText,
+                style = profileTextStyle(14.sp, FontWeight.Normal, Color(0xFF64748B).fg()),
+                textAlign = TextAlign.Center
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
     }
 }
 

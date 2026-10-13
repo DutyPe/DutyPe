@@ -290,7 +290,13 @@ function detectLang(message: string, fallback: Lang): Lang {
 
 export const dutypeAi = onCallSecured({ timeoutSeconds: 30, memory: "512MB", enforceAppCheck: false, secrets: [AZURE_OPENAI_SECRET, AZURE_COSMOS_SECRET] }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
-  if (context.auth?.token.role !== "EMPLOYER") fail("permission-denied", "DutyPe AI is for employers");
+  const isEmployer = context.auth?.token.role === "EMPLOYER";
+  if (!isEmployer) {
+    const prof = await db.collection(EmployerProfiles.COLLECTION).doc(uid).get();
+    if (!prof.exists) {
+      fail("permission-denied", "DutyPe AI is for employers and subscribed members");
+    }
+  }
   const data = obj(raw);
   const message = str(data, "message", { min: 1, max: 1000 });
   const rawLang = lang(data.lang);

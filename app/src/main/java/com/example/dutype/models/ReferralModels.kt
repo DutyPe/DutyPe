@@ -93,7 +93,9 @@ data class Referral(
     val status: ReferralStatus = ReferralStatus.PENDING,
     val createdAt: Long = 0L,
     val completedAt: Long = 0L,
-    val rewardPaise: Long = 0L
+    val rewardPaise: Long = 0L,
+    val refereeName: String = "",
+    val refereePhone: String = ""
 ) {
     companion object {
         fun from(id: String, d: Map<String, Any?>): Referral = Referral(
@@ -102,7 +104,9 @@ data class Referral(
             code = d[Referrals.CODE] as? String ?: "",
             status = ReferralStatus.from(d[Referrals.STATUS] as? String),
             createdAt = d[Referrals.CREATED_AT].epochMillis(),
-            completedAt = d[Referrals.COMPLETED_AT].epochMillis()
+            completedAt = d[Referrals.COMPLETED_AT].epochMillis(),
+            refereeName = d["refereeName"] as? String ?: "",
+            refereePhone = d["refereePhone"] as? String ?: ""
         )
     }
 }

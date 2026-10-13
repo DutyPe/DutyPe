@@ -225,12 +225,23 @@ private fun OtpLoginScreen(
                     )
                     authResult.fold(
                         onSuccess = { outcome ->
+                            val tc = otpViewModel.lastTruecallerResult
                             val resolvedName = outcome.user?.name?.trim()?.takeIf { it.isNotBlank() && !it.equals("User", ignoreCase = true) }
+                                ?: tc?.name?.trim()?.takeIf { it.isNotBlank() }
+                            val resolvedEmail = tc?.email?.trim().orEmpty()
+                            val resolvedPhoto = tc?.photoUrl?.trim() ?: outcome.user?.photoUrl
+
                             profileCompletionViewModel.saveUserInfoToLocalStorage(
-                                email = "",
+                                email = resolvedEmail,
                                 name = resolvedName ?: "",
                                 role = outcome.role
                             )
+                            if (!tc?.phone.isNullOrBlank()) {
+                                profileCompletionViewModel.savePhoneNumber(tc.phone)
+                            }
+                            if (!resolvedPhoto.isNullOrBlank()) {
+                                profileCompletionViewModel.saveUserPhotoUrl(resolvedPhoto)
+                            }
                             if (outcome.destination == OtpViewModel.PostOtpDestination.HOME) {
                                 profileCompletionViewModel.markProfileComplete(outcome.role)
                                 profileCompletionViewModel.markProfileSetupAsShown(outcome.role)
@@ -276,11 +287,7 @@ private fun OtpLoginScreen(
 
     LaunchedEffect(otpState.otpSent) {
         if (otpState.otpSent) {
-            val toastMessage = if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) {
-                context.getString(R.string.auth_code_sent_whatsapp)
-            } else {
-                context.getString(R.string.auth_code_sent_sms)
-            }
+            val toastMessage = context.getString(R.string.auth_code_sent_whatsapp)
             Toast.makeText(context, toastMessage, Toast.LENGTH_SHORT).show()
         }
     }
@@ -432,11 +439,7 @@ private fun OtpLoginScreen(
                         Spacer(modifier = Modifier.height(6.dp))
 
                         Text(
-                            text = if (otpState.channel == com.example.dutype.viewmodels.OtpChannel.WHATSAPP) {
-                                stringResource(R.string.auth_code_sent_whatsapp)
-                            } else {
-                                stringResource(R.string.auth_code_sent_sms)
-                            },
+                            text = stringResource(R.string.auth_code_sent_whatsapp),
                             modifier = Modifier.padding(horizontal = 24.dp),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = Color(0xFFCBD5E1),
@@ -476,10 +479,6 @@ private fun OtpLoginScreen(
                             onResendWhatsapp = {
                                 val fullPhoneNumber = selectedCountryCode + phoneNumber
                                 otpViewModel.resendViaWhatsapp(fullPhoneNumber, context, mode = "unified")
-                            },
-                            onResendSms = {
-                                val fullPhoneNumber = selectedCountryCode + phoneNumber
-                                otpViewModel.resendViaSms(fullPhoneNumber, context, mode = "unified")
                             },
                             onBackClick = { otpViewModel.resetState(keepActiveSession = true) },
                             resendCooldownSeconds = resendCooldown
@@ -880,6 +879,41 @@ private fun OtpLoginScreen(
                             }
                         }
 
+                        // Official Truecaller one-tap login button
+                        TruecallerLoginButton(
+                            busy = otpState.isLoading,
+                            onAuthorized = { code, verifier ->
+                                scope.launch {
+                                    otpViewModel.truecallerExchange(code, verifier, mode = "unified").fold(
+                                        onSuccess = { res ->
+                                            if (res.roleConflict) {
+                                                val conflictingRoleLabel = if (res.existingRole?.contains("EMPLOYER") == true) {
+                                                    context.getString(R.string.employer)
+                                                } else {
+                                                    context.getString(R.string.worker)
+                                                }
+                                                Toast.makeText(
+                                                    context,
+                                                    context.getString(R.string.auth_phone_registered_as_role, conflictingRoleLabel, conflictingRoleLabel),
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            } else if (res.allowed) {
+                                                otpViewModel.signInWithTruecaller(res)
+                                            } else {
+                                                Toast.makeText(context, context.getString(R.string.auth_verification_failed), Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        onFailure = { err ->
+                                            Toast.makeText(context, err.message ?: context.getString(R.string.auth_verification_failed), Toast.LENGTH_SHORT).show()
+                                        }
+                                    )
+                                }
+                            },
+                            onFailed = {
+                                Toast.makeText(context, context.getString(R.string.auth_verification_failed), Toast.LENGTH_SHORT).show()
+                            }
+                        )
+
                         // DEV-ONLY: Skip OTP
                         if (LocalContext.current.isDebuggableBuild()) {
                             Spacer(modifier = Modifier.height(12.dp))
@@ -1005,24 +1039,11 @@ private fun OtpInputSection(
     otpState: com.example.dutype.viewmodels.OtpState,
     onVerifyClick: () -> Unit,
     onResendWhatsapp: () -> Unit,
-    onResendSms: () -> Unit,
     onBackClick: () -> Unit,
     resendCooldownSeconds: Int = 0
 ) {
     val context = LocalContext.current
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
-
-    // Pulsing alpha for the "Reading SMS" indicator
-    val infiniteTransition = rememberInfiniteTransition(label = "sms_pulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.5f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(800),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse_alpha"
-    )
 
     Column(
         modifier = Modifier
@@ -1109,15 +1130,14 @@ private fun OtpInputSection(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Dual Resend Actions: WhatsApp chip + SMS chip in a natural, centered layout (un-stretched)
+        // Resend Action: WhatsApp chip centered
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+            horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Chip 1: Resend via WhatsApp (with timer during cooldown)
             Surface(
                 onClick = onResendWhatsapp,
                 enabled = resendCooldownSeconds <= 0 && !otpState.isLoading,
@@ -1129,7 +1149,7 @@ private fun OtpInputSection(
                 )
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
                 ) {
@@ -1137,9 +1157,9 @@ private fun OtpInputSection(
                         painter = painterResource(id = R.drawable.ic_whatsapp),
                         contentDescription = null,
                         tint = Color(0xFF25D366).fg(),
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(16.dp)
                     )
-                    Spacer(modifier = Modifier.width(5.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     val waMinutes = resendCooldownSeconds / 60
                     val waSeconds = resendCooldownSeconds % 60
                     Text(
@@ -1152,48 +1172,6 @@ private fun OtpInputSection(
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 12.sp,
                             color = if (resendCooldownSeconds <= 0) Color(0xFF1B5E20).fg() else Ink600.fg()
-                        ),
-                        maxLines = 1
-                    )
-                }
-            }
-
-            // Chip 2: Send via SMS (STRICTLY LOCKED until WhatsApp cooldown reaches 0)
-            val smsEnabled = !otpState.isLoading && resendCooldownSeconds <= 0
-            val smsMinutes = resendCooldownSeconds / 60
-            val smsSeconds = resendCooldownSeconds % 60
-            Surface(
-                onClick = onResendSms,
-                enabled = smsEnabled,
-                shape = RoundedCornerShape(20.dp),
-                color = if (smsEnabled) Color.White.bg() else Color(0xFFF8FAFC).bg(),
-                border = BorderStroke(
-                    1.dp,
-                    if (smsEnabled) BrandBlueBorder.bd() else Color(0xFFE2E8F0).bd()
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_profile_message),
-                        contentDescription = null,
-                        tint = if (smsEnabled) BrandBluePrimary.fg() else Color(0xFF94A3B8).fg(),
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Spacer(modifier = Modifier.width(5.dp))
-                    Text(
-                        text = if (resendCooldownSeconds > 0) {
-                            stringResource(R.string.auth_send_via_sms_in, smsMinutes, smsSeconds)
-                        } else {
-                            stringResource(R.string.auth_send_via_sms)
-                        },
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp,
-                            color = if (smsEnabled) BrandBluePrimary.fg() else Color(0xFF94A3B8).fg()
                         ),
                         maxLines = 1
                     )

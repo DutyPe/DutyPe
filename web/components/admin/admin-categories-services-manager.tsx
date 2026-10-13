@@ -50,6 +50,8 @@ const DEFAULT_CATEGORIES: CategoryDef[] = [
   { id: "CARPENTER", name: "Carpenter", te: "కార్పెంటర్", hi: "बढ़ई", skill: "SKILLED" },
   { id: "PAINTER", name: "Painting", te: "పెయింటింగ్", hi: "पेंटिंग", skill: "SKILLED" },
   { id: "HOME_HELP", name: "Home Help & Shifting", te: "హెల్పర్స్ & షిఫ్టింగ్", hi: "हेल्पर्स और शिफ्टिंग", skill: "BASIC" },
+  { id: "COOK_MAID", name: "Cook & Maid", te: "వంటమనిషి & మేడ్", hi: "रसोइया और कुक", skill: "BASIC" },
+  { id: "BABYSITTER", name: "Babysitting & Child Care", te: "పిల్లల సంరక్షణ & బేబీ సిట్టింగ్", hi: "बच्चों की देखभाल और बेबीसिटिंग", skill: "BASIC" },
   { id: "VEHICLE", name: "Car & Bike Wash", te: "కార్ & బైక్ వాష్", hi: "कार और बाइक वॉश", skill: "BASIC" }
 ];
 
@@ -57,10 +59,10 @@ const DEFAULT_SERVICES: ServiceItemDef[] = [
   // Cleaning
   { id: "clean_sweep", category: "CLEANING", name: "House sweeping & mopping (2 hrs)", te: "ఇల్లు ఊడ్చడం & తుడవడం (2 గంటలు)", hi: "घर की झाड़ू-पोछा (2 घंटे)", price: 299, durationMin: 120, includes: "Sweeping, mopping and dusting of all rooms, one helper for 2 hours.", active: true },
   { id: "clean_utensils", category: "CLEANING", name: "Utensils washing (1 hr)", te: "పాత్రలు కడగడం (1 గంట)", hi: "बर्तन धोना (1 घंटा)", price: 149, durationMin: 60, includes: "Washing and arranging utensils, one helper for 1 hour.", active: true },
-  { id: "clean_bathroom", category: "CLEANING", name: "Bathroom deep cleaning", te: "బాత్రూమ్ డీప్ క్లీనింగ్", hi: "बाथरूम डीप क्लीनिंग", price: 399, durationMin: 60, includes: "One bathroom: tiles, taps, toilet and stain removal with machine.", active: true },
-  { id: "clean_kitchen", category: "CLEANING", name: "Kitchen deep cleaning", te: "కిచెన్ డీప్ క్లీనింగ్", hi: "किचन डीप क्लीनिंग", price: 1199, durationMin: 150, includes: "Slab, tiles, sink, chimney outside and cabinets outside.", active: true },
-  { id: "clean_1bhk", category: "CLEANING", name: "Full home deep cleaning (1BHK)", te: "ఇల్లు మొత్తం డీప్ క్లీనింగ్ (1BHK)", hi: "पूरे घर की डीप क्लीनिंग (1BHK)", price: 2799, durationMin: 300, includes: "All rooms, kitchen and bathroom, floors scrubbed, fans and windows.", active: true },
-  { id: "clean_2bhk", category: "CLEANING", name: "Full home deep cleaning (2BHK)", te: "ఇల్లు మొత్తం డీప్ క్లీనింగ్ (2BHK)", hi: "पूरे घर की डीప్ క్లీనింగ్ (2BHK)", price: 3699, durationMin: 420, includes: "All rooms, kitchen and bathrooms, floors scrubbed, fans and windows.", active: true },
+  { id: "clean_bathroom", category: "CLEANING", name: "Bathroom deep cleaning", te: "బాత్రూమ్ డీప్ క్లీనింగ్", hi: "बाथरूम डीप क्लीनिंग", price: 349, originalPrice: 499, durationMin: 60, includes: "One bathroom: tiles, taps, toilet and stain removal with machine.", active: true },
+  { id: "clean_kitchen", category: "CLEANING", name: "Kitchen deep cleaning", te: "కిచెన్ డీప్ క్లీనింగ్", hi: "किचन डीप क्लीनिंग", price: 499, originalPrice: 799, durationMin: 150, includes: "Slab, tiles, sink, chimney outside and cabinets outside.", active: true },
+  { id: "clean_1bhk", category: "CLEANING", name: "Full home deep cleaning (1BHK)", te: "ఇల్లు మొత్తం డీప్ క్లీనింగ్ (1BHK)", hi: "पूरे घर की डीप क्लीनिंग (1BHK)", price: 899, originalPrice: 1299, durationMin: 240, includes: "All rooms, kitchen and bathroom, floors scrubbed, fans and windows.", active: true },
+  { id: "clean_2bhk", category: "CLEANING", name: "Full home deep cleaning (2BHK)", te: "ఇల్లు మొత్తం డీప్ క్లీనింగ్ (2BHK)", hi: "पूरे घर की डीప్ క్లీనింగ్ (2BHK)", price: 1299, originalPrice: 1799, durationMin: 300, includes: "All rooms, kitchen and bathrooms, floors scrubbed, fans and windows.", active: true },
   { id: "clean_sofa", category: "CLEANING", name: "Sofa cleaning (5 seats)", te: "సోఫా క్లీనింగ్ (5 సీట్లు)", hi: "सोफ़ा सफ़ाई (5 सीट)", price: 649, durationMin: 90, includes: "Shampoo and vacuum cleaning of fabric sofa.", active: true },
   { id: "clean_fans", category: "CLEANING", name: "Fans, cobwebs & windows (2 hrs)", te: "ఫ్యాన్లు, బూజు, కిటికీలు (2 గంటలు)", hi: "पंखे, जाले और खिड़कियाँ (2 घंटे)", price: 349, durationMin: 120, includes: "Ceiling fans, cobwebs, window grills and glass of the house.", active: true },
   { id: "clean_balcony", category: "CLEANING", name: "Balcony deep cleaning", te: "బాల్కనీ డీప్ క్లీనింగ్", hi: "बालकनी डीप क्लीनिंग", price: 249, durationMin: 45, includes: "Floor scrubbing, railing wipe and dust removal for one balcony.", active: true },
@@ -70,16 +72,16 @@ const DEFAULT_SERVICES: ServiceItemDef[] = [
   { id: "clean_wardrobe", category: "CLEANING", name: "Complete wardrobe organization (2 hrs)", te: "వార్డ్‌రోబ్ ఆర్గనైజేషన్ (2 గంటలు)", hi: "वार्डरोब संगठन (2 घंटे)", price: 349, durationMin: 120, includes: "Folding, categorizing and neat organizing of one master wardrobe.", active: true },
 
   // AC
-  { id: "ac_service", category: "AC", name: "AC service (foam-jet)", te: "AC సర్వీస్ (ఫోమ్-జెట్)", hi: "AC सर्विस (फोम-जेट)", price: 449, durationMin: 60, includes: "Filter, coil and drain cleaning, cooling check. Split or window, one AC.", active: true },
+  { id: "ac_service", category: "AC", name: "Split AC Deep Jet Service", te: "స్ప్లిట్ AC డీప్ జెట్ సర్వీస్", hi: "स्प्लिट AC डीप जेट सर्विस", price: 399, originalPrice: 599, durationMin: 45, includes: "Filter, coil and drain cleaning, cooling check. Split or window, one AC.", active: true },
   { id: "ac_deep", category: "AC", name: "AC deep cleaning (indoor + outdoor)", te: "AC డీప్ క్లీనింగ్ (ఇండోర్ + అవుట్‌డోర్)", hi: "AC डीप क्लीनिंग (इनडोर + आउटडोर)", price: 899, durationMin: 90, includes: "Indoor coil, blower and outdoor unit jet wash. One split AC.", active: true },
-  { id: "ac_repair_visit", category: "AC", name: "AC not cooling / repair visit", te: "AC కూలింగ్ లేదు / రిపేర్ విజిట్", hi: "AC ठंडा नहीं / रिपेयर विज़िट", price: 249, durationMin: 45, includes: "Technician finds the problem and tells the repair price before starting.", inspection: true, active: true },
+  { id: "ac_repair_visit", category: "AC", name: "AC Repair & Diagnosis Visit", te: "AC రిపేర్ & సమస్య పరిశీలన", hi: "AC रिपेयर और जांच विज़िट", price: 149, originalPrice: 199, durationMin: 30, includes: "Technician finds the problem and tells the repair price before starting.", inspection: true, active: true },
   { id: "ac_gas", category: "AC", name: "AC gas refill", te: "AC గ్యాస్ రీఫిల్", hi: "AC गैस रिफिल", price: 2199, durationMin: 90, includes: "Leak check and gas top-up for one AC.", active: true },
   { id: "ac_install", category: "AC", name: "Split AC installation", te: "స్ప్లిట్ AC ఇన్‌స్టలేషన్", hi: "स्प्लिट AC इंस्टॉलेशन", price: 1299, durationMin: 120, includes: "Indoor + outdoor unit fitting with existing pipe.", active: true },
   { id: "ac_uninstall", category: "AC", name: "AC uninstallation", te: "AC అన్‌ఇన్‌స్టలేషన్", hi: "AC अनइंस्टॉलेशन", price: 599, durationMin: 60, includes: "Safe removal with gas pump-down.", active: true },
 
   // Electrician
-  { id: "elec_fan", category: "ELECTRICIAN", name: "Fan installation / repair", te: "ఫ్యాన్ ఫిట్టింగ్ / రిపేర్", hi: "पंखा फिटिंग / रिपेयर", price: 149, durationMin: 30, includes: "One ceiling or wall fan. Parts extra.", active: true },
-  { id: "elec_switch", category: "ELECTRICIAN", name: "Switch / socket repair", te: "స్విచ్ / సాకెట్ రిపేర్", hi: "స్విచ్ / सॉकेट रिपेयर", price: 99, durationMin: 20, includes: "Up to 2 switches or sockets. Parts extra.", active: true },
+  { id: "elec_fan", category: "ELECTRICIAN", name: "Fan installation / repair", te: "ఫ్యాన్ ఫిట్టింగ్ / రిపేర్", hi: "पंखा फिटिंग / रिपेयर", price: 129, originalPrice: 199, durationMin: 30, includes: "One ceiling or wall fan. Parts extra.", active: true },
+  { id: "elec_switch", category: "ELECTRICIAN", name: "Switch / socket repair", te: "స్విచ్ / సాకెట్ రిపేర్", hi: "స్విచ్ / सॉकेट रिपेयर", price: 99, originalPrice: 149, durationMin: 20, includes: "Up to 2 switches or sockets. Parts extra.", active: true },
   { id: "elec_light", category: "ELECTRICIAN", name: "Light / tube fitting", te: "లైట్ / ట్యూబ్ ఫిట్టింగ్", hi: "लाइट / ट्यूब फिटिंग", price: 99, durationMin: 20, includes: "Up to 2 lights. Parts extra.", active: true },
   { id: "elec_decor", category: "ELECTRICIAN", name: "Decorative light / chandelier fitting", te: "డెకరేటివ్ లైట్ / షాండ్లియర్", hi: "डेकोरेटिव लाइट / झूमर", price: 299, durationMin: 45, includes: "One chandelier or decorative fixture.", active: true },
   { id: "elec_point", category: "ELECTRICIAN", name: "New socket / switch point", te: "కొత్త సాకెట్ / స్విచ్ పాయింట్", hi: "नया सॉकेट / स्विच पॉइंट", price: 199, durationMin: 45, includes: "One new point from a nearby board.", active: true },
@@ -89,9 +91,10 @@ const DEFAULT_SERVICES: ServiceItemDef[] = [
   { id: "elec_visit", category: "ELECTRICIAN", name: "Electrician visit (other work)", te: "ఎలక్ట్రీషియన్ విజిట్ (ఇతర పని)", hi: "इलेक्ट्रीशियन विज़िट (अन्य काम)", price: 99, durationMin: 30, includes: "Electrician checks the problem and tells the price before starting.", inspection: true, active: true },
 
   // Plumber
-  { id: "plumb_tap", category: "PLUMBER", name: "Tap / mixer fitting", te: "ట్యాప్ / మిక్సర్ ఫిట్టింగ్", hi: "नल / मिक्सर फिटिंग", price: 129, durationMin: 30, includes: "One tap or mixer. Parts extra.", active: true },
+  { id: "plumb_visit", category: "PLUMBER", name: "Plumber diagnosis & inspection visit", te: "ప్లంబర్ విజిట్ (సమస్య పరిశీలన)", hi: "प्लंबर विज़िट (जांच)", price: 99, originalPrice: 149, durationMin: 30, includes: "Doorstep plumbing inspection, root cause diagnosis and direct price quote.", inspection: true, active: true },
+  { id: "plumb_tap", category: "PLUMBER", name: "Tap / mixer fitting", te: "ట్యాప్ / మిక్సర్ ఫిట్టింగ్", hi: "नल / मिक्सर फिटिंग", price: 99, originalPrice: 149, durationMin: 30, includes: "One tap or mixer. Parts extra.", active: true },
   { id: "plumb_leak", category: "PLUMBER", name: "Leakage repair", te: "లీకేజ్ రిపేర్", hi: "लीकेज रिपेयर", price: 199, durationMin: 45, includes: "Pipe, tap or tank leak. Parts extra.", active: true },
-  { id: "plumb_block", category: "PLUMBER", name: "Drain / toilet blockage", te: "డ్రెయిన్ / టాయిలెట్ బ్లాకేజ్", hi: "नाली / टॉयलेट ब्लॉकेज", price: 299, durationMin: 45, includes: "Clear one blocked drain, sink or toilet.", active: true },
+  { id: "plumb_block", category: "PLUMBER", name: "Drain / toilet blockage", te: "డ్రెయిన్ / టాయిలెట్ బ్లాకేజ్", hi: "नाली / टॉयलेट ब्लॉकेज", price: 229, originalPrice: 349, durationMin: 45, includes: "Clear one blocked drain, sink or toilet.", active: true },
   { id: "plumb_flush", category: "PLUMBER", name: "Flush tank repair", te: "ఫ్లష్ ట్యాంక్ రిపేర్", hi: "फ्लश टैंक रिपेयर", price: 199, durationMin: 40, includes: "Fix one flush tank (parts extra).", active: true },
   { id: "plumb_basin", category: "PLUMBER", name: "Wash basin / sink installation", te: "వాష్ బేసిన్ / సింక్ ఫిట్టింగ్", hi: "वॉश बेसिन / सिंक फिटिंग", price: 399, durationMin: 60, includes: "Fitting of one basin or kitchen sink with waste pipe.", active: true },
   { id: "plumb_tank", category: "PLUMBER", name: "Water tank cleaning (up to 1000 L)", te: "వాటర్ ట్యాంక్ క్లీనింగ్ (1000 L వరకు)", hi: "पानी टंकी सफ़ाई (1000 L तक)", price: 699, durationMin: 90, includes: "Drain, scrub and disinfect one overhead or sump tank.", active: true },
@@ -100,19 +103,20 @@ const DEFAULT_SERVICES: ServiceItemDef[] = [
   // Appliance
   { id: "ro_service", category: "APPLIANCE", name: "RO water purifier service", te: "RO వాటర్ ప్యూరిఫైయర్ సర్వీస్", hi: "RO वाटर प्यूरीफायर सर्विस", price: 399, durationMin: 45, includes: "Cleaning, TDS check and pre-filter change.", active: true },
   { id: "ro_install", category: "APPLIANCE", name: "RO installation / uninstallation", te: "RO ఇన్‌స్టలేషన్ / అన్‌ఇన్‌స్టలేషన్", hi: "RO इंस्टॉलेशन / अनइंस्टॉलेशन", price: 349, durationMin: 45, includes: "Fitting or removal of one purifier.", active: true },
-  { id: "wm_repair", category: "APPLIANCE", name: "Washing machine repair visit", te: "వాషింగ్ మెషిన్ రిపేర్ విజిట్", hi: "वॉशिंग मशीन रिपेयर विज़िट", price: 249, durationMin: 45, includes: "Technician finds the problem and tells the repair price.", inspection: true, active: true },
+  { id: "wm_repair", category: "APPLIANCE", name: "Washing machine repair visit", te: "వాషింగ్ మెషిన్ రిపేర్ విజిట్", hi: "वॉशिंग मशीन रिपेयर विज़िट", price: 149, originalPrice: 199, durationMin: 45, includes: "Technician finds the problem and tells the repair price.", inspection: true, active: true },
   { id: "fridge_repair", category: "APPLIANCE", name: "Fridge repair visit", te: "ఫ్రిజ్ రిపేర్ విజిట్", hi: "फ्रिज रिपेयर विज़िट", price: 249, durationMin: 45, includes: "Technician finds the problem and tells the repair price.", inspection: true, active: true },
   { id: "tv_repair", category: "APPLIANCE", name: "TV repair visit", te: "TV రిపేర్ విజిట్", hi: "TV रिपेयर विज़िट", price: 249, durationMin: 45, includes: "Technician checks the TV and tells the repair price.", inspection: true, active: true },
   { id: "chimney_clean", category: "APPLIANCE", name: "Kitchen chimney cleaning", te: "కిచెన్ చిమ్నీ క్లీనింగ్", hi: "किचन चिमनी सफ़ाई", price: 699, durationMin: 75, includes: "Filter and inner cleaning of one chimney.", active: true },
   { id: "geyser", category: "APPLIANCE", name: "Geyser installation / repair", te: "గీజర్ ఫిట్టింగ్ / రిపేర్", hi: "गीज़र फिटिंग / रिपेयर", price: 349, durationMin: 45, includes: "One geyser. Parts extra.", active: true },
 
   // Carpenter
+  { id: "carp_visit", category: "CARPENTER", name: "Carpenter visit & minor repair", te: "కార్పెంటర్ విజిట్ (సమస్య పరిశీలన & రిపేర్)", hi: "बढ़ई विज़िट (रिपेयर)", price: 149, originalPrice: 199, durationMin: 30, includes: "Carpenter checks the work and tells the price before starting.", inspection: true, active: true },
   { id: "carp_lock", category: "CARPENTER", name: "Door lock fitting / repair", te: "డోర్ లాక్ ఫిట్టింగ్ / రిపేర్", hi: "दरवाज़े का ताला फिटिंग / रिपेयर", price: 199, durationMin: 40, includes: "One lock or latch.", active: true },
   { id: "carp_door", category: "CARPENTER", name: "Door / window alignment & hinges", te: "డోర్ / కిటికీ అలైన్‌మెంట్, హింజెస్", hi: "दरवाज़ा / खिड़की अलाइनमेंट, कब्ज़े", price: 249, durationMin: 45, includes: "Fix one door or window that does not close properly.", active: true },
   { id: "carp_assembly", category: "CARPENTER", name: "Bed / furniture assembly", te: "బెడ్ / ఫర్నిచర్ అసెంబ్లీ", hi: "बेड / फ़र्नीचर असेंबली", price: 449, durationMin: 90, includes: "Assembly of one bed, wardrobe or table.", active: true },
 
   // Painting
-  { id: "paint_touchup", category: "PAINTER", name: "Wall touch-up painting (1 wall)", te: "గోడ టచ్-అప్ పెయింటింగ్ (1 గోడ)", hi: "दीवार टच-अप पेंटिंग (1 दीवार)", price: 699, durationMin: 180, includes: "Putty patches and two coats on one wall.", active: true },
+  { id: "paint_touchup", category: "PAINTER", name: "Wall touch-up painting (1 wall)", te: "గోడ టచ్-అప్ పెయింటింగ్ (1 గోడ)", hi: "दीवार टच-अप पेंटिंग (1 दीवार)", price: 599, originalPrice: 799, durationMin: 180, includes: "Putty patches and two coats on one wall.", active: true },
   { id: "paint_visit", category: "PAINTER", name: "Painting / waterproofing quote visit", te: "పెయింటింగ్ / వాటర్‌ప్రూఫింగ్ కొటేషన్ విజిట్", hi: "पेंटिंग / वॉटरप्रूफ़िंग कोटेशन विज़िट", price: 99, durationMin: 30, includes: "Painter measures the area and gives written price.", inspection: true, active: true },
 
   // Home Help
@@ -121,6 +125,16 @@ const DEFAULT_SERVICES: ServiceItemDef[] = [
   { id: "help_garden", category: "HOME_HELP", name: "Garden / plants cleaning (2 hrs)", te: "గార్డెన్ / మొక్కల క్లీనింగ్ (2 గంటలు)", hi: "बगीचा / पौधों की सफ़ाई (2 घंटे)", price: 349, durationMin: 120, includes: "Weeding, trimming and clearing leaves.", active: true },
   { id: "help_hourly_1hr", category: "HOME_HELP", name: "Hourly home helper (1 hr)", te: "గంటల ప్రాతిపదికన ఇంటి సహాయం (1 గంట)", hi: "प्रति घंटा घरेलू मदद (1 घंटा)", price: 149, durationMin: 60, includes: "One helper for general house work.", active: true },
   { id: "help_hourly_2hr", category: "HOME_HELP", name: "Hourly home helper (2 hrs)", te: "గంటల ప్రాతిపదికన ఇంటి సహాయం (2 గంటలు)", hi: "प्रति घंटा घरेलू मदद (2 घंटे)", price: 249, durationMin: 120, includes: "One helper for up to 2 hours.", active: true },
+
+  // Cook & Maid
+  { id: "cook_meal", category: "COOK_MAID", name: "Cook for one meal (up to 6 people)", te: "ఒక పూట వంట (6 మంది వరకు)", hi: "एक समय का खाना (6 लोगों तक)", price: 299, originalPrice: 399, durationMin: 120, includes: "Home-style fresh cooking in your kitchen. Vegetables prepped, dishes made, kitchen tidied.", active: true },
+  { id: "maid_help", category: "COOK_MAID", name: "Maid house help & utensils (2 hrs)", te: "మేడ్ ఇంటి పని & గిన్నెలు (2 గంటలు)", hi: "घरेलू काम और बर्तन (2 घंटे)", price: 249, originalPrice: 349, durationMin: 120, includes: "Utensils washing, kitchen counter cleaning, dusting and light sweeping.", active: true },
+  { id: "cook_maid_combo", category: "COOK_MAID", name: "Cook & maid combo service (3 hrs)", te: "వంటమనిషి & మేడ్ కాంబో సర్వీస్ (3 గంటలు)", hi: "कुक और मेड कॉम्बो सर्विस (3 घंटे)", price: 549, originalPrice: 799, durationMin: 180, includes: "One meal cooking plus full utensils washing and kitchen cleanup.", active: true },
+
+  // Babysitting & Child Care
+  { id: "baby_care_2hr", category: "BABYSITTER", name: "Babysitting & child care (2 hrs)", te: "పిల్లల సంరక్షణ & బేబీ సిట్టింగ్ (2 గంటలు)", hi: "बच्चों की देखभाल (2 घंटे)", price: 299, originalPrice: 449, durationMin: 120, includes: "Attentive care, play assistance, feeding help and safe supervision.", active: true },
+  { id: "baby_care_4hr", category: "BABYSITTER", name: "Babysitter half-day care (4 hrs)", te: "హాఫ్ డే బేబీ సిట్టింగ్ (4 గంటలు)", hi: "हाफ डे बेबीसिटिंग (4 घंटे)", price: 549, originalPrice: 799, durationMin: 240, includes: "Four hours of patient care, reading, engaging activities and nap supervision.", active: true },
+  { id: "baby_care_full", category: "BABYSITTER", name: "Full day nanny & child support (8 hrs)", te: "ఫుల్ డే బేబీ సిట్టర్ కేర్ (8 గంటలు)", hi: "फुल डे नैनी और चाइल्ड केयर (8 घंटे)", price: 999, originalPrice: 1499, durationMin: 480, includes: "Full day child care assistance, feeding, playtime and safety monitoring.", active: true },
 
   // Vehicle
   { id: "car_wash", category: "VEHICLE", name: "Car wash at home (outside + inside vacuum)", te: "ఇంటి వద్ద కార్ వాష్ (బయట + లోపల వాక్యూమ్)", hi: "घर पर कार वॉश (बाहर + अंदर वैक्यूम)", price: 349, durationMin: 60, includes: "Foam wash, wipe and interior vacuum of one car.", active: true },

@@ -66,6 +66,9 @@ async function getUncached(request: NextRequest) {
         db.collection(Withdrawals.COLLECTION).where(Withdrawals.UID, "==", uid).orderBy(Withdrawals.CREATED_AT, "desc").limit(20).get(),
         names([uid])
       ]);
+      const refereeUids = made.docs.map((d) => d.id);
+      const refereeNames = refereeUids.length > 0 ? await names(refereeUids) : new Map<string, string>();
+
       return NextResponse.json({
         uid,
         name: who.get(uid) ?? "",
@@ -85,7 +88,12 @@ async function getUncached(request: NextRequest) {
           createdAt: iso(d.get(WalletLedger.CREATED_AT))
         })),
         referredBy: own.exists ? { referrerUid: own.get(Referrals.REFERRER_UID), code: own.get(Referrals.CODE), status: own.get(Referrals.STATUS) } : null,
-        referrals: made.docs.map((d) => ({ refereeUid: d.id, status: d.get(Referrals.STATUS), createdAt: iso(d.get(Referrals.CREATED_AT)) })),
+        referrals: made.docs.map((d) => ({
+          refereeUid: d.id,
+          refereeName: refereeNames.get(d.id) ?? d.id,
+          status: d.get(Referrals.STATUS),
+          createdAt: iso(d.get(Referrals.CREATED_AT))
+        })),
         withdrawals: withdrawals.docs.map((d) => ({
           id: d.id, amountPaise: d.get(Withdrawals.AMOUNT_PAISE), status: d.get(Withdrawals.STATUS), createdAt: iso(d.get(Withdrawals.CREATED_AT))
         }))

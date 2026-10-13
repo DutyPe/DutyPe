@@ -52,7 +52,13 @@ async function getUncached() {
       pendingApplications,
       totalReferrals,
       completedReferrals,
-      stateStats: {},
+      stateStats: {
+        Telangana: {
+          workers,
+          employers,
+          total: workers + employers
+        }
+      },
       recentJobs: recentJobs.docs.map((d) => ({
         id: d.id,
         title: String(d.get(Jobs.TITLE) ?? "Untitled"),

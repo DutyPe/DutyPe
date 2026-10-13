@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminCreateServiceBooking = exports.verifyPartnerTopup = exports.reviewServicePartner = exports.requestPartnerTopup = exports.updateServiceBooking = exports.acceptServiceBooking = exports.getServiceOffer = exports.setPartnerOnline = exports.applyServicePartner = exports.rateServiceBooking = exports.cancelServiceBooking = exports.previewServiceQuote = exports.createServiceBooking = exports.offerSender = exports.getServiceCatalog = exports.SEARCH_TIMEOUT_MS = exports.SERVICE_WAVE_INTERVAL_MS = exports.SERVICE_WAVES_KM = exports.PartnerStatus = exports.BookingStatus = void 0;
+exports.adminAssignBookingPartner = exports.adminCreateServiceBooking = exports.verifyPartnerTopup = exports.reviewServicePartner = exports.requestPartnerTopup = exports.updateServiceBooking = exports.acceptServiceBooking = exports.getServiceOffer = exports.setPartnerOnline = exports.applyServicePartner = exports.approveBookingPayment = exports.submitBookingPayment = exports.rateServiceBooking = exports.cancelServiceBooking = exports.previewServiceQuote = exports.createServiceBooking = exports.offerSender = exports.getServiceCatalog = exports.SEARCH_TIMEOUT_MS = exports.SERVICE_WAVE_INTERVAL_MS = exports.SERVICE_WAVES_KM = exports.PartnerStatus = exports.BookingStatus = void 0;
 exports.loadConfig = loadConfig;
 exports.clearConfigCache = clearConfigCache;
 exports.inServiceArea = inServiceArea;
@@ -54,6 +54,7 @@ const { FieldValue, Timestamp } = admin.firestore;
 const BK = schema_1.ServiceBookings;
 const SP = schema_1.ServicePartners;
 exports.BookingStatus = {
+    PAYMENT_PENDING: "PAYMENT_PENDING",
     SEARCHING: "SEARCHING",
     ASSIGNED: "ASSIGNED",
     ON_THE_WAY: "ON_THE_WAY",
@@ -63,7 +64,7 @@ exports.BookingStatus = {
     NO_PARTNER: "NO_PARTNER",
 };
 const BS = exports.BookingStatus;
-const OPEN_STATUSES = [BS.SEARCHING, BS.ASSIGNED, BS.ON_THE_WAY, BS.STARTED];
+const OPEN_STATUSES = [BS.PAYMENT_PENDING, BS.SEARCHING, BS.ASSIGNED, BS.ON_THE_WAY, BS.STARTED];
 const ASSIGNED_STATUSES = [BS.ASSIGNED, BS.ON_THE_WAY, BS.STARTED];
 exports.PartnerStatus = { PENDING: "PENDING", APPROVED: "APPROVED", REJECTED: "REJECTED", SUSPENDED: "SUSPENDED" };
 /** Offer waves, km from the customer. After the last wave the widest one repeats. */
@@ -111,7 +112,7 @@ exports.getServiceCatalog = (0, secure_callable_1.onCallSecured)({ requireAuth: 
                 code: x.code, title: x.title, type: x.type, value: x.value, maxOff: (_a = x.maxOff) !== null && _a !== void 0 ? _a : 0, minOrder: (_b = x.minOrder) !== null && _b !== void 0 ? _b : 0,
                 validTo: (_c = x.validTo) !== null && _c !== void 0 ? _c : 0, firstBookingOnly: x.firstBookingOnly === true, categories: (_d = x.categories) !== null && _d !== void 0 ? _d : [],
             });
-        }), categories: c.categories, services: (all ? c.services : c.services.filter((x) => x.active !== false))
+        }), categories: all ? c.categories : c.categories.filter((cat) => service_catalog_1.ACTIVE_CUSTOMER_CATEGORY_IDS.has(cat.id)), services: (all ? c.services : c.services.filter((x) => x.active !== false && service_catalog_1.ACTIVE_CUSTOMER_CATEGORY_IDS.has(x.category)))
             .map((x) => (Object.assign(Object.assign({}, x), { provide: (0, service_catalog_1.provideFor)(x), bring: (0, service_catalog_1.bringFor)(x) }))), 
         // Labels for the provide / bring ids, in en / te / hi.
         items: service_catalog_1.ITEMS }, (hasPoint ? { inArea: inServiceArea(c, lat, lng) } : {}));
@@ -213,10 +214,11 @@ async function isFirstBooking(uid) {
 }
 /** A cancelled / unassigned booking gives the coupon back. */
 async function releaseCoupon(b) {
-    const code = String(b[BK.COUPON_CODE] || "");
-    if (!code)
+    const code = String(b[BK.COUPON_CODE] || b["couponCode"] || b["coupon_code"] || "").trim().toUpperCase();
+    const customerId = String(b[BK.CUSTOMER_ID] || b["customerId"] || b["customer_id"] || "").trim();
+    if (!code || !customerId)
         return;
-    await db.collection(schema_1.CouponUses.COLLECTION).doc(`${b[BK.CUSTOMER_ID]}_${code}`).delete().catch(() => undefined);
+    await db.collection(schema_1.CouponUses.COLLECTION).doc(`${customerId}_${code}`).delete().catch(() => undefined);
 }
 /** Test seam: the function that actually pushes an offer. */
 exports.offerSender = {
@@ -371,8 +373,13 @@ exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
     const data = (0, input_1.obj)(raw);
     const config = await loadConfig();
     const service = (0, service_catalog_1.findService)(config, (0, input_1.str)(data, "serviceId", { max: 60 }));
-    if (!service)
-        (0, input_1.fail)("not-found", "This service is not available");
+    if (!service || !service_catalog_1.ACTIVE_CUSTOMER_CATEGORY_IDS.has(service.category)) {
+        (0, input_1.fail)("not-found", "This service is currently paused or not available in Khammam");
+    }
+    const clientPrice = Number(data.clientPrice || data.servicePrice);
+    if (Number.isFinite(clientPrice) && clientPrice > 0 && Math.abs(clientPrice - service.price) <= 100) {
+        service.price = clientPrice;
+    }
     const { lat, lng } = (0, input_1.latLng)(data);
     requireServiceArea(config, lat, lng, "customer");
     const addressText = (0, input_1.text)(data, "addressText", { min: 5, max: 300 });
@@ -386,14 +393,12 @@ exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
         if (!Number.isFinite(scheduledAt) || scheduledAt < now + 30 * 60 * 1000 || scheduledAt > now + 7 * 24 * HOUR_MS) {
             (0, input_1.fail)("invalid-argument", "Pick a time from 30 minutes to 7 days from now");
         }
-        const hour = new Date(scheduledAt + IST_OFFSET_MS).getUTCHours();
-        if (hour < 7 || hour >= 21)
-            (0, input_1.fail)("invalid-argument", "Pick a time between 7 AM and 9 PM");
     }
-    else {
-        const nowHour = new Date(now + IST_OFFSET_MS).getUTCHours();
-        if (nowHour < 7 || nowHour >= 21) {
-            (0, input_1.fail)("failed-precondition", "Doorstep services are closed for tonight (operating hours: 7:00 AM - 9:00 PM IST). Please schedule your slot for tomorrow morning onwards.");
+    if (!scheduled) {
+        const istDate = new Date(now + IST_OFFSET_MS);
+        const istHour = istDate.getUTCHours();
+        if (istHour < 7 || istHour >= 21) {
+            (0, input_1.fail)("failed-precondition", "Services are closed for tonight (operating hours: 7:00 AM – 9:00 PM IST). Please schedule a slot for tomorrow morning onwards.");
         }
     }
     const open = await db.collection(BK.COLLECTION)
@@ -412,7 +417,7 @@ exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
     const ref = db.collection(BK.COLLECTION).doc();
     const startOtp = (0, service_catalog_1.newStartOtp)();
     const firstWaveAt = scheduled ? Math.max(now, scheduledAt - SCHEDULE_LEAD_MS) : now;
-    const booking = Object.assign(Object.assign({ [BK.CUSTOMER_ID]: uid, [BK.CUSTOMER_NAME]: customerName, [BK.CUSTOMER_PHONE]: phone, [BK.CATEGORY]: service.category, [BK.SERVICE_ID]: service.id, [BK.SERVICE_NAME]: service.name, [BK.PRICE]: service.price, [BK.BOOKING_FEE]: bookingFee, [BK.COMMISSION_PCT]: config.commissionPct, [BK.INSPECTION]: service.inspection === true, [BK.ADDRESS_TEXT]: addressText, [BK.AREA]: area, [BK.LAT]: lat, [BK.LNG]: lng, [BK.NOTE]: note, [BK.WHEN]: scheduled ? "scheduled" : "now" }, (scheduled ? { [BK.SCHEDULED_AT]: Timestamp.fromMillis(scheduledAt) } : {})), { [BK.STATUS]: BS.SEARCHING, 
+    const booking = Object.assign(Object.assign({ [BK.CUSTOMER_ID]: uid, [BK.CUSTOMER_NAME]: customerName, [BK.CUSTOMER_PHONE]: phone, [BK.CATEGORY]: service.category, [BK.SERVICE_ID]: service.id, [BK.SERVICE_NAME]: service.name, [BK.PRICE]: service.price, [BK.BOOKING_FEE]: bookingFee, [BK.COMMISSION_PCT]: config.commissionPct, [BK.INSPECTION]: service.inspection === true, [BK.ADDRESS_TEXT]: addressText, [BK.AREA]: area, [BK.LAT]: lat, [BK.LNG]: lng, [BK.NOTE]: note, [BK.WHEN]: scheduled ? "scheduled" : "now" }, (scheduled ? { [BK.SCHEDULED_AT]: Timestamp.fromMillis(scheduledAt) } : {})), { [BK.STATUS]: bookingFee > 0 ? BS.PAYMENT_PENDING : BS.SEARCHING, 
         // A partner booking for their own home never gets their own job.
         [BK.EXCLUDED_PARTNER_IDS]: [uid], [BK.DISPATCH_RADIUS_KM]: 0, [BK.NEXT_WAVE_AT]: Timestamp.fromMillis(firstWaveAt), [BK.EXPIRES_AT]: Timestamp.fromMillis(scheduled ? scheduledAt + HOUR_MS : now + exports.SEARCH_TIMEOUT_MS), [BK.DISCOUNT]: q.discount, [BK.DISCOUNT_LABEL]: q.discountLabel, [BK.COUPON_CODE]: q.couponCode, [BK.TOTAL]: q.total, [BK.CREATED_AT]: Timestamp.fromMillis(now), [BK.UPDATED_AT]: Timestamp.fromMillis(now) });
     const batch = db.batch();
@@ -421,9 +426,35 @@ exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
         [schema_1.ServiceBookingSecrets.CUSTOMER_ID]: uid,
         [schema_1.ServiceBookingSecrets.START_OTP]: startOtp,
     });
-    // One use per customer: creating this document fails if the coupon was used before.
+    // One use per customer: check if coupon was already consumed on a completed or active booking.
+    // If previous booking was cancelled or unassigned, release the coupon and allow re-use!
     if (q.couponCode) {
-        batch.create(db.collection(schema_1.CouponUses.COLLECTION).doc(`${uid}_${q.couponCode}`), {
+        const code = q.couponCode.trim().toUpperCase();
+        const usedRef = db.collection(schema_1.CouponUses.COLLECTION).doc(`${uid}_${code}`);
+        const used = await usedRef.get();
+        if (used.exists) {
+            const bId = String(used.get(schema_1.CouponUses.BOOKING_ID) || "");
+            let isActuallyConsumed = true;
+            if (bId) {
+                const bSnap = await db.collection(BK.COLLECTION).doc(bId).get();
+                if (!bSnap.exists) {
+                    isActuallyConsumed = false;
+                }
+                else {
+                    const bStatus = String(bSnap.get(BK.STATUS) || "");
+                    if (bStatus === BS.CANCELLED || bStatus === BS.NO_PARTNER || bStatus === BS.PAYMENT_PENDING) {
+                        isActuallyConsumed = false;
+                    }
+                }
+            }
+            else {
+                isActuallyConsumed = false;
+            }
+            if (isActuallyConsumed) {
+                (0, input_1.fail)("already-exists", "You have already used this coupon");
+            }
+        }
+        batch.set(usedRef, {
             [schema_1.CouponUses.BOOKING_ID]: ref.id,
             [schema_1.CouponUses.CREATED_AT]: Timestamp.fromMillis(now),
         });
@@ -436,14 +467,15 @@ exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
             (0, input_1.fail)("already-exists", "You have already used this coupon");
         throw e;
     }
-    if (!scheduled) {
+    if (bookingFee <= 0 && !scheduled) {
         void advanceServiceWave(ref.id, now).catch((err) => {
             functions.logger.warn(`advanceServiceWave failed for ${ref.id}:`, err);
         });
     }
     return {
         bookingId: ref.id, startOtp, price: service.price, bookingFee, discount: q.discount, discountLabel: q.discountLabel,
-        total: q.total,
+        total: q.total, status: bookingFee > 0 ? BS.PAYMENT_PENDING : BS.SEARCHING,
+        upiId: config.upiId, upiName: config.upiName,
     };
 });
 /** Price breakdown before booking: first-booking offer, the coupon typed, and the visible offers. */
@@ -454,6 +486,10 @@ exports.previewServiceQuote = (0, secure_callable_1.onCallSecured)({ timeoutSeco
     const service = (0, service_catalog_1.findService)(config, (0, input_1.str)(data, "serviceId", { max: 60 }));
     if (!service)
         (0, input_1.fail)("not-found", "This service is not available");
+    const clientPrice = Number(data.clientPrice || data.servicePrice);
+    if (Number.isFinite(clientPrice) && clientPrice > 0 && Math.abs(clientPrice - service.price) <= 100) {
+        service.price = clientPrice;
+    }
     const now = Date.now();
     const first = await isFirstBooking(context.auth.uid);
     const who = await customerOf(context.auth.uid, String(((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.role) || ""));
@@ -464,11 +500,37 @@ exports.previewServiceQuote = (0, secure_callable_1.onCallSecured)({ timeoutSeco
         .filter((c) => !c.firstBookingOnly || first)
         .map((c) => { var _a; return ({ code: c.code, title: c.title, minOrder: (_a = c.minOrder) !== null && _a !== void 0 ? _a : 0 }); });
     if (!couponError && q.couponCode) {
-        const used = await db.collection(schema_1.CouponUses.COLLECTION).doc(`${context.auth.uid}_${q.couponCode}`).get();
+        const code = q.couponCode.trim().toUpperCase();
+        const usedRef = db.collection(schema_1.CouponUses.COLLECTION).doc(`${context.auth.uid}_${code}`);
+        const used = await usedRef.get();
         if (used.exists) {
-            couponError = "You have already used this coupon";
-            const baseQ = (0, service_catalog_1.quote)(config, service, first, "", now, who.planMember);
-            return Object.assign(Object.assign({}, baseQ), { couponError, firstBooking: first, offers });
+            const bId = String(used.get(schema_1.CouponUses.BOOKING_ID) || "");
+            let isActuallyConsumed = true;
+            if (bId) {
+                const bSnap = await db.collection(BK.COLLECTION).doc(bId).get();
+                if (!bSnap.exists) {
+                    isActuallyConsumed = false;
+                }
+                else {
+                    const bStatus = String(bSnap.get(BK.STATUS) || "");
+                    // If the booking was cancelled, timed out with no partner, or pending, release the coupon!
+                    if (bStatus === BS.CANCELLED || bStatus === BS.NO_PARTNER || bStatus === BS.PAYMENT_PENDING) {
+                        isActuallyConsumed = false;
+                    }
+                }
+            }
+            else {
+                isActuallyConsumed = false;
+            }
+            if (!isActuallyConsumed) {
+                // Release the stale lock so the customer can use this coupon right away!
+                await usedRef.delete().catch(() => undefined);
+            }
+            else {
+                couponError = "You have already used this coupon";
+                const baseQ = (0, service_catalog_1.quote)(config, service, first, "", now, who.planMember);
+                return Object.assign(Object.assign({}, baseQ), { couponError, firstBooking: first, offers });
+            }
         }
     }
     return Object.assign(Object.assign(Object.assign({}, q), (couponError ? { couponError } : {})), { firstBooking: first, offers });
@@ -586,6 +648,63 @@ exports.rateServiceBooking = (0, secure_callable_1.onCallSecured)({ enforceAppCh
     });
     return { ok: true };
 });
+exports.submitBookingPayment = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
+    const uid = context.auth.uid;
+    const data = (0, input_1.obj)(raw);
+    const bookingId = (0, input_1.str)(data, "bookingId", { max: 40 });
+    const utr = (0, input_1.str)(data, "utr", { max: 12, pattern: /^\d{12}$/ });
+    const ref = db.collection(BK.COLLECTION).doc(bookingId);
+    const b = await ref.get();
+    if (!b.exists || b.get(BK.CUSTOMER_ID) !== uid)
+        (0, input_1.fail)("not-found", "Booking not found");
+    if (b.get(BK.STATUS) !== BS.PAYMENT_PENDING)
+        (0, input_1.fail)("failed-precondition", "Booking is not pending payment");
+    const fee = Number(b.get(BK.BOOKING_FEE) || 0);
+    const now = Date.now();
+    await ref.update({
+        utr,
+        [BK.STATUS]: BS.SEARCHING,
+        [BK.NEXT_WAVE_AT]: Timestamp.fromMillis(now),
+        paymentSubmittedAt: Timestamp.now(),
+        paymentNote: `Platform fee ₹${fee} paid via UPI. UTR: ${utr}`,
+        [BK.UPDATED_AT]: Timestamp.now(),
+    });
+    void advanceServiceWave(bookingId, now).catch((err) => {
+        functions.logger.warn(`advanceServiceWave failed for ${bookingId}:`, err);
+    });
+    await tellCustomer(String(b.get(BK.CUSTOMER_ID)), bookingId, "SERVICE_SEARCHING", {
+        service: String(b.get(BK.SERVICE_NAME)),
+    });
+    return { ok: true, bookingId, utr, status: BS.SEARCHING };
+});
+exports.approveBookingPayment = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
+    if (!await (0, app_config_1.isCallerAdmin)(context))
+        (0, input_1.fail)("permission-denied", "Only admin can approve booking payments");
+    const uid = context.auth.uid;
+    const data = (0, input_1.obj)(raw);
+    const bookingId = (0, input_1.str)(data, "bookingId", { max: 40 });
+    const ref = db.collection(BK.COLLECTION).doc(bookingId);
+    const b = await ref.get();
+    if (!b.exists)
+        (0, input_1.fail)("not-found", "Booking not found");
+    if (b.get(BK.STATUS) !== BS.PAYMENT_PENDING)
+        (0, input_1.fail)("failed-precondition", "Booking is not in PAYMENT_PENDING status");
+    const now = Date.now();
+    await ref.update({
+        [BK.STATUS]: BS.SEARCHING,
+        [BK.NEXT_WAVE_AT]: Timestamp.fromMillis(now),
+        approvedAt: Timestamp.now(),
+        approvedBy: uid,
+        [BK.UPDATED_AT]: Timestamp.now(),
+    });
+    void advanceServiceWave(bookingId, now).catch((err) => {
+        functions.logger.warn(`advanceServiceWave failed for ${bookingId}:`, err);
+    });
+    await tellCustomer(String(b.get(BK.CUSTOMER_ID)), bookingId, "SERVICE_SEARCHING", {
+        service: String(b.get(BK.SERVICE_NAME)),
+    });
+    return { ok: true, bookingId, status: BS.SEARCHING };
+});
 // ─────────────────────────────── partner ───────────────────────────────
 const CATEGORY_IDS = service_catalog_1.CATEGORIES.map((c) => c.id);
 exports.applyServicePartner = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
@@ -678,18 +797,18 @@ exports.setPartnerOnline = (0, secure_callable_1.onCallSecured)({ enforceAppChec
 exports.getServiceOffer = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 10, enforceAppCheck: false }, async (raw, context) => {
     const uid = context.auth.uid;
     const bookingId = (0, input_1.str)((0, input_1.obj)(raw), "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
-    const [p, b] = await Promise.all([
-        db.collection(SP.COLLECTION).doc(uid).get(),
-        db.collection(BK.COLLECTION).doc(bookingId).get(),
-    ]);
+    const p = await db.collection(SP.COLLECTION).doc(uid).get();
     if (!p.exists || p.get(SP.STATUS) !== exports.PartnerStatus.APPROVED) {
         return { available: false, status: "NOT_APPROVED" };
     }
+    const b = await db.collection(BK.COLLECTION).doc(bookingId).get();
     if (!b.exists)
         return { available: false, status: "GONE" };
     const d = b.data() || {};
     const mine = d[BK.PARTNER_ID] === uid;
-    const available = d[BK.STATUS] === BS.SEARCHING && (p.get(SP.CATEGORIES) || []).includes(String(d[BK.CATEGORY])) &&
+    const pCategories = (p.get(SP.CATEGORIES) || []);
+    const categoryMatch = pCategories.length === 0 || pCategories.includes("ALL") || pCategories.includes(String(d[BK.CATEGORY]));
+    const available = d[BK.STATUS] === BS.SEARCHING && categoryMatch &&
         !(d[BK.EXCLUDED_PARTNER_IDS] || []).includes(uid);
     const pLat = Number(p.get(SP.LAT));
     const pLng = Number(p.get(SP.LNG));
@@ -712,8 +831,8 @@ exports.getServiceOffer = (0, secure_callable_1.onCallSecured)({ timeoutSeconds:
         provide: svc ? (0, service_catalog_1.provideFor)(svc) : [],
         discount: Number(d[BK.DISCOUNT] || 0),
         customerTotal: Number(d[BK.TOTAL] || 0),
-        requiredCreditsPaise: requiredCredits(d, fee),
-        creditsPaise: Number(p.get(SP.CREDITS_PAISE) || 0),
+        requiredCreditsPaise: 0,
+        creditsPaise: 0,
         inspection: d[BK.INSPECTION] === true,
         area: d[BK.AREA],
         note: d[BK.NOTE],
@@ -760,11 +879,6 @@ exports.acceptServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
         if (busy && busy !== "service")
             return { result: "busy" };
         const fee = partnerFeeOf(config, Number(p.get(SP.JOBS_COMPLETED) || 0), d);
-        const credits = Number(p.get(SP.CREDITS_PAISE) || 0);
-        const needed = requiredCredits(d, fee);
-        if (credits < needed) {
-            (0, input_1.fail)("failed-precondition", "Insufficient credits in partner wallet. Please top up your wallet to accept this booking.");
-        }
         const now = Timestamp.now();
         const ratingCount = Number(p.get(SP.RATING_COUNT) || 0);
         const rating = ratingCount ? Math.round((Number(p.get(SP.RATING_SUM) || 0) / ratingCount) * 10) / 10 : 0;
@@ -850,7 +964,7 @@ exports.updateServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
                 const fee = Number(d[BK.BOOKING_FEE] || 0);
                 const discount = Number(d[BK.DISCOUNT] || 0);
                 const take = (0, service_catalog_1.takePaise)(price, extras, fee, discount, feeOf(d, config.partnerFee), Number(d[BK.COMMISSION_PCT] || 0));
-                const total = Math.max(0, price + fee - discount) + extras;
+                const total = Math.max(0, price - discount) + extras;
                 const balance = Number(p.get(SP.CREDITS_PAISE) || 0) - take;
                 tx.update(ref, {
                     [BK.STATUS]: BS.COMPLETED,
@@ -1044,5 +1158,97 @@ exports.adminCreateServiceBooking = (0, secure_callable_1.onCallSecured)({ enfor
         [schema_1.ServiceBookingSecrets.CUSTOMER_ID]: `admin_booked_${Date.now()}`,
     });
     return { ok: true, bookingId, startOtp: otp };
+});
+exports.adminAssignBookingPartner = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
+    if (!(await (0, app_config_1.isCallerAdmin)(context)))
+        (0, input_1.fail)("permission-denied", "Only admin can assign partners to bookings");
+    const data = (0, input_1.obj)(raw);
+    const bookingId = (0, input_1.str)(data, "bookingId", { min: 2, max: 64, pattern: /^[A-Za-z0-9_-]+$/ });
+    const partnerId = (0, input_1.str)(data, "partnerId", { min: 2, max: 128, pattern: /^[A-Za-z0-9_-]+$/ });
+    const ref = db.collection(BK.COLLECTION).doc(bookingId);
+    const partnerRef = db.collection(SP.COLLECTION).doc(partnerId);
+    const out = await db.runTransaction(async (tx) => {
+        const [b, p] = await Promise.all([tx.get(ref), tx.get(partnerRef)]);
+        if (!b.exists)
+            (0, input_1.fail)("not-found", "Booking not found");
+        if (!p.exists)
+            (0, input_1.fail)("not-found", "Partner not found");
+        if (p.get(SP.STATUS) !== exports.PartnerStatus.APPROVED) {
+            (0, input_1.fail)("failed-precondition", "Only approved service partners can be assigned");
+        }
+        const bData = b.data() || {};
+        const curStatus = String(bData[BK.STATUS] || "");
+        if (curStatus === BS.COMPLETED || curStatus === BS.CANCELLED) {
+            (0, input_1.fail)("failed-precondition", `Cannot assign partner: booking is already ${curStatus}`);
+        }
+        const prevPartnerId = String(bData[BK.PARTNER_ID] || "");
+        if (prevPartnerId && prevPartnerId !== partnerId) {
+            const prevPartnerRef = db.collection(SP.COLLECTION).doc(prevPartnerId);
+            const prevSnap = await tx.get(prevPartnerRef);
+            if (prevSnap.exists && prevSnap.get(SP.ACTIVE_BOOKING_ID) === bookingId) {
+                tx.update(prevPartnerRef, {
+                    [SP.ACTIVE_BOOKING_ID]: FieldValue.delete(),
+                    [SP.UPDATED_AT]: Timestamp.now(),
+                });
+            }
+        }
+        const now = Timestamp.now();
+        const ratingCount = Number(p.get(SP.RATING_COUNT) || 0);
+        const rating = ratingCount ? Math.round((Number(p.get(SP.RATING_SUM) || 0) / ratingCount) * 10) / 10 : 0;
+        const config = await loadConfig();
+        const fee = partnerFeeOf(config, Number(p.get(SP.JOBS_COMPLETED) || 0), bData);
+        const assigned = {
+            [BK.STATUS]: BS.ASSIGNED,
+            [BK.PARTNER_ID]: partnerId,
+            [BK.PARTNER_NAME]: String(p.get(SP.NAME) || "Partner"),
+            [BK.PARTNER_PHONE]: String(p.get(SP.PHONE) || ""),
+            [BK.PARTNER_PHOTO_URL]: String(p.get(SP.PHOTO_URL) || ""),
+            [BK.PARTNER_RATING]: rating,
+            [BK.PARTNER_FEE]: fee,
+            [BK.NEXT_WAVE_AT]: FieldValue.delete(),
+            [BK.ASSIGNED_AT]: now,
+            [BK.UPDATED_AT]: now,
+        };
+        tx.update(ref, assigned);
+        tx.update(partnerRef, {
+            [SP.ACTIVE_BOOKING_ID]: bookingId,
+            [SP.UPDATED_AT]: now,
+        });
+        return {
+            bData: Object.assign(Object.assign({}, bData), assigned),
+            partnerName: String(p.get(SP.NAME) || "Partner"),
+            partnerPhone: String(p.get(SP.PHONE) || ""),
+            customerId: String(bData[BK.CUSTOMER_ID] || ""),
+            serviceName: String(bData[BK.SERVICE_NAME] || ""),
+            prevPartnerId,
+        };
+    });
+    if (out.customerId) {
+        await tellCustomer(out.customerId, bookingId, "SERVICE_ASSIGNED", {
+            partner: out.partnerName,
+            service: out.serviceName,
+        });
+    }
+    await tellPartner(partnerId, "SERVICE_ASSIGNED_BY_ADMIN", {
+        service: out.serviceName,
+        message: `DutyPe Admin assigned you to service booking #${bookingId.slice(-6)} (${out.serviceName}).`,
+    }, { bookingId, deepLink: "dutype://partner" });
+    if (out.prevPartnerId && out.prevPartnerId !== partnerId) {
+        await tellPartner(out.prevPartnerId, "SERVICE_REASSIGNED", {
+            service: out.serviceName,
+            message: `Booking #${bookingId.slice(-6)} has been reassigned to another partner by admin.`,
+        }, { bookingId, deepLink: "dutype://partner" });
+    }
+    void (0, whatsapp_messages_1.whatsappServiceAssigned)(out.bData).catch((err) => {
+        functions.logger.warn("whatsappServiceAssigned failed:", err);
+    });
+    return {
+        ok: true,
+        bookingId,
+        partnerId,
+        partnerName: out.partnerName,
+        partnerPhone: out.partnerPhone,
+        status: BS.ASSIGNED,
+    };
 });
 //# sourceMappingURL=services.js.map

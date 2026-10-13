@@ -142,34 +142,7 @@ export function whatsappConfigured(env: NodeJS.ProcessEnv = process.env): boolea
   return Boolean(token && token.toLowerCase() !== "unset" && env.WHATSAPP_PHONE_NUMBER_ID && env.WHATSAPP_TEMPLATE);
 }
 
-/**
- * Our own SMS gateway (DLT-registered OTP template), ~₹0.15–0.25 per SMS instead of Firebase's
- * ~₹6.7. SMS_PROVIDER = "2factor" (SMS_TEMPLATE = the 2Factor template name) or "msg91"
- * (SMS_TEMPLATE = MSG91 template id), in functions/.env.<project>. The key is the Firebase secret
- * SMS_API_KEY (2Factor API key / MSG91 authkey); the value "unset" keeps the gateway off.
- */
-export function smsGatewayConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
-  const provider = (env.SMS_PROVIDER || "").toLowerCase();
-  const key = (env.SMS_API_KEY || "").trim();
-  return (provider === "2factor" || provider === "msg91") && Boolean(key) && key.toLowerCase() !== "unset" &&
-    Boolean((env.SMS_TEMPLATE || "").trim());
-}
 
-/** The HTTP request for the configured gateway (pure, so it can be tested). */
-export function smsGatewayRequest(toE164: string, code: string, env: NodeJS.ProcessEnv = process.env):
-  { url: string; init: { method: string; headers?: Record<string, string> } } {
-  const ten = toE164.replace(/^\+91/, "");
-  const key = (env.SMS_API_KEY || "").trim();
-  const template = (env.SMS_TEMPLATE || "").trim();
-  if ((env.SMS_PROVIDER || "").toLowerCase() === "msg91") {
-    const q = new URLSearchParams({ template_id: template, mobile: `91${ten}`, otp: code });
-    return { url: `https://control.msg91.com/api/v5/otp?${q}`, init: { method: "POST", headers: { authkey: key, "Content-Type": "application/json" } } };
-  }
-  return {
-    url: `https://2factor.in/API/V1/${encodeURIComponent(key)}/SMS/${ten}/${code}/${encodeURIComponent(template)}`,
-    init: { method: "GET" },
-  };
-}
 
 /** Meta Cloud API body for an authentication template (body code + copy-code button). */
 export function whatsappTemplateBody(toE164: string, code: string, template: string, lang: string) {
@@ -185,5 +158,37 @@ export function whatsappTemplateBody(toE164: string, code: string, template: str
         { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: code }] },
       ],
     },
+  };
+}
+
+export interface TruecallerUser {
+  phone: string;
+  name: string;
+  email: string;
+  picture: string;
+  gender: string;
+  city: string;
+}
+
+/** The fields DutyPe uses from Truecaller's userinfo response. */
+export function parseTruecallerUserInfo(raw: unknown): TruecallerUser {
+  const u = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const phone = indianE164(u.phone_number ?? u.phoneNumber) || "";
+  const name = [u.given_name, u.family_name].map((v) => String(v ?? "").trim()).filter(Boolean).join(" ") ||
+    String(u.name ?? "").trim();
+  const email = String(u.email ?? "").trim().toLowerCase();
+  const rawPic = String(u.picture ?? u.avatar_url ?? u.picture_url ?? "").trim();
+  const picture = /^https?:\/\//i.test(rawPic) ? rawPic : "";
+  const genderRaw = String(u.gender ?? "").trim().toUpperCase();
+  const gender = ["MALE", "FEMALE", "OTHER"].includes(genderRaw) ? genderRaw : "";
+  const city = String(u.city ?? (u.address as Record<string, unknown>)?.city ?? "").trim().slice(0, 50);
+
+  return {
+    phone,
+    name: name.replace(/\s+/g, " ").slice(0, 80),
+    email: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email) && email.length <= 120 ? email : "",
+    picture,
+    gender,
+    city,
   };
 }

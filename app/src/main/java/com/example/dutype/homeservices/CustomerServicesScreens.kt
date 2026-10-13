@@ -217,6 +217,16 @@ internal val SvcInk = Color(0xFF0F172A)
 internal val SvcLine = Color(0xFFE2E8F0)
 internal val SvcPage = Color(0xFFF8FAFC)
 private val IST: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
+val ACTIVE_CUSTOMER_CATEGORY_IDS = setOf(
+    "CLEANING",
+    "ELECTRICIAN",
+    "PLUMBER",
+    "CARPENTER",
+    "PAINTER",
+    "HOME_HELP",
+    "COOK_MAID",
+    "BABYSITTER"
+)
 
 /**
  * Operating hours: 7:00 AM to 9:00 PM IST (07:00 - 21:00).
@@ -224,7 +234,8 @@ private val IST: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
  * Customers can still book in advance for tomorrow morning onwards.
  */
 fun isServiceHoursClosedNow(now: Long = System.currentTimeMillis()): Boolean {
-    val cal = Calendar.getInstance(IST).apply { timeInMillis = now }
+    val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Kolkata"))
+    cal.timeInMillis = now
     val hour = cal.get(Calendar.HOUR_OF_DAY)
     return hour < 7 || hour >= 21
 }
@@ -440,6 +451,7 @@ private fun copyCode(context: Context, code: String) {
 @Composable
 internal fun statusLabel(status: String): String = stringResource(
     when (status) {
+        BookingStatus.PAYMENT_PENDING -> R.string.svc_status_payment_pending
         BookingStatus.SEARCHING -> R.string.svc_status_searching
         BookingStatus.ASSIGNED -> R.string.svc_status_assigned
         BookingStatus.ON_THE_WAY -> R.string.svc_status_on_the_way
@@ -451,6 +463,7 @@ internal fun statusLabel(status: String): String = stringResource(
 )
 
 internal fun statusColor(status: String): Color = when (status) {
+    BookingStatus.PAYMENT_PENDING -> SvcOrange
     BookingStatus.COMPLETED -> SvcGreen
     BookingStatus.CANCELLED, BookingStatus.NO_PARTNER -> SvcRed
     BookingStatus.SEARCHING -> SvcOrange
@@ -934,10 +947,20 @@ internal fun ActiveBookingStrip(b: ServiceBooking, onClick: () -> Unit, modifier
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(8.dp).clip(CircleShape).background(if (b.status == BookingStatus.SEARCHING) Color(0xFFF59E0B) else SvcGreen))
+                    val dotColor = when (b.status) {
+                        BookingStatus.PAYMENT_PENDING -> Color(0xFFF59E0B)
+                        BookingStatus.SEARCHING -> Color(0xFFF59E0B)
+                        else -> SvcGreen
+                    }
+                    val headerText = when (b.status) {
+                        BookingStatus.PAYMENT_PENDING -> "PAYMENT REQUIRED"
+                        BookingStatus.SEARCHING -> "SEARCHING IN KHAMMAM"
+                        else -> "LIVE TRACKING"
+                    }
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(dotColor))
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = if (b.status == BookingStatus.SEARCHING) "SEARCHING IN KHAMMAM" else "LIVE TRACKING",
+                        text = headerText,
                         color = color,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -966,6 +989,28 @@ internal fun ActiveBookingStrip(b: ServiceBooking, onClick: () -> Unit, modifier
             Spacer(Modifier.height(8.dp))
             LinearProgressIndicator(
                 modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)),
+                color = color
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = when (b.status) {
+                    BookingStatus.PAYMENT_PENDING -> "Pay ₹${b.bookingFee} fee to start technician search"
+                    BookingStatus.SEARCHING -> "Tap to track search or cancel"
+                    else -> "Tap to view live status & OTP"
+                },
+                fontSize = 11.sp,
+                color = SvcMuted.fg()
+            )
+            Text(
+                text = if (b.status == BookingStatus.PAYMENT_PENDING) "Pay Fee →" else "Resume Booking →",
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Bold,
                 color = color
             )
         }
@@ -1453,7 +1498,7 @@ fun NormalBannerBookButton(
 private fun ServicesIntegratedHeroBanner(
     pagerState: androidx.compose.foundation.pager.PagerState,
     customBanners: List<PromoBanner> = emptyList(),
-    onBookPromo: (targetServiceId: String?, targetCategoryId: String?) -> Unit,
+    onBookPromo: (targetServiceId: String?, targetCategoryId: String?, targetShowcaseId: String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (customBanners.isEmpty()) return
@@ -1485,7 +1530,7 @@ private fun ServicesIntegratedHeroBanner(
                             )
                         )
                     )
-                    .clickable { onBookPromo(banner.targetServiceId, banner.targetCategoryId) }
+                    .clickable { onBookPromo(banner.targetServiceId, banner.targetCategoryId, banner.targetShowcaseId) }
                     .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
                 Row(
@@ -1509,7 +1554,7 @@ private fun ServicesIntegratedHeroBanner(
                         )
                         NormalBannerBookButton(
                             text = banner.cta.ifBlank { "Book Now" },
-                            onClick = { onBookPromo(banner.targetServiceId, banner.targetCategoryId) }
+                            onClick = { onBookPromo(banner.targetServiceId, banner.targetCategoryId, banner.targetShowcaseId) }
                         )
                     }
 
@@ -2553,6 +2598,7 @@ fun ServicesHomeScreen(
     val error by viewModel.catalogError.collectAsState()
     val bookings by viewModel.myBookings.collectAsState()
     val userLocation by viewModel.userLocation.collectAsState()
+    val showcases by viewModel.showcases.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var ratingBookingToPrompt by remember { mutableStateOf<ServiceBooking?>(null) }
     var ratingPromptDismissed by remember { mutableStateOf(false) }
@@ -2648,18 +2694,65 @@ fun ServicesHomeScreen(
 
     val active = bookings.firstOrNull { it.isOpen }
 
+    val customerCategories = remember(c.categories) {
+        c.categories.filter { it.id in ACTIVE_CUSTOMER_CATEGORY_IDS }
+    }
+    val customerServices = remember(c.services) {
+        c.services.filter { it.category in ACTIVE_CUSTOMER_CATEGORY_IDS }
+    }
+    val noteworthyFiltered = remember(c.noteworthyServices) {
+        c.noteworthyServices.filter { it.category in ACTIVE_CUSTOMER_CATEGORY_IDS }
+    }
+    val mostBookedFiltered = remember(c.mostBookedServices) {
+        c.mostBookedServices.filter { it.category in ACTIVE_CUSTOMER_CATEGORY_IDS }
+    }
+
     val matchingServices = if (searchQuery.isNotBlank()) {
         val q = searchQuery.trim().lowercase()
-        c.services.filter {
+        customerServices.filter {
             it.label(lang).lowercase().contains(q) ||
             it.name.lowercase().contains(q) ||
             it.category.lowercase().contains(q)
         }
     } else null
 
+    var variantSheetService by remember { mutableStateOf<ServiceItem?>(null) }
+    var detailSheetService by remember { mutableStateOf<ServiceItem?>(null) }
+
     val listState = rememberLazyListState()
-    val banners = c.promoBanners
-    val totalBanners = banners.size
+    val banners = remember(c.promoBanners) {
+        c.promoBanners.filter { it.targetCategoryId == null || it.targetCategoryId in ACTIVE_CUSTOMER_CATEGORY_IDS }
+    }
+    val currentCity = c.city.trim()
+    val localShowcases = remember(showcases, currentCity) {
+        showcases.filter { sc ->
+            sc.active && (sc.scope.equals("NATIONAL", ignoreCase = true) ||
+                    sc.district.isBlank() ||
+                    sc.district.equals("ALL", ignoreCase = true) ||
+                    sc.district.contains(currentCity, ignoreCase = true) ||
+                    currentCity.contains(sc.district, ignoreCase = true) ||
+                    sc.address.contains(currentCity, ignoreCase = true))
+        }
+    }
+    val allCarouselBanners = remember(banners, localShowcases) {
+        val showcaseBanners = localShowcases.map { showcase ->
+            val offerOrTagline = showcase.discountOfferTitle.ifBlank { showcase.tagline.ifBlank { showcase.address } }
+            val ctaText = if (showcase.discountOfferCode.isNotBlank()) "Use Code: ${showcase.discountOfferCode}" else "View Special"
+            PromoBanner(
+                id = "showcase_${showcase.id}",
+                headline = showcase.title,
+                subheadline = offerOrTagline,
+                cta = ctaText,
+                imageUrl = showcase.heroImageUrl.ifBlank { showcase.galleryImages.firstOrNull() },
+                bgStartColor = "#7C2D12",
+                bgEndColor = "#B45309",
+                targetShowcaseId = showcase.id,
+                imageScale = 1.15f
+            )
+        }
+        banners + showcaseBanners
+    }
+    val totalBanners = allCarouselBanners.size
     val pagerState = rememberPagerState(pageCount = { if (totalBanners > 0) totalBanners else 1 })
 
     LaunchedEffect(pagerState, totalBanners) {
@@ -2673,9 +2766,9 @@ fun ServicesHomeScreen(
     }
 
     // Dynamic header background color matching current active promo banner slide
-    val (activeStartColor, activeEndColor) = remember(pagerState.currentPage, banners) {
-        if (banners.isNotEmpty() && pagerState.currentPage in banners.indices) {
-            val b = banners[pagerState.currentPage]
+    val (activeStartColor, activeEndColor) = remember(pagerState.currentPage, allCarouselBanners) {
+        if (allCarouselBanners.isNotEmpty() && pagerState.currentPage in allCarouselBanners.indices) {
+            val b = allCarouselBanners[pagerState.currentPage]
             parseHexColor(b.bgStartColor, Color(0xFF0F172A)) to parseHexColor(b.bgEndColor, Color(0xFF1E3A8A))
         } else {
             Color(0xFF0F172A) to Color(0xFF1E3A8A)
@@ -2779,7 +2872,7 @@ fun ServicesHomeScreen(
             }
 
             // Promotional banner: only shown when not actively searching AND banners configured
-            if (searchQuery.isBlank() && banners.isNotEmpty()) {
+            if (searchQuery.isBlank() && allCarouselBanners.isNotEmpty()) {
                 item(key = "hero_promo_banner") {
                     Box(
                         modifier = Modifier
@@ -2797,9 +2890,13 @@ fun ServicesHomeScreen(
                     ) {
                         ServicesIntegratedHeroBanner(
                             pagerState = pagerState,
-                            customBanners = banners,
-                            onBookPromo = { targetSvc, targetCat ->
+                            customBanners = allCarouselBanners,
+                            onBookPromo = { targetSvc, targetCat, targetShowcase ->
                                 when {
+                                    !targetShowcase.isNullOrBlank() -> nav.navigate(Routes.promoShowcaseRoute(targetShowcase))
+                                    targetCat == "promote_business" || targetSvc == "promote_business" -> {
+                                        com.example.dutype.utils.DeepLinkHandler.handleAnnouncementAction("promote_business", nav, context)
+                                    }
                                     !targetSvc.isNullOrBlank() -> nav.navigate(Routes.servicesBookRoute(targetSvc))
                                     !targetCat.isNullOrBlank() -> nav.navigate(Routes.servicesCategoryRoute(targetCat))
                                     c.services.isNotEmpty() -> nav.navigate(Routes.servicesBookRoute(c.services.first().id))
@@ -2842,9 +2939,20 @@ fun ServicesHomeScreen(
                 } else {
                     items(matchingServices, key = { it.id }) { service ->
                         Box(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                            ServiceRow(service, lang, c.itemLabels(service.provide, lang)) {
-                                nav.navigate(Routes.servicesBookRoute(service.id))
-                            }
+                            ServiceRow(
+                                service = service,
+                                lang = lang,
+                                keepReady = c.itemLabels(service.provide, lang),
+                                onBook = {
+                                    nav.navigate(Routes.servicesBookRoute(service.id))
+                                },
+                                onOptionsClick = {
+                                    variantSheetService = service
+                                },
+                                onCardClick = {
+                                    detailSheetService = service
+                                }
+                            )
                         }
                     }
                 }
@@ -2880,7 +2988,7 @@ fun ServicesHomeScreen(
                 }
                 item(key = "categories") {
                     CategoryTiles(
-                        categories = c.categories,
+                        categories = customerCategories,
                         lang = lang,
                         selected = null,
                         onSelect = { catId ->
@@ -2888,6 +2996,19 @@ fun ServicesHomeScreen(
                         },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                     )
+                }
+
+                // 🏪 Local Brands & Shops / Khammam Specials
+                if (localShowcases.isNotEmpty()) {
+                    item(key = "local_brands_showcase") {
+                        com.example.dutype.components.LocalBrandsShowcaseSection(
+                            showcases = localShowcases,
+                            onShowcaseClick = { showcaseId ->
+                                nav.navigate(Routes.promoShowcaseRoute(showcaseId))
+                            },
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
                 }
 
                 // Showcase Card: DutyPe Verified Staff & Workers Hiring
@@ -2939,10 +3060,10 @@ fun ServicesHomeScreen(
                 }
 
                 // 3. New and Noteworthy Section (Configured by admin via noteworthyServiceIds)
-                if (c.services.isNotEmpty()) {
+                if (noteworthyFiltered.isNotEmpty()) {
                     item(key = "new_and_noteworthy") {
                         NewAndNoteworthySection(
-                            services = c.noteworthyServices,
+                            services = noteworthyFiltered,
                             lang = lang,
                             onBookService = { nav.navigate(Routes.servicesBookRoute(it)) },
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
@@ -2954,19 +3075,19 @@ fun ServicesHomeScreen(
                 item(key = "cleaner_home_banner") {
                     CleanerHomeStoryBanner(
                         onExploreCleaning = {
-                            val cleanCat = c.categories.firstOrNull { it.id.contains("clean", ignoreCase = true) }
+                            val cleanCat = customerCategories.firstOrNull { it.id.contains("clean", ignoreCase = true) }
                             if (cleanCat != null) nav.navigate(Routes.servicesCategoryRoute(cleanCat.id))
-                            else if (c.categories.isNotEmpty()) nav.navigate(Routes.servicesCategoryRoute(c.categories.first().id))
+                            else if (customerCategories.isNotEmpty()) nav.navigate(Routes.servicesCategoryRoute(customerCategories.first().id))
                         },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                     )
                 }
 
                 // 5. Most Booked Services (Image 4!)
-                if (c.services.isNotEmpty()) {
+                if (mostBookedFiltered.isNotEmpty()) {
                     item(key = "most_booked") {
                         MostBookedServicesSection(
-                            services = c.mostBookedServices,
+                            services = mostBookedFiltered,
                             lang = lang,
                             onBookService = { nav.navigate(Routes.servicesBookRoute(it)) },
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
@@ -2975,9 +3096,9 @@ fun ServicesHomeScreen(
                 }
 
                 // 6. Spotlight Category Sections (Image 4 bottom: with "See all" button!)
-                val spotlightCategories = c.categories.take(2)
+                val spotlightCategories = customerCategories.take(3)
                 spotlightCategories.forEach { spotCat ->
-                    val spotServices = c.services.filter { it.category == spotCat.id }.take(2)
+                    val spotServices = customerServices.filter { it.category == spotCat.id }.take(2)
                     if (spotServices.isNotEmpty()) {
                         item(key = "spotlight_header_${spotCat.id}") {
                             Row(
@@ -3018,9 +3139,20 @@ fun ServicesHomeScreen(
                         }
                         items(spotServices, key = { "spot_${it.id}" }) { service ->
                             Box(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                                ServiceRow(service, lang, c.itemLabels(service.provide, lang)) {
-                                    nav.navigate(Routes.servicesBookRoute(service.id))
-                                }
+                                ServiceRow(
+                                    service = service,
+                                    lang = lang,
+                                    keepReady = c.itemLabels(service.provide, lang),
+                                    onBook = {
+                                        nav.navigate(Routes.servicesBookRoute(service.id))
+                                    },
+                                    onOptionsClick = {
+                                        variantSheetService = service
+                                    },
+                                    onCardClick = {
+                                        detailSheetService = service
+                                    }
+                                )
                             }
                         }
                     }
@@ -3099,6 +3231,37 @@ fun ServicesHomeScreen(
                     )
                 },
                 onSearchPlaces = { query -> viewModel.searchPlaces(query) }
+            )
+        }
+
+        // Modal Bottom Sheet: Options / Variants Selector
+        variantSheetService?.let { service ->
+            VariantSelectorBottomSheet(
+                service = service,
+                onDismiss = { variantSheetService = null },
+                onSelectOption = { option ->
+                    variantSheetService = null
+                    nav.navigate(Routes.servicesBookRoute(service.id))
+                }
+            )
+        }
+
+        // Modal Bottom Sheet: Service Full Details & Inclusions
+        detailSheetService?.let { service ->
+            ServiceDetailsBottomSheet(
+                service = service,
+                lang = lang,
+                onDismiss = { detailSheetService = null },
+                onBookNow = {
+                    detailSheetService = null
+                    nav.navigate(Routes.servicesBookRoute(service.id))
+                },
+                onOptionsClick = if (service.hasMultipleOptions) {
+                    {
+                        detailSheetService = null
+                        variantSheetService = service
+                    }
+                } else null
             )
         }
     }
@@ -4279,6 +4442,8 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
     var slot by remember { mutableStateOf<Long?>(null) }
     var submitting by remember { mutableStateOf(false) }
 
+    val userLocationState by viewModel.userLocation.collectAsState()
+
     fun getSavedAddressForTag(tag: String): Pair<String, String>? {
         val cleanTag = tag.substringAfter(" ").trim().lowercase(Locale.ROOT)
         val prefAddr = prefs.getString("addr_$cleanTag", null)?.trim()
@@ -4313,14 +4478,14 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
         Toast.makeText(context, context.getString(R.string.address_saved_session), Toast.LENGTH_SHORT).show()
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(userLocationState) {
         // Silently inherit current location selected on Services Home Screen
-        val initialLoc = viewModel.userLocation.value
-        if (initialLoc != null && initialLoc.hasValidCoordinates()) {
-            lat = initialLoc.latitude
-            lng = initialLoc.longitude
-            if (area.isBlank()) area = initialLoc.area.orEmpty()
-            if (address.isBlank()) address = initialLoc.address
+        val currentLoc = userLocationState
+        if (currentLoc != null && currentLoc.hasValidCoordinates()) {
+            if (lat == null) lat = currentLoc.latitude
+            if (lng == null) lng = currentLoc.longitude
+            if (area.isBlank()) area = currentLoc.area.orEmpty()
+            if (address.isBlank()) address = currentLoc.address
         }
         if (address.isBlank()) {
             val defaultSaved = getSavedAddressForTag("🏠 Home")
@@ -4337,9 +4502,10 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
     var couponErrorText by remember { mutableStateOf<String?>(null) }
     var quote by remember { mutableStateOf<ServiceQuote?>(null) }
     var quoting by remember { mutableStateOf(false) }
-    LaunchedEffect(serviceId, appliedCode) {
+    LaunchedEffect(serviceId, appliedCode, catalog) {
         quoting = true
-        viewModel.quote(serviceId, appliedCode)
+        val curPrice = catalog?.services?.firstOrNull { it.id == serviceId }?.price
+        viewModel.quote(serviceId, appliedCode, curPrice)
             .onSuccess { q ->
                 quote = q
                 // An invalid code is shown and then dropped, so it is never sent with the booking.
@@ -4399,7 +4565,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
     val fee = if (c != null && service != null) c.feeFor(service) else 0
     val q = quote
     val discount = q?.discount ?: 0
-    val total = if (service != null) q?.total ?: (service.price + fee) else 0
+    val total = if (service != null) (service.price - discount).coerceAtLeast(0) else 0
     val distanceToKhammamKm = remember(lat, lng) {
         if (lat != null && lng != null) {
             val results = FloatArray(1)
@@ -4484,7 +4650,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                                 Text("₹$total", fontWeight = FontWeight.Bold, fontSize = 22.sp, color = SvcInk.fg())
                                 if (discount > 0) {
                                     Spacer(Modifier.width(6.dp))
-                                    Text("₹${service.price + fee}", color = Color(0xFF94A3B8), fontSize = 13.sp, textDecoration = TextDecoration.LineThrough)
+                                    Text("₹${service.price}", color = Color(0xFF94A3B8), fontSize = 13.sp, textDecoration = TextDecoration.LineThrough)
                                 }
                             }
                             Text(
@@ -4498,11 +4664,17 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                             onClick = {
                                 if (isOutOfArea) {
                                     showLaunchFeedbackSheet = true
+                                } else if (address.trim().length < 5) {
+                                    if (!hasPermission()) {
+                                        requestLocation()
+                                    } else {
+                                        showAddAddressSheet = true
+                                    }
                                 } else {
                                     doBook()
                                 }
                             },
-                            enabled = canBook || isOutOfArea,
+                            enabled = !submitting && !quoting && (!isNightClosed || (scheduled && slot != null)) && (!scheduled || slot != null),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (isOutOfArea) Color(0xFFEF4444) else Color(0xFF0F172A),
@@ -4515,10 +4687,14 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                                 CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
                             } else {
                                 Text(
-                                    text = if (isOutOfArea) "Outside Khammam (Notify Me)" else "Confirm Booking",
+                                    text = when {
+                                        isOutOfArea -> "Outside Khammam (Notify Me)"
+                                        address.trim().length < 5 -> "Set Address to Book"
+                                        else -> "Confirm Booking"
+                                    },
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp,
-                                    color = if (canBook || isOutOfArea) Color.White else Color(0xFF94A3B8),
+                                    color = Color.White,
                                     letterSpacing = 0.3.sp,
                                     maxLines = 1,
                                     softWrap = false
@@ -4601,6 +4777,45 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     OfflineCachedNote()
+
+                    // Operating Hours Indicator: Only show notice when closed for the night
+                    if (isNightClosed) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFFEF2F2))
+                                .border(1.dp, Color(0xFFFECACA), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFEE2E2)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("🌙", fontSize = 16.sp)
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Closed for Tonight • Opens 7:00 AM",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF991B1B)
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = "Doorstep visits are closed tonight. Please schedule a slot for tomorrow morning onwards.",
+                                    fontSize = 11.5.sp,
+                                    color = Color(0xFFB91C1C),
+                                    lineHeight = 15.sp
+                                )
+                            }
+                        }
+                    }
 
                     if (isOutOfArea) {
                         Card(
@@ -4776,25 +4991,15 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
             // When section (Side-by-side Pronto/UC style option cards)
             SvcSection {
                 Text(stringResource(R.string.svc_when), fontWeight = FontWeight.Bold, fontSize = 14.sp, color = SvcInk.fg())
-                if (isNightClosed) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "🌙 Closed for tonight (7 AM – 9 PM IST). Pick a slot for tomorrow morning onwards.",
-                        fontSize = 11.5.sp,
-                        color = Color(0xFFD97706),
-                        fontWeight = FontWeight.Medium
-                    )
-                    Spacer(Modifier.height(6.dp))
-                }
+                Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    val instantSelected = !scheduled && !isNightClosed
+                    val instantSelected = !scheduled
                     Column(
                         Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(14.dp))
                             .background(
-                                if (isNightClosed) Color(0xFFF1F5F9).bg()
-                                else if (instantSelected) Color(0xFFF8FAFC).bg()
+                                if (instantSelected) Color(0xFFF8FAFC).bg()
                                 else Color.White.bg()
                             )
                             .border(
@@ -5145,8 +5350,11 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                         }
                     }
                 }
-                // All-inclusive transparent pricing: platform fees and technician costs are unified
-                PriceLine("Service Amount (All-inclusive)", total + (if (discount > 0) discount else 0))
+                val platformFee = if (service.price <= 149) 9 else 19
+                val serviceFee = (service.price - platformFee).coerceAtLeast(0)
+
+                PriceLine("Service Fee", serviceFee)
+                PriceLine("Platform Fee", platformFee)
                 if (discount > 0) DiscountLine(q?.discountLabel.orEmpty().ifBlank { "Discount Applied" }, discount)
                 HorizontalDivider(color = SvcLine.bg())
                 PriceLine(stringResource(R.string.svc_price_total), total, bold = true)
@@ -5174,9 +5382,6 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                 }
             }
 
-            if (lat == null) {
-                Text(stringResource(R.string.svc_location_needed), color = SvcRed, fontSize = 12.sp)
-            }
             Spacer(Modifier.height(30.dp))
         } // inner Column
     } // outer scrollable Column
@@ -5777,7 +5982,7 @@ private fun CouponsBottomSheet(
                         },
                         modifier = Modifier.weight(1f),
                         singleLine = true,
-                        placeholder = { Text("Enter Coupon Code (e.g. DUTY50)") },
+                        placeholder = { Text("Enter Coupon Code") },
                         shape = RoundedCornerShape(12.dp),
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters)
                     )
@@ -6083,7 +6288,7 @@ internal fun BookingRow(b: ServiceBooking, onClick: () -> Unit) {
 private fun StatusTimeline(b: ServiceBooking) {
     val failed = b.status == BookingStatus.CANCELLED || b.status == BookingStatus.NO_PARTNER
     val order = listOf(BookingStatus.SEARCHING, BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY, BookingStatus.STARTED, BookingStatus.COMPLETED)
-    val reached = order.indexOf(b.status).let { if (it < 0) 0 else it }
+    val reached = if (b.status == BookingStatus.PAYMENT_PENDING) -1 else order.indexOf(b.status).let { if (it < 0) 0 else it }
     val steps = listOf(
         stringResource(R.string.svc_step_booked) to b.createdAt,
         stringResource(R.string.svc_step_assigned) to b.assignedAt,
@@ -6132,6 +6337,7 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
     val context = LocalContext.current
     val reviewTriggerService = rememberInAppReviewTriggerService()
     val scope = rememberCoroutineScope()
+    val catalog by viewModel.catalog.collectAsState()
     val load by remember(bookingId) { viewModel.bookingLoad(bookingId) }.collectAsState(initial = BookingLoad(false, null, null))
     var code by remember { mutableStateOf("") }
     var confirmCancel by remember { mutableStateOf(false) }
@@ -6166,6 +6372,7 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                 }?.takeIf { it.isNotBlank() } ?: "your area"
             }
             val trackerStatusText = when (b.status) {
+                BookingStatus.PAYMENT_PENDING -> if (b.utr.isNotBlank()) "Payment Submitted • Awaiting Approval" else "Platform Fee Payment Required"
                 BookingStatus.SEARCHING -> "Finding the best partner near you"
                 BookingStatus.ASSIGNED -> "Technician Assigned"
                 BookingStatus.ON_THE_WAY -> "Technician On The Way"
@@ -6176,6 +6383,11 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                 else -> "Booking Placed"
             }
             val trackerSubtext = when (b.status) {
+                BookingStatus.PAYMENT_PENDING -> if (b.utr.isNotBlank()) {
+                    "Your payment with UTR ${b.utr} has been submitted. Our team is verifying it; technician dispatch will begin immediately upon approval."
+                } else {
+                    "Please pay the platform fee (₹${b.bookingFee}) to initiate verified partner dispatch in $cityOrArea."
+                }
                 BookingStatus.SEARCHING -> "Matching you with the nearest verified professional in $cityOrArea..."
                 BookingStatus.ASSIGNED -> "Your partner has accepted and is preparing their tools."
                 BookingStatus.ON_THE_WAY -> "Partner is en route to your doorstep. Keep your start OTP ready."
@@ -6228,16 +6440,68 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                 }
             }
 
-            if (code.isNotBlank() && b.status in setOf(BookingStatus.SEARCHING, BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY)) {
+            if (b.status == BookingStatus.PAYMENT_PENDING) {
+                PaymentPendingCard(
+                    booking = b,
+                    catalog = catalog,
+                    onSubmitUtr = { utr ->
+                        busy = true
+                        scope.launch {
+                            viewModel.submitBookingPayment(b.id, utr)
+                                .onSuccess {
+                                    Toast.makeText(context, "Payment submitted! Awaiting admin approval.", Toast.LENGTH_SHORT).show()
+                                }
+                                .onFailure {
+                                    Toast.makeText(context, it.message ?: "Failed to submit payment", Toast.LENGTH_LONG).show()
+                                }
+                            busy = false
+                        }
+                    }
+                )
+            } else if (b.status == BookingStatus.SEARCHING) {
+                Column(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFFFFFBEB).bg())
+                        .border(1.dp, Color(0xFFFDE68A), RoundedCornerShape(16.dp)).padding(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("Technician Search in Progress", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFFB45309))
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "Your 4-digit start OTP will unlock and appear here as soon as a verified technician accepts your booking.",
+                        fontSize = 12.sp,
+                        color = Color(0xFF92400E),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else if (code.isNotBlank() && b.status in setOf(BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY)) {
                 Column(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFFF0FDF4).bg())
                         .border(1.dp, Color(0xFFBBF7D0), RoundedCornerShape(16.dp)).padding(14.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(stringResource(R.string.svc_start_code), color = SvcMuted.fg())
+                    Text(stringResource(R.string.svc_start_code), color = SvcMuted.fg(), fontWeight = FontWeight.Medium)
                     Text(code, fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = 8.sp, color = SvcGreen)
-                    Text(stringResource(R.string.svc_start_code_help), fontSize = 12.sp, color = SvcMuted.fg(), textAlign = TextAlign.Center)
+                    Text(
+                        "Share this 4-digit start code with technician only upon doorstep arrival to begin the service.",
+                        fontSize = 12.sp,
+                        color = SvcMuted.fg(),
+                        textAlign = TextAlign.Center
+                    )
                 }
+            }
+
+            // ── Live OpenFreeMap Tracker (Technician En Route) ──
+            if (b.status in setOf(BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY) && (b.lat != 0.0 || b.partnerLat != 0.0)) {
+                com.example.dutype.components.OpenFreeMapTrackerView(
+                    customerLat = b.lat,
+                    customerLng = b.lng,
+                    partnerLat = b.partnerLat,
+                    partnerLng = b.partnerLng,
+                    customerLabel = b.addressText.ifBlank { b.area },
+                    partnerName = b.partnerName.ifBlank { "Technician" },
+                    partnerBearing = b.partnerBearing,
+                    isPartnerMode = false
+                )
             }
 
             if (b.partnerName.isNotBlank() && b.status != BookingStatus.CANCELLED) {
@@ -6302,8 +6566,12 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
 
             SvcSection {
                 Text(stringResource(R.string.svc_bill), fontWeight = FontWeight.Bold, color = SvcInk.fg())
-                PriceLine("Service Charge (All-inclusive)", b.price + b.bookingFee)
-                if (b.discount > 0) DiscountLine(b.discountLabel, b.discount)
+                val platformFee = if (b.price <= 149) 9 else 19
+                val serviceFee = (b.price - platformFee).coerceAtLeast(0)
+
+                PriceLine("Service Fee", serviceFee)
+                PriceLine("Platform Fee", platformFee)
+                if (b.discount > 0) DiscountLine(b.discountLabel.ifBlank { "Discount Applied" }, b.discount)
                 if (b.extras > 0) PriceLine(stringResource(R.string.svc_extras, b.extras, b.extrasNote), b.extras)
                 if (b.status == BookingStatus.CANCELLED && b.cancellationFee > 0) {
                     PriceLine("Doorstep Travel Allowance", b.cancellationFee)
@@ -6381,7 +6649,7 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                 ) { Text(stringResource(R.string.svc_book_again), fontWeight = FontWeight.Bold) }
             }
 
-            if (b.status in setOf(BookingStatus.SEARCHING, BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY)) {
+            if (b.status in setOf(BookingStatus.PAYMENT_PENDING, BookingStatus.SEARCHING, BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY)) {
                 OutlinedButton(onClick = { confirmCancel = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.svc_cancel_booking), color = SvcRed)
                 }
@@ -6615,6 +6883,165 @@ private fun CancellationCompensationBottomSheet(
             }
 
             Spacer(Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+private fun PaymentPendingCard(
+    booking: ServiceBooking,
+    catalog: ServicesCatalog?,
+    onSubmitUtr: (String) -> Unit
+) {
+    val context = LocalContext.current
+    val upiId = "dutypein@ybl"
+    val upiName = catalog?.upiName?.ifBlank { "DutyPe" } ?: "DutyPe"
+    var utrInput by remember { mutableStateOf("") }
+    var editUtr by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFEFCE8).bg()),
+        border = BorderStroke(1.5.dp, Color(0xFFFACC15))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0xFFFEF08A)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.Payments, contentDescription = null, tint = Color(0xFFCA8A04), modifier = Modifier.size(22.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Platform Fee: ₹${booking.bookingFee}", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF854D0E))
+                    Text("Required upfront before technician dispatch", fontSize = 12.sp, color = Color(0xFFA16207))
+                }
+            }
+
+            if (booking.utr.isNotBlank() && !editUtr) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFDCFCE7),
+                    border = BorderStroke(1.dp, Color(0xFF86EFAC)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Payment Submitted (UTR: ${booking.utr})", fontWeight = FontWeight.Bold, color = Color(0xFF15803D), fontSize = 13.sp)
+                        }
+                        Text(
+                            "Admin verification in progress. As soon as approved, technician matching will go live automatically.",
+                            fontSize = 12.sp,
+                            color = Color(0xFF166534),
+                            lineHeight = 16.sp
+                        )
+                        TextButton(
+                            onClick = { editUtr = true; utrInput = booking.utr },
+                            modifier = Modifier.align(Alignment.End),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text("Update UTR", fontSize = 12.sp, color = Color(0xFF15803D), fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            } else {
+                Text(
+                    "Pay ₹${booking.bookingFee} via any UPI app (GPay, PhonePe, Paytm) and enter the 12-digit UTR/Ref number below:",
+                    fontSize = 12.5.sp,
+                    color = Color(0xFF713F12),
+                    lineHeight = 17.sp
+                )
+
+                // UPI ID Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color.White)
+                        .border(1.dp, Color(0xFFFDE047), RoundedCornerShape(10.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("UPI ID", fontSize = 10.5.sp, color = SvcMuted, fontWeight = FontWeight.Medium)
+                        Text(upiId, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = SvcInk.fg())
+                    }
+                    IconButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("DutyPe UPI ID", upiId))
+                            Toast.makeText(context, "UPI ID copied!", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(Icons.Filled.ContentCopy, contentDescription = "Copy", tint = Color(0xFFCA8A04), modifier = Modifier.size(16.dp))
+                    }
+                }
+
+                // Pay via UPI Button
+                Button(
+                    onClick = {
+                        val uri = Uri.parse("upi://pay?pa=$upiId&pn=${Uri.encode(upiName)}&am=${booking.bookingFee}&cu=INR&tn=${Uri.encode("Platform fee for ${booking.serviceName}")}")
+                        val intent = Intent(Intent.ACTION_VIEW, uri)
+                        try {
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "No UPI app found. Please copy UPI ID manually.", Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(44.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                ) {
+                    Icon(Icons.Filled.Payments, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Pay ₹${booking.bookingFee} via UPI App", fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                }
+
+                // UTR TextField & Submit
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedTextField(
+                        value = utrInput,
+                        onValueChange = { if (it.length <= 12 && it.all { ch -> ch.isDigit() }) utrInput = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Enter 12-digit UPI Ref / UTR number", fontSize = 13.sp) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White,
+                            focusedBorderColor = Color(0xFFCA8A04),
+                            unfocusedBorderColor = Color(0xFFE2E8F0)
+                        )
+                    )
+
+                    Button(
+                        onClick = {
+                            if (utrInput.trim().length != 12) {
+                                Toast.makeText(context, "Please enter a valid 12-digit UTR number", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            onSubmitUtr(utrInput.trim())
+                            editUtr = false
+                        },
+                        enabled = utrInput.trim().length == 12,
+                        modifier = Modifier.fillMaxWidth().height(42.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                    ) {
+                        Text("Submit Payment for Approval", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                }
+            }
         }
     }
 }
@@ -6897,11 +7324,17 @@ fun HomeServicesShowcase(
         return
     }
     val active = bookings.firstOrNull { it.isOpen }
+    val customerCategories = remember(c.categories) {
+        c.categories.filter { it.id in ACTIVE_CUSTOMER_CATEGORY_IDS }
+    }
+    val customerServices = remember(c.services) {
+        c.services.filter { it.category in ACTIVE_CUSTOMER_CATEGORY_IDS }
+    }
     // Diverse popular picks across categories (up to 16+ top services)
-    val popular = remember(c) {
+    val popular = remember(customerCategories, customerServices) {
         val list = mutableListOf<ServiceItem>()
-        c.categories.forEach { cat ->
-            val catServices = c.services.filter { it.category == cat.id }
+        customerCategories.forEach { cat ->
+            val catServices = customerServices.filter { it.category == cat.id }
             val preferred = catServices.filter { !it.inspection }.take(2)
             if (preferred.isNotEmpty()) {
                 list.addAll(preferred)
@@ -6910,7 +7343,7 @@ fun HomeServicesShowcase(
             }
         }
         if (list.size < 12) {
-            val remaining = c.services.filter { it !in list }
+            val remaining = customerServices.filter { it !in list }
             list.addAll(remaining.take(16 - list.size))
         }
         list
@@ -6951,7 +7384,7 @@ fun HomeServicesShowcase(
                 }
             }
         }
-        CategoryTiles(c.categories, lang, selected = null, onSelect = { onOpenServices() })
+        CategoryTiles(customerCategories, lang, selected = null, onSelect = { onOpenServices() })
         Text(stringResource(R.string.svc_popular), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = SvcInk.fg())
         LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(popular, key = { it.id }) { s ->

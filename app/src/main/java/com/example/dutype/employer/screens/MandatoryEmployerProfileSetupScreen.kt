@@ -328,6 +328,13 @@ fun MandatoryEmployerProfileSetupScreen(
                     EmployerProfiles.LAT to finalLat,
                     EmployerProfiles.LNG to finalLng
                 )
+                if (email.isNotBlank()) {
+                    employerProfileData[EmployerProfiles.EMAIL] = email.trim()
+                }
+                val savedPhoto = profileCompletionViewModel.getUserPhotoUrl()
+                if (!savedPhoto.isNullOrBlank()) {
+                    employerProfileData[EmployerProfiles.PHOTO_URL] = savedPhoto
+                }
 
                 // Save employer document in Firestore
                 profileCompletionViewModel.saveEmployer(employerProfileData).getOrThrow()

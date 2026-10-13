@@ -121,23 +121,29 @@ Remove 80% of form inputs from `PostJobScreen.kt`.
 
 ---
 
-## 5. MONETIZATION & GROWTH BLUEPRINT
+## 5. MONETIZATION & GROWTH BLUEPRINT (₹5–10 LAKHS/MONTH TARGET)
+
+> **Authoritative Specification**: See full commercial strategy, pricing tables, and unit economics in [DUTYPE_REVENUE_MODEL.md](file:///c:/Users/vamsi/StudioProjects/DutyPe/DUTYPE_REVENUE_MODEL.md).
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                        DUTYPE MONETIZATION MODEL                       │
-├──────────────────────────┬─────────────────────────────────────────────┤
-│ Revenue Stream           │ Mechanism                                   │
-├──────────────────────────┼─────────────────────────────────────────────┤
-│ 1. Employer Subscription │ ₹499/mo for Unlimited Job Posts + Applicant │
-│    (Play Billing)        │ Phone Number Access                         │
-├──────────────────────────┼─────────────────────────────────────────────┤
-│ 2. Instant Hire Boost    │ ₹99 per urgent dispatch ping to 50 nearby   │
-│    (Pay-per-Post)        │ active workers within 15 minutes            │
-├──────────────────────────┼─────────────────────────────────────────────┤
-│ 3. Worker Premium Badge  │ ₹99/mo for Top Priority Listing in          │
-│    (Featured Profile)    │ Employer Search Results + Instant Alerts    │
-└──────────────────────────┴─────────────────────────────────────────────┘
+│                        DUTYPE TRI-PILLAR REVENUE ENGINE                │
+├──────────────────────────┬───────────────────────┬─────────────────────┤
+│ Revenue Stream           │ Mechanism & Pricing   │ Target Run-Rate     │
+├──────────────────────────┼───────────────────────┼─────────────────────┤
+│ 1. Customer Platform Fee │ ₹9 (<=₹149) or        │ ₹90,000 – ₹1,70,000 │
+│    (Zero Worker Comm.)   │ ₹19 (>₹149) per order │ per month           │
+├──────────────────────────┼───────────────────────┼─────────────────────┤
+│ 2. Employer Subscriptions│ Launch Pass (₹199/mo) │ ₹2,50,000 –         │
+│    (Hiring Passes)       │ Business Pro(₹499/mo) │ ₹4,00,000 / month   │
+├──────────────────────────┼───────────────────────┼─────────────────────┤
+│ 3. Brand & Shop Showcase │ Tier 1: ₹4,999/mo loc │ ₹3,20,000 –         │
+│    Microsites & Banners  │ Tier 2: ₹35k/mo state │ ₹4,50,000 / month   │
+│                          │ Tier 3: ₹1.5L/mo natl │                     │
+├──────────────────────────┼───────────────────────┼─────────────────────┤
+│ TOTAL MONTHLY RUN-RATE   │ High-margin cash flow │ ₹6,60,000 –         │
+│                          │                       │ ₹10,20,000 / month  │
+└──────────────────────────┴───────────────────────┴─────────────────────┘
 ```
 
 ---

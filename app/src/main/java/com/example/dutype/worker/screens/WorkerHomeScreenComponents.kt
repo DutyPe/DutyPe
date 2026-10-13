@@ -633,6 +633,8 @@ fun HomeSectionsContent(
     onRequestLocationPermission: () -> Unit = {},
     onMapClick: () -> Unit = {},
     onCategoryTap: (String) -> Unit = {},
+    showcases: List<com.example.dutype.homeservices.PromoShowcase> = emptyList(),
+    onShowcaseClick: (String) -> Unit = {},
     headerContent: @Composable () -> Unit = {}
 ) {
 
@@ -712,9 +714,26 @@ fun HomeSectionsContent(
         onLocationBarAlphaChange(locationBarAlpha)
     }
 
-    // Promotional Carousel matching top banner requirement - shows live announcements dynamically
-    val dynamicPromoSlides = remember(announcements) {
-        announcements.map { com.example.dutype.components.announcementToSlide(it) }
+    val currentCity = currentLocation?.city.orEmpty().trim().ifBlank { currentLocation?.area.orEmpty().trim() }
+    val filteredShowcases = remember(showcases, currentCity) {
+        showcases.filter { sc ->
+            sc.active && (sc.scope.equals("NATIONAL", ignoreCase = true) ||
+                    sc.district.isBlank() ||
+                    sc.district.equals("ALL", ignoreCase = true) ||
+                    (currentCity.isNotBlank() && (
+                        sc.district.contains(currentCity, ignoreCase = true) ||
+                        currentCity.contains(sc.district, ignoreCase = true) ||
+                        sc.address.contains(currentCity, ignoreCase = true)
+                    )) ||
+                    currentCity.isBlank())
+        }
+    }
+
+    // Promotional Carousel matching top banner requirement - shows live announcements & brand showcases dynamically
+    val dynamicPromoSlides = remember(announcements, filteredShowcases) {
+        val announcementSlides = announcements.map { com.example.dutype.components.announcementToSlide(it) }
+        val showcaseSlides = filteredShowcases.map { com.example.dutype.components.showcaseToSlide(it) }
+        announcementSlides + showcaseSlides
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -741,7 +760,8 @@ fun HomeSectionsContent(
                         isWorker = true,
                         onAction = { target ->
                             when {
-                                target.startsWith("dutype://") || target.contains("://") -> {
+                                target.startsWith("dutype://") || target.contains("://") || target.startsWith("showcase") ||
+                                        target == "promote_business" || target.contains("promote-business") || target.contains("partner") -> {
                                     DeepLinkHandler.handleAnnouncementAction(target, navController, context)
                                 }
                                 target == "jobs" -> com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS)
@@ -757,6 +777,7 @@ fun HomeSectionsContent(
                     )
                 }
             }
+
 
             if (showOnlineToggle) {
                 item(key = "worker_home_online_toggle") {
@@ -822,7 +843,7 @@ fun HomeSectionsContent(
             // }
 
             if (
-                isOnline && (instantRequests.isNotEmpty() || isLoadingInstantRequests || !instantHelpError.isNullOrBlank())
+                instantRequests.isNotEmpty() || (isOnline && (isLoadingInstantRequests || !instantHelpError.isNullOrBlank()))
             ) {
                 item {
                     InstantRequestSection(
@@ -1728,11 +1749,11 @@ fun BrowseCategoriesSection(
         CategoryItem("Kitchen", "\uD83C\uDF73"),
         CategoryItem("Driver", "\uD83D\uDE97"),
         CategoryItem("Security", "\uD83D\uDC82"),
+        CategoryItem("Teacher", "📚"),
         CategoryItem("Electrician", "\uD83D\uDCA1"),
         CategoryItem("Plumber", "\uD83D\uDD27"),
         CategoryItem("Sales", "🛍️"),
         CategoryItem("Telecaller", "📞"),
-        CategoryItem("Teacher", "📚"),
         CategoryItem("Office Staff", "🗂️"),
         CategoryItem("Customer Support", "🎧"),
         CategoryItem("Field Work", "🧭"),

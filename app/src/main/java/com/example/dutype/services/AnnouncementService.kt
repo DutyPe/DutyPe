@@ -76,7 +76,8 @@ class AnnouncementService @Inject constructor(
                     null
                 }
             }.filter { announcement ->
-                val roleMatches = announcement.targetRole == null ||
+                val roleMatches = announcement.targetRole.isNullOrBlank() ||
+                    announcement.targetRole.equals("ALL", ignoreCase = true) ||
                     announcement.targetRole.equals(userRole, ignoreCase = true)
                 val notExpired = announcement.expiresAt?.let { it > now } ?: true
 

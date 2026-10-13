@@ -86,6 +86,7 @@ export const EmployerProfiles = {
   LNG: "lng",
   GEOHASH: "geohash",
   SUBSCRIPTION: "subscription",
+  FREE_JOB_POSTS_USED: "freeJobPostsUsed",
   FREE_URGENT_POSTS_USED: "freeUrgentPostsUsed",
   /** Free posts (normal or urgent) earned by referring; usable until [REFERRAL_FREE_POSTS_UNTIL]. */
   REFERRAL_FREE_POSTS: "referralFreePosts",
@@ -592,6 +593,18 @@ export const WhatsappCampaigns = {
   SKIPPED_RECENT: "skippedRecent",
   BY: "by",
   CREATED_AT: "createdAt",
+} as const;
+
+/** truecaller_profiles/{uid} — what the user shared through Truecaller (server only). */
+export const TruecallerProfiles = {
+  COLLECTION: "truecaller_profiles",
+  PHONE: "phone",
+  NAME: "name",
+  EMAIL: "email",
+  PICTURE: "picture",
+  GENDER: "gender",
+  CITY: "city",
+  UPDATED_AT: "updatedAt",
 } as const;
 
 export const Idempotency = {

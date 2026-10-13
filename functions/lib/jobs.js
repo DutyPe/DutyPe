@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.expireJobs = exports.onJobWritten = exports.deleteJob = exports.renewJob = exports.setJobStatus = exports.updateJob = exports.postJob = void 0;
+exports.grantEmployerFreeJobs = exports.updateJobPostingConfig = exports.getJobPostingConfig = exports.expireJobs = exports.onJobWritten = exports.deleteJob = exports.renewJob = exports.setJobStatus = exports.updateJob = exports.postJob = void 0;
 /**
  * Jobs — the only writers of jobmetadata (card), job_details (details) and job_contacts (phone).
  *
@@ -25,6 +25,7 @@ const geo_1 = require("./lib/geo");
 const places_1 = require("./lib/places");
 const keywords_1 = require("./lib/keywords");
 const referrals_1 = require("./referrals");
+const app_config_1 = require("./app-config");
 const schema_1 = require("./schema");
 const db = admin.firestore();
 const { FieldValue, Timestamp } = admin.firestore;
@@ -32,7 +33,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const JOB_LIFETIME_MS = 30 * DAY_MS;
 const EDIT_WINDOW_MS = 48 * 60 * 60 * 1000;
 const DELETE_WINDOW_MS = 30 * 60 * 1000;
-const FREE_POSTS_PER_DAY = 3;
+const LIFETIME_FREE_JOB_POSTS = 3;
 const IST_OFFSET_MS = 330 * 60 * 1000;
 /** A retried trigger event older than this is dropped. */
 const EVENT_MAX_AGE_MS = 60 * 60 * 1000;
@@ -120,12 +121,30 @@ function companyNameOf(employer) {
     return (employer[schema_1.EmployerProfiles.EMPLOYER_TYPE] === schema_1.Values.EmployerType.COMPANY && business) ?
         business : (owner || business || "Employer");
 }
+async function getJobPostingConfigDoc() {
+    const snap = await db.doc("app_config/job_posting").get();
+    if (!snap.exists) {
+        return {
+            freeJobPostingEnabled: false,
+            freeJobsCount: 0,
+            appliesTo: "NONE",
+            effectiveFrom: 0,
+        };
+    }
+    const d = snap.data() || {};
+    return {
+        freeJobPostingEnabled: Boolean(d.freeJobPostingEnabled),
+        freeJobsCount: Number(d.freeJobsCount || 0),
+        appliesTo: d.appliesTo || "NONE",
+        effectiveFrom: Number(d.effectiveFrom || 0),
+    };
+}
 /**
  * Decides how a post (or renewal) is paid for and applies the change inside `tx`.
- * Active campaign grant → free; active plan with credits → 1 credit; otherwise one of today's
- * free posts, counted in [quota] (posts and renewals share it). All reads happen before this call.
+ * Active campaign grant → free; active plan with credits → 1 credit; referral post if available;
+ * granted free jobs; dynamic global policy; otherwise requires subscription.
  */
-function chargeForPost(tx, employer, quota, nowMs) {
+function chargeForPost(tx, employer, quota, nowMs, config) {
     const S = schema_1.EmployerProfiles.Subscription;
     const sub = (0, input_1.obj)(employer.data[schema_1.EmployerProfiles.SUBSCRIPTION]);
     const expiresAt = sub[S.EXPIRES_AT] instanceof Timestamp ? sub[S.EXPIRES_AT].toMillis() : 0;
@@ -137,19 +156,36 @@ function chargeForPost(tx, employer, quota, nowMs) {
         tx.update(employer.ref, `${schema_1.EmployerProfiles.SUBSCRIPTION}.${S.CREDITS}.${S.CREDITS_NORMAL}`, FieldValue.increment(-1));
         return "credit";
     }
-    const used = Number(quota.get(schema_1.Idempotency.RESULT) || 0);
-    if (used >= FREE_POSTS_PER_DAY && (0, referral_posts_1.referralPostsLeft)(employer.data, nowMs) > 0) {
+    if ((0, referral_posts_1.referralPostsLeft)(employer.data, nowMs) > 0) {
         (0, referral_posts_1.useReferralPost)(tx, employer.ref);
         return "referral";
     }
-    if (used >= FREE_POSTS_PER_DAY) {
-        (0, input_1.fail)("resource-exhausted", `You have used today's ${FREE_POSTS_PER_DAY} free job posts. Buy a plan to post more today.`);
+    // 1. User-specific free job grant by admin
+    const grantedFree = Number(employer.data["grantedFreeJobPosts"] || 0);
+    if (grantedFree > 0) {
+        tx.update(employer.ref, {
+            grantedFreeJobPosts: FieldValue.increment(-1),
+            [schema_1.EmployerProfiles.FREE_JOB_POSTS_USED]: FieldValue.increment(1),
+        });
+        return "free";
     }
-    tx.set(quota.ref, {
-        [schema_1.Idempotency.RESULT]: used + 1,
-        [schema_1.Idempotency.EXPIRE_AT]: Timestamp.fromMillis(nowMs + 2 * DAY_MS),
-    });
-    return "free";
+    // 2. Dynamic global free job policy from app_config/job_posting
+    const freeUsed = Number(employer.data[schema_1.EmployerProfiles.FREE_JOB_POSTS_USED] || 0);
+    if (config && config.freeJobPostingEnabled && config.freeJobsCount > 0) {
+        const employerCreatedAt = employer.data[schema_1.EmployerProfiles.CREATED_AT] instanceof Timestamp
+            ? employer.data[schema_1.EmployerProfiles.CREATED_AT].toMillis()
+            : Number(employer.data[schema_1.EmployerProfiles.CREATED_AT] || 0);
+        const eligible = config.appliesTo === "ALL_USERS" ||
+            (config.appliesTo === "NEW_USERS" && employerCreatedAt >= config.effectiveFrom);
+        if (eligible && freeUsed < config.freeJobsCount) {
+            tx.update(employer.ref, {
+                [schema_1.EmployerProfiles.FREE_JOB_POSTS_USED]: FieldValue.increment(1),
+            });
+            return "free";
+        }
+    }
+    // 3. Otherwise, stop free job posting completely - subscription required
+    (0, input_1.fail)("resource-exhausted", "Free job postings are currently unavailable. Please subscribe to an Employer Plan to post jobs.");
 }
 /** The employer's posts since midnight IST — for the duplicate check. */
 async function postsToday(uid, nowMs) {
@@ -206,7 +242,16 @@ exports.postJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context) 
         assertNotDuplicate(today, input.card);
         const employer = await loadEmployer(tx, uid);
         const quota = await tx.get(quotaRef(uid, nowMs));
-        const charge = chargeForPost(tx, employer, quota, nowMs);
+        const configSnap = await tx.get(db.doc("app_config/job_posting"));
+        const config = configSnap.exists
+            ? {
+                freeJobPostingEnabled: Boolean(configSnap.get("freeJobPostingEnabled")),
+                freeJobsCount: Number(configSnap.get("freeJobsCount") || 0),
+                appliesTo: configSnap.get("appliesTo") || "NONE",
+                effectiveFrom: Number(configSnap.get("effectiveFrom") || 0),
+            }
+            : { freeJobPostingEnabled: false, freeJobsCount: 0, appliesTo: "NONE", effectiveFrom: 0 };
+        const charge = chargeForPost(tx, employer, quota, nowMs, config);
         const createdAt = Timestamp.fromMillis(nowMs);
         // Simple setup: the shop / business name and place typed while posting the first job fill in an
         // empty employer profile (no separate company-setup step).
@@ -247,11 +292,10 @@ exports.updateJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context
     const jobId = (0, input_1.str)(data, "jobId", { max: 64 });
     const input = readJobInput(data);
     await db.runTransaction(async (tx) => {
-        var _a, _b;
         const { ref, snap } = await ownedJob(tx, uid, jobId);
-        const createdAt = (_b = (_a = snap.get(schema_1.Jobs.CREATED_AT)) === null || _a === void 0 ? void 0 : _a.toMillis()) !== null && _b !== void 0 ? _b : 0;
-        if (Date.now() - createdAt > EDIT_WINDOW_MS) {
-            (0, input_1.fail)("failed-precondition", "Jobs can only be edited within 48 hours of posting");
+        const currentStatus = snap.get(schema_1.Jobs.STATUS);
+        if (currentStatus === schema_1.Values.JobStatus.EXPIRED) {
+            (0, input_1.fail)("failed-precondition", "This job has expired. Please renew it to edit.");
         }
         tx.update(ref, input.card);
         tx.set(db.collection(schema_1.JobDetails.COLLECTION).doc(jobId), input.details, { merge: true });
@@ -292,7 +336,16 @@ exports.renewJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context)
         }
         const employer = await loadEmployer(tx, uid);
         const quota = await tx.get(quotaRef(uid, nowMs));
-        const charge = chargeForPost(tx, employer, quota, nowMs);
+        const configSnap = await tx.get(db.doc("app_config/job_posting"));
+        const config = configSnap.exists
+            ? {
+                freeJobPostingEnabled: Boolean(configSnap.get("freeJobPostingEnabled")),
+                freeJobsCount: Number(configSnap.get("freeJobsCount") || 0),
+                appliesTo: configSnap.get("appliesTo") || "NONE",
+                effectiveFrom: Number(configSnap.get("effectiveFrom") || 0),
+            }
+            : { freeJobPostingEnabled: false, freeJobsCount: 0, appliesTo: "NONE", effectiveFrom: 0 };
+        const charge = chargeForPost(tx, employer, quota, nowMs, config);
         tx.update(ref, {
             [schema_1.Jobs.STATUS]: schema_1.Values.JobStatus.OPEN,
             [schema_1.Jobs.EXPIRES_AT]: Timestamp.fromMillis(nowMs + JOB_LIFETIME_MS),
@@ -302,6 +355,9 @@ exports.renewJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context)
 });
 exports.deleteJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context) => {
     const uid = context.auth.uid;
+    if (!await (0, app_config_1.isCallerAdmin)(context)) {
+        (0, input_1.fail)("failed-precondition", "Jobs cannot be deleted once posted. You can pause or close the job instead.");
+    }
     const jobId = (0, input_1.str)((0, input_1.obj)(raw), "jobId", { max: 64 });
     await db.runTransaction(async (tx) => {
         var _a, _b;
@@ -319,7 +375,9 @@ exports.deleteJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context
         if (paid.charge === "referral")
             (0, referral_posts_1.refundReferralPost)(tx, db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid));
         if (paid.charge === "free") {
-            tx.set(quotaRef(uid, createdAtMs), { [schema_1.Idempotency.RESULT]: FieldValue.increment(-1) }, { merge: true });
+            tx.update(db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid), {
+                [schema_1.EmployerProfiles.FREE_JOB_POSTS_USED]: FieldValue.increment(-1),
+            });
         }
         tx.delete(ref);
         tx.delete(db.collection(schema_1.JobDetails.COLLECTION).doc(jobId));
@@ -403,5 +461,68 @@ exports.expireJobs = functions
     }
     functions.logger.info(`expireJobs: ${expired} jobs expired`);
     return null;
+});
+exports.getJobPostingConfig = (0, secure_callable_1.onCallSecured)({}, async (_raw, _context) => {
+    return await getJobPostingConfigDoc();
+});
+exports.updateJobPostingConfig = (0, secure_callable_1.onCallSecured)({}, async (raw, context) => {
+    if (!await (0, app_config_1.isCallerAdmin)(context)) {
+        (0, input_1.fail)("permission-denied", "Admin access required");
+    }
+    const data = (0, input_1.obj)(raw);
+    const enabled = Boolean(data.freeJobPostingEnabled);
+    const count = Math.max(0, Number(data.freeJobsCount || 0));
+    const appliesTo = String(data.appliesTo || "NONE");
+    const effectiveFrom = data.effectiveFrom ? Number(data.effectiveFrom) : Date.now();
+    const update = {
+        freeJobPostingEnabled: enabled,
+        freeJobsCount: count,
+        appliesTo,
+        effectiveFrom,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: context.auth.uid,
+    };
+    await db.doc("app_config/job_posting").set(update, { merge: true });
+    return update;
+});
+exports.grantEmployerFreeJobs = (0, secure_callable_1.onCallSecured)({}, async (raw, context) => {
+    if (!await (0, app_config_1.isCallerAdmin)(context)) {
+        (0, input_1.fail)("permission-denied", "Admin access required");
+    }
+    const data = (0, input_1.obj)(raw);
+    const phone = (0, input_1.str)(data, "phone", { max: 20, optional: true });
+    let employerUid = (0, input_1.str)(data, "employerUid", { max: 100, optional: true });
+    const count = (0, input_1.int)(data, "count", { min: 1, max: 100 });
+    if (!employerUid && phone) {
+        const cleanPhone = phone.replace(/\D/g, "").slice(-10);
+        const snap = await db.collection(schema_1.EmployerProfiles.COLLECTION)
+            .where(schema_1.EmployerProfiles.PHONE, "in", [cleanPhone, `+91${cleanPhone}`])
+            .limit(1)
+            .get();
+        if (snap.empty) {
+            (0, input_1.fail)("not-found", `Employer profile with phone ${phone} not found`);
+        }
+        employerUid = snap.docs[0].id;
+    }
+    if (!employerUid) {
+        (0, input_1.fail)("invalid-argument", "Either employerUid or phone is required");
+    }
+    const employerRef = db.collection(schema_1.EmployerProfiles.COLLECTION).doc(employerUid);
+    const empSnap = await employerRef.get();
+    if (!empSnap.exists) {
+        (0, input_1.fail)("not-found", `Employer profile ${employerUid} not found`);
+    }
+    await employerRef.set({
+        grantedFreeJobPosts: FieldValue.increment(count),
+        updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    const updatedSnap = await employerRef.get();
+    const currentGranted = updatedSnap.get("grantedFreeJobPosts") || count;
+    return {
+        employerUid,
+        granted: count,
+        totalGranted: currentGranted,
+        message: `Successfully granted ${count} free job posts to employer.`,
+    };
 });
 //# sourceMappingURL=jobs.js.map

@@ -5,7 +5,7 @@ import { cachedAdminGet } from "@/lib/firebase/admin-response-cache";
 import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
 import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
 import { deleteAccountCompletely, e164 } from "@/lib/firebase/admin-account-deletion";
-import { EmployerProfiles, PhoneRoles, WorkerProfiles } from "@/lib/firebase/schema";
+import { EmployerProfiles, PhoneRoles, Wallets, WorkerProfiles } from "@/lib/firebase/schema";
 
 export const runtime = "nodejs";
 
@@ -16,10 +16,14 @@ function collectionFor(role: Role) {
   return role === "EMPLOYER" ? EmployerProfiles.COLLECTION : WorkerProfiles.COLLECTION;
 }
 
-function toUser(id: string, role: Role, d: FirebaseFirestore.DocumentData) {
+function toUser(id: string, role: Role, d: FirebaseFirestore.DocumentData, walletData?: FirebaseFirestore.DocumentData) {
   const iso = (v: unknown) => (v instanceof Timestamp ? v.toDate().toISOString() : null);
   const isEmployer = role === "EMPLOYER";
   const business = String(d[EmployerProfiles.BUSINESS_NAME] ?? "");
+  const balancePaise = walletData ? Number(walletData[Wallets.BALANCE_PAISE] ?? 0) : 0;
+  const successfulReferrals = walletData ? Number(walletData[Wallets.SUCCESSFUL_REFERRALS] ?? 0) : 0;
+  const referralCode = walletData ? String(walletData[Wallets.REFERRAL_CODE] ?? "") : "";
+
   return {
     id,
     role,
@@ -32,7 +36,10 @@ function toUser(id: string, role: Role, d: FirebaseFirestore.DocumentData) {
     skills: isEmployer ? [] : ((d[WorkerProfiles.SKILLS] ?? []) as string[]),
     blocked: d[WorkerProfiles.BLOCKED] === true,
     verified: isEmployer ? d[EmployerProfiles.VERIFIED] === true : false,
-    createdAt: iso(d[WorkerProfiles.CREATED_AT])
+    createdAt: iso(d[WorkerProfiles.CREATED_AT]),
+    referralCode,
+    referralBalanceRupees: balancePaise / 100,
+    successfulReferrals
   };
 }
 
@@ -58,8 +65,11 @@ async function getUncached(request: NextRequest) {
       const reg = await db.collection(PhoneRoles.COLLECTION).doc(phone).get();
       const uid = String(reg.get(PhoneRoles.UID) ?? "");
       const role = (String(reg.get(PhoneRoles.ROLE) ?? "") === "EMPLOYER" ? "EMPLOYER" : "WORKER") as Role;
-      const profile = uid ? await db.collection(collectionFor(role)).doc(uid).get() : null;
-      const users = profile?.exists ? [toUser(profile.id, role, profile.data()!)] : [];
+      const [profile, wallet] = await Promise.all([
+        uid ? db.collection(collectionFor(role)).doc(uid).get() : null,
+        uid ? db.collection(Wallets.COLLECTION).doc(uid).get() : null
+      ]);
+      const users = profile?.exists ? [toUser(profile.id, role, profile.data()!, wallet?.exists ? wallet.data() : undefined)] : [];
       return NextResponse.json({ users, counts, nextCursor: null });
     }
 
@@ -72,8 +82,13 @@ async function getUncached(request: NextRequest) {
       if (cursor.exists) query = query.startAfter(cursor);
     }
     const snap = await query.limit(PAGE).get();
+    const wallets = snap.docs.length > 0
+      ? await db.getAll(...snap.docs.map((d) => db.collection(Wallets.COLLECTION).doc(d.id)))
+      : [];
+    const walletMap = new Map(wallets.filter((w) => w.exists).map((w) => [w.id, w.data()!]));
+
     return NextResponse.json({
-      users: snap.docs.map((d) => toUser(d.id, role, d.data())),
+      users: snap.docs.map((d) => toUser(d.id, role, d.data(), walletMap.get(d.id))),
       counts,
       nextCursor: snap.size === PAGE ? snap.docs.at(-1)!.id : null
     });
