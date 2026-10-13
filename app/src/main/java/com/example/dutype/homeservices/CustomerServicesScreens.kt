@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.widget.Toast
+import com.example.dutype.utils.isDebuggableBuild
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -230,10 +231,14 @@ val ACTIVE_CUSTOMER_CATEGORY_IDS = setOf(
 
 /**
  * Operating hours: 7:00 AM to 9:00 PM IST (07:00 - 21:00).
- * After 9:00 PM (and before 7:00 AM), immediate / right-now service dispatch is closed.
- * Customers can still book in advance for tomorrow morning onwards.
+ * In production, immediate dispatch is restricted to operating hours.
+ * In testing mode / debug builds, booking is enabled 24/7 without limitations.
  */
-fun isServiceHoursClosedNow(now: Long = System.currentTimeMillis()): Boolean {
+fun isServiceHoursClosedNow(
+    now: Long = System.currentTimeMillis(),
+    bypassForTesting: Boolean = false
+): Boolean {
+    if (bypassForTesting) return false
     val cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Kolkata"))
     cal.timeInMillis = now
     val hour = cal.get(Calendar.HOUR_OF_DAY)
@@ -2252,7 +2257,10 @@ fun CategoryServicesScreen(
             return@Scaffold
         }
 
-        val isNightClosed = remember { isServiceHoursClosedNow() }
+        val isNightClosed = remember(context) {
+            val isTesting = context.isDebuggableBuild() || context.getSharedPreferences("dutype_prefs", Context.MODE_PRIVATE).getBoolean("test_mode_24_7", false)
+            isServiceHoursClosedNow(bypassForTesting = isTesting)
+        }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
@@ -2795,7 +2803,10 @@ fun ServicesHomeScreen(
         }
     }
 
-    val isNightClosed = remember { isServiceHoursClosedNow() }
+    val isNightClosed = remember(context) {
+        val isTesting = context.isDebuggableBuild() || context.getSharedPreferences("dutype_prefs", Context.MODE_PRIVATE).getBoolean("test_mode_24_7", false)
+        isServiceHoursClosedNow(bypassForTesting = isTesting)
+    }
 
     Box(
         modifier = Modifier
@@ -4436,7 +4447,10 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
     var lat by remember { mutableStateOf<Double?>(null) }
     var lng by remember { mutableStateOf<Double?>(null) }
     var locating by remember { mutableStateOf(false) }
-    val isNightClosed = remember { isServiceHoursClosedNow() }
+    val isTestingMode = remember(context) {
+        context.isDebuggableBuild() || context.getSharedPreferences("dutype_prefs", Context.MODE_PRIVATE).getBoolean("test_mode_24_7", false)
+    }
+    val isNightClosed = remember(isTestingMode) { isServiceHoursClosedNow(bypassForTesting = isTestingMode) }
     var scheduled by remember { mutableStateOf(isNightClosed) }
     var dayOffset by remember { mutableIntStateOf(if (isNightClosed) 1 else 0) }
     var slot by remember { mutableStateOf<Long?>(null) }
@@ -4812,6 +4826,33 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                                     fontSize = 11.5.sp,
                                     color = Color(0xFFB91C1C),
                                     lineHeight = 15.sp
+                                )
+                            }
+                        }
+                    } else if (isTestingMode) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFEFF6FF))
+                                .border(1.dp, Color(0xFFBFDBFE), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("🧪", fontSize = 16.sp)
+                            Spacer(Modifier.width(10.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Testing Mode • 24/7 Booking Active",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.5.sp,
+                                    color = Color(0xFF1D4ED8)
+                                )
+                                Text(
+                                    text = "Operating hours bypassed for developer testing. Instant bookings allowed at any time.",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF2563EB),
+                                    lineHeight = 14.sp
                                 )
                             }
                         }
@@ -6499,6 +6540,7 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                     partnerLng = b.partnerLng,
                     customerLabel = b.addressText.ifBlank { b.area },
                     partnerName = b.partnerName.ifBlank { "Technician" },
+                    partnerPhone = b.partnerPhone,
                     partnerBearing = b.partnerBearing,
                     isPartnerMode = false
                 )
@@ -6949,6 +6991,52 @@ private fun PaymentPendingCard(
                         ) {
                             Text("Update UTR", fontSize = 12.sp, color = Color(0xFF15803D), fontWeight = FontWeight.SemiBold)
                         }
+
+                        // ── Faster Verification via WhatsApp ──
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+                            border = BorderStroke(1.dp, Color(0xFF86EFAC)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth().padding(top = 4.dp)
+                        ) {
+                            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier.size(20.dp).background(Color(0xFF22C55E), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Filled.Bolt, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+                                    }
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Need Faster Verification?", fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = Color(0xFF166534))
+                                }
+                                Text(
+                                    "Message DutyPe Support on WhatsApp with your UTR to get approved and matched in 2 minutes.",
+                                    fontSize = 11.5.sp,
+                                    color = Color(0xFF15803D),
+                                    lineHeight = 15.sp
+                                )
+                                Button(
+                                    onClick = {
+                                        val message = "Hi DutyPe, I have submitted UTR ${booking.utr} for Booking #${booking.id.takeLast(6)} (${booking.serviceName}). Please verify and dispatch technician."
+                                        val waUri = Uri.parse("https://wa.me/918019151847?text=${Uri.encode(message)}")
+                                        try {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, waUri))
+                                        } catch (_: Exception) {
+                                            Toast.makeText(context, "Please WhatsApp +91 8019151847 directly.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.fillMaxWidth().height(36.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Icon(Icons.Filled.Call, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("⚡ WhatsApp Us for Fast Verification", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color.White)
+                                }
+                            }
+                        }
                     }
                 }
             } else {
@@ -7026,12 +7114,17 @@ private fun PaymentPendingCard(
 
                     Button(
                         onClick = {
-                            if (utrInput.trim().length != 12) {
+                            val cleanUtr = utrInput.trim()
+                            if (cleanUtr.length != 12) {
                                 Toast.makeText(context, "Please enter a valid 12-digit UTR number", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
-                            onSubmitUtr(utrInput.trim())
+                            onSubmitUtr(cleanUtr)
                             editUtr = false
+                            Toast.makeText(context, "UTR submitted! Opening WhatsApp for instant verification...", Toast.LENGTH_SHORT).show()
+                            val message = "Hi DutyPe, I have submitted UTR $cleanUtr for Booking #${booking.id.takeLast(6)} (${booking.serviceName}). Please verify and dispatch technician."
+                            val waUri = Uri.parse("https://wa.me/918019151847?text=${Uri.encode(message)}")
+                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, waUri)) }
                         },
                         enabled = utrInput.trim().length == 12,
                         modifier = Modifier.fillMaxWidth().height(42.dp),

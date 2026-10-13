@@ -4,8 +4,10 @@ import com.example.dutype.ui.theme.fg
 import com.example.dutype.ui.theme.bg
 import com.dutype.app.R
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import com.example.dutype.utils.isDebuggableBuild
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -773,17 +775,19 @@ fun WorkerHomeScreen(
                             is java.util.Date -> createdRaw.time
                             else -> now
                         }
+                        val isAssignedPending = bStatus == "ASSIGNED"
+                        val desc = if (isAssignedPending) "⚡ Admin Assigned to You • Tap to Accept Order" else "⚡ Status: $statusLabel • Tap to open and start job"
                         com.example.dutype.models.InstantRequest(
                             requestId = "svc_${doc.id}",
                             employerId = doc.getString("customerId").orEmpty(),
                             employerName = doc.getString("customerName").orEmpty().ifBlank { "DutyPe Customer" },
                             title = "Service Job: $svcName",
-                            description = "⚡ Status: $statusLabel • Tap to open and start job",
+                            description = desc,
                             category = cat.ifBlank { "Services" },
                             perPersonPayment = price,
                             workersNeeded = 1,
-                            status = "accepted",
-                            workerResponseStatus = "accepted",
+                            status = if (isAssignedPending) "assigned" else "accepted",
+                            workerResponseStatus = if (isAssignedPending) "assigned" else "accepted",
                             addressText = addr.ifBlank { area },
                             lat = lat,
                             lng = lng,
@@ -1076,7 +1080,12 @@ fun WorkerHomeScreen(
                                             showLoginBottomSheet = true
                                             return@HomeSectionsContent
                                         }
-                                        if (online) {
+                                        val isTestModeActive = context.isDebuggableBuild() ||
+                                            context.getSharedPreferences("dutype_prefs", Context.MODE_PRIVATE).getBoolean("test_mode_24_7", false) ||
+                                            currentUser?.phoneNumber?.contains("8019151847") == true ||
+                                            currentUser?.phoneNumber?.contains("9390693988") == true
+
+                                        if (online && !isTestModeActive) {
                                             val lat = currentLocation?.latitude
                                             val lng = currentLocation?.longitude
                                             if (lat != null && lng != null) {

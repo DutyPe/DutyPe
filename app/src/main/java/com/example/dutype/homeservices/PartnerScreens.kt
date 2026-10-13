@@ -1126,7 +1126,7 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
     LaunchedEffect(bookingId) {
         viewModel.offer(bookingId)
             .onSuccess {
-                if (it.mine) {
+                if (it.mine && it.status != BookingStatus.ASSIGNED && it.status != "ASSIGNED") {
                     navController.navigate(Routes.partnerJobRoute(bookingId)) { popUpTo(Routes.PARTNER_OFFER) { inclusive = true } }
                 } else {
                     offer = it
@@ -1163,7 +1163,7 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
                             scope.launch {
                                 viewModel.offer(bookingId)
                                     .onSuccess {
-                                        if (it.mine) {
+                                        if (it.mine && it.status != BookingStatus.ASSIGNED && it.status != "ASSIGNED") {
                                             navController.navigate(Routes.partnerJobRoute(bookingId)) { popUpTo(Routes.PARTNER_OFFER) { inclusive = true } }
                                         } else {
                                             offer = it
@@ -1234,7 +1234,7 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
             if (cat != null && o.bring.isNotEmpty()) ItemsBox(stringResource(R.string.svc_partner_carry), cat.itemLabels(o.bring, lang), SvcBlue)
             if (cat != null && o.provide.isNotEmpty()) ItemsBox(stringResource(R.string.svc_customer_keeps), cat.itemLabels(o.provide, lang), SvcGreen)
 
-            if (!o.available) {
+            if (!o.available && !o.mine && o.status != "ASSIGNED") {
                 Text(stringResource(R.string.svc_offer_gone), color = SvcRed, textAlign = TextAlign.Center)
                 return@Column
             }
@@ -1253,6 +1253,7 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
                                     context.findActivity()?.let { act ->
                                         reviewTriggerService.onWorkerJobApplication(act)
                                     }
+                                    Toast.makeText(context, "Order accepted successfully!", Toast.LENGTH_SHORT).show()
                                     navController.navigate(Routes.partnerJobRoute(bookingId)) {
                                         popUpTo(Routes.PARTNER_OFFER) { inclusive = true }
                                     }
@@ -1271,7 +1272,7 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
                 shape = RoundedCornerShape(14.dp)
             ) {
                 if (accepting) CircularProgressIndicator(Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
-                else Text(stringResource(R.string.svc_offer_accept), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                else Text(if (o.mine || o.status == "ASSIGNED") "Accept & Confirm Order" else stringResource(R.string.svc_offer_accept), fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
             OutlinedButton(
                 onClick = { navController.popBackStack() },
@@ -1380,6 +1381,7 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
                     partnerLng = b.partnerLng,
                     customerLabel = b.addressText.ifBlank { "Customer Doorstep" },
                     partnerName = "My Location",
+                    partnerPhone = b.customerPhone,
                     partnerBearing = b.partnerBearing,
                     isPartnerMode = true,
                     onNavigateClick = { openMaps(context, b.lat, b.lng) }
@@ -1400,8 +1402,16 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
             when (b.status) {
                 BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY -> {
                     if (b.status == BookingStatus.ASSIGNED) {
-                        OutlinedButton(onClick = { act("on_the_way") }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                            Text(stringResource(R.string.svc_job_on_the_way))
+                        Button(
+                            onClick = { act("on_the_way") },
+                            enabled = !busy,
+                            colors = ButtonDefaults.buttonColors(containerColor = SvcGreen),
+                            modifier = Modifier.fillMaxWidth().height(52.dp),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Filled.Directions, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Accept & Start Journey (On The Way)", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         }
                     }
                     OutlinedTextField(

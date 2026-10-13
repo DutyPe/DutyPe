@@ -402,13 +402,13 @@ fun MandatoryEmployerProfileSetupScreen(
                     Timber.d("📍 Queuing return route '$returnRoute' and navigating to EMPLOYER_HOME")
                     com.example.dutype.navigation.EmployerInnerNavQueue.setPending(returnRoute)
                     navController.navigate(Routes.EMPLOYER_HOME) {
-                        popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
+                        popUpTo(0) { inclusive = true }
                         launchSingleTop = true
                     }
                 } else {
                     Timber.d("📍 Navigating to EMPLOYER_HOME")
                     navController.navigate(Routes.EMPLOYER_HOME) {
-                        popUpTo(Routes.EMPLOYER_PROFILE_SETUP) { inclusive = true }
+                        popUpTo(0) { inclusive = true }
                         launchSingleTop = true
                     }
                 }

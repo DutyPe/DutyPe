@@ -399,6 +399,10 @@ exports.ServiceBookings = {
     ASSIGNED_AT: "assignedAt",
     STARTED_AT: "startedAt",
     COMPLETED_AT: "completedAt",
+    PARTNER_LAT: "partnerLat",
+    PARTNER_LNG: "partnerLng",
+    PARTNER_BEARING: "partnerBearing",
+    PARTNER_LOCATION_UPDATED_AT: "partnerLocationUpdatedAt",
     UPDATED_AT: "updatedAt",
 };
 /** coupon_uses/{uid}_{CODE} — one use of a coupon per customer (deleted if the booking is cancelled). */
@@ -445,6 +449,7 @@ exports.ServicePartners = {
     REJECTION_REASON: "rejectionReason",
     APPLIED_AT: "appliedAt",
     APPROVED_AT: "approvedAt",
+    CREATED_AT: "createdAt",
     UPDATED_AT: "updatedAt",
 };
 /** partner_topups/{id} — a partner paid DutyPe by UPI to add credits; an admin verifies the UTR. */

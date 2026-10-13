@@ -58,6 +58,26 @@ fun WorkerMainScreen(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    // Handle back press gracefully: exit on double back from Home, navigate to Home from other tabs
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var lastBackPressTime by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    androidx.activity.compose.BackHandler(enabled = true) {
+        if (currentRoute == null || currentRoute == com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
+            val now = System.currentTimeMillis()
+            if (now - lastBackPressTime < 2000L) {
+                (context as? androidx.activity.ComponentActivity)?.finish()
+            } else {
+                lastBackPressTime = now
+                android.widget.Toast.makeText(context, "Press back again to exit", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            navController.navigate(com.example.dutype.navigation.WorkerBottomRoutes.HOME) {
+                popUpTo(com.example.dutype.navigation.WorkerBottomRoutes.HOME) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
+
     // Apr 2026 fix: drive the status-bar colour deterministically from the
     // current route, not from a per-screen `LaunchedEffect` callback. The
     // old approach had a race on cold install — `WorkerHomeScreen`'s

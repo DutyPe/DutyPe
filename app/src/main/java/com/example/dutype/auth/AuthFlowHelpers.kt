@@ -70,7 +70,7 @@ internal fun navigateToHome(role: UserRole, navController: NavController) {
         else -> Routes.WORKER_HOME
     }
     navController.navigate(target) {
-        popUpTo(navController.graph.startDestinationId) { inclusive = true }
+        popUpTo(0) { inclusive = true }
         launchSingleTop = true
     }
 }
@@ -81,7 +81,7 @@ internal fun navigateToProfileSetup(role: UserRole, navController: NavController
         else -> Routes.PROFILE_SETUP
     }
     navController.navigate(target) {
-        popUpTo(navController.graph.startDestinationId) { inclusive = true }
+        popUpTo(0) { inclusive = true }
         launchSingleTop = true
     }
 }

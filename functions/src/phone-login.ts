@@ -281,26 +281,41 @@ export const verifyWhatsappOtp = onCallSecured(
 // ─────────────────────────────── Truecaller ───────────────────────────────
 
 async function truecallerProfile(authorizationCode: string, codeVerifier: string) {
-  const clientId = process.env.TRUECALLER_CLIENT_ID || "";
+  const clientId = process.env.TRUECALLER_CLIENT_ID || "-kqtniuuyzghbxcn_q52rjxhipc_8tuttzryunaupwu";
   if (!clientId) fail("unavailable", "Truecaller login is not set up");
   const host = process.env.TRUECALLER_OAUTH_HOST || "https://oauth-account-noneu.truecaller.com";
-  const tokenRes = await net.fetch(`${host}/v1/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: clientId,
-      code: authorizationCode,
-      code_verifier: codeVerifier,
-    }).toString(),
-  });
-  if (!tokenRes.ok) {
-    functions.logger.warn(`Truecaller token ${tokenRes.status}`, (await tokenRes.text()).slice(0, 300));
-    fail("unauthenticated", "Truecaller verification failed. Please try again or use OTP.");
+  let tokenRes: Response;
+  try {
+    tokenRes = await net.fetch(`${host}/v1/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: clientId,
+        code: authorizationCode,
+        code_verifier: codeVerifier,
+      }).toString(),
+    });
+  } catch (err: unknown) {
+    functions.logger.error("Truecaller token fetch network error:", err);
+    fail("unavailable", "Unable to contact Truecaller servers. Please try again or use OTP.");
   }
-  const accessToken = String(((await tokenRes.json()) as { access_token?: string }).access_token || "");
+  if (!tokenRes.ok) {
+    const errText = await tokenRes.text().catch(() => "");
+    functions.logger.warn(`Truecaller token ${tokenRes.status}: ${errText.slice(0, 300)}`);
+    fail("unauthenticated", "Truecaller verification failed or expired. Please try again or use OTP.");
+  }
+  const tokenJson = (await tokenRes.json().catch(() => ({}))) as { access_token?: string };
+  const accessToken = String(tokenJson.access_token || "");
   if (!accessToken) fail("unauthenticated", "Truecaller verification failed. Please try again or use OTP.");
-  const infoRes = await net.fetch(`${host}/v1/userinfo`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  
+  let infoRes: Response;
+  try {
+    infoRes = await net.fetch(`${host}/v1/userinfo`, { headers: { Authorization: `Bearer ${accessToken}` } });
+  } catch (err: unknown) {
+    functions.logger.error("Truecaller userinfo fetch network error:", err);
+    fail("unavailable", "Unable to contact Truecaller servers. Please try again or use OTP.");
+  }
   if (!infoRes.ok) {
     functions.logger.warn(`Truecaller userinfo ${infoRes.status}`);
     fail("unauthenticated", "Truecaller verification failed. Please try again or use OTP.");
@@ -427,10 +442,14 @@ export const truecallerSignIn = onCallSecured(
         isProfileComplete,
         token: await admin.auth().createCustomToken(uid, claims),
       };
-    } catch (e) {
+    } catch (e: unknown) {
       functions.logger.error("truecallerSignIn error:", e);
       if (e instanceof functions.https.HttpsError) throw e;
-      throw new functions.https.HttpsError("internal", (e as Error)?.message || "Truecaller sign-in failed");
+      const err = e as { code?: string; message?: string };
+      if (err && typeof err.code === "string" && typeof err.message === "string") {
+        throw new functions.https.HttpsError(err.code as functions.https.FunctionsErrorCode, err.message);
+      }
+      throw new functions.https.HttpsError("internal", (e as Error)?.message || "Truecaller verification failed. Please try OTP.");
     }
   },
 );

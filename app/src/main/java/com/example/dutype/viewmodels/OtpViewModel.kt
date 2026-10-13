@@ -544,17 +544,29 @@ class OtpViewModel @Inject constructor(
      * Truecaller one-tap: the server exchanges the authorization code for the verified number,
      * name, photo, and email, and returns a sign-in token only when allowed for this number and role.
      */
-    suspend fun truecallerExchange(authorizationCode: String, codeVerifier: String, mode: String = "unified"): Result<TruecallerSignInResult> =
+    suspend fun truecallerExchange(
+        authorizationCode: String,
+        codeVerifier: String,
+        role: String = pendingRole.name,
+        mode: String = "unified"
+    ): Result<TruecallerSignInResult> =
         runCatching {
-            val data = functions.getHttpsCallable("truecallerSignIn")
-                .call(
-                    mapOf(
-                        "authorizationCode" to authorizationCode,
-                        "codeVerifier" to codeVerifier,
-                        "role" to pendingRole.name,
-                        "mode" to mode
-                    )
-                ).await().data.asStringMap() ?: error("Empty response")
+            runCatching { pendingRole = UserRole.valueOf(role) }
+            val payload = mapOf(
+                "authorizationCode" to authorizationCode,
+                "codeVerifier" to codeVerifier,
+                "role" to role,
+                "mode" to mode
+            )
+            val callable = functions.getHttpsCallable("truecallerSignIn")
+            val taskResult = try {
+                callable.call(payload).await()
+            } catch (firstErr: Exception) {
+                Timber.w(firstErr, "Truecaller call attempt 1 failed, retrying once...")
+                kotlinx.coroutines.delay(350L)
+                callable.call(payload).await()
+            }
+            val data = taskResult.data.asStringMap() ?: error("Empty response")
             TruecallerSignInResult(
                 allowed = data["allowed"] == true,
                 phone = data["phone"] as? String ?: "",

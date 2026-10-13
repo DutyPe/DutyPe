@@ -392,7 +392,7 @@ fun MandatoryWorkerProfileSetupScreen(
                 } else {
                     Timber.d("📍 Navigating to WORKER_HOME")
                     navController.navigate(Routes.WORKER_HOME) {
-                        popUpTo(Routes.PROFILE_SETUP) { inclusive = true }
+                        popUpTo(0) { inclusive = true }
                         launchSingleTop = true
                     }
                 }

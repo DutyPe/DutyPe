@@ -767,6 +767,19 @@ fun RoleSelectionWithNavigation(
 ) {
     var selectedRole by remember { mutableStateOf<String?>(null) }
 
+    // Auto-redirect already authenticated users so they never get trapped on Role Selection
+    val activeUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+    LaunchedEffect(activeUser) {
+        if (activeUser != null && selectedRole == null) {
+            val storedRole = profileCompletionViewModel.getUserRole()
+            val targetHome = if (storedRole == com.example.dutype.models.UserRole.EMPLOYER) Routes.EMPLOYER_HOME else Routes.WORKER_HOME
+            navController.navigate(targetHome) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
+
     // Handle navigation when role is selected
     LaunchedEffect(selectedRole) {
         selectedRole?.let { role ->
@@ -799,21 +812,21 @@ fun RoleSelectionWithNavigation(
                                 com.example.dutype.models.UserRole.WORKER -> {
                                     Timber.i("Existing user - Worker navigates to WORKER_HOME")
                                     navController.navigate(Routes.WORKER_HOME) {
-                                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                        popUpTo(0) { inclusive = true }
                                         launchSingleTop = true
                                     }
                                 }
                                 com.example.dutype.models.UserRole.EMPLOYER -> {
                                     Timber.i("Existing user - Navigating to EMPLOYER_HOME")
                                     navController.navigate(Routes.EMPLOYER_HOME) {
-                                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                        popUpTo(0) { inclusive = true }
                                         launchSingleTop = true
                                     }
                                 }
                                 else -> {
                                     Timber.i("Fallback - Navigating to WORKER_HOME")
                                     navController.navigate(Routes.WORKER_HOME) {
-                                        popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                        popUpTo(0) { inclusive = true }
                                         launchSingleTop = true
                                     }
                                 }
@@ -829,21 +842,21 @@ fun RoleSelectionWithNavigation(
                                     com.example.dutype.models.UserRole.WORKER -> {
                                         Timber.i("Local profile complete - Worker navigates to WORKER_HOME")
                                         navController.navigate(Routes.WORKER_HOME) {
-                                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                            popUpTo(0) { inclusive = true }
                                             launchSingleTop = true
                                         }
                                     }
                                     com.example.dutype.models.UserRole.EMPLOYER -> {
                                         Timber.i("Local profile complete - Navigating to EMPLOYER_HOME")
                                         navController.navigate(Routes.EMPLOYER_HOME) {
-                                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                            popUpTo(0) { inclusive = true }
                                             launchSingleTop = true
                                         }
                                     }
                                     else -> {
                                         Timber.i("Fallback - Navigating to WORKER_HOME")
                                         navController.navigate(Routes.WORKER_HOME) {
-                                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                            popUpTo(0) { inclusive = true }
                                             launchSingleTop = true
                                         }
                                     }
@@ -854,21 +867,21 @@ fun RoleSelectionWithNavigation(
                                     com.example.dutype.models.UserRole.WORKER -> {
                                         Timber.i("Profile incomplete - Navigating to PROFILE_SETUP")
                                         navController.navigate(Routes.PROFILE_SETUP) {
-                                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                            popUpTo(0) { inclusive = true }
                                             launchSingleTop = true
                                         }
                                     }
                                     com.example.dutype.models.UserRole.EMPLOYER -> {
                                         Timber.i("Profile incomplete - Navigating to EMPLOYER_PROFILE_SETUP")
                                         navController.navigate(Routes.EMPLOYER_PROFILE_SETUP) {
-                                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                            popUpTo(0) { inclusive = true }
                                             launchSingleTop = true
                                         }
                                     }
                                     else -> {
                                         Timber.i("Fallback - Navigating to PROFILE_SETUP")
                                         navController.navigate(Routes.PROFILE_SETUP) {
-                                            popUpTo(Routes.SELECT_ROLE) { inclusive = true }
+                                            popUpTo(0) { inclusive = true }
                                             launchSingleTop = true
                                         }
                                     }

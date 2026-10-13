@@ -16,6 +16,7 @@ import com.google.gson.Gson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.example.dutype.utils.isDebuggableBuild
 
 /**
  * DutyPe Services (Urban Company style home services). Server: functions/src/services.ts.
@@ -767,6 +768,11 @@ class HomeServicesRepository @Inject constructor(
 
     // ─────────────────────────── customer ───────────────────────────
 
+    fun isTestingModeEnabled(): Boolean {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return context.isDebuggableBuild() || prefs.getBoolean("test_mode_24_7", false)
+    }
+
     /** Returns the new booking id. [scheduledAt] null = "now". */
     suspend fun createBooking(
         serviceId: String,
@@ -777,7 +783,8 @@ class HomeServicesRepository @Inject constructor(
         note: String,
         scheduledAt: Long?,
         couponCode: String = "",
-        clientPrice: Int? = null
+        clientPrice: Int? = null,
+        testingMode: Boolean = isTestingModeEnabled()
     ): String {
         val payload = mutableMapOf<String, Any?>(
             "serviceId" to serviceId,
@@ -788,7 +795,8 @@ class HomeServicesRepository @Inject constructor(
             "note" to note,
             "when" to if (scheduledAt != null) "scheduled" else "now",
             "scheduledAt" to scheduledAt,
-            "couponCode" to couponCode
+            "couponCode" to couponCode,
+            "testingMode" to testingMode
         )
         if (clientPrice != null && clientPrice > 0) payload["clientPrice"] = clientPrice
         val d = call("createServiceBooking", payload)

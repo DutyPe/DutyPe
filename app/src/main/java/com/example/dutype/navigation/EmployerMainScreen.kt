@@ -80,6 +80,26 @@ fun EmployerMainScreen(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
+    // Handle back press gracefully: exit on double back from Dashboard, navigate to Dashboard from other tabs
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var lastBackPressTime by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    androidx.activity.compose.BackHandler(enabled = true) {
+        if (currentRoute == null || currentRoute == Routes.EMPLOYER_DASHBOARD) {
+            val now = System.currentTimeMillis()
+            if (now - lastBackPressTime < 2000L) {
+                (context as? androidx.activity.ComponentActivity)?.finish()
+            } else {
+                lastBackPressTime = now
+                android.widget.Toast.makeText(context, "Press back again to exit", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            navController.navigate(Routes.EMPLOYER_DASHBOARD) {
+                popUpTo(Routes.EMPLOYER_DASHBOARD) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
+
     // Create a unified state for the current screen to manage status bar color.
     // Defaults to the employer surface; updated via LaunchedEffect when the
     // dark-mode-aware token resolves.

@@ -204,6 +204,14 @@ private fun OtpLoginScreen(
         }
     }
 
+    // Auto-redirect if user is already signed in and not in the middle of entering OTP
+    val currentAuthUser = FirebaseAuth.getInstance().currentUser
+    LaunchedEffect(currentAuthUser) {
+        if (currentAuthUser != null && !otpState.otpSent) {
+            navigateToHome(role, navController)
+        }
+    }
+
     BackHandler {
         if (otpState.otpSent) {
             otpViewModel.resetState()
@@ -884,7 +892,7 @@ private fun OtpLoginScreen(
                             busy = otpState.isLoading,
                             onAuthorized = { code, verifier ->
                                 scope.launch {
-                                    otpViewModel.truecallerExchange(code, verifier, mode = "unified").fold(
+                                    otpViewModel.truecallerExchange(code, verifier, role = role.name, mode = "unified").fold(
                                         onSuccess = { res ->
                                             if (res.roleConflict) {
                                                 val conflictingRoleLabel = if (res.existingRole?.contains("EMPLOYER") == true) {
@@ -904,7 +912,9 @@ private fun OtpLoginScreen(
                                             }
                                         },
                                         onFailure = { err ->
-                                            Toast.makeText(context, err.message ?: context.getString(R.string.auth_verification_failed), Toast.LENGTH_SHORT).show()
+                                            val cleanMsg = err.message?.takeIf { it.isNotBlank() && !it.contains("INTERNAL", ignoreCase = true) }
+                                                ?: "Truecaller verification failed. Please try with OTP."
+                                            Toast.makeText(context, cleanMsg, Toast.LENGTH_SHORT).show()
                                         }
                                     )
                                 }
