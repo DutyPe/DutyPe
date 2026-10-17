@@ -782,59 +782,72 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
             )
             Spacer(Modifier.height(8.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedTextField(
-                    value = customServiceInput,
-                    onValueChange = { customServiceInput = it.take(40) },
-                    placeholder = {
-                        Text(
-                            "E.g. Mehendi Artist, Boutique, Patient Care...",
-                            fontSize = 12.sp,
-                            color = Color(0xFF94A3B8)
-                        )
-                    },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF00B159),
-                        unfocusedBorderColor = Color(0xFFCBD5E1),
-                        focusedContainerColor = Color(0xFFF8FAFC),
-                        unfocusedContainerColor = Color(0xFFF8FAFC)
-                    )
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "ENTER CUSTOM SERVICE OR SKILL",
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = StitchLabel,
+                    letterSpacing = 0.5.sp
                 )
-                Button(
-                    onClick = {
-                        val trimmed = customServiceInput.trim()
-                        if (trimmed.isNotBlank()) {
-                            if (trimmed !in chosen) {
-                                if (chosen.size >= 5) {
-                                    Toast.makeText(
-                                        context,
-                                        "Maximum 5 services allowed. Please remove a service first.",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                } else {
-                                    chosen.add(trimmed)
-                                    if (trimmed !in customServicesList) customServicesList.add(trimmed)
-                                    customServiceInput = ""
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = customServiceInput,
+                        onValueChange = { customServiceInput = it.take(40) },
+                        placeholder = {
+                            Text(
+                                "E.g. Mehendi Artist, Boutique, Patient Care...",
+                                fontSize = 13.5.sp,
+                                color = Color(0xFF94A3B8)
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Filled.Handyman, contentDescription = null, tint = Color(0xFF00B159), modifier = Modifier.size(20.dp))
+                        },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF00B159),
+                            unfocusedBorderColor = Color(0xFFCBD5E1),
+                            focusedContainerColor = Color(0xFFF8FAFC),
+                            unfocusedContainerColor = Color(0xFFF8FAFC)
+                        )
+                    )
+                    Button(
+                        onClick = {
+                            val trimmed = customServiceInput.trim()
+                            if (trimmed.isNotBlank()) {
+                                if (trimmed !in chosen) {
+                                    if (chosen.size >= 5) {
+                                        Toast.makeText(
+                                            context,
+                                            "Maximum 5 services allowed. Please remove a service first.",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    } else {
+                                        chosen.add(trimmed)
+                                        if (trimmed !in customServicesList) customServicesList.add(trimmed)
+                                        customServiceInput = ""
+                                    }
                                 }
                             }
-                        }
-                    },
-                    enabled = customServiceInput.isNotBlank(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF00B159),
-                        disabledContainerColor = Color(0xFFE2E8F0)
-                    ),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 14.dp)
-                ) {
-                    Text("+ Add", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
+                        },
+                        enabled = customServiceInput.isNotBlank(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF00B159),
+                            disabledContainerColor = Color(0xFFE2E8F0)
+                        ),
+                        modifier = Modifier.height(56.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp)
+                    ) {
+                        Text("+ Add", fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = Color.White)
+                    }
                 }
             }
 
@@ -1121,13 +1134,14 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                         letterSpacing = 0.5.sp
                     )
                     OutlinedTextField(
-                        value = AadhaarVerifier.format(aadhaarNumber),
+                        value = aadhaarNumber,
                         onValueChange = { input ->
                             val digits = input.filter { it.isDigit() }.take(12)
                             aadhaarNumber = digits
                         },
                         placeholder = { Text("Enter 12-digit Aadhaar number", fontSize = 13.5.sp) },
                         keyboardOptions = NumberKeyboard,
+                        visualTransformation = remember { com.example.dutype.utils.AadhaarVisualTransformation() },
                         leadingIcon = {
                             Icon(
                                 Icons.Default.Security,
@@ -1466,7 +1480,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     }
 
     if (showAadhaarVerificationSheet) {
-        AadhaarVerificationBottomSheet(
+        com.example.dutype.components.AadhaarKycVerificationSheet(
             aadhaarDigits = cleanAadhaar,
             onDismiss = { showAadhaarVerificationSheet = false },
             onVerified = { masked ->
@@ -1474,18 +1488,6 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
                 verifiedMaskedAadhaar = masked
                 showAadhaarVerificationSheet = false
                 Toast.makeText(context, "Aadhaar Identity Confirmed! e-KYC Verified.", Toast.LENGTH_SHORT).show()
-                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                    runCatching {
-                        val payload = hashMapOf<String, Any>(
-                            "aadhaarNumber" to cleanAadhaar,
-                            "verificationSource" to "DIGILOCKER_UIDAI"
-                        )
-                        com.google.firebase.functions.FirebaseFunctions.getInstance("asia-south1")
-                            .getHttpsCallable("vaultAadhaarVerification")
-                            .call(payload)
-                            .await()
-                    }
-                }
             }
         )
     }
@@ -1514,215 +1516,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     }
 }
 
-// =============================================================================
-// AADHAAR VERIFICATION BOTTOM SHEET (Govt e-KYC Identity Verification)
-// =============================================================================
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AadhaarVerificationBottomSheet(
-    aadhaarDigits: String,
-    onDismiss: () -> Unit,
-    onVerified: (maskedAadhaar: String) -> Unit
-) {
-    val masked = AadhaarVerifier.mask(aadhaarDigits)
-    var enteredOtp by remember { mutableStateOf("") }
-    var isVerifying by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-    var isSuccess by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
 
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Color.White,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(54.dp)
-                    .clip(CircleShape)
-                    .background(if (isSuccess) Color(0xFFDCFCE7) else Color(0xFFECFDF5)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = if (isSuccess) Icons.Filled.CheckCircle else Icons.Filled.Security,
-                    contentDescription = null,
-                    tint = if (isSuccess) Color(0xFF16A34A) else Color(0xFF00B159),
-                    modifier = Modifier.size(32.dp)
-                )
-            }
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = if (isSuccess) "Aadhaar Verified Successfully!" else "Aadhaar e-KYC Verification",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 19.sp,
-                    color = StitchNavy,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "UIDAI Govt. Identity Gate • DutyPe Trust & Safety",
-                    fontSize = 12.5.sp,
-                    color = StitchLabel,
-                    textAlign = TextAlign.Center
-                )
-            }
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                border = BorderStroke(1.dp, StitchBorder)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "AADHAAR NUMBER",
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = StitchLabel,
-                            letterSpacing = 0.5.sp
-                        )
-                        Text(
-                            text = "XXXX XXXX ${aadhaarDigits.takeLast(4)}",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = StitchNavy,
-                            letterSpacing = 1.sp
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(if (isSuccess) Color(0xFFDCFCE7) else Color(0xFFEFF6FF))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = if (isSuccess) "✓ VERIFIED" else "PENDING OTP",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (isSuccess) Color(0xFF16A34A) else Color(0xFF2563EB)
-                        )
-                    }
-                }
-            }
-
-            if (!isSuccess) {
-                Text(
-                    text = "A 6-digit verification code has been generated for your Aadhaar-linked mobile number.",
-                    fontSize = 12.5.sp,
-                    color = Color(0xFF475569),
-                    textAlign = TextAlign.Center,
-                    lineHeight = 17.sp
-                )
-
-                OutlinedTextField(
-                    value = enteredOtp,
-                    onValueChange = {
-                        val digits = it.filter { ch -> ch.isDigit() }.take(6)
-                        enteredOtp = digits
-                        errorMessage = null
-                    },
-                    placeholder = { Text("Enter 6-digit OTP", textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) },
-                    keyboardOptions = NumberKeyboard,
-                    singleLine = true,
-                    textStyle = TextStyle(
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        letterSpacing = 4.sp,
-                        color = StitchNavy
-                    ),
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF00B159),
-                        unfocusedBorderColor = Color(0xFFCBD5E1),
-                        focusedContainerColor = Color(0xFFF8FAFC),
-                        unfocusedContainerColor = Color(0xFFF8FAFC)
-                    )
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TextButton(
-                        onClick = { enteredOtp = "123456"; errorMessage = null },
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Text("⚡ Test Auto-Fill (123456)", fontSize = 12.sp, color = Color(0xFF00B159), fontWeight = FontWeight.Bold)
-                    }
-                    Text("Time left: 02:45", fontSize = 11.5.sp, color = StitchLabel)
-                }
-
-                if (errorMessage != null) {
-                    Text(
-                        text = errorMessage ?: "",
-                        color = Color(0xFFEF4444),
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center
-                    )
-                }
-
-                Button(
-                    onClick = {
-                        if (enteredOtp.length < 6) {
-                            errorMessage = "Please enter the complete 6-digit OTP"
-                            return@Button
-                        }
-                        isVerifying = true
-                        scope.launch {
-                            delay(600)
-                            isVerifying = false
-                            isSuccess = true
-                            delay(500)
-                            onVerified(masked)
-                        }
-                    },
-                    enabled = enteredOtp.length == 6 && !isVerifying,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF00B159),
-                        disabledContainerColor = Color(0xFFE2E8F0)
-                    ),
-                    modifier = Modifier.fillMaxWidth().height(50.dp)
-                ) {
-                    if (isVerifying) {
-                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    } else {
-                        Text("Verify & Confirm Aadhaar Identity →", fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = Color.White)
-                    }
-                }
-            } else {
-                Text(
-                    text = "Aadhaar e-KYC confirmed. Your partner profile is now verified with government records.",
-                    fontSize = 13.sp,
-                    color = Color(0xFF166534),
-                    textAlign = TextAlign.Center,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(Modifier.height(10.dp))
-            }
-        }
-    }
-}
 
 // =============================================================================
 // PARTNER CONDUCT AND ZERO-TOLERANCE RULES BOTTOM SHEET
@@ -1945,6 +1739,9 @@ private fun PartnerVisualGuideBottomSheet(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    var selectedLang by remember {
+        mutableStateOf(LocaleHelper.getLanguage(context).takeIf { it in listOf("en", "te", "hi") } ?: "te")
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -1972,19 +1769,59 @@ private fun PartnerVisualGuideBottomSheet(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        text = "Service Partner Visual Guide",
+                        text = when (selectedLang) {
+                            "te" -> "సర్వీస్ పార్ట్‌నర్ విజువల్ గైడ్"
+                            "hi" -> "सर्विस पार्टनर विज़ुअल गाइड"
+                            else -> "Service Partner Visual Guide"
+                        },
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp,
                         color = StitchNavy
                     )
                     Text(
-                        text = "How to accept bookings, work professionally, and get paid",
+                        text = when (selectedLang) {
+                            "te" -> "ఆర్డర్‌లను ఎలా స్వీకరించాలి, పనిచేసి డబ్బు ఎలా పొందాలి"
+                            "hi" -> "बुकिंग कैसे स्वीकारें, काम करें और भुगतान पाएं"
+                            else -> "How to accept bookings, work professionally, and get paid"
+                        },
                         fontSize = 12.sp,
                         color = StitchLabel
                     )
                 }
                 IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Filled.Close, contentDescription = "Close", tint = StitchLabel)
+                }
+            }
+
+            // Language Selector Row (Item 3: Localization)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(
+                    "te" to "తెలుగు",
+                    "en" to "English",
+                    "hi" to "हिंदी"
+                ).forEach { (code, label) ->
+                    val isSelected = selectedLang == code
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(36.dp)
+                            .clickable { selectedLang = code },
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isSelected) Color(0xFF00B159) else Color(0xFFF1F5F9),
+                        border = BorderStroke(1.dp, if (isSelected) Color(0xFF00B159) else Color(0xFFE2E8F0))
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = label,
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) Color.White else Color(0xFF475569)
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1997,96 +1834,104 @@ private fun PartnerVisualGuideBottomSheet(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                // Video Placeholder Hero Card
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            Toast.makeText(context, "🎬 Video player is being finalized. Review the visual steps below!", Toast.LENGTH_SHORT).show()
-                        },
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A))
-                ) {
-                    Column(Modifier.padding(18.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(46.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF00B159)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Filled.PlayArrow, contentDescription = "Play", tint = Color.White, modifier = Modifier.size(28.dp))
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(Color(0xFFDC2626))
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                                    ) {
-                                        Text("VIDEO PREVIEW", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                                    }
-                                    Spacer(Modifier.width(6.dp))
-                                    Text("2 Mins • HD", fontSize = 11.sp, color = Color(0xFF94A3B8))
-                                }
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = "Partner Training & Induction Walkthrough",
-                                    color = Color.White,
-                                    fontSize = 14.5.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = "Watch how top DutyPe service partners earn ₹25,000 to ₹40,000/month with 5-star ratings.",
-                            color = Color(0xFF94A3B8),
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp
-                        )
-                    }
-                }
-
-                // 5 Visual Flow Steps
+                // 5 Visual Flow Steps (Localized)
                 Text(
-                    text = "HOW DUTYPE PARTNER WORK WORKS (5 STEPS)",
+                    text = when (selectedLang) {
+                        "te" -> "డ్యూటీపే పార్ట్‌నర్ పని విధానం (5 దశలు)"
+                        "hi" -> "ड्यूटीपे पार्टनर काम कैसे करता है (5 चरण)"
+                        else -> "HOW DUTYPE PARTNER WORK WORKS (5 STEPS)"
+                    },
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = StitchLabel,
                     letterSpacing = 0.5.sp
                 )
 
-                listOf(
-                    Triple(
-                        "1. Receive Service Alert",
-                        "Loud alert rings when a nearby customer needs help within 5 km. You have 60 seconds to review earnings and tap Accept.",
-                        "📱"
-                    ),
-                    Triple(
-                        "2. One-Tap Doorstep Navigation",
-                        "Tap 'Navigate' for live Google Maps directions straight to customer doorstep. Call customer in-app if you need landmark guidance.",
-                        "🗺️"
-                    ),
-                    Triple(
-                        "3. Enter Customer Start OTP",
-                        "CRITICAL: Before touching tools, ask customer for the 4-digit DutyPe Start OTP. Entering this officially activates job insurance.",
-                        "🔑"
-                    ),
-                    Triple(
-                        "4. Deliver Quality Work & Clean Up",
-                        "Carry all required tools, perform the repair/service properly, test with customer, and leave the workspace tidy.",
-                        "🛠️"
-                    ),
-                    Triple(
-                        "5. Instant Direct UPI Payout",
-                        "Tap 'Complete'. Customer verifies work and full payment is credited directly to your registered UPI ID without delay!",
-                        "⚡"
+                val steps = when (selectedLang) {
+                    "te" -> listOf(
+                        Triple(
+                            "1. సర్వీస్ అలర్ట్ పొందండి",
+                            "మీకు 5 కిమీ పరిధిలో కస్టమర్ ఆర్డర్ వచ్చినప్పుడు లౌడ్ రింగ్ వస్తుంది. సంపాదన వివరాలు చూసి 60 సెకన్లలో యాక్సెప్ట్ చేయండి.",
+                            "📱"
+                        ),
+                        Triple(
+                            "2. నేరుగా కస్టమర్ ఇంటికి వెళ్లండి",
+                            "యాప్‌లో 'Navigate' నొక్కి Google Maps ద్వారా నేరుగా కస్టమర్ డోర్‌స్టెప్‌కు చేరుకోండి. ల్యాండ్‌మార్క్ కోసం యాప్‌లోనే కాల్ చేయవచ్చు.",
+                            "🗺️"
+                        ),
+                        Triple(
+                            "3. కస్టమర్ Start OTP నమోదు చేయండి",
+                            "ముఖ్యమైనది: పని ప్రారంభించే ముందు కస్టమర్‌ను 4 అంకెల DutyPe Start OTP అడగండి. ఇది ఇన్సూరెన్స్ యాక్టివేట్ చేస్తుంది.",
+                            "🔑"
+                        ),
+                        Triple(
+                            "4. నాణ్యమైన పని & శుభ్రత",
+                            "అవసరమైన టూల్స్ తెచ్చుకోండి, పని పూర్తి చేసి కస్టమర్‌కు టెస్ట్ చేసి చూపించండి, వర్క్‌స్పేస్‌ను శుభ్రం చేయండి.",
+                            "🛠️"
+                        ),
+                        Triple(
+                            "5. తక్షణ UPI చెల్లింపు",
+                            "పని ముగిశాక 'Complete' నొక్కండి. మొత్తం మీ నమోదిత UPI ఐడీకి ఎలాంటి కమీషన్ కటింగ్ లేకుండా నేరుగా జమ అవుతుంది!",
+                            "⚡"
+                        )
                     )
-                ).forEachIndexed { index, (title, desc, emoji) ->
+                    "hi" -> listOf(
+                        Triple(
+                            "1. सर्विस अलर्ट प्राप्त करें",
+                            "5 किमी के दायरे में ग्राहक की बुकिंग का तेज अलर्ट बजेगा। कमाई देखकर 60 सेकंड में स्वीकार करें।",
+                            "📱"
+                        ),
+                        Triple(
+                            "2. ग्राहक के दरवाजे तक पहुंचें",
+                            "'Navigate' दबाएं और Google Maps के जरिए सीधे ग्राहक के घर तक पहुंचें। जरूरत पड़ने पर कॉल करें।",
+                            "🗺️"
+                        ),
+                        Triple(
+                            "3. कस्टमर Start OTP दर्ज करें",
+                            "अति महत्वपूर्ण: काम शुरू करने से पहले ग्राहक से 4 अंकों का DutyPe Start OTP लें। इससे बीमा सक्रिय होता है।",
+                            "🔑"
+                        ),
+                        Triple(
+                            "4. बेहतरीन काम और सफाई",
+                            "सभी आवश्यक टूल्स साथ लाएं, काम अच्छे से पूरा करें और काम खत्म होने के बाद जगह को साफ रखें।",
+                            "🛠️"
+                        ),
+                        Triple(
+                            "5. तुरंत बैंक UPI भुगतान",
+                            "'Complete' दबाते ही पूरी राशि बिना किसी कमीशन कटौती के सीधे आपके रजिस्टर्ड UPI में ट्रांसफर होगी!",
+                            "⚡"
+                        )
+                    )
+                    else -> listOf(
+                        Triple(
+                            "1. Receive Service Alert",
+                            "Loud alert rings when a nearby customer needs help within 5 km. You have 60 seconds to review earnings and tap Accept.",
+                            "📱"
+                        ),
+                        Triple(
+                            "2. One-Tap Doorstep Navigation",
+                            "Tap 'Navigate' for live Google Maps directions straight to customer doorstep. Call customer in-app if you need landmark guidance.",
+                            "🗺️"
+                        ),
+                        Triple(
+                            "3. Enter Customer Start OTP",
+                            "CRITICAL: Before touching tools, ask customer for the 4-digit DutyPe Start OTP. Entering this officially activates job insurance.",
+                            "🔑"
+                        ),
+                        Triple(
+                            "4. Deliver Quality Work & Clean Up",
+                            "Carry all required tools, perform the repair/service properly, test with customer, and leave the workspace tidy.",
+                            "🛠️"
+                        ),
+                        Triple(
+                            "5. Instant Direct UPI Payout",
+                            "Tap 'Complete'. Customer verifies work and full payment is credited directly to your registered UPI ID without delay!",
+                            "⚡"
+                        )
+                    )
+                }
+
+                steps.forEach { (title, desc, emoji) ->
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
@@ -2113,14 +1958,66 @@ private fun PartnerVisualGuideBottomSheet(
                     }
                 }
 
-                // Visual Do's & Don'ts Grid
+                // Visual Do's & Don'ts Grid (Localized)
                 Text(
-                    text = "PARTNER DO'S & DON'TS",
+                    text = when (selectedLang) {
+                        "te" -> "పార్ట్‌నర్ నియమాలు (చేయవలసినవి & చేయకూడనివి)"
+                        "hi" -> "पार्टनर नियम (क्या करें और क्या न करें)"
+                        else -> "PARTNER DO'S & DON'TS"
+                    },
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.Bold,
                     color = StitchLabel,
                     letterSpacing = 0.5.sp
                 )
+
+                val dosList = when (selectedLang) {
+                    "te" -> listOf(
+                        "5 నిమిషాల ముందుగా వెళ్లండి",
+                        "Start OTP తప్పక అడగండి",
+                        "స్వంత టూల్స్ తెచ్చుకోండి",
+                        "మర్యాదగా మాట్లాడండి",
+                        "ఏరియాను క్లీన్ చేయండి"
+                    )
+                    "hi" -> listOf(
+                        "5 मिनट पहले पहुंचें",
+                        "Start OTP अवश्य लें",
+                        "अपने टूल्स साथ लाएं",
+                        "विनम्रता से बात करें",
+                        "काम के बाद सफाई करें"
+                    )
+                    else -> listOf(
+                        "Reach 5 mins early",
+                        "Ask for Start OTP",
+                        "Bring own tools",
+                        "Polite & respectful",
+                        "Clean work area"
+                    )
+                }
+
+                val dontsList = when (selectedLang) {
+                    "te" -> listOf(
+                        "ఆఫ్‌లైన్ బేరసారాలు వద్దు",
+                        "ధూమపానం / గుట్కా వద్దు",
+                        "ఇతరులను వెంట తీసుకురావద్దు",
+                        "ఇంటి ఫోటోలు తీయవద్దు",
+                        "OTP లేకుండా పని చేయవద్దు"
+                    )
+                    "hi" -> listOf(
+                        "ऑफलाइन मोलभाव न करें",
+                        "धूम्रपान / गुटखा न लें",
+                        "अनजान लोगों को न लाएं",
+                        "घर की तस्वीरें न लें",
+                        "बिना OTP काम शुरू न करें"
+                    )
+                    else -> listOf(
+                        "No offline haggling",
+                        "No smoking / gutkha",
+                        "Never bring strangers",
+                        "No photos of home",
+                        "Never skip Start OTP"
+                    )
+                }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -2134,14 +2031,17 @@ private fun PartnerVisualGuideBottomSheet(
                         border = BorderStroke(1.dp, Color(0xFFBBF7D0))
                     ) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("✓ ALWAYS DO", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF166534))
-                            listOf(
-                                "Reach 5 mins early",
-                                "Ask for Start OTP",
-                                "Bring own tools",
-                                "Polite & respectful",
-                                "Clean work area"
-                            ).forEach { item ->
+                            Text(
+                                text = when (selectedLang) {
+                                    "te" -> "✓ ఎల్లప్పుడూ చేయండి"
+                                    "hi" -> "✓ हमेशा करें"
+                                    else -> "✓ ALWAYS DO"
+                                },
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = Color(0xFF166534)
+                            )
+                            dosList.forEach { item ->
                                 Text("• $item", fontSize = 11.sp, color = Color(0xFF14532D))
                             }
                         }
@@ -2155,14 +2055,17 @@ private fun PartnerVisualGuideBottomSheet(
                         border = BorderStroke(1.dp, Color(0xFFFECACA))
                     ) {
                         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("✗ NEVER DO", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF991B1B))
-                            listOf(
-                                "No offline haggling",
-                                "No smoking / gutkha",
-                                "Never bring strangers",
-                                "No photos of home",
-                                "Never skip Start OTP"
-                            ).forEach { item ->
+                            Text(
+                                text = when (selectedLang) {
+                                    "te" -> "✗ ఎప్పుడూ చేయకండి"
+                                    "hi" -> "✗ कभी न करें"
+                                    else -> "✗ NEVER DO"
+                                },
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = Color(0xFF991B1B)
+                            )
+                            dontsList.forEach { item ->
                                 Text("• $item", fontSize = 11.sp, color = Color(0xFF7F1D1D))
                             }
                         }
@@ -2176,7 +2079,16 @@ private fun PartnerVisualGuideBottomSheet(
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
                 modifier = Modifier.fillMaxWidth().height(50.dp)
             ) {
-                Text("I Understand & Ready to Serve →", fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = Color.White)
+                Text(
+                    text = when (selectedLang) {
+                        "te" -> "అర్థమైంది & సేవ చేయడానికి సిద్ధం →"
+                        "hi" -> "मैं समझ गया, सेवा के लिए तैयार हूँ →"
+                        else -> "I Understand & Ready to Serve →"
+                    },
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.5.sp,
+                    color = Color.White
+                )
             }
         }
     }

@@ -94,6 +94,7 @@ private fun StitchTextField(
     backgroundColor: Color = Color.White,
     valueColor: Color = StitchFieldValue,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    visualTransformation: androidx.compose.ui.text.input.VisualTransformation = androidx.compose.ui.text.input.VisualTransformation.None,
     leadingIcon: (@Composable () -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null
 ) {
@@ -135,6 +136,7 @@ private fun StitchTextField(
                         color = valueColor
                     ),
                     keyboardOptions = keyboardOptions,
+                    visualTransformation = visualTransformation,
                     cursorBrush = SolidColor(Color(0xFF00A859)),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -226,6 +228,9 @@ fun MandatoryWorkerProfileSetupScreen(
     var selectedSkills by rememberSaveable { mutableStateOf(setOf<String>()) }
     var selectedExperienceIndex by rememberSaveable { mutableIntStateOf(1) }
     var aadhaarNumberInput by rememberSaveable { mutableStateOf("") }
+    var isAadhaarVerified by rememberSaveable { mutableStateOf(false) }
+    var verifiedMaskedAadhaar by rememberSaveable { mutableStateOf("") }
+    var showAadhaarVerificationSheet by remember { mutableStateOf(false) }
     var workerAddress by rememberSaveable { mutableStateOf("") }
     var workerLatitude by rememberSaveable { mutableDoubleStateOf(0.0) }
     var workerLongitude by rememberSaveable { mutableDoubleStateOf(0.0) }
@@ -970,32 +975,101 @@ fun MandatoryWorkerProfileSetupScreen(
                     }
                 }
 
-                // 6. Aadhaar Number (Optional - NO OTP verification, can skip)
+                // 6. Aadhaar Number & e-KYC Verification
                 val cleanAadhaarCurrent = AadhaarVerifier.clean(aadhaarNumberInput)
                 val aadhaarValidationResult = remember(cleanAadhaarCurrent) {
                     if (cleanAadhaarCurrent.isNotEmpty()) AadhaarVerifier.validate(cleanAadhaarCurrent) else null
                 }
                 val aadhaarHelper = when {
-                    cleanAadhaarCurrent.isEmpty() -> "Optional for profile setup • Service Partners must verify Aadhaar before booking approval"
-                    aadhaarValidationResult?.isValid == true -> "✓ Valid Aadhaar (${AadhaarVerifier.mask(cleanAadhaarCurrent)}) • UIDAI Checksum Verified"
+                    isAadhaarVerified -> "✓ Aadhaar e-KYC Verified with UIDAI Govt Records"
+                    cleanAadhaarCurrent.isEmpty() -> "12-digit Aadhaar number • Verify via DigiLocker or Mobile OTP"
+                    aadhaarValidationResult?.isValid == true -> "✓ Valid Aadhaar • Tap 'Verify Aadhaar' to authenticate"
                     else -> aadhaarValidationResult?.message ?: "Please enter a valid 12-digit Aadhaar number"
                 }
-                val isAadhaarError = (showValidationErrors || cleanAadhaarCurrent.length == 12) &&
+                val isAadhaarError = !isAadhaarVerified && (showValidationErrors || cleanAadhaarCurrent.length == 12) &&
                     cleanAadhaarCurrent.isNotEmpty() &&
                     (aadhaarValidationResult?.isValid != true)
 
-                StitchTextField(
-                    value = aadhaarNumberInput,
-                    onValueChange = {
-                        val filtered = it.filter { ch -> ch.isDigit() }.take(12)
-                        aadhaarNumberInput = filtered
-                    },
-                    label = "AADHAAR NUMBER (OPTIONAL - CAN SKIP)",
-                    placeholder = "12-digit Aadhaar Number (optional)",
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    errorMessage = if (isAadhaarError) aadhaarValidationResult?.message else null,
-                    helperText = if (!isAadhaarError) aadhaarHelper else null
-                )
+                if (isAadhaarVerified) {
+                    // Verified State Banner
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFFECFDF5))
+                            .border(1.dp, Color(0xFFBBF7D0), RoundedCornerShape(14.dp))
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFDCFCE7)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Filled.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF16A34A),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "🛡️ Aadhaar Verified (Govt ID Confirmed)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Color(0xFF065F46)
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                "ID: $verifiedMaskedAadhaar • 256-bit Encrypted",
+                                fontSize = 11.5.sp,
+                                color = Color(0xFF047857)
+                            )
+                        }
+                        TextButton(
+                            onClick = {
+                                isAadhaarVerified = false
+                                verifiedMaskedAadhaar = ""
+                                aadhaarNumberInput = ""
+                            },
+                            contentPadding = PaddingValues(horizontal = 8.dp)
+                        ) {
+                            Text("Change", fontSize = 12.sp, color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                } else {
+                    StitchTextField(
+                        value = aadhaarNumberInput,
+                        onValueChange = {
+                            val filtered = it.filter { ch -> ch.isDigit() }.take(12)
+                            aadhaarNumberInput = filtered
+                        },
+                        label = "12-DIGIT AADHAAR NUMBER",
+                        placeholder = "Enter 12-digit Aadhaar Number",
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        visualTransformation = remember { com.example.dutype.utils.AadhaarVisualTransformation() },
+                        errorMessage = if (isAadhaarError) aadhaarValidationResult?.message else null,
+                        helperText = if (!isAadhaarError) aadhaarHelper else null
+                    )
+
+                    if (cleanAadhaarCurrent.length == 12 && aadhaarValidationResult?.isValid == true) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Button(
+                            onClick = { showAadhaarVerificationSheet = true },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00B159)),
+                            modifier = Modifier.fillMaxWidth().height(46.dp)
+                        ) {
+                            Icon(Icons.Filled.Security, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Verify Aadhaar (DigiLocker / OTP) 🛡️", fontWeight = FontWeight.Bold, fontSize = 13.5.sp, color = Color.White)
+                        }
+                    }
+                }
 
                 // 7. Work Location Section (Required)
                 LocationSectionCard(
@@ -1124,6 +1198,20 @@ fun MandatoryWorkerProfileSetupScreen(
                 }
             }
         }
+    }
+
+    if (showAadhaarVerificationSheet) {
+        val cleanAadhaar = AadhaarVerifier.clean(aadhaarNumberInput)
+        com.example.dutype.components.AadhaarKycVerificationSheet(
+            aadhaarDigits = cleanAadhaar,
+            onDismiss = { showAadhaarVerificationSheet = false },
+            onVerified = { masked ->
+                isAadhaarVerified = true
+                verifiedMaskedAadhaar = masked
+                showAadhaarVerificationSheet = false
+                android.widget.Toast.makeText(context, "Aadhaar Identity Confirmed! e-KYC Verified.", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        )
     }
 }
 
