@@ -215,6 +215,25 @@ fun OpenFreeMapTrackerView(
         }
     }
 
+    // Android 17 Memory Hygiene: Clean up WebView resources on unmount to prevent leaking Chromium / WebKit instances
+    DisposableEffect(Unit) {
+        onDispose {
+            webViewRef?.let { wv ->
+                try {
+                    wv.removeJavascriptInterface("AndroidBridge")
+                    wv.stopLoading()
+                    wv.loadUrl("about:blank")
+                    wv.clearHistory()
+                    wv.removeAllViews()
+                    wv.destroy()
+                } catch (e: Exception) {
+                    timber.log.Timber.w(e, "Error destroying OpenFreeMap WebView")
+                }
+            }
+            webViewRef = null
+        }
+    }
+
     // Effective Coordinates with realistic fallback when GPS is initiating
     val effectiveCustomerLat = remember(customerLat, partnerLat) {
         if (customerLat != 0.0) customerLat

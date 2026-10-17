@@ -673,6 +673,11 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         Timber.d("📱 MainActivity.onDestroy()")
+        try {
+            updateManager.unregisterFlexibleUpdateListener()
+        } catch (e: Exception) {
+            Timber.w(e, "Error unregistering flexible update listener in onDestroy")
+        }
     }
 }
 

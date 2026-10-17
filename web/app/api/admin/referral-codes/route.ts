@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { FieldPath } from "firebase-admin/firestore";
+import type { DocumentSnapshot, Query } from "firebase-admin/firestore";
 import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
 import { cachedAdminGet } from "@/lib/firebase/admin-response-cache";
 import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
@@ -48,7 +50,7 @@ async function getUncached(request: NextRequest) {
       const cleanDigits = query.replace(/\D/g, "");
       const isLikelyPhone = cleanDigits.length >= 10;
       let matchedUids: string[] = [];
-      let directCodeDoc: FirebaseFirestore.DocumentSnapshot | null = null;
+      let directCodeDoc: DocumentSnapshot | null = null;
 
       if (isLikelyPhone) {
         const formattedPhone = e164(query) || (cleanDigits.length === 10 ? `+91${cleanDigits}` : `+${cleanDigits}`);
@@ -179,7 +181,7 @@ async function getUncached(request: NextRequest) {
 
     // Default: Browse referral_codes collection with pagination & filters
     const col = db.collection(ReferralCodes.COLLECTION);
-    let q: FirebaseFirestore.Query = col;
+    let q: Query = col;
 
     if (roleParam === "WORKER" || roleParam === "EMPLOYER") {
       q = q.where(ReferralCodes.ROLE, "==", roleParam);
@@ -188,7 +190,7 @@ async function getUncached(request: NextRequest) {
       q = q.where(ReferralCodes.ACTIVE, "==", activeParam === "true");
     }
 
-    q = q.orderBy(FirebaseFirestore.FieldPath.documentId());
+    q = q.orderBy(FieldPath.documentId());
 
     if (after) {
       const cursor = await col.doc(after).get();

@@ -5,6 +5,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -61,68 +65,53 @@ fun OptimizedImage(
 ) {
     val context = LocalContext.current
     
-    SubcomposeAsyncImage(
-        model = ImageRequest.Builder(context)
+    // Cache ImageRequest to avoid re-allocating builder & request on every recomposition
+    val imageRequest = remember(imageUrl, crossfadeMillis) {
+        ImageRequest.Builder(context)
             .data(imageUrl)
-            .crossfade(crossfadeMillis) // Smooth fade-in when loaded
-            .scale(Scale.FIT) // Efficient scaling
-            .build(),
-        contentDescription = contentDescription,
-        modifier = modifier,
-        contentScale = contentScale,
-        loading = {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(placeholderColor),
-                contentAlignment = Alignment.Center
-            ) {
-                if (placeholderIcon != null) {
-                    Icon(
-                        imageVector = placeholderIcon,
-                        contentDescription = null,
-                        tint = placeholderIconTint,
-                        modifier = Modifier.size(24.dp)
-                    )
-                } else if (showLoadingIndicator) {
-                    CircularProgressIndicator(
-                        strokeWidth = 2.dp,
-                        color = WorkerColors.Info
-                    )
-                }
-            }
-        },
-        success = {
-            onImageLoaded?.invoke()
-            it.painter.let { painter ->
-                androidx.compose.foundation.Image(
-                    painter = painter,
-                    contentDescription = contentDescription,
-                    contentScale = contentScale,
-                    modifier = Modifier.fillMaxSize()
+            .crossfade(crossfadeMillis)
+            .scale(Scale.FIT)
+            .build()
+    }
+    
+    var isImageLoaded by remember(imageUrl) { mutableStateOf(false) }
+
+    Box(
+        modifier = modifier.background(placeholderColor),
+        contentAlignment = Alignment.Center
+    ) {
+        // Show placeholder icon or spinner beneath until image successfully renders
+        if (!isImageLoaded) {
+            if (placeholderIcon != null) {
+                Icon(
+                    imageVector = placeholderIcon,
+                    contentDescription = null,
+                    tint = placeholderIconTint,
+                    modifier = Modifier.size(24.dp)
+                )
+            } else if (showLoadingIndicator) {
+                CircularProgressIndicator(
+                    strokeWidth = 2.dp,
+                    color = WorkerColors.Info
                 )
             }
-        },
-        error = {
-            // Fallback on error — show placeholder icon or clean container
-            onImageLoaded?.invoke()
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(placeholderColor),
-                contentAlignment = Alignment.Center
-            ) {
-                if (placeholderIcon != null) {
-                    Icon(
-                        imageVector = placeholderIcon,
-                        contentDescription = null,
-                        tint = placeholderIconTint,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            }
         }
-    )
+
+        coil.compose.AsyncImage(
+            model = imageRequest,
+            contentDescription = contentDescription,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = contentScale,
+            onSuccess = {
+                isImageLoaded = true
+                onImageLoaded?.invoke()
+            },
+            onError = {
+                isImageLoaded = false
+                onImageLoaded?.invoke()
+            }
+        )
+    }
 }
 
 

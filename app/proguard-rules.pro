@@ -16,55 +16,52 @@
 -keep class kotlin.Metadata { *; }
 
 # Application & Activity classes
--keep class com.dutype.app.DutyPeApplication { *; }
--keep class com.example.dutype.DutyPeApplication { *; }
--keep class com.example.dutype.MainActivity { *; }
--keep class * extends androidx.activity.ComponentActivity { *; }
--keep class * extends androidx.fragment.app.Fragment { *; }
+-keep class com.dutype.app.DutyPeApplication
+-keep class com.example.dutype.DutyPeApplication
+-keep class com.example.dutype.MainActivity
+-keep class * extends androidx.activity.ComponentActivity
+-keep class * extends androidx.fragment.app.Fragment
 
 # App models & @Keep annotated classes
 -keep @androidx.annotation.Keep class * { *; }
 -keepclassmembers @androidx.annotation.Keep class * { *; }
--keep class com.example.dutype.models.** { *; }
--keepclassmembers class com.example.dutype.models.** { *; }
--keep class com.example.dutype.homeservices.** { *; }
--keepclassmembers class com.example.dutype.homeservices.** { *; }
--keep class com.example.dutype.employer.models.** { *; }
--keepclassmembers class com.example.dutype.employer.models.** { *; }
--keep class com.example.dutype.employer.ai.** { *; }
--keepclassmembers class com.example.dutype.employer.ai.** { *; }
--keep class com.example.dutype.employer.voice.** { *; }
--keepclassmembers class com.example.dutype.employer.voice.** { *; }
--keep class com.example.dutype.worker.models.** { *; }
--keepclassmembers class com.example.dutype.worker.models.** { *; }
--keep class com.example.dutype.urgent.** { *; }
--keepclassmembers class com.example.dutype.urgent.** { *; }
--keep class com.example.dutype.profile.** { *; }
--keepclassmembers class com.example.dutype.profile.** { *; }
--keep class com.example.dutype.data.** { *; }
--keepclassmembers class com.example.dutype.data.** { *; }
--keep class com.example.dutype.auth.** { *; }
--keepclassmembers class com.example.dutype.auth.** { *; }
--keep class com.example.dutype.components.** { *; }
--keepclassmembers class com.example.dutype.components.** { *; }
+
+# Preserve data models used with Firestore / Gson reflection (constructors, fields, getters/setters)
+-keep class com.example.dutype.models.** {
+    <init>(...);
+    <fields>;
+    *** get*();
+    *** set*(...);
+    *** is*();
+}
+-keep class com.example.dutype.employer.models.** {
+    <init>(...);
+    <fields>;
+    *** get*();
+    *** set*(...);
+    *** is*();
+}
+-keep class com.example.dutype.worker.models.** {
+    <init>(...);
+    <fields>;
+    *** get*();
+    *** set*(...);
+    *** is*();
+}
+-keep class com.example.dutype.homeservices.models.** {
+    <init>(...);
+    <fields>;
+    *** get*();
+    *** set*(...);
+    *** is*();
+}
 -keep,includedescriptorclasses class com.example.dutype.**$$serializer { *; }
 
 # -----------------------------------------------------------------------------
-# Coil (Image Loading)
+# Coil (Image Loading) - Coil ships its own consumer rules; keep key entry points
 # -----------------------------------------------------------------------------
--keep class coil.** { *; }
--keep interface coil.** { *; }
--keepclassmembers class coil.** { *; }
--keepclassmembers interface coil.** { *; }
--keep class coil.intercept.** { *; }
--keepclassmembers class coil.intercept.** { *; }
--keep class coil.request.ImageResult { *; }
--keep class coil.request.SuccessResult { *; }
--keep class coil.request.ErrorResult { *; }
--keep class coil.request.ImageRequest { *; }
--keep class coil.request.Options { *; }
--keep class coil.compose.** { *; }
--keepclassmembers class coil.compose.** { *; }
+-keep class coil.ImageLoader { *; }
+-keep class coil.ImageLoaderFactory { *; }
 -dontwarn coil.**
 
 # -----------------------------------------------------------------------------

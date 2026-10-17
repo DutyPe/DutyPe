@@ -169,7 +169,7 @@ class OtpViewModel @Inject constructor(
         Timber.d("OtpViewModel: Role context set to $role for FCM registration")
     }
 
-    fun sendOtp(phoneNumber: String, context: Context, mode: String = "unified") {
+    fun sendOtp(phoneNumber: String, context: Context? = null, mode: String = "unified") {
         viewModelScope.launch {
             val startTime = System.currentTimeMillis()
             com.example.dutype.performance.MainThreadChecker.assertMainThread("OtpViewModel.sendOtp")
@@ -272,7 +272,7 @@ class OtpViewModel @Inject constructor(
         }
     }
 
-    fun verifyOtp(otp: String, context: Context) {
+    fun verifyOtp(otp: String, context: Context? = null) {
         viewModelScope.launch {
             _otpState.value = _otpState.value.copy(isLoading = true, error = null)
 
@@ -288,7 +288,7 @@ class OtpViewModel @Inject constructor(
                        if (verificationId != null) {
                            errorHandler.logBreadcrumb("OTP verification ID available - proceeding")
                            val credential = PhoneAuthProvider.getCredential(verificationId, otp)
-                           signInWithPhoneAuthCredential(credential, context)
+                           signInWithPhoneAuthCredential(credential)
                        } else {
                     Timber.e("❌ Verification ID not found for OTP verification")
                     errorHandler.logBreadcrumb("OTP verification failed: No verification ID stored")
@@ -310,7 +310,7 @@ class OtpViewModel @Inject constructor(
         }
     }
 
-    private fun signInWithPhoneAuthCredential(credential: PhoneAuthCredential, context: Context) {
+    private fun signInWithPhoneAuthCredential(credential: PhoneAuthCredential, context: Context? = null) {
         viewModelScope.launch {
             errorHandler.logBreadcrumb("Phone credential sign-in started")
             try {
@@ -846,7 +846,7 @@ class OtpViewModel @Inject constructor(
         }
     }
 
-    fun resendViaWhatsapp(phoneNumber: String, context: Context, mode: String = "unified") {
+    fun resendViaWhatsapp(phoneNumber: String, context: Context? = null, mode: String = "unified") {
         if (_resendCooldownSeconds.value > 0) return
         activeOtpSession = null
         viewModelScope.launch {
@@ -863,11 +863,11 @@ class OtpViewModel @Inject constructor(
         }
     }
 
-    fun resendViaSms(phoneNumber: String, context: Context, mode: String = "unified") {
+    fun resendViaSms(phoneNumber: String, context: Context? = null, mode: String = "unified") {
         resendViaWhatsapp(phoneNumber, context, mode)
     }
 
-    fun resendOtp(phoneNumber: String, context: Context, mode: String = "unified") {
+    fun resendOtp(phoneNumber: String, context: Context? = null, mode: String = "unified") {
         resendViaWhatsapp(phoneNumber, context, mode)
     }
 
@@ -972,7 +972,7 @@ class OtpViewModel @Inject constructor(
      *   1. Show the code in the UI field (autoRetrievedOtp).
      *   2. Start auto-verification so the user never has to tap anything.
      */
-    fun onSmsAutoRetrieved(otp: String, context: Context) {
+    fun onSmsAutoRetrieved(otp: String, context: Context? = null) {
         Timber.i("📱 SMS Auto-Retrieved OTP successfully – auto-submitting")
         errorHandler.logBreadcrumb("SMS auto-retrieval succeeded")
         errorHandler.logEvent("sms_auto_retrieved", true)

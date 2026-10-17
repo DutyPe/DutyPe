@@ -85,10 +85,11 @@ sealed class VoicePostingState {
 }
 
 class VoiceJobPostingManager(
-    private val context: Context,
+    context: Context,
     private val scope: CoroutineScope
 ) : RecognitionListener, TextToSpeech.OnInitListener {
 
+    private val appContext: Context = context.applicationContext
     private var speechRecognizer: SpeechRecognizer? = null
     private var textToSpeech: TextToSpeech? = null
     private var isTtsReady = false
@@ -126,15 +127,15 @@ class VoiceJobPostingManager(
     }
 
     private fun initSpeechRecognizer() {
-        if (SpeechRecognizer.isRecognitionAvailable(context)) {
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context).apply {
+        if (SpeechRecognizer.isRecognitionAvailable(appContext)) {
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(appContext).apply {
                 setRecognitionListener(this@VoiceJobPostingManager)
             }
         }
     }
 
     private fun initTextToSpeech() {
-        textToSpeech = TextToSpeech(context, this)
+        textToSpeech = TextToSpeech(appContext, this)
     }
 
     override fun onInit(status: Int) {
@@ -157,7 +158,7 @@ class VoiceJobPostingManager(
         _partialTranscript.value = ""
         _soundLevel.value = 0f
 
-        if (!SpeechRecognizer.isRecognitionAvailable(context)) {
+        if (!SpeechRecognizer.isRecognitionAvailable(appContext)) {
             _state.value = VoicePostingState.Error("Speech recognition is not available on this device")
             return
         }

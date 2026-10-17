@@ -322,8 +322,6 @@ object AppModule {
                 .build()
         }
 
-        Timber.d("Coil ImageLoader: RAM=${totalRamMb}MB, isLowRam=$isLowRam, cacheSize=${if (isLowRam) "32MB cap" else "25%"}")
-
         return ImageLoader.Builder(context)
             .memoryCache { memoryCache }
             .diskCache {
@@ -332,6 +330,9 @@ object AppModule {
                     .maxSizePercent(0.02) // Use 2% of available disk space
                     .build()
             }
+            // Android 17 Optimization: auto-downsample opaque images to RGB_565 (cuts RAM in half)
+            .allowRgb565(true)
+            .precision(coil.size.Precision.INEXACT)
             .crossfade(300) // Smooth fade-in (Meta standard)
             .respectCacheHeaders(false) // Ignore server cache headers for better offline support
             .allowHardware(!isLowRam) // Disable GPU decoding on low-RAM to save VRAM

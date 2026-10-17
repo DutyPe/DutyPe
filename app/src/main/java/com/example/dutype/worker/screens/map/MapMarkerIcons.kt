@@ -44,6 +44,11 @@ internal object MapMarkerIcons {
         return cache.get("u") ?: drawUserDot(context).also { cache.put("u", it) }
     }
 
+    @Synchronized
+    fun clearCache() {
+        cache.evictAll()
+    }
+
     private fun boldPaint(sizePx: Float, color: Int): Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = sizePx
         this.color = color

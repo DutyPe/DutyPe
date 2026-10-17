@@ -108,7 +108,24 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
     @Inject
     lateinit var imageLoaderProvider: dagger.Lazy<ImageLoader>
 
+    @Inject
+    lateinit var memoryTrimManager: dagger.Lazy<com.example.dutype.utils.MemoryTrimManager>
+
     override fun newImageLoader(): ImageLoader = imageLoaderProvider.get()
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        runCatching {
+            memoryTrimManager.get().onTrimMemory(level)
+        }.onFailure { Timber.w(it, "Failed to execute onTrimMemory") }
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        runCatching {
+            memoryTrimManager.get().onLowMemory()
+        }.onFailure { Timber.w(it, "Failed to execute onLowMemory") }
+    }
 
     // Note: FeatureFlags is a data class in AppMetadata, not an injectable class
     // Access via: appMetadata.featureFlags.value

@@ -77,7 +77,7 @@ fun loadIssueOf(message: String?, online: Boolean): LoadIssue {
 }
 
 fun isOnlineNow(context: Context): Boolean {
-    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return true
+    val cm = context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return true
     val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
     return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
 }
@@ -86,9 +86,10 @@ fun isOnlineNow(context: Context): Boolean {
 @Composable
 fun rememberOnline(): State<Boolean> {
     val context = LocalContext.current
-    val state = remember { mutableStateOf(isOnlineNow(context)) }
-    DisposableEffect(context) {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+    val appContext = context.applicationContext
+    val state = remember { mutableStateOf(isOnlineNow(appContext)) }
+    DisposableEffect(appContext) {
+        val cm = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) { state.value = true }
             override fun onLost(network: Network) { state.value = isOnlineNow(context) }

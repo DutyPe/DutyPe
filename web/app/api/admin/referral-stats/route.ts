@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldPath, Timestamp } from "firebase-admin/firestore";
+import type { Query } from "firebase-admin/firestore";
 
 import { cachedAdminGet } from "@/lib/firebase/admin-response-cache";
 import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
@@ -19,6 +20,18 @@ function jsonSafe(value: unknown): unknown {
   }
   return value;
 }
+
+export type TopReferrer = {
+  rank: number;
+  uid: string;
+  name: string;
+  phone: string;
+  role: "WORKER" | "EMPLOYER";
+  referralCode: string;
+  successfulReferrals: number;
+  balanceRupees: number;
+  lifetimeEarnedRupees: number;
+};
 
 export type ReferralStatRow = {
   id: string; // user uid
@@ -150,7 +163,22 @@ async function getUncached(request: NextRequest) {
       }
     }
 
-    let firestoreQuery: FirebaseFirestore.Query = col.orderBy(FieldPath.documentId());
+    const sortParam = params.get("sort") || "default";
+    const hasBalanceParam = params.get("hasBalance");
+
+    let firestoreQuery: Query = col;
+
+    if (sortParam === "balance") {
+      firestoreQuery = firestoreQuery.orderBy(Wallets.BALANCE_PAISE, "desc");
+    } else if (sortParam === "referrals") {
+      firestoreQuery = firestoreQuery.orderBy(Wallets.SUCCESSFUL_REFERRALS, "desc");
+    } else if (sortParam === "earned") {
+      firestoreQuery = firestoreQuery.orderBy(Wallets.LIFETIME_EARNED_PAISE, "desc");
+    } else if (sortParam === "withdrawn") {
+      firestoreQuery = firestoreQuery.orderBy(Wallets.WITHDRAWN_PAISE, "desc");
+    } else {
+      firestoreQuery = firestoreQuery.orderBy(FieldPath.documentId());
+    }
 
     const after = params.get("after");
     if (after) {
@@ -158,12 +186,20 @@ async function getUncached(request: NextRequest) {
       if (cursor.exists) firestoreQuery = firestoreQuery.startAfter(cursor);
     }
 
-    const snap = await firestoreQuery.limit(limit).get();
-    const uids = snap.docs.map((d) => d.id);
+    const [snap, totalCountSnap, blockedCountSnap, topSnap] = await Promise.all([
+      firestoreQuery.limit(limit).get(),
+      col.count().get(),
+      col.where(Wallets.BLOCKED, "==", true).count().get(),
+      col.where(Wallets.BLOCKED, "==", false).orderBy(Wallets.SUCCESSFUL_REFERRALS, "desc").limit(5).get()
+    ]);
+
+    const mainUids = snap.docs.map((d) => d.id);
+    const topUids = topSnap.docs.map((d) => d.id);
+    const allUids = Array.from(new Set([...mainUids, ...topUids].filter(Boolean)));
 
     const [workers, employers] = await Promise.all([
-      uids.length ? db.getAll(...uids.map((u) => db.collection(WorkerProfiles.COLLECTION).doc(u))) : [],
-      uids.length ? db.getAll(...uids.map((u) => db.collection(EmployerProfiles.COLLECTION).doc(u))) : []
+      allUids.length ? db.getAll(...allUids.map((u) => db.collection(WorkerProfiles.COLLECTION).doc(u))) : [],
+      allUids.length ? db.getAll(...allUids.map((u) => db.collection(EmployerProfiles.COLLECTION).doc(u))) : []
     ]);
 
     const workerMap = new Map(workers.filter((w) => w.exists).map((w) => [w.id, w.data()!]));
@@ -212,9 +248,41 @@ async function getUncached(request: NextRequest) {
     } else if (blockedParam === "false") {
       items = items.filter((i) => i.blocked === false);
     }
+    if (hasBalanceParam === "true") {
+      items = items.filter((i) => i.balancePaise > 0);
+    } else if (hasBalanceParam === "false") {
+      items = items.filter((i) => i.balancePaise === 0);
+    }
 
+    const topReferrers: TopReferrer[] = topSnap.docs.map((d, index) => {
+      const uid = d.id;
+      const wProf = workerMap.get(uid);
+      const eProf = employerMap.get(uid);
+      const phone = String(wProf?.phone || eProf?.phone || "");
+      const name = String(wProf?.name || eProf?.ownerName || eProf?.businessName || "Member");
+      const role: "WORKER" | "EMPLOYER" = eProf ? "EMPLOYER" : "WORKER";
+      const balancePaise = Number(d.get(Wallets.BALANCE_PAISE) || 0);
+      const lifetimeEarnedPaise = Number(d.get(Wallets.LIFETIME_EARNED_PAISE) || 0);
+      return {
+        rank: index + 1,
+        uid,
+        name,
+        phone,
+        role,
+        referralCode: String(d.get(Wallets.REFERRAL_CODE) || ""),
+        successfulReferrals: Number(d.get(Wallets.SUCCESSFUL_REFERRALS) || 0),
+        balanceRupees: balancePaise / 100,
+        lifetimeEarnedRupees: lifetimeEarnedPaise / 100,
+      };
+    });
+
+    const totalInDb = totalCountSnap.data().count;
+    const blockedInDb = blockedCountSnap.data().count;
     const summary = {
-      totalWallets: items.length,
+      totalWallets: totalInDb,
+      activeWallets: totalInDb - blockedInDb,
+      blockedWallets: blockedInDb,
+      loadedCount: items.length,
       totalBalanceRupees: items.reduce((s, i) => s + i.balanceRupees, 0),
       totalEarnedRupees: items.reduce((s, i) => s + i.lifetimeEarnedRupees, 0),
       totalWithdrawnRupees: items.reduce((s, i) => s + i.withdrawnRupees, 0),
@@ -224,7 +292,8 @@ async function getUncached(request: NextRequest) {
     return NextResponse.json({
       items,
       nextCursor: snap.size === limit ? snap.docs.at(-1)!.id : null,
-      summary
+      summary,
+      topReferrers
     });
   } catch (error) {
     return NextResponse.json(

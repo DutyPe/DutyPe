@@ -85,6 +85,12 @@ class JobRepository @Inject constructor(
 
     private val cardCache = LruCache<String, Pair<JobListingSummary, Long>>(500)
 
+    /** Clears in-memory caches when app receives onTrimMemory signals. */
+    fun clearCaches() {
+        openedJobs.evictAll()
+        cardCache.evictAll()
+    }
+
     /** The employer's own job cards, newest first, live. */
     fun employerJobs(employerId: String): Flow<Result<List<JobListingSummary>>> = callbackFlow {
         val registration = firestore.collection(Jobs.COLLECTION)
