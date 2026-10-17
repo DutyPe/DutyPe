@@ -51,6 +51,7 @@ import timber.log.Timber
 @Composable
 fun AadhaarKycVerificationSheet(
     aadhaarDigits: String,
+    phoneNumber: String? = null,
     onDismiss: () -> Unit,
     onVerified: (maskedAadhaar: String) -> Unit
 ) {
@@ -292,10 +293,17 @@ fun AadhaarKycVerificationSheet(
                                 errorMessage = null
                                 scope.launch {
                                     try {
-                                        val functions = FirebaseFunctions.getInstance()
+                                        val functions = FirebaseFunctions.getInstance("asia-south1")
+                                        val payload = mutableMapOf<String, Any>("aadhaarNumber" to cleanAadhaar)
+                                        val userPhone = phoneNumber?.takeIf { it.isNotBlank() }
+                                            ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber
+                                        if (!userPhone.isNullOrBlank()) {
+                                            payload["phone"] = userPhone
+                                        }
+
                                         val result = functions
                                             .getHttpsCallable("sendAadhaarVerificationOtp")
-                                            .call(mapOf("aadhaarNumber" to cleanAadhaar))
+                                            .call(payload)
                                             .await()
 
                                         @Suppress("UNCHECKED_CAST")
@@ -306,7 +314,12 @@ fun AadhaarKycVerificationSheet(
                                         Toast.makeText(context, "Verification code sent to $maskedPhone", Toast.LENGTH_SHORT).show()
                                     } catch (e: Exception) {
                                         Timber.e(e, "sendAadhaarVerificationOtp failed")
-                                        errorMessage = e.localizedMessage ?: "Failed to send verification code. Please try again."
+                                        val rawMsg = if (e is com.google.firebase.functions.FirebaseFunctionsException) {
+                                            e.message ?: e.localizedMessage ?: "Cloud functions error (${e.code})"
+                                        } else {
+                                            e.localizedMessage ?: "Failed to send verification code. Please try again."
+                                        }
+                                        errorMessage = rawMsg
                                     } finally {
                                         isSendingOtp = false
                                     }
@@ -370,14 +383,26 @@ fun AadhaarKycVerificationSheet(
                                     if (resendCooldown == 0) {
                                         scope.launch {
                                             try {
-                                                val functions = FirebaseFunctions.getInstance()
+                                                val functions = FirebaseFunctions.getInstance("asia-south1")
+                                                val payload = mutableMapOf<String, Any>("aadhaarNumber" to cleanAadhaar)
+                                                val userPhone = phoneNumber?.takeIf { it.isNotBlank() }
+                                                    ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber
+                                                if (!userPhone.isNullOrBlank()) {
+                                                    payload["phone"] = userPhone
+                                                }
+
                                                 functions.getHttpsCallable("sendAadhaarVerificationOtp")
-                                                    .call(mapOf("aadhaarNumber" to cleanAadhaar))
+                                                    .call(payload)
                                                     .await()
                                                 resendCooldown = 45
                                                 Toast.makeText(context, "New code sent!", Toast.LENGTH_SHORT).show()
                                             } catch (e: Exception) {
-                                                errorMessage = e.localizedMessage
+                                                val rawMsg = if (e is com.google.firebase.functions.FirebaseFunctionsException) {
+                                                    e.message ?: e.localizedMessage ?: "Cloud functions error (${e.code})"
+                                                } else {
+                                                    e.localizedMessage ?: "Failed to resend code."
+                                                }
+                                                errorMessage = rawMsg
                                             }
                                         }
                                     }
@@ -419,7 +444,7 @@ fun AadhaarKycVerificationSheet(
                                 errorMessage = null
                                 scope.launch {
                                     try {
-                                        val functions = FirebaseFunctions.getInstance()
+                                        val functions = FirebaseFunctions.getInstance("asia-south1")
                                         val result = functions
                                             .getHttpsCallable("verifyAadhaarOtp")
                                             .call(mapOf(
@@ -436,7 +461,12 @@ fun AadhaarKycVerificationSheet(
                                         onVerified(masked)
                                     } catch (e: Exception) {
                                         Timber.e(e, "verifyAadhaarOtp failed")
-                                        errorMessage = e.localizedMessage ?: "Invalid or expired OTP. Please try again."
+                                        val rawMsg = if (e is com.google.firebase.functions.FirebaseFunctionsException) {
+                                            e.message ?: e.localizedMessage ?: "Verification error (${e.code})"
+                                        } else {
+                                            e.localizedMessage ?: "Invalid or expired OTP. Please try again."
+                                        }
+                                        errorMessage = rawMsg
                                     } finally {
                                         isVerifying = false
                                     }
@@ -500,7 +530,7 @@ fun AadhaarKycVerificationSheet(
                             errorMessage = null
                             scope.launch {
                                 try {
-                                    val functions = FirebaseFunctions.getInstance()
+                                    val functions = FirebaseFunctions.getInstance("asia-south1")
                                     val result = functions
                                         .getHttpsCallable("getDigilockerAuthUrl")
                                         .call()
@@ -525,7 +555,12 @@ fun AadhaarKycVerificationSheet(
                                     }
                                 } catch (e: Exception) {
                                     Timber.e(e, "getDigilockerAuthUrl failed")
-                                    errorMessage = e.localizedMessage ?: "Could not connect to DigiLocker portal. Please use Mobile OTP."
+                                    val rawMsg = if (e is com.google.firebase.functions.FirebaseFunctionsException) {
+                                        e.message ?: e.localizedMessage ?: "DigiLocker server error (${e.code})"
+                                    } else {
+                                        e.localizedMessage ?: "Could not connect to DigiLocker portal. Please use Mobile OTP."
+                                    }
+                                    errorMessage = rawMsg
                                 } finally {
                                     isDigilockerLoading = false
                                 }

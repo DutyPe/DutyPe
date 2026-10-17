@@ -1480,8 +1480,10 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
     }
 
     if (showAadhaarVerificationSheet) {
+        val userPhone = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber
         com.example.dutype.components.AadhaarKycVerificationSheet(
             aadhaarDigits = cleanAadhaar,
+            phoneNumber = userPhone,
             onDismiss = { showAadhaarVerificationSheet = false },
             onVerified = { masked ->
                 isAadhaarVerified = true

@@ -1204,6 +1204,7 @@ fun MandatoryWorkerProfileSetupScreen(
         val cleanAadhaar = AadhaarVerifier.clean(aadhaarNumberInput)
         com.example.dutype.components.AadhaarKycVerificationSheet(
             aadhaarDigits = cleanAadhaar,
+            phoneNumber = contactPhone.takeIf { it.isNotBlank() } ?: com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.phoneNumber,
             onDismiss = { showAadhaarVerificationSheet = false },
             onVerified = { masked ->
                 isAadhaarVerified = true

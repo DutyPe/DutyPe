@@ -4,6 +4,7 @@ exports.getDigilockerAuthUrl = exports.verifyAadhaarOtp = exports.sendAadhaarVer
 exports.validateVerhoeff = validateVerhoeff;
 exports.validateAadhaar = validateAadhaar;
 exports.computeNameMatchScore = computeNameMatchScore;
+const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
 const secure_callable_1 = require("./secure-callable");
@@ -311,21 +312,31 @@ exports.verifyDigilockerKycSession = (0, secure_callable_1.onCallSecured)({ requ
 async function sendAadhaarOtpOnWhatsapp(phone, code) {
     const token = (process.env.WHATSAPP_TOKEN || "").trim();
     const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-    if (!token || !phoneId)
+    if (!token || !phoneId) {
+        functions.logger.warn("sendAadhaarOtpOnWhatsapp: missing token or phoneId", { hasToken: Boolean(token), phoneId });
         return false;
+    }
     const version = process.env.WHATSAPP_API_VERSION || "v21.0";
     const url = `https://graph.facebook.com/${version}/${phoneId}/messages`;
     try {
         const template = process.env.WHATSAPP_TEMPLATE || "dutype_login_otp";
         const lang = process.env.WHATSAPP_TEMPLATE_LANG || "en";
+        const body = (0, phone_otp_1.whatsappTemplateBody)(phone, code, template, lang);
         const res = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-            body: JSON.stringify((0, phone_otp_1.whatsappTemplateBody)(phone, code, template, lang))
+            body: JSON.stringify(body)
         });
-        return res.ok;
+        if (!res.ok) {
+            const errText = (await res.text()).slice(0, 500);
+            functions.logger.error(`sendAadhaarOtpOnWhatsapp failed status=${res.status}`, { errText, phone });
+            return false;
+        }
+        functions.logger.info(`sendAadhaarOtpOnWhatsapp success to ${phone}`);
+        return true;
     }
-    catch (_a) {
+    catch (e) {
+        functions.logger.error("sendAadhaarOtpOnWhatsapp exception", e);
         return false;
     }
 }
@@ -356,10 +367,13 @@ exports.sendAadhaarVerificationOtp = (0, secure_callable_1.onCallSecured)({ requ
     if (nowMs - lastSentAt < 30 * 1000) {
         (0, input_1.fail)("resource-exhausted", `Please wait ${Math.ceil((30 * 1000 - (nowMs - lastSentAt)) / 1000)}s before resending.`);
     }
-    // Determine target phone: user's registered phone or passed phone
+    // Determine target phone: user's passed phone, auth record, worker profile, or users doc
     let phone = "";
     if (typeof data.phone === "string" && data.phone.trim()) {
         phone = (0, phone_otp_1.indianE164)(data.phone.trim()) || "";
+    }
+    if (!phone && typeof data.authPhone === "string" && data.authPhone.trim()) {
+        phone = (0, phone_otp_1.indianE164)(data.authPhone.trim()) || "";
     }
     if (!phone) {
         const user = await admin.auth().getUser(uid).catch(() => null);
@@ -396,10 +410,17 @@ exports.sendAadhaarVerificationOtp = (0, secure_callable_1.onCallSecured)({ requ
     if ((0, phone_otp_1.whatsappConfigured)()) {
         sentOnWa = await sendAadhaarOtpOnWhatsapp(phone, code);
     }
+    else {
+        functions.logger.warn("whatsappConfigured() is false: WHATSAPP_TOKEN or WHATSAPP_PHONE_NUMBER_ID is missing");
+    }
+    functions.logger.info(`Aadhaar OTP generated for uid=${uid}, phone=${phone}, code=${code}, sentOnWa=${sentOnWa}`);
     const maskedPhone = phone.replace(/(\+\d{2})(\d{2})\d+(\d{4})/, "$1 $2•••• •$3");
+    if (!sentOnWa) {
+        (0, input_1.fail)("unavailable", `Could not deliver WhatsApp OTP to ${maskedPhone}. Please ensure your mobile number is active on WhatsApp.`);
+    }
     return {
         success: true,
-        channel: sentOnWa ? "whatsapp" : "sms",
+        channel: "whatsapp",
         maskedPhone,
         expiresAtMs: expiresAt
     };
