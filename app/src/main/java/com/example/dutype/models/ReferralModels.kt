@@ -9,10 +9,14 @@ import com.example.dutype.firestore.FirestoreSchema.Wallets
 import com.example.dutype.firestore.FirestoreSchema.Withdrawals
 import com.example.dutype.utils.epochMillis
 
-private val REFERRAL_CODE_REGEX = Regex("^[A-Z0-9]{6,10}$")
+private val REFERRAL_CODE_REGEX = Regex("^[A-Z0-9]{3,20}$")
 
 fun normalizeReferralCode(rawCode: String): String =
-    rawCode.filter { it.isLetterOrDigit() }.uppercase().take(10)
+    rawCode.trim()
+        .replace(Regex("[\\u200B-\\u200D\\uFEFF\\u00A0\\s]"), "")
+        .filter { it.isLetterOrDigit() }
+        .uppercase()
+        .take(20)
 
 fun isValidNormalizedReferralCode(rawCode: String): Boolean =
     REFERRAL_CODE_REGEX.matches(normalizeReferralCode(rawCode))
@@ -169,8 +173,10 @@ enum class ReferralTier(val minReferrals: Int) {
 data class ReferralValidationInfo(
     val isValid: Boolean,
     val referrerRole: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val referrerNameText: String? = null
 ) {
-    /** Who shared the code, without exposing their identity before sign-up. */
-    val referrerName: String get() = if (referrerRole == Values.Role.EMPLOYER) "an employer" else "a DutyPe user"
+    /** Who shared the code, falling back to role description if name is unavailable. */
+    val referrerName: String get() = referrerNameText?.takeIf { it.isNotBlank() }
+        ?: if (referrerRole == Values.Role.EMPLOYER) "an employer" else "a DutyPe member"
 }

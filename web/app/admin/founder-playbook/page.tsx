@@ -1,3 +1,4 @@
+import { AdminAuthGate } from "@/components/admin/admin-auth-gate";
 import { AdminShell } from "@/components/admin-shell";
 import { FounderPlaybookClient } from "@/components/admin/founder-playbook-client";
 
@@ -12,7 +13,9 @@ export default function FounderPlaybookPage() {
       title="Founder Playbook"
       description="Your personal business compass — GTM strategy, Khammam launch checklist, unit economics, and what to build next."
     >
-      <FounderPlaybookClient />
+      <AdminAuthGate>
+        <FounderPlaybookClient />
+      </AdminAuthGate>
     </AdminShell>
   );
 }

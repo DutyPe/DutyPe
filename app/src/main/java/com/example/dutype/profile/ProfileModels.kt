@@ -115,7 +115,7 @@ data class EmployerProfile(
     /** Name shown on job cards: business name for companies, the owner's name otherwise. */
     val displayName: String get() = if (isCompany && businessName.isNotBlank()) businessName else ownerName
 
-    val isComplete: Boolean get() = ownerName.trim().length >= 2
+    val isComplete: Boolean get() = ownerName.trim().length >= 2 && (!isCompany || businessName.isNotBlank())
 
     val completionPercent: Int get() {
         var score = 0

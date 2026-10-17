@@ -398,7 +398,7 @@ export const DEFAULT_CONFIG: ServicesConfig = {
   serviceRadiusKm: 15,
   partnerFee: 19,
   partnerFirstJobFree: true,
-  firstBookingFeeFree: false,
+  firstBookingFeeFree: true,
   planMembersFeeFree: true,
   coupons: [],
   categories: CATEGORIES,
@@ -646,10 +646,10 @@ export function quote(
   let couponNote: string | undefined;
   if (firstBooking && config.firstBookingFeeFree && bookingFee > 0) {
     discount = bookingFee;
-    discountLabel = "First booking: no booking fee";
+    discountLabel = "First booking: free platform fee";
   } else if (planMember && config.planMembersFeeFree && bookingFee > 0) {
     discount = bookingFee;
-    discountLabel = "DutyPe plan: no booking fee";
+    discountLabel = "DutyPe plan: free platform fee";
   }
   const typed = couponCode.trim().toUpperCase();
   if (typed) {

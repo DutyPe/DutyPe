@@ -22,12 +22,7 @@ function asRecord(value: unknown) {
   return (value ?? {}) as Record<string, unknown>;
 }
 
-async function getUncached(request: NextRequest) {
-  const unauthorized = await requireAuthorizedAdminRequest(request);
-  if (unauthorized) {
-    return unauthorized;
-  }
-
+async function getUncached(_request: NextRequest) {
   try {
     const db = getFirebaseAdminDb();
     const snapshot = await db

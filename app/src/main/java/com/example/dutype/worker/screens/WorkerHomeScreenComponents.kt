@@ -533,7 +533,7 @@ private fun JobHuntingIllustration(
         }
 
         // The emoji — cycles through a cast, bobs and tilts subtly
-        AnimatedContent(
+        AnimatedContent<String>(
             targetState = currentEmoji,
             transitionSpec = {
                 (fadeIn(tween(420)) +
@@ -1225,34 +1225,26 @@ private fun ServiceBookingCard(
                 }
 
                 Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFFDBEAFE))
-                                .padding(horizontal = 7.dp, vertical = 2.5.dp)
+                    if (request.distanceKm != null) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Text(
-                                text = "DUTYPE HOME SERVICE",
-                                color = Color(0xFF1D4ED8),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
+                            Icon(
+                                imageVector = Icons.Outlined.LocationOn,
+                                contentDescription = null,
+                                tint = Color(0xFF64748B),
+                                modifier = Modifier.size(13.dp)
                             )
-                        }
-                        if (request.distanceKm != null) {
                             Text(
-                                text = "• %.1f km away".format(request.distanceKm),
+                                text = "%.1f km away".format(request.distanceKm),
                                 color = Color(0xFF64748B),
-                                fontSize = 11.5.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         }
+                        Spacer(Modifier.height(3.dp))
                     }
-                    Spacer(Modifier.height(4.dp))
                     Text(
                         text = cleanTitle,
                         style = MaterialTheme.typography.titleMedium.copy(
@@ -1331,32 +1323,58 @@ private fun ServiceBookingCard(
                 )
             }
 
-            // Action Button
-            Button(
-                onClick = onApply,
-                enabled = !isUpdating,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (hasWorkerResponded) Color(0xFF15803D) else Color(0xFF16A34A)
-                )
-            ) {
-                if (isUpdating) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
-                } else {
-                    if (hasWorkerResponded) {
+            // Action Buttons
+            if (hasWorkerResponded) {
+                Button(
+                    onClick = onApply,
+                    enabled = !isUpdating,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15803D))
+                ) {
+                    if (isUpdating) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                    } else {
                         Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Accepted • View Booking Details", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    } else {
-                        Text(
-                            text = if (payout > 0) "Accept Order • ₹$payout" else "Accept Service Order",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.5.sp
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(
+                        onClick = onIgnore,
+                        enabled = !isUpdating,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF64748B))
+                    ) {
+                        Text("Skip", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    }
+                    Button(
+                        onClick = onApply,
+                        enabled = !isUpdating,
+                        modifier = Modifier.weight(2f).height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                    ) {
+                        if (isUpdating) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                        } else {
+                            Text(
+                                text = if (payout > 0) "Accept Order • ₹$payout" else "Accept Order",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        }
                     }
                 }
             }

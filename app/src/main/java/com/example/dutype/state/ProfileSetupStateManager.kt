@@ -199,29 +199,75 @@ class ProfileSetupStateManager @Inject constructor(
      */
     suspend fun isProfileComplete(role: UserRole): Boolean {
         Timber.d("isProfileComplete - role: $role")
-        
+        val currentUid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+        if (currentUid.isNullOrBlank()) return false
+
+        val userSpecificWorkerKey = booleanPreferencesKey("worker_profile_complete_$currentUid")
+        val userSpecificEmployerKey = booleanPreferencesKey("employer_profile_complete_$currentUid")
+        val savedUserIdKey = stringPreferencesKey("saved_user_id")
+
         val result = context.dataStore.data.map { preferences ->
+            val savedUid = preferences[savedUserIdKey]
+            val isSameUser = savedUid == null || savedUid == currentUid
             when (role) {
-                UserRole.WORKER -> preferences[WORKER_PROFILE_COMPLETE] ?: false
-                UserRole.EMPLOYER -> preferences[EMPLOYER_PROFILE_COMPLETE] ?: false
+                UserRole.WORKER -> preferences[userSpecificWorkerKey] ?: (if (isSameUser) preferences[WORKER_PROFILE_COMPLETE] ?: false else false)
+                UserRole.EMPLOYER -> preferences[userSpecificEmployerKey] ?: (if (isSameUser) preferences[EMPLOYER_PROFILE_COMPLETE] ?: false else false)
                 else -> false
             }
         }.first()
-        
+
         Timber.d("isProfileComplete result: $result")
         return result
     }
-    
+
     /**
      * Mark profile as complete for the given role
      */
     suspend fun markProfileComplete(role: UserRole) {
+        val currentUid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+        val userSpecificWorkerKey = currentUid?.let { booleanPreferencesKey("worker_profile_complete_$it") }
+        val userSpecificEmployerKey = currentUid?.let { booleanPreferencesKey("employer_profile_complete_$it") }
+        val savedUserIdKey = stringPreferencesKey("saved_user_id")
+
         context.dataStore.edit { preferences ->
+            if (currentUid != null) {
+                preferences[savedUserIdKey] = currentUid
+            }
             when (role) {
-                UserRole.WORKER -> preferences[WORKER_PROFILE_COMPLETE] = true
-                UserRole.EMPLOYER -> preferences[EMPLOYER_PROFILE_COMPLETE] = true
+                UserRole.WORKER -> {
+                    preferences[WORKER_PROFILE_COMPLETE] = true
+                    if (userSpecificWorkerKey != null) preferences[userSpecificWorkerKey] = true
+                }
+                UserRole.EMPLOYER -> {
+                    preferences[EMPLOYER_PROFILE_COMPLETE] = true
+                    if (userSpecificEmployerKey != null) preferences[userSpecificEmployerKey] = true
+                }
                 else -> { /* Do nothing */ }
             }
+        }
+    }
+
+    /**
+     * Clear all user session and cached profile completion flags on logout
+     */
+    suspend fun clearSession() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(WORKER_PROFILE_COMPLETE)
+            preferences.remove(EMPLOYER_PROFILE_COMPLETE)
+            preferences.remove(WORKER_PROFILE_SETUP_SHOWN)
+            preferences.remove(EMPLOYER_PROFILE_SETUP_SHOWN)
+            preferences.remove(USER_ROLE)
+            preferences.remove(USER_EMAIL)
+            preferences.remove(USER_NAME)
+            preferences.remove(USER_PHONE)
+            preferences.remove(USER_PHOTO_URL)
+            preferences.remove(AUTH_METHOD)
+            preferences.remove(REFERRAL_CODE)
+            preferences.remove(WORKER_COMPLETION_PERCENTAGE)
+            preferences.remove(EMPLOYER_COMPLETION_PERCENTAGE)
+            preferences.remove(WORKER_MISSING_FIELDS)
+            preferences.remove(EMPLOYER_MISSING_FIELDS)
+            preferences.remove(stringPreferencesKey("saved_user_id"))
         }
     }
     

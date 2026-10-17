@@ -8,30 +8,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import androidx.annotation.Keep
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * In-App Review Trigger Service
- * 
- * Intelligently triggers review prompts at optimal moments:
- * 
- * WORKER TRIGGERS:
- * - After first job application
- * - After first job completion
- * - After profile completion
- * 
- * EMPLOYER TRIGGERS:
- * - After first job posting
- * - After first successful hire
- * - After first work verification
- * 
- * Follows Google's best practices:
- * - Only after positive experiences
- * - Not too frequently
- * - Native Play Store dialog
- */
+@Keep
 @Singleton
 class InAppReviewTriggerService @Inject constructor(
     private val reviewManager: InAppReviewManager,
@@ -79,7 +61,8 @@ class InAppReviewTriggerService @Inject constructor(
         scope.launch {
             try {
                 reviewManager.trackPositiveAction()
-                Timber.d("Worker profile completed - positive action tracked")
+                reviewManager.triggerRatingPrompt(activity, force = false)
+                Timber.d("Worker profile completed - review triggered")
             } catch (e: Exception) {
                 Timber.e(e, "Error tracking profile completion")
             }
@@ -93,7 +76,8 @@ class InAppReviewTriggerService @Inject constructor(
         scope.launch {
             try {
                 reviewManager.trackPositiveAction()
-                Timber.d("Employer profile completed - positive action tracked")
+                reviewManager.triggerRatingPrompt(activity, force = false)
+                Timber.d("Employer profile completed - review triggered")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after employer profile completion")
             }
@@ -237,7 +221,8 @@ class InAppReviewTriggerService @Inject constructor(
         scope.launch {
             try {
                 reviewManager.trackPositiveAction()
-                Timber.d("Referral code shared - positive action tracked")
+                reviewManager.triggerRatingPrompt(activity, force = false)
+                Timber.d("Referral code shared - review triggered")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after referral share")
             }
@@ -251,7 +236,8 @@ class InAppReviewTriggerService @Inject constructor(
         scope.launch {
             try {
                 reviewManager.trackPositiveAction()
-                Timber.d("Referral withdrawal successful - positive action tracked")
+                reviewManager.triggerRatingPrompt(activity, force = true)
+                Timber.d("Referral withdrawal successful - review triggered forcefully")
             } catch (e: Exception) {
                 Timber.e(e, "Error requesting review after referral withdrawal success")
             }

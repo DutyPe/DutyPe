@@ -17,10 +17,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import androidx.annotation.Keep
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.util.Locale
 
+@Keep
 enum class VoiceLanguage(
     val code: String,
     val nativeName: String,
@@ -51,6 +53,7 @@ enum class VoiceLanguage(
     )
 }
 
+@Keep
 data class VoiceJobParsedData(
     val title: String = "",
     val category: String = "Loading Helper",
@@ -65,19 +68,20 @@ data class VoiceJobParsedData(
     val summaryText: String = ""
 )
 
+@Keep
 sealed class VoicePostingState {
-    object Idle : VoicePostingState()
-    object Listening : VoicePostingState()
-    object Processing : VoicePostingState()
-    data class Clarifying(
+    @Keep object Idle : VoicePostingState()
+    @Keep object Listening : VoicePostingState()
+    @Keep object Processing : VoicePostingState()
+    @Keep data class Clarifying(
         val question: String,
         val parsedData: VoiceJobParsedData,
         val isListening: Boolean = false,
         val isSpeakingQuestion: Boolean = false,
         val hintMessage: String = ""
     ) : VoicePostingState()
-    data class ReadyToPost(val parsedData: VoiceJobParsedData) : VoicePostingState()
-    data class Error(val message: String) : VoicePostingState()
+    @Keep data class ReadyToPost(val parsedData: VoiceJobParsedData) : VoicePostingState()
+    @Keep data class Error(val message: String) : VoicePostingState()
 }
 
 class VoiceJobPostingManager(

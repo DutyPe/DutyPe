@@ -188,7 +188,13 @@ class HomeServicesViewModel @Inject constructor(
         fold(onSuccess = { Result.success(it) }, onFailure = { Result.failure(Exception(message(it), it)) })
 
     private fun message(e: Throwable): String = when (e) {
-        is FirebaseFunctionsException -> e.message ?: "Something went wrong. Please try again."
+        is FirebaseFunctionsException -> {
+            val detailMsg = (e.details as? Map<*, *>)?.get("message")?.toString()
+                ?: (e.details as? String)
+            detailMsg?.takeIf { it.isNotBlank() }
+                ?: e.localizedMessage?.takeIf { it.isNotBlank() && !it.equals("INTERNAL", ignoreCase = true) }
+                ?: "Something went wrong. Please check your connection and try again."
+        }
         else -> e.message?.takeIf { it.length < 120 } ?: "Please check your internet and try again."
     }
 }

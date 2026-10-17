@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import adminApp from "firebase-admin";
 
-import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
+import { getAdminActor, logAdminAudit, requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
 import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
 import { findUserIdsForPhone } from "@/lib/firebase/admin-account-deletion";
 import { Values, WalletLedger, Wallets } from "@/lib/firebase/schema";
+import { RateLimitTiers } from "@/lib/security/admin-rate-limiter";
 
 export const runtime = "nodejs";
+
+const MAX_SINGLE_ADMIN_CREDIT_RUPEES = 1000;
 
 /**
  * Admin manual credit endpoint:
@@ -15,8 +18,10 @@ export const runtime = "nodejs";
  * Body: { uidOrPhone: string, amountRupees: number, reason: string }
  */
 export async function POST(request: NextRequest) {
-  const unauthorized = await requireAuthorizedAdminRequest(request);
+  const unauthorized = await requireAuthorizedAdminRequest(request, RateLimitTiers.FINANCIAL);
   if (unauthorized) return unauthorized;
+
+  const actor = await getAdminActor(request);
 
   let body: { uidOrPhone?: string; amountRupees?: number; reason?: string };
   try {
@@ -35,6 +40,13 @@ export async function POST(request: NextRequest) {
 
   if (isNaN(amountRupees) || amountRupees <= 0) {
     return NextResponse.json({ error: "Enter a valid positive amount in Rupees" }, { status: 400 });
+  }
+
+  if (amountRupees > MAX_SINGLE_ADMIN_CREDIT_RUPEES) {
+    return NextResponse.json(
+      { error: `Single manual credit cannot exceed ₹${MAX_SINGLE_ADMIN_CREDIT_RUPEES}. For higher disbursements, please use batch payout.` },
+      { status: 400 }
+    );
   }
 
   const amountPaise = Math.round(amountRupees * 100);
@@ -106,6 +118,15 @@ export async function POST(request: NextRequest) {
       }
     } catch {
       // Notification is best-effort
+    }
+
+    if (actor) {
+      await logAdminAudit(
+        "ADMIN_MANUAL_CREDIT",
+        actor,
+        { uid, query, amountRupees, amountPaise, reason, newBalancePaise: result.newBalancePaise },
+        request
+      );
     }
 
     return NextResponse.json({

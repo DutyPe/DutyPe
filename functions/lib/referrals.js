@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.expirePendingReferrals = exports.getReferralLeaderboard = exports.settleWithdrawal = exports.requestWithdrawal = exports.applyReferralCode = exports.ensureWalletCallable = void 0;
+exports.expirePendingReferrals = exports.getReferralLeaderboard = exports.settleWithdrawal = exports.requestWithdrawal = exports.applyReferralCode = exports.refreshReferralCode = exports.ensureWalletCallable = void 0;
 exports.ensureWallet = ensureWallet;
+exports.normalizeCode = normalizeCode;
 exports.registerReferral = registerReferral;
 exports.completeReferral = completeReferral;
 /**
@@ -78,16 +79,15 @@ function postEntry(tx, uid, wallet, eventId, type, amountPaise, refId) {
 // ───────────────────────────── wallet + code ─────────────────────────────
 function generateNameCode(rawName) {
     const clean = (rawName || "").replace(/[^A-Za-z]/g, "").toUpperCase();
-    const prefix = clean.length >= 3 ? clean.slice(0, 5) : "DUTY";
+    const isGeneric = !clean || clean === "USER" || clean.startsWith("USER") || clean === "DUTY" || clean === "TEST" || clean === "ADMIN";
+    const prefix = !isGeneric && clean.length >= 3 ? clean.slice(0, 5) : "DUTY";
     const num = (0, crypto_1.randomInt)(1000, 10000); // 1000 - 9999
     return `${prefix}${num}`;
 }
-/** Creates the wallet and the user's own referral code if missing. Returns the code. */
-async function ensureWallet(uid, role, preferredName) {
+/** Creates the wallet and the user's own referral code if missing, or upgrades generic codes to real name. Returns the code. */
+async function ensureWallet(uid, role, preferredName, forceRefreshName) {
     const existing = await walletRef(uid).get();
-    const code = String(existing.get(schema_1.Wallets.REFERRAL_CODE) || "");
-    if (code)
-        return code;
+    const currentCode = String(existing.get(schema_1.Wallets.REFERRAL_CODE) || "");
     let baseName = (preferredName === null || preferredName === void 0 ? void 0 : preferredName.trim()) || "";
     if (!baseName) {
         const [wProf, eProf, uDoc] = await Promise.all([
@@ -109,8 +109,20 @@ async function ensureWallet(uid, role, preferredName) {
             catch (_a) { }
         }
     }
+    const cleanBase = baseName.replace(/[^A-Za-z]/g, "").toUpperCase();
+    const hasRealName = cleanBase.length >= 2 && cleanBase !== "USER" && !cleanBase.startsWith("USER");
+    const isCurrentGeneric = !currentCode || currentCode.startsWith("USER") || currentCode.startsWith("DUTY");
+    // If user already has a valid personalized code and we're not forcing refresh, return it
+    if (currentCode && !isCurrentGeneric && !forceRefreshName) {
+        return currentCode;
+    }
+    // If user already has a generic code (e.g. USER5769) but we don't have a real name yet, keep the generic code for now
+    if (currentCode && !hasRealName && !forceRefreshName) {
+        return currentCode;
+    }
+    // Generate a new code derived from the real name
     for (let attempt = 0; attempt < 8; attempt++) {
-        const candidate = generateNameCode(baseName);
+        const candidate = generateNameCode(hasRealName ? baseName : "");
         try {
             return await db.runTransaction(async (tx) => {
                 const profileRef = role === schema_1.Values.Role.EMPLOYER
@@ -121,9 +133,10 @@ async function ensureWallet(uid, role, preferredName) {
                     tx.get(db.collection(schema_1.ReferralCodes.COLLECTION).doc(candidate)),
                     tx.get(profileRef)
                 ]);
-                const current = String(wallet.get(schema_1.Wallets.REFERRAL_CODE) || "");
-                if (current)
-                    return current;
+                const currentInTx = String(wallet.get(schema_1.Wallets.REFERRAL_CODE) || "");
+                if (currentInTx && !currentInTx.startsWith("USER") && !currentInTx.startsWith("DUTY") && !forceRefreshName) {
+                    return currentInTx;
+                }
                 if (codeDoc.exists)
                     throw new Error("CODE_TAKEN");
                 const phone = profileSnap.exists ? String(profileSnap.get("phone") || "") : "";
@@ -135,8 +148,18 @@ async function ensureWallet(uid, role, preferredName) {
                     [schema_1.ReferralCodes.ROLE]: role,
                     [schema_1.ReferralCodes.ACTIVE]: true,
                     phone,
-                    name,
+                    name: name || "DutyPe Member",
+                    createdAt: Timestamp.now(),
                 });
+                // If there was an old code, update its name and keep active as alias
+                if (currentInTx && currentInTx !== candidate) {
+                    const oldCodeRef = db.collection(schema_1.ReferralCodes.COLLECTION).doc(currentInTx);
+                    tx.set(oldCodeRef, {
+                        name: name || "DutyPe Member",
+                        aliasFor: candidate,
+                        updatedAt: Timestamp.now()
+                    }, { merge: true });
+                }
                 tx.set(wallet.ref, {
                     [schema_1.Wallets.REFERRAL_CODE]: candidate,
                     [schema_1.Wallets.BALANCE_PAISE]: Number(wallet.get(schema_1.Wallets.BALANCE_PAISE) || 0),
@@ -147,6 +170,8 @@ async function ensureWallet(uid, role, preferredName) {
                     [schema_1.Wallets.BLOCKED]: wallet.get(schema_1.Wallets.BLOCKED) === true,
                     [schema_1.Wallets.UPDATED_AT]: Timestamp.now(),
                 }, { merge: true });
+                // Sync to authoritative users collection
+                tx.set(db.collection("users").doc(uid), Object.assign(Object.assign({ referralCode: candidate }, (name ? { name } : {})), { updatedAt: Timestamp.now() }), { merge: true });
                 return candidate;
             });
         }
@@ -157,7 +182,7 @@ async function ensureWallet(uid, role, preferredName) {
     }
     throw new functions.https.HttpsError("internal", "Could not create a referral code");
 }
-/** The app asks for its own code (older accounts get one on first call). */
+/** The app asks for its own code (older accounts get one on first call, upgraded with preferredName). */
 exports.ensureWalletCallable = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
     const uid = context.auth.uid;
     const data = (0, input_1.obj)(raw);
@@ -170,26 +195,123 @@ exports.ensureWalletCallable = (0, secure_callable_1.onCallSecured)({ enforceApp
     const code = await ensureWallet(uid, role === schema_1.Values.Role.EMPLOYER ? role : schema_1.Values.Role.WORKER, preferredName);
     return { referralCode: code };
 });
+/** Explicitly refresh/upgrade the referral code with the user's real verified name. */
+exports.refreshReferralCode = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
+    const uid = context.auth.uid;
+    const data = (0, input_1.obj)(raw);
+    const name = (0, input_1.str)(data, "name", { min: 2, max: 100 });
+    let role = String(context.auth.token.role || "");
+    if (!role) {
+        const userDoc = await db.collection("users").doc(uid).get();
+        role = String(userDoc.get("role") || schema_1.Values.Role.WORKER);
+    }
+    const code = await ensureWallet(uid, role === schema_1.Values.Role.EMPLOYER ? role : schema_1.Values.Role.WORKER, name, true);
+    return { referralCode: code };
+});
 // ───────────────────────────── referrals ─────────────────────────────
 function normalizeCode(raw) {
-    return String(raw !== null && raw !== void 0 ? raw : "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (typeof raw !== "string" && typeof raw !== "number")
+        return "";
+    return String(raw)
+        .trim()
+        .replace(/[\u200B-\u200D\uFEFF\u00A0\s]/g, "") // Strip zero-width, non-breaking, and regular whitespace
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "");
 }
 /**
- * Records that [uid] joined with [rawCode]. Never throws: a bad code must not fail registration.
- * The referral stays PENDING until the new user's profile is complete.
+ * Records that [uid] joined with [rawCode]. Never throws: returns null on success or user-facing error string.
+ * The referral is processed with atomic ACID guarantees for ledger and wallets.
  */
 const LATE_REFERRAL_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-async function registerReferral(uid, rawCode) {
+async function resolveReferralCodeDoc(code) {
+    // 1. Direct uppercase lookup
+    let snap = await db.collection(schema_1.ReferralCodes.COLLECTION).doc(code).get();
+    if (snap.exists)
+        return snap;
+    // 2. Direct lowercase lookup
+    snap = await db.collection(schema_1.ReferralCodes.COLLECTION).doc(code.toLowerCase()).get();
+    if (snap.exists)
+        return snap;
+    // 3. Search by field in referral_codes (in case document ID was auto-generated or UID)
+    const qSnap = await db.collection(schema_1.ReferralCodes.COLLECTION)
+        .where("referralCode", "in", [code, code.toUpperCase(), code.toLowerCase()])
+        .limit(1)
+        .get();
+    if (!qSnap.empty)
+        return qSnap.docs[0];
+    // 4. Search in referral_stats (Wallets collection)
+    const wSnap = await db.collection(schema_1.Wallets.COLLECTION)
+        .where(schema_1.Wallets.REFERRAL_CODE, "in", [code, code.toUpperCase(), code.toLowerCase()])
+        .limit(1)
+        .get();
+    if (!wSnap.empty) {
+        const wDoc = wSnap.docs[0];
+        const referrerUid = wDoc.id;
+        const [wProf, eProf, uDoc] = await Promise.all([
+            db.collection(schema_1.WorkerProfiles.COLLECTION).doc(referrerUid).get(),
+            db.collection(schema_1.EmployerProfiles.COLLECTION).doc(referrerUid).get(),
+            db.collection("users").doc(referrerUid).get(),
+        ]);
+        const name = String(wProf.get("name") ||
+            eProf.get("ownerName") ||
+            eProf.get("businessName") ||
+            uDoc.get("name") ||
+            uDoc.get("displayName") ||
+            "DutyPe Member");
+        const phone = String(wProf.get("phone") || eProf.get("phone") || uDoc.get("phone") || "");
+        const role = eProf.exists ? schema_1.Values.Role.EMPLOYER : schema_1.Values.Role.WORKER;
+        const refDoc = db.collection(schema_1.ReferralCodes.COLLECTION).doc(code);
+        await refDoc.set({
+            [schema_1.ReferralCodes.UID]: referrerUid,
+            [schema_1.ReferralCodes.ROLE]: role,
+            [schema_1.ReferralCodes.ACTIVE]: true,
+            phone,
+            name,
+            createdAt: Timestamp.now(),
+        }, { merge: true });
+        return await refDoc.get();
+    }
+    // 5. Search in users collection
+    const uSnap = await db.collection("users")
+        .where("referralCode", "in", [code, code.toUpperCase(), code.toLowerCase()])
+        .limit(1)
+        .get();
+    if (!uSnap.empty) {
+        const uDoc = uSnap.docs[0];
+        const referrerUid = uDoc.id;
+        const name = String(uDoc.get("name") || uDoc.get("displayName") || "DutyPe Member");
+        const phone = String(uDoc.get("phone") || "");
+        const role = String(uDoc.get("role") || schema_1.Values.Role.WORKER) === schema_1.Values.Role.EMPLOYER
+            ? schema_1.Values.Role.EMPLOYER
+            : schema_1.Values.Role.WORKER;
+        const refDoc = db.collection(schema_1.ReferralCodes.COLLECTION).doc(code);
+        await refDoc.set({
+            [schema_1.ReferralCodes.UID]: referrerUid,
+            [schema_1.ReferralCodes.ROLE]: role,
+            [schema_1.ReferralCodes.ACTIVE]: true,
+            phone,
+            name,
+            createdAt: Timestamp.now(),
+        }, { merge: true });
+        return await refDoc.get();
+    }
+    return null;
+}
+async function registerReferral(uid, rawCode, providedPhone, providedName) {
     const code = normalizeCode(rawCode);
-    if (!/^[A-Z0-9]{6,10}$/.test(code))
-        return "Invalid referral code";
+    if (code.length < 3 || code.length > 20)
+        return "Invalid referral code format";
     try {
-        const codeDoc = await db.collection(schema_1.ReferralCodes.COLLECTION).doc(code).get();
-        const referrerUid = String(codeDoc.get(schema_1.ReferralCodes.UID) || "");
-        if (!codeDoc.exists || codeDoc.get(schema_1.ReferralCodes.ACTIVE) !== true || !referrerUid)
+        const codeDoc = await resolveReferralCodeDoc(code);
+        if (!codeDoc || !codeDoc.exists)
             return "Referral code not found";
+        if (codeDoc.get(schema_1.ReferralCodes.ACTIVE) !== true)
+            return "This referral code is disabled";
+        const referrerUid = String(codeDoc.get(schema_1.ReferralCodes.UID) || "");
+        if (!referrerUid)
+            return "Referral code has no active owner";
         if (referrerUid === uid)
-            return "You cannot use your own code";
+            return "You cannot use your own referral code";
         const hourAgo = Timestamp.fromMillis(Date.now() - 60 * 60 * 1000);
         const recent = await db.collection(schema_1.Referrals.COLLECTION)
             .where(schema_1.Referrals.REFERRER_UID, "==", referrerUid)
@@ -198,32 +320,83 @@ async function registerReferral(uid, rawCode) {
         const fraudScore = recent.data().count >= MAX_REFERRALS_PER_HOUR ? 60 : 0;
         const config = await (0, app_config_1.getReferralConfig)();
         // Fetch referee details (name and phone) to store in referral record
-        const [wProf, eProf, uDoc] = await Promise.all([
-            db.collection(schema_1.WorkerProfiles.COLLECTION).doc(uid).get(),
-            db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid).get(),
-            db.collection("users").doc(uid).get()
-        ]);
-        const refereePhone = String(wProf.get("phone") || eProf.get("phone") || uDoc.get("phone") || "");
-        const refereeName = String(wProf.get("name") ||
-            eProf.get("ownerName") ||
-            eProf.get("businessName") ||
-            uDoc.get("name") ||
-            uDoc.get("displayName") ||
-            "");
+        let refereePhone = (providedPhone || "").trim();
+        let refereeName = (providedName || "").trim();
+        if (!refereePhone || !refereeName) {
+            const [wProf, eProf, uDoc] = await Promise.all([
+                db.collection(schema_1.WorkerProfiles.COLLECTION).doc(uid).get(),
+                db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid).get(),
+                db.collection("users").doc(uid).get()
+            ]);
+            if (!refereePhone) {
+                refereePhone = String(wProf.get("phone") || eProf.get("phone") || uDoc.get("phone") || "");
+            }
+            if (!refereeName) {
+                refereeName = String(wProf.get("name") ||
+                    eProf.get("ownerName") ||
+                    eProf.get("businessName") ||
+                    uDoc.get("name") ||
+                    uDoc.get("displayName") ||
+                    "");
+            }
+            if (!refereePhone || !refereeName) {
+                try {
+                    const authUser = await admin.auth().getUser(uid);
+                    if (!refereePhone)
+                        refereePhone = authUser.phoneNumber || "";
+                    if (!refereeName)
+                        refereeName = authUser.displayName || "";
+                }
+                catch (_a) { }
+            }
+        }
+        const referrerPhone = String(codeDoc.get("phone") || "");
+        const cleanReferrerPhone = referrerPhone.replace(/[^0-9]/g, "").slice(-10);
+        const cleanRefereePhone = refereePhone.replace(/[^0-9]/g, "").slice(-10);
+        // Self-referral guard: Same phone number
+        if (cleanReferrerPhone && cleanRefereePhone && cleanReferrerPhone === cleanRefereePhone) {
+            return "You cannot refer an account with the same phone number";
+        }
+        const bonusEventId = `referral_${uid}_referee`;
+        const rewardEventId = `referral_${uid}_referrer`;
         const txResult = await db.runTransaction(async (tx) => {
             var _a;
             const ref = db.collection(schema_1.Referrals.COLLECTION).doc(uid);
-            const [existing, referrerWallet, refereeWallet] = await Promise.all([
+            const [existing, referrerWallet, refereeWallet, referrerRefDoc, bonusEntry, rewardEntry] = await Promise.all([
                 tx.get(ref),
                 readWallet(tx, referrerUid),
-                readWallet(tx, uid)
+                readWallet(tx, uid),
+                tx.get(db.collection(schema_1.Referrals.COLLECTION).doc(referrerUid)),
+                tx.get(ledgerRef(bonusEventId)),
+                tx.get(ledgerRef(rewardEventId)),
             ]);
-            if (existing.exists)
-                return "A referral code was already used";
+            if (existing.exists) {
+                if (existing.get(schema_1.Referrals.CODE) === code) {
+                    // Idempotent success: Already linked to this exact referral code
+                    return null;
+                }
+                return "A referral code was already used for this account";
+            }
             if (referrerWallet.data[schema_1.Wallets.BLOCKED] === true)
-                return "This referral code is not active";
+                return "This referral code belongs to an inactive account";
+            // Circular referral guard: Prevent A -> B -> A loops
+            if (referrerRefDoc.exists && referrerRefDoc.get(schema_1.Referrals.REFERRER_UID) === uid) {
+                return "Circular referrals are not permitted";
+            }
             const now = Date.now();
             const isClean = fraudScore === 0;
+            // Ensure referee wallet structure exists
+            if (!refereeWallet.data || Object.keys(refereeWallet.data).length === 0) {
+                tx.set(refereeWallet.ref, {
+                    [schema_1.Wallets.BALANCE_PAISE]: 0,
+                    [schema_1.Wallets.LIFETIME_EARNED_PAISE]: 0,
+                    [schema_1.Wallets.WITHDRAWN_PAISE]: 0,
+                    [schema_1.Wallets.SUCCESSFUL_REFERRALS]: 0,
+                    [schema_1.Wallets.AWARDED_MILESTONES]: [],
+                    [schema_1.Wallets.BLOCKED]: false,
+                    [schema_1.Wallets.UPDATED_AT]: Timestamp.now(),
+                }, { merge: true });
+            }
             tx.create(ref, {
                 [schema_1.Referrals.REFERRER_UID]: referrerUid,
                 [schema_1.Referrals.CODE]: code,
@@ -231,6 +404,7 @@ async function registerReferral(uid, rawCode) {
                 [schema_1.Referrals.FRAUD_SCORE]: fraudScore,
                 refereeName: refereeName || "DutyPe Friend",
                 refereePhone,
+                referrerName: String(codeDoc.get("name") || "DutyPe Member"),
                 [schema_1.Referrals.CREATED_AT]: Timestamp.fromMillis(now),
                 [schema_1.Referrals.COMPLETED_AT]: isClean ? Timestamp.fromMillis(now) : null,
                 [schema_1.Referrals.EXPIRES_AT]: Timestamp.fromMillis(now + REFERRAL_EXPIRY_MS),
@@ -238,15 +412,11 @@ async function registerReferral(uid, rawCode) {
             if (isClean) {
                 // 1. Instant credit: referee receives their signup bonus immediately upon entering code
                 const bonusPaise = Math.round(config.signupBonus * 100);
-                const bonusEventId = `referral_${uid}_referee`;
-                const bonusEntry = await tx.get(ledgerRef(bonusEventId));
                 if (!bonusEntry.exists && bonusPaise > 0) {
                     postEntry(tx, uid, refereeWallet, bonusEventId, schema_1.Values.LedgerType.SIGNUP_BONUS, bonusPaise, code);
                 }
                 // 2. Instant credit: referrer receives their referral reward immediately upon friend joining
                 const rewardPaise = Math.round(config.rewardPerReferral * 100);
-                const rewardEventId = `referral_${uid}_referrer`;
-                const rewardEntry = await tx.get(ledgerRef(rewardEventId));
                 if (!rewardEntry.exists && rewardPaise > 0) {
                     postEntry(tx, referrerUid, referrerWallet, rewardEventId, schema_1.Values.LedgerType.REFERRAL_REWARD, rewardPaise, uid);
                 }
@@ -266,11 +436,13 @@ async function registerReferral(uid, rawCode) {
                     [schema_1.Wallets.UPDATED_AT]: Timestamp.now()
                 }, { merge: true });
             }
-            // Mark user record
+            // Mark user record atomically
             tx.set(db.collection("users").doc(uid), {
                 hasUsedReferralCode: true,
                 referredBy: referrerUid,
                 referredByCode: code,
+                referredByName: String(codeDoc.get("name") || "DutyPe Member"),
+                referralLinkedAt: Timestamp.now(),
                 updatedAt: Timestamp.now()
             }, { merge: true });
             return null;
@@ -293,20 +465,44 @@ async function registerReferral(uid, rawCode) {
     }
     catch (error) {
         functions.logger.warn(`registerReferral(${uid}) failed`, error);
-        return "Referral could not be applied";
+        return "Referral could not be applied. Please try again.";
     }
 }
-/** A code entered after sign-up (profile setup). Allowed for 7 days after the account was created. */
+/** A code entered after sign-up (profile setup or Refer & Earn screen). One referral per user. */
 exports.applyReferralCode = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
     const uid = context.auth.uid;
-    const code = (0, input_1.str)((0, input_1.obj)(raw), "code", { min: 6, max: 20 });
-    const created = Date.parse((await admin.auth().getUser(uid)).metadata.creationTime);
-    if (Date.now() - created > LATE_REFERRAL_WINDOW_MS)
-        (0, input_1.fail)("failed-precondition", "Referral codes can only be used in your first 7 days");
-    const error = await registerReferral(uid, code);
+    // Rate limiting: Max 5 code attempts per 10 minutes to prevent dictionary guessing
+    const attemptRef = db.collection("referral_attempts").doc(uid);
+    const attemptSnap = await attemptRef.get();
+    const nowMs = Date.now();
+    const attemptData = attemptSnap.data() || {};
+    const windowStart = Number(attemptData.windowStart || 0);
+    const count = Number(attemptData.count || 0);
+    if (nowMs - windowStart < 10 * 60 * 1000) {
+        if (count >= 5) {
+            (0, input_1.fail)("resource-exhausted", "Too many referral code attempts. Please wait 10 minutes before trying again.");
+        }
+        await attemptRef.set({ count: count + 1, windowStart, lastAttemptAt: Timestamp.now() }, { merge: true });
+    }
+    else {
+        await attemptRef.set({ count: 1, windowStart: nowMs, lastAttemptAt: Timestamp.now() }, { merge: true });
+    }
+    const data = (0, input_1.obj)(raw);
+    const rawCode = (0, input_1.str)(data, "code", { min: 3, max: 30 });
+    const code = normalizeCode(rawCode);
+    const phone = (0, input_1.str)(data, "phone", { optional: true, max: 20 });
+    const name = (0, input_1.str)(data, "name", { optional: true, max: 100 });
+    const error = await registerReferral(uid, code, phone, name);
     if (error)
         (0, input_1.fail)("invalid-argument", error);
-    return { ok: true };
+    // Reset attempt count upon successful application
+    await attemptRef.delete().catch(() => { });
+    const codeDoc = await resolveReferralCodeDoc(code);
+    return {
+        ok: true,
+        referrerName: String((codeDoc === null || codeDoc === void 0 ? void 0 : codeDoc.get("name")) || "DutyPe Member"),
+        code
+    };
 });
 /**
  * The referred user did the real thing (a worker's first application, an employer's first job
@@ -328,8 +524,14 @@ async function completeReferral(refereeUid, refereeRole) {
             return null;
         const referrerUid = String(referral.get(schema_1.Referrals.REFERRER_UID));
         const expiresAt = (_b = (_a = referral.get(schema_1.Referrals.EXPIRES_AT)) === null || _a === void 0 ? void 0 : _a.toMillis()) !== null && _b !== void 0 ? _b : 0;
-        const referrerCodeSnap = await tx.get(db.collection(schema_1.ReferralCodes.COLLECTION).doc(String(referral.get(schema_1.Referrals.CODE))));
-        const referrerRole = String(referrerCodeSnap.get(schema_1.ReferralCodes.ROLE) || schema_1.Values.Role.WORKER);
+        const refCode = String(referral.get(schema_1.Referrals.CODE));
+        let referrerCodeSnap = await tx.get(db.collection(schema_1.ReferralCodes.COLLECTION).doc(refCode));
+        if (!referrerCodeSnap.exists) {
+            referrerCodeSnap = await tx.get(db.collection(schema_1.ReferralCodes.COLLECTION).doc(refCode.toLowerCase()));
+        }
+        const isEmployer = (await tx.get(db.collection(schema_1.EmployerProfiles.COLLECTION).doc(referrerUid))).exists;
+        const referrerRole = String((referrerCodeSnap.exists ? referrerCodeSnap.get(schema_1.ReferralCodes.ROLE) : null) ||
+            (isEmployer ? schema_1.Values.Role.EMPLOYER : schema_1.Values.Role.WORKER));
         const rewardId = `referral_${refereeUid}_referrer`;
         const bonusId = `referral_${refereeUid}_referee`;
         const [referrer, referee, rewardEntry, bonusEntry] = await Promise.all([
@@ -423,10 +625,21 @@ exports.requestWithdrawal = (0, secure_callable_1.onCallSecured)({ enforceAppChe
     const day = new Date(Date.now() + 330 * 60 * 1000).toISOString().slice(0, 10);
     const withdrawalRef = db.collection(schema_1.Withdrawals.COLLECTION).doc(withdrawalId);
     const dailyRef = db.collection(schema_1.WithdrawalDaily.COLLECTION).doc(`${uid}_${day}`);
+    const burstRef = db.collection("withdrawal_burst_limits").doc(uid);
     const result = await db.runTransaction(async (tx) => {
-        const [existing, wallet, daily] = await Promise.all([tx.get(withdrawalRef), readWallet(tx, uid), tx.get(dailyRef)]);
+        const [existing, wallet, daily, burst] = await Promise.all([
+            tx.get(withdrawalRef),
+            readWallet(tx, uid),
+            tx.get(dailyRef),
+            tx.get(burstRef)
+        ]);
         if (existing.exists)
             return { withdrawalId, amountPaise: Number(existing.get(schema_1.Withdrawals.AMOUNT_PAISE)), replay: true };
+        const lastRequestMs = Number(burst.get("lastRequestMs") || 0);
+        if (Date.now() - lastRequestMs < 30 * 1000) {
+            (0, input_1.fail)("resource-exhausted", "Please wait 30 seconds before submitting another withdrawal request.");
+        }
+        tx.set(burstRef, { lastRequestMs: Date.now() }, { merge: true });
         if (wallet.data[schema_1.Wallets.BLOCKED] === true)
             (0, input_1.fail)("permission-denied", "Your wallet is blocked. Contact support.");
         const dailyPaise = Number(daily.get(schema_1.WithdrawalDaily.AMOUNT_PAISE) || 0);

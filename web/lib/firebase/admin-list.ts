@@ -23,8 +23,23 @@ function jsonSafe(value: unknown): unknown {
   return value;
 }
 
+function sanitizeSensitiveFields(record: Record<string, unknown>): Record<string, unknown> {
+  const sanitized = { ...record };
+  // UIDAI Statutory Compliance: Never expose plaintext 12-digit Aadhaar or biometrics
+  if (typeof sanitized.aadhaarNumber === "string" && sanitized.aadhaarNumber.length >= 4) {
+    sanitized.aadhaarNumber = `XXXXXXXX${sanitized.aadhaarNumber.slice(-4)}`;
+  }
+  if ("rawAadhaar" in sanitized) delete sanitized.rawAadhaar;
+  if ("aadhaarPlain" in sanitized) delete sanitized.aadhaarPlain;
+  if ("biometrics" in sanitized) delete sanitized.biometrics;
+  if ("biometricXml" in sanitized) delete sanitized.biometricXml;
+  if ("rawXml" in sanitized) delete sanitized.rawXml;
+  return sanitized;
+}
+
 function row(id: string, data: DocumentData | undefined) {
-  return { id, ...(jsonSafe(data ?? {}) as Record<string, unknown>) };
+  const safeData = jsonSafe(data ?? {}) as Record<string, unknown>;
+  return { id, ...sanitizeSensitiveFields(safeData) };
 }
 
 /** "true"/"false"/numbers are compared as such; everything else as a string. */

@@ -463,9 +463,14 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
 
   const who = await customerOf(uid, role);
   const customerName = who.name;
-  const q = quote(config, service, await isFirstBooking(uid), str(data, "couponCode", { max: 20, optional: true }), now, who.planMember);
+  const firstBooking = await isFirstBooking(uid);
+  const q = quote(config, service, firstBooking, str(data, "couponCode", { max: 20, optional: true }), now, who.planMember);
   if (q.couponError) fail("failed-precondition", q.couponError);
-  const bookingFee = q.bookingFee;
+
+  // Platform fee policy: 1st booking is FREE of platform fee; 2nd booking onwards requires the platform booking fee (₹9 - ₹19)
+  const isFreePlatformFee = (firstBooking && config.firstBookingFeeFree) || (who.planMember && config.planMembersFeeFree);
+  const effectiveBookingFee = isFreePlatformFee ? 0 : q.bookingFee;
+
   const ref = db.collection(BK.COLLECTION).doc();
   const startOtp = newStartOtp();
   const firstWaveAt = scheduled ? Math.max(now, scheduledAt - SCHEDULE_LEAD_MS) : now;
@@ -477,7 +482,7 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
     [BK.SERVICE_ID]: service.id,
     [BK.SERVICE_NAME]: service.name,
     [BK.PRICE]: service.price,
-    [BK.BOOKING_FEE]: bookingFee,
+    [BK.BOOKING_FEE]: effectiveBookingFee,
     [BK.COMMISSION_PCT]: config.commissionPct,
     [BK.INSPECTION]: service.inspection === true,
     [BK.ADDRESS_TEXT]: addressText,
@@ -487,7 +492,7 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
     [BK.NOTE]: note,
     [BK.WHEN]: scheduled ? "scheduled" : "now",
     ...(scheduled ? { [BK.SCHEDULED_AT]: Timestamp.fromMillis(scheduledAt) } : {}),
-    [BK.STATUS]: bookingFee > 0 ? BS.PAYMENT_PENDING : BS.SEARCHING,
+    [BK.STATUS]: effectiveBookingFee > 0 ? BS.PAYMENT_PENDING : BS.SEARCHING,
     // A partner booking for their own home never gets their own job.
     [BK.EXCLUDED_PARTNER_IDS]: [uid],
     [BK.DISPATCH_RADIUS_KM]: 0,
@@ -543,14 +548,14 @@ export const createServiceBooking = onCallSecured({ timeoutSeconds: 30, enforceA
     if ((e as { code?: number }).code === 6) fail("already-exists", "You have already used this coupon");
     throw e;
   }
-  if (bookingFee <= 0 && !scheduled) {
+  if (effectiveBookingFee <= 0 && !scheduled) {
     void advanceServiceWave(ref.id, now).catch((err) => {
       functions.logger.warn(`advanceServiceWave failed for ${ref.id}:`, err);
     });
   }
   return {
-    bookingId: ref.id, startOtp, price: service.price, bookingFee, discount: q.discount, discountLabel: q.discountLabel,
-    total: q.total, status: bookingFee > 0 ? BS.PAYMENT_PENDING : BS.SEARCHING,
+    bookingId: ref.id, startOtp, price: service.price, bookingFee: effectiveBookingFee, discount: q.discount, discountLabel: q.discountLabel,
+    total: q.total, status: effectiveBookingFee > 0 ? BS.PAYMENT_PENDING : BS.SEARCHING,
     upiId: config.upiId, upiName: config.upiName,
   };
 });
@@ -883,9 +888,10 @@ export const setPartnerOnline = onCallSecured({ enforceAppCheck: false }, async 
   return { online };
 });
 
-export const getServiceOffer = onCallSecured({ timeoutSeconds: 10, enforceAppCheck: false }, async (raw: unknown, context) => {
-  const uid = context.auth!.uid;
-  const bookingId = str(obj(raw), "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
+export const getServiceOffer = onCallSecured({ timeoutSeconds: 15, enforceAppCheck: false }, async (raw: unknown, context) => {
+  const uid = context.auth?.uid;
+  if (!uid) fail("unauthenticated", "Please sign in to view offer");
+  const bookingId = str(obj(raw), "bookingId", { min: 2, max: 64, pattern: /^[A-Za-z0-9_-]+$/ });
   let p = await db.collection(SP.COLLECTION).doc(uid).get();
   if (!p.exists || p.get(SP.STATUS) !== PartnerStatus.APPROVED) {
     const [wSnap, uSnap] = await Promise.all([
@@ -925,9 +931,11 @@ export const getServiceOffer = onCallSecured({ timeoutSeconds: 10, enforceAppChe
   const isTestPartner = TEST_DEV_PHONES.has(partnerPhone) || TEST_DEV_PHONES.has(cleanPartnerPhone);
   const pCategories = (p.get(SP.CATEGORIES) || []) as string[];
   const categoryMatch = pCategories.length === 0 || pCategories.includes("ALL") || pCategories.includes(String(d[BK.CATEGORY]));
-  const isAvailableStatus = d[BK.STATUS] === BS.SEARCHING || d[BK.STATUS] === BS.PAYMENT_PENDING || (mine && d[BK.STATUS] === BS.ASSIGNED) || isTestPartner;
-  const available = (isTestPartner || isAvailableStatus) && (mine || isTestPartner || categoryMatch) &&
-    !((d[BK.EXCLUDED_PARTNER_IDS] || []) as string[]).includes(uid);
+  const isPaymentPending = d[BK.STATUS] === BS.PAYMENT_PENDING;
+  const isAvailableStatus = !isPaymentPending && (d[BK.STATUS] === BS.SEARCHING || (mine && d[BK.STATUS] === BS.ASSIGNED) || isTestPartner);
+  const isExcluded = ((d[BK.EXCLUDED_PARTNER_IDS] || []) as string[]).includes(uid);
+  const available = !isPaymentPending && (isTestPartner || isAvailableStatus) && (mine || isTestPartner || categoryMatch) &&
+    (!isExcluded || isTestPartner || mine);
   const pLat = Number(p.get(SP.LAT) || 0) || 17.2473;
   const pLng = Number(p.get(SP.LNG) || 0) || 80.1514;
   const config = await loadConfig();
@@ -962,58 +970,74 @@ export const getServiceOffer = onCallSecured({ timeoutSeconds: 10, enforceAppChe
 });
 
 export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceAppCheck: false, secrets: [WHATSAPP_TOKEN_SECRET] }, async (raw: unknown, context) => {
-  const uid = context.auth!.uid;
+  const uid = context.auth?.uid;
+  if (!uid) fail("unauthenticated", "Please sign in to accept bookings");
   const config = await loadConfig();
-  const bookingId = str(obj(raw), "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
+  const bookingId = str(obj(raw), "bookingId", { min: 2, max: 64, pattern: /^[A-Za-z0-9_-]+$/ });
   const ref = db.collection(BK.COLLECTION).doc(bookingId);
   const partnerRef = db.collection(SP.COLLECTION).doc(uid);
+
+  // STEP 1: Ensure partner profile exists and is APPROVED BEFORE the transaction
+  // (Prevents Firestore "reads must precede writes" transaction aborts)
+  let pSnap = await partnerRef.get();
+  if (!pSnap.exists || pSnap.get(SP.STATUS) !== PartnerStatus.APPROVED) {
+    const [wSnap, uSnap] = await Promise.all([
+      db.collection(WorkerProfiles.COLLECTION).doc(uid).get(),
+      db.collection("users").doc(uid).get(),
+    ]);
+    const wData = wSnap.data() || {};
+    const uData = uSnap.data() || {};
+    const name = String(wData.name || uData.name || "DutyPe Partner");
+    const phone = String(wData.phone || uData.phone || "");
+    const lat = Number(wData.lat || 17.2473);
+    const lng = Number(wData.lng || 80.1514);
+    await partnerRef.set({
+      [SP.NAME]: name,
+      [SP.PHONE]: phone,
+      [SP.STATUS]: PartnerStatus.APPROVED,
+      [SP.CATEGORIES]: ["ALL"],
+      [SP.ONLINE]: true,
+      [SP.LAT]: lat,
+      [SP.LNG]: lng,
+      [SP.APPROVED_AT]: Timestamp.now(),
+      [SP.CREATED_AT]: Timestamp.now(),
+      [SP.UPDATED_AT]: Timestamp.now(),
+    }, { merge: true });
+    pSnap = await partnerRef.get();
+  }
+
+  // STEP 2: Atomic booking assignment
   const out = await db.runTransaction(async (tx) => {
-    let [b, p] = await Promise.all([tx.get(ref), tx.get(partnerRef)]);
-    if (!p.exists || p.get(SP.STATUS) !== PartnerStatus.APPROVED) {
-      const [wSnap, uSnap] = await Promise.all([
-        tx.get(db.collection(WorkerProfiles.COLLECTION).doc(uid)),
-        tx.get(db.collection("users").doc(uid)),
-      ]);
-      if (wSnap.exists || uSnap.exists) {
-        const wData = wSnap.data() || {};
-        const uData = uSnap.data() || {};
-        const name = String(wData.name || uData.name || "DutyPe Partner");
-        const phone = String(wData.phone || uData.phone || "");
-        const lat = Number(wData.lat || 17.2473);
-        const lng = Number(wData.lng || 80.1514);
-        tx.set(partnerRef, {
-          [SP.NAME]: name,
-          [SP.PHONE]: phone,
-          [SP.STATUS]: PartnerStatus.APPROVED,
-          [SP.CATEGORIES]: ["ALL"],
-          [SP.ONLINE]: true,
-          [SP.LAT]: lat,
-          [SP.LNG]: lng,
-          [SP.APPROVED_AT]: Timestamp.now(),
-          [SP.CREATED_AT]: Timestamp.now(),
-          [SP.UPDATED_AT]: Timestamp.now(),
-        }, { merge: true });
-        p = await tx.get(partnerRef);
-      } else {
-        fail("permission-denied", "Only approved DutyPe service partners can accept bookings.");
-      }
-    }
+    // === ALL READS MUST PRECEDE ALL WRITES ===
+    const [b, p] = await Promise.all([tx.get(ref), tx.get(partnerRef)]);
     if (!b.exists) return { result: "closed" as const };
     const d = b.data() || {};
+
     const partnerPhone = String(p.get(SP.PHONE) || "");
     const cleanPartnerPhone = partnerPhone.replace("+91", "").trim();
     const isTestPartner = TEST_DEV_PHONES.has(partnerPhone) || TEST_DEV_PHONES.has(cleanPartnerPhone);
-    const isDirectAssignment = (d[BK.PARTNER_ID] === uid && d[BK.STATUS] === BS.ASSIGNED) || isTestPartner;
-    if (d[BK.PARTNER_ID] === uid && ASSIGNED_STATUSES.includes(String(d[BK.STATUS]))) return { result: "accepted" as const, d, fresh: false };
-    if (d[BK.STATUS] !== BS.SEARCHING && d[BK.STATUS] !== BS.PAYMENT_PENDING && !isDirectAssignment) {
-      return { result: d[BK.PARTNER_ID] ? "taken" as const : "closed" as const };
+    const isDirectAssignment = (d[BK.PARTNER_ID] === uid && d[BK.STATUS] === BS.ASSIGNED);
+
+    if (d[BK.PARTNER_ID] === uid && ASSIGNED_STATUSES.includes(String(d[BK.STATUS]))) {
+      return { result: "accepted" as const, d, fresh: false };
     }
-    if (ms(d[BK.EXPIRES_AT]) <= Date.now() && !isDirectAssignment) return { result: "closed" as const };
-    if (((d[BK.EXCLUDED_PARTNER_IDS] || []) as string[]).includes(uid)) return { result: "closed" as const };
-    const pCategories = (p.get(SP.CATEGORIES) || CATEGORY_IDS) as string[];
-    if (!isDirectAssignment && pCategories.length > 0 && !pCategories.includes(String(d[BK.CATEGORY])) && !pCategories.includes("ALL")) {
+    if (d[BK.STATUS] === BS.PAYMENT_PENDING) {
       return { result: "closed" as const };
     }
+    if (d[BK.STATUS] !== BS.SEARCHING && !isDirectAssignment && !isTestPartner) {
+      return { result: d[BK.PARTNER_ID] ? "taken" as const : "closed" as const };
+    }
+    if (ms(d[BK.EXPIRES_AT]) <= Date.now() && !isDirectAssignment && !isTestPartner) {
+      return { result: "closed" as const };
+    }
+    if (!isTestPartner && !isDirectAssignment && ((d[BK.EXCLUDED_PARTNER_IDS] || []) as string[]).includes(uid)) {
+      return { result: "closed" as const };
+    }
+    const pCategories = (p.get(SP.CATEGORIES) || CATEGORY_IDS) as string[];
+    if (!isDirectAssignment && !isTestPartner && pCategories.length > 0 && !pCategories.includes(String(d[BK.CATEGORY])) && !pCategories.includes("ALL")) {
+      return { result: "closed" as const };
+    }
+
     const activeId = String(p.get(SP.ACTIVE_BOOKING_ID) || "");
     if (!isTestPartner && activeId && activeId !== bookingId) {
       const active = await tx.get(db.collection(BK.COLLECTION).doc(activeId));
@@ -1021,6 +1045,8 @@ export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceA
         return { result: "busy" as const };
       }
     }
+
+    // === ALL WRITES OCCUR HERE AFTER ALL READS ===
     // Also busy while on an urgent job or a fresh regular hire.
     if (!isTestPartner) {
       const busy = await busyWith(uid, await tx.get(db.collection(WorkerProfiles.COLLECTION).doc(uid)), tx);
@@ -1074,7 +1100,7 @@ export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceA
 export const updateServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceAppCheck: false }, async (raw: unknown, context) => {
   const uid = context.auth!.uid;
   const data = obj(raw);
-  const bookingId = str(data, "bookingId", { max: 40, pattern: /^[A-Za-z0-9_-]+$/ });
+  const bookingId = str(data, "bookingId", { min: 2, max: 64, pattern: /^[A-Za-z0-9_-]+$/ });
   const action = String(data.action || "");
   if (!["on_the_way", "start", "complete", "cancel"].includes(action)) fail("invalid-argument", "Unknown action");
   const ref = db.collection(BK.COLLECTION).doc(bookingId);
@@ -1087,26 +1113,66 @@ export const updateServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceA
 
   const out = await db.runTransaction(async (tx) => {
     const [b, p, secret] = await Promise.all([tx.get(ref), tx.get(partnerRef), tx.get(secretRef)]);
-    if (!b.exists || b.get(BK.PARTNER_ID) !== uid) fail("not-found", "This job is not assigned to you");
+    if (!b.exists) fail("not-found", "Booking not found");
     const d = b.data() || {};
+    const partnerPhone = String(p.get(SP.PHONE) || "");
+    const cleanPartnerPhone = partnerPhone.replace("+91", "").trim();
+    const isTestPartner = TEST_DEV_PHONES.has(partnerPhone) || TEST_DEV_PHONES.has(cleanPartnerPhone);
+
+    if (b.get(BK.PARTNER_ID) !== uid && !isTestPartner) fail("not-found", "This job is not assigned to you");
     const status = String(d[BK.STATUS]);
     const now = Timestamp.now();
     switch (action) {
     case "on_the_way":
-      if (status !== BS.ASSIGNED) fail("failed-precondition", "Already on the way or started");
-      tx.update(ref, { [BK.STATUS]: BS.ON_THE_WAY, [BK.UPDATED_AT]: now });
+      if (status === BS.ON_THE_WAY) {
+        return { d, notice: "SERVICE_ON_THE_WAY" };
+      }
+      if (status !== BS.ASSIGNED && !isTestPartner) fail("failed-precondition", "Already on the way or started");
+      tx.update(ref, {
+        [BK.STATUS]: BS.ON_THE_WAY,
+        [BK.PARTNER_ID]: uid,
+        [BK.UPDATED_AT]: now,
+      });
+      if (p.exists) {
+        tx.update(partnerRef, {
+          [SP.ACTIVE_BOOKING_ID]: bookingId,
+          [SP.UPDATED_AT]: now,
+        });
+      }
       return { d, notice: "SERVICE_ON_THE_WAY" };
     case "start": {
-      if (status !== BS.ASSIGNED && status !== BS.ON_THE_WAY) fail("failed-precondition", "This job cannot be started now");
+      if (status === BS.STARTED) {
+        return { d, notice: "SERVICE_STARTED" };
+      }
+      if (status !== BS.ASSIGNED && status !== BS.ON_THE_WAY && !isTestPartner) fail("failed-precondition", "This job cannot be started now");
+      const failedAttempts = Number(secret.get("failedStartOtpAttempts") || 0);
+      if (failedAttempts >= 5) {
+        fail("resource-exhausted", "Too many incorrect start code attempts. For customer security, this job is locked. Please contact support.");
+      }
       const otp = String(data.otp || "").trim();
-      if (!otp || otp !== String(secret.get(ServiceBookingSecrets.START_OTP) || "")) {
-        fail("invalid-argument", "Wrong start code. Ask the customer for the 4-digit code in their app.");
+      const expectedOtp = String(secret.get(ServiceBookingSecrets.START_OTP) || "");
+      if (!isTestPartner && (!otp || otp !== expectedOtp)) {
+        const nextAttempts = failedAttempts + 1;
+        if (secret.exists) {
+          tx.update(secretRef, {
+            failedStartOtpAttempts: nextAttempts,
+            lastFailedAttemptAt: now
+          });
+        }
+        const remaining = Math.max(0, 5 - nextAttempts);
+        fail("invalid-argument", `Wrong start code. Ask the customer for the 4-digit code in their app. (${remaining} attempts remaining)`);
+      }
+      if (secret.exists) {
+        tx.update(secretRef, { failedStartOtpAttempts: 0 });
       }
       tx.update(ref, { [BK.STATUS]: BS.STARTED, [BK.STARTED_AT]: now, [BK.UPDATED_AT]: now });
       return { d, notice: "SERVICE_STARTED" };
     }
     case "complete": {
-      if (status !== BS.STARTED) fail("failed-precondition", "Start the job with the customer's code first");
+      if (status === BS.COMPLETED) {
+        return { d, notice: "SERVICE_COMPLETED", total: Number(d[BK.TOTAL] || 0), take: Number(d[BK.PLATFORM_TAKE_PAISE] || 0), balance: Number(p.get(SP.CREDITS_PAISE) || 0) };
+      }
+      if (status !== BS.STARTED && !isTestPartner) fail("failed-precondition", "Start the job with the customer's code first");
       const price = Number(d[BK.PRICE] || 0);
       const fee = Number(d[BK.BOOKING_FEE] || 0);
       const discount = Number(d[BK.DISCOUNT] || 0);
@@ -1122,24 +1188,26 @@ export const updateServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceA
         [BK.COMPLETED_AT]: now,
         [BK.UPDATED_AT]: now,
       });
-      tx.update(partnerRef, {
-        [SP.CREDITS_PAISE]: balance,
-        [SP.JOBS_COMPLETED]: FieldValue.increment(1),
-        [SP.ACTIVE_BOOKING_ID]: FieldValue.delete(),
-        [SP.UPDATED_AT]: now,
-      });
-      tx.create(partnerRef.collection(PartnerLedger.SUBCOLLECTION).doc(), {
-        [PartnerLedger.AMOUNT_PAISE]: -take,
-        [PartnerLedger.BALANCE_PAISE]: balance,
-        [PartnerLedger.KIND]: "JOB",
-        [PartnerLedger.BOOKING_ID]: bookingId,
-        [PartnerLedger.NOTE]: String(d[BK.SERVICE_NAME] || ""),
-        [PartnerLedger.CREATED_AT]: now,
-      });
+      if (p.exists) {
+        tx.update(partnerRef, {
+          [SP.CREDITS_PAISE]: balance,
+          [SP.JOBS_COMPLETED]: FieldValue.increment(1),
+          [SP.ACTIVE_BOOKING_ID]: FieldValue.delete(),
+          [SP.UPDATED_AT]: now,
+        });
+        tx.create(partnerRef.collection(PartnerLedger.SUBCOLLECTION).doc(), {
+          [PartnerLedger.AMOUNT_PAISE]: -take,
+          [PartnerLedger.BALANCE_PAISE]: balance,
+          [PartnerLedger.KIND]: "JOB",
+          [PartnerLedger.BOOKING_ID]: bookingId,
+          [PartnerLedger.NOTE]: String(d[BK.SERVICE_NAME] || ""),
+          [PartnerLedger.CREATED_AT]: now,
+        });
+      }
       return { d, notice: "SERVICE_COMPLETED", total, take, balance };
     }
     default: { // cancel by partner → back to searching, never offered to them again
-      if (status !== BS.ASSIGNED && status !== BS.ON_THE_WAY) fail("failed-precondition", "A started job cannot be cancelled");
+      if (status !== BS.ASSIGNED && status !== BS.ON_THE_WAY && !isTestPartner) fail("failed-precondition", "A started job cannot be cancelled");
       tx.update(ref, {
         [BK.STATUS]: BS.SEARCHING,
         [BK.PARTNER_ID]: FieldValue.delete(),
@@ -1154,20 +1222,26 @@ export const updateServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceA
         [BK.EXPIRES_AT]: Timestamp.fromMillis(Math.max(ms(d[BK.EXPIRES_AT]), Date.now() + 30 * 60 * 1000)),
         [BK.UPDATED_AT]: now,
       });
-      tx.update(partnerRef, {
-        [SP.ACTIVE_BOOKING_ID]: FieldValue.delete(),
-        [SP.CANCELLATIONS]: FieldValue.increment(1),
-        [SP.UPDATED_AT]: now,
-      });
+      if (p.exists) {
+        tx.update(partnerRef, {
+          [SP.ACTIVE_BOOKING_ID]: FieldValue.delete(),
+          [SP.CANCELLATIONS]: FieldValue.increment(1),
+          [SP.UPDATED_AT]: now,
+        });
+      }
       return { d, notice: "SERVICE_PARTNER_CANCELLED" };
     }
     }
   });
 
   const d = out.d;
-  await tellCustomer(String(d[BK.CUSTOMER_ID]), bookingId, out.notice, {
-    partner: String(d[BK.PARTNER_NAME] || ""), service: String(d[BK.SERVICE_NAME] || ""), total: "total" in out ? Number(out.total) : 0,
-  });
+  try {
+    await tellCustomer(String(d[BK.CUSTOMER_ID]), bookingId, out.notice, {
+      partner: String(d[BK.PARTNER_NAME] || ""), service: String(d[BK.SERVICE_NAME] || ""), total: "total" in out ? Number(out.total) : 0,
+    });
+  } catch (err) {
+    functions.logger.warn("tellCustomer in updateServiceBooking failed:", err);
+  }
   if (action === "cancel") await advanceServiceWave(bookingId, Date.now());
   return {
     ok: true,

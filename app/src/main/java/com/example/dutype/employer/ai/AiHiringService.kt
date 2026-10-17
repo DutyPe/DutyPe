@@ -1,6 +1,7 @@
 package com.example.dutype.employer.ai
 
 import android.content.Context
+import androidx.annotation.Keep
 import com.example.dutype.utils.LocaleHelper
 import com.google.firebase.functions.FirebaseFunctions
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -9,6 +10,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** One AI top pick for a job (server: functions/src/ai-hiring.ts aiShortlist). */
+@Keep
 data class AiPick(
     val applicationId: String,
     val workerId: String,
@@ -20,18 +22,23 @@ data class AiPick(
 )
 
 /** [aiLocked]: no DutyPe AI (plan / trial) — picks come from the fixed score only. */
+@Keep
 data class AiShortlist(val picks: List<AiPick>, val considered: Int, val byAi: Boolean, val aiLocked: Boolean = false)
 
 /** An action DutyPe AI proposes; runs only after the employer confirms. */
+@Keep
 data class AiAction(val type: String, val args: Map<String, Any?>, val summary: String)
 
 /** One DutyPe AI reply. [locked] = "upgrade" / "limit" when AI is not available right now. */
+@Keep
 data class DutyPeAiTurn(val reply: String, val action: AiAction?, val locked: String?, val stats: AiStats? = null)
 
 /** The employer's live numbers, sent back with every DutyPe AI answer. */
+@Keep
 data class AiStats(val appliedToday: Int, val waiting: Int, val openJobs: Int, val hired: Int)
 
 /** A job draft in the posting form's exact values (server: cleanDraft). */
+@Keep
 data class AiJobDraft(
     val title: String = "",
     val category: String = "",
@@ -71,6 +78,7 @@ data class AiJobDraft(
 }
 
 /** One turn of the talk-to-post conversation. */
+@Keep
 data class AiAssistantTurn(val draft: AiJobDraft, val ready: Boolean, val question: String, val summary: String, val locked: String? = null)
 
 /** Employer AI: top picks, nearby supply and talk-to-post. Every call is server-side and capped. */

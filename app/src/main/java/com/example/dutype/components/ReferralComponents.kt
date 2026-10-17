@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -172,7 +173,7 @@ fun ProfileSetupReferralCard(
                             OutlinedTextField(
                                 value = codeText,
                                 onValueChange = { input ->
-                                    codeText = normalizeReferralCode(input).take(12)
+                                    codeText = normalizeReferralCode(input).take(20)
                                     errorMessage = null
                                 },
                                 placeholder = {
@@ -198,7 +199,7 @@ fun ProfileSetupReferralCard(
                             Button(
                                 onClick = {
                                     val code = normalizeReferralCode(codeText)
-                                    if (code.length < 6) {
+                                    if (code.length < 3) {
                                         errorMessage = context.getString(R.string.referral_code_not_found)
                                         return@Button
                                     }
@@ -209,10 +210,17 @@ fun ProfileSetupReferralCard(
                                             val info = profileCompletionViewModel.validateReferralCode(code)
                                             if (info.isValid) {
                                                 profileCompletionViewModel.saveReferralCode(code)
-                                                runCatching { profileCompletionViewModel.applyReferralCode(code) }
-                                                isApplied = true
-                                                appliedCode = code
-                                                onCodeApplied?.invoke(code)
+                                                val applyRes = profileCompletionViewModel.applyReferralCode(code)
+                                                applyRes.fold(
+                                                    onSuccess = {
+                                                        isApplied = true
+                                                        appliedCode = code
+                                                        onCodeApplied?.invoke(code)
+                                                    },
+                                                    onFailure = { err ->
+                                                        errorMessage = err.message ?: context.getString(R.string.referral_code_not_found)
+                                                    }
+                                                )
                                             } else {
                                                 errorMessage = info.errorMessage ?: context.getString(R.string.referral_code_not_found)
                                             }
@@ -223,7 +231,7 @@ fun ProfileSetupReferralCard(
                                         }
                                     }
                                 },
-                                enabled = codeText.length >= 6 && !isValidating,
+                                enabled = codeText.length >= 3 && !isValidating,
                                 shape = RoundedCornerShape(10.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF0F172A).bg(),
@@ -316,14 +324,12 @@ fun ReferAndEarnRedemptionCard(
     val accountAgeMillis = if (creationTime > 0L) System.currentTimeMillis() - creationTime else 0L
     val isWithin7Days = creationTime == 0L || accountAgeMillis <= (7L * 24 * 60 * 60 * 1000)
 
-    if (!isWithin7Days) return
-
     val remainingMillis = (7L * 24 * 60 * 60 * 1000) - accountAgeMillis
     val daysLeft = if (creationTime > 0L) {
         maxOf(1, (remainingMillis / (24 * 60 * 60 * 1000)).toInt() + 1).coerceAtMost(7)
     } else 7
 
-    var codeText by remember { mutableStateOf("") }
+    var codeText by rememberSaveable { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isApplied by remember { mutableStateOf(false) }
@@ -364,7 +370,7 @@ fun ReferAndEarnRedemptionCard(
                     color = Color(0xFFFEF3C7).bg()
                 ) {
                     Text(
-                        text = if (daysLeft == 1) "1 day left" else "$daysLeft days left",
+                        text = if (isWithin7Days && daysLeft in 1..7) "$daysLeft days left" else "Claim Bonus",
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -392,7 +398,7 @@ fun ReferAndEarnRedemptionCard(
                 OutlinedTextField(
                     value = codeText,
                     onValueChange = { input ->
-                        codeText = normalizeReferralCode(input).take(12)
+                        codeText = normalizeReferralCode(input).take(20)
                         errorMessage = null
                     },
                     placeholder = {
@@ -418,7 +424,7 @@ fun ReferAndEarnRedemptionCard(
                 Button(
                     onClick = {
                         val code = normalizeReferralCode(codeText)
-                        if (code.length < 6) {
+                        if (code.length < 3) {
                             errorMessage = context.getString(R.string.referral_code_not_found)
                             return@Button
                         }
@@ -452,7 +458,7 @@ fun ReferAndEarnRedemptionCard(
                             }
                         }
                     },
-                    enabled = codeText.length >= 6 && !isSubmitting,
+                    enabled = codeText.length >= 3 && !isSubmitting,
                     shape = RoundedCornerShape(10.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF0F172A).bg(),

@@ -1,3 +1,4 @@
+import { AdminAuthGate } from "@/components/admin/admin-auth-gate";
 import { MarketingFullView } from "@/components/marketing-shell";
 import { MarketingDocSearch } from "@/components/admin/marketing/marketing-doc-search";
 import {
@@ -63,49 +64,51 @@ export default function MarketingLandingPage() {
   const topLevelGroups = tree.filter((node) => node.kind === "dir").length;
 
   return (
-    <div className="marketing-landing">
-      <header className="marketing-hero">
-        <div className="marketing-hero-content">
-          <h1>Marketing &amp; Growth Hub</h1>
-          <p>
-            Every campaign, asset, input, output, playbook, channel, brand,
-            go-to-market and research document — all in one searchable place.
-          </p>
-          <div className="marketing-hero-stats">
-            <div className="marketing-hero-stat">
-              <strong>{totalDocs}</strong>
-              <span>Documents</span>
-            </div>
-            <div className="marketing-hero-stat">
-              <strong>{sections.length}</strong>
-              <span>Categories</span>
-            </div>
-            <div className="marketing-hero-stat">
-              <strong>{topLevelGroups}</strong>
-              <span>Top-level groups</span>
+    <AdminAuthGate>
+      <div className="marketing-landing">
+        <header className="marketing-hero">
+          <div className="marketing-hero-content">
+            <h1>Marketing &amp; Growth Hub</h1>
+            <p>
+              Every campaign, asset, input, output, playbook, channel, brand,
+              go-to-market and research document — all in one searchable place.
+            </p>
+            <div className="marketing-hero-stats">
+              <div className="marketing-hero-stat">
+                <strong>{totalDocs}</strong>
+                <span>Documents</span>
+              </div>
+              <div className="marketing-hero-stat">
+                <strong>{sections.length}</strong>
+                <span>Categories</span>
+              </div>
+              <div className="marketing-hero-stat">
+                <strong>{topLevelGroups}</strong>
+                <span>Top-level groups</span>
+              </div>
             </div>
           </div>
+        </header>
+
+        <MarketingDocSearch totalDocs={totalDocs} />
+
+        <div className="marketing-section-cards">
+          {sections.map((section) => (
+            <a key={section.id} href={`#${section.id}`} className="marketing-section-card">
+              <div className="icon">{section.icon}</div>
+              <div className="meta">
+                <strong>
+                  {section.title}{" "}
+                  <span className="marketing-section-count">· {section.count}</span>
+                </strong>
+                <span>{section.desc}</span>
+              </div>
+            </a>
+          ))}
         </div>
-      </header>
 
-      <MarketingDocSearch totalDocs={totalDocs} />
-
-      <div className="marketing-section-cards">
-        {sections.map((section) => (
-          <a key={section.id} href={`#${section.id}`} className="marketing-section-card">
-            <div className="icon">{section.icon}</div>
-            <div className="meta">
-              <strong>
-                {section.title}{" "}
-                <span className="marketing-section-count">· {section.count}</span>
-              </strong>
-              <span>{section.desc}</span>
-            </div>
-          </a>
-        ))}
+        <MarketingFullView tree={tree} />
       </div>
-
-      <MarketingFullView tree={tree} />
-    </div>
+    </AdminAuthGate>
   );
 }

@@ -638,6 +638,9 @@ class OtpViewModel @Inject constructor(
                 knownPhone = phone
             ).fold(
                 onSuccess = { resolution ->
+                    if (!resolution.referralError.isNullOrBlank()) {
+                        Timber.w("Referral registration note: ${resolution.referralError}")
+                    }
                     cacheResolvedUser(resolution.user, role)
                     registerFcmInBackground(role.name)
                     Result.success(

@@ -11,13 +11,10 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,10 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Directions
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.FullscreenExit
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Moped
 import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -43,33 +37,141 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import timber.log.Timber
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
+import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 
 /**
- * JavaScript interface bridge to communicate live road calculations (distance & duration)
- * from OSRM router inside WebView back to Jetpack Compose.
+ * JavaScript interface bridge communicating real-time street road calculations (distance & duration)
+ * and map readiness from MapLibre / OpenFreeMap inside WebView back to Jetpack Compose.
  */
 class MapJsBridge(
-    private val onRouteCalculated: (Double, Double) -> Unit
+    private val onRouteCalculated: (Double, Double) -> Unit,
+    private val onMapReady: () -> Unit = {}
 ) {
     @JavascriptInterface
     fun onRouteCalculated(distanceMeters: Double, durationSeconds: Double) {
         onRouteCalculated(distanceMeters, durationSeconds)
     }
+
+    @JavascriptInterface
+    fun onMapReady() {
+        onMapReady()
+    }
 }
 
 /**
- * High-performance, 100% Free Live Map Tracker with Real Street Road Routing.
- * Powered by OpenFreeMap (openfreemap.org), MapLibre GL, and OSRM Road Routing Machine.
+ * High-performance, multi-mirror native OSRM road router.
+ * Queries 100% free, open routing endpoints with zero API keys.
+ * Prioritizes bike/two-wheeler routing (for Indian city traffic like Rapido/Uber)
+ * with instant fallback to alternative mirrors.
+ */
+object StreetRouteFetcher {
+    private val client by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(6, TimeUnit.SECONDS)
+            .readTimeout(6, TimeUnit.SECONDS)
+            .build()
+    }
+
+    private val ROUTING_MIRRORS = listOf(
+        "https://routing.openstreetmap.de/routed-bike/route/v1/driving/",
+        "https://router.project-osrm.org/route/v1/driving/",
+        "https://routing.openstreetmap.de/routed-car/route/v1/driving/"
+    )
+
+    data class RouteResult(
+        val geoJsonString: String,
+        val distanceMeters: Double,
+        val durationSeconds: Double,
+        val initialBearing: Float
+    )
+
+    suspend fun fetchStreetRoute(
+        pLng: Double, pLat: Double,
+        cLng: Double, cLat: Double
+    ): RouteResult? = withContext(Dispatchers.IO) {
+        if (pLng == 0.0 || pLat == 0.0 || cLng == 0.0 || cLat == 0.0) return@withContext null
+
+        for (baseUrl in ROUTING_MIRRORS) {
+            try {
+                val url = "${baseUrl}${pLng},${pLat};${cLng},${cLat}?overview=full&geometries=geojson"
+                val request = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", "DutyPeApp/1.0 (Android Live Tracking)")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val body = response.body?.string() ?: return@use
+                        val root = JSONObject(body)
+                        if (root.optString("code").equals("Ok", ignoreCase = true)) {
+                            val routes = root.optJSONArray("routes")
+                            if (routes != null && routes.length() > 0) {
+                                val firstRoute = routes.getJSONObject(0)
+                                val dist = firstRoute.optDouble("distance", 0.0)
+                                val dur = firstRoute.optDouble("duration", 0.0)
+                                val geometry = firstRoute.optJSONObject("geometry")
+                                if (geometry != null) {
+                                    val coords = geometry.optJSONArray("coordinates")
+                                    var initialBearing = 0f
+                                    if (coords != null && coords.length() >= 2) {
+                                        val p1 = coords.getJSONArray(0)
+                                        val p2 = coords.getJSONArray(1)
+                                        val loc1 = Location("").apply {
+                                            longitude = p1.getDouble(0)
+                                            latitude = p1.getDouble(1)
+                                        }
+                                        val loc2 = Location("").apply {
+                                            longitude = p2.getDouble(0)
+                                            latitude = p2.getDouble(1)
+                                        }
+                                        initialBearing = loc1.bearingTo(loc2)
+                                        if (initialBearing < 0) initialBearing += 360f
+                                    }
+                                    return@withContext RouteResult(
+                                        geoJsonString = geometry.toString(),
+                                        distanceMeters = dist,
+                                        durationSeconds = dur,
+                                        initialBearing = initialBearing
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) {
+                // Try next mirror
+            }
+        }
+        null
+    }
+}
+
+/**
+ * Uber & Rapido-grade Live Map Tracker with Real Street Road Routing.
+ * Powered EXCLUSIVELY by OpenFreeMap (openfreemap.org) and MapLibre GL.
  *
- * Visual Parity with Uber, Swiggy/Zomato, and Rapido:
- * 1. Street-Snapped Polyline: Dual-layer styling (high-contrast casing outline + vibrant electric blue road line).
- * 2. Doorstep Pin & Green Geofence: Black circular pin with white home icon + emerald green arrival radius ring.
- * 3. Technician Vehicle Marker: Scooter/bike marker with smooth bearing rotation and pulsing radar wave.
- * 4. Expand / Fullscreen Toggle: Top-right ⤢ button to toggle compact (240dp) and expansive (440dp) map views.
- * 5. Floating ETA Pill & Direct Actions: Live road distance, ETA, Google Maps directions, and 1-tap dialer.
+ * Key Highlights:
+ * 1. 100% Free & Open: No Google Maps API keys, no billing limits, ultra-lightweight.
+ * 2. True Street-Based Road Routing: Dual-engine (Native OkHttp + In-Map JS) road routing
+ *    that snaps strictly along real streets and roads (NO straight line across buildings).
+ * 3. Uber/Rapido Multi-Layer Polyline:
+ *    - Deep dark navy casing border (#0B132B)
+ *    - Electric cyan/blue road core (#0284C7 / #2563EB)
+ *    - Animated directional pulse flow along the route.
+ * 4. Rapido-Style Vehicle Marker: High-visibility 🛵 marker with pulsing radar ripple
+ *    wave and smooth bearing rotation aligned with street orientation.
+ * 5. Uber-Style Doorstep Marker: Black pin with 🏠 badge and emerald green arrival zone.
+ * 6. Floating Live ETA & Distance Pill: Displays real driving road distance and ETA with
+ *    pulsing live indicator.
+ * 7. Expand & Re-center Controls: Smooth spring-animated expansion from 240dp to 440dp.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -84,17 +186,19 @@ fun OpenFreeMapTrackerView(
     partnerPhone: String = "",
     partnerBearing: Float = 0f,
     isPartnerMode: Boolean = false, // True if worker is viewing destination
+    showActionFooter: Boolean = false, // Set true only if standalone
     onNavigateClick: (() -> Unit)? = null,
     onCallClick: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     var webViewRef by remember { mutableStateOf<WebView?>(null) }
-    var isMapLoaded by remember { mutableStateOf(false) }
+    var isMapReady by remember { mutableStateOf(false) }
     var isExpanded by remember { mutableStateOf(false) }
 
-    // Live calculated road distance & duration reported by OSRM via MapJsBridge
+    // Live calculated road distance & duration reported by OSRM
     var roadDistanceMeters by remember { mutableStateOf<Double?>(null) }
     var roadDurationSeconds by remember { mutableStateOf<Double?>(null) }
+    var calculatedBearing by remember { mutableStateOf(partnerBearing) }
 
     // Smooth animated height transition when expanding/collapsing map
     val animatedHeight by animateDpAsState(
@@ -104,45 +208,54 @@ fun OpenFreeMapTrackerView(
     )
 
     // Trigger map.resize() whenever expand state toggles
-    LaunchedEffect(isExpanded, isMapLoaded) {
-        if (isMapLoaded) {
+    LaunchedEffect(isExpanded, isMapReady) {
+        if (isMapReady) {
             delay(280) // Wait for Compose height animation to settle
             webViewRef?.evaluateJavascript("if (window.resizeMap) { window.resizeMap(); }", null)
         }
     }
 
     // Effective Coordinates with realistic fallback when GPS is initiating
+    val effectiveCustomerLat = remember(customerLat, partnerLat) {
+        if (customerLat != 0.0) customerLat
+        else if (partnerLat != 0.0) partnerLat - 0.0125
+        else 17.2473
+    }
+    val effectiveCustomerLng = remember(customerLng, partnerLng) {
+        if (customerLng != 0.0) customerLng
+        else if (partnerLng != 0.0) partnerLng - 0.0095
+        else 80.1514
+    }
+
     val effectivePartnerLat = remember(partnerLat, customerLat) {
         if (partnerLat != 0.0) partnerLat
         else if (customerLat != 0.0) customerLat + 0.0125
-        else 17.2473
+        else 17.2473 + 0.0125
     }
     val effectivePartnerLng = remember(partnerLng, customerLng) {
         if (partnerLng != 0.0) partnerLng
         else if (customerLng != 0.0) customerLng + 0.0095
-        else 80.1514
+        else 80.1514 + 0.0095
     }
 
-    // Fallback baseline straight-line distance if OSRM is loading or offline
-    val baselineDistanceMeters = remember(customerLat, customerLng, effectivePartnerLat, effectivePartnerLng) {
-        if (customerLat != 0.0 && customerLng != 0.0) {
-            val res = FloatArray(1)
-            Location.distanceBetween(effectivePartnerLat, effectivePartnerLng, customerLat, customerLng, res)
-            res[0]
-        } else 1800f
+    // Baseline fallback straight-line distance if network is initializing
+    val baselineDistanceMeters = remember(effectiveCustomerLat, effectiveCustomerLng, effectivePartnerLat, effectivePartnerLng) {
+        val res = FloatArray(1)
+        Location.distanceBetween(effectivePartnerLat, effectivePartnerLng, effectiveCustomerLat, effectiveCustomerLng, res)
+        res[0]
     }
 
-    // Prefer accurate road distance from OSRM, fallback to straight-line distance
+    // Prefer accurate road distance from OSRM, fallback to baseline
     val effectiveDistanceMeters = (roadDistanceMeters ?: baselineDistanceMeters.toDouble()).toFloat()
     val distanceKm = effectiveDistanceMeters / 1000f
 
-    // Prefer accurate driving duration from OSRM, fallback to city average speed (24 km/h)
+    // Prefer accurate driving duration from OSRM, fallback to city average speed (22 km/h)
     val etaMinutes = remember(roadDurationSeconds, distanceKm) {
         roadDurationSeconds?.let { sec ->
             (sec / 60.0).roundToInt().coerceAtLeast(1)
         } ?: run {
             if (distanceKm <= 0.05f) 1
-            else (distanceKm / 24f * 60f).toInt().coerceAtLeast(2)
+            else (distanceKm / 22f * 60f).toInt().coerceAtLeast(2)
         }
     }
 
@@ -153,10 +266,32 @@ fun OpenFreeMapTrackerView(
                 else "Technician is %.1f km away • Arriving in ~%d mins".format(distanceKm, etaMinutes)
     }
 
-    // Push coordinates to WebView dynamically whenever partner location or bearing updates
-    LaunchedEffect(effectivePartnerLat, effectivePartnerLng, partnerBearing, isMapLoaded) {
-        if (isMapLoaded) {
-            val js = "if (window.updatePartnerLocation) { window.updatePartnerLocation($effectivePartnerLat, $effectivePartnerLng, $partnerBearing); }"
+    // ── NATIVE ROUTE FETCHING (Parallel high-speed fetch with OkHttp) ──
+    LaunchedEffect(effectivePartnerLat, effectivePartnerLng, effectiveCustomerLat, effectiveCustomerLng, isMapReady) {
+        val result = StreetRouteFetcher.fetchStreetRoute(
+            pLng = effectivePartnerLng,
+            pLat = effectivePartnerLat,
+            cLng = effectiveCustomerLng,
+            cLat = effectiveCustomerLat
+        )
+        if (result != null) {
+            roadDistanceMeters = result.distanceMeters
+            roadDurationSeconds = result.durationSeconds
+            if (partnerBearing == 0f && result.initialBearing != 0f) {
+                calculatedBearing = result.initialBearing
+            }
+            if (isMapReady) {
+                val js = "if (window.injectStreetRoute) { window.injectStreetRoute(${result.geoJsonString}, ${result.distanceMeters}, ${result.durationSeconds}, ${calculatedBearing}); }"
+                webViewRef?.evaluateJavascript(js, null)
+            }
+        }
+    }
+
+    // Push partner live coordinates dynamically once map is ready
+    LaunchedEffect(effectivePartnerLat, effectivePartnerLng, partnerBearing, isMapReady) {
+        if (isMapReady) {
+            val effBearing = if (partnerBearing != 0f) partnerBearing else calculatedBearing
+            val js = "if (window.updatePartnerLocation) { window.updatePartnerLocation($effectivePartnerLat, $effectivePartnerLng, $effBearing); }"
             webViewRef?.evaluateJavascript(js, null)
         }
     }
@@ -170,8 +305,8 @@ fun OpenFreeMapTrackerView(
     }
 
     val openGoogleMapsNav = {
-        val destLat = if (isPartnerMode) customerLat else effectivePartnerLat
-        val destLng = if (isPartnerMode) customerLng else effectivePartnerLng
+        val destLat = if (isPartnerMode) effectiveCustomerLat else effectivePartnerLat
+        val destLng = if (isPartnerMode) effectiveCustomerLng else effectivePartnerLng
         val gmmIntentUri = Uri.parse("google.navigation:q=$destLat,$destLng")
         val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri).apply {
             setPackage("com.google.android.apps.maps")
@@ -192,84 +327,10 @@ fun OpenFreeMapTrackerView(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(18.dp))
             .background(Color.White)
-            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
+            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(18.dp))
     ) {
-        // ── Map Header Banner ──
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF0F172A))
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .background(Color(0xFF22C55E), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Filled.Moped,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                Spacer(Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = if (isPartnerMode) "Navigation to Customer" else "Live Partner Tracking",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp
-                    )
-                    Text(
-                        text = "Street-Snapped Route • OpenFreeMap",
-                        color = Color(0xFF94A3B8),
-                        fontSize = 10.5.sp
-                    )
-                }
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // Expand / Collapse Fullscreen Map Button
-                IconButton(
-                    onClick = { isExpanded = !isExpanded },
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(Color(0xFF1E293B), CircleShape)
-                ) {
-                    Icon(
-                        imageVector = if (isExpanded) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
-                        contentDescription = if (isExpanded) "Collapse Map" else "Expand Map",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                Spacer(Modifier.width(8.dp))
-
-                // External Google Maps Navigation Button
-                IconButton(
-                    onClick = { onNavigateClick?.invoke() ?: openGoogleMapsNav() },
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(Color(0xFF334155), CircleShape)
-                ) {
-                    Icon(
-                        Icons.Filled.Navigation,
-                        contentDescription = "Open in Google Maps",
-                        tint = Color(0xFF38BDF8),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-        }
-
         // ── Map Container ──
         Box(
             modifier = Modifier
@@ -289,37 +350,41 @@ fun OpenFreeMapTrackerView(
                             domStorageEnabled = true
                             cacheMode = WebSettings.LOAD_DEFAULT
                             setSupportZoom(true)
-                            builtInZoomControls = true
+                            builtInZoomControls = false
                             displayZoomControls = false
                             useWideViewPort = true
                             loadWithOverviewMode = true
                         }
 
-                        // Attach JavaScript bridge for real-time distance and ETA sync
+                        // Attach JavaScript bridge for real-time distance, ETA sync, and map readiness
                         addJavascriptInterface(
-                            MapJsBridge { distMeters, durSec ->
-                                roadDistanceMeters = distMeters
-                                roadDurationSeconds = durSec
-                            },
+                            MapJsBridge(
+                                onRouteCalculated = { distMeters, durSec ->
+                                    roadDistanceMeters = distMeters
+                                    roadDurationSeconds = durSec
+                                },
+                                onMapReady = {
+                                    isMapReady = true
+                                }
+                            ),
                             "AndroidBridge"
                         )
 
                         webViewClient = object : WebViewClient() {
                             override fun onPageFinished(view: WebView?, url: String?) {
                                 super.onPageFinished(view, url)
-                                isMapLoaded = true
                             }
                         }
                         webChromeClient = WebChromeClient()
 
                         val htmlContent = buildOpenFreeMapHtml(
-                            custLat = customerLat,
-                            custLng = customerLng,
+                            custLat = effectiveCustomerLat,
+                            custLng = effectiveCustomerLng,
                             partLat = effectivePartnerLat,
                             partLng = effectivePartnerLng,
                             partName = partnerName,
                             custLabel = customerLabel,
-                            partnerBearing = partnerBearing
+                            partnerBearing = if (partnerBearing != 0f) partnerBearing else calculatedBearing
                         )
 
                         loadDataWithBaseURL("https://openfreemap.org", htmlContent, "text/html", "UTF-8", null)
@@ -329,52 +394,92 @@ fun OpenFreeMapTrackerView(
                 modifier = Modifier.fillMaxSize()
             )
 
-            // ── Floating Uber/Rapido-Style Live Distance & ETA Pill (Top-Left) ──
+            // ── Floating Uber/Rapido Live HUD Badge (Top-Left) ──
             Surface(
                 modifier = Modifier
-                    .padding(10.dp)
+                    .padding(12.dp)
                     .align(Alignment.TopStart)
-                    .shadow(4.dp, RoundedCornerShape(20.dp)),
-                shape = RoundedCornerShape(20.dp),
+                    .shadow(6.dp, RoundedCornerShape(16.dp)),
+                shape = RoundedCornerShape(16.dp),
                 color = Color(0xFF0F172A).copy(alpha = 0.94f),
                 border = BorderStroke(1.dp, Color(0xFF334155))
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Pulsing live radar dot
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
+                            .size(9.dp)
                             .background(Color(0xFF22C55E), CircleShape)
                     )
-                    Spacer(Modifier.width(7.dp))
-                    Text(
-                        text = if (isPartnerMode) "%.1f km to Customer • ~%d mins".format(distanceKm, etaMinutes)
-                               else "%.1f km away • ~%d mins".format(distanceKm, etaMinutes),
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = if (isPartnerMode) "~%d mins".format(etaMinutes)
+                                       else "~%d mins".format(etaMinutes),
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 13.5.sp
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(
+                                text = "• %.1f km away".format(distanceKm),
+                                color = Color(0xFF94A3B8),
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        Text(
+                            text = if (isPartnerMode) "Navigating to Customer" else "Technician en route",
+                            color = Color(0xFF38BDF8),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
 
-            // ── Top-Right Expand/Collapse Button Overlay (matching Screenshot 2 ⤢) ──
-            IconButton(
-                onClick = { isExpanded = !isExpanded },
+            // ── Top-Right Map Controls (Expand & Google Maps Directions) ──
+            Row(
                 modifier = Modifier
                     .padding(10.dp)
-                    .size(34.dp)
-                    .align(Alignment.TopEnd)
-                    .shadow(4.dp, CircleShape)
-                    .background(Color.White, CircleShape)
+                    .align(Alignment.TopEnd),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    imageVector = if (isExpanded) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
-                    contentDescription = if (isExpanded) "Collapse" else "Expand",
-                    tint = Color(0xFF0F172A),
-                    modifier = Modifier.size(18.dp)
-                )
+                // External Directions Button
+                IconButton(
+                    onClick = { onNavigateClick?.invoke() ?: openGoogleMapsNav() },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .shadow(4.dp, CircleShape)
+                        .background(Color.White, CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Directions,
+                        contentDescription = "Turn-by-turn Navigation",
+                        tint = Color(0xFF2563EB),
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
+
+                // Expand/Collapse Fullscreen Button
+                IconButton(
+                    onClick = { isExpanded = !isExpanded },
+                    modifier = Modifier
+                        .size(36.dp)
+                        .shadow(4.dp, CircleShape)
+                        .background(Color.White, CircleShape)
+                ) {
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Filled.FullscreenExit else Icons.Filled.Fullscreen,
+                        contentDescription = if (isExpanded) "Collapse" else "Expand",
+                        tint = Color(0xFF0F172A),
+                        modifier = Modifier.size(19.dp)
+                    )
+                }
             }
 
             // ── Bottom-Right Re-center Floating Action Button ──
@@ -384,94 +489,96 @@ fun OpenFreeMapTrackerView(
                     webViewRef?.evaluateJavascript(js, null)
                 },
                 modifier = Modifier
-                    .padding(10.dp)
-                    .size(34.dp)
+                    .padding(12.dp)
+                    .size(38.dp)
                     .align(Alignment.BottomEnd)
                     .shadow(4.dp, CircleShape)
                     .background(Color.White, CircleShape)
+                    .border(1.dp, Color(0xFFE2E8F0), CircleShape)
             ) {
                 Icon(
                     Icons.Filled.MyLocation,
-                    contentDescription = "Re-center",
+                    contentDescription = "Re-center Route",
                     tint = Color(0xFF0F172A),
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
 
-        // ── Bottom Live ETA, Address & Action Controls (Uber & Rapido Cards) ──
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFFF8FAFC))
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
+        // ── Optional Bottom Footer (Only rendered when showActionFooter is true) ──
+        if (showActionFooter) {
+            Row(
                 modifier = Modifier
-                    .size(10.dp)
-                    .clip(CircleShape)
-                    .background(if (effectiveDistanceMeters <= 80f) Color(0xFF22C55E) else Color(0xFF3B82F6))
-            )
-            Spacer(Modifier.width(8.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = statusHeadline,
-                    color = Color(0xFF0F172A),
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 12.5.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    .fillMaxWidth()
+                    .background(Color(0xFFF8FAFC))
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(if (effectiveDistanceMeters <= 80f) Color(0xFF22C55E) else Color(0xFF3B82F6))
                 )
-                if (customerLabel.isNotBlank()) {
+                Spacer(Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = customerLabel,
-                        color = Color(0xFF64748B),
-                        fontSize = 11.sp,
+                        text = statusHeadline,
+                        color = Color(0xFF0F172A),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.5.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    if (customerLabel.isNotBlank()) {
+                        Text(
+                            text = customerLabel,
+                            color = Color(0xFF64748B),
+                            fontSize = 11.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
-            }
-            Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(8.dp))
 
-            // Quick Call Button (if phone number is available)
-            if (partnerPhone.isNotBlank() || onCallClick != null) {
-                IconButton(
-                    onClick = { onCallClick?.invoke() ?: dialPhone() },
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(Color(0xFFECFDF5), CircleShape)
-                        .border(1.dp, Color(0xFFA7F3D0), CircleShape)
+                if (partnerPhone.isNotBlank() || onCallClick != null) {
+                    IconButton(
+                        onClick = { onCallClick?.invoke() ?: dialPhone() },
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(Color(0xFFECFDF5), CircleShape)
+                            .border(1.dp, Color(0xFFA7F3D0), CircleShape)
+                    ) {
+                        Icon(
+                            Icons.Filled.Phone,
+                            contentDescription = "Call",
+                            tint = Color(0xFF059669),
+                            modifier = Modifier.size(17.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(6.dp))
+                }
+
+                OutlinedButton(
+                    onClick = { onNavigateClick?.invoke() ?: openGoogleMapsNav() },
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.height(32.dp)
                 ) {
-                    Icon(
-                        Icons.Filled.Phone,
-                        contentDescription = "Call",
-                        tint = Color(0xFF059669),
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Icon(Icons.Filled.Directions, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Directions", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
-                Spacer(Modifier.width(6.dp))
-            }
-
-            // Google Maps Directions Button
-            OutlinedButton(
-                onClick = { onNavigateClick?.invoke() ?: openGoogleMapsNav() },
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.height(30.dp)
-            ) {
-                Icon(Icons.Filled.Directions, contentDescription = null, modifier = Modifier.size(14.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Map", fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
 
 /**
- * Generates standalone lightweight HTML with MapLibre GL JS, OpenFreeMap Liberty style,
- * and real-time OSRM street-snapped road geometry.
+ * Generates standalone lightweight HTML with MapLibre GL JS and OpenFreeMap's fastest
+ * 'positron' style. Completely free, NO API keys, ultra-crisp vector rendering,
+ * and Uber/Rapido-styled real-time street-snapped road geometry.
  */
 private fun buildOpenFreeMapHtml(
     custLat: Double,
@@ -482,8 +589,8 @@ private fun buildOpenFreeMapHtml(
     custLabel: String,
     partnerBearing: Float
 ): String {
-    val initialLat = if (partLat != 0.0) partLat else if (custLat != 0.0) custLat else 17.2473
-    val initialLng = if (partLng != 0.0) partLng else if (custLng != 0.0) custLng else 80.1514
+    val initialLat = (partLat + custLat) / 2.0
+    val initialLng = (partLng + custLng) / 2.0
 
     return """
     <!DOCTYPE html>
@@ -494,76 +601,114 @@ private fun buildOpenFreeMapHtml(
         <link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet" />
         <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
         <style>
-            body, html, #map { margin: 0; padding: 0; width: 100%; height: 100%; background: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, sans-serif; overflow: hidden; }
+            body, html, #map { margin: 0; padding: 0; width: 100%; height: 100%; background: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
             
-            /* Customer Doorstep Pin (Matching Screenshot 2 / Zomato style) */
+            /* Uber-Style Customer Doorstep Pin */
             .cust-pin-container {
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 cursor: pointer;
+                filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35));
+            }
+            .cust-pin-badge {
+                background: #0B132B;
+                color: #FFFFFF;
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 0.2px;
+                padding: 2px 8px;
+                border-radius: 12px;
+                white-space: nowrap;
+                box-shadow: 0 2px 8px rgba(11,19,43,0.35);
+                margin-bottom: 4px;
+                border: 1.5px solid rgba(255,255,255,0.3);
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+            .cust-pin-badge-dot {
+                width: 5px;
+                height: 5px;
+                border-radius: 50%;
+                background: #10B981;
             }
             .cust-pin-bubble {
-                width: 32px;
-                height: 32px;
-                background: #0F172A;
+                width: 36px;
+                height: 36px;
+                background: #0B132B;
                 border: 2.5px solid #FFFFFF;
                 border-radius: 50%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                box-shadow: 0 4px 10px rgba(15, 23, 42, 0.4);
+                box-shadow: 0 4px 14px rgba(11, 19, 43, 0.5);
                 color: #FFFFFF;
-                font-size: 15px;
+                font-size: 17px;
+                position: relative;
             }
             .cust-pin-stem {
-                width: 4px;
-                height: 5px;
-                background: #0F172A;
-                border-radius: 2px;
-                margin-top: 1px;
+                width: 0;
+                height: 0;
+                border-left: 5px solid transparent;
+                border-right: 5px solid transparent;
+                border-top: 7px solid #0B132B;
+                margin-top: -1px;
             }
 
-            /* Technician Vehicle Marker (Matching Screenshots 2 & 3 / Swiggy & Rapido style) */
+            /* Rapido-Style Technician Scooter Marker */
             .partner-marker-container {
                 position: relative;
-                width: 44px;
-                height: 44px;
+                width: 54px;
+                height: 54px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
                 cursor: pointer;
             }
-            .partner-pulse-radar {
+            .partner-pulse-radar-1, .partner-pulse-radar-2 {
                 position: absolute;
-                width: 44px;
-                height: 44px;
                 border-radius: 50%;
-                background: rgba(34, 197, 94, 0.35);
-                animation: pulse-ring 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+                pointer-events: none;
             }
-            @keyframes pulse-ring {
-                0% { transform: scale(0.9); opacity: 0.85; }
-                100% { transform: scale(2.4); opacity: 0; }
+            .partner-pulse-radar-1 {
+                width: 52px;
+                height: 52px;
+                background: radial-gradient(circle, rgba(2, 132, 199, 0.35) 0%, rgba(56, 189, 248, 0) 70%);
+                animation: rapidoPulse 1.8s infinite ease-out;
+            }
+            .partner-pulse-radar-2 {
+                width: 42px;
+                height: 42px;
+                border: 1.5px solid rgba(56, 189, 248, 0.6);
+                animation: rapidoRing 1.8s infinite ease-out;
+            }
+            @keyframes rapidoPulse {
+                0% { transform: scale(0.6); opacity: 0.95; }
+                100% { transform: scale(1.6); opacity: 0; }
+            }
+            @keyframes rapidoRing {
+                0% { transform: scale(0.7); opacity: 0.9; }
+                100% { transform: scale(1.7); opacity: 0; }
             }
             .partner-vehicle-bubble {
                 position: relative;
                 width: 38px;
                 height: 38px;
                 background: #FFFFFF;
-                border: 2.5px solid #16A34A;
+                border: 2.5px solid #0B132B;
                 border-radius: 50%;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                box-shadow: 0 4px 12px rgba(22, 163, 74, 0.45);
+                box-shadow: 0 4px 14px rgba(11, 19, 43, 0.45);
                 z-index: 2;
             }
             .partner-rotator {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                transition: transform 0.4s ease-out;
+                transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
             }
             .partner-glyph {
                 font-size: 20px;
@@ -572,24 +717,38 @@ private fun buildOpenFreeMapHtml(
             .partner-name-badge {
                 position: absolute;
                 top: -18px;
-                background: #0F172A;
+                background: #0B132B;
                 color: #FFFFFF;
-                font-size: 10px;
+                font-size: 9.5px;
                 font-weight: 700;
-                padding: 1px 6px;
-                border-radius: 8px;
+                padding: 2px 8px;
+                border-radius: 10px;
                 white-space: nowrap;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                box-shadow: 0 2px 6px rgba(0,0,0,0.35);
                 z-index: 3;
+                border: 1px solid rgba(56, 189, 248, 0.35);
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
+            .partner-live-dot {
+                width: 5px;
+                height: 5px;
+                border-radius: 50%;
+                background: #22C55E;
+                box-shadow: 0 0 6px #22C55E;
             }
         </style>
     </head>
     <body>
         <div id="map"></div>
         <script>
-            let map;
+            let map = null;
             let partnerMarker = null;
             let custMarker = null;
+            let isMapReady = false;
+            let currentRouteGeometry = null;
+            let isFetchingRoute = false;
 
             const custLat = $custLat;
             const custLng = $custLng;
@@ -597,15 +756,33 @@ private fun buildOpenFreeMapHtml(
             let partLng = $partLng;
             let currentBearing = $partnerBearing;
 
-            map = new maplibregl.Map({
-                container: 'map',
-                style: 'https://tiles.openfreemap.org/styles/liberty',
-                center: [$initialLng, $initialLat],
-                zoom: 14,
-                attributionControl: false
-            });
+            const ROUTING_SERVERS = [
+                'https://routing.openstreetmap.de/routed-bike/route/v1/driving/',
+                'https://router.project-osrm.org/route/v1/driving/',
+                'https://routing.openstreetmap.de/routed-car/route/v1/driving/'
+            ];
 
-            // Helper to compute a circular polygon in GeoJSON (matching Screenshot 2 green arrival geofence)
+            function initMapWhenReady() {
+                if (typeof maplibregl === 'undefined') {
+                    setTimeout(initMapWhenReady, 100);
+                    return;
+                }
+                try {
+                    // OpenFreeMap ultra-lightweight 'positron' style - 100% Free, NO API keys
+                    map = new maplibregl.Map({
+                        container: 'map',
+                        style: 'https://tiles.openfreemap.org/styles/positron',
+                        center: [$initialLng, $initialLat],
+                        zoom: 14,
+                        attributionControl: false
+                    });
+
+                    bindMapEvents();
+                } catch (err) {
+                    console.error('Error instantiating MapLibre:', err);
+                }
+            }
+
             function createGeofencePolygon(centerLng, centerLat, radiusMeters, points = 64) {
                 const coords = { latitude: centerLat, longitude: centerLng };
                 const km = radiusMeters / 1000;
@@ -625,154 +802,245 @@ private fun buildOpenFreeMapHtml(
                 };
             }
 
-            map.on('load', function() {
-                // 1. Destination Arrival Zone / Geofence (Green circle matching Screenshot 2)
-                if (custLat !== 0 && custLng !== 0) {
-                    const geofenceGeo = createGeofencePolygon(custLng, custLat, 120);
-                    map.addSource('geofence', {
-                        type: 'geojson',
-                        data: geofenceGeo
-                    });
-                    map.addLayer({
-                        id: 'geofence-fill',
-                        type: 'fill',
-                        source: 'geofence',
-                        paint: {
-                            'fill-color': '#10B981',
-                            'fill-opacity': 0.16
-                        }
-                    });
-                    map.addLayer({
-                        id: 'geofence-border',
-                        type: 'line',
-                        source: 'geofence',
-                        paint: {
-                            'line-color': '#10B981',
-                            'line-width': 1.8,
-                            'line-opacity': 0.85
-                        }
-                    });
+            function bindMapEvents() {
+                if (!map) return;
 
-                    // 2. Customer Doorstep Marker (Black circle with white house matching Screenshot 2)
-                    const cWrap = document.createElement('div');
-                    cWrap.className = 'cust-pin-container';
-                    cWrap.innerHTML = '<div class="cust-pin-bubble">🏠</div><div class="cust-pin-stem"></div>';
-                    custMarker = new maplibregl.Marker({ element: cWrap, anchor: 'bottom' })
-                        .setLngLat([custLng, custLat])
-                        .setPopup(new maplibregl.Popup({ offset: 25 }).setText('${custLabel.replace("'", "\\'")}'))
-                        .addTo(map);
-                }
+                map.on('load', function() {
+                    isMapReady = true;
 
-                // 3. Technician Vehicle Marker (Scooter with pulse radar and bearing rotation)
-                if (partLat !== 0 && partLng !== 0) {
-                    const pWrap = document.createElement('div');
-                    pWrap.className = 'partner-marker-container';
-                    pWrap.innerHTML = '<div class="partner-pulse-radar"></div>' +
-                        '<div class="partner-vehicle-bubble">' +
-                            '<div class="partner-rotator" id="partner-rotator" style="transform: rotate(' + currentBearing + 'deg);">' +
-                                '<span class="partner-glyph">🛵</span>' +
-                            '</div>' +
-                        '</div>' +
-                        '<div class="partner-name-badge">${partName.replace("'", "\\'")}</div>';
-
-                    partnerMarker = new maplibregl.Marker({ element: pWrap, anchor: 'center' })
-                        .setLngLat([partLng, partLat])
-                        .addTo(map);
-                }
-
-                // 4. Fetch and render real road routing
-                fetchAndDrawRoadRoute(partLng, partLat, custLng, custLat);
-                window.fitBoundsToMarkers();
-            });
-
-            // Fetches real street turn geometry from OSRM road machine with fallback to straight line
-            async function fetchAndDrawRoadRoute(pLng, pLat, cLng, cLat) {
-                if (!pLng || !pLat || !cLng || !cLat) return;
-                try {
-                    const url = 'https://router.project-osrm.org/route/v1/driving/' + pLng + ',' + pLat + ';' + cLng + ',' + cLat + '?overview=full&geometries=geojson';
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 4000);
-                    const res = await fetch(url, { signal: controller.signal });
-                    clearTimeout(timeoutId);
-                    if (res.ok) {
-                        const data = await res.json();
-                        if (data && data.routes && data.routes.length > 0 && data.routes[0].geometry) {
-                            const r = data.routes[0];
-                            setRouteLayer(r.geometry);
-                            if (window.AndroidBridge && window.AndroidBridge.onRouteCalculated) {
-                                window.AndroidBridge.onRouteCalculated(r.distance, r.duration);
+                    // 1. Destination Arrival Geofence Zone (Emerald Green ring around doorstep)
+                    if (custLat !== 0 && custLng !== 0) {
+                        const geofenceGeo = createGeofencePolygon(custLng, custLat, 120);
+                        map.addSource('geofence', {
+                            type: 'geojson',
+                            data: geofenceGeo
+                        });
+                        map.addLayer({
+                            id: 'geofence-fill',
+                            type: 'fill',
+                            source: 'geofence',
+                            paint: {
+                                'fill-color': '#10B981',
+                                'fill-opacity': 0.16
                             }
-                            return;
-                        }
-                    }
-                } catch (e) {
-                    console.warn('Road routing fallback:', e);
-                }
+                        });
+                        map.addLayer({
+                            id: 'geofence-border',
+                            type: 'line',
+                            source: 'geofence',
+                            paint: {
+                                'line-color': '#10B981',
+                                'line-width': 1.8,
+                                'line-opacity': 0.85
+                            }
+                        });
 
-                // Fallback straight line
-                setRouteLayer({
-                    type: 'LineString',
-                    coordinates: [[pLng, pLat], [cLng, cLat]]
+                        // 2. Customer Doorstep Marker (Uber-style)
+                        const cWrap = document.createElement('div');
+                        cWrap.className = 'cust-pin-container';
+                        cWrap.innerHTML = '<div class="cust-pin-badge"><span class="cust-pin-badge-dot"></span>Doorstep</div><div class="cust-pin-bubble">🏠</div><div class="cust-pin-stem"></div>';
+                        custMarker = new maplibregl.Marker({ element: cWrap, anchor: 'bottom' })
+                            .setLngLat([custLng, custLat])
+                            .addTo(map);
+                    }
+
+                    // 3. Technician Vehicle Marker (Rapido Scooter with dual-ring radar pulse)
+                    if (partLat !== 0 && partLng !== 0) {
+                        const pWrap = document.createElement('div');
+                        pWrap.className = 'partner-marker-container';
+                        pWrap.innerHTML = '<div class="partner-pulse-radar-1"></div>' +
+                            '<div class="partner-pulse-radar-2"></div>' +
+                            '<div class="partner-vehicle-bubble">' +
+                                '<div class="partner-rotator" id="partner-rotator" style="transform: rotate(' + currentBearing + 'deg);">' +
+                                    '<span class="partner-glyph">🛵</span>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div class="partner-name-badge"><span class="partner-live-dot"></span>${partName.replace("'", "\\'")}</div>';
+
+                        partnerMarker = new maplibregl.Marker({ element: pWrap, anchor: 'center' })
+                            .setLngLat([partLng, partLat])
+                            .addTo(map);
+                    }
+
+                    // 4. Render any pre-injected route or fetch live street route via multi-mirror
+                    if (currentRouteGeometry) {
+                        setRouteLayer(currentRouteGeometry);
+                    } else {
+                        fetchAndDrawRoadRoute(partLng, partLat, custLng, custLat);
+                    }
+
+                    window.fitBoundsToMarkers();
+
+                    // Notify Jetpack Compose that map is ready
+                    if (window.AndroidBridge && window.AndroidBridge.onMapReady) {
+                        window.AndroidBridge.onMapReady();
+                    }
                 });
             }
 
-            // Sets dual-layer high-contrast road polyline (like Uber, Swiggy, Rapido)
+            initMapWhenReady();
+
+            // Fetches real street turn geometry from multi-mirror OSRM routing servers
+            async function fetchAndDrawRoadRoute(pLng, pLat, cLng, cLat) {
+                if (!pLng || !pLat || !cLng || !cLat || isFetchingRoute) return;
+                isFetchingRoute = true;
+
+                for (let i = 0; i < ROUTING_SERVERS.length; i++) {
+                    const serverBase = ROUTING_SERVERS[i];
+                    try {
+                        const url = serverBase + pLng + ',' + pLat + ';' + cLng + ',' + cLat + '?overview=full&geometries=geojson';
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 5000);
+                        const res = await fetch(url, { signal: controller.signal });
+                        clearTimeout(timeoutId);
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data && data.routes && data.routes.length > 0 && data.routes[0].geometry) {
+                                const r = data.routes[0];
+                                setRouteLayer(r.geometry);
+
+                                // Compute initial bearing along the street if bearing is 0
+                                if (currentBearing === 0 && r.geometry.coordinates && r.geometry.coordinates.length >= 2) {
+                                    const c0 = r.geometry.coordinates[0];
+                                    const c1 = r.geometry.coordinates[1];
+                                    const dLng = (c1[0] - c0[0]) * Math.cos(c0[1] * Math.PI / 180);
+                                    const dLat = c1[1] - c0[1];
+                                    const angle = Math.atan2(dLng, dLat) * (180 / Math.PI);
+                                    const normAngle = (angle + 360) % 360;
+                                    const rotEl = document.getElementById('partner-rotator');
+                                    if (rotEl) rotEl.style.transform = 'rotate(' + normAngle.toFixed(1) + 'deg)';
+                                }
+
+                                if (window.AndroidBridge && window.AndroidBridge.onRouteCalculated) {
+                                    window.AndroidBridge.onRouteCalculated(r.distance, r.duration);
+                                }
+                                isFetchingRoute = false;
+                                return;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Mirror ' + i + ' failed, trying next...');
+                    }
+                }
+                isFetchingRoute = false;
+            }
+
+            // Sets triple-layer Uber/Rapido street polyline (Dark Casing + Electric Blue Core + Direction Pulse)
             function setRouteLayer(geometry) {
+                currentRouteGeometry = geometry;
+                if (!map || !isMapReady) return;
+
                 const geoData = {
                     type: 'Feature',
                     geometry: geometry
                 };
 
-                if (!map.getSource('route')) {
-                    map.addSource('route', {
-                        type: 'geojson',
-                        data: geoData
-                    });
+                try {
+                    const existingSource = map.getSource('route');
+                    if (!existingSource) {
+                        map.addSource('route', {
+                            type: 'geojson',
+                            data: geoData
+                        });
 
-                    // Outer high-contrast casing line (dark navy border)
-                    map.addLayer({
-                        id: 'route-casing',
-                        type: 'line',
-                        source: 'route',
-                        layout: { 'line-join': 'round', 'line-cap': 'round' },
-                        paint: {
-                            'line-color': '#1E3A8A',
-                            'line-width': [
-                                'interpolate', ['linear'], ['zoom'],
-                                10, 5,
-                                14, 8,
-                                18, 12
-                            ],
-                            'line-opacity': 0.95
-                        }
-                    });
+                        // 1. Outer Casing: Deep dark midnight navy (#0B132B) casing with rounded caps/joins (width 6-14px)
+                        map.addLayer({
+                            id: 'route-casing',
+                            type: 'line',
+                            source: 'route',
+                            layout: { 'line-join': 'round', 'line-cap': 'round' },
+                            paint: {
+                                'line-color': '#0B132B',
+                                'line-width': [
+                                    'interpolate', ['linear'], ['zoom'],
+                                    10, 6.0,
+                                    14, 9.5,
+                                    18, 14.5
+                                ],
+                                'line-opacity': 0.98
+                            }
+                        });
 
-                    // Inner vibrant road line (electric blue core)
-                    map.addLayer({
-                        id: 'route-line',
-                        type: 'line',
-                        source: 'route',
-                        layout: { 'line-join': 'round', 'line-cap': 'round' },
-                        paint: {
-                            'line-color': '#2563EB',
-                            'line-width': [
-                                'interpolate', ['linear'], ['zoom'],
-                                10, 3,
-                                14, 5,
-                                18, 8.5
-                            ],
-                            'line-opacity': 1.0
-                        }
-                    });
-                } else {
-                    map.getSource('route').setData(geoData);
+                        // 2. Inner Core: Electric blue (#0284C7 / #2563EB) road core (width 3.5-9px)
+                        map.addLayer({
+                            id: 'route-core',
+                            type: 'line',
+                            source: 'route',
+                            layout: { 'line-join': 'round', 'line-cap': 'round' },
+                            paint: {
+                                'line-color': '#0284C7',
+                                'line-width': [
+                                    'interpolate', ['linear'], ['zoom'],
+                                    10, 3.5,
+                                    14, 6.0,
+                                    18, 9.0
+                                ],
+                                'line-opacity': 1.0
+                            }
+                        });
+
+                        // 3. Directional Pulse Flow Layer: Animated glowing cyan dash pulses (#38BDF8)
+                        map.addLayer({
+                            id: 'route-pulse',
+                            type: 'line',
+                            source: 'route',
+                            layout: { 'line-join': 'round', 'line-cap': 'round' },
+                            paint: {
+                                'line-color': '#38BDF8',
+                                'line-width': [
+                                    'interpolate', ['linear'], ['zoom'],
+                                    10, 1.8,
+                                    14, 3.0,
+                                    18, 4.8
+                                ],
+                                'line-dasharray': [0, 2.2, 3.8],
+                                'line-opacity': 0.95
+                            }
+                        });
+
+                        startRoutePulseAnimation();
+                    } else {
+                        existingSource.setData(geoData);
+                    }
+                } catch (err) {
+                    console.warn('Error setting route layer:', err);
                 }
             }
+
+            // Continuous forward-flowing animated cyan dash pulses along the road route
+            let pulseOffset = 0;
+            let pulseAnimTimer = null;
+            function startRoutePulseAnimation() {
+                if (pulseAnimTimer) return;
+                function pulseLoop() {
+                    pulseOffset = (pulseOffset + 0.18) % 6;
+                    if (map && map.getLayer('route-pulse')) {
+                        const d1 = pulseOffset;
+                        const d2 = 2.2;
+                        const d3 = Math.max(0.1, 6 - pulseOffset);
+                        map.setPaintProperty('route-pulse', 'line-dasharray', [d1, d2, d3]);
+                    }
+                    pulseAnimTimer = setTimeout(pulseLoop, 40);
+                }
+                pulseLoop();
+            }
+
+            // Called by Android Kotlin directly to inject pre-fetched street road GeoJSON
+            window.injectStreetRoute = function(geometry, dist, dur, bearing) {
+                if (geometry) {
+                    setRouteLayer(geometry);
+                    if (typeof bearing === 'number' && bearing !== 0) {
+                        const rotEl = document.getElementById('partner-rotator');
+                        if (rotEl) rotEl.style.transform = 'rotate(' + bearing + 'deg)';
+                    }
+                    window.fitBoundsToMarkers();
+                }
+            };
 
             window.updatePartnerLocation = function(newLat, newLng, newBearing) {
                 partLat = newLat;
                 partLng = newLng;
-                currentBearing = newBearing;
+                if (typeof newBearing === 'number') currentBearing = newBearing;
 
                 if (partnerMarker) {
                     partnerMarker.setLngLat([newLng, newLat]);
@@ -781,11 +1049,13 @@ private fun buildOpenFreeMapHtml(
                         rotEl.style.transform = 'rotate(' + newBearing + 'deg)';
                     }
                 }
-                fetchAndDrawRoadRoute(partLng, partLat, custLng, custLat);
+                if (isMapReady) {
+                    fetchAndDrawRoadRoute(partLng, partLat, custLng, custLat);
+                }
             };
 
             window.fitBoundsToMarkers = function() {
-                if (!map) return;
+                if (!map || typeof maplibregl === 'undefined') return;
                 const bounds = new maplibregl.LngLatBounds();
                 let hasPoints = false;
 
@@ -800,9 +1070,9 @@ private fun buildOpenFreeMapHtml(
 
                 if (hasPoints) {
                     map.fitBounds(bounds, {
-                        padding: { top: 50, bottom: 50, left: 50, right: 50 },
+                        padding: { top: 50, bottom: 50, left: 45, right: 45 },
                         maxZoom: 16.5,
-                        duration: 800
+                        duration: 600
                     });
                 }
             };

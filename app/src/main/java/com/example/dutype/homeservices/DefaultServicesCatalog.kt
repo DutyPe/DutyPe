@@ -978,6 +978,7 @@ object DefaultServicesCatalog {
             services = services,
             promoBanners = promoBanners,
             offers = offers,
+            firstBookingFeeFree = true,
             mostBookedServiceIds = listOf("bathroom_clean", "fan_install", "tap_leak_fix", "help_shifting")
         )
     }

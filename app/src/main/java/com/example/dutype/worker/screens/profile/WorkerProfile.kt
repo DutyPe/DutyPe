@@ -1295,6 +1295,7 @@ private fun ProfileSettingsCard(
                     onClick = onEarnings,
                     iconRes = R.drawable.ic_profile_wallet
                 )
+                /*
                 ProfileRowDivider()
                 ProfileListRow(
                     title = "Book Home Services",
@@ -1307,6 +1308,7 @@ private fun ProfileSettingsCard(
                     onClick = onServicesBookings,
                     icon = Icons.Filled.History
                 )
+                */
                 ProfileRowDivider()
                 ProfileListRow(
                     title = stringResource(R.string.emp_profile_help_desk),

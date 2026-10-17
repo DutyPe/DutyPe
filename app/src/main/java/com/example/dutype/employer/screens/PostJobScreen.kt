@@ -798,10 +798,12 @@ private class PostJobController(
         val referralCredits = profile?.referralPostsLeft ?: 0
         val isUnlimited = sub?.isUnlimitedCampaign == true
         val grantedFreeJobs = profile?.grantedFreeJobPosts ?: 0
+        val freeUsed = profile?.freeJobPostsUsed ?: 0
+        val hasFreePosts = freeUsed < 3
 
-        // Free job posting is completely stopped by default. Only active subscription credits or admin-granted free jobs allow posting.
-        if (grantedFreeJobs <= 0 && normalCredits <= 0 && referralCredits <= 0 && !isUnlimited) {
-            Timber.w("CREDIT CHECK: Free job postings stopped. Subscription required (grantedFree=$grantedFreeJobs, normal=$normalCredits, referral=$referralCredits, unlimited=$isUnlimited)")
+        // First 3 job postings are 100% free for employers. Subscription or credits only required once free jobs are exhausted.
+        if (!hasFreePosts && grantedFreeJobs <= 0 && normalCredits <= 0 && referralCredits <= 0 && !isUnlimited) {
+            Timber.w("CREDIT CHECK: All 3 free job posts used ($freeUsed/3). Subscription required (grantedFree=$grantedFreeJobs, normal=$normalCredits, referral=$referralCredits, unlimited=$isUnlimited)")
             showNoCreditsDialog = true
             return
         }
@@ -1260,12 +1262,8 @@ private fun PostJobSideEffects(c: PostJobController) {
     PostJobDraftTriggerEffect(c)
 
     LaunchedEffect(Unit) {
-        c.scope.launch { c.restoreDraft() }
-    }
-    LaunchedEffect(Unit) {
-        c.scope.launch { c.loadEmployerProfile() }
-    }
-    LaunchedEffect(Unit) {
+        c.restoreDraft()
+        c.loadEmployerProfile()
         c.clearLegacyStepRedirectFlag()
     }
 }
@@ -1560,7 +1558,7 @@ private fun PostJobNoCreditsSheet(c: PostJobController) {
             )
 
             Text(
-                text = stringResource(R.string.auto_you_ve_used_all_your_job_posts_get_a_subsc),
+                text = "You've used all 3 free job posts. Choose an Employer Plan to post more jobs and find candidates instantly.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = EmployerColors.TextSecondary,
                 textAlign = TextAlign.Center
@@ -1671,6 +1669,9 @@ private fun PostJobSinglePageForm(
     c: PostJobController,
     scrollState: androidx.compose.foundation.ScrollState
 ) {
+    val freeUsed = c.employerProfile?.freeJobPostsUsed ?: 0
+    val freeRemaining = (3 - freeUsed).coerceAtLeast(0)
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1678,6 +1679,39 @@ private fun PostJobSinglePageForm(
             .navigationBarsPadding()
             .padding(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 112.dp)
     ) {
+        if (freeRemaining > 0) {
+            Surface(
+                color = Color(0xFFECFDF5).bg(),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "🎁",
+                        fontSize = 18.sp
+                    )
+                    Column {
+                        Text(
+                            text = "Free Job Posting ($freeRemaining of 3 remaining)",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFF065F46)
+                        )
+                        Text(
+                            text = "Your first 3 job postings on DutyPe are 100% free.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF047857)
+                        )
+                    }
+                }
+            }
+        }
+
         // Job Title
         PjField(
             value = c.title,

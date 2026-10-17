@@ -15,7 +15,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.with
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -320,13 +320,13 @@ fun LoginBottomSheet(
                 }
             }
 
-            AnimatedContent(
+            AnimatedContent<Boolean>(
                 targetState = !otpState.otpSent,
                 transitionSpec = {
                     slideInHorizontally(
                         initialOffsetX = { if (targetState) -300 else 300 },
                         animationSpec = tween(350, easing = EaseOutCubic)
-                    ) + fadeIn(animationSpec = tween(350)) with
+                    ) + fadeIn(animationSpec = tween(350)) togetherWith
                     slideOutHorizontally(
                         targetOffsetX = { if (targetState) 300 else -300 },
                         animationSpec = tween(350, easing = EaseInCubic)

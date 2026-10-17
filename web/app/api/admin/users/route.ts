@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Timestamp } from "firebase-admin/firestore";
 
 import { cachedAdminGet } from "@/lib/firebase/admin-response-cache";
-import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
+import { getAdminActor, logAdminAudit, requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
 import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
 import { deleteAccountCompletely, e164 } from "@/lib/firebase/admin-account-deletion";
 import { EmployerProfiles, PhoneRoles, Wallets, WorkerProfiles } from "@/lib/firebase/schema";
@@ -24,6 +24,22 @@ function toUser(id: string, role: Role, d: FirebaseFirestore.DocumentData, walle
   const successfulReferrals = walletData ? Number(walletData[Wallets.SUCCESSFUL_REFERRALS] ?? 0) : 0;
   const referralCode = walletData ? String(walletData[Wallets.REFERRAL_CODE] ?? "") : "";
 
+  // Statutory Masked Aadhaar (UIDAI Regulation):
+  // Expose ONLY 'XXXXXXXX' + last 4 digits to admin UI. Never transmit plaintext 12-digit numbers.
+  const rawAadhaar = String(d["aadhaarMasked"] ?? d["aadhaarNumber"] ?? "");
+  const cleanDigits = rawAadhaar.replace(/\D/g, "");
+  const aadhaarMasked = rawAadhaar.startsWith("XXXXXXXX")
+    ? rawAadhaar
+    : cleanDigits.length >= 4
+      ? `XXXXXXXX${cleanDigits.slice(-4)}`
+      : "";
+  const aadhaarVerified = d["aadhaarVerified"] === true || d["isAadhaarVerified"] === true || Boolean(aadhaarMasked);
+  const verifiedLegalName = String(d["verifiedLegalName"] ?? "");
+  const verifiedDob = String(d["verifiedDob"] ?? "");
+  const verifiedGender = String(d["verifiedGender"] ?? "");
+  const verificationRef = String(d["verificationRef"] ?? "");
+  const verificationSource = String(d["verificationSource"] ?? "");
+
   return {
     id,
     role,
@@ -39,7 +55,14 @@ function toUser(id: string, role: Role, d: FirebaseFirestore.DocumentData, walle
     createdAt: iso(d[WorkerProfiles.CREATED_AT]),
     referralCode,
     referralBalanceRupees: balancePaise / 100,
-    successfulReferrals
+    successfulReferrals,
+    aadhaarMasked,
+    aadhaarVerified,
+    verifiedLegalName,
+    verifiedDob,
+    verifiedGender,
+    verificationRef,
+    verificationSource
   };
 }
 
@@ -87,6 +110,15 @@ async function getUncached(request: NextRequest) {
       : [];
     const walletMap = new Map(wallets.filter((w) => w.exists).map((w) => [w.id, w.data()!]));
 
+    const actor = await getAdminActor(request);
+    if (actor) {
+      void logAdminAudit("USER_KYC_QUERY", actor, {
+        role,
+        count: snap.size,
+        filterPhone: false
+      }, request);
+    }
+
     return NextResponse.json({
       users: snap.docs.map((d) => toUser(d.id, role, d.data(), walletMap.get(d.id))),
       counts,
@@ -99,8 +131,9 @@ async function getUncached(request: NextRequest) {
 
 /** { userId, role, blocked?, verified?, name? } — block/unblock, verify an employer, fix a name. */
 export async function PATCH(request: NextRequest) {
-  const unauthorized = await requireAuthorizedAdminRequest(request);
+  const unauthorized = await requireAuthorizedAdminRequest(request, { sensitive: true });
   if (unauthorized) return unauthorized;
+  const actor = await getAdminActor(request);
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
   const userId = String(body.userId ?? "").trim();
@@ -117,6 +150,9 @@ export async function PATCH(request: NextRequest) {
   update[WorkerProfiles.UPDATED_AT] = Timestamp.now();
   try {
     await getFirebaseAdminDb().collection(collectionFor(role)).doc(userId).update(update);
+    if (actor) {
+      void logAdminAudit("USER_MODERATION_UPDATE", actor, { targetUserId: userId, role, changes: Object.keys(update) }, request);
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to update user." }, { status: 500 });
@@ -125,14 +161,18 @@ export async function PATCH(request: NextRequest) {
 
 /** Deletes the account completely (profile, card, phone registration, jobs, applications…). */
 export async function DELETE(request: NextRequest) {
-  const unauthorized = await requireAuthorizedAdminRequest(request);
+  const unauthorized = await requireAuthorizedAdminRequest(request, { sensitive: true });
   if (unauthorized) return unauthorized;
+  const actor = await getAdminActor(request);
   let body: { userId?: string };
   try { body = await request.json(); } catch { return NextResponse.json({ error: "Invalid request body." }, { status: 400 }); }
   const userId = body.userId?.trim();
   if (!userId) return NextResponse.json({ error: "Missing userId." }, { status: 400 });
   try {
     const deletedCount = await deleteAccountCompletely(userId);
+    if (actor) {
+      void logAdminAudit("USER_ACCOUNT_DELETE", actor, { targetUserId: userId, deletedCount }, request);
+    }
     return NextResponse.json({ ok: true, deletedCount });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to delete user." }, { status: 500 });

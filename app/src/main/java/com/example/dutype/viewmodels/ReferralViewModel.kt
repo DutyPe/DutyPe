@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 import javax.inject.Inject
 
 data class ReferralUiState(
@@ -81,12 +82,16 @@ class ReferralViewModel @Inject constructor(
         }
     }
 
+    private var pendingWithdrawalKey: String? = null
+
     fun requestWithdrawal(upiId: String) {
         if (_uiState.value.isProcessingWithdrawal) return
         _uiState.update { it.copy(isProcessingWithdrawal = true, withdrawalError = null) }
+        val idempotencyKey = pendingWithdrawalKey ?: UUID.randomUUID().toString().also { pendingWithdrawalKey = it }
         viewModelScope.launch {
-            referralService.requestWithdrawal(upiId)
+            referralService.requestWithdrawal(upiId, idempotencyKey)
                 .onSuccess { paise ->
+                    pendingWithdrawalKey = null
                     _uiState.update { it.copy(isProcessingWithdrawal = false, withdrawalSuccess = true, lastWithdrawalPaise = paise) }
                 }
                 .onFailure { e ->

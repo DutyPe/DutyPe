@@ -312,20 +312,23 @@ fun AnnouncementCarousel(
 
     // Multiple items - show carousel with the next card peeking
     val pagerState = rememberPagerState(pageCount = { totalItems })
-    val coroutineScope = rememberCoroutineScope()
 
-    // Auto-scroll effect
-    LaunchedEffect(pagerState.currentPage) {
-        delay(autoScrollDuration)
-        val nextPage = (pagerState.currentPage + 1) % totalItems
-        coroutineScope.launch {
-            pagerState.animateScrollToPage(
-                page = nextPage,
-                animationSpec = tween(
-                    durationMillis = 600,
-                    easing = FastOutSlowInEasing
-                )
-            )
+    // Auto-scroll effect - standard cancellable Compose loop
+    LaunchedEffect(pagerState, totalItems, autoScrollDuration) {
+        if (totalItems > 1) {
+            while (true) {
+                delay(autoScrollDuration)
+                val nextPage = (pagerState.currentPage + 1) % totalItems
+                runCatching {
+                    pagerState.animateScrollToPage(
+                        page = nextPage,
+                        animationSpec = tween(
+                            durationMillis = 600,
+                            easing = FastOutSlowInEasing
+                        )
+                    )
+                }
+            }
         }
     }
 

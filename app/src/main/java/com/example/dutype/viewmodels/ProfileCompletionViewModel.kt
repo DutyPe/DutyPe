@@ -109,8 +109,11 @@ class ProfileCompletionViewModel @Inject constructor(
     suspend fun hasUserUsedReferralCode(): Boolean = referralService.hasUsedReferralCode()
 
     /** Applies a code during profile setup (server checks it and the 7-day window). */
-    suspend fun applyReferralCode(code: String): Result<Unit> =
-        referralService.applyReferralCode(code).onSuccess { profileSetupStateManager.clearReferralCode() }
+    suspend fun applyReferralCode(code: String, name: String? = null, phone: String? = null): Result<Unit> =
+        referralService.applyReferralCode(code, name, phone).onSuccess { profileSetupStateManager.clearReferralCode() }
 
     suspend fun validateReferralCode(code: String) = referralService.validateReferralCode(code)
+
+    /** Generates or refreshes user's own referral code using their verified real name. */
+    suspend fun refreshReferralCode(name: String): Result<String> = referralService.refreshReferralCode(name)
 }

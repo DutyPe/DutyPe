@@ -21,6 +21,8 @@ type AdminIdentityLike = {
   activeRole?: unknown;
   admin?: unknown;
   email?: string | null | undefined;
+  emailVerified?: boolean | null | undefined;
+  email_verified?: boolean | null | undefined;
   role?: unknown;
   roles?: unknown;
 };
@@ -86,10 +88,13 @@ export function getAdminAuthorization(identity: AdminIdentityLike | null | undef
   }
 
   if (isAdminEmail(identity?.email)) {
-    return {
-      isAuthorized: true,
-      matchedBy: "legacy_email_allowlist"
-    };
+    const isVerified = identity?.emailVerified === true || identity?.email_verified === true;
+    if (isVerified) {
+      return {
+        isAuthorized: true,
+        matchedBy: "legacy_email_allowlist"
+      };
+    }
   }
 
   return {

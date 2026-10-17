@@ -70,7 +70,8 @@ class SchemaLogicTest {
     fun referralCodesAreNormalized() {
         assertEquals("AB12CD", normalizeReferralCode(" ab-12 cd "))
         assertTrue(isValidNormalizedReferralCode("ab12cd"))
-        assertFalse(isValidNormalizedReferralCode("ab1"))
+        assertTrue(isValidNormalizedReferralCode("ab1"))
+        assertFalse(isValidNormalizedReferralCode("ab"))
     }
 
     @Test
@@ -121,11 +122,11 @@ class SchemaLogicTest {
         assertFalse(company.isComplete)
         val filled = EmployerProfile.from(
             "e2",
-            mapOf(
+            mapOf<String, Any?>(
                 EmployerProfiles.EMPLOYER_TYPE to Values.EmployerType.COMPANY,
                 EmployerProfiles.OWNER_NAME to "Sita",
                 EmployerProfiles.BUSINESS_NAME to "Sai Comforts",
-                EmployerProfiles.BUSINESS_TYPE to "hospitality",
+                "businessType" to "hospitality",
                 EmployerProfiles.PHONE to "+919876543210"
             )
         )

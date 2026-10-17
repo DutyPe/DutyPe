@@ -423,7 +423,7 @@ private fun OnboardingFooter(
         }
 
         // Action Button (Next Floating Icon Button vs Get Started Button)
-        androidx.compose.animation.AnimatedContent(
+        androidx.compose.animation.AnimatedContent<Boolean>(
             targetState = isLastPage,
             transitionSpec = {
                 (fadeIn(animationSpec = tween(220)) + scaleIn(initialScale = 0.92f))

@@ -17,12 +17,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import androidx.annotation.Keep
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
 private val Context.reviewDataStore: DataStore<Preferences> by preferencesDataStore(name = "in_app_review")
 
+@Keep
 @Singleton
 class InAppReviewManager @Inject constructor(
     private val context: Context
@@ -37,6 +39,21 @@ class InAppReviewManager @Inject constructor(
         private const val MAX_DISMISS_COUNT = 10
 
         const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.dutype.app"
+
+        fun isInstalledFromGooglePlay(context: Context): Boolean {
+            return try {
+                val pm = context.packageManager
+                val installer = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    pm.getInstallSourceInfo(context.packageName).installingPackageName
+                } else {
+                    @Suppress("DEPRECATION")
+                    pm.getInstallerPackageName(context.packageName)
+                }
+                installer == "com.android.vending"
+            } catch (_: Exception) {
+                false
+            }
+        }
     }
 
     private val _showRatingPromptFlow = MutableStateFlow(false)
@@ -51,14 +68,18 @@ class InAppReviewManager @Inject constructor(
         CoroutineScope(Dispatchers.Main).launch {
             try {
                 if (force || shouldShowReviewPrompt()) {
-                    if (activity != null && !activity.isFinishing && !activity.isDestroyed) {
+                    val isPlayStore = isInstalledFromGooglePlay(context)
+                    if (isPlayStore && activity != null && !activity.isFinishing && !activity.isDestroyed) {
                         launchNativeReview(activity)
                     } else {
+                        // When installed outside Play Store (direct APK, debug, Firebase Distribution)
+                        // or when activity is null: display our guaranteed in-app rating prompt dialog!
                         _showRatingPromptFlow.value = true
                     }
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Error evaluating review eligibility")
+                _showRatingPromptFlow.value = true
             }
         }
     }
@@ -81,8 +102,13 @@ class InAppReviewManager @Inject constructor(
             manager.requestReviewFlow().addOnCompleteListener { request ->
                 try {
                     if (request.isSuccessful && !activity.isFinishing && !activity.isDestroyed) {
-                        manager.launchReviewFlow(activity, request.result).addOnCompleteListener {
-                            Timber.d("In-app review flow completed")
+                        val reviewInfo = request.result
+                        if (reviewInfo != null) {
+                            manager.launchReviewFlow(activity, reviewInfo).addOnCompleteListener {
+                                Timber.d("In-app review flow completed")
+                            }
+                        } else {
+                            _showRatingPromptFlow.value = true
                         }
                     } else {
                         Timber.w(request.exception, "Review flow not launched, falling back to Play Store prompt")
@@ -202,6 +228,7 @@ class InAppReviewManager @Inject constructor(
     }
 }
 
+@Keep
 data class ReviewStats(
     val hasRated: Boolean,
     val positiveActions: Long,

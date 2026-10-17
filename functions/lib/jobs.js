@@ -122,27 +122,28 @@ function companyNameOf(employer) {
         business : (owner || business || "Employer");
 }
 async function getJobPostingConfigDoc() {
+    var _a;
     const snap = await db.doc("app_config/job_posting").get();
     if (!snap.exists) {
         return {
-            freeJobPostingEnabled: false,
-            freeJobsCount: 0,
-            appliesTo: "NONE",
+            freeJobPostingEnabled: true,
+            freeJobsCount: 3,
+            appliesTo: "ALL_USERS",
             effectiveFrom: 0,
         };
     }
     const d = snap.data() || {};
     return {
-        freeJobPostingEnabled: Boolean(d.freeJobPostingEnabled),
-        freeJobsCount: Number(d.freeJobsCount || 0),
-        appliesTo: d.appliesTo || "NONE",
+        freeJobPostingEnabled: d.freeJobPostingEnabled !== false,
+        freeJobsCount: Number((_a = d.freeJobsCount) !== null && _a !== void 0 ? _a : 3),
+        appliesTo: d.appliesTo || "ALL_USERS",
         effectiveFrom: Number(d.effectiveFrom || 0),
     };
 }
 /**
  * Decides how a post (or renewal) is paid for and applies the change inside `tx`.
  * Active campaign grant → free; active plan with credits → 1 credit; referral post if available;
- * granted free jobs; dynamic global policy; otherwise requires subscription.
+ * granted free jobs; dynamic global policy (first 3 free jobs); otherwise requires subscription.
  */
 function chargeForPost(tx, employer, quota, nowMs, config) {
     const S = schema_1.EmployerProfiles.Subscription;
@@ -169,23 +170,26 @@ function chargeForPost(tx, employer, quota, nowMs, config) {
         });
         return "free";
     }
-    // 2. Dynamic global free job policy from app_config/job_posting
+    // 2. First 3 job postings free for employers (guaranteed baseline, customizable via app_config/job_posting)
     const freeUsed = Number(employer.data[schema_1.EmployerProfiles.FREE_JOB_POSTS_USED] || 0);
-    if (config && config.freeJobPostingEnabled && config.freeJobsCount > 0) {
-        const employerCreatedAt = employer.data[schema_1.EmployerProfiles.CREATED_AT] instanceof Timestamp
-            ? employer.data[schema_1.EmployerProfiles.CREATED_AT].toMillis()
-            : Number(employer.data[schema_1.EmployerProfiles.CREATED_AT] || 0);
-        const eligible = config.appliesTo === "ALL_USERS" ||
-            (config.appliesTo === "NEW_USERS" && employerCreatedAt >= config.effectiveFrom);
-        if (eligible && freeUsed < config.freeJobsCount) {
-            tx.update(employer.ref, {
-                [schema_1.EmployerProfiles.FREE_JOB_POSTS_USED]: FieldValue.increment(1),
-            });
-            return "free";
-        }
+    const maxFreeJobs = (config && config.freeJobPostingEnabled !== false && config.freeJobsCount > 0)
+        ? config.freeJobsCount
+        : 3; // Guaranteed default: first 3 job postings free!
+    const employerCreatedAt = employer.data[schema_1.EmployerProfiles.CREATED_AT] instanceof Timestamp
+        ? employer.data[schema_1.EmployerProfiles.CREATED_AT].toMillis()
+        : Number(employer.data[schema_1.EmployerProfiles.CREATED_AT] || 0);
+    const eligible = !config ||
+        config.appliesTo === "ALL_USERS" ||
+        (config.appliesTo === "NEW_USERS" && employerCreatedAt >= (config.effectiveFrom || 0)) ||
+        config.appliesTo === undefined;
+    if (eligible && freeUsed < maxFreeJobs) {
+        tx.update(employer.ref, {
+            [schema_1.EmployerProfiles.FREE_JOB_POSTS_USED]: FieldValue.increment(1),
+        });
+        return "free";
     }
     // 3. Otherwise, stop free job posting completely - subscription required
-    (0, input_1.fail)("resource-exhausted", "Free job postings are currently unavailable. Please subscribe to an Employer Plan to post jobs.");
+    (0, input_1.fail)("resource-exhausted", "You have used all 3 free job posts. Please subscribe to an Employer Plan to post more jobs.");
 }
 /** The employer's posts since midnight IST — for the duplicate check. */
 async function postsToday(uid, nowMs) {
@@ -236,6 +240,7 @@ exports.postJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context) 
     const nowMs = Date.now();
     const today = await postsToday(uid, nowMs);
     const result = await db.runTransaction(async (tx) => {
+        var _a;
         const existing = await tx.get(jobRef);
         if (existing.exists)
             return { jobId, replay: true };
@@ -245,12 +250,12 @@ exports.postJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context) 
         const configSnap = await tx.get(db.doc("app_config/job_posting"));
         const config = configSnap.exists
             ? {
-                freeJobPostingEnabled: Boolean(configSnap.get("freeJobPostingEnabled")),
-                freeJobsCount: Number(configSnap.get("freeJobsCount") || 0),
-                appliesTo: configSnap.get("appliesTo") || "NONE",
+                freeJobPostingEnabled: configSnap.get("freeJobPostingEnabled") !== false,
+                freeJobsCount: Number((_a = configSnap.get("freeJobsCount")) !== null && _a !== void 0 ? _a : 3),
+                appliesTo: configSnap.get("appliesTo") || "ALL_USERS",
                 effectiveFrom: Number(configSnap.get("effectiveFrom") || 0),
             }
-            : { freeJobPostingEnabled: false, freeJobsCount: 0, appliesTo: "NONE", effectiveFrom: 0 };
+            : { freeJobPostingEnabled: true, freeJobsCount: 3, appliesTo: "ALL_USERS", effectiveFrom: 0 };
         const charge = chargeForPost(tx, employer, quota, nowMs, config);
         const createdAt = Timestamp.fromMillis(nowMs);
         // Simple setup: the shop / business name and place typed while posting the first job fill in an
@@ -328,7 +333,7 @@ exports.renewJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context)
     const jobId = (0, input_1.str)((0, input_1.obj)(raw), "jobId", { max: 64 });
     const nowMs = Date.now();
     return db.runTransaction(async (tx) => {
-        var _a, _b;
+        var _a, _b, _c;
         const { ref, snap } = await ownedJob(tx, uid, jobId);
         const expiresAt = (_b = (_a = snap.get(schema_1.Jobs.EXPIRES_AT)) === null || _a === void 0 ? void 0 : _a.toMillis()) !== null && _b !== void 0 ? _b : 0;
         if (snap.get(schema_1.Jobs.STATUS) === schema_1.Values.JobStatus.OPEN && expiresAt > nowMs) {
@@ -339,12 +344,12 @@ exports.renewJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context)
         const configSnap = await tx.get(db.doc("app_config/job_posting"));
         const config = configSnap.exists
             ? {
-                freeJobPostingEnabled: Boolean(configSnap.get("freeJobPostingEnabled")),
-                freeJobsCount: Number(configSnap.get("freeJobsCount") || 0),
-                appliesTo: configSnap.get("appliesTo") || "NONE",
+                freeJobPostingEnabled: configSnap.get("freeJobPostingEnabled") !== false,
+                freeJobsCount: Number((_c = configSnap.get("freeJobsCount")) !== null && _c !== void 0 ? _c : 3),
+                appliesTo: configSnap.get("appliesTo") || "ALL_USERS",
                 effectiveFrom: Number(configSnap.get("effectiveFrom") || 0),
             }
-            : { freeJobPostingEnabled: false, freeJobsCount: 0, appliesTo: "NONE", effectiveFrom: 0 };
+            : { freeJobPostingEnabled: true, freeJobsCount: 3, appliesTo: "ALL_USERS", effectiveFrom: 0 };
         const charge = chargeForPost(tx, employer, quota, nowMs, config);
         tx.update(ref, {
             [schema_1.Jobs.STATUS]: schema_1.Values.JobStatus.OPEN,

@@ -111,11 +111,12 @@ class ReferralService @Inject constructor(
             .limit(50)
     }.toTyped { id, d -> WithdrawalRequest.from(id, d) }
 
-    /** Cashes out the whole balance to [upiId]. Returns the amount sent (paise). */
-    suspend fun requestWithdrawal(upiId: String): Result<Long> = runCatching {
+    /** Cashes out the whole balance to [upiId]. Returns the amount sent (paise). Supports persistent idempotencyKey across retries. */
+    suspend fun requestWithdrawal(upiId: String, idempotencyKey: String? = null): Result<Long> = runCatching {
         @Suppress("UNCHECKED_CAST")
+        val reqId = idempotencyKey?.trim()?.takeIf { it.isNotEmpty() } ?: UUID.randomUUID().toString()
         val data = functions.getHttpsCallable("requestWithdrawal")
-            .call(mapOf("upiId" to upiId.trim(), "requestId" to UUID.randomUUID().toString()))
+            .call(mapOf("upiId" to upiId.trim(), "requestId" to reqId))
             .await().data as? Map<String, Any?> ?: emptyMap()
         (data["amountPaise"] as? Number)?.toLong() ?: 0L
     }
@@ -137,23 +138,74 @@ class ReferralService @Inject constructor(
     /** Checks a code typed at sign-up (one read of referral_codes/{CODE}). */
     suspend fun validateReferralCode(rawCode: String): ReferralValidationInfo {
         val code = normalizeReferralCode(rawCode)
-        if (code.length < 6) return ReferralValidationInfo(false, errorMessage = "Enter a valid referral code")
-        return runCatching {
-            val doc = firestore.collection(ReferralCodes.COLLECTION).document(code).get().await()
-            when {
-                !doc.exists() || doc.getBoolean(ReferralCodes.ACTIVE) != true ->
-                    ReferralValidationInfo(false, errorMessage = "Referral code not found")
-                doc.getString(ReferralCodes.UID) == auth.currentUser?.uid ->
-                    ReferralValidationInfo(false, errorMessage = "You cannot use your own code")
-                else -> ReferralValidationInfo(true, referrerRole = doc.getString(ReferralCodes.ROLE))
+        if (code.length < 3) return ReferralValidationInfo(false, errorMessage = "Enter a valid referral code (min 3 characters)")
+        val currentUid = uid()
+        // Check if user already used a code
+        if (!currentUid.isNullOrBlank()) {
+            val existing = runCatching {
+                firestore.collection(Referrals.COLLECTION).document(currentUid).get().await()
+            }.getOrNull()
+            if (existing != null && existing.exists()) {
+                return ReferralValidationInfo(false, errorMessage = "A referral code was already used for this account")
             }
-        }.getOrElse { ReferralValidationInfo(false, errorMessage = "Could not check the code. Try again.") }
+        }
+        return runCatching {
+            var doc = firestore.collection(ReferralCodes.COLLECTION).document(code).get().await()
+            if (!doc.exists()) {
+                val lowerDoc = firestore.collection(ReferralCodes.COLLECTION).document(code.lowercase()).get().await()
+                if (lowerDoc.exists()) {
+                    doc = lowerDoc
+                }
+            }
+            when {
+                !doc.exists() ->
+                    ReferralValidationInfo(false, errorMessage = "Referral code not found")
+                doc.getBoolean(ReferralCodes.ACTIVE) != true ->
+                    ReferralValidationInfo(false, errorMessage = "This referral code is disabled")
+                doc.getString(ReferralCodes.UID) == currentUid ->
+                    ReferralValidationInfo(false, errorMessage = "You cannot use your own referral code")
+                else -> {
+                    val referrerName = doc.getString("name")?.trim()
+                    val referrerRole = doc.getString(ReferralCodes.ROLE)
+                    ReferralValidationInfo(
+                        isValid = true,
+                        referrerRole = referrerRole,
+                        referrerNameText = referrerName
+                    )
+                }
+            }
+        }.getOrElse { ReferralValidationInfo(false, errorMessage = "Could not check the code. Please try again.") }
     }
 
-    /** Uses a code after sign-up (profile setup; first 7 days). Throws with the server's reason. */
-    suspend fun applyReferralCode(rawCode: String): Result<Unit> = runCatching {
-        functions.getHttpsCallable("applyReferralCode").call(mapOf("code" to normalizeReferralCode(rawCode))).await()
-        Unit
+    /** Uses a code after sign-up (profile setup; first 7 days). Throws with the server's user-friendly reason. */
+    suspend fun applyReferralCode(
+        rawCode: String,
+        name: String? = null,
+        phone: String? = null
+    ): Result<Unit> = runCatching {
+        val payload = mutableMapOf<String, Any>(
+            "code" to normalizeReferralCode(rawCode)
+        )
+        if (!name.isNullOrBlank()) payload["name"] = name.trim()
+        if (!phone.isNullOrBlank()) payload["phone"] = phone.trim()
+
+        try {
+            functions.getHttpsCallable("applyReferralCode").call(payload).await()
+            Unit
+        } catch (e: Exception) {
+            val rawMsg = e.message ?: "Failed to apply referral code"
+            val cleanMsg = rawMsg.substringAfter(": ").trim()
+            throw Exception(if (cleanMsg.isNotBlank()) cleanMsg else rawMsg, e)
+        }
+    }
+
+    /** Refreshes or creates the user's personal referral code derived from their verified real name. */
+    suspend fun refreshReferralCode(name: String): Result<String> = runCatching {
+        @Suppress("UNCHECKED_CAST")
+        val data = functions.getHttpsCallable("refreshReferralCode")
+            .call(mapOf("name" to name.trim()))
+            .await().data as? Map<String, Any?> ?: emptyMap()
+        data["referralCode"] as? String ?: ""
     }
 
     /** Whether I already joined with someone's code (one read of referrals/{uid}). */

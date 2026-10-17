@@ -4,6 +4,24 @@ import { FormEvent, useEffect, useState } from "react";
 import { adminApiFetch } from "@/lib/firebase/admin-client-fetch";
 import { formatDateTime } from "@/lib/firebase/firestore-helpers";
 import { AdminTablePagination, paginateRows } from "./admin-table-pagination";
+import {
+  Megaphone,
+  Bell,
+  Search,
+  Filter,
+  CheckCircle2,
+  AlertTriangle,
+  Sparkles,
+  Smartphone,
+  Trash2,
+  Power,
+  ExternalLink,
+  Users,
+  ShieldAlert,
+  ArrowRight,
+  Info,
+  Clock
+} from "lucide-react";
 
 type AnnouncementRow = {
   id: string;
@@ -18,9 +36,6 @@ type AnnouncementRow = {
   createdAt?: unknown;
 };
 
-// Pre-built templates so admins don't have to retype standard announcement copy.
-// Picking a template auto-fills title, message, type, targetRole, and the
-// matching deeplink — every field stays editable afterwards.
 type AnnouncementTemplate = {
   id: string;
   label: string;
@@ -40,18 +55,10 @@ const priorityRank: Record<string, number> = {
   LOW: 1
 };
 
-function sortAnnouncementsForAdminFeed(rows: AnnouncementRow[]) {
-  return [...rows].sort((first, second) => {
-    const firstPriority = priorityRank[String(first.priority ?? "NORMAL").toUpperCase()] ?? 2;
-    const secondPriority = priorityRank[String(second.priority ?? "NORMAL").toUpperCase()] ?? 2;
-    return secondPriority - firstPriority;
-  });
-}
-
 const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
   {
     id: "custom",
-    label: "✏️ Custom (write your own)",
+    label: "✏️ Custom (Write your own)",
     title: "",
     message: "",
     type: "INFO",
@@ -118,80 +125,49 @@ const ANNOUNCEMENT_TEMPLATES: AnnouncementTemplate[] = [
     priority: "NORMAL",
     targetRole: "EMPLOYER",
     deepLink: "dutype://employer/company-details"
-  },
-  {
-    id: "app_update",
-    label: "🚀 New app version available",
-    title: "Update DutyPe for the latest features",
-    message: "We've shipped a faster experience and bug fixes. Update from the Play Store now.",
-    type: "FEATURE",
-    priority: "HIGH",
-    targetRole: "ALL",
-    deepLink: "https://play.google.com/store/apps/details?id=com.dutype.app"
-  },
-  {
-    id: "maintenance",
-    label: "🛠 Scheduled maintenance",
-    title: "Scheduled maintenance tonight",
-    message: "DutyPe will be briefly unavailable tonight from 1 AM to 2 AM IST while we ship upgrades.",
-    type: "WARNING",
-    priority: "URGENT",
-    targetRole: "ALL",
-    deepLink: ""
-  },
-  {
-    id: "support",
-    label: "💬 Need help? Contact support",
-    title: "We're here to help",
-    message: "Tap below to chat with our support team if you have any questions.",
-    type: "INFO",
-    priority: "NORMAL",
-    targetRole: "ALL",
-    deepLink: "dutype://help"
   }
 ];
-
-const initialForm = {
-  templateId: "custom",
-  title: "",
-  message: "",
-  type: "INFO",
-  priority: "NORMAL",
-  targetRole: "ALL",
-  deepLink: "",
-  expiresInDays: "30"
-};
 
 export function AdminAnnouncementsClient() {
   const [announcements, setAnnouncements] = useState<AnnouncementRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState(initialForm);
+  const [success, setSuccess] = useState<string | null>(null);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(15);
+  const pageSize = 8;
+
+  const [form, setForm] = useState({
+    templateId: "custom",
+    title: "",
+    message: "",
+    type: "INFO",
+    priority: "NORMAL",
+    targetRole: "ALL",
+    deepLink: "",
+    expiresInDays: 7
+  });
 
   async function loadAnnouncements() {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      const response = await adminApiFetch("/api/admin/announcements", {
-        cache: "no-store"
-      });
-
-      const payload = (await response.json()) as {
-        announcements?: AnnouncementRow[];
-        error?: string;
-      };
-
+      const response = await adminApiFetch("/api/admin/announcements");
+      const payload = (await response.json()) as { announcements?: AnnouncementRow[]; error?: string };
       if (!response.ok) {
         throw new Error(payload.error || "Failed to load announcements.");
       }
-
-      setAnnouncements(sortAnnouncementsForAdminFeed(payload.announcements ?? []));
-      setError(null);
+      const rawRows = payload.announcements ?? [];
+      const sorted = [...rawRows].sort((first, second) => {
+        const firstPriority = priorityRank[String(first.priority ?? "NORMAL").toUpperCase()] ?? 2;
+        const secondPriority = priorityRank[String(second.priority ?? "NORMAL").toUpperCase()] ?? 2;
+        return secondPriority - firstPriority;
+      });
+      setAnnouncements(sorted);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load announcements.");
     } finally {
@@ -199,373 +175,593 @@ export function AdminAnnouncementsClient() {
     }
   }
 
+  useEffect(() => {
+    void loadAnnouncements();
+  }, []);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!form.title.trim() || !form.message.trim()) {
+      setError("Please provide a title and message.");
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
-
     try {
-        const response = await adminApiFetch("/api/admin/announcements", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            title: form.title.trim(),
-            message: form.message.trim(),
-            type: form.type,
-            priority: form.priority,
-            targetRole: form.targetRole,
-            deepLink: form.deepLink.trim() || undefined,
-            expiresInDays: Number(form.expiresInDays) || 30
-          })
-        });
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + (Number(form.expiresInDays) || 7));
 
-        const payload = (await response.json()) as { error?: string };
-        if (!response.ok) {
-          throw new Error(payload.error || "Failed to create announcement.");
-        }
+      const response = await adminApiFetch("/api/admin/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title.trim(),
+          message: form.message.trim(),
+          type: form.type,
+          priority: form.priority,
+          targetRole: form.targetRole,
+          actionRoute: form.deepLink.trim() || undefined,
+          expiresAt: expiresAt.toISOString(),
+          isActive: true
+        })
+      });
 
-        setForm(initialForm);
-        await loadAnnouncements();
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Failed to publish announcement.");
+
+      setSuccess("Announcement broadcasted successfully!");
+      setForm({
+        templateId: "custom",
+        title: "",
+        message: "",
+        type: "INFO",
+        priority: "NORMAL",
+        targetRole: "ALL",
+        deepLink: "",
+        expiresInDays: 7
+      });
+      setTimeout(() => setSuccess(null), 3000);
+      await loadAnnouncements();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Failed to create announcement.");
+      setError(submitError instanceof Error ? submitError.message : "Failed to publish announcement.");
     } finally {
       setSubmitting(false);
     }
   }
 
-    async function handleToggle(row: AnnouncementRow) {
-      try {
-        const response = await adminApiFetch("/api/admin/announcements", {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            announcementId: row.id,
-            isActive: !row.isActive
-          })
-        });
+  async function handleToggle(announcement: AnnouncementRow) {
+    try {
+      const response = await adminApiFetch("/api/admin/announcements", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          announcementId: announcement.id,
+          isActive: !announcement.isActive
+        })
+      });
 
-        const payload = (await response.json()) as { error?: string };
-        if (!response.ok) {
-          throw new Error(payload.error || "Failed to update announcement.");
-        }
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Failed to update announcement.");
 
-        await loadAnnouncements();
-      } catch (toggleError) {
-        setError(toggleError instanceof Error ? toggleError.message : "Failed to update announcement.");
-      }
+      await loadAnnouncements();
+    } catch (toggleError) {
+      setError(toggleError instanceof Error ? toggleError.message : "Failed to update announcement.");
     }
+  }
 
-    async function handleDelete(id: string) {
-      const shouldDelete = window.confirm("Delete this announcement?");
-      if (!shouldDelete) {
-        return;
-      }
-
-      try {
-        const response = await adminApiFetch("/api/admin/announcements", {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ announcementId: id })
-        });
-
-        const payload = (await response.json()) as { error?: string };
-        if (!response.ok) {
-          throw new Error(payload.error || "Failed to delete announcement.");
-        }
-
-        await loadAnnouncements();
-      } catch (deleteError) {
-        setError(deleteError instanceof Error ? deleteError.message : "Failed to delete announcement.");
-      }
+  async function handleDelete(id: string) {
+    if (!window.confirm("Are you sure you want to delete this announcement?")) return;
+    try {
+      const response = await adminApiFetch("/api/admin/announcements", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ announcementId: id })
+      });
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Failed to delete announcement.");
+      await loadAnnouncements();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete announcement.");
     }
+  }
 
-  useEffect(() => {
-    void loadAnnouncements();
-  }, []);
+  const activeCount = announcements.filter((a) => a.isActive).length;
+  const urgentCount = announcements.filter((a) => String(a.priority ?? "").toUpperCase() === "URGENT").length;
+  const promoCount = announcements.filter((a) => String(a.type ?? "").toUpperCase() === "PROMOTION").length;
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, roleFilter, statusFilter, pageSize]);
-
-  const activeAnnouncements = announcements.filter((announcement) => announcement.isActive).length;
-  const urgentAnnouncements = announcements.filter((announcement) => String(announcement.priority ?? "").toUpperCase() === "URGENT").length;
-  const filteredAnnouncements = announcements.filter((announcement) => {
+  const filteredAnnouncements = announcements.filter((a) => {
     const search = searchTerm.toLowerCase();
-    const targetRole = String(announcement.targetRole ?? "ALL").toUpperCase();
-    const isActive = !!announcement.isActive;
+    const targetRole = String(a.targetRole ?? "ALL").toUpperCase();
+    const isActive = !!a.isActive;
     const matchesSearch =
       !searchTerm ||
-      String(announcement.title ?? "").toLowerCase().includes(search) ||
-      String(announcement.message ?? "").toLowerCase().includes(search) ||
-      String(announcement.type ?? "").toLowerCase().includes(search) ||
-      String(announcement.priority ?? "").toLowerCase().includes(search);
+      String(a.title ?? "").toLowerCase().includes(search) ||
+      String(a.message ?? "").toLowerCase().includes(search) ||
+      String(a.type ?? "").toLowerCase().includes(search) ||
+      String(a.priority ?? "").toLowerCase().includes(search);
     const matchesRole = roleFilter === "ALL" || targetRole === roleFilter;
     const matchesStatus = statusFilter === "ALL" || (statusFilter === "ACTIVE" ? isActive : !isActive);
-
     return matchesSearch && matchesRole && matchesStatus;
   });
+
   const {
     pageRows: visibleAnnouncements,
     safePage: visibleAnnouncementsPage
   } = paginateRows(filteredAnnouncements, currentPage, pageSize);
 
+  const getTypeBadge = (type?: string) => {
+    const t = String(type ?? "INFO").toUpperCase();
+    if (t === "PROMOTION") return "adm-badge-purple";
+    if (t === "WARNING" || t === "ERROR") return "adm-badge-rose";
+    if (t === "SUCCESS") return "adm-badge-emerald";
+    if (t === "FEATURE") return "adm-badge-blue";
+    return "adm-badge-neutral";
+  };
+
+  const getPriorityBadge = (priority?: string) => {
+    const p = String(priority ?? "NORMAL").toUpperCase();
+    if (p === "URGENT") return "adm-badge-rose";
+    if (p === "HIGH") return "adm-badge-amber";
+    return "adm-badge-neutral";
+  };
+
   return (
-    <div className="admin-section-stack">
-      <section className="section">
-        <div className="section-header">
-          <div>
-            <span className="tag">Create announcement</span>
-            <h2>Publish directly from the React admin route</h2>
+    <div className="adm-stack">
+      {/* Toast Alert */}
+      {success && (
+        <div className="adm-card" style={{ borderLeft: "4px solid #10b981", background: "#ecfdf5", padding: "12px 18px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#065f46", fontSize: "0.875rem", fontWeight: 600 }}>
+            <CheckCircle2 style={{ width: 18, height: 18, color: "#10b981", flexShrink: 0 }} />
+            <span>{success}</span>
           </div>
-          <p>
-            This replaces the prompt-based flow in the legacy HTML page with a typed
-            form that can later support validation and preview states.
+        </div>
+      )}
+
+      {error && (
+        <div className="adm-card" style={{ borderLeft: "4px solid #ef4444", background: "#fef2f2", padding: "12px 18px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#b91c1c", fontSize: "0.875rem", fontWeight: 600 }}>
+            <AlertTriangle style={{ width: 18, height: 18, color: "#ef4444", flexShrink: 0 }} />
+            <span>{error}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Header Row */}
+      <div className="adm-header-row">
+        <div>
+          <h1 className="adm-page-title">In-App Announcements</h1>
+          <p className="adm-page-subtitle">
+            Broadcast targeted cards and alerts across Worker and Employer app home screens.
           </p>
         </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            type="button"
+            className="adm-btn adm-btn-secondary"
+            onClick={() => void loadAnnouncements()}
+            disabled={loading}
+          >
+            Refresh Feed
+          </button>
+        </div>
+      </div>
 
-        <form className="editor-form" onSubmit={handleSubmit}>
-          <label className="editor-form-wide">
-            <span>Template (auto-fills the fields below)</span>
-            <select
-              value={form.templateId}
-              onChange={(event) => {
-                const templateId = event.target.value;
-                const template = ANNOUNCEMENT_TEMPLATES.find((t) => t.id === templateId);
-                if (!template) {
-                  setForm((current) => ({ ...current, templateId }));
-                  return;
-                }
-                if (template.id === "custom") {
-                  setForm((current) => ({ ...current, templateId }));
-                  return;
-                }
-                setForm((current) => ({
-                  ...current,
-                  templateId,
-                  title: template.title,
-                  message: template.message,
-                  type: template.type,
-                  priority: template.priority,
-                  targetRole: template.targetRole,
-                  deepLink: template.deepLink
-                }));
-              }}
-            >
-              {ANNOUNCEMENT_TEMPLATES.map((template) => (
-                <option key={template.id} value={template.id}>
-                  {template.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Title</span>
-            <input
-              value={form.title}
-              onChange={(event) => setForm((current) => ({ ...current, templateId: "custom", title: event.target.value }))}
-              placeholder="Referral boost week"
-              required
-            />
-          </label>
-          <label className="editor-form-wide">
-            <span>Message</span>
-            <textarea
-              value={form.message}
-              onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
-              placeholder="Tell workers or employers what changed."
-              rows={4}
-              required
-            />
-          </label>
-          <label>
-            <span>Type</span>
-            <select
-              value={form.type}
-              onChange={(event) => setForm((current) => ({ ...current, type: event.target.value }))}
-            >
-              <option value="INFO">INFO</option>
-              <option value="SUCCESS">SUCCESS</option>
-              <option value="WARNING">WARNING</option>
-              <option value="ERROR">ERROR</option>
-              <option value="FEATURE">FEATURE</option>
-              <option value="PROMOTION">PROMOTION</option>
-            </select>
-          </label>
-          <label>
-            <span>Priority</span>
-            <select
-              value={form.priority}
-              onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}
-            >
-              <option value="LOW">LOW</option>
-              <option value="MEDIUM">MEDIUM</option>
-              <option value="NORMAL">NORMAL</option>
-              <option value="HIGH">HIGH</option>
-              <option value="URGENT">URGENT</option>
-            </select>
-          </label>
-          <label>
-            <span>Target role</span>
-            <select
-              value={form.targetRole}
-              onChange={(event) => setForm((current) => ({ ...current, targetRole: event.target.value }))}
-            >
-              <option value="ALL">ALL</option>
-              <option value="WORKER">WORKER</option>
-              <option value="EMPLOYER">EMPLOYER</option>
-            </select>
-          </label>
-          <label>
-            <span>Deep link (optional)</span>
-            <input
-              value={form.deepLink}
-              onChange={(event) => setForm((current) => ({ ...current, deepLink: event.target.value }))}
-              placeholder="dutype://refer"
-            />
-          </label>
-          <label>
-            <span>Expires in (days)</span>
-            <input
-              type="number"
-              min={1}
-              max={365}
-              value={form.expiresInDays}
-              onChange={(event) => setForm((current) => ({ ...current, expiresInDays: event.target.value }))}
-            />
-          </label>
-          <div className="editor-form-actions">
-            <button type="submit" className="button" disabled={submitting}>
-              {submitting ? "Publishing..." : "Publish announcement"}
-            </button>
+      {/* Top Metrics Grid */}
+      <div className="adm-metrics-grid">
+        <div className="adm-metric-card">
+          <div className="adm-metric-top">
+            <span className="adm-metric-label">Total Broadcasts</span>
+            <div className="adm-metric-icon">
+              <Megaphone style={{ width: 18, height: 18 }} />
+            </div>
           </div>
-        </form>
-      </section>
-
-      <section className="section">
-        <div className="section-header">
-          <div>
-            <span className="tag">Live announcements</span>
-            <h2>Current announcement feed</h2>
+          <div className="adm-metric-value">{announcements.length}</div>
+          <div className="adm-metric-sub">
+            <span>all-time notices in database</span>
           </div>
-          <p>
-            This route now reads the `announcements` collection directly instead of
-            relying on a one-off static HTML tool.
-          </p>
         </div>
 
-        {loading ? <div className="empty-state">Loading announcements from Firestore.</div> : null}
-        {!loading && error ? <div className="empty-state">Unable to load announcements. {error}</div> : null}
-        {!loading && !error && announcements.length === 0 ? (
-          <div className="empty-state">No announcements were returned from Firestore.</div>
-        ) : null}
+        <div className="adm-metric-card">
+          <div className="adm-metric-top">
+            <span className="adm-metric-label">Live Active Banners</span>
+            <div className="adm-metric-icon" style={{ background: "#ecfdf5", color: "#10b981" }}>
+              <CheckCircle2 style={{ width: 18, height: 18 }} />
+            </div>
+          </div>
+          <div className="adm-metric-value" style={{ color: "#059669" }}>{activeCount}</div>
+          <div className="adm-metric-sub">
+            <span>currently displayed in app</span>
+          </div>
+        </div>
 
-        {!loading && !error && announcements.length > 0 ? (
-          <>
-            <div className="admin-stats-grid small">
-              <div className="admin-stat-card compact">
-                <strong>{announcements.length}</strong>
-                <span>Total</span>
-              </div>
-              <div className="admin-stat-card compact">
-                <strong>{activeAnnouncements}</strong>
-                <span>Active</span>
-              </div>
-              <div className="admin-stat-card compact">
-                <strong>{urgentAnnouncements}</strong>
-                <span>Urgent</span>
-              </div>
-              <div className="admin-stat-card compact">
-                <strong>{announcements.length - activeAnnouncements}</strong>
-                <span>Inactive</span>
-              </div>
+        <div className="adm-metric-card">
+          <div className="adm-metric-top">
+            <span className="adm-metric-label">Urgent Alerts</span>
+            <div className="adm-metric-icon" style={{ background: "#fef2f2", color: "#ef4444" }}>
+              <ShieldAlert style={{ width: 18, height: 18 }} />
+            </div>
+          </div>
+          <div className="adm-metric-value" style={{ color: urgentCount > 0 ? "#dc2626" : "var(--adm-text-main)" }}>
+            {urgentCount}
+          </div>
+          <div className="adm-metric-sub">
+            <span>pinned at highest priority</span>
+          </div>
+        </div>
+
+        <div className="adm-metric-card">
+          <div className="adm-metric-top">
+            <span className="adm-metric-label">Promotional & Offers</span>
+            <div className="adm-metric-icon" style={{ background: "#f5f3ff", color: "#7c3aed" }}>
+              <Sparkles style={{ width: 18, height: 18 }} />
+            </div>
+          </div>
+          <div className="adm-metric-value">{promoCount}</div>
+          <div className="adm-metric-sub">
+            <span>marketing & partner highlights</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Split Studio: Composer & Live Preview on Top */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", gap: 20 }}>
+        {/* Left: Broadcast Form */}
+        <div className="adm-card">
+          <div className="adm-card-header">
+            <h2 className="adm-card-title">
+              <Megaphone style={{ width: 18, height: 18, color: "var(--adm-primary)" }} />
+              Broadcast Studio
+            </h2>
+            <span className="adm-badge adm-badge-emerald">Live Push</span>
+          </div>
+          <form onSubmit={handleSubmit} className="adm-card-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="adm-form-group">
+              <label className="adm-form-label">Quick Template Preset</label>
+              <select
+                className="adm-select"
+                value={form.templateId}
+                onChange={(e) => {
+                  const tid = e.target.value;
+                  const t = ANNOUNCEMENT_TEMPLATES.find((x) => x.id === tid);
+                  if (!t || t.id === "custom") {
+                    setForm((cur) => ({ ...cur, templateId: tid }));
+                    return;
+                  }
+                  setForm((cur) => ({
+                    ...cur,
+                    templateId: tid,
+                    title: t.title,
+                    message: t.message,
+                    type: t.type,
+                    priority: t.priority,
+                    targetRole: t.targetRole,
+                    deepLink: t.deepLink
+                  }));
+                }}
+              >
+                {ANNOUNCEMENT_TEMPLATES.map((t) => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
             </div>
 
-            <div className="admin-toolbar admin-toolbar-card">
+            <div className="adm-form-group">
+              <label className="adm-form-label">Announcement Title *</label>
               <input
-                className="admin-search"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Search title, message, type, or priority..."
+                type="text"
+                className="adm-input"
+                placeholder="e.g. New jobs available in your area!"
+                value={form.title}
+                onChange={(e) => setForm((cur) => ({ ...cur, templateId: "custom", title: e.target.value }))}
+                required
               />
-              <select className="admin-filter" value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
-                <option value="ALL">All roles</option>
-                <option value="WORKER">Workers</option>
-                <option value="EMPLOYER">Employers</option>
-              </select>
-              <select className="admin-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                <option value="ALL">All statuses</option>
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-              </select>
-              <span className="admin-count">{filteredAnnouncements.length} announcements</span>
             </div>
 
-            {filteredAnnouncements.length === 0 ? (
-              <div className="empty-state">No announcements match your filters.</div>
-            ) : (
-              <>
-                <div className="admin-grid">
-                  {visibleAnnouncements.map((announcement) => (
-                    <article key={announcement.id} className="admin-panel">
-                      <span className="card-kicker">{announcement.type ?? "INFO"}</span>
-                      <h3>{announcement.title ?? "Untitled announcement"}</h3>
-                      <p>{announcement.message ?? "No message provided."}</p>
-                      <ul className="admin-list">
-                        <li className="admin-item">
-                          <strong>Priority</strong>
-                          <span>{announcement.priority ?? "NORMAL"}</span>
-                        </li>
-                        <li className="admin-item">
-                          <strong>Target role</strong>
-                          <span>{announcement.targetRole ?? "ALL"}</span>
-                        </li>
-                        <li className="admin-item">
-                          <strong>Status</strong>
-                          <span>{announcement.isActive ? "Active" : "Inactive"}</span>
-                        </li>
-                        <li className="admin-item">
-                          <strong>Created</strong>
-                          <span>{formatDateTime(announcement.createdAt)}</span>
-                        </li>
-                        <li className="admin-item">
-                          <strong>Expires</strong>
-                          <span>{formatDateTime(announcement.expiresAt)}</span>
-                        </li>
-                        <li className="admin-item">
-                          <strong>Action</strong>
-                          <span>{announcement.actionRoute || "None"}</span>
-                        </li>
-                      </ul>
-                      <div className="button-row">
-                        <button type="button" className="button ghost" onClick={() => void handleToggle(announcement)}>
-                          {announcement.isActive ? "Deactivate" : "Activate"}
-                        </button>
-                        <button type="button" className="table-action danger" onClick={() => void handleDelete(announcement.id)}>
-                          Delete
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-                <AdminTablePagination
-                  itemLabel="announcements"
-                  page={visibleAnnouncementsPage}
-                  pageSize={pageSize}
-                  totalItems={filteredAnnouncements.length}
-                  onPageChange={setCurrentPage}
-                  onPageSizeChange={setPageSize}
+            <div className="adm-form-group">
+              <label className="adm-form-label">Message Copy *</label>
+              <textarea
+                className="adm-textarea"
+                rows={3}
+                placeholder="Tell workers or employers what changed or what action to take."
+                value={form.message}
+                onChange={(e) => setForm((cur) => ({ ...cur, message: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div className="adm-form-group">
+                <label className="adm-form-label">Target Audience</label>
+                <select
+                  className="adm-select"
+                  value={form.targetRole}
+                  onChange={(e) => setForm((cur) => ({ ...cur, targetRole: e.target.value }))}
+                >
+                  <option value="ALL">Everyone (Workers & Employers)</option>
+                  <option value="WORKER">Workers Only</option>
+                  <option value="EMPLOYER">Employers Only</option>
+                </select>
+              </div>
+
+              <div className="adm-form-group">
+                <label className="adm-form-label">Visual Type</label>
+                <select
+                  className="adm-select"
+                  value={form.type}
+                  onChange={(e) => setForm((cur) => ({ ...cur, type: e.target.value }))}
+                >
+                  <option value="INFO">INFO (Neutral Blue)</option>
+                  <option value="SUCCESS">SUCCESS (Green)</option>
+                  <option value="WARNING">WARNING (Amber)</option>
+                  <option value="ERROR">ERROR (Urgent Red)</option>
+                  <option value="PROMOTION">PROMOTION (Purple Sparkle)</option>
+                  <option value="FEATURE">FEATURE (Cyan)</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div className="adm-form-group">
+                <label className="adm-form-label">Priority Order</label>
+                <select
+                  className="adm-select"
+                  value={form.priority}
+                  onChange={(e) => setForm((cur) => ({ ...cur, priority: e.target.value }))}
+                >
+                  <option value="URGENT">URGENT (Top Pinned)</option>
+                  <option value="HIGH">HIGH Priority</option>
+                  <option value="NORMAL">NORMAL Priority</option>
+                  <option value="LOW">LOW Priority</option>
+                </select>
+              </div>
+
+              <div className="adm-form-group">
+                <label className="adm-form-label">Expires In (Days)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="90"
+                  className="adm-input"
+                  value={form.expiresInDays}
+                  onChange={(e) => setForm((cur) => ({ ...cur, expiresInDays: Number(e.target.value) || 7 }))}
                 />
-              </>
-            )}
-          </>
-        ) : null}
-      </section>
+              </div>
+            </div>
+
+            <div className="adm-form-group">
+              <label className="adm-form-label">Action Deeplink (Optional)</label>
+              <input
+                type="text"
+                className="adm-input"
+                placeholder="dutype://jobs or dutype://post-job"
+                value={form.deepLink}
+                onChange={(e) => setForm((cur) => ({ ...cur, deepLink: e.target.value }))}
+              />
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+              <button
+                type="submit"
+                className="adm-btn adm-btn-primary"
+                disabled={submitting}
+                style={{ width: "100%" }}
+              >
+                {submitting ? "Publishing..." : "Publish Announcement"}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Right: Live Mobile App Banner Simulation Preview */}
+        <div className="adm-card" style={{ display: "flex", flexDirection: "column" }}>
+          <div className="adm-card-header">
+            <h2 className="adm-card-title">
+              <Smartphone style={{ width: 18, height: 18, color: "var(--adm-primary)" }} />
+              Live Mobile In-App Preview
+            </h2>
+            <span className="adm-badge adm-badge-neutral">Real-time Simulation</span>
+          </div>
+          <div className="adm-card-body" style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", background: "#f8fafc", padding: 24 }}>
+            <div style={{ width: "100%", maxWidth: 360, background: "#ffffff", borderRadius: 16, border: "1px solid var(--adm-border)", boxShadow: "0 8px 16px rgba(0,0,0,0.06)", overflow: "hidden" }}>
+              <div style={{ background: "#0f172a", padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", color: "#ffffff", fontSize: "0.75rem", fontWeight: 600 }}>
+                <span>DutyPe Mobile App</span>
+                <span className="adm-badge adm-badge-neutral" style={{ fontSize: "0.7rem", padding: "1px 6px" }}>
+                  {form.targetRole === "WORKER" ? "Worker Home" : form.targetRole === "EMPLOYER" ? "Employer Home" : "All Users"}
+                </span>
+              </div>
+              <div style={{ padding: 16 }}>
+                <div
+                  style={{
+                    borderRadius: 12,
+                    padding: "14px 16px",
+                    background: form.type === "PROMOTION" ? "#f5f3ff" : form.type === "WARNING" ? "#fffbeb" : form.type === "ERROR" ? "#fef2f2" : "#eff6ff",
+                    border: `1px solid ${form.type === "PROMOTION" ? "#ddd6fe" : form.type === "WARNING" ? "#fde68a" : form.type === "ERROR" ? "#fecdd3" : "#bfdbfe"}`,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span className={`adm-badge ${getTypeBadge(form.type)}`}>
+                      {form.type}
+                    </span>
+                    {form.priority === "URGENT" && (
+                      <span className="adm-badge adm-badge-rose" style={{ fontSize: "0.68rem" }}>
+                        ⚡ Urgent
+                      </span>
+                    )}
+                  </div>
+                  <h4 style={{ margin: "2px 0 0", fontSize: "0.95rem", fontWeight: 700, color: "var(--adm-text-main)" }}>
+                    {form.title.trim() || "Announcement Title Preview"}
+                  </h4>
+                  <p style={{ margin: 0, fontSize: "0.825rem", color: "var(--adm-text-muted)", lineHeight: 1.45 }}>
+                    {form.message.trim() || "Type a message above to see how it renders in the user's mobile feed."}
+                  </p>
+                  {form.deepLink.trim() && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: "0.75rem", color: "var(--adm-primary)", fontWeight: 600 }}>
+                      <span>Tap to open action</span>
+                      <ArrowRight style={{ width: 12, height: 12 }} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <p style={{ fontSize: "0.75rem", color: "var(--adm-text-muted)", marginTop: 14, textAlign: "center", maxWidth: 280 }}>
+              Users see this announcement prominently above job listings on their app home screen until dismissed or expired.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Announcements Feed Toolbar */}
+      <div className="adm-toolbar">
+        <div className="adm-search-wrap">
+          <Search className="adm-search-icon" />
+          <input
+            type="text"
+            className="adm-input-search"
+            placeholder="Search announcements by title, copy, type, or priority..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <select
+          className="adm-select"
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+        >
+          <option value="ALL">All Roles</option>
+          <option value="WORKER">Workers</option>
+          <option value="EMPLOYER">Employers</option>
+        </select>
+        <select
+          className="adm-select"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
+          <option value="ALL">All Statuses</option>
+          <option value="ACTIVE">Active Banners</option>
+          <option value="INACTIVE">Deactivated</option>
+        </select>
+        <span style={{ fontSize: "0.825rem", color: "var(--adm-text-muted)", marginLeft: "auto", fontWeight: 500 }}>
+          {filteredAnnouncements.length} results
+        </span>
+      </div>
+
+      {/* Announcements List Table */}
+      {loading ? (
+        <div className="adm-card" style={{ padding: 32, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div className="adm-skeleton" style={{ height: 28, width: "30%" }} />
+          <div className="adm-skeleton" style={{ height: 44, width: "100%" }} />
+          <div className="adm-skeleton" style={{ height: 44, width: "100%" }} />
+          <div className="adm-skeleton" style={{ height: 44, width: "100%" }} />
+        </div>
+      ) : filteredAnnouncements.length === 0 ? (
+        <div className="adm-card" style={{ padding: "48px 24px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+          <Megaphone style={{ width: 44, height: 44, color: "var(--adm-text-subtle)" }} />
+          <h3 style={{ margin: 0, fontSize: "1.1rem", color: "var(--adm-text-main)" }}>No announcements match filters</h3>
+          <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--adm-text-muted)", maxWidth: 360 }}>
+            Try resetting your search query or role filter to view existing broadcasts.
+          </p>
+        </div>
+      ) : (
+        <div className="adm-table-wrap">
+          <table className="adm-table">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Announcement Content</th>
+                <th>Target Role</th>
+                <th>Type</th>
+                <th>Priority</th>
+                <th>Action Route</th>
+                <th>Created / Expires</th>
+                <th style={{ textAlign: "right" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleAnnouncements.map((ann) => (
+                <tr key={ann.id}>
+                  <td>
+                    <span className={`adm-badge ${ann.isActive ? "adm-badge-emerald" : "adm-badge-neutral"}`}>
+                      {ann.isActive ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                  <td style={{ maxWidth: 320 }}>
+                    <div style={{ fontWeight: 600, color: "var(--adm-text-main)" }}>
+                      {ann.title || "Untitled Announcement"}
+                    </div>
+                    <div style={{ fontSize: "0.775rem", color: "var(--adm-text-muted)", marginTop: 2, lineClamp: 2 }}>
+                      {ann.message || "—"}
+                    </div>
+                  </td>
+                  <td>
+                    <span className="adm-badge adm-badge-neutral">
+                      <Users style={{ width: 12, height: 12 }} />
+                      {ann.targetRole ?? "ALL"}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`adm-badge ${getTypeBadge(ann.type)}`}>
+                      {ann.type ?? "INFO"}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`adm-badge ${getPriorityBadge(ann.priority)}`}>
+                      {ann.priority ?? "NORMAL"}
+                    </span>
+                  </td>
+                  <td>
+                    {ann.actionRoute ? (
+                      <code style={{ fontSize: "0.75rem", background: "var(--adm-surface-subtle)", padding: "2px 6px", borderRadius: 4, color: "var(--adm-accent-blue)" }}>
+                        {ann.actionRoute}
+                      </code>
+                    ) : (
+                      <span style={{ color: "var(--adm-text-subtle)", fontSize: "0.8rem" }}>None</span>
+                    )}
+                  </td>
+                  <td style={{ fontSize: "0.775rem", color: "var(--adm-text-muted)", whiteSpace: "nowrap" }}>
+                    <div>{formatDateTime(ann.createdAt)}</div>
+                    <div style={{ color: "var(--adm-text-subtle)" }}>Exp: {formatDateTime(ann.expiresAt)}</div>
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <div style={{ display: "inline-flex", gap: 6 }}>
+                      <button
+                        type="button"
+                        className="adm-btn adm-btn-secondary adm-btn-sm"
+                        onClick={() => void handleToggle(ann)}
+                        title={ann.isActive ? "Deactivate" : "Activate"}
+                      >
+                        <Power style={{ width: 13, height: 13, color: ann.isActive ? "#eab308" : "#10b981" }} />
+                        {ann.isActive ? "Deactivate" : "Activate"}
+                      </button>
+                      <button
+                        type="button"
+                        className="adm-btn-icon"
+                        style={{ color: "#ef4444" }}
+                        title="Delete Announcement"
+                        onClick={() => void handleDelete(ann.id)}
+                      >
+                        <Trash2 style={{ width: 14, height: 14 }} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div style={{ padding: "12px 18px", borderTop: "1px solid var(--adm-border)" }}>
+            <AdminTablePagination
+              itemLabel="announcements"
+              page={visibleAnnouncementsPage}
+              pageSize={pageSize}
+              totalItems={filteredAnnouncements.length}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

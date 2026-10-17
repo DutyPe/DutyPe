@@ -136,29 +136,17 @@ class AppStartupViewModel @Inject constructor(
                 }
 
                 val targetDestination = if (userRole != null) {
-                    val localProfileComplete = profileSetupStateManager.isProfileComplete(userRole)
-                    var completionUnknown = false
-                    val firestoreProfileComplete = if (!localProfileComplete) {
-                        val check = runCatching {
-                            profileCompletionService.isProfileComplete(currentUser.uid, userRole.name)
-                        }.getOrNull()
-                        // Failure (offline, nothing cached) = unknown, NOT "incomplete".
-                        completionUnknown = check == null || check.isFailure
+                    val check = runCatching {
+                        profileCompletionService.isProfileComplete(currentUser.uid, userRole.name)
+                    }.getOrNull()
+                    val remoteChecked = check != null && check.isSuccess
+                    val isProfileComplete = if (remoteChecked) {
                         check?.getOrNull() ?: false
-                    } else true
-
-                    // Offline and unknown: keep the last resolved home destination instead of
-                    // sending a completed user back to profile setup.
-                    val cachedHome = initialCachedDestination
-                    if (completionUnknown && (cachedHome == Routes.WORKER_HOME || cachedHome == Routes.EMPLOYER_HOME)) {
-                        Timber.w("🚀 AppStartupViewModel - completion unknown (offline); keeping cached $cachedHome")
-                        updateDestination(cachedHome)
-                        return@launch
+                    } else {
+                        profileSetupStateManager.isProfileComplete(userRole)
                     }
 
-                    val isProfileComplete = localProfileComplete || firestoreProfileComplete
-
-                    if (isProfileComplete && !localProfileComplete) {
+                    if (isProfileComplete) {
                         runCatching {
                             profileSetupStateManager.markProfileComplete(userRole)
                             profileSetupStateManager.markProfileSetupAsShown(userRole)

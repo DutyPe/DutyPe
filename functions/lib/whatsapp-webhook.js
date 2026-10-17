@@ -73,6 +73,10 @@ exports.whatsappWebhook = functions
         }
         try {
             const body = req.body;
+            if ((body === null || body === void 0 ? void 0 : body.object) !== "whatsapp_business_account" || !Array.isArray(body === null || body === void 0 ? void 0 : body.entry)) {
+                res.status(400).send("Invalid webhook payload structure");
+                return;
+            }
             functions.logger.info("WhatsApp Webhook POST event", { statuses: (_g = (_f = (_e = (_d = (_c = (_b = (_a = body === null || body === void 0 ? void 0 : body.entry) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.changes) === null || _c === void 0 ? void 0 : _c[0]) === null || _d === void 0 ? void 0 : _d.value) === null || _e === void 0 ? void 0 : _e.statuses) === null || _f === void 0 ? void 0 : _f.length) !== null && _g !== void 0 ? _g : 0 });
             // "STOP" replies switch WhatsApp offers off for that number.
             const stopped = (0, whatsapp_1.optOutNumbers)(body);

@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 
-import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
+import { getAdminActor, logAdminAudit, requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
 import { getFirebaseAdminDb } from "@/lib/firebase/admin-server";
+import { RateLimitTiers } from "@/lib/security/admin-rate-limiter";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
-  const unauthorized = await requireAuthorizedAdminRequest(request);
+  const unauthorized = await requireAuthorizedAdminRequest(request, RateLimitTiers.FINANCIAL);
   if (unauthorized) {
     return unauthorized;
   }
+
+  const actor = await getAdminActor(request);
 
   try {
     const data = await request.json();
@@ -37,8 +40,12 @@ export async function POST(request: NextRequest) {
     await db.doc("app_config/referral").set({
       ...patch,
       updatedAt: FieldValue.serverTimestamp(),
-      updatedBy: "webapp-admin",
+      updatedBy: actor?.email || "webapp-admin",
     }, { merge: true });
+
+    if (actor) {
+      await logAdminAudit("REFERRAL_CONFIG_UPDATE", actor, { patch }, request);
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

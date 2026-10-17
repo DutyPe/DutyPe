@@ -73,6 +73,11 @@ export const whatsappWebhook = functions
       }
       try {
         const body = req.body;
+        if (body?.object !== "whatsapp_business_account" || !Array.isArray(body?.entry)) {
+          res.status(400).send("Invalid webhook payload structure");
+          return;
+        }
+
         functions.logger.info("WhatsApp Webhook POST event", { statuses: body?.entry?.[0]?.changes?.[0]?.value?.statuses?.length ?? 0 });
 
         // "STOP" replies switch WhatsApp offers off for that number.

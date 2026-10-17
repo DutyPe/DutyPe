@@ -31,10 +31,7 @@ function minutesBetween(startMs: number, endMs: number) {
   return Math.round((endMs - startMs) / 60000);
 }
 
-async function getUncached(request: NextRequest) {
-  const unauthorized = await requireAuthorizedAdminRequest(request);
-  if (unauthorized) return unauthorized;
-
+async function getUncached(_request: NextRequest) {
   try {
     const db = getFirebaseAdminDb();
     const col = db.collection(InstantRequests.COLLECTION);

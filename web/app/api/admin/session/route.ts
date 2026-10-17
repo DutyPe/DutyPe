@@ -6,6 +6,7 @@ import {
   getAdminSessionCookieOptions
 } from "@/lib/firebase/admin-session";
 import { isFirebaseAdminConfigured } from "@/lib/firebase/admin-server";
+import { checkIpRateLimit, RateLimitTiers } from "@/lib/security/admin-rate-limiter";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,22 @@ type SessionRequestBody = {
 };
 
 export async function POST(request: NextRequest) {
+  // IP-level rate limit to prevent token flood and CPU exhaustion
+  const rateLimit = checkIpRateLimit(request, RateLimitTiers.AUTH_SESSION);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: `Too many login attempts. Please wait ${rateLimit.resetSeconds}s before trying again.` },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.resetSeconds),
+          "X-RateLimit-Limit": String(rateLimit.limit),
+          "X-RateLimit-Remaining": "0"
+        }
+      }
+    );
+  }
+
   let body: SessionRequestBody;
 
   try {

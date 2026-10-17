@@ -11,10 +11,21 @@ import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
  * is kept for TTL_MS per URL; any admin write clears it (see requireAuthorizedAdminRequest).
  */
 const TTL_MS = 5 * 60 * 1000;
+const MAX_CACHE_ENTRIES = 500;
 const responses = new Map<string, { at: number; status: number; body: string; contentType: string }>();
 const inFlight = new Map<string, Promise<NextResponse | Response>>();
 
 type GetHandler = (request: NextRequest) => Promise<NextResponse | Response>;
+
+function getSanitizedCacheKey(url: URL): string {
+  const searchParams = new URLSearchParams(url.search);
+  const cacheBusters = ["_t", "t", "timestamp", "cb", "cachebust", "_nocache", "nocache"];
+  for (const param of cacheBusters) {
+    searchParams.delete(param);
+  }
+  const queryString = searchParams.toString();
+  return url.pathname + (queryString ? `?${queryString}` : "");
+}
 
 export function cachedAdminGet(handler: GetHandler): GetHandler {
   return async (request: NextRequest) => {
@@ -23,7 +34,7 @@ export function cachedAdminGet(handler: GetHandler): GetHandler {
     if (unauthorized) return unauthorized;
 
     const url = new URL(request.url);
-    const key = url.pathname + url.search;
+    const key = getSanitizedCacheKey(url);
     const hit = responses.get(key);
     if (hit && Date.now() - hit.at < TTL_MS) {
       return new NextResponse(hit.body, {
@@ -42,6 +53,11 @@ export function cachedAdminGet(handler: GetHandler): GetHandler {
     const body = await response.clone().text();
     const contentType = response.headers.get("content-type") ?? "application/json";
     if (response.status === 200) {
+      // Bound cache size to prevent memory leaks from variable search queries
+      if (responses.size >= MAX_CACHE_ENTRIES) {
+        const oldestKey = responses.keys().next().value;
+        if (oldestKey) responses.delete(oldestKey);
+      }
       responses.set(key, { at: Date.now(), status: 200, body, contentType });
     }
     return new NextResponse(body, {

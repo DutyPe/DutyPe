@@ -31,16 +31,17 @@ export function AdminWhatsappGroupsClient() {
     setLoading(true);
     try {
       if (segment === "PARTNER") {
-        const res = await adminApiFetch("/api/admin/services", { cache: "no-store" });
+        const res = await adminApiFetch("/api/admin/worker-profiles?limit=200", { cache: "no-store" });
         const data = await res.json();
-        const partners = (data.partners ?? []).map((p: any) => ({
+        const profiles = (data.profiles ?? []).filter((p: any) => p.isPartner === true || (Array.isArray(p.categories) && p.categories.length > 0));
+        const partners = profiles.map((p: any) => ({
           id: p.id,
           role: "PARTNER" as const,
           name: p.name || "Service Partner",
           phone: p.phone || "",
           area: p.area || "Khammam",
-          skills: p.categories || [],
-          trade: (p.categories || []).join(", ")
+          skills: p.categories || p.skills || [],
+          trade: (p.categories || p.skills || []).join(", ")
         }));
         setContacts(partners);
       } else {

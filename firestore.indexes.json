@@ -979,6 +979,20 @@
       ]
     },
     {
+      "collectionGroup": "service_bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "partnerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "service_partners",
       "queryScope": "COLLECTION",
       "fields": [

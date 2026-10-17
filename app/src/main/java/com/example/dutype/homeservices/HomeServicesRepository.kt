@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import android.content.Context
+import androidx.annotation.Keep
 import com.google.gson.Gson
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -48,6 +49,7 @@ object PartnerStatus {
 }
 
 /** [skill] BASIC (cleaning, help, wash: anyone careful) or SKILLED (wiring, AC, plumbing...: skill-checked). */
+@Keep
 data class ServiceCategory(
     val id: String,
     val name: String,
@@ -69,6 +71,7 @@ data class ServiceCategory(
     }
 }
 
+@Keep
 data class ServiceOption(
     val id: String,
     val title: String,
@@ -81,6 +84,7 @@ data class ServiceOption(
     val discountPercent: Int get() = if (mrp > price) Math.round(((mrp - price).toFloat() / mrp) * 100) else 0
 }
 
+@Keep
 data class ServiceItem(
     val id: String,
     val category: String,
@@ -123,6 +127,7 @@ data class ServiceItem(
     }
 }
 
+@Keep
 data class ServicesCatalog(
     val city: String,
     val bookingFee: Int,
@@ -135,7 +140,7 @@ data class ServicesCatalog(
     val services: List<ServiceItem>,
     val partnerFee: Int = 19,
     val partnerFirstJobFree: Boolean = true,
-    val firstBookingFeeFree: Boolean = false,
+    val firstBookingFeeFree: Boolean = true,
     val offers: List<PromoOffer> = emptyList(),
     val promoBanners: List<PromoBanner> = emptyList(),
     val noteworthyServiceIds: List<String> = emptyList(),
@@ -169,6 +174,7 @@ data class ServicesCatalog(
 }
 
 /** Dynamic promotional banner configurable by admin for header carousel. */
+@Keep
 data class PromoBanner(
     val id: String = "",
     val headline: String = "",
@@ -184,6 +190,7 @@ data class PromoBanner(
 )
 
 /** Dynamic brand / restaurant / shop showcase microsite model */
+@Keep
 data class PromoShowcaseButton(
     val label: String = "Contact",
     val icon: String = "call", // call, whatsapp, maps, url
@@ -191,6 +198,7 @@ data class PromoShowcaseButton(
     val isPrimary: Boolean = false
 )
 
+@Keep
 data class PromoShowcase(
     val id: String = "",
     val title: String = "",
@@ -214,6 +222,7 @@ data class PromoShowcase(
 )
 
 /** A coupon / festive offer the app can show. [type] FLAT (₹[value]) or PCT ([value]%, up to ₹[maxOff]). */
+@Keep
 data class PromoOffer(
     val code: String,
     val title: String,
@@ -234,6 +243,7 @@ data class PromoOffer(
 }
 
 /** The price the customer will pay, from previewServiceQuote. */
+@Keep
 data class ServiceQuote(
     val price: Int,
     val bookingFee: Int,
@@ -248,10 +258,13 @@ data class ServiceQuote(
 )
 
 /** A live list with its load state, so screens can tell "loading", "empty" and "failed" apart. */
+@Keep
 data class BookingsLoad(val loaded: Boolean, val list: List<ServiceBooking>, val error: String?)
 
+@Keep
 data class BookingLoad(val loaded: Boolean, val booking: ServiceBooking?, val error: String?)
 
+@Keep
 data class ServiceBooking(
     val id: String,
     val status: String,
@@ -297,6 +310,7 @@ data class ServiceBooking(
     val isOpen: Boolean get() = status in BookingStatus.OPEN
 }
 
+@Keep
 data class PartnerProfile(
     val status: String,
     val name: String,
@@ -310,8 +324,10 @@ data class PartnerProfile(
     val rejectionReason: String
 )
 
+@Keep
 data class PartnerTopup(val id: String, val amountPaise: Long, val utr: String, val status: String, val createdAt: Long)
 
+@Keep
 data class ServiceOffer(
     val available: Boolean,
     val mine: Boolean,
@@ -336,6 +352,7 @@ data class ServiceOffer(
 )
 
 /** accepted | taken | closed | busy | low_credits | not_partner */
+@Keep
 data class AcceptResult(val result: String)
 
 /** Callable results are JSON objects: read them as String-keyed maps. */
@@ -358,9 +375,31 @@ class HomeServicesRepository @Inject constructor(
         val disk = runCatching {
             val json = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).getString(KEY_CATALOG_JSON, null)
             if (!json.isNullOrBlank()) {
-                Gson().fromJson(json, ServicesCatalog::class.java)
+                val parsed = Gson().fromJson(json, ServicesCatalog::class.java)
+                val rawCategories = parsed?.categories as? List<*> ?: emptyList<Any>()
+                val rawServices = parsed?.services as? List<*> ?: emptyList<Any>()
+                val isValid = parsed != null &&
+                    rawCategories.isNotEmpty() &&
+                    rawServices.isNotEmpty() &&
+                    rawCategories.all { it is ServiceCategory && it.id.isNotBlank() } &&
+                    rawServices.all { it is ServiceItem && it.id.isNotBlank() }
+                if (isValid) {
+                    parsed
+                } else {
+                    Timber.w("Cached catalog JSON in SharedPreferences is corrupt or outdated; purging cache.")
+                    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        .edit().remove(KEY_CATALOG_JSON).apply()
+                    null
+                }
             } else null
-        }.getOrNull()
+        }.getOrElse { e ->
+            Timber.e(e, "Failed to deserialize cached catalog JSON; purging.")
+            runCatching {
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit().remove(KEY_CATALOG_JSON).apply()
+            }
+            null
+        }
         val raw = disk ?: DefaultServicesCatalog.get()
         val result = raw.copy(
             upiId = if (raw.upiId.isBlank() || raw.upiId.contains("icici", ignoreCase = true) || raw.upiId.contains("dutype@", ignoreCase = true)) "dutypein@ybl" else raw.upiId,
@@ -372,8 +411,24 @@ class HomeServicesRepository @Inject constructor(
 
     val uid: String? get() = auth.currentUser?.uid
 
-    private suspend fun call(name: String, data: Map<String, Any?> = emptyMap()): Map<String, Any?> =
-        functions.getHttpsCallable(name).call(data).await().data.asMap()
+    private suspend fun call(name: String, data: Map<String, Any?> = emptyMap()): Map<String, Any?> {
+        val user = auth.currentUser
+        if (user != null) {
+            runCatching { user.getIdToken(false).await() }
+        }
+        return try {
+            functions.getHttpsCallable(name).call(data).await().data.asMap()
+        } catch (e: Exception) {
+            val msg = e.message.orEmpty()
+            if (user != null && (msg.contains("UNAUTHENTICATED", ignoreCase = true) || msg.contains("unauthenticated", ignoreCase = true) || msg.contains("login required", ignoreCase = true))) {
+                Timber.w(e, "Callable $name failed with UNAUTHENTICATED; refreshing token and retrying once...")
+                runCatching { user.getIdToken(true).await() }
+                functions.getHttpsCallable(name).call(data).await().data.asMap()
+            } else {
+                throw e
+            }
+        }
+    }
 
     suspend fun catalog(force: Boolean = false): ServicesCatalog {
         cachedCatalog?.takeIf { !force && System.currentTimeMillis() - it.first < CATALOG_TTL_MS }?.let { return it.second }
@@ -569,7 +624,7 @@ class HomeServicesRepository @Inject constructor(
             services = services,
             partnerFee = if (d.containsKey("partnerFee")) d.int("partnerFee") else 19,
             partnerFirstJobFree = d["partnerFirstJobFree"] != false,
-            firstBookingFeeFree = d["firstBookingFeeFree"] == true,
+            firstBookingFeeFree = d["firstBookingFeeFree"] != false,
             offers = offersOf(firestoreConfig?.get("offers") ?: d["offers"]),
             promoBanners = bannersOf(firestoreConfig?.get("promoBanners") ?: firestoreConfig?.get("banners") ?: d["promoBanners"] ?: d["banners"]),
             noteworthyServiceIds = (firestoreConfig?.get("noteworthyServiceIds") as? List<*>)?.mapNotNull { it?.toString() }
@@ -621,12 +676,19 @@ class HomeServicesRepository @Inject constructor(
         mostBooked: List<String>
     ) {
         val current = cachedCatalog?.second ?: getCachedCatalog()
-        val updated = current.copy(
-            upiId = if (current.upiId.isBlank() || current.upiId.contains("icici", ignoreCase = true) || current.upiId.contains("dutype@", ignoreCase = true)) "dutypein@ybl" else current.upiId,
+        val rawCats = current.categories as? List<*> ?: emptyList<Any>()
+        val rawSvcs = current.services as? List<*> ?: emptyList<Any>()
+        val safeCurrent = if (rawCats.any { it !is ServiceCategory } || rawSvcs.any { it !is ServiceItem }) {
+            DefaultServicesCatalog.get()
+        } else {
+            current
+        }
+        val updated = safeCurrent.copy(
+            upiId = if (safeCurrent.upiId.isBlank() || safeCurrent.upiId.contains("icici", ignoreCase = true) || safeCurrent.upiId.contains("dutype@", ignoreCase = true)) "dutypein@ybl" else safeCurrent.upiId,
             commissionPct = 0,
             promoBanners = banners,
             offers = offers,
-            mostBookedServiceIds = if (mostBooked.isNotEmpty()) mostBooked else current.mostBookedServiceIds
+            mostBookedServiceIds = if (mostBooked.isNotEmpty()) mostBooked else safeCurrent.mostBookedServiceIds
         )
         cachedCatalog = System.currentTimeMillis() to updated
         runCatching {
@@ -967,32 +1029,87 @@ class HomeServicesRepository @Inject constructor(
     }
 
     suspend fun offer(bookingId: String): ServiceOffer {
-        val d = call("getServiceOffer", mapOf("bookingId" to bookingId))
-        return ServiceOffer(
-            available = d["available"] == true,
-            mine = d["mine"] == true,
-            status = d.str("status"),
-            serviceName = d.str("serviceName"),
-            price = d.int("price"),
-            bookingFee = d.int("bookingFee"),
-            earning = d.int("earning"),
-            requiredCreditsPaise = d.long("requiredCreditsPaise"),
-            creditsPaise = d.long("creditsPaise"),
-            inspection = d["inspection"] == true,
-            area = d.str("area"),
-            note = d.str("note"),
-            whenType = d.str("when"),
-            scheduledAt = d.long("scheduledAt"),
-            distanceKm = (d["distanceKm"] as? Number)?.toDouble(),
-            customerTotal = d.int("customerTotal").takeIf { it > 0 } ?: (d.int("price") + d.int("bookingFee")),
-            discount = d.int("discount"),
-            bring = (d["bring"] as? List<Any?>).orEmpty().map { it.toString() },
-            provide = (d["provide"] as? List<Any?>).orEmpty().map { it.toString() }
-        )
+        return try {
+            val d = call("getServiceOffer", mapOf("bookingId" to bookingId))
+            ServiceOffer(
+                available = d["available"] == true,
+                mine = d["mine"] == true,
+                status = d.str("status"),
+                serviceName = d.str("serviceName"),
+                price = d.int("price"),
+                bookingFee = d.int("bookingFee"),
+                earning = d.int("earning"),
+                requiredCreditsPaise = d.long("requiredCreditsPaise"),
+                creditsPaise = d.long("creditsPaise"),
+                inspection = d["inspection"] == true,
+                area = d.str("area"),
+                note = d.str("note"),
+                whenType = d.str("when"),
+                scheduledAt = d.long("scheduledAt"),
+                distanceKm = (d["distanceKm"] as? Number)?.toDouble(),
+                customerTotal = d.int("customerTotal").takeIf { it > 0 } ?: (d.int("price") + d.int("bookingFee")),
+                discount = d.int("discount"),
+                bring = (d["bring"] as? List<Any?>).orEmpty().map { it.toString() },
+                provide = (d["provide"] as? List<Any?>).orEmpty().map { it.toString() }
+            )
+        } catch (e: Exception) {
+            timber.log.Timber.w(e, "getServiceOffer callable failed, falling back to direct Firestore fetch for $bookingId")
+            val snap = firestore.collection("service_bookings").document(bookingId).get().await()
+            if (!snap.exists()) throw e
+            val data = snap.data.orEmpty()
+            val currentUid = auth.currentUser?.uid.orEmpty()
+            val partnerId = data["partnerId"] as? String ?: ""
+            val status = data["status"] as? String ?: "SEARCHING"
+            val price = (data["price"] as? Number)?.toInt() ?: 0
+            val bookingFee = (data["bookingFee"] as? Number)?.toInt() ?: 0
+            val partnerFee = (data["partnerFee"] as? Number)?.toInt() ?: 0
+            val commissionPct = (data["commissionPct"] as? Number)?.toInt() ?: 0
+            val earning = price - partnerFee - Math.round((price * commissionPct) / 100.0).toInt()
+            val scheduledAtRaw = data["scheduledAt"]
+            val scheduledAtMs = when (scheduledAtRaw) {
+                is com.google.firebase.Timestamp -> scheduledAtRaw.toDate().time
+                is Number -> scheduledAtRaw.toLong()
+                else -> 0L
+            }
+            ServiceOffer(
+                available = status == "SEARCHING" || partnerId == currentUid,
+                mine = partnerId.isNotBlank() && partnerId == currentUid,
+                status = status,
+                serviceName = data["serviceName"] as? String ?: "Home Service",
+                price = price,
+                bookingFee = bookingFee,
+                earning = earning.coerceAtLeast(0),
+                requiredCreditsPaise = 0L,
+                creditsPaise = 0L,
+                inspection = data["inspection"] == true,
+                area = data["area"] as? String ?: "",
+                note = data["note"] as? String ?: "",
+                whenType = data["when"] as? String ?: "NOW",
+                scheduledAt = scheduledAtMs,
+                distanceKm = null,
+                customerTotal = (data["total"] as? Number)?.toInt() ?: (price + bookingFee),
+                discount = (data["discount"] as? Number)?.toInt() ?: 0,
+                bring = emptyList(),
+                provide = emptyList()
+            )
+        }
     }
 
-    suspend fun accept(bookingId: String): AcceptResult =
-        AcceptResult(call("acceptServiceBooking", mapOf("bookingId" to bookingId)).str("result"))
+    suspend fun accept(bookingId: String): AcceptResult {
+        return try {
+            val d = call("acceptServiceBooking", mapOf("bookingId" to bookingId))
+            AcceptResult(d.str("result").ifBlank { "accepted" })
+        } catch (e: Exception) {
+            timber.log.Timber.w(e, "acceptServiceBooking call exception, checking if booking was already assigned in Firestore")
+            val currentUid = auth.currentUser?.uid.orEmpty()
+            val snap = runCatching { firestore.collection("service_bookings").document(bookingId).get().await() }.getOrNull()
+            if (snap != null && snap.getString("partnerId") == currentUid) {
+                AcceptResult("accepted")
+            } else {
+                throw e
+            }
+        }
+    }
 
     /** action: on_the_way | start | complete | cancel */
     suspend fun update(bookingId: String, action: String, otp: String = "", extras: Int = 0, extrasNote: String = "") {

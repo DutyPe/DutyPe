@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
+import { getAdminActor, logAdminAudit, requireAuthorizedAdminRequest } from "@/lib/firebase/admin-api-auth";
 import { deleteAccountCompletely, findUserIdsForPhone } from "@/lib/firebase/admin-account-deletion";
+import { RateLimitTiers } from "@/lib/security/admin-rate-limiter";
 
 export const runtime = "nodejs";
 
@@ -16,10 +17,12 @@ type DeleteByPhoneBody = {
  * Body: { phone: "+919xxxxxxxxx" }
  */
 export async function POST(request: NextRequest) {
-  const unauthorized = await requireAuthorizedAdminRequest(request);
+  const unauthorized = await requireAuthorizedAdminRequest(request, RateLimitTiers.DESTRUCTIVE);
   if (unauthorized) {
     return unauthorized;
   }
+
+  const actor = await getAdminActor(request);
 
   let body: DeleteByPhoneBody;
 
@@ -49,6 +52,15 @@ export async function POST(request: NextRequest) {
     let deletedCount = 0;
     for (const userId of userIds) {
       deletedCount += await deleteAccountCompletely(userId, variants);
+    }
+
+    if (actor) {
+      await logAdminAudit(
+        "USER_ACCOUNT_DELETE_BY_PHONE",
+        actor,
+        { phone, variants, userIds, deletedCount },
+        request
+      );
     }
 
     return NextResponse.json({

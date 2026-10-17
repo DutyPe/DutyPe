@@ -12,6 +12,7 @@ import com.example.dutype.utils.isDebuggableBuild
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -103,6 +104,7 @@ import androidx.compose.material.icons.filled.Verified
 import androidx.compose.material.icons.filled.Work
 import androidx.compose.material.icons.filled.WorkOutline
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -1031,7 +1033,7 @@ fun PostBookingRatingModal(
 ) {
     var stars by remember { mutableIntStateOf(5) }
     var review by remember { mutableStateOf("") }
-    var selectedTag by remember { mutableStateOf<String?>(null) }
+    var selectedTags by remember { mutableStateOf<Set<String>>(emptySet()) }
     var isSubmitting by remember { mutableStateOf(false) }
 
     val quickTags = listOf("On Time ⏰", "Polite & Professional 👔", "Great Work 🛠️", "Fair Price 💰", "Clean Work 🧹")
@@ -1120,21 +1122,18 @@ fun PostBookingRatingModal(
                 color = if (stars >= 4) Color(0xFF166534) else if (stars == 3) Color(0xFFB45309) else Color(0xFFDC2626)
             )
 
-            // Quick Feedback Tags
+            // Quick Feedback Tags (Multi-select)
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 items(quickTags) { tag ->
-                    val isSelected = selectedTag == tag
+                    val isSelected = tag in selectedTags
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = if (isSelected) Color(0xFF0F172A) else Color(0xFFF1F5F9),
                         modifier = Modifier.clickable {
-                            selectedTag = if (isSelected) null else tag
-                            if (!isSelected && review.isBlank()) {
-                                review = tag
-                            }
+                            selectedTags = if (isSelected) selectedTags - tag else selectedTags + tag
                         }
                     ) {
                         Text(
@@ -1164,7 +1163,13 @@ fun PostBookingRatingModal(
                 onClick = {
                     if (stars > 0 && !isSubmitting) {
                         isSubmitting = true
-                        val finalReview = if (review.isNotBlank()) review else selectedTag.orEmpty()
+                        val tagsText = selectedTags.joinToString(", ")
+                        val finalReview = when {
+                            review.isNotBlank() && tagsText.isNotBlank() -> "$tagsText • $review"
+                            review.isNotBlank() -> review
+                            tagsText.isNotBlank() -> tagsText
+                            else -> ""
+                        }
                         onSubmitRating(stars, finalReview.trim())
                     }
                 },
@@ -1275,7 +1280,7 @@ private fun ServicesSearchBar(
                         color = Color(0xFF94A3B8),
                         fontSize = 13.5.sp
                     )
-                    AnimatedContent(
+                    AnimatedContent<String>(
                         targetState = currentSuggestion,
                         transitionSpec = {
                             (slideInVertically { it } + fadeIn()) togetherWith
@@ -2213,8 +2218,8 @@ fun CategoryServicesScreen(
     LaunchedEffect(Unit) { viewModel.loadCatalog() }
 
     val c = catalog
-    val cat = c?.categories?.firstOrNull { it.id == categoryId }
-    val categoryServices = c?.services?.filter { it.category == categoryId }.orEmpty()
+    val cat = c?.categories?.filterIsInstance<ServiceCategory>()?.firstOrNull { it.id == categoryId }
+    val categoryServices = c?.services?.filterIsInstance<ServiceItem>()?.filter { it.category == categoryId }.orEmpty()
     val filteredServices = if (searchQuery.isBlank()) categoryServices
     else categoryServices.filter {
         it.label(lang).contains(searchQuery, ignoreCase = true) ||
@@ -2703,16 +2708,16 @@ fun ServicesHomeScreen(
     val active = bookings.firstOrNull { it.isOpen }
 
     val customerCategories = remember(c.categories) {
-        c.categories.filter { it.id in ACTIVE_CUSTOMER_CATEGORY_IDS }
+        c.categories.filterIsInstance<ServiceCategory>().filter { it.id in ACTIVE_CUSTOMER_CATEGORY_IDS }
     }
     val customerServices = remember(c.services) {
-        c.services.filter { it.category in ACTIVE_CUSTOMER_CATEGORY_IDS }
+        c.services.filterIsInstance<ServiceItem>().filter { it.category in ACTIVE_CUSTOMER_CATEGORY_IDS }
     }
     val noteworthyFiltered = remember(c.noteworthyServices) {
-        c.noteworthyServices.filter { it.category in ACTIVE_CUSTOMER_CATEGORY_IDS }
+        c.noteworthyServices.filterIsInstance<ServiceItem>().filter { it.category in ACTIVE_CUSTOMER_CATEGORY_IDS }
     }
     val mostBookedFiltered = remember(c.mostBookedServices) {
-        c.mostBookedServices.filter { it.category in ACTIVE_CUSTOMER_CATEGORY_IDS }
+        c.mostBookedServices.filterIsInstance<ServiceItem>().filter { it.category in ACTIVE_CUSTOMER_CATEGORY_IDS }
     }
 
     val matchingServices = if (searchQuery.isNotBlank()) {
@@ -2729,7 +2734,7 @@ fun ServicesHomeScreen(
 
     val listState = rememberLazyListState()
     val banners = remember(c.promoBanners) {
-        c.promoBanners.filter { it.targetCategoryId == null || it.targetCategoryId in ACTIVE_CUSTOMER_CATEGORY_IDS }
+        c.promoBanners.filterIsInstance<PromoBanner>().filter { it.targetCategoryId == null || it.targetCategoryId in ACTIVE_CUSTOMER_CATEGORY_IDS }
     }
     val currentCity = c.city.trim()
     val localShowcases = remember(showcases, currentCity) {
@@ -5392,11 +5397,16 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                     }
                 }
                 val platformFee = if (service.price <= 149) 9 else 19
-                val serviceFee = (service.price - platformFee).coerceAtLeast(0)
+                val isFirstFree = (q?.firstBooking == true) || (q?.discountLabel?.contains("first", ignoreCase = true) == true)
 
-                PriceLine("Service Fee", serviceFee)
-                PriceLine("Platform Fee", platformFee)
-                if (discount > 0) DiscountLine(q?.discountLabel.orEmpty().ifBlank { "Discount Applied" }, discount)
+                PriceLine("Service Price", service.price)
+                if (isFirstFree) {
+                    PriceLine("Platform Fee (1st Booking Free 🎉)", platformFee, struck = true)
+                    PriceLine("Platform Fee Due Now", 0)
+                } else {
+                    PriceLine("Platform Fee (DutyPe Fee)", platformFee)
+                }
+                if (discount > 0 && !isFirstFree) DiscountLine(q?.discountLabel.orEmpty().ifBlank { "Discount Applied" }, discount)
                 HorizontalDivider(color = SvcLine.bg())
                 PriceLine(stringResource(R.string.svc_price_total), total, bold = true)
 
@@ -6322,7 +6332,564 @@ internal fun BookingRow(b: ServiceBooking, onClick: () -> Unit) {
     }
 }
 
-// ─────────────────────────── Booking detail ───────────────────────────
+// ─────────────────────────── Modern Booking Detail UI Components ───────────────────────────
+
+@Composable
+private fun ModernBookingStepper(b: ServiceBooking) {
+    val failed = b.status == BookingStatus.CANCELLED || b.status == BookingStatus.NO_PARTNER
+    val steps = listOf("Booked", "Assigned", "En Route", "Service")
+    val reached = when (b.status) {
+        BookingStatus.PAYMENT_PENDING -> 0
+        BookingStatus.SEARCHING -> 0
+        BookingStatus.ASSIGNED -> 1
+        BookingStatus.ON_THE_WAY -> 2
+        BookingStatus.STARTED, BookingStatus.COMPLETED -> 3
+        else -> 0
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = BorderStroke(1.dp, SvcLine.bg())
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            steps.forEachIndexed { index, title ->
+                val isDone = !failed && (index < reached || (index == steps.lastIndex && b.status == BookingStatus.COMPLETED))
+                val isCurrent = !failed && index == reached && b.status != BookingStatus.COMPLETED
+
+                val circleBg = when {
+                    failed -> SvcMuted.copy(alpha = 0.2f)
+                    isDone -> SvcGreen
+                    isCurrent -> Color(0xFF0284C7)
+                    else -> SvcLine.bg()
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(62.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(26.dp)
+                            .clip(CircleShape)
+                            .background(circleBg)
+                            .then(
+                                if (isCurrent) Modifier.border(2.dp, Color(0xFF38BDF8), CircleShape)
+                                else Modifier
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isDone) {
+                            Icon(
+                                Icons.Filled.Check,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(15.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "${index + 1}",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isCurrent) Color.White else SvcMuted.fg()
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = title,
+                        fontSize = 11.sp,
+                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isCurrent) Color(0xFF0284C7) else if (isDone) SvcInk.fg() else SvcMuted.fg(),
+                        maxLines = 1
+                    )
+                }
+
+                if (index < steps.lastIndex) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(2.5.dp)
+                            .offset(y = (-9).dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(
+                                if (!failed && index < reached) SvcGreen
+                                else SvcLine.bg()
+                            )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchingPartnerRadarHero(cityOrArea: String) {
+    val infiniteTransition = rememberInfiniteTransition(label = "radarHeroTransition")
+    val pulse1 by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2400, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "pulse1"
+    )
+    val pulse2 by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2400, delayMillis = 1200, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "pulse2"
+    )
+    val sweepAngle by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "sweepAngle"
+    )
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = BorderStroke(1.dp, Color(0xFFBAE6FD).bg())
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Animated Radar Display
+            Box(
+                modifier = Modifier.size(130.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val center = Offset(size.width / 2f, size.height / 2f)
+                    val maxRadius = size.minDimension / 2f
+
+                    // Subtle background target rings
+                    drawCircle(
+                        color = Color(0xFF0284C7).copy(alpha = 0.07f),
+                        radius = maxRadius,
+                        center = center
+                    )
+                    drawCircle(
+                        color = Color(0xFF0284C7).copy(alpha = 0.12f),
+                        radius = maxRadius * 0.68f,
+                        center = center
+                    )
+                    drawCircle(
+                        color = Color(0xFF0284C7).copy(alpha = 0.18f),
+                        radius = maxRadius * 0.38f,
+                        center = center
+                    )
+
+                    // Expanding Pulse 1
+                    val r1 = maxRadius * pulse1
+                    val a1 = (1f - pulse1).coerceIn(0f, 1f) * 0.45f
+                    drawCircle(
+                        color = Color(0xFF0284C7).copy(alpha = a1),
+                        radius = r1,
+                        center = center
+                    )
+
+                    // Expanding Pulse 2
+                    val r2 = maxRadius * pulse2
+                    val a2 = (1f - pulse2).coerceIn(0f, 1f) * 0.45f
+                    drawCircle(
+                        color = Color(0xFF38BDF8).copy(alpha = a2),
+                        radius = r2,
+                        center = center
+                    )
+
+                    // Rotating radar sweep line
+                    rotate(degrees = sweepAngle, pivot = center) {
+                        drawLine(
+                            color = Color(0xFF0284C7).copy(alpha = 0.45f),
+                            start = center,
+                            end = Offset(center.x + maxRadius, center.y),
+                            strokeWidth = 3f
+                        )
+                    }
+                }
+
+                // Center Icon Disc
+                Box(
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                listOf(Color(0xFF0284C7), Color(0xFF0B132B))
+                            )
+                        )
+                        .border(2.5.dp, Color.White, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.NearMe,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+
+            // Live Nearby Pill
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color(0xFFE0F2FE))
+                    .border(1.dp, Color(0xFF7DD3FC), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF0284C7)))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "Searching verified technicians in $cityOrArea",
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF0369A1)
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Text(
+                text = "Finding Your Best Service Partner...",
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp,
+                color = SvcInk.fg(),
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "Connecting with available professionals nearby. Your 4-digit start OTP will unlock immediately once a partner accepts.",
+                fontSize = 12.sp,
+                color = SvcMuted.fg(),
+                textAlign = TextAlign.Center,
+                lineHeight = 17.sp
+            )
+
+            Spacer(Modifier.height(14.dp))
+
+            // Reassurance badges row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                TrustBadgeChip(icon = Icons.Filled.Verified, label = "Verified Pros")
+                TrustBadgeChip(icon = Icons.Filled.Schedule, label = "15-20m Arrival")
+                TrustBadgeChip(icon = Icons.Filled.CheckCircle, label = "Fair Pricing")
+            }
+        }
+    }
+}
+
+@Composable
+private fun TrustBadgeChip(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFFF8FAFC).bg())
+            .border(1.dp, SvcLine.bg(), RoundedCornerShape(8.dp))
+            .padding(horizontal = 8.dp, vertical = 5.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = SvcGreen, modifier = Modifier.size(13.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(label, fontSize = 10.5.sp, fontWeight = FontWeight.Medium, color = SvcInk.fg())
+    }
+}
+
+@Composable
+private fun StartOtpSecureCard(code: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+        border = BorderStroke(1.5.dp, Color(0xFF86EFAC))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFDCFCE7)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.Verified,
+                        contentDescription = null,
+                        tint = Color(0xFF16A34A),
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "DOORSTEP START CODE",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.2.sp,
+                    color = Color(0xFF15803D)
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // 4 digit tiles
+            val cleanDigits = code.filter { it.isDigit() }.take(4)
+            if (cleanDigits.length == 4) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    cleanDigits.forEach { char ->
+                        Box(
+                            modifier = Modifier
+                                .size(width = 52.dp, height = 58.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.White)
+                                .border(1.5.dp, Color(0xFF86EFAC), RoundedCornerShape(12.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = char.toString(),
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF14532D)
+                            )
+                        }
+                    }
+                }
+            } else {
+                Text(
+                    text = code.ifBlank { "••••" },
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 8.sp,
+                    color = Color(0xFF15803D)
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            Text(
+                text = "Share this 4-digit code ONLY when the partner is physically at your doorstep to begin the service.",
+                fontSize = 11.5.sp,
+                color = Color(0xFF166534),
+                textAlign = TextAlign.Center,
+                lineHeight = 16.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun AssignedPartnerCard(
+    b: ServiceBooking,
+    onCall: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+        border = BorderStroke(1.dp, SvcLine.bg())
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header: Status + badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "ASSIGNED SERVICE PARTNER",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    color = SvcMuted.fg()
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFECFDF5))
+                        .border(1.dp, Color(0xFFA7F3D0), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Box(Modifier.size(6.dp).clip(CircleShape).background(Color(0xFF10B981)))
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        if (b.status == BookingStatus.ON_THE_WAY) "En Route" else "Preparing Tools",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF047857)
+                    )
+                }
+            }
+
+            // Partner details row
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Avatar with overlay badge
+                Box(modifier = Modifier.size(52.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                            .background(
+                                Brush.linearGradient(
+                                    listOf(Color(0xFF0284C7), Color(0xFF0B132B))
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            b.partnerName.take(1).uppercase().ifBlank { "T" },
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .align(Alignment.BottomEnd)
+                            .clip(CircleShape)
+                            .background(Color(0xFF16A34A))
+                            .border(1.5.dp, Color.White, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Filled.Check,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(11.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        b.partnerName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = SvcInk.fg()
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Rating Pill
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFFFEF3C7))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Icon(
+                                Icons.Filled.Star,
+                                contentDescription = null,
+                                tint = Color(0xFFD97706),
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(Modifier.width(3.dp))
+                            Text(
+                                if (b.partnerRating > 0) "%.1f".format(b.partnerRating) else "4.9",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFB45309)
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "DutyPe Certified Pro",
+                            fontSize = 11.5.sp,
+                            color = SvcMuted.fg()
+                        )
+                    }
+                }
+            }
+
+            // Transit / gear banner
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFFF8FAFC).bg())
+                    .border(1.dp, SvcLine.bg(), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 10.dp, vertical = 8.dp)
+            ) {
+                Icon(
+                    Icons.Filled.Build,
+                    contentDescription = null,
+                    tint = Color(0xFF0284C7),
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "Scooter Transit • Verified Toolkit & Identity",
+                    fontSize = 11.5.sp,
+                    color = SvcInk.fg(),
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            // Action: Call Button
+            if (b.partnerPhone.isNotBlank() && b.isOpen) {
+                Button(
+                    onClick = onCall,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                ) {
+                    Icon(Icons.Filled.Call, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Call Partner (${b.partnerName.split(" ").firstOrNull() ?: "Partner"})", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                }
+            }
+        }
+    }
+}
 
 /** Booked → assigned → on the way → started → completed, with times where known. */
 @Composable
@@ -6406,6 +6973,7 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OfflineCachedNote()
+            ModernBookingStepper(b)
             // Live Booking Progress Tracker Hero
             val cityOrArea = b.area.trim().ifEmpty {
                 b.addressText.split(",").map { it.trim() }.filter { it.isNotBlank() }.let { parts ->
@@ -6500,39 +7068,13 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                     }
                 )
             } else if (b.status == BookingStatus.SEARCHING) {
-                Column(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFFFFFBEB).bg())
-                        .border(1.dp, Color(0xFFFDE68A), RoundedCornerShape(16.dp)).padding(14.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("Technician Search in Progress", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFFB45309))
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Your 4-digit start OTP will unlock and appear here as soon as a verified technician accepts your booking.",
-                        fontSize = 12.sp,
-                        color = Color(0xFF92400E),
-                        textAlign = TextAlign.Center
-                    )
-                }
+                SearchingPartnerRadarHero(cityOrArea)
             } else if (code.isNotBlank() && b.status in setOf(BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY)) {
-                Column(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFFF0FDF4).bg())
-                        .border(1.dp, Color(0xFFBBF7D0), RoundedCornerShape(16.dp)).padding(14.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(stringResource(R.string.svc_start_code), color = SvcMuted.fg(), fontWeight = FontWeight.Medium)
-                    Text(code, fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = 8.sp, color = SvcGreen)
-                    Text(
-                        "Share this 4-digit start code with technician only upon doorstep arrival to begin the service.",
-                        fontSize = 12.sp,
-                        color = SvcMuted.fg(),
-                        textAlign = TextAlign.Center
-                    )
-                }
+                StartOtpSecureCard(code)
             }
 
             // ── Live OpenFreeMap Tracker (Technician En Route) ──
-            if (b.status in setOf(BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY) && (b.lat != 0.0 || b.partnerLat != 0.0)) {
+            if (b.status in setOf(BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY)) {
                 com.example.dutype.components.OpenFreeMapTrackerView(
                     customerLat = b.lat,
                     customerLng = b.lng,
@@ -6547,33 +7089,7 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
             }
 
             if (b.partnerName.isNotBlank() && b.status != BookingStatus.CANCELLED) {
-                SvcSection {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(44.dp).clip(CircleShape).background(SvcBlue), contentAlignment = Alignment.Center) {
-                            Text(b.partnerName.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(b.partnerName, fontWeight = FontWeight.Bold, color = SvcInk.fg())
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.Verified, contentDescription = null, tint = SvcGreen, modifier = Modifier.size(14.dp))
-                                Text(" " + stringResource(R.string.svc_point_verified), fontSize = 12.sp, color = SvcMuted.fg())
-                                if (b.partnerRating > 0) {
-                                    Spacer(Modifier.width(8.dp))
-                                    Icon(Icons.Filled.Star, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(14.dp))
-                                    Text(" %.1f".format(b.partnerRating), fontSize = 12.sp, color = SvcMuted.fg())
-                                }
-                            }
-                        }
-                        if (b.partnerPhone.isNotBlank() && b.isOpen) {
-                            Button(onClick = { dial(context, b.partnerPhone) }, shape = RoundedCornerShape(10.dp)) {
-                                Icon(Icons.Filled.Call, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text(stringResource(R.string.svc_call_partner))
-                            }
-                        }
-                    }
-                }
+                AssignedPartnerCard(b, onCall = { dial(context, b.partnerPhone) })
             }
 
             StatusTimeline(b)
@@ -6609,11 +7125,16 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
             SvcSection {
                 Text(stringResource(R.string.svc_bill), fontWeight = FontWeight.Bold, color = SvcInk.fg())
                 val platformFee = if (b.price <= 149) 9 else 19
-                val serviceFee = (b.price - platformFee).coerceAtLeast(0)
+                val isFirstBookingFree = b.bookingFee == 0
 
-                PriceLine("Service Fee", serviceFee)
-                PriceLine("Platform Fee", platformFee)
-                if (b.discount > 0) DiscountLine(b.discountLabel.ifBlank { "Discount Applied" }, b.discount)
+                PriceLine("Service Price", b.price)
+                if (isFirstBookingFree) {
+                    PriceLine("Platform Fee (1st Booking Free 🎉)", platformFee, struck = true)
+                    PriceLine("Platform Fee Paid", 0)
+                } else {
+                    PriceLine("Platform Fee (DutyPe Fee)", b.bookingFee)
+                }
+                if (b.discount > 0 && !isFirstBookingFree) DiscountLine(b.discountLabel.ifBlank { "Discount Applied" }, b.discount)
                 if (b.extras > 0) PriceLine(stringResource(R.string.svc_extras, b.extras, b.extrasNote), b.extras)
                 if (b.status == BookingStatus.CANCELLED && b.cancellationFee > 0) {
                     PriceLine("Doorstep Travel Allowance", b.cancellationFee)
@@ -6940,6 +7461,7 @@ private fun PaymentPendingCard(
     val upiName = catalog?.upiName?.ifBlank { "DutyPe" } ?: "DutyPe"
     var utrInput by remember { mutableStateOf("") }
     var editUtr by remember { mutableStateOf(false) }
+    var isSubmittingUtr by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -7114,11 +7636,13 @@ private fun PaymentPendingCard(
 
                     Button(
                         onClick = {
+                            if (isSubmittingUtr) return@Button
                             val cleanUtr = utrInput.trim()
                             if (cleanUtr.length != 12) {
                                 Toast.makeText(context, "Please enter a valid 12-digit UTR number", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
+                            isSubmittingUtr = true
                             onSubmitUtr(cleanUtr)
                             editUtr = false
                             Toast.makeText(context, "UTR submitted! Opening WhatsApp for instant verification...", Toast.LENGTH_SHORT).show()
@@ -7126,12 +7650,12 @@ private fun PaymentPendingCard(
                             val waUri = Uri.parse("https://wa.me/918019151847?text=${Uri.encode(message)}")
                             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, waUri)) }
                         },
-                        enabled = utrInput.trim().length == 12,
+                        enabled = !isSubmittingUtr && utrInput.trim().length == 12,
                         modifier = Modifier.fillMaxWidth().height(42.dp),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
                     ) {
-                        Text("Submit Payment for Approval", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(if (isSubmittingUtr) "Submitting..." else "Submit Payment for Approval", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                 }
             }
@@ -7418,10 +7942,10 @@ fun HomeServicesShowcase(
     }
     val active = bookings.firstOrNull { it.isOpen }
     val customerCategories = remember(c.categories) {
-        c.categories.filter { it.id in ACTIVE_CUSTOMER_CATEGORY_IDS }
+        c.categories.filterIsInstance<ServiceCategory>().filter { it.id in ACTIVE_CUSTOMER_CATEGORY_IDS }
     }
     val customerServices = remember(c.services) {
-        c.services.filter { it.category in ACTIVE_CUSTOMER_CATEGORY_IDS }
+        c.services.filterIsInstance<ServiceItem>().filter { it.category in ACTIVE_CUSTOMER_CATEGORY_IDS }
     }
     // Diverse popular picks across categories (up to 16+ top services)
     val popular = remember(customerCategories, customerServices) {

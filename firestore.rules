@@ -23,6 +23,7 @@ service cloud.firestore {
         request.auth.token.get('admin', false) == true ||
         request.auth.token.get('role', '') == 'ADMIN' ||
         (request.auth.token.get('email', '') is string &&
+          request.auth.token.get('email_verified', false) == true &&
           (request.auth.token.email.lower().matches('.*@dutype\\.com$') ||
            request.auth.token.email.lower().matches('.*@dutype\\.in$') ||
            request.auth.token.email.lower() in [
@@ -81,18 +82,31 @@ service cloud.firestore {
         optString(request.resource.data, 'language', 5);
     }
 
+    match /users/{uid} {
+      allow get: if signedIn();
+      allow create, update: if isSelf(uid);
+    }
+
     match /worker_profiles/{uid} {
       allow get: if isSelf(uid);
-      allow update: if isSelf(uid) &&
-        onlyChanges(['name', 'photoUrl', 'gender', 'dateOfBirth', 'education', 'experienceYears', 'skills',
-                     'bio', 'address', 'area', 'lat', 'lng', 'geohash', 'available', 'updatedAt']) &&
-        optString(request.resource.data, 'name', 80) &&
-        optString(request.resource.data, 'bio', 1000) &&
-        optNumberIn(request.resource.data, 'experienceYears', 0, 60) &&
-        (!('skills' in request.resource.data) ||
-          (request.resource.data.skills is list && request.resource.data.skills.size() <= 10)) &&
-        (!('available' in request.resource.data) || request.resource.data.available is bool) &&
-        validPlace(request.resource.data);
+      allow create, update: if isSelf(uid) &&
+        !('aadhaarNumber' in request.resource.data) &&
+        !('aadhaarPlain' in request.resource.data) &&
+        !('rawAadhaar' in request.resource.data) &&
+        !('biometrics' in request.resource.data) &&
+        !('biometricXml' in request.resource.data) &&
+        !('rawXml' in request.resource.data);
+    }
+
+    // ───────────────────────── Aadhaar Data Vault & Audit Logs ─────────────────────────
+    // UIDAI Aadhaar Data Vault (ADV): Zero client SDK access. Accessible solely via Admin SDK.
+    match /aadhaar_vault/{uid} {
+      allow read, write: if false;
+    }
+
+    // Immutable Security Audit Trail: Written and queried exclusively via Admin SDK.
+    match /admin_audit_logs/{logId} {
+      allow read, write: if false;
     }
 
     // Public worker card (no phone); written by the profile trigger.
@@ -111,14 +125,7 @@ service cloud.firestore {
     // Private: phone, address and billing. Others see employer_cards.
     match /employer_profiles/{uid} {
       allow get: if isSelf(uid);
-      allow update: if isSelf(uid) &&
-        onlyChanges(['employerType', 'ownerName', 'businessName', 'photoUrl',
-                     'address', 'area', 'lat', 'lng', 'geohash', 'updatedAt']) &&
-        (!('employerType' in request.resource.data) ||
-          request.resource.data.employerType in ['INDIVIDUAL', 'COMPANY']) &&
-        optString(request.resource.data, 'ownerName', 80) &&
-        optString(request.resource.data, 'businessName', 100) &&
-        validPlace(request.resource.data);
+      allow create, update: if isSelf(uid);
 
       // Workers whose phone this employer revealed (server-written).
       match /unlocks/{workerId} {

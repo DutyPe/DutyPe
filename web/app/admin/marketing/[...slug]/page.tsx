@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { AdminAuthGate } from "@/components/admin/admin-auth-gate";
 import { CsvTable, MarkdownView } from "@/components/marketing-shell";
 import { findMarketingDoc, getAllMarketingDocs } from "@/lib/marketing-content";
 
@@ -18,12 +19,14 @@ export default function Page({ params }: { params: { slug: string[] } }) {
   if (!doc) notFound();
 
   return (
-    <div className="marketing-page-single">
-      {doc.ext === ".csv" ? (
-        <CsvTable csv={doc.content} />
-      ) : (
-        <MarkdownView source={doc.content} />
-      )}
-    </div>
+    <AdminAuthGate>
+      <div className="marketing-page-single">
+        {doc.ext === ".csv" ? (
+          <CsvTable csv={doc.content} />
+        ) : (
+          <MarkdownView source={doc.content} />
+        )}
+      </div>
+    </AdminAuthGate>
   );
 }

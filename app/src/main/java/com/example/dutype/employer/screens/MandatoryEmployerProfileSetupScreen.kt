@@ -9,12 +9,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import com.example.dutype.models.QuickLocations
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -204,15 +206,82 @@ fun MandatoryEmployerProfileSetupScreen(
     var businessLatitude by rememberSaveable { mutableStateOf(0.0) }
     var businessLongitude by rememberSaveable { mutableStateOf(0.0) }
 
+    // Dedicated location detection state
+    var isDetectingLocation by remember { mutableStateOf(false) }
+    var locationErrorText by remember { mutableStateOf<String?>(null) }
+    var detectedAreaText by remember { mutableStateOf<String?>(null) }
+
+    val fetchLocation: () -> Unit = {
+        scope.launch {
+            locationErrorText = null
+            isDetectingLocation = true
+            try {
+                val locationInfo = locationService.getHighAccuracyLocation(
+                    timeoutMs = 8000L,
+                    minAccuracyMeters = 35f
+                ) ?: locationService.getCurrentLocation()
+                if (locationInfo != null && GeoUtils.hasValidCoordinates(locationInfo.latitude, locationInfo.longitude)) {
+                    businessAddress = locationInfo.getFullAddress()
+                    businessLatitude = locationInfo.latitude
+                    businessLongitude = locationInfo.longitude
+                    detectedAreaText = locationInfo.getShortAddress()
+                    profileCompletionViewModel.locationPreferences.saveLocation(locationService.toLocationData(locationInfo))
+                } else {
+                    locationErrorText = "Could not detect GPS location. Please turn on device location or select your town below."
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error fetching current location")
+                locationErrorText = e.message ?: "Failed to get location"
+            } finally {
+                isDetectingLocation = false
+            }
+        }
+    }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (granted) {
+            fetchLocation()
+        } else {
+            locationErrorText = "Location permission is required to post jobs and hire workers near you. Please enable GPS or select your town."
+        }
+    }
+
     val fullName = fullNameInput.trim()
 
     // Validation & loading states
     var isLoading by remember { mutableStateOf(false) }
     var isLoadingExistingData by remember { mutableStateOf(true) }
     var referralCodeInput by rememberSaveable { mutableStateOf("") }
-    var referralErrorMessage by remember { mutableStateOf<String?>(null) }
+    var referralErrorMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    var verifiedReferrerName by rememberSaveable { mutableStateOf<String?>(null) }
+    var isCheckingReferral by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showValidationErrors by rememberSaveable { mutableStateOf(false) }
+
+    // Live debounced validation for referral code
+    LaunchedEffect(referralCodeInput) {
+        val trimmed = referralCodeInput.trim()
+        if (trimmed.length < 3) {
+            verifiedReferrerName = null
+            if (trimmed.isEmpty()) referralErrorMessage = null
+            return@LaunchedEffect
+        }
+        kotlinx.coroutines.delay(400)
+        isCheckingReferral = true
+        val info = profileCompletionViewModel.validateReferralCode(trimmed)
+        isCheckingReferral = false
+        if (info.isValid) {
+            verifiedReferrerName = info.referrerName
+            referralErrorMessage = null
+        } else {
+            verifiedReferrerName = null
+            referralErrorMessage = info.errorMessage
+        }
+    }
 
     // Pre-fill existing data from Firebase & local cache
     LaunchedEffect(Unit) {
@@ -279,21 +348,38 @@ fun MandatoryEmployerProfileSetupScreen(
         }
     }
 
+    // Auto-prompt location permission on screen open if coordinates are not set
+    LaunchedEffect(businessLatitude, businessLongitude) {
+        if (!GeoUtils.hasValidCoordinates(businessLatitude, businessLongitude)) {
+            if (locationService.hasLocationPermission()) {
+                fetchLocation()
+            } else {
+                locationPermissionLauncher.launch(
+                    arrayOf(
+                        android.Manifest.permission.ACCESS_FINE_LOCATION,
+                        android.Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                )
+            }
+        }
+    }
+
     // Validation
     val isNameValid = fullNameInput.trim().length >= 2
     val isEmailValid = email.isBlank() || android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches()
-    val isLocationValid = businessAddress.isNotBlank() || GeoUtils.hasValidCoordinates(businessLatitude, businessLongitude)
+    val isLocationValid = (GeoUtils.hasValidCoordinates(businessLatitude, businessLongitude) || QuickLocations.matchCoordinates(businessAddress) != null) && businessAddress.isNotBlank()
     val isFormValid = isNameValid && isEmailValid && isLocationValid
 
     var isCompletionInProgress by remember { mutableStateOf(false) }
 
-    fun handleCompletion() {
+    fun handleCompletion(referralCodeToApply: String? = null) {
         if (isCompletionInProgress) return
         isCompletionInProgress = true
 
         scope.launch {
             isLoading = true
             errorMessage = null
+            referralErrorMessage = null
             try {
                 val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
                     ?: throw IllegalStateException("User not authenticated")
@@ -301,24 +387,41 @@ fun MandatoryEmployerProfileSetupScreen(
                 // Resolve coordinates if missing but address text is present
                 var finalLat = businessLatitude
                 var finalLng = businessLongitude
-                if (!GeoUtils.hasValidCoordinates(finalLat, finalLng) && businessAddress.isNotBlank()) {
-                    try {
-                        val geocoded = locationService.getCoordinatesFromAddress(businessAddress.trim())
-                        if (geocoded != null && GeoUtils.hasValidCoordinates(geocoded.latitude, geocoded.longitude)) {
-                            finalLat = geocoded.latitude
-                            finalLng = geocoded.longitude
-                            businessLatitude = finalLat
-                            businessLongitude = finalLng
-                            profileCompletionViewModel.locationPreferences.saveLocation(locationService.toLocationData(geocoded))
+                if (!GeoUtils.hasValidCoordinates(finalLat, finalLng)) {
+                    val matched = QuickLocations.matchCoordinates(businessAddress)
+                    if (matched != null) {
+                        finalLat = matched.first
+                        finalLng = matched.second
+                    } else if (businessAddress.isNotBlank()) {
+                        try {
+                            val geocoded = locationService.getCoordinatesFromAddress(businessAddress.trim())
+                            if (geocoded != null && GeoUtils.hasValidCoordinates(geocoded.latitude, geocoded.longitude)) {
+                                finalLat = geocoded.latitude
+                                finalLng = geocoded.longitude
+                                profileCompletionViewModel.locationPreferences.saveLocation(locationService.toLocationData(geocoded))
+                            }
+                        } catch (e: Exception) {
+                            Timber.w(e, "Could not geocode employer address: $businessAddress")
                         }
-                    } catch (e: Exception) {
-                        Timber.w(e, "Could not geocode employer address: $businessAddress")
                     }
                 }
+
+                // If still missing coordinates, default to Khammam center so matching never fails
+                if (!GeoUtils.hasValidCoordinates(finalLat, finalLng)) {
+                    finalLat = 17.2473
+                    finalLng = 80.1514
+                }
+                businessLatitude = finalLat
+                businessLongitude = finalLng
 
                 val hasShop = shopOrBusinessName.isNotBlank()
                 val userPhone = currentUser.phoneNumber?.takeIf { it.isNotBlank() }
                     ?: (if (contactPhone.isNotBlank()) "+91 $contactPhone" else "")
+
+                val geohashStr = com.firebase.geofire.GeoFireUtils.getGeoHashForLocation(
+                    com.firebase.geofire.GeoLocation(finalLat, finalLng)
+                )
+
                 val employerProfileData = mutableMapOf<String, Any?>(
                     EmployerProfiles.EMPLOYER_TYPE to (if (hasShop) Values.EmployerType.COMPANY else Values.EmployerType.INDIVIDUAL),
                     EmployerProfiles.OWNER_NAME to fullName.trim(),
@@ -326,7 +429,8 @@ fun MandatoryEmployerProfileSetupScreen(
                     EmployerProfiles.PHONE to userPhone,
                     EmployerProfiles.ADDRESS to businessAddress.trim(),
                     EmployerProfiles.LAT to finalLat,
-                    EmployerProfiles.LNG to finalLng
+                    EmployerProfiles.LNG to finalLng,
+                    "geohash" to geohashStr
                 )
                 if (email.isNotBlank()) {
                     employerProfileData[EmployerProfiles.EMAIL] = email.trim()
@@ -336,8 +440,50 @@ fun MandatoryEmployerProfileSetupScreen(
                     employerProfileData[EmployerProfiles.PHOTO_URL] = savedPhoto
                 }
 
-                // Save employer document in Firestore
+                // 1. Save employer document in Firestore
                 profileCompletionViewModel.saveEmployer(employerProfileData).getOrThrow()
+
+                // 2. Authoritative sync to central users collection
+                val userLocationUpdate = mapOf<String, Any?>(
+                    "lat" to finalLat,
+                    "lng" to finalLng,
+                    "geohash" to geohashStr,
+                    "address" to businessAddress.trim(),
+                    "area" to (detectedAreaText ?: businessAddress.take(40)),
+                    "hasLocation" to true,
+                    "locationUpdatedAt" to com.google.firebase.Timestamp.now()
+                )
+                runCatching {
+                    com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                        .collection("users").document(currentUser.uid)
+                        .set(userLocationUpdate, com.google.firebase.firestore.SetOptions.merge())
+                        .await()
+                }.onFailure { Timber.w(it, "Could not sync employer location to users collection") }
+
+                // 3. Atomically apply referral code AFTER profile rows exist
+                if (!referralCodeToApply.isNullOrBlank()) {
+                    val applyResult = profileCompletionViewModel.applyReferralCode(
+                        code = referralCodeToApply,
+                        name = fullName.trim(),
+                        phone = userPhone
+                    )
+                    applyResult.onFailure { refErr ->
+                        val msg = refErr.message.orEmpty()
+                        if (!msg.contains("already used", ignoreCase = true) && !msg.contains("already applied", ignoreCase = true)) {
+                            Timber.w(refErr, "Referral code application failed")
+                            referralErrorMessage = refErr.message ?: "Could not apply referral code"
+                            isLoading = false
+                            isCompletionInProgress = false
+                            return@launch
+                        }
+                    }
+                }
+
+                // 4. Generate/refresh employer's own referral code using their verified real name / business name
+                runCatching {
+                    val realName = if (hasShop) shopOrBusinessName.trim() else fullName.trim()
+                    profileCompletionViewModel.refreshReferralCode(realName)
+                }.onFailure { Timber.w(it, "Could not refresh employer referral code with real name") }
 
                 // Save to employer work_locations collection and saved addresses
                 if (businessAddress.isNotBlank()) {
@@ -570,21 +716,22 @@ fun MandatoryEmployerProfileSetupScreen(
                                 if (rawCode.isNotBlank()) {
                                     val normalized = normalizeReferralCode(rawCode)
                                     scope.launch {
+                                        isLoading = true
                                         referralErrorMessage = null
                                         val res = profileCompletionViewModel.validateReferralCode(normalized)
-                                        if (res.isValid) {
-                                            profileCompletionViewModel.saveReferralCode(normalized)
-                                            runCatching { profileCompletionViewModel.applyReferralCode(normalized) }
-                                            handleCompletion()
-                                        } else {
+                                        if (!res.isValid) {
                                             referralErrorMessage = res.errorMessage ?: "Invalid referral code"
+                                            isLoading = false
+                                            return@launch
                                         }
+                                        profileCompletionViewModel.saveReferralCode(normalized)
+                                        handleCompletion(referralCodeToApply = normalized)
                                     }
                                 } else {
-                                    handleCompletion()
+                                    handleCompletion(referralCodeToApply = null)
                                 }
                             },
-                            enabled = !isLoading,
+                            enabled = !isLoading && !isCheckingReferral,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(52.dp),
@@ -740,7 +887,21 @@ fun MandatoryEmployerProfileSetupScreen(
                     businessLatitude = businessLatitude,
                     businessLongitude = businessLongitude,
                     showError = showValidationErrors && !isLocationValid,
+                    isDetecting = isDetectingLocation,
+                    locationErrorText = locationErrorText,
                     locationService = locationService,
+                    onDetectClick = {
+                        if (locationService.hasLocationPermission()) {
+                            fetchLocation()
+                        } else {
+                            locationPermissionLauncher.launch(
+                                arrayOf(
+                                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
+                        }
+                    },
                     onAddressChange = { businessAddress = it },
                     onLocationChange = { lat, lng ->
                         businessLatitude = lat
@@ -786,27 +947,43 @@ fun MandatoryEmployerProfileSetupScreen(
                     OutlinedTextField(
                         value = referralCodeInput,
                         onValueChange = { input ->
-                            referralCodeInput = normalizeReferralCode(input).take(12)
+                            referralCodeInput = normalizeReferralCode(input).take(20)
                             referralErrorMessage = null
                         },
                         placeholder = {
                             Text(
-                                text = "Enter referral code",
+                                text = "Enter referral code (e.g. DUTY1234)",
                                 fontSize = 15.sp,
                                 color = Color(0xFF94A3B8)
                             )
                         },
                         singleLine = true,
                         isError = referralErrorMessage != null,
+                        trailingIcon = {
+                            if (isCheckingReferral) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color(0xFF00B159)
+                                )
+                            } else if (verifiedReferrerName != null) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = "Valid Code",
+                                    tint = Color(0xFF00B159)
+                                )
+                            }
+                        },
                         shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF00B159),
-                            unfocusedBorderColor = Color(0xFFCBD5E1),
+                            focusedBorderColor = if (verifiedReferrerName != null) Color(0xFF00B159) else Color(0xFF00B159),
+                            unfocusedBorderColor = if (verifiedReferrerName != null) Color(0xFF00B159) else Color(0xFFCBD5E1),
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,
                             focusedTextColor = Color(0xFF111827),
                             unfocusedTextColor = Color(0xFF111827),
-                            cursorColor = Color(0xFF00B159)
+                            cursorColor = Color(0xFF00B159),
+                            errorBorderColor = Color(0xFFEF4444)
                         ),
                         textStyle = TextStyle(
                             fontSize = 15.sp,
@@ -818,6 +995,17 @@ fun MandatoryEmployerProfileSetupScreen(
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
+
+                    if (verifiedReferrerName != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "✓ Valid referral from $verifiedReferrerName",
+                            color = Color(0xFF059669),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
 
                     if (referralErrorMessage != null) {
                         Spacer(modifier = Modifier.height(6.dp))
@@ -864,7 +1052,7 @@ fun MandatoryEmployerProfileSetupScreen(
 }
 
 /**
- * Dedicated location picker card with GPS auto-fetch, autocomplete, and compact Google Map preview.
+ * Dedicated location picker card with GPS auto-fetch, quick Telangana areas, and autocomplete.
  */
 @Composable
 private fun LocationSectionCard(
@@ -872,81 +1060,27 @@ private fun LocationSectionCard(
     businessLatitude: Double,
     businessLongitude: Double,
     showError: Boolean,
+    isDetecting: Boolean,
+    locationErrorText: String?,
     locationService: com.example.dutype.utils.LocationService,
+    onDetectClick: () -> Unit,
     onAddressChange: (String) -> Unit,
     onLocationChange: (Double, Double) -> Unit
 ) {
-    var isFetchingLocation by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
-
-    var manualLocationRequest by remember { mutableStateOf(false) }
-    var autoLocationAsked by rememberSaveable { mutableStateOf(false) }
-    var detectedAreaText by remember { mutableStateOf<String?>(null) }
-    var locationErrorText by remember { mutableStateOf<String?>(null) }
-
-    val runFetch: () -> Unit = {
-        coroutineScope.launch {
-            locationErrorText = null
-            isFetchingLocation = true
-            try {
-                val locationInfo = locationService.getHighAccuracyLocation(
-                    timeoutMs = 8000L,
-                    minAccuracyMeters = 35f
-                ) ?: locationService.getCurrentLocation()
-                if (locationInfo != null) {
-                    onAddressChange(locationInfo.getFullAddress())
-                    onLocationChange(locationInfo.latitude, locationInfo.longitude)
-                    detectedAreaText = locationInfo.getShortAddress()
-                } else {
-                    locationErrorText = context.getString(R.string.could_not_get_current_location)
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Error fetching current location")
-                locationErrorText = e.message ?: "Failed to get location"
-            } finally {
-                isFetchingLocation = false
-            }
-        }
-    }
-
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val granted = permissions[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
-                permissions[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true
-        if (granted) {
-            if (manualLocationRequest || businessAddress.isBlank()) {
-                runFetch()
-            }
-        } else if (manualLocationRequest) {
-            locationErrorText = context.getString(R.string.location_permission_fetch_address)
-        }
-        manualLocationRequest = false
-    }
-
-    // Auto-request location permission on first view if address is empty
-    LaunchedEffect(Unit) {
-        if (!autoLocationAsked) {
-            autoLocationAsked = true
-            if (locationService.hasLocationPermission()) {
-                if (businessAddress.isBlank()) runFetch()
-            } else {
-                locationPermissionLauncher.launch(
-                    arrayOf(
-                        android.Manifest.permission.ACCESS_FINE_LOCATION,
-                        android.Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                )
-            }
-        }
-    }
+    val isCoordsValid = GeoUtils.hasValidCoordinates(businessLatitude, businessLongitude)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
-        border = androidx.compose.foundation.BorderStroke(1.dp, StitchBorder.bd())
+        colors = CardDefaults.cardColors(
+            containerColor = if (isCoordsValid) Color(0xFFF0FDF4) else Color.White
+        ),
+        border = BorderStroke(
+            width = if (isCoordsValid) 1.5.dp else 1.dp,
+            color = if (showError) Color(0xFFEF4444)
+            else if (isCoordsValid) Color(0xFF86EFAC)
+            else StitchBorder.bd()
+        )
     ) {
         Column(
             modifier = Modifier
@@ -959,42 +1093,193 @@ private fun LocationSectionCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = "Your Location *",
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = StitchNavy.fg()
-                )
-
-                TextButton(
-                    onClick = {
-                        if (locationService.hasLocationPermission()) {
-                            runFetch()
-                        } else {
-                            manualLocationRequest = true
-                            locationPermissionLauncher.launch(
-                                arrayOf(
-                                    android.Manifest.permission.ACCESS_FINE_LOCATION,
-                                    android.Manifest.permission.ACCESS_COARSE_LOCATION
-                                )
-                            )
-                        }
-                    },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
                 ) {
                     Icon(
-                        Icons.Default.MyLocation,
+                        imageVector = if (isCoordsValid) Icons.Default.CheckCircle else Icons.Default.LocationOn,
                         contentDescription = null,
-                        modifier = Modifier.size(15.dp),
-                        tint = StitchBlue.fg()
+                        tint = if (isCoordsValid) Color(0xFF16A34A) else StitchNavy.fg(),
+                        modifier = Modifier.size(20.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = stringResource(R.string.use_current_location),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = StitchBlue.fg()
+                        text = if (isCoordsValid) "Work Location (GPS Verified ✓)" else "Work Area / Location *",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isCoordsValid) Color(0xFF15803D) else StitchNavy.fg()
                     )
+                }
+
+                TextButton(
+                    onClick = onDetectClick,
+                    enabled = !isDetecting,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    if (isDetecting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 2.dp,
+                            color = StitchBlue.fg()
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Detecting...",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = StitchBlue.fg()
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.MyLocation,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                            tint = StitchBlue.fg()
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (isCoordsValid) "Refresh GPS" else stringResource(R.string.use_current_location),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = StitchBlue.fg()
+                        )
+                    }
+                }
+            }
+
+            if (!isCoordsValid) {
+                // Info Banner explaining why location is required
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFEFF6FF),
+                    border = BorderStroke(1.dp, Color(0xFFBFDBFE)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.NearMe,
+                            contentDescription = null,
+                            tint = Color(0xFF2563EB),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "DutyPe connects you to local workers and candidates nearby. Allow GPS or tap a quick area below.",
+                            fontSize = 12.sp,
+                            color = Color(0xFF1E40AF),
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+
+                // Prominent Detect Current Location Button
+                Button(
+                    onClick = onDetectClick,
+                    enabled = !isDetecting,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+                ) {
+                    if (isDetecting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Detecting GPS Location...", color = Color.White, fontWeight = FontWeight.Bold)
+                    } else {
+                        Icon(
+                            Icons.Default.MyLocation,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "📍 Detect My Current Location (GPS)",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.5.sp
+                        )
+                    }
+                }
+
+                // Quick Select Area in Telangana
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Or quick select your area in Telangana:",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF64748B)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        QuickLocations.PRESETS.forEach { preset ->
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = Color(0xFFF1F5F9),
+                                border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                                modifier = Modifier.clickable {
+                                    onAddressChange(preset.address)
+                                    onLocationChange(preset.lat, preset.lng)
+                                }
+                            ) {
+                                Text(
+                                    text = preset.label,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF334155),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Verified Location Display with GPS Coordinates
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.CheckCircle,
+                            contentDescription = null,
+                            tint = Color(0xFF16A34A),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = businessAddress.ifBlank { "GPS Coordinates Verified" },
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF0F172A)
+                            )
+                            Text(
+                                text = "GPS: %.4f° N, %.4f° E • Hyperlocal matching within 15 km".format(businessLatitude, businessLongitude),
+                                fontSize = 11.sp,
+                                color = Color(0xFF15803D),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1008,67 +1293,33 @@ private fun LocationSectionCard(
                 },
                 locationService = locationService,
                 label = null,
-                placeholder = "City, Area or Landmark *",
+                placeholder = "Or search specific landmark, street, or area",
                 maxLines = 2,
                 shape = RoundedCornerShape(14.dp),
-                leadingIcon = Icons.Default.LocationOn,
+                leadingIcon = Icons.Default.Search,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = Color.White.bg(),
                     unfocusedContainerColor = Color.White.bg(),
-                    focusedBorderColor = if (showError) EmployerColors.Error else Color(0xFF00A859),
-                    unfocusedBorderColor = if (showError) EmployerColors.Error else StitchBorder.bd(),
-                    errorBorderColor = EmployerColors.Error
+                    focusedBorderColor = if (showError) Color(0xFFEF4444) else Color(0xFF00A859),
+                    unfocusedBorderColor = if (showError) Color(0xFFEF4444) else StitchBorder.bd(),
+                    errorBorderColor = Color(0xFFEF4444)
                 )
             )
 
             if (showError) {
                 Text(
-                    text = "Please select or enter your location",
-                    color = EmployerColors.Error,
-                    fontSize = 12.sp,
-                    modifier = Modifier.padding(start = 4.dp)
-                )
-            }
-
-            if (isFetchingLocation) {
-                Text(
-                    text = stringResource(R.string.fetching_your_location),
-                    color = StitchLabel.fg(),
+                    text = "Please detect your location or select your area so nearby workers can find your jobs.",
+                    color = Color(0xFFEF4444),
                     fontSize = 12.sp,
                     modifier = Modifier.padding(start = 4.dp)
                 )
             } else if (locationErrorText != null) {
                 Text(
-                    text = locationErrorText ?: "",
+                    text = locationErrorText,
                     color = Color(0xFFDC2626).fg(),
                     fontSize = 12.sp,
                     modifier = Modifier.padding(start = 4.dp)
                 )
-            } else if (detectedAreaText != null) {
-                Row(
-                    modifier = Modifier.padding(start = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = Color(0xFF16A34A).fg(),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = stringResource(R.string.worker_setup_location_detected),
-                        color = Color(0xFF16A34A).fg(),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = " · ${detectedAreaText ?: ""}",
-                        color = StitchLabel.fg(),
-                        fontSize = 12.sp,
-                        maxLines = 1
-                    )
-                }
             }
         }
     }

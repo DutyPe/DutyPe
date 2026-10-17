@@ -784,7 +784,7 @@ private fun OtpLoginScreen(
                                             } else {
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     phoneNumber.forEachIndexed { index, char ->
-                                                        AnimatedContent(
+                                                        AnimatedContent<Char>(
                                                             targetState = char,
                                                             transitionSpec = {
                                                                 (slideInVertically(animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.6f, stiffness = androidx.compose.animation.core.Spring.StiffnessMedium)) { it / 2 } +
@@ -820,7 +820,8 @@ private fun OtpLoginScreen(
 
                         Spacer(modifier = Modifier.height(18.dp))
 
-                        val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading
+                        var isTruecallerBusy by remember { mutableStateOf(false) }
+                        val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading && !isTruecallerBusy
                         val sendArrowTransition = rememberInfiniteTransition(label = "send_arrow_pulse")
                         val sendArrowOffset by sendArrowTransition.animateFloat(
                             initialValue = 0f,
@@ -857,7 +858,7 @@ private fun OtpLoginScreen(
                                 disabledContentColor = Color(0xFF64748B).fg()
                             )
                         ) {
-                            if (otpState.isLoading) {
+                            if (otpState.isLoading && !isTruecallerBusy) {
                                 CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
                             } else {
                                 Row(
@@ -889,37 +890,46 @@ private fun OtpLoginScreen(
 
                         // Official Truecaller one-tap login button
                         TruecallerLoginButton(
-                            busy = otpState.isLoading,
+                            busy = isTruecallerBusy,
                             onAuthorized = { code, verifier ->
+                                isTruecallerBusy = true
                                 scope.launch {
-                                    otpViewModel.truecallerExchange(code, verifier, role = role.name, mode = "unified").fold(
-                                        onSuccess = { res ->
-                                            if (res.roleConflict) {
-                                                val conflictingRoleLabel = if (res.existingRole?.contains("EMPLOYER") == true) {
-                                                    context.getString(R.string.employer)
+                                    try {
+                                        otpViewModel.truecallerExchange(code, verifier, role = role.name, mode = "unified").fold(
+                                            onSuccess = { res ->
+                                                if (res.roleConflict) {
+                                                    isTruecallerBusy = false
+                                                    val conflictingRoleLabel = if (res.existingRole?.contains("EMPLOYER") == true) {
+                                                        context.getString(R.string.employer)
+                                                    } else {
+                                                        context.getString(R.string.worker)
+                                                    }
+                                                    Toast.makeText(
+                                                        context,
+                                                        context.getString(R.string.auth_phone_registered_as_role, conflictingRoleLabel, conflictingRoleLabel),
+                                                        Toast.LENGTH_LONG
+                                                    ).show()
+                                                } else if (res.allowed) {
+                                                    otpViewModel.signInWithTruecaller(res)
                                                 } else {
-                                                    context.getString(R.string.worker)
+                                                    isTruecallerBusy = false
+                                                    Toast.makeText(context, context.getString(R.string.auth_verification_failed), Toast.LENGTH_SHORT).show()
                                                 }
-                                                Toast.makeText(
-                                                    context,
-                                                    context.getString(R.string.auth_phone_registered_as_role, conflictingRoleLabel, conflictingRoleLabel),
-                                                    Toast.LENGTH_LONG
-                                                ).show()
-                                            } else if (res.allowed) {
-                                                otpViewModel.signInWithTruecaller(res)
-                                            } else {
-                                                Toast.makeText(context, context.getString(R.string.auth_verification_failed), Toast.LENGTH_SHORT).show()
+                                            },
+                                            onFailure = { err ->
+                                                isTruecallerBusy = false
+                                                val cleanMsg = err.message?.takeIf { it.isNotBlank() && !it.contains("INTERNAL", ignoreCase = true) }
+                                                    ?: "Truecaller verification failed. Please try with OTP."
+                                                Toast.makeText(context, cleanMsg, Toast.LENGTH_SHORT).show()
                                             }
-                                        },
-                                        onFailure = { err ->
-                                            val cleanMsg = err.message?.takeIf { it.isNotBlank() && !it.contains("INTERNAL", ignoreCase = true) }
-                                                ?: "Truecaller verification failed. Please try with OTP."
-                                            Toast.makeText(context, cleanMsg, Toast.LENGTH_SHORT).show()
-                                        }
-                                    )
+                                        )
+                                    } catch (_: Exception) {
+                                        isTruecallerBusy = false
+                                    }
                                 }
                             },
                             onFailed = {
+                                isTruecallerBusy = false
                                 Toast.makeText(context, context.getString(R.string.auth_verification_failed), Toast.LENGTH_SHORT).show()
                             }
                         )
