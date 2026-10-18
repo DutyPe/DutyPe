@@ -1,11 +1,13 @@
 package com.example.dutype.models
 
+import androidx.annotation.Keep
 import androidx.compose.runtime.Immutable
 import com.google.firebase.Timestamp
 
 /**
  * Announcement Model - For in-app announcements and banners
  */
+@Keep
 @Immutable
 data class Announcement(
     val id: String = "",
@@ -20,6 +22,7 @@ data class Announcement(
     val createdAt: Timestamp = Timestamp.now()
 )
 
+@Keep
 enum class AnnouncementType {
     INFO,       // Blue - General information
     SUCCESS,    // Green - Success messages
@@ -29,6 +32,7 @@ enum class AnnouncementType {
     PROMOTION   // Orange - Promotions
 }
 
+@Keep
 enum class AnnouncementPriority {
     LOW,        // Show at bottom
     MEDIUM,     // Show in middle (alias for NORMAL)

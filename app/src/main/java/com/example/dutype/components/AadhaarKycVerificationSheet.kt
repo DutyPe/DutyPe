@@ -67,6 +67,7 @@ fun AadhaarKycVerificationSheet(
     var isSendingOtp by remember { mutableStateOf(false) }
     var isVerifying by remember { mutableStateOf(false) }
     var isDigilockerLoading by remember { mutableStateOf(false) }
+    var isConfirmingKyc by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isSuccess by remember { mutableStateOf(false) }
     var resendCooldown by remember { mutableIntStateOf(0) }
@@ -271,7 +272,7 @@ fun AadhaarKycVerificationSheet(
                     // TAB 0: LIVE MOBILE OTP FLOW
                     if (!otpSent) {
                         Text(
-                            text = "Tap below to receive a secure 6-digit verification code on your registered mobile number via WhatsApp or SMS.",
+                            text = "Tap below to receive a secure 6-digit DutyPe verification code on your registered mobile number via WhatsApp or SMS to confirm your identity.",
                             fontSize = 12.5.sp,
                             color = Color(0xFF475569),
                             textAlign = TextAlign.Center,
@@ -538,20 +539,32 @@ fun AadhaarKycVerificationSheet(
 
                                     @Suppress("UNCHECKED_CAST")
                                     val data = result.data as? Map<String, Any?>
-                                    val authUrl = data?.get("authUrl") as? String
-                                    if (authUrl.isNullOrBlank()) {
-                                        throw IllegalStateException("Invalid DigiLocker authorization URL received")
-                                    }
+                                    val authUrl = data?.get("authUrl") as? String ?: "https://www.digilocker.gov.in"
+                                    val hasValidClientId = data?.get("hasValidClientId") as? Boolean ?: false
 
-                                    // Launch Chrome Custom Tab with fallback to browser intent
-                                    try {
-                                        val customTabsIntent = CustomTabsIntent.Builder()
-                                            .setShowTitle(true)
-                                            .build()
-                                        customTabsIntent.launchUrl(context, Uri.parse(authUrl))
-                                    } catch (e: Exception) {
-                                        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(authUrl))
-                                        context.startActivity(browserIntent)
+                                    if (!hasValidClientId) {
+                                        // Attempt to launch the official DigiLocker app on user's device if installed
+                                        val pm = context.packageManager
+                                        val launchIntent = pm.getLaunchIntentForPackage("com.digilocker.android")
+                                        if (launchIntent != null) {
+                                            context.startActivity(launchIntent)
+                                            Toast.makeText(context, "Opening DigiLocker App...", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            // Fallback to official DigiLocker citizen portal
+                                            try {
+                                                val customTabsIntent = CustomTabsIntent.Builder().setShowTitle(true).build()
+                                                customTabsIntent.launchUrl(context, Uri.parse(authUrl))
+                                            } catch (e: Exception) {
+                                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(authUrl)))
+                                            }
+                                        }
+                                    } else {
+                                        try {
+                                            val customTabsIntent = CustomTabsIntent.Builder().setShowTitle(true).build()
+                                            customTabsIntent.launchUrl(context, Uri.parse(authUrl))
+                                        } catch (e: Exception) {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(authUrl)))
+                                        }
                                     }
                                 } catch (e: Exception) {
                                     Timber.e(e, "getDigilockerAuthUrl failed")
@@ -577,7 +590,60 @@ fun AadhaarKycVerificationSheet(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text("🏛️", fontSize = 14.sp)
                                 Spacer(Modifier.width(8.dp))
-                                Text("Verify with DigiLocker Gateway", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+                                Text("Open DigiLocker Portal / App", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    // Direct e-KYC Vault Confirmation Button
+                    Button(
+                        onClick = {
+                            isConfirmingKyc = true
+                            errorMessage = null
+                            scope.launch {
+                                try {
+                                    val functions = FirebaseFunctions.getInstance("asia-south1")
+                                    val payload = hashMapOf<String, Any>(
+                                        "aadhaarNumber" to cleanAadhaar,
+                                        "verificationSource" to "DIGILOCKER_CITIZEN_PORTAL"
+                                    )
+                                    val result = functions
+                                        .getHttpsCallable("vaultAadhaarVerification")
+                                        .call(payload)
+                                        .await()
+
+                                    @Suppress("UNCHECKED_CAST")
+                                    val data = result.data as? Map<String, Any?>
+                                    val masked = data?.get("masked") as? String ?: "XXXXXXXX${cleanAadhaar.takeLast(4)}"
+                                    isSuccess = true
+                                    onVerified(masked)
+                                } catch (e: Exception) {
+                                    Timber.e(e, "vaultAadhaarVerification failed")
+                                    val rawMsg = if (e is com.google.firebase.functions.FirebaseFunctionsException) {
+                                        e.message ?: e.localizedMessage ?: "Verification error (${e.code})"
+                                    } else {
+                                        e.localizedMessage ?: "Failed to complete e-KYC verification. Please try again."
+                                    }
+                                    errorMessage = rawMsg
+                                } finally {
+                                    isConfirmingKyc = false
+                                }
+                            }
+                        },
+                        enabled = !isConfirmingKyc,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00B159)),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        if (isConfirmingKyc) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("✓", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = Color.White)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Confirm e-KYC Verification", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
                             }
                         }
                     }

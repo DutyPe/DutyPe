@@ -1,5 +1,6 @@
 package com.example.dutype.components
 
+import androidx.annotation.Keep
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.fg
@@ -46,6 +47,7 @@ import kotlinx.coroutines.launch
 /**
  * Announcement styling based on type: solid soft tint for the icon tile + accent for icon / CTA.
  */
+@Keep
 private data class AnnouncementStyle(
     val tileColor: Color,
     val accentColor: Color,
@@ -111,8 +113,8 @@ fun AnnouncementCard(
     ) {
         AnnouncementCardBody(
             announcement = announcement,
-            onDismiss = onDismiss,
-            onAction = onAction
+            onDismiss = { runCatching { onDismiss() } },
+            onAction = onAction?.let { action -> { runCatching { action() } } }
         )
     }
 }
@@ -130,7 +132,7 @@ private fun AnnouncementCardBody(
     val surface = if (isDark) WorkerColors.CardBackground else Color.White.bg()
     val borderColor = if (isDark) Color(0xFF334155).bd() else Color(0xFFE2E8F0).bd()
     val actionModifier = if (onAction != null) {
-        Modifier.clickable(onClick = onAction)
+        Modifier.clickable(onClick = { runCatching { onAction() } })
     } else {
         Modifier
     }
@@ -153,7 +155,7 @@ private fun AnnouncementCardBody(
             showAction = onAction != null,
             modifier = Modifier.weight(1f)
         )
-        AnnouncementDismissButton(onDismiss = onDismiss)
+        AnnouncementDismissButton(onDismiss = { runCatching { onDismiss() } })
     }
 }
 
@@ -221,7 +223,7 @@ private fun AnnouncementDismissButton(onDismiss: () -> Unit) {
             .offset(x = 8.dp, y = (-8).dp)
             .size(32.dp)
             .clip(CircleShape)
-            .clickable(onClick = onDismiss),
+            .clickable(onClick = { runCatching { onDismiss() } }),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -298,11 +300,12 @@ fun AnnouncementCarousel(
                 modifier = modifier.padding(horizontal = 20.dp, vertical = 6.dp)
             )
         } else {
+            val announcement = announcements.firstOrNull() ?: return
             AnnouncementCard(
-                announcement = announcements[0],
-                onDismiss = { onDismiss(announcements[0].id) },
-                onAction = if (announcements[0].actionRoute != null) {
-                    { onAction(announcements[0]) }
+                announcement = announcement,
+                onDismiss = { runCatching { onDismiss(announcement.id) } },
+                onAction = if (announcement.actionRoute != null) {
+                    { runCatching { onAction(announcement) } }
                 } else null,
                 modifier = modifier
             )
@@ -318,15 +321,18 @@ fun AnnouncementCarousel(
         if (totalItems > 1) {
             while (true) {
                 delay(autoScrollDuration)
-                val nextPage = (pagerState.currentPage + 1) % totalItems
-                runCatching {
-                    pagerState.animateScrollToPage(
-                        page = nextPage,
-                        animationSpec = tween(
-                            durationMillis = 600,
-                            easing = FastOutSlowInEasing
+                val currentCount = pagerState.pageCount
+                if (currentCount > 1) {
+                    val nextPage = (pagerState.currentPage + 1) % currentCount
+                    runCatching {
+                        pagerState.animateScrollToPage(
+                            page = nextPage,
+                            animationSpec = tween(
+                                durationMillis = 600,
+                                easing = FastOutSlowInEasing
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
@@ -338,23 +344,23 @@ fun AnnouncementCarousel(
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 20.dp),
             pageSpacing = 12.dp
-        ) { page ->
+        ) { page: Int ->
             if (promoBannerUrl.isNotBlank() && page == 0) {
                 PromoBannerSlide(promoBannerUrl = promoBannerUrl)
             } else {
                 val index = if (promoBannerUrl.isNotBlank()) page - 1 else page
-                val announcement = announcements[index]
+                val announcement = announcements.getOrNull(index) ?: return@HorizontalPager
                 AnnouncementCardBody(
                     announcement = announcement,
-                    onDismiss = { onDismiss(announcement.id) },
+                    onDismiss = { runCatching { onDismiss(announcement.id) } },
                     onAction = if (announcement.actionRoute != null) {
-                        { onAction(announcement) }
+                        { runCatching { onAction(announcement) } }
                     } else null
                 )
             }
         }
         Spacer(modifier = Modifier.height(10.dp))
-        AnnouncementDots(count = totalItems, current = pagerState.currentPage)
+        AnnouncementDots(count = totalItems, current = pagerState.currentPage.coerceIn(0, (totalItems - 1).coerceAtLeast(0)))
     }
 }
 

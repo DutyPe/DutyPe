@@ -1,5 +1,6 @@
 package com.example.dutype.components
 
+import androidx.annotation.Keep
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,6 +33,7 @@ import kotlinx.coroutines.delay
 /**
  * Data structure representing a promotional slide on Home screens.
  */
+@Keep
 data class HomePromoSlide(
     val tag: String,
     val tagBgColor: Color,
@@ -206,8 +208,13 @@ fun PromotionalBannerCarousel(
         if (slides.size > 1) {
             while (true) {
                 delay(4500)
-                val nextPage = (pagerState.currentPage + 1) % slides.size
-                pagerState.animateScrollToPage(nextPage)
+                val currentCount = pagerState.pageCount
+                if (currentCount > 1) {
+                    val nextPage = (pagerState.currentPage + 1) % currentCount
+                    runCatching {
+                        pagerState.animateScrollToPage(nextPage)
+                    }
+                }
             }
         }
     }
@@ -220,13 +227,13 @@ fun PromotionalBannerCarousel(
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxWidth()
-        ) { page ->
-            val slide = slides[page]
+        ) { page: Int ->
+            val slide = slides.getOrNull(page) ?: return@HorizontalPager
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(20.dp))
-                    .clickable { onAction(slide.targetKey) },
+                    .clickable { runCatching { onAction(slide.targetKey) } },
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)

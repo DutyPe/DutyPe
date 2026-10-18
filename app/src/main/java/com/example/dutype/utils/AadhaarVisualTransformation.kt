@@ -14,40 +14,8 @@ import androidx.compose.ui.text.input.VisualTransformation
  * swapping places (e.g. typing "3110" will NEVER reorder to "3101").
  */
 class AadhaarVisualTransformation : VisualTransformation {
-
     override fun filter(text: AnnotatedString): TransformedText {
-        val raw = text.text.filter { it.isDigit() }.take(12)
-        val out = StringBuilder()
-
-        for (i in raw.indices) {
-            out.append(raw[i])
-            if ((i == 3 || i == 7) && i != raw.lastIndex) {
-                out.append(" ")
-            }
-        }
-
-        val offsetMapping = object : OffsetMapping {
-            override fun originalToTransformed(offset: Int): Int {
-                if (offset <= 0) return 0
-                val clamped = offset.coerceAtMost(raw.length)
-                return when {
-                    clamped <= 4 -> clamped
-                    clamped <= 8 -> (clamped + 1).coerceAtMost(out.length)
-                    else -> (clamped + 2).coerceAtMost(out.length)
-                }
-            }
-
-            override fun transformedToOriginal(offset: Int): Int {
-                if (offset <= 0) return 0
-                val clamped = offset.coerceAtMost(out.length)
-                return when {
-                    clamped <= 4 -> clamped
-                    clamped <= 9 -> (clamped - 1).coerceAtLeast(0).coerceAtMost(raw.length)
-                    else -> (clamped - 2).coerceAtLeast(0).coerceAtMost(raw.length)
-                }
-            }
-        }
-
-        return TransformedText(AnnotatedString(out.toString()), offsetMapping)
+        // Return 1:1 mapping so software keyboards (Gboard/Samsung) never desync or swap typed digits
+        return VisualTransformation.None.filter(text)
     }
 }

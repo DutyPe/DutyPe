@@ -25,43 +25,42 @@
 # App models & @Keep annotated classes
 -keep @androidx.annotation.Keep class * { *; }
 -keepclassmembers @androidx.annotation.Keep class * { *; }
-
-# Preserve data models used with Firestore / Gson reflection (constructors, fields, getters/setters)
--keep class com.example.dutype.models.** {
-    <init>(...);
-    <fields>;
-    *** get*();
-    *** set*(...);
-    *** is*();
-}
--keep class com.example.dutype.employer.models.** {
-    <init>(...);
-    <fields>;
-    *** get*();
-    *** set*(...);
-    *** is*();
-}
--keep class com.example.dutype.worker.models.** {
-    <init>(...);
-    <fields>;
-    *** get*();
-    *** set*(...);
-    *** is*();
-}
--keep class com.example.dutype.homeservices.models.** {
-    <init>(...);
-    <fields>;
-    *** get*();
-    *** set*(...);
-    *** is*();
-}
+-keep class com.example.dutype.models.** { *; }
+-keepclassmembers class com.example.dutype.models.** { *; }
+-keep class com.example.dutype.components.** { *; }
+-keepclassmembers class com.example.dutype.components.** { *; }
+-keep class com.example.dutype.homeservices.** { *; }
+-keepclassmembers class com.example.dutype.homeservices.** { *; }
+-keep class com.example.dutype.employer.** { *; }
+-keepclassmembers class com.example.dutype.employer.** { *; }
+-keep class com.example.dutype.worker.** { *; }
+-keepclassmembers class com.example.dutype.worker.** { *; }
+-keep class com.example.dutype.urgent.** { *; }
+-keepclassmembers class com.example.dutype.urgent.** { *; }
+-keep class com.example.dutype.profile.** { *; }
+-keepclassmembers class com.example.dutype.profile.** { *; }
+-keep class com.example.dutype.data.** { *; }
+-keepclassmembers class com.example.dutype.data.** { *; }
+-keep class com.example.dutype.auth.** { *; }
+-keepclassmembers class com.example.dutype.auth.** { *; }
 -keep,includedescriptorclasses class com.example.dutype.**$$serializer { *; }
 
 # -----------------------------------------------------------------------------
-# Coil (Image Loading) - Coil ships its own consumer rules; keep key entry points
+# Coil (Image Loading)
 # -----------------------------------------------------------------------------
--keep class coil.ImageLoader { *; }
--keep class coil.ImageLoaderFactory { *; }
+-keep class coil.** { *; }
+-keep interface coil.** { *; }
+-keepclassmembers class coil.** { *; }
+-keepclassmembers interface coil.** { *; }
+-keep class coil.intercept.** { *; }
+-keepclassmembers class coil.intercept.** { *; }
+-keep class coil.request.ImageResult { *; }
+-keep class coil.request.SuccessResult { *; }
+-keep class coil.request.ErrorResult { *; }
+-keep class coil.request.ImageRequest { *; }
+-keep class coil.request.Options { *; }
+-keep class coil.compose.** { *; }
+-keepclassmembers class coil.compose.** { *; }
 -dontwarn coil.**
 
 # -----------------------------------------------------------------------------
