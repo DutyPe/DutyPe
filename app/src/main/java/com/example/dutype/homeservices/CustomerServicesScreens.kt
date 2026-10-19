@@ -1337,6 +1337,8 @@ private fun ServicesLocationTopRow(
     onLocationClick: () -> Unit,
     onBookingsClick: () -> Unit,
     onProfileClick: () -> Unit,
+    walletBalanceRupees: Long = 0L,
+    onWalletClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val distKm = remember(userLocation) {
@@ -1425,11 +1427,42 @@ private fun ServicesLocationTopRow(
 
         Spacer(Modifier.width(12.dp))
 
-        // Action buttons on the right: TWO white rounded squares (Bookings & Profile) with white icons
+        // Action buttons on the right: Wallet Pill + Bookings + Profile
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // DutyPe Micro-Wallet balance pill
+            if (onWalletClick != null) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color.White.copy(alpha = 0.18f),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                    modifier = Modifier
+                        .height(40.dp)
+                        .clickable(onClick = onWalletClick)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.AccountBalanceWallet,
+                            contentDescription = "DutyPe Wallet",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "₹$walletBalanceRupees",
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
             // Bookings / Orders button
             Box(
                 modifier = Modifier
@@ -2613,6 +2646,9 @@ fun ServicesHomeScreen(
     val bookings by viewModel.myBookings.collectAsState()
     val userLocation by viewModel.userLocation.collectAsState()
     val showcases by viewModel.showcases.collectAsState()
+    val wallet by viewModel.wallet.collectAsState()
+    val walletBalanceRupees = (wallet?.balancePaise ?: 0L) / 100
+    var showWalletTopupSheet by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var ratingBookingToPrompt by remember { mutableStateOf<ServiceBooking?>(null) }
     var ratingPromptDismissed by remember { mutableStateOf(false) }
@@ -2839,7 +2875,9 @@ fun ServicesHomeScreen(
                         userLocation = userLocation,
                         onLocationClick = { showLocalitySheet = true },
                         onBookingsClick = { nav.navigate(Routes.SERVICES_BOOKINGS) },
-                        onProfileClick = { runCatching { nav.navigate(Routes.EMPLOYER_PROFILE) } }
+                        onProfileClick = { runCatching { nav.navigate(Routes.EMPLOYER_PROFILE) } },
+                        walletBalanceRupees = walletBalanceRupees,
+                        onWalletClick = { showWalletTopupSheet = true }
                     )
                 }
             }
@@ -3279,6 +3317,17 @@ fun ServicesHomeScreen(
                         variantSheetService = service
                     }
                 } else null
+            )
+        }
+
+        // DutyPe Micro-Wallet Deposit Bottom Sheet
+        if (showWalletTopupSheet) {
+            MicroWalletTopupSheet(
+                currentBalanceRupees = walletBalanceRupees,
+                requiredFeeRupees = 9,
+                onDismiss = { showWalletTopupSheet = false },
+                onTopupSuccess = { showWalletTopupSheet = false },
+                viewModel = viewModel
             )
         }
     }
@@ -7310,6 +7359,24 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                     if (b.status == BookingStatus.SEARCHING) {
                         Spacer(Modifier.height(8.dp))
                         LinearProgressIndicator(Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)), color = statusColor(b.status))
+                    }
+                    if (b.status in setOf(BookingStatus.PAYMENT_PENDING, BookingStatus.SEARCHING, BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY)) {
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            Text(
+                                text = "Cancel Booking",
+                                color = SvcRed,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable(enabled = !busy) { confirmCancel = true }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
                     }
                 }
 

@@ -201,6 +201,9 @@ fun EmployerHomeScreen(
     val subscription by subscriptionViewModel.activeSubscription.collectAsStateWithLifecycle()
     val homeServicesViewModel: com.example.dutype.homeservices.HomeServicesViewModel = hiltViewModel()
     val showcases by homeServicesViewModel.showcases.collectAsStateWithLifecycle()
+    val wallet by homeServicesViewModel.wallet.collectAsStateWithLifecycle()
+    val walletBalanceRupees = (wallet?.balancePaise ?: 0L) / 100
+    var showWalletTopupSheet by remember { mutableStateOf(false) }
     val appVersionInfo = remember(context) { context.appVersionInfo() }
 
     // NotificationService for unread count (lightweight)
@@ -498,6 +501,8 @@ fun EmployerHomeScreen(
         ) {
             DashboardContent(
                 showcases = showcases,
+                walletBalanceRupees = walletBalanceRupees,
+                onWalletClick = { showWalletTopupSheet = true },
                 onOpenHomeServices = {
                     navController.navigate(com.example.dutype.navigation.Routes.SERVICES) {
                         launchSingleTop = true
@@ -642,6 +647,19 @@ fun EmployerHomeScreen(
                 },
                 employerPhone = employerProfile?.phone.orEmpty(),
                 defaultAddress = employerProfile?.address.orEmpty()
+            )
+        }
+
+        // DutyPe Micro-Wallet Deposit Bottom Sheet
+        if (showWalletTopupSheet) {
+            com.example.dutype.homeservices.MicroWalletTopupSheet(
+                currentBalanceRupees = walletBalanceRupees,
+                requiredFeeRupees = 9,
+                onDismiss = { showWalletTopupSheet = false },
+                onTopupSuccess = {
+                    showWalletTopupSheet = false
+                },
+                viewModel = homeServicesViewModel
             )
         }
     } // Box
@@ -1534,6 +1552,8 @@ fun DashboardContent(
     onOpenHomeServices: () -> Unit = {},
     referralPostsLeft: Int = 0,
     showcases: List<com.example.dutype.homeservices.PromoShowcase> = emptyList(),
+    walletBalanceRupees: Long = 0L,
+    onWalletClick: () -> Unit = {},
     onBookService: (String) -> Unit = {},
     onOpenServiceBooking: (String) -> Unit = {},
     applicationViewModel: EmployerApplicationViewModel = hiltViewModel()
@@ -1620,6 +1640,8 @@ fun DashboardContent(
                 onNotificationClick = onNotificationClick,
                 onVoiceClick = onVoiceJobClick,
                 onAvatarClick = { navController.navigate(Routes.EMPLOYER_PROFILE) },
+                walletBalanceRupees = walletBalanceRupees,
+                onWalletClick = onWalletClick,
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -1685,6 +1707,14 @@ fun DashboardContent(
                     )
                 }
 
+                // Dedicated DutyPe Micro-Wallet Card (Current Balance & + Top Up)
+                item(key = "employer_wallet_card") {
+                    EmployerWalletCard(
+                        balanceRupees = walletBalanceRupees,
+                        onTopupClick = onWalletClick,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
 
                 // Bento Grid Metrics Cards (Active Job Ring, Call-ready Heartbeat, Nearby)
                 item(key = "employer_bento_grid") {

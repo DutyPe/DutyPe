@@ -893,6 +893,8 @@ fun EmployerHomeHeader(
     onPostJobClick: (() -> Unit)? = null,
     onVoiceClick: (() -> Unit)? = null,
     onAvatarClick: (() -> Unit)? = null,
+    walletBalanceRupees: Long = 0L,
+    onWalletClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val cleanName = companyName.trim()
@@ -926,13 +928,44 @@ fun EmployerHomeHeader(
             )
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(10.dp))
 
-        // Right Action Buttons: Mic (Orange) + Notification Bell (White)
+        // Right Action Buttons: Wallet Pill + Mic (Orange) + Notification Bell (White)
         Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // DutyPe Micro-Wallet Balance Pill
+            if (onWalletClick != null) {
+                Surface(
+                    shape = RoundedCornerShape(23.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier
+                        .height(46.dp)
+                        .clickable { onWalletClick.invoke() }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AccountBalanceWallet,
+                            contentDescription = "DutyPe Wallet",
+                            tint = Color(0xFF2563EB),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "₹$walletBalanceRupees",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+                    }
+                }
+            }
+
             // Liri Voice Assistant Circle Button
             Box(
                 modifier = Modifier
@@ -977,6 +1010,97 @@ fun EmployerHomeHeader(
                             .border(1.5.dp, Color.White, CircleShape)
                     )
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Dedicated DutyPe Micro-Wallet card for the Employer Home Screen.
+ * Enables zero-click instant booking and one-tap wallet top-up.
+ */
+@Composable
+fun EmployerWalletCard(
+    balanceRupees: Long,
+    onTopupClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable { onTopupClick() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFEFF6FF)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccountBalanceWallet,
+                        contentDescription = null,
+                        tint = Color(0xFF2563EB),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "DutyPe Wallet",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            color = Color(0xFF0F172A)
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFFDCFCE7)
+                        ) {
+                            Text(
+                                text = "Zero-Click Booking",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF166534),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    Text(
+                        text = "Balance: ₹$balanceRupees • Min deposit ₹50",
+                        fontSize = 12.sp,
+                        color = Color(0xFF64748B)
+                    )
+                }
+            }
+
+            Button(
+                onClick = onTopupClick,
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = "+ Top Up",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
             }
         }
     }

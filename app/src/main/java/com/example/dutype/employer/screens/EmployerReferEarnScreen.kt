@@ -73,6 +73,7 @@ fun EmployerReferEarnScreen(
     onStatusBarColorChange: (Color) -> Unit
 ) {
     val viewModel: ReferralViewModel = hiltViewModel()
+    val homeServicesViewModel: com.example.dutype.homeservices.HomeServicesViewModel = hiltViewModel()
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
     val reviewTriggerService = rememberInAppReviewTriggerService()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -82,6 +83,7 @@ fun EmployerReferEarnScreen(
         .sumOf { it.amountPaise }
     val balanceRupees = (uiState.wallet?.balancePaise ?: 0L) / 100.0
 
+    var showWalletTopupSheet by remember { mutableStateOf(false) }
     var showCopySuccess by remember { mutableStateOf(false) }
     var isCheckingProfileStatus by remember { mutableStateOf(true) }
     var isProfileCompleted by remember { mutableStateOf(false) }
@@ -275,6 +277,7 @@ fun EmployerReferEarnScreen(
                     item {
                         EmployerCreditsUsageCard(
                             availableBalance = balanceRupees,
+                            onTopup = { showWalletTopupSheet = true },
                             onPostJob = { navController.navigate(com.example.dutype.navigation.Routes.EMPLOYER_POST_JOB) },
                             onBookService = { navController.navigate(com.example.dutype.navigation.Routes.SERVICES) }
                         )
@@ -319,6 +322,20 @@ fun EmployerReferEarnScreen(
                 }
             }
         }
+    }
+
+    // DutyPe Micro-Wallet Deposit Bottom Sheet
+    if (showWalletTopupSheet) {
+        com.example.dutype.homeservices.MicroWalletTopupSheet(
+            currentBalanceRupees = balanceRupees.toLong(),
+            requiredFeeRupees = 9,
+            onDismiss = { showWalletTopupSheet = false },
+            onTopupSuccess = {
+                showWalletTopupSheet = false
+                viewModel.loadReferralData()
+            },
+            viewModel = homeServicesViewModel
+        )
     }
 }
 
@@ -721,6 +738,7 @@ private fun EmployerStatItem(title: String, value: String, icon: ImageVector, co
 @Composable
 private fun EmployerCreditsUsageCard(
     availableBalance: Double,
+    onTopup: () -> Unit,
     onPostJob: () -> Unit,
     onBookService: () -> Unit
 ) {
@@ -764,6 +782,20 @@ private fun EmployerCreditsUsageCard(
                             fontWeight = FontWeight.Bold,
                             color = com.example.dutype.ui.theme.EmployerColors.TextPrimary
                         )
+                    )
+                }
+
+                Button(
+                    onClick = onTopup,
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = EmployerColors.Primary),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "+ Top Up",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
                     )
                 }
             }
