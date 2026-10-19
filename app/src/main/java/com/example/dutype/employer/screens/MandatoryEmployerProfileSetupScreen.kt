@@ -1246,6 +1246,29 @@ private fun LocationSectionCard(
                         }
                     }
                 }
+
+                // Location Autocomplete Field (only shown when location is not yet verified)
+                com.example.dutype.components.LocationAutocompleteField(
+                    value = businessAddress,
+                    onValueChange = onAddressChange,
+                    onLocationSelected = { selectedAddress, lat, lng ->
+                        onAddressChange(selectedAddress)
+                        onLocationChange(lat, lng)
+                    },
+                    locationService = locationService,
+                    label = null,
+                    placeholder = "Or search specific landmark, street, or area",
+                    maxLines = 2,
+                    shape = RoundedCornerShape(14.dp),
+                    leadingIcon = Icons.Default.Search,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White.bg(),
+                        unfocusedContainerColor = Color.White.bg(),
+                        focusedBorderColor = if (showError) Color(0xFFEF4444) else Color(0xFF00A859),
+                        unfocusedBorderColor = if (showError) Color(0xFFEF4444) else StitchBorder.bd(),
+                        errorBorderColor = Color(0xFFEF4444)
+                    )
+                )
             } else {
                 // Verified Location Display with GPS Coordinates
                 Surface(
@@ -1265,7 +1288,7 @@ private fun LocationSectionCard(
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = businessAddress.ifBlank { "GPS Coordinates Verified" },
                                 fontSize = 13.sp,
@@ -1279,32 +1302,22 @@ private fun LocationSectionCard(
                                 fontWeight = FontWeight.Medium
                             )
                         }
+                        TextButton(
+                            onClick = {
+                                onLocationChange(0.0, 0.0)
+                            },
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "Change",
+                                color = StitchNavy.fg(),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
-
-            // Location Autocomplete Field
-            com.example.dutype.components.LocationAutocompleteField(
-                value = businessAddress,
-                onValueChange = onAddressChange,
-                onLocationSelected = { selectedAddress, lat, lng ->
-                    onAddressChange(selectedAddress)
-                    onLocationChange(lat, lng)
-                },
-                locationService = locationService,
-                label = null,
-                placeholder = "Or search specific landmark, street, or area",
-                maxLines = 2,
-                shape = RoundedCornerShape(14.dp),
-                leadingIcon = Icons.Default.Search,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White.bg(),
-                    unfocusedContainerColor = Color.White.bg(),
-                    focusedBorderColor = if (showError) Color(0xFFEF4444) else Color(0xFF00A859),
-                    unfocusedBorderColor = if (showError) Color(0xFFEF4444) else StitchBorder.bd(),
-                    errorBorderColor = Color(0xFFEF4444)
-                )
-            )
 
             if (showError) {
                 Text(

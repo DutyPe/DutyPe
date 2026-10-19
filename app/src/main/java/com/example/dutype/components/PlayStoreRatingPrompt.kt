@@ -44,7 +44,7 @@ fun PlayStoreRatingPrompt(
     } else {
         "Your 5-star rating on Google Play helps local workers find daily jobs and employers hire reliable staff. Please take 5 seconds to rate us!"
     }
-    val rateButtonText = if (isTelugu) "⭐⭐⭐⭐⭐ ప్లే స్టోర్‌లో రేట్ చేయండి" else "⭐⭐⭐⭐⭐ Rate 5 Stars on Play Store"
+    val rateButtonText = if (isTelugu) "ప్లే స్టోర్‌లో రేట్ చేయండి" else "Rate 5 Stars on Google Play"
     val laterButtonText = if (isTelugu) "తర్వాత" else "Maybe Later"
 
     Dialog(
@@ -130,18 +130,28 @@ fun PlayStoreRatingPrompt(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
+                        .defaultMinSize(minHeight = 48.dp),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF0D47A1).bg()
-                    )
+                    ),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
                 ) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = null,
+                        tint = Color(0xFFFFB300),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = rateButtonText,
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
+                            color = Color.White,
+                            fontSize = 15.sp
+                        ),
+                        maxLines = 1
                     )
                 }
 

@@ -2494,20 +2494,23 @@ fun PartnerJobScreen(bookingId: String, navController: NavController, viewModel:
             }
 
             when (b.status) {
-                BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY -> {
-                    if (b.status == BookingStatus.ASSIGNED) {
-                        Button(
-                            onClick = { act("on_the_way") },
-                            enabled = !busy,
-                            colors = ButtonDefaults.buttonColors(containerColor = SvcGreen),
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Icon(Icons.Filled.Directions, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Accept & Start Journey", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                        }
+                BookingStatus.ASSIGNED -> {
+                    Button(
+                        onClick = { act("on_the_way") },
+                        enabled = !busy,
+                        colors = ButtonDefaults.buttonColors(containerColor = SvcGreen),
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Filled.Directions, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Start Journey", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
+                    TextButton(onClick = { confirmCancel = true }, enabled = !busy) {
+                        Text(stringResource(R.string.svc_job_cancel), color = SvcRed)
+                    }
+                }
+                BookingStatus.ON_THE_WAY -> {
                     OutlinedTextField(
                         value = code,
                         onValueChange = { v -> code = v.filter { it.isDigit() }.take(4) },
