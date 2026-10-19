@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminAssignBookingPartner = exports.adminCreateServiceBooking = exports.verifyPartnerTopup = exports.reviewServicePartner = exports.requestPartnerTopup = exports.updateServiceBooking = exports.acceptServiceBooking = exports.getServiceOffer = exports.setPartnerOnline = exports.applyServicePartner = exports.approveBookingPayment = exports.submitBookingPayment = exports.rateServiceBooking = exports.cancelServiceBooking = exports.previewServiceQuote = exports.createServiceBooking = exports.offerSender = exports.getServiceCatalog = exports.SEARCH_TIMEOUT_MS = exports.SERVICE_WAVE_INTERVAL_MS = exports.SERVICE_WAVES_KM = exports.TEST_DEV_PHONES = exports.PartnerStatus = exports.BookingStatus = void 0;
+exports.adminAssignBookingPartner = exports.adminCreateServiceBooking = exports.verifyPartnerTopup = exports.reviewServicePartner = exports.requestPartnerTopup = exports.updateServiceBooking = exports.acceptServiceBooking = exports.getServiceOffer = exports.setPartnerOnline = exports.applyServicePartner = exports.approveBookingPayment = exports.submitBookingPayment = exports.rateServiceBooking = exports.cancelServiceBooking = exports.getWalletSummary = exports.depositWalletFunds = exports.previewServiceQuote = exports.createServiceBooking = exports.offerSender = exports.getServiceCatalog = exports.SEARCH_TIMEOUT_MS = exports.SERVICE_WAVE_INTERVAL_MS = exports.SERVICE_WAVES_KM = exports.TEST_DEV_PHONES = exports.PartnerStatus = exports.BookingStatus = void 0;
 exports.loadConfig = loadConfig;
 exports.clearConfigCache = clearConfigCache;
 exports.inServiceArea = inServiceArea;
@@ -49,6 +49,7 @@ const notification_i18n_1 = require("./notification-i18n");
 const app_config_1 = require("./app-config");
 const service_catalog_1 = require("./lib/service-catalog");
 const schema_1 = require("./schema");
+const referrals_1 = require("./referrals");
 const db = admin.firestore();
 const { FieldValue, Timestamp } = admin.firestore;
 const BK = schema_1.ServiceBookings;
@@ -321,7 +322,7 @@ async function advanceServiceWave(bookingId, nowMs) {
         `${results.filter(Boolean).length} offers sent`);
     return toKm;
 }
-/** Bookings nobody took in time → NO_PARTNER, and the customer is told. */
+/** Bookings nobody took in time → NO_PARTNER, and the customer is told. If fee was debited, auto-refund to wallet! */
 async function expireServiceBookings(nowMs) {
     const snap = await db.collection(BK.COLLECTION)
         .where(BK.STATUS, "==", BS.SEARCHING)
@@ -334,6 +335,19 @@ async function expireServiceBookings(nowMs) {
             const cur = await tx.get(d.ref);
             if (cur.get(BK.STATUS) !== BS.SEARCHING)
                 return false;
+            const bookingFee = Number(cur.get(BK.BOOKING_FEE) || 0);
+            const feePaid = cur.get(BK.BOOKING_FEE_PAID) === true || cur.get("walletDebited") === true;
+            if (feePaid && bookingFee > 0) {
+                const custUid = String(cur.get(BK.CUSTOMER_ID) || "");
+                if (custUid) {
+                    const refundEventId = `refund_fee_${cur.id}`;
+                    const ledgerCheck = await tx.get((0, referrals_1.ledgerRef)(refundEventId));
+                    if (!ledgerCheck.exists) {
+                        const w = await (0, referrals_1.readWallet)(tx, custUid);
+                        (0, referrals_1.postEntry)(tx, custUid, w, refundEventId, schema_1.Values.LedgerType.REFUND, bookingFee * 100, cur.id);
+                    }
+                }
+            }
             tx.update(d.ref, {
                 [BK.STATUS]: BS.NO_PARTNER,
                 [BK.NEXT_WAVE_AT]: FieldValue.delete(),
@@ -432,73 +446,98 @@ exports.createServiceBooking = (0, secure_callable_1.onCallSecured)({ timeoutSec
     // Platform fee policy: 1st booking is FREE of platform fee; 2nd booking onwards requires the platform booking fee (₹9 - ₹19)
     const isFreePlatformFee = (firstBooking && config.firstBookingFeeFree) || (who.planMember && config.planMembersFeeFree);
     const effectiveBookingFee = isFreePlatformFee ? 0 : q.bookingFee;
+    // Ensure customer has a closed-loop micro-wallet
+    await (0, referrals_1.ensureWallet)(uid);
     const ref = db.collection(BK.COLLECTION).doc();
     const startOtp = (0, service_catalog_1.newStartOtp)();
     const firstWaveAt = scheduled ? Math.max(now, scheduledAt - SCHEDULE_LEAD_MS) : now;
-    const booking = Object.assign(Object.assign({ [BK.CUSTOMER_ID]: uid, [BK.CUSTOMER_NAME]: customerName, [BK.CUSTOMER_PHONE]: phone, [BK.CATEGORY]: service.category, [BK.SERVICE_ID]: service.id, [BK.SERVICE_NAME]: service.name, [BK.PRICE]: service.price, [BK.BOOKING_FEE]: effectiveBookingFee, [BK.COMMISSION_PCT]: config.commissionPct, [BK.INSPECTION]: service.inspection === true, [BK.ADDRESS_TEXT]: addressText, [BK.AREA]: area, [BK.LAT]: lat, [BK.LNG]: lng, [BK.NOTE]: note, [BK.WHEN]: scheduled ? "scheduled" : "now" }, (scheduled ? { [BK.SCHEDULED_AT]: Timestamp.fromMillis(scheduledAt) } : {})), { [BK.STATUS]: effectiveBookingFee > 0 ? BS.PAYMENT_PENDING : BS.SEARCHING, 
+    const booking = Object.assign(Object.assign({ [BK.CUSTOMER_ID]: uid, [BK.CUSTOMER_NAME]: customerName, [BK.CUSTOMER_PHONE]: phone, [BK.CATEGORY]: service.category, [BK.SERVICE_ID]: service.id, [BK.SERVICE_NAME]: service.name, [BK.PRICE]: service.price, [BK.BOOKING_FEE]: effectiveBookingFee, [BK.COMMISSION_PCT]: config.commissionPct, [BK.INSPECTION]: service.inspection === true, [BK.ADDRESS_TEXT]: addressText, [BK.AREA]: area, [BK.LAT]: lat, [BK.LNG]: lng, [BK.NOTE]: note, [BK.WHEN]: scheduled ? "scheduled" : "now" }, (scheduled ? { [BK.SCHEDULED_AT]: Timestamp.fromMillis(scheduledAt) } : {})), { [BK.STATUS]: BS.SEARCHING, [BK.BOOKING_FEE_PAID]: true, [BK.BOOKING_FEE_PAID_AT]: Timestamp.fromMillis(now), walletDebited: effectiveBookingFee > 0, isFirstBookingFree: isFreePlatformFee, 
         // A partner booking for their own home never gets their own job.
         [BK.EXCLUDED_PARTNER_IDS]: [uid], [BK.DISPATCH_RADIUS_KM]: 0, [BK.NEXT_WAVE_AT]: Timestamp.fromMillis(firstWaveAt), [BK.EXPIRES_AT]: Timestamp.fromMillis(scheduled ? scheduledAt + HOUR_MS : now + exports.SEARCH_TIMEOUT_MS), [BK.DISCOUNT]: q.discount, [BK.DISCOUNT_LABEL]: q.discountLabel, [BK.COUPON_CODE]: q.couponCode, [BK.TOTAL]: q.total, [BK.CREATED_AT]: Timestamp.fromMillis(now), [BK.UPDATED_AT]: Timestamp.fromMillis(now) });
-    const batch = db.batch();
-    batch.create(ref, booking);
-    batch.create(db.collection(schema_1.ServiceBookingSecrets.COLLECTION).doc(ref.id), {
-        [schema_1.ServiceBookingSecrets.CUSTOMER_ID]: uid,
-        [schema_1.ServiceBookingSecrets.START_OTP]: startOtp,
-    });
-    // One use per customer: check if coupon was already consumed on a completed or active booking.
-    // If previous booking was cancelled or unassigned, release the coupon and allow re-use!
-    if (q.couponCode) {
-        const code = q.couponCode.trim().toUpperCase();
-        const usedRef = db.collection(schema_1.CouponUses.COLLECTION).doc(`${uid}_${code}`);
-        const used = await usedRef.get();
-        if (used.exists) {
-            const bId = String(used.get(schema_1.CouponUses.BOOKING_ID) || "");
-            let isActuallyConsumed = true;
-            if (bId) {
-                const bSnap = await db.collection(BK.COLLECTION).doc(bId).get();
-                if (!bSnap.exists) {
-                    isActuallyConsumed = false;
-                }
-                else {
-                    const bStatus = String(bSnap.get(BK.STATUS) || "");
-                    if (bStatus === BS.CANCELLED || bStatus === BS.NO_PARTNER || bStatus === BS.PAYMENT_PENDING) {
+    let remainingWalletBalanceRupees = 0;
+    await db.runTransaction(async (tx) => {
+        var _a;
+        // If platform fee is required (>0), check micro-wallet balance and auto-debit atomically
+        if (effectiveBookingFee > 0) {
+            const w = await (0, referrals_1.readWallet)(tx, uid);
+            if (w.data[schema_1.Wallets.BLOCKED] === true) {
+                (0, input_1.fail)("permission-denied", "Your DutyPe wallet is blocked. Contact support.");
+            }
+            const feePaise = effectiveBookingFee * 100;
+            if (w.balancePaise < feePaise) {
+                const curRupees = (w.balancePaise / 100).toFixed(0);
+                (0, input_1.fail)("failed-precondition", `LOW_WALLET_BALANCE: You need ₹${effectiveBookingFee} platform fee in your DutyPe micro-wallet to book. Current balance is ₹${curRupees}. Please top up minimum ₹50 to continue 1-click booking.`);
+            }
+            (0, referrals_1.postEntry)(tx, uid, w, `booking_fee_${ref.id}`, schema_1.Values.LedgerType.SERVICE_BOOKING_FEE, -feePaise, ref.id);
+            remainingWalletBalanceRupees = (w.balancePaise - feePaise) / 100;
+        }
+        else {
+            const wSnap = await tx.get((0, referrals_1.walletRef)(uid));
+            remainingWalletBalanceRupees = Number(((_a = wSnap.data()) === null || _a === void 0 ? void 0 : _a[schema_1.Wallets.BALANCE_PAISE]) || 0) / 100;
+        }
+        // One use per customer: check if coupon was already consumed
+        if (q.couponCode) {
+            const code = q.couponCode.trim().toUpperCase();
+            const usedRef = db.collection(schema_1.CouponUses.COLLECTION).doc(`${uid}_${code}`);
+            const used = await tx.get(usedRef);
+            if (used.exists) {
+                const bId = String(used.get(schema_1.CouponUses.BOOKING_ID) || "");
+                let isActuallyConsumed = true;
+                if (bId) {
+                    const bSnap = await tx.get(db.collection(BK.COLLECTION).doc(bId));
+                    if (!bSnap.exists) {
                         isActuallyConsumed = false;
                     }
+                    else {
+                        const bStatus = String(bSnap.get(BK.STATUS) || "");
+                        if (bStatus === BS.CANCELLED || bStatus === BS.NO_PARTNER || bStatus === BS.PAYMENT_PENDING) {
+                            isActuallyConsumed = false;
+                        }
+                    }
+                }
+                else {
+                    isActuallyConsumed = false;
+                }
+                if (isActuallyConsumed) {
+                    (0, input_1.fail)("already-exists", "You have already used this coupon");
                 }
             }
-            else {
-                isActuallyConsumed = false;
-            }
-            if (isActuallyConsumed) {
-                (0, input_1.fail)("already-exists", "You have already used this coupon");
-            }
+            tx.set(usedRef, {
+                [schema_1.CouponUses.BOOKING_ID]: ref.id,
+                [schema_1.CouponUses.CREATED_AT]: Timestamp.fromMillis(now),
+            });
         }
-        batch.set(usedRef, {
-            [schema_1.CouponUses.BOOKING_ID]: ref.id,
-            [schema_1.CouponUses.CREATED_AT]: Timestamp.fromMillis(now),
+        tx.set(ref, booking);
+        tx.set(db.collection(schema_1.ServiceBookingSecrets.COLLECTION).doc(ref.id), {
+            [schema_1.ServiceBookingSecrets.CUSTOMER_ID]: uid,
+            [schema_1.ServiceBookingSecrets.START_OTP]: startOtp,
         });
-    }
-    try {
-        await batch.commit();
-    }
-    catch (e) {
-        if (e.code === 6)
-            (0, input_1.fail)("already-exists", "You have already used this coupon");
-        throw e;
-    }
-    if (effectiveBookingFee <= 0 && !scheduled) {
+    });
+    // Zero-friction instant dispatch: technicians in Khammam are alerted right now!
+    if (!scheduled) {
         void advanceServiceWave(ref.id, now).catch((err) => {
             functions.logger.warn(`advanceServiceWave failed for ${ref.id}:`, err);
         });
     }
     return {
-        bookingId: ref.id, startOtp, price: service.price, bookingFee: effectiveBookingFee, discount: q.discount, discountLabel: q.discountLabel,
-        total: q.total, status: effectiveBookingFee > 0 ? BS.PAYMENT_PENDING : BS.SEARCHING,
-        upiId: config.upiId, upiName: config.upiName,
+        bookingId: ref.id,
+        startOtp,
+        price: service.price,
+        bookingFee: effectiveBookingFee,
+        discount: q.discount,
+        discountLabel: q.discountLabel,
+        total: q.total,
+        status: BS.SEARCHING,
+        isFirstBookingFree: isFreePlatformFee,
+        walletDebited: effectiveBookingFee > 0,
+        remainingWalletBalanceRupees,
+        upiId: config.upiId,
+        upiName: config.upiName,
     };
 });
 /** Price breakdown before booking: first-booking offer, the coupon typed, and the visible offers. */
 exports.previewServiceQuote = (0, secure_callable_1.onCallSecured)({ timeoutSeconds: 10, enforceAppCheck: false }, async (raw, context) => {
-    var _a;
+    var _a, _b;
     const data = (0, input_1.obj)(raw);
     const config = await loadConfig();
     const service = (0, service_catalog_1.findService)(config, (0, input_1.str)(data, "serviceId", { max: 60 }));
@@ -551,7 +590,75 @@ exports.previewServiceQuote = (0, secure_callable_1.onCallSecured)({ timeoutSeco
             }
         }
     }
-    return Object.assign(Object.assign(Object.assign({}, q), (couponError ? { couponError } : {})), { firstBooking: first, offers });
+    const walletSnap = await (0, referrals_1.walletRef)(context.auth.uid).get();
+    const walletBalPaise = Number(((_b = walletSnap.data()) === null || _b === void 0 ? void 0 : _b[schema_1.Wallets.BALANCE_PAISE]) || 0);
+    const walletBalRupees = walletBalPaise / 100;
+    const isFree = (first && config.firstBookingFeeFree) || (who.planMember && config.planMembersFeeFree);
+    const bookingFee = isFree ? 0 : q.bookingFee;
+    const hasEnoughWalletBalance = isFree || walletBalPaise >= bookingFee * 100;
+    return Object.assign(Object.assign(Object.assign({}, q), (couponError ? { couponError } : {})), { firstBooking: first, offers, walletBalanceRupees: walletBalRupees, isFirstBookingFree: isFree, hasEnoughWalletBalance, minDepositRupees: 50 });
+});
+/** Deposit funds into the closed-loop micro-wallet (PPI compliant). Min deposit: ₹50, Max balance cap: ₹2,000. */
+exports.depositWalletFunds = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
+    const uid = context.auth.uid;
+    const data = (0, input_1.obj)(raw);
+    const amountRupees = (0, input_1.int)(data, "amount", { min: 50, max: 2000 });
+    const utr = (0, input_1.str)(data, "utr", { min: 6, max: 20, pattern: /^[A-Za-z0-9]+$/ });
+    await (0, referrals_1.ensureWallet)(uid);
+    // Anti-fraud: ensure UTR hasn't been submitted before in wallet_deposits
+    const dupCheck = await db.collection("wallet_deposits").where("utr", "==", utr).limit(1).get();
+    if (!dupCheck.empty) {
+        (0, input_1.fail)("already-exists", "This transaction UTR has already been submitted.");
+    }
+    const depositRef = db.collection("wallet_deposits").doc();
+    const eventId = `deposit_${depositRef.id}`;
+    const out = await db.runTransaction(async (tx) => {
+        const w = await (0, referrals_1.readWallet)(tx, uid);
+        if (w.data[schema_1.Wallets.BLOCKED] === true) {
+            (0, input_1.fail)("permission-denied", "Your DutyPe wallet is blocked. Contact support.");
+        }
+        const ledgerCheck = await tx.get((0, referrals_1.ledgerRef)(eventId));
+        if (ledgerCheck.exists) {
+            (0, input_1.fail)("already-exists", "Deposit already credited.");
+        }
+        tx.set(depositRef, {
+            uid,
+            amountRupees,
+            amountPaise: amountRupees * 100,
+            utr,
+            method: "UPI",
+            status: "COMPLETED",
+            createdAt: Timestamp.now(),
+        });
+        (0, referrals_1.postEntry)(tx, uid, w, eventId, schema_1.Values.LedgerType.WALLET_DEPOSIT, amountRupees * 100, depositRef.id);
+        return {
+            newBalanceRupees: w.balancePaise / 100,
+            depositId: depositRef.id,
+        };
+    });
+    return {
+        ok: true,
+        amountRupees,
+        newBalanceRupees: out.newBalanceRupees,
+        depositId: out.depositId,
+    };
+});
+/** Returns real-time micro-wallet status and first-booking waiver eligibility. */
+exports.getWalletSummary = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (_raw, context) => {
+    const uid = context.auth.uid;
+    await (0, referrals_1.ensureWallet)(uid);
+    const snap = await (0, referrals_1.walletRef)(uid).get();
+    const data = snap.data() || {};
+    const balancePaise = Number(data[schema_1.Wallets.BALANCE_PAISE] || 0);
+    const first = await isFirstBooking(uid);
+    return {
+        balancePaise,
+        balanceRupees: balancePaise / 100,
+        isFirstBookingFree: first,
+        minDepositRupees: 50,
+        platformFeeRupees: 9,
+        blocked: data[schema_1.Wallets.BLOCKED] === true,
+    };
 });
 exports.cancelServiceBooking = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
     const uid = context.auth.uid;
@@ -604,6 +711,19 @@ exports.cancelServiceBooking = (0, secure_callable_1.onCallSecured)({ enforceApp
             travelCompensationCredited: true,
             cancellationNotice: `Doorstep travel compensation of ₹${travelFeeRupees} credited to partner for fuel/transit expenses.`
         } : {})), { [BK.NEXT_WAVE_AT]: FieldValue.delete(), [BK.UPDATED_AT]: now }));
+        // Auto-refund platform fee if customer cancelled before partner assignment/dispatch
+        const bookingFee = Number(b.get(BK.BOOKING_FEE) || 0);
+        const feePaid = b.get(BK.BOOKING_FEE_PAID) === true || b.get("walletDebited") === true;
+        let feeRefundedRupees = 0;
+        if (status === BS.SEARCHING && feePaid && bookingFee > 0) {
+            const refundEventId = `refund_fee_${bookingId}`;
+            const ledgerCheck = await tx.get((0, referrals_1.ledgerRef)(refundEventId));
+            if (!ledgerCheck.exists) {
+                const w = await (0, referrals_1.readWallet)(tx, uid);
+                (0, referrals_1.postEntry)(tx, uid, w, refundEventId, schema_1.Values.LedgerType.REFUND, bookingFee * 100, bookingId);
+                feeRefundedRupees = bookingFee;
+            }
+        }
         if (partnerRef) {
             if (travelFeeCharged && partner) {
                 const curCredits = Number(partner.get(SP.CREDITS_PAISE) || 0);
@@ -632,6 +752,7 @@ exports.cancelServiceBooking = (0, secure_callable_1.onCallSecured)({ enforceApp
             d: b.data() || {},
             travelFeeCharged,
             travelFeeRupees,
+            feeRefundedRupees,
         };
     });
     await releaseCoupon(out.d);
@@ -641,7 +762,7 @@ exports.cancelServiceBooking = (0, secure_callable_1.onCallSecured)({ enforceApp
             `Customer cancelled booking for ${out.service}.`;
         await tellPartner(out.partnerId, "SERVICE_CANCELLED_BY_CUSTOMER", { service: out.service, message: cancelMsg }, { bookingId, deepLink: "dutype://partner" });
     }
-    return { ok: true, travelFeeCharged: out.travelFeeCharged, cancellationFee: out.travelFeeRupees };
+    return { ok: true, travelFeeCharged: out.travelFeeCharged, cancellationFee: out.travelFeeRupees, feeRefundedRupees: out.feeRefundedRupees };
 });
 exports.rateServiceBooking = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
     const uid = context.auth.uid;

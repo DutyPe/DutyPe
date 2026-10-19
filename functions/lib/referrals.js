@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.expirePendingReferrals = exports.getReferralLeaderboard = exports.settleWithdrawal = exports.requestWithdrawal = exports.applyReferralCode = exports.refreshReferralCode = exports.ensureWalletCallable = void 0;
+exports.expirePendingReferrals = exports.getReferralLeaderboard = exports.settleWithdrawal = exports.requestWithdrawal = exports.applyReferralCode = exports.refreshReferralCode = exports.ensureWalletCallable = exports.ledgerRef = exports.walletRef = void 0;
+exports.readWallet = readWallet;
+exports.postEntry = postEntry;
 exports.ensureWallet = ensureWallet;
 exports.normalizeCode = normalizeCode;
 exports.registerReferral = registerReferral;
@@ -42,9 +44,11 @@ const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 /** Job-post credits an employer earns at these successful-referral counts. */
 const EMPLOYER_CREDIT_MILESTONES = { 5: 5, 10: 10, 25: 25 };
 const walletRef = (uid) => db.collection(schema_1.Wallets.COLLECTION).doc(uid);
+exports.walletRef = walletRef;
 const ledgerRef = (eventId) => db.collection(schema_1.WalletLedger.COLLECTION).doc(eventId);
+exports.ledgerRef = ledgerRef;
 async function readWallet(tx, uid) {
-    const snap = await tx.get(walletRef(uid));
+    const snap = await tx.get((0, exports.walletRef)(uid));
     const data = snap.data() || {};
     return { ref: snap.ref, balancePaise: Number(data[schema_1.Wallets.BALANCE_PAISE] || 0), data };
 }
@@ -54,7 +58,7 @@ async function readWallet(tx, uid) {
  */
 function postEntry(tx, uid, wallet, eventId, type, amountPaise, refId) {
     const after = wallet.balancePaise + amountPaise;
-    tx.create(ledgerRef(eventId), {
+    tx.create((0, exports.ledgerRef)(eventId), {
         [schema_1.WalletLedger.UID]: uid,
         [schema_1.WalletLedger.TYPE]: type,
         [schema_1.WalletLedger.AMOUNT_PAISE]: amountPaise,
@@ -66,7 +70,7 @@ function postEntry(tx, uid, wallet, eventId, type, amountPaise, refId) {
         [schema_1.Wallets.BALANCE_PAISE]: after,
         [schema_1.Wallets.UPDATED_AT]: Timestamp.now(),
     };
-    if (amountPaise > 0 && type !== schema_1.Values.LedgerType.REFUND) {
+    if (amountPaise > 0 && type !== schema_1.Values.LedgerType.REFUND && type !== schema_1.Values.LedgerType.WALLET_DEPOSIT) {
         update[schema_1.Wallets.LIFETIME_EARNED_PAISE] = FieldValue.increment(amountPaise);
     }
     if (type === schema_1.Values.LedgerType.WITHDRAWAL)
@@ -85,8 +89,8 @@ function generateNameCode(rawName) {
     return `${prefix}${num}`;
 }
 /** Creates the wallet and the user's own referral code if missing, or upgrades generic codes to real name. Returns the code. */
-async function ensureWallet(uid, role, preferredName, forceRefreshName) {
-    const existing = await walletRef(uid).get();
+async function ensureWallet(uid, role = schema_1.Values.Role.EMPLOYER, preferredName, forceRefreshName) {
+    const existing = await (0, exports.walletRef)(uid).get();
     const currentCode = String(existing.get(schema_1.Wallets.REFERRAL_CODE) || "");
     let baseName = (preferredName === null || preferredName === void 0 ? void 0 : preferredName.trim()) || "";
     if (!baseName) {
@@ -129,7 +133,7 @@ async function ensureWallet(uid, role, preferredName, forceRefreshName) {
                     ? db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid)
                     : db.collection(schema_1.WorkerProfiles.COLLECTION).doc(uid);
                 const [wallet, codeDoc, profileSnap] = await Promise.all([
-                    tx.get(walletRef(uid)),
+                    tx.get((0, exports.walletRef)(uid)),
                     tx.get(db.collection(schema_1.ReferralCodes.COLLECTION).doc(candidate)),
                     tx.get(profileRef)
                 ]);
@@ -367,8 +371,8 @@ async function registerReferral(uid, rawCode, providedPhone, providedName) {
                 readWallet(tx, referrerUid),
                 readWallet(tx, uid),
                 tx.get(db.collection(schema_1.Referrals.COLLECTION).doc(referrerUid)),
-                tx.get(ledgerRef(bonusEventId)),
-                tx.get(ledgerRef(rewardEventId)),
+                tx.get((0, exports.ledgerRef)(bonusEventId)),
+                tx.get((0, exports.ledgerRef)(rewardEventId)),
             ]);
             if (existing.exists) {
                 if (existing.get(schema_1.Referrals.CODE) === code) {
@@ -535,7 +539,7 @@ async function completeReferral(refereeUid, refereeRole) {
         const rewardId = `referral_${refereeUid}_referrer`;
         const bonusId = `referral_${refereeUid}_referee`;
         const [referrer, referee, rewardEntry, bonusEntry] = await Promise.all([
-            readWallet(tx, referrerUid), readWallet(tx, refereeUid), tx.get(ledgerRef(rewardId)), tx.get(ledgerRef(bonusId)),
+            readWallet(tx, referrerUid), readWallet(tx, refereeUid), tx.get((0, exports.ledgerRef)(rewardId)), tx.get((0, exports.ledgerRef)(bonusId)),
         ]);
         const employerRef = db.collection(schema_1.EmployerProfiles.COLLECTION).doc(referrerUid);
         const employerSnap = referrerRole === schema_1.Values.Role.EMPLOYER ? await tx.get(employerRef) : null;
@@ -699,7 +703,7 @@ exports.settleWithdrawal = (0, secure_callable_1.onCallSecured)({ enforceAppChec
         const uid = String(w.get(schema_1.Withdrawals.UID));
         const amountPaise = Number(w.get(schema_1.Withdrawals.AMOUNT_PAISE));
         const refundId = `refund_${withdrawalId}`;
-        const [wallet, refund] = await Promise.all([readWallet(tx, uid), tx.get(ledgerRef(refundId))]);
+        const [wallet, refund] = await Promise.all([readWallet(tx, uid), tx.get((0, exports.ledgerRef)(refundId))]);
         tx.update(ref, Object.assign(Object.assign(Object.assign({ [schema_1.Withdrawals.STATUS]: status }, (txnRef ? { [schema_1.Withdrawals.TXN_REF]: txnRef } : {})), (failureReason ? { [schema_1.Withdrawals.FAILURE_REASON]: failureReason } : {})), (status !== schema_1.Values.WithdrawalStatus.PROCESSING ? { [schema_1.Withdrawals.PROCESSED_AT]: Timestamp.now() } : {})));
         if (status === schema_1.Values.WithdrawalStatus.FAILED && !refund.exists) {
             postEntry(tx, uid, wallet, refundId, schema_1.Values.LedgerType.REFUND, amountPaise, withdrawalId);

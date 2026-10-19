@@ -75,6 +75,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AcUnit
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Bolt
@@ -4442,6 +4443,8 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
     var selectedTag by remember { mutableStateOf<String?>("🏠 Home") }
     var showAddAddressSheet by remember { mutableStateOf(false) }
     var showCouponSheet by remember { mutableStateOf(false) }
+    val wallet by viewModel.wallet.collectAsState()
+    var showWalletTopupSheet by remember { mutableStateOf(false) }
     var newAddressTag by remember { mutableStateOf("🏠 Home") }
     var newAddressText by remember { mutableStateOf("") }
     var newAddressArea by remember { mutableStateOf("") }
@@ -4638,7 +4641,14 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                         popUpTo(Routes.SERVICES_BOOK) { inclusive = true }
                     }
                 }
-                .onFailure { Toast.makeText(context, it.message, Toast.LENGTH_LONG).show() }
+                .onFailure { err ->
+                    val msg = err.message.orEmpty()
+                    if (msg.contains("LOW_WALLET_BALANCE", ignoreCase = true)) {
+                        showWalletTopupSheet = true
+                    } else {
+                        Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                    }
+                }
             submitting = false
         }
     }
@@ -4672,11 +4682,21 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                                     Text("₹${service.price}", color = Color(0xFF94A3B8), fontSize = 13.sp, textDecoration = TextDecoration.LineThrough)
                                 }
                             }
+                            val walletBal = (wallet?.balancePaise ?: 0L) / 100
+                            val isFirstFree = q?.firstBooking == true || q?.bookingFee == 0 || (c.firstBookingFeeFree && (q?.firstBooking ?: false))
+                            val reqFee = q?.bookingFee ?: 9
+                            val isLowBal = !isFirstFree && walletBal < reqFee
+
                             Text(
-                                text = stringResource(R.string.svc_pay_after),
-                                color = SvcMuted.fg(),
-                                fontSize = 11.5.sp,
-                                maxLines = 1
+                                text = when {
+                                    isFirstFree -> "🎁 1st Booking Fee Waived (Free) • Pay after service"
+                                    isLowBal -> "⚠️ DutyPe Wallet: ₹$walletBal (Low) • Min deposit ₹50"
+                                    else -> "⚡ DutyPe Wallet: ₹$walletBal (₹$reqFee fee auto-debited)"
+                                },
+                                color = if (isLowBal) Color(0xFFD97706) else SvcMuted.fg(),
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                fontWeight = if (isLowBal) FontWeight.SemiBold else FontWeight.Normal
                             )
                         }
                         Button(
@@ -4690,7 +4710,14 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                                         showAddAddressSheet = true
                                     }
                                 } else {
-                                    doBook()
+                                    val walletBal = (wallet?.balancePaise ?: 0L) / 100
+                                    val isFirstFree = q?.firstBooking == true || q?.bookingFee == 0 || (c.firstBookingFeeFree && (q?.firstBooking ?: false))
+                                    val reqFee = q?.bookingFee ?: 9
+                                    if (!isFirstFree && walletBal < reqFee) {
+                                        showWalletTopupSheet = true
+                                    } else {
+                                        doBook()
+                                    }
                                 }
                             },
                             enabled = !submitting && !quoting && (!isNightClosed || (scheduled && slot != null)) && (!scheduled || slot != null),
@@ -5534,6 +5561,219 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
             detectedAddress = address,
             onDismiss = { showLaunchFeedbackSheet = false }
         )
+    }
+
+    if (showWalletTopupSheet) {
+        val walletBal = (wallet?.balancePaise ?: 0L) / 100
+        val reqFee = q?.bookingFee ?: 9
+        MicroWalletTopupSheet(
+            currentBalanceRupees = walletBal,
+            requiredFeeRupees = reqFee,
+            onDismiss = { showWalletTopupSheet = false },
+            onTopupSuccess = {
+                showWalletTopupSheet = false
+                doBook()
+            },
+            viewModel = viewModel
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MicroWalletTopupSheet(
+    currentBalanceRupees: Long,
+    requiredFeeRupees: Int = 9,
+    onDismiss: () -> Unit,
+    onTopupSuccess: () -> Unit,
+    viewModel: HomeServicesViewModel
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var selectedAmount by remember { mutableIntStateOf(50) } // Default ₹50 (minimum deposit)
+    var utrInput by remember { mutableStateOf("") }
+    var isSubmitting by remember { mutableStateOf(false) }
+    var showUtrInput by remember { mutableStateOf(false) }
+
+    val upiId = "dutypein@ybl"
+    val upiName = "DutyPe"
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Color.White.bg()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Header
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFEFF6FF)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.AccountBalanceWallet,
+                        contentDescription = null,
+                        tint = Color(0xFF2563EB),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(
+                        "DutyPe Micro-Wallet",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = Color(0xFF0F172A).fg()
+                    )
+                    Text(
+                        "Closed-loop PPI • Zero-click instant booking",
+                        fontSize = 12.sp,
+                        color = Color(0xFF64748B).fg()
+                    )
+                }
+            }
+
+            // Balance banner
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFFFFBEB),
+                border = BorderStroke(1.dp, Color(0xFFFDE68A)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "Current Balance: ₹$currentBalanceRupees",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = Color(0xFF92400E)
+                    )
+                    Text(
+                        "Booking platform fee (₹$requiredFeeRupees) is auto-deducted with zero clicks. Load minimum ₹50 to unlock instant 1-click booking.",
+                        fontSize = 12.sp,
+                        color = Color(0xFFB45309)
+                    )
+                }
+            }
+
+            // Select deposit amount
+            Text("Select Deposit Amount", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Color(0xFF0F172A).fg())
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                listOf(50 to "5 Bookings", 100 to "11 Bookings", 200 to "Best Value").forEach { (amt, badge) ->
+                    val isSelected = selectedAmount == amt
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { selectedAmount = amt },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected) Color(0xFFEFF6FF) else Color(0xFFF8FAFC),
+                        border = BorderStroke(if (isSelected) 2.dp else 1.dp, if (isSelected) Color(0xFF2563EB) else Color(0xFFE2E8F0))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("₹$amt", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = if (isSelected) Color(0xFF2563EB) else Color(0xFF0F172A))
+                            Text(badge, fontSize = 10.sp, color = if (isSelected) Color(0xFF1D4ED8) else Color(0xFF64748B), fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            }
+
+            // Benefits explanation
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("💡 How it works:", fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = Color(0xFF1E293B))
+                    Text("• ₹$selectedAmount is loaded into your DutyPe closed-loop micro-wallet.", fontSize = 11.5.sp, color = Color(0xFF475569))
+                    Text("• When booking, the ₹9 fee is auto-deducted invisibly in the background.", fontSize = 11.5.sp, color = Color(0xFF475569))
+                    Text("• Cancelled before partner arrival? Fee is instantly refunded to your wallet.", fontSize = 11.5.sp, color = Color(0xFF475569))
+                }
+            }
+
+            // 1-Click Pay with UPI button
+            Button(
+                onClick = {
+                    val uri = Uri.parse("upi://pay?pa=$upiId&pn=${Uri.encode(upiName)}&am=$selectedAmount&cu=INR&tn=${Uri.encode("DutyPe Micro Wallet Load")}")
+                    val intent = Intent(Intent.ACTION_VIEW, uri)
+                    try {
+                        context.startActivity(intent)
+                    } catch (_: Exception) {
+                        Toast.makeText(context, "No UPI app found. Please pay to $upiId directly.", Toast.LENGTH_LONG).show()
+                    }
+                    showUtrInput = true
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
+            ) {
+                Icon(Icons.Filled.Bolt, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Pay ₹$selectedAmount via any UPI App (GPay/PhonePe)", fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+            }
+
+            // UTR input for deposit completion
+            if (showUtrInput) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Enter 12-Digit UPI Reference / UTR Number:", fontSize = 12.sp, color = Color(0xFF475569), fontWeight = FontWeight.Medium)
+                    OutlinedTextField(
+                        value = utrInput,
+                        onValueChange = { if (it.length <= 12) utrInput = it.filter { c -> c.isDigit() } },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("e.g. 428912345678", fontSize = 13.sp) },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    Button(
+                        onClick = {
+                            if (utrInput.length < 12) {
+                                Toast.makeText(context, "Please enter a valid 12-digit UPI UTR number", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            isSubmitting = true
+                            scope.launch {
+                                viewModel.depositWalletFunds(selectedAmount, utrInput)
+                                    .onSuccess {
+                                        Toast.makeText(context, "₹$selectedAmount added to DutyPe Micro-Wallet!", Toast.LENGTH_SHORT).show()
+                                        isSubmitting = false
+                                        onTopupSuccess()
+                                    }
+                                    .onFailure {
+                                        Toast.makeText(context, it.message ?: "Deposit failed", Toast.LENGTH_LONG).show()
+                                        isSubmitting = false
+                                    }
+                            }
+                        },
+                        enabled = !isSubmitting && utrInput.length == 12,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                    ) {
+                        if (isSubmitting) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text("Confirm Deposit & Proceed to Book", fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -378,6 +378,8 @@ export const ServiceBookings = {
   PRICE: "price",
   /** Rupees, DutyPe booking fee the customer pays (collected by the partner, debited from credits). */
   BOOKING_FEE: "bookingFee",
+  BOOKING_FEE_PAID: "bookingFeePaid",
+  BOOKING_FEE_PAID_AT: "bookingFeePaidAt",
   COMMISSION_PCT: "commissionPct",
   INSPECTION: "inspection",
   ADDRESS_TEXT: "addressText",
@@ -638,6 +640,9 @@ export const Values = {
     WITHDRAWAL: "WITHDRAWAL",
     REFUND: "REFUND",
     ADJUSTMENT: "ADJUSTMENT",
+    WALLET_DEPOSIT: "WALLET_DEPOSIT",
+    SERVICE_BOOKING_FEE: "SERVICE_BOOKING_FEE",
+    FIRST_BOOKING_WAIVER: "FIRST_BOOKING_WAIVER",
   },
   WithdrawalStatus: { PENDING: "PENDING", PROCESSING: "PROCESSING", COMPLETED: "COMPLETED", FAILED: "FAILED" },
   InstantStatus: { OPEN: "open", FILLED: "filled", COMPLETED: "completed", CANCELLED: "cancelled", EXPIRED: "expired" },

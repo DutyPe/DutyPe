@@ -236,6 +236,10 @@ service cloud.firestore {
       allow get, list: if signedIn() && resource.data.uid == me();
     }
 
+    match /wallet_deposits/{depositId} {
+      allow get, list: if signedIn() && resource.data.uid == me();
+    }
+
     // ───────────────────────── subscriptions ─────────────────────────
 
     match /subscription_payment_requests/{requestId} {

@@ -22,10 +22,22 @@ import javax.inject.Inject
 class HomeServicesViewModel @Inject constructor(
     val repo: HomeServicesRepository,
     private val locationRepository: LocationRepository,
-    val savedWorkLocationsStore: com.example.dutype.services.SavedWorkLocationsStore
+    val savedWorkLocationsStore: com.example.dutype.services.SavedWorkLocationsStore,
+    val referralService: com.example.dutype.services.ReferralService
 ) : ViewModel() {
 
     val userLocation: StateFlow<LocationData?> = locationRepository.userLocation
+
+    val wallet: StateFlow<com.example.dutype.models.Wallet?> =
+        referralService.wallet().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    suspend fun depositWalletFunds(amountRupees: Int, utr: String): Result<Map<String, Any?>> = runCatching {
+        repo.depositWalletFunds(amountRupees, utr)
+    }.mapError()
+
+    suspend fun getWalletSummary(): Result<Map<String, Any?>> = runCatching {
+        repo.getWalletSummary()
+    }.mapError()
 
     private val _catalog = MutableStateFlow<ServicesCatalog?>(repo.getCachedCatalog())
     val catalog: StateFlow<ServicesCatalog?> = _catalog.asStateFlow()

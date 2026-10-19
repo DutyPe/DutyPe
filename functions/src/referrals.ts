@@ -41,14 +41,14 @@ const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 /** Job-post credits an employer earns at these successful-referral counts. */
 const EMPLOYER_CREDIT_MILESTONES: Record<number, number> = { 5: 5, 10: 10, 25: 25 };
 
-const walletRef = (uid: string) => db.collection(Wallets.COLLECTION).doc(uid);
-const ledgerRef = (eventId: string) => db.collection(WalletLedger.COLLECTION).doc(eventId);
+export const walletRef = (uid: string) => db.collection(Wallets.COLLECTION).doc(uid);
+export const ledgerRef = (eventId: string) => db.collection(WalletLedger.COLLECTION).doc(eventId);
 
 // ───────────────────────────── ledger core ─────────────────────────────
 
-interface WalletState { ref: admin.firestore.DocumentReference; balancePaise: number; data: admin.firestore.DocumentData }
+export interface WalletState { ref: admin.firestore.DocumentReference; balancePaise: number; data: admin.firestore.DocumentData }
 
-async function readWallet(tx: Tx, uid: string): Promise<WalletState> {
+export async function readWallet(tx: Tx, uid: string): Promise<WalletState> {
   const snap = await tx.get(walletRef(uid));
   const data = snap.data() || {};
   return { ref: snap.ref, balancePaise: Number(data[Wallets.BALANCE_PAISE] || 0), data };
@@ -58,7 +58,7 @@ async function readWallet(tx: Tx, uid: string): Promise<WalletState> {
  * Appends one ledger entry and moves the wallet balance by the same amount. The caller must have
  * checked (inside the same transaction) that the ledger id does not exist yet.
  */
-function postEntry(tx: Tx, uid: string, wallet: WalletState, eventId: string, type: string, amountPaise: number, refId: string) {
+export function postEntry(tx: Tx, uid: string, wallet: WalletState, eventId: string, type: string, amountPaise: number, refId: string) {
   const after = wallet.balancePaise + amountPaise;
   tx.create(ledgerRef(eventId), {
     [WalletLedger.UID]: uid,
@@ -72,7 +72,7 @@ function postEntry(tx: Tx, uid: string, wallet: WalletState, eventId: string, ty
     [Wallets.BALANCE_PAISE]: after,
     [Wallets.UPDATED_AT]: Timestamp.now(),
   };
-  if (amountPaise > 0 && type !== Values.LedgerType.REFUND) {
+  if (amountPaise > 0 && type !== Values.LedgerType.REFUND && type !== Values.LedgerType.WALLET_DEPOSIT) {
     update[Wallets.LIFETIME_EARNED_PAISE] = FieldValue.increment(amountPaise);
   }
   if (type === Values.LedgerType.WITHDRAWAL) update[Wallets.WITHDRAWN_PAISE] = FieldValue.increment(-amountPaise);
@@ -94,7 +94,7 @@ function generateNameCode(rawName?: string): string {
 /** Creates the wallet and the user's own referral code if missing, or upgrades generic codes to real name. Returns the code. */
 export async function ensureWallet(
   uid: string,
-  role: string,
+  role: string = Values.Role.EMPLOYER,
   preferredName?: string,
   forceRefreshName?: boolean
 ): Promise<string> {

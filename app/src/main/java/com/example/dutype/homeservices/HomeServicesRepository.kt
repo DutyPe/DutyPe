@@ -865,6 +865,18 @@ class HomeServicesRepository @Inject constructor(
         return d.str("bookingId")
     }
 
+    suspend fun depositWalletFunds(amountRupees: Int, utr: String): Map<String, Any?> {
+        val payload = mapOf(
+            "amount" to amountRupees,
+            "utr" to utr
+        )
+        return call("depositWalletFunds", payload)
+    }
+
+    suspend fun getWalletSummary(): Map<String, Any?> {
+        return call("getWalletSummary", emptyMap())
+    }
+
     fun observeMyBookings(): Flow<List<ServiceBooking>> {
         val me = uid ?: return flowOf(emptyList())
         return observeList(
