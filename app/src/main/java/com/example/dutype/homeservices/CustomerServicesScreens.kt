@@ -2039,82 +2039,6 @@ private fun NewAndNoteworthySection(
     }
 }
 
-@Composable
-private fun CleanerHomeStoryBanner(
-    onExploreCleaning: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .clickable(onClick = onExploreCleaning),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(
-                        listOf(Color(0xFFFFFBEB), Color(0xFFFEF3C7), Color(0xFFFDE68A))
-                    )
-                )
-                .border(1.dp, Color(0xFFFCD34D), RoundedCornerShape(20.dp))
-                .padding(20.dp)
-        ) {
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFFD97706))
-                            .padding(horizontal = 8.dp, vertical = 2.5.dp)
-                    ) {
-                        Text("✨ POPULAR IN KHAMMAM", color = Color.White, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "A cleaner home, without any hassle",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF451A03),
-                    lineHeight = 23.sp
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "Full home deep cleaning starting from ₹199 • Hospital-grade sanitization",
-                    fontSize = 12.5.sp,
-                    color = Color(0xFF78350F),
-                    lineHeight = 16.sp
-                )
-                Spacer(Modifier.height(14.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(Color(0xFF0F172A))
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = "Book Cleaning",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.5.sp
-                    )
-                    Spacer(Modifier.width(5.dp))
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(13.dp)
-                    )
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun MostBookedServicesSection(
@@ -3126,17 +3050,6 @@ fun ServicesHomeScreen(
                     }
                 }
 
-                // 4. Promotional Story Banner (Image 3 bottom: "A cleaner home, without any hassle")
-                item(key = "cleaner_home_banner") {
-                    CleanerHomeStoryBanner(
-                        onExploreCleaning = {
-                            val cleanCat = customerCategories.firstOrNull { it.id.contains("clean", ignoreCase = true) }
-                            if (cleanCat != null) nav.navigate(Routes.servicesCategoryRoute(cleanCat.id))
-                            else if (customerCategories.isNotEmpty()) nav.navigate(Routes.servicesCategoryRoute(customerCategories.first().id))
-                        },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-                    )
-                }
 
                 // 5. Most Booked Services (Image 4!)
                 if (mostBookedFiltered.isNotEmpty()) {
@@ -8079,12 +7992,21 @@ fun ServicesAreaTeaserCard(
     val active = bookings.firstOrNull { it.isOpen }
     val cityName = catalog?.city?.ifBlank { "Khammam" } ?: "Khammam"
 
-    val displayCategories = listOf(
-        Triple("Cleaning", Icons.Filled.CleaningServices, "From ₹199"),
-        Triple("Electrician", Icons.Filled.ElectricalServices, "From ₹149"),
-        Triple("AC Service", Icons.Filled.AcUnit, "From ₹399"),
-        Triple("Plumbing", Icons.Filled.Plumbing, "From ₹149")
-    )
+    val catalogServices = catalog?.services ?: DefaultServicesCatalog.get().services
+    val displayCategories = remember(catalogServices) {
+        fun minCategoryPrice(catId: String, fallback: Int): String {
+            val min = catalogServices
+                .filter { it.category.equals(catId, ignoreCase = true) }
+                .minOfOrNull { it.price } ?: fallback
+            return "From ₹$min"
+        }
+        listOf(
+            Triple("Cleaning", Icons.Filled.CleaningServices, minCategoryPrice("CLEANING", 149)),
+            Triple("Electrician", Icons.Filled.ElectricalServices, minCategoryPrice("ELECTRICIAN", 99)),
+            Triple("Plumbing", Icons.Filled.Plumbing, minCategoryPrice("PLUMBER", 99)),
+            Triple("Painting", Icons.Filled.FormatPaint, minCategoryPrice("PAINTER", 99))
+        )
+    }
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (active != null) {

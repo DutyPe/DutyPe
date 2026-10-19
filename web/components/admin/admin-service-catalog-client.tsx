@@ -73,28 +73,26 @@ interface ImageOptimizationResult {
 
 const DEFAULT_CATEGORIES: ServiceCategoryDef[] = [
   { id: "CLEANING", name: "Home Cleaning", te: "ఇంటి క్లీనింగ్", hi: "घर की सफाई", skill: "BASIC" },
-  { id: "AC", name: "AC Service & Repair", te: "ఏసీ సర్వీస్", hi: "एसी सर्विस", skill: "SKILLED" },
   { id: "ELECTRICIAN", name: "Electrician", te: "ఎలక్ట్రీషియన్", hi: "इलेक्ट्रीशियन", skill: "SKILLED" },
   { id: "PLUMBER", name: "Plumber", te: "ప్లంబర్", hi: "प्लम्बर", skill: "SKILLED" },
-  { id: "APPLIANCE", name: "Appliance & RO Repair", te: "ఉపకరణాలు & ఆర్వో", hi: "उपकरण और आरओ", skill: "SKILLED" },
   { id: "CARPENTER", name: "Carpenter", te: "కార్పెంటర్", hi: "बढ़ई", skill: "SKILLED" },
   { id: "PAINTER", name: "Painting", te: "పెయింటింగ్", hi: "पेंटिंग", skill: "SKILLED" },
   { id: "HOME_HELP", name: "Home Help & Shifting", te: "హెల్పర్స్ & షిఫ్టింగ్", hi: "हेल्पर्स और शिफ्टिंग", skill: "BASIC" },
-  { id: "VEHICLE", name: "Car & Bike Wash", te: "కార్ & బైక్ వాష్", hi: "कार और बाइक वॉश", skill: "BASIC" }
+  { id: "COOK_MAID", name: "Cook & Maid", te: "వంటమనిషి & మేడ్", hi: "रसोइया और कुक", skill: "BASIC" },
+  { id: "BABYSITTER", name: "Babysitting & Child Care", te: "పిల్లల సంరక్షణ & బేబీ సిట్టింగ్", hi: "बच्चों की देखभाल और बेबीसिटिंग", skill: "BASIC" }
 ];
 
 const DEFAULT_CATEGORY_IDS = new Set(DEFAULT_CATEGORIES.map((c) => c.id));
 
 const CATEGORY_NAMES: Record<string, string> = {
   CLEANING: "Home Cleaning",
-  AC: "AC Service & Repair",
   ELECTRICIAN: "Electrician",
   PLUMBER: "Plumber",
-  APPLIANCE: "Appliance & RO Repair",
   CARPENTER: "Carpenter",
   PAINTER: "Painting",
   HOME_HELP: "Home Help & Shifting",
-  VEHICLE: "Car & Bike Wash"
+  COOK_MAID: "Cook & Maid",
+  BABYSITTER: "Babysitting & Child Care"
 };
 
 const BUCKET_NAME = "dutype-860ac.firebasestorage.app";

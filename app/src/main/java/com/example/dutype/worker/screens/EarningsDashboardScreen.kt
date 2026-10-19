@@ -16,15 +16,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.CardGiftcard
 import androidx.compose.material.icons.outlined.WorkOutline
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import com.example.dutype.homeservices.MicroWalletTopupSheet
-import com.example.dutype.homeservices.HomeServicesViewModel
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -104,8 +100,6 @@ fun EarningsDashboardScreen(
     val referralState by referralViewModel.uiState.collectAsState()
 
     val context = androidx.compose.ui.platform.LocalContext.current
-    val homeServicesViewModel: HomeServicesViewModel = hiltViewModel()
-    var showTopupSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.loadEarnings()
@@ -153,18 +147,6 @@ fun EarningsDashboardScreen(
 
     val goToWallet = { navController.navigate(Routes.WORKER_REFER_EARN) }
 
-    if (showTopupSheet) {
-        MicroWalletTopupSheet(
-            currentBalanceRupees = (wallet?.balancePaise ?: 0L) / 100,
-            onDismiss = { showTopupSheet = false },
-            onTopupSuccess = {
-                showTopupSheet = false
-                referralViewModel.loadReferralData()
-            },
-            viewModel = homeServicesViewModel
-        )
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -184,7 +166,6 @@ fun EarningsDashboardScreen(
                 BalanceHeroCard(
                     balance = walletBalance,
                     isLoading = isBalanceLoading,
-                    onTopup = { showTopupSheet = true },
                     onWithdraw = { goToWallet() },
                     onHistory = { goToWallet() }
                 )
@@ -231,7 +212,6 @@ fun EarningsDashboardScreen(
 private fun BalanceHeroCard(
     balance: Double,
     isLoading: Boolean,
-    onTopup: () -> Unit,
     onWithdraw: () -> Unit,
     onHistory: () -> Unit
 ) {
@@ -243,28 +223,10 @@ private fun BalanceHeroCard(
             .background(InkBlack.bg())
             .padding(20.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "DUTYPE MICRO-WALLET BALANCE",
-                style = t(11, FontWeight.Bold, SlateMuted.fg(), 0.8f)
-            )
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = Color(0xFF1E293B)
-            ) {
-                Text(
-                    text = "PPI Closed-Loop",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF94A3B8),
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                )
-            }
-        }
+        Text(
+            text = stringResource(R.string.earnings_available_balance),
+            style = t(12, FontWeight.Normal, SlateMuted.fg(), 0.8f)
+        )
         Spacer(modifier = Modifier.height(6.dp))
         if (isLoading) {
             Box(modifier = Modifier.height(44.dp), contentAlignment = Alignment.CenterStart) {
@@ -283,27 +245,8 @@ private fun BalanceHeroCard(
         Spacer(modifier = Modifier.height(18.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(44.dp)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(Color(0xFF2563EB))
-                    .clickable(onClick = onTopup),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = "Top Up",
-                        style = t(13, FontWeight.Bold, Color.White),
-                        maxLines = 1
-                    )
-                }
-            }
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -321,7 +264,7 @@ private fun BalanceHeroCard(
             }
             Box(
                 modifier = Modifier
-                    .width(80.dp)
+                    .width(96.dp)
                     .height(44.dp)
                     .clip(RoundedCornerShape(22.dp))
                     .border(1.dp, Color.White.bd(), RoundedCornerShape(22.dp))
@@ -330,7 +273,7 @@ private fun BalanceHeroCard(
             ) {
                 Text(
                     text = stringResource(R.string.earnings_history),
-                    style = t(13, FontWeight.Medium, Color.White),
+                    style = t(13, FontWeight.SemiBold, Color.White),
                     maxLines = 1
                 )
             }

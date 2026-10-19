@@ -80,7 +80,6 @@ import androidx.compose.foundation.border
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.runtime.mutableIntStateOf
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -195,18 +194,7 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
     var savingOnline by remember { mutableStateOf(false) }
     var showOutOfAreaSheet by remember { mutableStateOf(false) }
     var outOfAreaDistanceKm by remember { mutableDoubleStateOf(0.0) }
-    val wallet by viewModel.wallet.collectAsState()
-    var showPartnerTopup by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { viewModel.loadCatalog() }
-
-    if (showPartnerTopup) {
-        MicroWalletTopupSheet(
-            currentBalanceRupees = (wallet?.balancePaise ?: 0L) / 100,
-            onDismiss = { showPartnerTopup = false },
-            onTopupSuccess = { showPartnerTopup = false },
-            viewModel = viewModel
-        )
-    }
 
     fun changeOnline(online: Boolean) {
         savingOnline = true
@@ -404,66 +392,6 @@ fun PartnerHomeScreen(navController: NavController, viewModel: HomeServicesViewM
                                     Text("Jobs Done", color = Color(0xFF64748B), fontSize = 11.5.sp)
                                     Text("${p.jobsCompleted}", color = Color(0xFF0F172A), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                 }
-                            }
-                        }
-                    }
-
-                    // DutyPe Micro-Wallet Card
-                    val partnerWalletBalance = (wallet?.balancePaise ?: 0L) / 100
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(16.dp),
-                        modifier = Modifier.fillMaxWidth(),
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFEFF6FF)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        Icons.Filled.AccountBalanceWallet,
-                                        contentDescription = null,
-                                        tint = Color(0xFF2563EB),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                                Spacer(Modifier.width(10.dp))
-                                Column {
-                                    Text(
-                                        "DutyPe Micro-Wallet",
-                                        color = Color(0xFF0F172A),
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 15.sp
-                                    )
-                                    Text(
-                                        "Available: ₹$partnerWalletBalance",
-                                        color = Color(0xFF2563EB),
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 13.sp
-                                    )
-                                }
-                            }
-                            Button(
-                                onClick = { showPartnerTopup = true },
-                                shape = RoundedCornerShape(20.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                            ) {
-                                Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text("Top Up", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }

@@ -41,18 +41,26 @@ export interface ServiceItemDef {
   active?: boolean;
 }
 
+export const LIVE_CATEGORY_IDS = new Set([
+  "CLEANING",
+  "ELECTRICIAN",
+  "PLUMBER",
+  "CARPENTER",
+  "PAINTER",
+  "HOME_HELP",
+  "COOK_MAID",
+  "BABYSITTER"
+]);
+
 const DEFAULT_CATEGORIES: CategoryDef[] = [
   { id: "CLEANING", name: "Home Cleaning", te: "ఇంటి క్లీనింగ్", hi: "घर की सफाई", skill: "BASIC" },
-  { id: "AC", name: "AC Service & Repair", te: "ఏసీ సర్వీస్", hi: "एसी सर्विस", skill: "SKILLED" },
   { id: "ELECTRICIAN", name: "Electrician", te: "ఎలక్ట్రీషియన్", hi: "इलेक्ट्रीशियन", skill: "SKILLED" },
   { id: "PLUMBER", name: "Plumber", te: "ప్లంబర్", hi: "प्लम्बर", skill: "SKILLED" },
-  { id: "APPLIANCE", name: "Appliance & RO Repair", te: "ఉపకరణాలు & ఆర్వో", hi: "उपकरण और आरओ", skill: "SKILLED" },
   { id: "CARPENTER", name: "Carpenter", te: "కార్పెంటర్", hi: "बढ़ई", skill: "SKILLED" },
   { id: "PAINTER", name: "Painting", te: "పెయింటింగ్", hi: "पेंटिंग", skill: "SKILLED" },
   { id: "HOME_HELP", name: "Home Help & Shifting", te: "హెల్పర్స్ & షిఫ్టింగ్", hi: "हेल्पर्स और शिफ्टिंग", skill: "BASIC" },
   { id: "COOK_MAID", name: "Cook & Maid", te: "వంటమనిషి & మేడ్", hi: "रसोइया और कुक", skill: "BASIC" },
-  { id: "BABYSITTER", name: "Babysitting & Child Care", te: "పిల్లల సంరక్షణ & బేబీ సిట్టింగ్", hi: "बच्चों की देखभाल और बेबीसिटिंग", skill: "BASIC" },
-  { id: "VEHICLE", name: "Car & Bike Wash", te: "కార్ & బైక్ వాష్", hi: "कार और बाइक वॉश", skill: "BASIC" }
+  { id: "BABYSITTER", name: "Babysitting & Child Care", te: "పిల్లల సంరక్షణ & బేబీ సిట్టింగ్", hi: "बच्चों की देखभाल और बेबीसिटिंग", skill: "BASIC" }
 ];
 
 const DEFAULT_SERVICES: ServiceItemDef[] = [
@@ -70,14 +78,6 @@ const DEFAULT_SERVICES: ServiceItemDef[] = [
   { id: "clean_windows", category: "CLEANING", name: "Window & mesh cleaning (up to 4 windows)", te: "కిటికీలు & మెష్ క్లీనింగ్", hi: "खिड़कियाँ और जाली सफ़ाई", price: 299, durationMin: 60, includes: "Mesh dusting, grill washing and glass wipe for up to 4 windows.", active: true },
   { id: "clean_kitchen_prep", category: "CLEANING", name: "Kitchen prep & chopping (1 hr)", te: "కిచెన్ ప్రిపరేషన్ & కూరగాయలు తరగడం (1 గంట)", hi: "किचन प्रेप और सब्ज़ी कटिंग (1 घंटा)", price: 149, durationMin: 60, includes: "Vegetable washing, chopping, kneading and kitchen counter organizing.", active: true },
   { id: "clean_wardrobe", category: "CLEANING", name: "Complete wardrobe organization (2 hrs)", te: "వార్డ్‌రోబ్ ఆర్గనైజేషన్ (2 గంటలు)", hi: "वार्डरोब संगठन (2 घंटे)", price: 349, durationMin: 120, includes: "Folding, categorizing and neat organizing of one master wardrobe.", active: true },
-
-  // AC
-  { id: "ac_service", category: "AC", name: "Split AC Deep Jet Service", te: "స్ప్లిట్ AC డీప్ జెట్ సర్వీస్", hi: "स्प्लिट AC डीप जेट सर्विस", price: 399, originalPrice: 599, durationMin: 45, includes: "Filter, coil and drain cleaning, cooling check. Split or window, one AC.", active: true },
-  { id: "ac_deep", category: "AC", name: "AC deep cleaning (indoor + outdoor)", te: "AC డీప్ క్లీనింగ్ (ఇండోర్ + అవుట్‌డోర్)", hi: "AC डीप क्लीनिंग (इनडोर + आउटडोर)", price: 899, durationMin: 90, includes: "Indoor coil, blower and outdoor unit jet wash. One split AC.", active: true },
-  { id: "ac_repair_visit", category: "AC", name: "AC Repair & Diagnosis Visit", te: "AC రిపేర్ & సమస్య పరిశీలన", hi: "AC रिपेयर और जांच विज़िट", price: 149, originalPrice: 199, durationMin: 30, includes: "Technician finds the problem and tells the repair price before starting.", inspection: true, active: true },
-  { id: "ac_gas", category: "AC", name: "AC gas refill", te: "AC గ్యాస్ రీఫిల్", hi: "AC गैस रिफिल", price: 2199, durationMin: 90, includes: "Leak check and gas top-up for one AC.", active: true },
-  { id: "ac_install", category: "AC", name: "Split AC installation", te: "స్ప్లిట్ AC ఇన్‌స్టలేషన్", hi: "स्प्लिट AC इंस्टॉलेशन", price: 1299, durationMin: 120, includes: "Indoor + outdoor unit fitting with existing pipe.", active: true },
-  { id: "ac_uninstall", category: "AC", name: "AC uninstallation", te: "AC అన్‌ఇన్‌స్టలేషన్", hi: "AC अनइंस्टॉलेशन", price: 599, durationMin: 60, includes: "Safe removal with gas pump-down.", active: true },
 
   // Electrician
   { id: "elec_fan", category: "ELECTRICIAN", name: "Fan installation / repair", te: "ఫ్యాన్ ఫిట్టింగ్ / రిపేర్", hi: "पंखा फिटिंग / रिपेयर", price: 129, originalPrice: 199, durationMin: 30, includes: "One ceiling or wall fan. Parts extra.", active: true },
@@ -99,15 +99,6 @@ const DEFAULT_SERVICES: ServiceItemDef[] = [
   { id: "plumb_basin", category: "PLUMBER", name: "Wash basin / sink installation", te: "వాష్ బేసిన్ / సింక్ ఫిట్టింగ్", hi: "वॉश बेसिन / सिंक फिटिंग", price: 399, durationMin: 60, includes: "Fitting of one basin or kitchen sink with waste pipe.", active: true },
   { id: "plumb_tank", category: "PLUMBER", name: "Water tank cleaning (up to 1000 L)", te: "వాటర్ ట్యాంక్ క్లీనింగ్ (1000 L వరకు)", hi: "पानी टंकी सफ़ाई (1000 L तक)", price: 699, durationMin: 90, includes: "Drain, scrub and disinfect one overhead or sump tank.", active: true },
   { id: "plumb_motor", category: "PLUMBER", name: "Water motor repair / fitting", te: "వాటర్ మోటార్ రిపేర్ / ఫిట్టింగ్", hi: "पानी मोटर रिपेयर / फिटिंग", price: 349, durationMin: 60, includes: "Motor check, starter or fitting work.", active: true },
-
-  // Appliance
-  { id: "ro_service", category: "APPLIANCE", name: "RO water purifier service", te: "RO వాటర్ ప్యూరిఫైయర్ సర్వీస్", hi: "RO वाटर प्यूरीफायर सर्विस", price: 399, durationMin: 45, includes: "Cleaning, TDS check and pre-filter change.", active: true },
-  { id: "ro_install", category: "APPLIANCE", name: "RO installation / uninstallation", te: "RO ఇన్‌స్టలేషన్ / అన్‌ఇన్‌స్టలేషన్", hi: "RO इंस्टॉलेशन / अनइंस्टॉलेशन", price: 349, durationMin: 45, includes: "Fitting or removal of one purifier.", active: true },
-  { id: "wm_repair", category: "APPLIANCE", name: "Washing machine repair visit", te: "వాషింగ్ మెషిన్ రిపేర్ విజిట్", hi: "वॉशिंग मशीन रिपेयर विज़िट", price: 149, originalPrice: 199, durationMin: 45, includes: "Technician finds the problem and tells the repair price.", inspection: true, active: true },
-  { id: "fridge_repair", category: "APPLIANCE", name: "Fridge repair visit", te: "ఫ్రిజ్ రిపేర్ విజిట్", hi: "फ्रिज रिपेयर विज़िट", price: 249, durationMin: 45, includes: "Technician finds the problem and tells the repair price.", inspection: true, active: true },
-  { id: "tv_repair", category: "APPLIANCE", name: "TV repair visit", te: "TV రిపేర్ విజిట్", hi: "TV रिपेयर विज़िट", price: 249, durationMin: 45, includes: "Technician checks the TV and tells the repair price.", inspection: true, active: true },
-  { id: "chimney_clean", category: "APPLIANCE", name: "Kitchen chimney cleaning", te: "కిచెన్ చిమ్నీ క్లీనింగ్", hi: "किचन चिमनी सफ़ाई", price: 699, durationMin: 75, includes: "Filter and inner cleaning of one chimney.", active: true },
-  { id: "geyser", category: "APPLIANCE", name: "Geyser installation / repair", te: "గీజర్ ఫిట్టింగ్ / రిపేర్", hi: "गीज़र फिटिंग / रिपेयर", price: 349, durationMin: 45, includes: "One geyser. Parts extra.", active: true },
 
   // Carpenter
   { id: "carp_visit", category: "CARPENTER", name: "Carpenter visit & minor repair", te: "కార్పెంటర్ విజిట్ (సమస్య పరిశీలన & రిపేర్)", hi: "बढ़ई विज़िट (रिपेयर)", price: 149, originalPrice: 199, durationMin: 30, includes: "Carpenter checks the work and tells the price before starting.", inspection: true, active: true },
@@ -134,11 +125,7 @@ const DEFAULT_SERVICES: ServiceItemDef[] = [
   // Babysitting & Child Care
   { id: "baby_care_2hr", category: "BABYSITTER", name: "Babysitting & child care (2 hrs)", te: "పిల్లల సంరక్షణ & బేబీ సిట్టింగ్ (2 గంటలు)", hi: "बच्चों की देखभाल (2 घंटे)", price: 299, originalPrice: 449, durationMin: 120, includes: "Attentive care, play assistance, feeding help and safe supervision.", active: true },
   { id: "baby_care_4hr", category: "BABYSITTER", name: "Babysitter half-day care (4 hrs)", te: "హాఫ్ డే బేబీ సిట్టింగ్ (4 గంటలు)", hi: "हाफ डे बेबीसिटिंग (4 घंटे)", price: 549, originalPrice: 799, durationMin: 240, includes: "Four hours of patient care, reading, engaging activities and nap supervision.", active: true },
-  { id: "baby_care_full", category: "BABYSITTER", name: "Full day nanny & child support (8 hrs)", te: "ఫుల్ డే బేబీ సిట్టర్ కేర్ (8 గంటలు)", hi: "फुल डे नैनी और चाइल्ड केयर (8 घंटे)", price: 999, originalPrice: 1499, durationMin: 480, includes: "Full day child care assistance, feeding, playtime and safety monitoring.", active: true },
-
-  // Vehicle
-  { id: "car_wash", category: "VEHICLE", name: "Car wash at home (outside + inside vacuum)", te: "ఇంటి వద్ద కార్ వాష్ (బయట + లోపల వాక్యూమ్)", hi: "घर पर कार वॉश (बाहर + अंदर वैक्यूम)", price: 349, durationMin: 60, includes: "Foam wash, wipe and interior vacuum of one car.", active: true },
-  { id: "bike_wash", category: "VEHICLE", name: "Bike / scooter wash at home", te: "ఇంటి వద్ద బైక్ / స్కూటర్ వాష్", hi: "घर पर बाइक / स्कूटर वॉश", price: 149, durationMin: 30, includes: "Foam wash and wipe of one two-wheeler.", active: true }
+  { id: "baby_care_full", category: "BABYSITTER", name: "Full day nanny & child support (8 hrs)", te: "ఫుల్ డే బేబీ సిట్టర్ కేర్ (8 గంటలు)", hi: "फुल डे नैनी और चाइल्ड केयर (8 घंटे)", price: 999, originalPrice: 1499, durationMin: 480, includes: "Full day child care assistance, feeding, playtime and safety monitoring.", active: true }
 ];
 
 export function AdminCategoriesServicesManager({
@@ -183,23 +170,34 @@ export function AdminCategoriesServicesManager({
         const data = (snap.data() || {}) as Record<string, unknown>;
         setRawConfig(data);
 
-        // Merge default categories with custom Firestore categories
+        // Merge default categories with custom Firestore categories, filtered strictly to LIVE_CATEGORY_IDS
         const firestoreCats = Array.isArray(data.categories) ? (data.categories as CategoryDef[]) : [];
         const catMap = new Map<string, CategoryDef>();
         DEFAULT_CATEGORIES.forEach((c) => catMap.set(c.id.toUpperCase(), c));
-        firestoreCats.forEach((c) => catMap.set(c.id.toUpperCase(), { ...catMap.get(c.id.toUpperCase()), ...c }));
-        setCategories(Array.from(catMap.values()));
+        firestoreCats.forEach((c) => {
+          if (c.id && LIVE_CATEGORY_IDS.has(c.id.toUpperCase())) {
+            catMap.set(c.id.toUpperCase(), { ...catMap.get(c.id.toUpperCase()), ...c });
+          }
+        });
+        const liveCats = Array.from(catMap.values()).filter((c) => LIVE_CATEGORY_IDS.has(c.id.toUpperCase()));
+        setCategories(liveCats);
 
-        // Merge default services with custom/override Firestore services
+        // Merge default services with custom/override Firestore services, strictly for LIVE_CATEGORY_IDS
         const firestoreSvcs = Array.isArray(data.services) ? (data.services as ServiceItemDef[]) : [];
         const svcMap = new Map<string, ServiceItemDef>();
         DEFAULT_SERVICES.forEach((s) => svcMap.set(s.id.toLowerCase(), s));
-        firestoreSvcs.forEach((s) => svcMap.set(s.id.toLowerCase(), { ...svcMap.get(s.id.toLowerCase()), ...s }));
-        setServicesList(Array.from(svcMap.values()));
+        firestoreSvcs.forEach((s) => {
+          if (s.category && LIVE_CATEGORY_IDS.has(s.category.toUpperCase())) {
+            svcMap.set(s.id.toLowerCase(), { ...svcMap.get(s.id.toLowerCase()), ...s });
+          }
+        });
+        const liveSvcs = Array.from(svcMap.values()).filter((s) => LIVE_CATEGORY_IDS.has((s.category || "").toUpperCase()));
+        setServicesList(liveSvcs);
 
-        // Most Booked Services
+        // Most Booked Services (strictly from live services)
+        const liveSvcIdSet = new Set(liveSvcs.map((s) => s.id.toLowerCase()));
         const firestoreMostBooked = Array.isArray(data.mostBookedServiceIds) ? (data.mostBookedServiceIds as string[]) : [];
-        setMostBookedIds(firestoreMostBooked);
+        setMostBookedIds(firestoreMostBooked.filter((id) => liveSvcIdSet.has(id.toLowerCase())));
       } catch (e) {
         onError("Could not load categories & services: " + (e instanceof Error ? e.message : String(e)));
       } finally {
@@ -384,7 +382,7 @@ export function AdminCategoriesServicesManager({
               onClick={() => {
                 setEditingService({
                   id: `svc_${Date.now().toString(36)}`,
-                  category: categories[0]?.id || "AC",
+                  category: categories[0]?.id || "CLEANING",
                   name: "",
                   te: "",
                   hi: "",

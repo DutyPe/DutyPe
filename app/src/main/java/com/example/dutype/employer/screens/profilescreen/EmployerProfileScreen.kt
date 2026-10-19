@@ -469,7 +469,7 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
                 ProfileRowDivider()
                 EmpMenuRow(
                     iconRes = R.drawable.ic_profile_wallet,
-                    title = "DutyPe Micro-Wallet",
+                    title = "Services Wallet",
                     pill = "₹${ui.walletBalanceRupees}",
                     onClick = actions.onWallet
                 )

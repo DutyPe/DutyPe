@@ -38,8 +38,14 @@ type Row = Record<string, unknown> & { id: string };
 type Tab = "partners" | "topups" | "bookings" | "catalog" | "settings";
 
 const CATEGORY_IDS = [
-  "CLEANING", "AC", "ELECTRICIAN", "PLUMBER", "APPLIANCE", "CARPENTER", "PAINTER", "HOME_HELP", "VEHICLE",
-  "BEAUTICIAN", "MEHENDI", "COOK_MAID", "BABYSITTER", "ELDERLY_CARE", "TAILORING"
+  "CLEANING",
+  "ELECTRICIAN",
+  "PLUMBER",
+  "CARPENTER",
+  "PAINTER",
+  "HOME_HELP",
+  "COOK_MAID",
+  "BABYSITTER"
 ];
 
 function useLive(path: string, order: string, max = 200): Row[] {
@@ -1781,7 +1787,8 @@ function ServicesSettings({ onSaved, onError }: { onSaved: (m: string) => void; 
       });
       try {
         const res = await httpsCallable(services.functions, "getServiceCatalog")({ all: true });
-        const list = ((res.data as { services?: unknown[] }).services || []) as Array<{ id: string; category: string; name: string; price: number; originalPrice?: number }>;
+        const rawList = ((res.data as { services?: unknown[] }).services || []) as Array<{ id: string; category: string; name: string; price: number; originalPrice?: number }>;
+        const list = rawList.filter((c) => CATEGORY_IDS.includes(c.category));
         setCatalog(list);
       } catch {
         setCatalog([]);
