@@ -522,8 +522,9 @@ exports.getDigilockerAuthUrl = (0, secure_callable_1.onCallSecured)({ requireAut
     if (!uid)
         (0, input_1.fail)("unauthenticated", "User must be authenticated");
     const stateToken = crypto.randomBytes(16).toString("hex");
-    const configuredClientId = (process.env.DIGILOCKER_CLIENT_ID || "").trim();
-    const hasValidClientId = Boolean(configuredClientId && configuredClientId !== "DUTYPE_NEGD_144756");
+    const configuredClientId = (process.env.DIGILOCKER_CLIENT_ID || "in.dutype").trim();
+    const isPendingApproval = (process.env.DIGILOCKER_STATUS || "PENDING").trim().toUpperCase() === "PENDING";
+    const hasValidClientId = Boolean(configuredClientId && configuredClientId !== "DUTYPE_NEGD_144756" && !isPendingApproval);
     const redirectUri = process.env.DIGILOCKER_REDIRECT_URI || "https://dutype.in/api/digilocker/callback";
     await db.collection("digilocker_sessions").doc(stateToken).set({
         uid,
@@ -531,8 +532,8 @@ exports.getDigilockerAuthUrl = (0, secure_callable_1.onCallSecured)({ requireAut
         createdAt: Timestamp.now(),
         expiresAt: Timestamp.fromMillis(Date.now() + 15 * 60 * 1000)
     });
-    // If a valid registered client ID is available, open official MeriPehchaan OAuth.
-    // Otherwise open official DigiLocker citizen portal/app directly without 400 Bad Request error.
+    // If approved by API Setu/NeGD, open official MeriPehchaan OAuth with client_id=in.dutype.
+    // If pending approval, open official DigiLocker citizen portal/app directly without 400 Bad Request error.
     let authUrl = "https://www.digilocker.gov.in";
     if (hasValidClientId) {
         authUrl = `https://digilocker.meripehchaan.gov.in/public/oauth2/1/authorize?response_type=code&client_id=${encodeURIComponent(configuredClientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(stateToken)}&scope=read%20write%20eaadhaar`;
@@ -540,7 +541,9 @@ exports.getDigilockerAuthUrl = (0, secure_callable_1.onCallSecured)({ requireAut
     return {
         authUrl,
         stateToken,
-        hasValidClientId
+        hasValidClientId,
+        clientId: configuredClientId,
+        status: isPendingApproval ? "PENDING_APPROVAL" : "ACTIVE"
     };
 });
 //# sourceMappingURL=aadhaar-vault.js.map

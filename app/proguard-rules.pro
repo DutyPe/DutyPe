@@ -27,14 +27,16 @@
 -keepclassmembers @androidx.annotation.Keep class * { *; }
 -keep class com.example.dutype.models.** { *; }
 -keepclassmembers class com.example.dutype.models.** { *; }
--keep class com.example.dutype.components.** { *; }
--keepclassmembers class com.example.dutype.components.** { *; }
 -keep class com.example.dutype.homeservices.** { *; }
 -keepclassmembers class com.example.dutype.homeservices.** { *; }
--keep class com.example.dutype.employer.** { *; }
--keepclassmembers class com.example.dutype.employer.** { *; }
--keep class com.example.dutype.worker.** { *; }
--keepclassmembers class com.example.dutype.worker.** { *; }
+-keep class com.example.dutype.employer.models.** { *; }
+-keepclassmembers class com.example.dutype.employer.models.** { *; }
+-keep class com.example.dutype.employer.ai.** { *; }
+-keepclassmembers class com.example.dutype.employer.ai.** { *; }
+-keep class com.example.dutype.employer.voice.** { *; }
+-keepclassmembers class com.example.dutype.employer.voice.** { *; }
+-keep class com.example.dutype.worker.models.** { *; }
+-keepclassmembers class com.example.dutype.worker.models.** { *; }
 -keep class com.example.dutype.urgent.** { *; }
 -keepclassmembers class com.example.dutype.urgent.** { *; }
 -keep class com.example.dutype.profile.** { *; }
@@ -43,6 +45,8 @@
 -keepclassmembers class com.example.dutype.data.** { *; }
 -keep class com.example.dutype.auth.** { *; }
 -keepclassmembers class com.example.dutype.auth.** { *; }
+-keep class com.example.dutype.components.** { *; }
+-keepclassmembers class com.example.dutype.components.** { *; }
 -keep,includedescriptorclasses class com.example.dutype.**$$serializer { *; }
 
 # -----------------------------------------------------------------------------
