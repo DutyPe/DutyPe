@@ -314,7 +314,10 @@ export async function partnersInRing(
     if (cats.length > 0 && !cats.includes(category) && !cats.includes("ALL")) continue;
     const pLat = Number(d.get(SP.LAT));
     const pLng = Number(d.get(SP.LNG));
-    if (!Number.isFinite(pLat) || !Number.isFinite(pLng)) continue;
+    if (!Number.isFinite(pLat) || !Number.isFinite(pLng) || !pLat || !pLng) continue;
+    // Only dispatch to partners within Khammam service operational area (within 25 km)
+    const distFromCenter = distanceKm(17.2473, 80.1514, pLat, pLng);
+    if (distFromCenter > 25.0) continue;
     const km = distanceKm(lat, lng, pLat, pLng);
     if (km > fromKm && km <= toKm) out.push({ id: d.id, km });
   }
@@ -803,8 +806,24 @@ export const cancelServiceBooking = onCallSecured({ enforceAppCheck: false }, as
       travelFeeRupees = Math.min(30, Math.max(10, travelFeeRupees));
     }
     const travelFeePaise = travelFeeRupees * 100;
-    const now = Timestamp.now();
 
+    // === ALL READS MUST HAPPEN BEFORE ANY WRITES ===
+    const bookingFee = Number(b.get(BK.BOOKING_FEE) || 0);
+    const feePaid = b.get(BK.BOOKING_FEE_PAID) === true || b.get("walletDebited") === true;
+    let feeRefundedRupees = 0;
+    const shouldRefundFee = status === BS.SEARCHING && feePaid && bookingFee > 0;
+    const refundEventId = `refund_fee_${bookingId}`;
+    let ledgerCheck: admin.firestore.DocumentSnapshot | null = null;
+    let w: any = null;
+    if (shouldRefundFee) {
+      ledgerCheck = await tx.get(ledgerRef(refundEventId));
+      if (!ledgerCheck.exists) {
+        w = await readWallet(tx, uid);
+      }
+    }
+
+    // === ALL WRITES OCCUR HERE AFTER ALL READS ===
+    const now = Timestamp.now();
     tx.update(ref, {
       [BK.STATUS]: BS.CANCELLED,
       [BK.CANCELLED_BY]: "customer",
@@ -819,18 +838,9 @@ export const cancelServiceBooking = onCallSecured({ enforceAppCheck: false }, as
       [BK.UPDATED_AT]: now,
     });
 
-    // Auto-refund platform fee if customer cancelled before partner assignment/dispatch
-    const bookingFee = Number(b.get(BK.BOOKING_FEE) || 0);
-    const feePaid = b.get(BK.BOOKING_FEE_PAID) === true || b.get("walletDebited") === true;
-    let feeRefundedRupees = 0;
-    if (status === BS.SEARCHING && feePaid && bookingFee > 0) {
-      const refundEventId = `refund_fee_${bookingId}`;
-      const ledgerCheck = await tx.get(ledgerRef(refundEventId));
-      if (!ledgerCheck.exists) {
-        const w = await readWallet(tx, uid);
-        postEntry(tx, uid, w, refundEventId, Values.LedgerType.REFUND, bookingFee * 100, bookingId);
-        feeRefundedRupees = bookingFee;
-      }
+    if (shouldRefundFee && ledgerCheck && !ledgerCheck.exists && w) {
+      postEntry(tx, uid, w, refundEventId, Values.LedgerType.REFUND, bookingFee * 100, bookingId);
+      feeRefundedRupees = bookingFee;
     }
 
     if (partnerRef) {
@@ -1043,10 +1053,23 @@ export const setPartnerOnline = onCallSecured({ enforceAppCheck: false }, async 
       fail("failed-precondition", "Only approved DutyPe service partners can go online. Your application is currently under review by admin.");
     }
   }
+  const partnerPhone = String(p.get(SP.PHONE) || "");
+  const cleanPartnerPhone = partnerPhone.replace("+91", "").trim();
+  const isTestPartner = TEST_DEV_PHONES.has(partnerPhone) || TEST_DEV_PHONES.has(cleanPartnerPhone);
+
   const update: Record<string, unknown> = { [SP.ONLINE]: online, [SP.UPDATED_AT]: Timestamp.now() };
   if (online || data.lat !== undefined) {
-    const lat = data.lat !== undefined ? Number(data.lat) : Number(p.get(SP.LAT) || 17.2473);
-    const lng = data.lng !== undefined ? Number(data.lng) : Number(p.get(SP.LNG) || 80.1514);
+    const lat = data.lat !== undefined ? Number(data.lat) : Number(p.get(SP.LAT) || 0);
+    const lng = data.lng !== undefined ? Number(data.lng) : Number(p.get(SP.LNG) || 0);
+    if (online && !isTestPartner) {
+      if (!lat || !lng) {
+        fail("failed-precondition", "Current GPS location is required to go online as a DutyPe service partner.");
+      }
+      const distFromKhammam = distanceKm(17.2473, 80.1514, lat, lng);
+      if (distFromKhammam > 25.0) {
+        fail("failed-precondition", "DutyPe Home Services is active exclusively in Khammam (within 25 km). Your current location is outside the operational area.");
+      }
+    }
     Object.assign(update, { [SP.LAT]: lat, [SP.LNG]: lng, [SP.LAST_SEEN_AT]: Timestamp.now() });
   }
   await ref.update(update);
@@ -1203,6 +1226,21 @@ export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceA
       return { result: "closed" as const };
     }
 
+    // Strict geographic verification: partner must be within 25 km of the doorstep in Khammam
+    const bLat = Number(d[BK.LAT] || 0) || 17.2473;
+    const bLng = Number(d[BK.LNG] || 0) || 80.1514;
+    const pLat = Number(p.get(SP.LAT) || 0) || Number(p.get("lat") || 0);
+    const pLng = Number(p.get(SP.LNG) || 0) || Number(p.get("lng") || 0);
+    if (!isTestPartner && !isDirectAssignment) {
+      if (!pLat || !pLng) {
+        fail("failed-precondition", "Current GPS location required to accept doorstep bookings in Khammam");
+      }
+      const distKm = distanceKm(bLat, bLng, pLat, pLng);
+      if (distKm > 25.0) {
+        fail("failed-precondition", `You are ${Math.round(distKm)} km away. Doorstep service jobs can only be accepted by verified partners within 25 km of Khammam.`);
+      }
+    }
+
     const activeId = String(p.get(SP.ACTIVE_BOOKING_ID) || "");
     if (!isTestPartner && activeId && activeId !== bookingId) {
       const active = await tx.get(db.collection(BK.COLLECTION).doc(activeId));
@@ -1221,8 +1259,6 @@ export const acceptServiceBooking = onCallSecured({ timeoutSeconds: 20, enforceA
     const now = Timestamp.now();
     const ratingCount = Number(p.get(SP.RATING_COUNT) || 0);
     const rating = ratingCount ? Math.round((Number(p.get(SP.RATING_SUM) || 0) / ratingCount) * 10) / 10 : 0;
-    const pLat = Number(p.get(SP.LAT) || 0) || 17.2473;
-    const pLng = Number(p.get(SP.LNG) || 0) || 80.1514;
     const assigned = {
       [BK.STATUS]: BS.ASSIGNED,
       [BK.PARTNER_ID]: uid,

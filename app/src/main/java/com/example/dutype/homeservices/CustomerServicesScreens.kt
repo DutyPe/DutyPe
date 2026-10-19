@@ -5590,7 +5590,9 @@ fun MicroWalletTopupSheet(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var selectedAmount by remember { mutableIntStateOf(50) } // Default ₹50 (minimum deposit)
+    var amountInput by remember { mutableStateOf("50") }
+    val enteredAmount = amountInput.toIntOrNull() ?: 0
+    val isAmountValid = enteredAmount >= 50
     var utrInput by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
     var showUtrInput by remember { mutableStateOf(false) }
@@ -5664,32 +5666,61 @@ fun MicroWalletTopupSheet(
                 }
             }
 
-            // Select deposit amount
-            Text("Select Deposit Amount", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Color(0xFF0F172A).fg())
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                listOf(50 to "5 Bookings", 100 to "11 Bookings", 200 to "Best Value").forEach { (amt, badge) ->
-                    val isSelected = selectedAmount == amt
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { selectedAmount = amt },
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (isSelected) Color(0xFFEFF6FF) else Color(0xFFF8FAFC),
-                        border = BorderStroke(if (isSelected) 2.dp else 1.dp, if (isSelected) Color(0xFF2563EB) else Color(0xFFE2E8F0))
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+            // Enter deposit amount (minimum ₹50) with quick chips
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Deposit Amount (Minimum ₹50)", fontWeight = FontWeight.SemiBold, fontSize = 14.sp, color = Color(0xFF0F172A).fg())
+
+                OutlinedTextField(
+                    value = amountInput,
+                    onValueChange = { input ->
+                        val digits = input.filter { it.isDigit() }.take(5)
+                        amountInput = digits
+                    },
+                    leadingIcon = {
+                        Text("₹", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF0F172A).fg())
+                    },
+                    placeholder = { Text("50") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    isError = amountInput.isNotEmpty() && !isAmountValid,
+                    supportingText = {
+                        if (amountInput.isNotEmpty() && !isAmountValid) {
+                            Text("Minimum deposit is ₹50", color = Color(0xFFDC2626), fontSize = 12.sp)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Quick selection chips: 50, 100, 150
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    listOf(50, 100, 150).forEach { amt ->
+                        val isSelected = enteredAmount == amt
+                        Surface(
+                            modifier = Modifier
+                                .clickable {
+                                    amountInput = amt.toString()
+                                },
+                            shape = RoundedCornerShape(20.dp),
+                            color = if (isSelected) Color(0xFFEFF6FF) else Color(0xFFF1F5F9),
+                            border = BorderStroke(1.dp, if (isSelected) Color(0xFF2563EB) else Color(0xFFCBD5E1))
                         ) {
-                            Text("₹$amt", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = if (isSelected) Color(0xFF2563EB) else Color(0xFF0F172A))
-                            Text(badge, fontSize = 10.sp, color = if (isSelected) Color(0xFF1D4ED8) else Color(0xFF64748B), fontWeight = FontWeight.Medium)
+                            Text(
+                                text = "₹$amt",
+                                fontSize = 13.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) Color(0xFF1D4ED8) else Color(0xFF334155),
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                            )
                         }
                     }
                 }
             }
+
+            val currentDepositAmount = if (isAmountValid) enteredAmount else 50
 
             // Benefits explanation
             Card(
@@ -5700,7 +5731,7 @@ fun MicroWalletTopupSheet(
             ) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("💡 How it works:", fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = Color(0xFF1E293B))
-                    Text("• ₹$selectedAmount is loaded into your DutyPe closed-loop micro-wallet.", fontSize = 11.5.sp, color = Color(0xFF475569))
+                    Text("• ₹$currentDepositAmount is loaded into your DutyPe closed-loop micro-wallet.", fontSize = 11.5.sp, color = Color(0xFF475569))
                     Text("• When booking, the ₹9 fee is auto-deducted invisibly in the background.", fontSize = 11.5.sp, color = Color(0xFF475569))
                     Text("• Cancelled before partner arrival? Fee is instantly refunded to your wallet.", fontSize = 11.5.sp, color = Color(0xFF475569))
                 }
@@ -5709,7 +5740,7 @@ fun MicroWalletTopupSheet(
             // 1-Click Pay with UPI button
             Button(
                 onClick = {
-                    val uri = Uri.parse("upi://pay?pa=$upiId&pn=${Uri.encode(upiName)}&am=$selectedAmount&cu=INR&tn=${Uri.encode("DutyPe Micro Wallet Load")}")
+                    val uri = Uri.parse("upi://pay?pa=$upiId&pn=${Uri.encode(upiName)}&am=$currentDepositAmount&cu=INR&tn=${Uri.encode("DutyPe Micro Wallet Load")}")
                     val intent = Intent(Intent.ACTION_VIEW, uri)
                     try {
                         context.startActivity(intent)
@@ -5718,13 +5749,14 @@ fun MicroWalletTopupSheet(
                     }
                     showUtrInput = true
                 },
+                enabled = isAmountValid,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB))
             ) {
                 Icon(Icons.Filled.Bolt, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Pay ₹$selectedAmount via any UPI App (GPay/PhonePe)", fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                Text("Pay ₹$currentDepositAmount via any UPI App (GPay/PhonePe)", fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
             }
 
             // UTR input for deposit completion
@@ -5748,9 +5780,9 @@ fun MicroWalletTopupSheet(
                             }
                             isSubmitting = true
                             scope.launch {
-                                viewModel.depositWalletFunds(selectedAmount, utrInput)
+                                viewModel.depositWalletFunds(currentDepositAmount, utrInput)
                                     .onSuccess {
-                                        Toast.makeText(context, "₹$selectedAmount added to DutyPe Micro-Wallet!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "₹$currentDepositAmount added to DutyPe Micro-Wallet!", Toast.LENGTH_SHORT).show()
                                         isSubmitting = false
                                         onTopupSuccess()
                                     }

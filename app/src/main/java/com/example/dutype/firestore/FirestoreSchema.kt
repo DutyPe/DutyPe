@@ -518,6 +518,8 @@ object FirestoreSchema {
             const val WITHDRAWAL = "WITHDRAWAL"
             const val REFUND = "REFUND"
             const val ADJUSTMENT = "ADJUSTMENT"
+            const val WALLET_DEPOSIT = "WALLET_DEPOSIT"
+            const val PLATFORM_FEE = "PLATFORM_FEE"
         }
         object WithdrawalStatus {
             const val PENDING = "PENDING"

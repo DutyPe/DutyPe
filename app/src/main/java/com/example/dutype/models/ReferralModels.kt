@@ -72,7 +72,9 @@ data class LedgerEntry(
         Values.LedgerType.MILESTONE -> "Milestone bonus"
         Values.LedgerType.WITHDRAWAL -> "Withdrawal"
         Values.LedgerType.REFUND -> "Withdrawal refund"
-        else -> "Adjustment"
+        Values.LedgerType.WALLET_DEPOSIT -> "Wallet Top-up"
+        Values.LedgerType.PLATFORM_FEE -> "Platform Fee"
+        else -> type.replace("_", " ").lowercase().replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.ROOT) else it.toString() }
     }
 
     companion object {
