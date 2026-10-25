@@ -343,6 +343,10 @@ fun WorkerReferEarnScreen(
                         )
                     }
 
+                    // AdMob Earnings Banner
+                    item {
+                        com.example.dutype.ads.DutyPeEarningsBanner()
+                    }
 
                     // How it works / Rewards & milestones / How to redeem (accordion)
                     item {

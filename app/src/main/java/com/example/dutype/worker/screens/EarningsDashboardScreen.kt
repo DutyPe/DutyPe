@@ -180,7 +180,14 @@ fun EarningsDashboardScreen(
                 )
             }
 
-            item { Spacer(modifier = Modifier.height(22.dp)) }
+            item { Spacer(modifier = Modifier.height(14.dp)) }
+
+            // AdMob Earnings Banner
+            item {
+                com.example.dutype.ads.DutyPeEarningsBanner()
+            }
+
+            item { Spacer(modifier = Modifier.height(18.dp)) }
 
             item {
                 Text(

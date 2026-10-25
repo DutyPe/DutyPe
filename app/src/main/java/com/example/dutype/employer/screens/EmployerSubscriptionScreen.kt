@@ -314,12 +314,42 @@ fun EmployerSubscriptionScreen(
                     }
                 }
 
-                Text(
-                    text = stringResource(R.string.amount_payable, plan.priceRupees.toString()),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Brand.fg()
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.amount_payable, plan.priceRupees.toString()),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Brand.fg()
+                    )
+                    val originalPrice = plan.originalPriceRupees
+                    val discount = plan.discountPercentage
+                    if (originalPrice > plan.priceRupees) {
+                        Text(
+                            text = "\u20B9$originalPrice",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF94A3B8),
+                            style = androidx.compose.ui.text.TextStyle(
+                                textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
+                            )
+                        )
+                        Box(
+                            modifier = Modifier
+                                .background(Color(0xFFDCFCE7), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 5.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "$discount% OFF",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF16A34A)
+                            )
+                        }
+                    }
+                }
 
                 // Step 1: Copy UPI ID
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1062,7 +1092,10 @@ private fun PlanPageCard(
                 }
             }
             Spacer(modifier = Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Text(
                     text = if (isFree) stringResource(R.string.free_cost) else "\u20B9${plan.priceRupees}",
                     fontSize = 28.sp,
@@ -1070,11 +1103,35 @@ private fun PlanPageCard(
                     color = PlanTitleInk.fg()
                 )
                 if (!isFree) {
+                    val originalPrice = plan.originalPriceRupees
+                    val discount = plan.discountPercentage
+                    if (originalPrice > plan.priceRupees) {
+                        Text(
+                            text = "\u20B9$originalPrice",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF94A3B8),
+                            style = androidx.compose.ui.text.TextStyle(
+                                textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
+                            )
+                        )
+                        Box(
+                            modifier = Modifier
+                                .background(Color(0xFFDCFCE7), RoundedCornerShape(6.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "$discount% OFF",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF16A34A)
+                            )
+                        }
+                    }
                     Text(
-                        text = " / month",
-                        fontSize = 14.sp,
-                        color = Ink500.fg(),
-                        modifier = Modifier.padding(bottom = 4.dp)
+                        text = " / mo",
+                        fontSize = 13.sp,
+                        color = Ink500.fg()
                     )
                 }
             }

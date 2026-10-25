@@ -26,6 +26,23 @@ private fun Map<String, Any?>.dbl(key: String): Double = (this[key] as? Number)?
 private fun Map<String, Any?>.lng(key: String): Long = (this[key] as? Number)?.toLong() ?: 0L
 private fun Map<String, Any?>.int(key: String, default: Int = 0): Int = (this[key] as? Number)?.toInt() ?: default
 
+/** Robustly resolve photo/image URL across all potential schema naming conventions. */
+internal fun Map<String, Any?>.extractPhotoUrl(): String? {
+    val candidate = (this[Jobs.PHOTO_URL] as? String)
+        ?: (this["imageUrl"] as? String)
+        ?: (this["photo_url"] as? String)
+        ?: (this["jobImageUrl"] as? String)
+        ?: (this["image"] as? String)
+        ?: (this["bannerUrl"] as? String)
+    if (!candidate.isNullOrBlank()) return candidate.trim()
+
+    val list = this["images"] as? List<*>
+    val first = list?.firstOrNull() as? String
+    if (!first.isNullOrBlank()) return first.trim()
+
+    return null
+}
+
 /** jobmetadata document → card. */
 fun Map<String, Any?>.toJobListingSummary(id: String, isSaved: Boolean = false): JobListingSummary =
     JobListingSummary(
@@ -35,7 +52,7 @@ fun Map<String, Any?>.toJobListingSummary(id: String, isSaved: Boolean = false):
         category = str(Jobs.CATEGORY),
         employmentType = str(Jobs.EMPLOYMENT_TYPE).ifBlank { Values.EmploymentType.FULL_TIME },
         companyName = str(Jobs.COMPANY_NAME),
-        photoUrl = str(Jobs.PHOTO_URL).ifBlank { null },
+        photoUrl = extractPhotoUrl(),
         payAmount = lng(Jobs.PAY_AMOUNT),
         payType = str(Jobs.PAY_TYPE).ifBlank { Values.PayType.DAILY },
         vacancies = int(Jobs.VACANCIES, 1).coerceAtLeast(1),
@@ -62,6 +79,7 @@ fun Map<String, Any?>.toJobListing(
 ): JobListing {
     val card = toJobListingSummary(id, isSaved)
     val d = details.orEmpty()
+    val resolvedPhoto = card.photoUrl ?: d.extractPhotoUrl()
     @Suppress("UNCHECKED_CAST")
     return JobListing(
         id = id,
@@ -70,7 +88,7 @@ fun Map<String, Any?>.toJobListing(
         category = card.category,
         employmentType = card.employmentType,
         companyName = card.companyName,
-        photoUrl = card.photoUrl,
+        photoUrl = resolvedPhoto,
         payAmount = card.payAmount,
         payType = card.payType,
         vacancies = card.vacancies,

@@ -93,6 +93,11 @@
             android:name="com.google.android.gms.version"
             android:value="@integer/google_play_services_version" />
 
+        <!-- Google Mobile Ads (AdMob) -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-5503082977524600~8481368080" />
+
 
 
         <meta-data

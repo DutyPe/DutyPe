@@ -642,8 +642,8 @@ private fun ApplicationSentSuccess(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.Center,
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
@@ -798,6 +798,11 @@ private fun ApplicationSentSuccess(
                 )
             )
         }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Paytm-style high-converting sponsor card after job application
+        com.example.dutype.ads.DutyPePostActionAdCard()
     }
 }
 

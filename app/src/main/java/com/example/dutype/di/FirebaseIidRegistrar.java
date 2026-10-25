@@ -21,36 +21,43 @@ import java.util.List;
 @Keep
 public class FirebaseIidRegistrar implements ComponentRegistrar {
 
+    @Keep
+    public FirebaseIidRegistrar() {
+    }
+
+    @Keep
+    public static final class NoOpFirebaseInstanceIdInternal implements FirebaseInstanceIdInternal {
+        @Override
+        @Nullable
+        public String getId() {
+            return null;
+        }
+
+        @Override
+        @Nullable
+        public String getToken() {
+            return null;
+        }
+
+        @Override
+        @NonNull
+        public Task<String> getTokenTask() {
+            return Tasks.forResult("");
+        }
+
+        @Override
+        public void deleteToken(@NonNull String senderId, @NonNull String scope) {
+        }
+
+        @Override
+        public void addNewTokenListener(@NonNull NewTokenListener listener) {
+        }
+    }
+
     @Override
     @NonNull
     public List<Component<?>> getComponents() {
-        FirebaseInstanceIdInternal provider = new FirebaseInstanceIdInternal() {
-            @Override
-            @Nullable
-            public String getId() {
-                return null;
-            }
-
-            @Override
-            @Nullable
-            public String getToken() {
-                return null;
-            }
-
-            @Override
-            @NonNull
-            public Task<String> getTokenTask() {
-                return Tasks.forResult("");
-            }
-
-            @Override
-            public void deleteToken(@NonNull String senderId, @NonNull String scope) {
-            }
-
-            @Override
-            public void addNewTokenListener(@NonNull NewTokenListener listener) {
-            }
-        };
+        NoOpFirebaseInstanceIdInternal provider = new NoOpFirebaseInstanceIdInternal();
 
         Component<FirebaseInstanceIdInternal> component = Component.builder(FirebaseInstanceIdInternal.class)
                 .factory(container -> provider)

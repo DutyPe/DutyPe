@@ -32,63 +32,6 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
     companion object {
         // Keep StrictMode opt-in to avoid vendor ROM noise drowning real app errors in Logcat.
         private const val ENABLE_STRICT_MODE_IN_DEBUG = false
-
-        // PERF: Hoisted into a static Set so the Timber filter doesn't allocate a
-        // ~70-element ArrayList + perform O(n) lookup on every single log call.
-        // During startup Firebase/GMS log heavily; this filter is a hot path.
-        private val NOISY_LOG_TAGS: Set<String> = setOf(
-            "GoogleApiManager",
-            "FlagRegistrar",
-            "ProviderInstaller",
-            "DynamiteModule",
-            "nativeloader",
-            "ApplicationLoaders",
-            "FilePhenotypeFlags",
-            "LocalRequestInterceptor",
-            "NativeCrypto",
-            "InsetsController",
-            "StrictMode",
-            "Choreographer",
-            "FA",
-            "ViewRootImpl",
-            "VRI[MainActivity]",
-            "TRuntime.CTransportBackend",
-            "FirebearSt",
-            "FirebearStorage",
-            "Firestore",
-            "CameraManagerGlobal",
-            "StreamUseCaseUtil",
-            "UseCaseAttachState",
-            "SyncCaptureSessionBase",
-            "CaptureSession",
-            "Camera2Cap",
-            "SyncCaptureSessionImpl",
-            "DeferrableSurface",
-            "VivoJavaJsonManager",
-            "VivoCameraUtils",
-            "Camera2CameraImpl",
-            "CameraStateRegistry",
-            "CameraStateMachine",
-            "Camera2CameraControlImp",
-            "VideoUsageControl",
-            "StreamStateObserver",
-            "Camera2PresenceSrc",
-            "BufferQueueProducer",
-            "BufferQueueConsumer",
-            "BLASTBufferQueue",
-            "SurfaceViewImpl",
-            "ImageReader_JNI",
-            "DMABUFHEAPS",
-            "PipelineWatcher",
-            "CCodecBufferChannel",
-            "BufferPoolAccessor",
-            "BufferPoolAccessor2.0",
-            "C2BqBufferQueueBlockPool",
-            "CompatChangeReporter",
-            "GraphicsEnvironment",
-            "VivoJsonResourceManager",
-            "PowerHalWrapper"
-        )
     }
 
     // PERF: All three are Lazy so Hilt does not build their dependency graphs
@@ -130,7 +73,9 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
     // Note: FeatureFlags is a data class in AppMetadata, not an injectable class
     // Access via: appMetadata.featureFlags.value
 
-    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val applicationScope by lazy(LazyThreadSafetyMode.NONE) {
+        CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    }
     private var appCheckDebugHintLogged = false
 
     override fun attachBaseContext(base: Context) {
@@ -187,10 +132,13 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
         // Diagnostic log: deferred off the startup critical path.
         applicationScope.launch { logFirebaseBinding() }
 
-        // PERFORMANCE & STORAGE: Defer notification channels and cache pruning to background
+        // PERFORMANCE & STORAGE: Defer notification channels, cache pruning, and AdMob initialization to background
         applicationScope.launch(Dispatchers.IO) {
             NotificationChannelManager.createNotificationChannels(this@DutyPeApplication)
             com.example.dutype.utils.StorageCacheManager.pruneStaleCache(this@DutyPeApplication)
+            runCatching {
+                com.google.android.gms.ads.MobileAds.initialize(this@DutyPeApplication)
+            }
         }
 
         // Initialize MainThreadChecker with ANRHandler for production-safe error handling.
@@ -250,14 +198,69 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
      * Initialize Timber logging with filtered tree to reduce noise
      */
     private fun initializeTimber() {
-        if (isDebuggableBuild()) {
-            // Custom tree that filters out noisy Firebase/GMS logs
-            Timber.plant(object : Timber.DebugTree() {
-                override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
-                    // Skip noisy tags completely (including errors - they're GMS internal)
-                    if (tag in NOISY_LOG_TAGS) {
-                        return
-                    }
+        if (!isDebuggableBuild()) return
+
+        val noisyLogTags: Set<String> = hashSetOf(
+            "GoogleApiManager",
+            "FlagRegistrar",
+            "ProviderInstaller",
+            "DynamiteModule",
+            "nativeloader",
+            "ApplicationLoaders",
+            "FilePhenotypeFlags",
+            "LocalRequestInterceptor",
+            "NativeCrypto",
+            "InsetsController",
+            "StrictMode",
+            "Choreographer",
+            "FA",
+            "ViewRootImpl",
+            "VRI[MainActivity]",
+            "TRuntime.CTransportBackend",
+            "FirebearSt",
+            "FirebearStorage",
+            "Firestore",
+            "CameraManagerGlobal",
+            "StreamUseCaseUtil",
+            "UseCaseAttachState",
+            "SyncCaptureSessionBase",
+            "CaptureSession",
+            "Camera2Cap",
+            "SyncCaptureSessionImpl",
+            "DeferrableSurface",
+            "VivoJavaJsonManager",
+            "VivoCameraUtils",
+            "Camera2CameraImpl",
+            "CameraStateRegistry",
+            "CameraStateMachine",
+            "Camera2CameraControlImp",
+            "VideoUsageControl",
+            "StreamStateObserver",
+            "Camera2PresenceSrc",
+            "BufferQueueProducer",
+            "BufferQueueConsumer",
+            "BLASTBufferQueue",
+            "SurfaceViewImpl",
+            "ImageReader_JNI",
+            "DMABUFHEAPS",
+            "PipelineWatcher",
+            "CCodecBufferChannel",
+            "BufferPoolAccessor",
+            "BufferPoolAccessor2.0",
+            "C2BqBufferQueueBlockPool",
+            "CompatChangeReporter",
+            "GraphicsEnvironment",
+            "VivoJsonResourceManager",
+            "PowerHalWrapper"
+        )
+
+        // Custom tree that filters out noisy Firebase/GMS logs
+        Timber.plant(object : Timber.DebugTree() {
+            override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
+                // Skip noisy tags completely (including errors - they're GMS internal)
+                if (tag in noisyLogTags) {
+                    return
+                }
 
                     // Skip Firestore warnings about missing fields (these are non-critical)
                     if (tag?.contains("Firestore") == true &&
@@ -313,7 +316,6 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
                 }
             })
             Timber.d("🔧 Debug logging enabled (filtered)")
-        }
     }
 
     /**
@@ -348,13 +350,17 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
                         PlayIntegrityAppCheckProviderFactory.getInstance()
                     )
                     Timber.i("✅ Firebase App Check initialized (Play Integrity)")
-                    firebaseAppCheck.getAppCheckToken(false)
-                        .addOnSuccessListener {
-                            Timber.i("✅ App Check token acquired (release) - expiresAt=%d", it.expireTimeMillis)
+                    applicationScope.launch {
+                        runCatching {
+                            firebaseAppCheck.getAppCheckToken(false)
+                                .addOnSuccessListener {
+                                    Timber.i("✅ App Check token acquired (release) - expiresAt=%d", it.expireTimeMillis)
+                                }
+                                .addOnFailureListener { tokenError ->
+                                    Timber.e(tokenError, "❌ App Check token fetch failed in release")
+                                }
                         }
-                        .addOnFailureListener { tokenError ->
-                            Timber.e(tokenError, "❌ App Check token fetch failed in release")
-                        }
+                    }
                 }
             }
         } catch (e: Exception) {

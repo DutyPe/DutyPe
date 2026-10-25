@@ -1,5 +1,5 @@
-What's new in this release:
-• Improved nearby job discovery and map accuracy.
-• Faster, direct contact between employers and job seekers via call and WhatsApp.
-• Enhanced profile management and smoother application tracking.
-• Performance improvements and bug fixes for a faster, more reliable experience.
+What's new in version 6.4:
+• Lightning-fast app startup and smoother screen loading.
+• Fixed keyboard typing and input glitches across login and application forms.
+• Smoother animations and optimized memory for low-end and high-end devices.
+• Enhanced reliability for nearby job search, instant hiring, and booking updates.

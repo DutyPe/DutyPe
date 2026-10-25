@@ -218,7 +218,6 @@ fun EmployerReferEarnScreen(
                     item {
                         EmployerReferralCodeCard(
                             referralCode = uiState.wallet?.referralCode.orEmpty(),
-                            rewardAmount = referralConfig.rewardPerReferral.toInt(),
                             onCopyClick = {
                                 copyTextToClipboard(
                                     context = context,
@@ -346,7 +345,6 @@ fun EmployerReferEarnScreen(
 @Composable
 private fun EmployerReferralCodeCard(
     referralCode: String,
-    rewardAmount: Int,
     onCopyClick: () -> Unit,
     onShareClick: () -> Unit
 ) {
@@ -356,54 +354,6 @@ private fun EmployerReferralCodeCard(
     val mute = Color(0xFF94A3B8).fg()
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Hero card - horizontal Row matching Pronto/UC standards
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFA7F3D0)),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFDCFCE7)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.CardGiftcard,
-                        contentDescription = null,
-                        tint = green,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-                Spacer(Modifier.width(14.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.refer_hero_title, rewardAmount),
-                        color = ink,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        text = stringResource(R.string.refer_hero_subtitle),
-                        color = slate,
-                        fontSize = 13.sp
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(14.dp))
-
         // Referral code box with dashed border
         val dashShape = RoundedCornerShape(16.dp)
         Column(
@@ -517,7 +467,7 @@ private fun EmployerReferralCodeCard(
                 EmployerReferArrow(mute)
                 EmployerReferStep(Icons.Outlined.PersonAdd, ink, stringResource(R.string.refer_step_joins), slate)
                 EmployerReferArrow(mute)
-                EmployerReferStep(Icons.Outlined.CurrencyRupee, green, stringResource(R.string.refer_step_each, rewardAmount), slate)
+                EmployerReferStep(Icons.Outlined.CardGiftcard, green, "1 Free Job", slate)
             }
         }
     }

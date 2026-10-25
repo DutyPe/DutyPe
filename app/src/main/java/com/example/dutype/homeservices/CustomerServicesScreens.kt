@@ -7469,6 +7469,10 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                     Text(stringResource(R.string.svc_cancel_booking), color = SvcRed)
                 }
             }
+
+            // Paytm-style post-booking confirmed/status ad banner
+            Spacer(Modifier.height(8.dp))
+            com.example.dutype.ads.DutyPePostActionAdCard()
             Spacer(Modifier.height(24.dp))
         }
     }

@@ -799,11 +799,11 @@ private class PostJobController(
         val isUnlimited = sub?.isUnlimitedCampaign == true
         val grantedFreeJobs = profile?.grantedFreeJobPosts ?: 0
         val freeUsed = profile?.freeJobPostsUsed ?: 0
-        val hasFreePosts = freeUsed < 3
+        val hasFreePosts = freeUsed < 1
 
-        // First 3 job postings are 100% free for employers. Subscription or credits only required once free jobs are exhausted.
+        // First 1 job posting is 100% free for employers. Subscription or credits only required once free jobs are exhausted.
         if (!hasFreePosts && grantedFreeJobs <= 0 && normalCredits <= 0 && referralCredits <= 0 && !isUnlimited) {
-            Timber.w("CREDIT CHECK: All 3 free job posts used ($freeUsed/3). Subscription required (grantedFree=$grantedFreeJobs, normal=$normalCredits, referral=$referralCredits, unlimited=$isUnlimited)")
+            Timber.w("CREDIT CHECK: All 1 free job posts used ($freeUsed/1). Subscription required (grantedFree=$grantedFreeJobs, normal=$normalCredits, referral=$referralCredits, unlimited=$isUnlimited)")
             showNoCreditsDialog = true
             return
         }
@@ -1558,7 +1558,7 @@ private fun PostJobNoCreditsSheet(c: PostJobController) {
             )
 
             Text(
-                text = "You've used all 3 free job posts. Choose an Employer Plan to post more jobs and find candidates instantly.",
+                text = "You've used your 1 free job post. Choose an Employer Plan to post more jobs and find candidates instantly.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = EmployerColors.TextSecondary,
                 textAlign = TextAlign.Center
@@ -1670,7 +1670,7 @@ private fun PostJobSinglePageForm(
     scrollState: androidx.compose.foundation.ScrollState
 ) {
     val freeUsed = c.employerProfile?.freeJobPostsUsed ?: 0
-    val freeRemaining = (3 - freeUsed).coerceAtLeast(0)
+    val freeRemaining = (1 - freeUsed).coerceAtLeast(0)
 
     Column(
         modifier = Modifier
@@ -1698,12 +1698,12 @@ private fun PostJobSinglePageForm(
                     )
                     Column {
                         Text(
-                            text = "Free Job Posting ($freeRemaining of 3 remaining)",
+                            text = "Free Job Posting ($freeRemaining of 1 remaining)",
                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                             color = Color(0xFF065F46)
                         )
                         Text(
-                            text = "Your first 3 job postings on DutyPe are 100% free.",
+                            text = "Your first job posting on DutyPe is 100% free.",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color(0xFF047857)
                         )

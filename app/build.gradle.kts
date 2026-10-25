@@ -53,8 +53,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 842
-        versionName = "6.3"
+        versionCode = 846
+        versionName = "6.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -404,7 +404,7 @@ dependencies {
 
 
     // DataStore
-    implementation("androidx.datastore:datastore-preferences:1.0.0")
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
 
     // Google Sign-In with Credential Manager
     implementation("androidx.credentials:credentials:1.6.0-beta03")
@@ -464,6 +464,9 @@ dependencies {
     // Google Play In-App Update API
     implementation("com.google.android.play:app-update:2.1.0")
     implementation("com.google.android.play:app-update-ktx:2.1.0")
+
+    // Google Mobile Ads (AdMob)
+    implementation("com.google.android.gms:play-services-ads:23.6.0")
 }
 
 // Crashlytics mapping-file upload is intentionally LEFT ENABLED (default).

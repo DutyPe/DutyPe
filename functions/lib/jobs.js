@@ -127,7 +127,7 @@ async function getJobPostingConfigDoc() {
     if (!snap.exists) {
         return {
             freeJobPostingEnabled: true,
-            freeJobsCount: 3,
+            freeJobsCount: 1,
             appliesTo: "ALL_USERS",
             effectiveFrom: 0,
         };
@@ -135,7 +135,7 @@ async function getJobPostingConfigDoc() {
     const d = snap.data() || {};
     return {
         freeJobPostingEnabled: d.freeJobPostingEnabled !== false,
-        freeJobsCount: Number((_a = d.freeJobsCount) !== null && _a !== void 0 ? _a : 3),
+        freeJobsCount: Number((_a = d.freeJobsCount) !== null && _a !== void 0 ? _a : 1),
         appliesTo: d.appliesTo || "ALL_USERS",
         effectiveFrom: Number(d.effectiveFrom || 0),
     };
@@ -170,11 +170,11 @@ function chargeForPost(tx, employer, quota, nowMs, config) {
         });
         return "free";
     }
-    // 2. First 3 job postings free for employers (guaranteed baseline, customizable via app_config/job_posting)
+    // 2. First 1 job posting free for employers (guaranteed baseline, customizable via app_config/job_posting)
     const freeUsed = Number(employer.data[schema_1.EmployerProfiles.FREE_JOB_POSTS_USED] || 0);
     const maxFreeJobs = (config && config.freeJobPostingEnabled !== false && config.freeJobsCount > 0)
         ? config.freeJobsCount
-        : 3; // Guaranteed default: first 3 job postings free!
+        : 1; // Guaranteed default: first 1 job posting free!
     const employerCreatedAt = employer.data[schema_1.EmployerProfiles.CREATED_AT] instanceof Timestamp
         ? employer.data[schema_1.EmployerProfiles.CREATED_AT].toMillis()
         : Number(employer.data[schema_1.EmployerProfiles.CREATED_AT] || 0);
@@ -251,11 +251,11 @@ exports.postJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context) 
         const config = configSnap.exists
             ? {
                 freeJobPostingEnabled: configSnap.get("freeJobPostingEnabled") !== false,
-                freeJobsCount: Number((_a = configSnap.get("freeJobsCount")) !== null && _a !== void 0 ? _a : 3),
+                freeJobsCount: Number((_a = configSnap.get("freeJobsCount")) !== null && _a !== void 0 ? _a : 1),
                 appliesTo: configSnap.get("appliesTo") || "ALL_USERS",
                 effectiveFrom: Number(configSnap.get("effectiveFrom") || 0),
             }
-            : { freeJobPostingEnabled: true, freeJobsCount: 3, appliesTo: "ALL_USERS", effectiveFrom: 0 };
+            : { freeJobPostingEnabled: true, freeJobsCount: 1, appliesTo: "ALL_USERS", effectiveFrom: 0 };
         const charge = chargeForPost(tx, employer, quota, nowMs, config);
         const createdAt = Timestamp.fromMillis(nowMs);
         // Simple setup: the shop / business name and place typed while posting the first job fill in an
@@ -345,11 +345,11 @@ exports.renewJob = (0, secure_callable_1.onCallSecured)({}, async (raw, context)
         const config = configSnap.exists
             ? {
                 freeJobPostingEnabled: configSnap.get("freeJobPostingEnabled") !== false,
-                freeJobsCount: Number((_c = configSnap.get("freeJobsCount")) !== null && _c !== void 0 ? _c : 3),
+                freeJobsCount: Number((_c = configSnap.get("freeJobsCount")) !== null && _c !== void 0 ? _c : 1),
                 appliesTo: configSnap.get("appliesTo") || "ALL_USERS",
                 effectiveFrom: Number(configSnap.get("effectiveFrom") || 0),
             }
-            : { freeJobPostingEnabled: true, freeJobsCount: 3, appliesTo: "ALL_USERS", effectiveFrom: 0 };
+            : { freeJobPostingEnabled: true, freeJobsCount: 1, appliesTo: "ALL_USERS", effectiveFrom: 0 };
         const charge = chargeForPost(tx, employer, quota, nowMs, config);
         tx.update(ref, {
             [schema_1.Jobs.STATUS]: schema_1.Values.JobStatus.OPEN,

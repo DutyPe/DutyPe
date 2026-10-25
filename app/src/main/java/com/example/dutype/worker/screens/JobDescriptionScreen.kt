@@ -1319,6 +1319,11 @@ private fun JobDetailsContent(
             }
         }
 
+        // Sponsored Ad Banner right before Location Map
+        item {
+            com.example.dutype.ads.DutyPePreMapAdBanner()
+        }
+
         item { Spacer(modifier = Modifier.height(16.dp)) }
 
         // "Job Location" card — Stitch design spec: title, a compact real map

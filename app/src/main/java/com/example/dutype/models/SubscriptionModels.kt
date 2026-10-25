@@ -95,6 +95,23 @@ data class Plan(
 ) {
     val priceRupees: Long get() = pricePaise / 100
 
+    val originalPriceRupees: Long
+        get() = when (priceRupees) {
+            99L -> 299L
+            149L -> 399L
+            199L -> 499L
+            299L -> 699L
+            499L -> 1299L
+            else -> if (priceRupees > 0) ((priceRupees * 2.5).toLong() / 100 * 100 + 99).coerceAtLeast(priceRupees + 100) else 0L
+        }
+
+    val discountPercentage: Int
+        get() {
+            val orig = originalPriceRupees
+            if (orig <= priceRupees || orig <= 0) return 0
+            return Math.round(((orig - priceRupees).toDouble() / orig.toDouble()) * 100).toInt()
+        }
+
     companion object {
         fun fromMap(id: String, map: Map<String, Any?>): Plan = Plan(
             id = id,

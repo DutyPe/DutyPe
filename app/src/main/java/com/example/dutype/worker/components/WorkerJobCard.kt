@@ -218,23 +218,38 @@ private fun JobCardInternal(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Row 1: Title + URGENT badge (or closed/expired status badge)
+            // Row 1: Title + Image thumbnail + URGENT badge (or closed/expired status badge)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Text(
-                    text = ValidationUtils.capitalizeWords(title),
-                    style = AppTypography.cardTitle.copy(
-                        color = if (isClosed) WorkerColors.TextSecondary else WorkerColors.TextPrimary,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    ),
+                Row(
                     modifier = Modifier.weight(1f, fill = false),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (!jobImageUrl.isNullOrBlank()) {
+                        coil.compose.AsyncImage(
+                            model = jobImageUrl,
+                            contentDescription = "Job image",
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(RoundedCornerShape(10.dp)),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    }
+                    Text(
+                        text = ValidationUtils.capitalizeWords(title),
+                        style = AppTypography.cardTitle.copy(
+                            color = if (isClosed) WorkerColors.TextSecondary else WorkerColors.TextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
                 Spacer(modifier = Modifier.width(8.dp))
 

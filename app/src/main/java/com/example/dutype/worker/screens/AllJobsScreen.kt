@@ -781,6 +781,13 @@ private fun JobsList(
                         onCardClick = { onNavigateToJob(it) }
                     )
                 }
+
+                // Native in-feed ad banner inserted every 6th job card
+                if ((index + 1) % 6 == 0 && index < jobs.size - 1) {
+                    item(key = "infeed_ad_${index + 1}", contentType = "infeed_ad") {
+                        com.example.dutype.ads.DutyPeInFeedAdCard()
+                    }
+                }
             }
 
             if (uiState.hasMore || uiState.loadMoreFailed) {
