@@ -99,7 +99,7 @@ fun UrgentOfferScreen(requestId: String, navController: NavController) {
             .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
         when (val s = state) {
-            UrgentOfferState.Loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Green.fg())
+            UrgentOfferState.Loading -> com.example.dutype.components.ThreeDotsBouncingLoader(modifier = Modifier.align(Alignment.Center), dotColor = Green.fg())
             is UrgentOfferState.Offer -> OfferContent(s, speaker, onAccept = viewModel::accept, onSkip = onSkip)
             is UrgentOfferState.Accepted -> {
                 LaunchedEffect(Unit) {

@@ -522,7 +522,7 @@ private fun PartnerApplyForm(catalog: ServicesCatalog?, viewModel: HomeServicesV
 
     if (catalog == null) {
         Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = StitchGreen)
+            com.example.dutype.components.ThreeDotsBouncingLoader(dotColor = StitchGreen)
         }
         return
     }

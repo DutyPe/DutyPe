@@ -325,7 +325,7 @@ fun EmployerHistoryScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = EmployerColors.Primary.fg())
+                    com.example.dutype.components.ThreeDotsBouncingLoader(dotColor = EmployerColors.Primary.fg())
                 }
             }
             uiState.hasError -> {

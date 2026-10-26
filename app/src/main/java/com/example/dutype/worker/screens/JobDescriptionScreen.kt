@@ -1049,10 +1049,10 @@ private fun JobDetailsContent(
                                     .background(WorkerColors.ChipBackground),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator(
-                                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                                    strokeWidth = 2.5.dp,
-                                    modifier = Modifier.size(30.dp)
+                                com.example.dutype.components.ThreeDotsBouncingLoader(
+                                    dotColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
+                                    dotSize = 7.dp,
+                                    bounceHeight = 5.dp
                                 )
                             }
                         }

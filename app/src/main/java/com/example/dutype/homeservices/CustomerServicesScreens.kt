@@ -2234,8 +2234,6 @@ fun CategoryServicesScreen(
                     )
                 }
             }
-
-            item(key = "cat_how") { HowItWorks() }
         }
     }
 
@@ -2967,14 +2965,7 @@ fun ServicesHomeScreen(
                     }
                 }
 
-                // 8. How It Works & Guarantees
-                item(key = "how") {
-                    Box(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                        HowItWorks()
-                    }
-                }
-
-                // 9. Brand Signature Footer (Blinkit / Swiggy style: large bold signature + Crafted with love in India)
+                // 8. Brand Signature Footer (Blinkit / Swiggy style: large bold signature + Crafted with love in India)
                 item(key = "services_brand_footer") {
                     ServicesBrandFooter()
                 }
@@ -3563,44 +3554,6 @@ private fun ServiceRow(
                     discountPercent = service.discountPercent,
                     durationMin = service.durationMin
                 )
-                if (service.inspection) {
-                    Spacer(Modifier.height(4.dp))
-                    Pill(stringResource(R.string.svc_inspection_badge), SvcOrange)
-                }
-                Spacer(Modifier.height(6.dp))
-
-                // Top Inclusions Bullets (Urban Company format)
-                val incList = if (service.inclusions.isNotEmpty()) service.inclusions.take(2)
-                              else service.includes.split("·", "\n").map { it.trim() }.filter { it.isNotBlank() }.take(2)
-                if (incList.isNotEmpty()) {
-                    incList.forEach { inc ->
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 1.dp)) {
-                            Icon(Icons.Filled.Check, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(12.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(inc, fontSize = 11.5.sp, color = SvcMuted.fg(), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                } else {
-                    Text(
-                        text = service.includes,
-                        color = SvcMuted.fg(),
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                if (keepReady.isNotEmpty()) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        stringResource(R.string.svc_keep_ready_short, keepReady.take(2).joinToString(", ")),
-                        color = SvcGreen,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
             }
             Spacer(Modifier.width(12.dp))
             // Right Side: Visual Squircle + Signature BOOK or OPTIONS Pill Button at bottom right
@@ -4110,6 +4063,9 @@ fun ServiceDetailsBottomSheet(
                     )
                 }
             }
+
+            // How DutyPe Service Works
+            HowItWorks()
 
             Spacer(Modifier.height(4.dp))
 

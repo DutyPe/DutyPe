@@ -848,10 +848,11 @@ private fun LoadMoreFooter(failed: Boolean, onRetry: () -> Unit) {
                 Text(stringResource(R.string.jobs_couldnt_load_more_retry))
             }
         } else {
-            CircularProgressIndicator(
-                modifier = Modifier.size(IconSizes.Standard),
-                color = WorkerColors.TextPrimary,
-                strokeWidth = 2.dp
+            com.example.dutype.components.ThreeDotsBouncingLoader(
+                dotSize = 7.dp,
+                bounceHeight = 5.dp,
+                spacing = 5.dp,
+                dotColor = WorkerColors.TextPrimary
             )
         }
     }

@@ -262,29 +262,12 @@ private fun JobCardInternal(
                 }
             }
 
-            if (companyName.isNotBlank()) {
+            val subtitleInfo = listOfNotNull(
+                companyName.takeIf { it.isNotBlank() },
+                locationDisplay.takeIf { it.isNotBlank() }
+            ).joinToString(" · ")
+            if (subtitleInfo.isNotBlank()) {
                 Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = companyName,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = WorkerColors.TextSecondary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                }
-            }
-
-            // Distance / location row
-            if (locationDisplay.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -293,13 +276,14 @@ private fun JobCardInternal(
                         imageVector = Icons.Outlined.LocationOn,
                         contentDescription = null,
                         tint = WorkerColors.IconSecondary,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(13.dp)
                     )
                     Text(
-                        text = locationDisplay,
+                        text = subtitleInfo,
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = WorkerColors.TextSecondary,
-                            fontSize = 12.sp
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Medium
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -1015,42 +999,14 @@ private fun JobCardFacts(
         workTypeLabel?.takeIf { it.isNotBlank() }?.let { it to ChipType.VACANCY },
         shiftText?.let { it to ChipType.VACANCY },
         if (vacancies > 1) stringResource(R.string.card_openings, vacancies) to ChipType.VACANCY else null
-    )
+    ).take(2)
     if (chips.isNotEmpty()) {
-        Spacer(modifier = Modifier.height(10.dp))
-        FlowRow(
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalAlignment = Alignment.CenterVertically
         ) {
             chips.forEach { (text, type) -> CompactChip(text = text, chipType = type) }
-        }
-    }
-    if (isClosed) return
-    val posted = postedAgoLabel(postedAt)
-    val social = if (applicants > 0) stringResource(R.string.card_applied_count, applicants) else null
-    val line = listOfNotNull(posted, social).joinToString(" · ")
-    val firstToApply = applicants == 0
-    if (line.isBlank() && !firstToApply) return
-    Spacer(modifier = Modifier.height(8.dp))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        if (line.isNotBlank()) {
-            Text(
-                text = line,
-                style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextTertiary, fontSize = 11.sp),
-                maxLines = 1
-            )
-        }
-        if (firstToApply) {
-            if (line.isNotBlank()) Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = stringResource(R.string.card_be_first),
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = WorkerColors.Success,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold
-                ),
-                maxLines = 1
-            )
         }
     }
 }

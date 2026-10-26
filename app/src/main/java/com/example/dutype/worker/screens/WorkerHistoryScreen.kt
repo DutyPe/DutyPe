@@ -185,7 +185,7 @@ fun WorkerHistoryScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
+                com.example.dutype.components.ThreeDotsBouncingLoader(dotColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
             }
         } else if (filteredApplications.isEmpty()) {
             EmptyHistoryState(selectedTab = selectedTab)
@@ -317,7 +317,7 @@ private fun WorkerUrgentHistoryContent(
     when {
         isLoading -> {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = WorkerColors.TextPrimary)
+                com.example.dutype.components.ThreeDotsBouncingLoader(dotColor = WorkerColors.TextPrimary)
             }
         }
         responses.isEmpty() -> {
@@ -780,7 +780,7 @@ private fun WorkerBookedServicesContent(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            CircularProgressIndicator(color = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
+            com.example.dutype.components.ThreeDotsBouncingLoader(dotColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary)
         }
         return
     }
