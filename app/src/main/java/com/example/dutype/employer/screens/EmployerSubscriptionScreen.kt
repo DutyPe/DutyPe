@@ -243,10 +243,6 @@ fun EmployerSubscriptionScreen(
                 NoPlanCard(aiStatus)
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            HiringValuePropositionBanner()
-
             Spacer(modifier = Modifier.height(20.dp))
 
             val sortedPlans = remember(plans) { plans.sortedBy { it.pricePaise } }
@@ -1288,93 +1284,6 @@ private fun TransactionCard(
                     fontWeight = FontWeight.Medium,
                     color = Danger.fg()
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun HiringValuePropositionBanner() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp)
-            .background(Color(0xFFF8FAFC), RoundedCornerShape(16.dp))
-            .border(1.dp, Hairline.bd(), RoundedCornerShape(16.dp))
-            .padding(16.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .background(Color(0xFFDCFCE7), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 8.dp, vertical = 3.dp)
-            ) {
-                Text(
-                    text = "5,000+ DOWNLOADS",
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF16A34A),
-                    letterSpacing = 0.5.sp
-                )
-            }
-            Text(
-                text = "Verified Local Workers",
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Ink700.fg()
-            )
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Find local workers. Contact them directly. Hire according to your needs.",
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-            color = Ink900.fg(),
-            lineHeight = 20.sp
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = Color(0xFF16A34A),
-                    modifier = Modifier.size(13.dp)
-                )
-                Text(text = "Direct Contact", fontSize = 11.5.sp, color = Ink700.fg())
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = Color(0xFF16A34A),
-                    modifier = Modifier.size(13.dp)
-                )
-                Text(text = "Zero Commission", fontSize = 11.5.sp, color = Ink700.fg())
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = Color(0xFF16A34A),
-                    modifier = Modifier.size(13.dp)
-                )
-                Text(text = "Instant Activation", fontSize = 11.5.sp, color = Ink700.fg())
             }
         }
     }
