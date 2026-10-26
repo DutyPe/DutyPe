@@ -146,33 +146,50 @@ fun ProfessionalWorkerProfileViewScreen(
         reviews = ratingService.getUserRatings(workerId)
     }
 
-    // Load worker profile and application data
+    // Load worker profile and application data with resilient card fallback
     LaunchedEffect(workerId, applicationId, reloadTick) {
         try {
             isLoading = true
             error = null
 
-            // The application (status, job) and the profile the callable allows this employer to see.
+            // 1. Try to load application data if applicationId is provided
             application = applicationId?.let { applicationViewModel.getApplication(it) }
-            application?.let { app ->
+
+            // 2. Fetch worker's public card from Firestore as guaranteed baseline
+            val workerCard = runCatching { profileCompletionService.workerCard(workerId) }.getOrNull()
+
+            // 3. Populate base profile immediately so employer sees profile data even if callable fails
+            val app = application
+            if (app != null || workerCard != null) {
+                val cardSkills = workerCard?.skills.orEmpty()
+                    .map { com.example.dutype.employer.models.JobCategory.fromKey(it).displayName }
+                val appSkills = listOfNotNull(app?.workerSkill?.takeIf { it.isNotBlank() })
+                    .map { com.example.dutype.employer.models.JobCategory.fromKey(it).displayName }
+                val combinedSkills = (cardSkills + appSkills).distinct()
+
+                val years = workerCard?.experienceYears ?: 0
                 workerProfile = WorkerProfileData(
-                    workerId = app.workerId,
-                    fullName = app.workerName.ifBlank { "Worker" },
-                    phone = "",
+                    workerId = workerId,
+                    fullName = app?.workerName?.ifBlank { null } ?: workerCard?.name?.ifBlank { null } ?: "Worker",
+                    phone = app?.workerPhone.orEmpty(),
                     email = "",
-                    location = "",
+                    location = workerCard?.area.orEmpty(),
                     gender = "",
-                    profileImageUrl = app.workerPhoto.ifBlank { null },
+                    profileImageUrl = app?.workerPhoto?.ifBlank { null } ?: workerCard?.photoUrl?.ifBlank { null },
                     experience = emptyList(),
-                    skills = listOf(app.workerSkill).filter { it.isNotBlank() },
+                    skills = combinedSkills,
                     languages = emptyList(),
-                    experienceLevel = "",
+                    experienceLevel = if (years > 0) "$years years" else context.getString(R.string.fresher_label),
                     dateOfBirth = "",
                     educationQualification = "",
-                    bio = ""
+                    bio = "",
+                    rating = workerCard?.rating ?: 0.0,
+                    totalJobs = workerCard?.jobsCompleted ?: 0,
+                    completedJobs = workerCard?.jobsCompleted ?: 0
                 )
             }
 
+            // 4. Try fetching private details via Cloud Function
             profileCompletionService.getWorkerProfileForEmployer(
                 workerId = workerId,
                 jobId = application?.jobId?.takeIf { it.isNotBlank() }
@@ -180,29 +197,42 @@ fun ProfessionalWorkerProfileViewScreen(
                 onSuccess = { data ->
                     val P = com.example.dutype.firestore.FirestoreSchema.WorkerProfiles
                     val C = com.example.dutype.firestore.FirestoreSchema.WorkerCards
-                    val years = (data[P.EXPERIENCE_YEARS] as? Number)?.toInt() ?: 0
+                    val years = (data[P.EXPERIENCE_YEARS] as? Number)?.toInt() ?: (workerProfile?.totalJobs ?: 0)
+                    val rawSkills = (data[P.SKILLS] as? List<*>)?.mapNotNull { it as? String }.orEmpty()
+                    val mappedSkills = if (rawSkills.isNotEmpty()) {
+                        rawSkills.map { com.example.dutype.employer.models.JobCategory.fromKey(it).displayName }
+                    } else {
+                        workerProfile?.skills.orEmpty()
+                    }
                     workerProfile = WorkerProfileData(
                         workerId = workerId,
                         fullName = (data[P.NAME] as? String).orEmpty().ifBlank { workerProfile?.fullName ?: "Worker" },
-                        phone = (data[P.PHONE] as? String).orEmpty(),
+                        phone = (data[P.PHONE] as? String).orEmpty().ifBlank { workerProfile?.phone.orEmpty() },
                         email = "",
-                        location = (data[P.AREA] as? String).orEmpty(),
+                        location = (data[P.AREA] as? String).orEmpty().ifBlank { workerProfile?.location.orEmpty() },
                         gender = (data[P.GENDER] as? String).orEmpty(),
                         profileImageUrl = (data[P.PHOTO_URL] as? String)?.ifBlank { null } ?: workerProfile?.profileImageUrl,
                         experience = emptyList(),
-                        skills = (data[P.SKILLS] as? List<*>)?.mapNotNull { it as? String }.orEmpty()
-                            .map { com.example.dutype.employer.models.JobCategory.fromKey(it).displayName },
+                        skills = mappedSkills,
                         languages = emptyList(),
                         experienceLevel = if (years > 0) "$years years" else context.getString(R.string.fresher_label),
                         dateOfBirth = (data[P.DATE_OF_BIRTH] as? String).orEmpty(),
                         educationQualification = (data[P.EDUCATION] as? String).orEmpty(),
                         bio = (data[P.BIO] as? String).orEmpty(),
-                        rating = (data[C.RATING] as? Number)?.toDouble() ?: 0.0,
-                        totalJobs = (data[C.JOBS_COMPLETED] as? Number)?.toInt() ?: 0,
-                        completedJobs = (data[C.JOBS_COMPLETED] as? Number)?.toInt() ?: 0
+                        rating = (data[C.RATING] as? Number)?.toDouble() ?: (workerProfile?.rating ?: 0.0),
+                        totalJobs = (data[C.JOBS_COMPLETED] as? Number)?.toInt() ?: (workerProfile?.totalJobs ?: 0),
+                        completedJobs = (data[C.JOBS_COMPLETED] as? Number)?.toInt() ?: (workerProfile?.completedJobs ?: 0)
                     )
+                    error = null
                 },
-                onFailure = { e -> if (workerProfile == null) error = e.message ?: "Failed to load worker profile" }
+                onFailure = { e ->
+                    // Do NOT show error if we already have public worker data!
+                    if (workerProfile == null) {
+                        error = e.message ?: "Failed to load worker profile"
+                    } else {
+                        error = null
+                    }
+                }
             )
 
             isLoading = false
@@ -397,9 +427,9 @@ private fun LoadingWorkerProfileState() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(48.dp),
-                color = EmployerColors.Primary.fg()
+            com.example.dutype.components.ThreeDotsBouncingLoader(
+                dotColor = EmployerColors.Primary.fg(),
+                dotSize = 10.dp
             )
             Text(
                 text = stringResource(R.string.auto_loading_worker_profile),

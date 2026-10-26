@@ -709,42 +709,83 @@ export const depositWalletFunds = onCallSecured({ enforceAppCheck: false }, asyn
   }
 
   const depositRef = db.collection("wallet_deposits").doc();
-  const eventId = `deposit_${depositRef.id}`;
+
+  await depositRef.set({
+    uid,
+    amountRupees,
+    amountPaise: amountRupees * 100,
+    utr,
+    method: "UPI",
+    status: "PENDING",
+    createdAt: Timestamp.now(),
+  });
+
+  return {
+    ok: true,
+    amountRupees,
+    status: "PENDING",
+    depositId: depositRef.id,
+  };
+});
+
+/**
+ * Admin: approve or reject a customer micro-wallet deposit.
+ * On approval, credits the user's wallet via postEntry.
+ */
+export const verifyWalletDeposit = onCallSecured({ enforceAppCheck: false }, async (raw: unknown, context) => {
+  if (!(await isCallerAdmin(context))) fail("permission-denied", "Admins only");
+  const data = obj(raw);
+  const depositId = str(data, "depositId", { max: 64, pattern: /^[A-Za-z0-9_-]+$/ });
+  const approve = data.approve === true;
+  const reason = str(data, "reason", { max: 300, optional: true });
+
+  const depositRef = db.collection("wallet_deposits").doc(depositId);
+  const eventId = `deposit_${depositId}`;
 
   const out = await db.runTransaction(async (tx) => {
+    const d = await tx.get(depositRef);
+    if (!d.exists) fail("not-found", "Wallet deposit not found");
+    if (d.get("status") !== "PENDING") fail("failed-precondition", "Deposit already processed");
+
+    const uid = String(d.get("uid"));
+    const amountPaise = Number(d.get("amountPaise") || (Number(d.get("amountRupees") || 0) * 100));
+    const now = Timestamp.now();
+
+    if (!approve) {
+      tx.update(depositRef, {
+        status: "REJECTED",
+        verifiedAt: now,
+        verifiedBy: context.auth!.uid,
+        ...(reason ? { rejectionReason: reason } : {}),
+      });
+      return { ok: true, status: "REJECTED" };
+    }
+
     const w = await readWallet(tx, uid);
     if (w.data[Wallets.BLOCKED] === true) {
-      fail("permission-denied", "Your DutyPe wallet is blocked. Contact support.");
+      fail("permission-denied", "User wallet is blocked.");
     }
     const ledgerCheck = await tx.get(ledgerRef(eventId));
     if (ledgerCheck.exists) {
       fail("already-exists", "Deposit already credited.");
     }
 
-    tx.set(depositRef, {
-      uid,
-      amountRupees,
-      amountPaise: amountRupees * 100,
-      utr,
-      method: "UPI",
+    tx.update(depositRef, {
       status: "COMPLETED",
-      createdAt: Timestamp.now(),
+      verifiedAt: now,
+      verifiedBy: context.auth!.uid,
     });
 
-    postEntry(tx, uid, w, eventId, Values.LedgerType.WALLET_DEPOSIT, amountRupees * 100, depositRef.id);
+    postEntry(tx, uid, w, eventId, Values.LedgerType.WALLET_DEPOSIT, amountPaise, depositRef.id);
 
     return {
+      ok: true,
+      status: "COMPLETED",
       newBalanceRupees: w.balancePaise / 100,
-      depositId: depositRef.id,
     };
   });
 
-  return {
-    ok: true,
-    amountRupees,
-    newBalanceRupees: out.newBalanceRupees,
-    depositId: out.depositId,
-  };
+  return out;
 });
 
 /** Returns real-time micro-wallet status and first-booking waiver eligibility. */

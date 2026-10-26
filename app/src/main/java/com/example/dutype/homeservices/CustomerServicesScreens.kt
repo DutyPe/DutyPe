@@ -184,7 +184,6 @@ import com.example.dutype.viewmodels.InstantHelpViewModel
 import androidx.navigation.NavController
 import com.example.dutype.employer.screens.EmployerExecutiveHeroCard
 import com.example.dutype.employer.screens.EmployerExecutiveInstantHelpCard
-import com.example.dutype.employer.screens.VoicePulsingFab
 import com.example.dutype.utils.findActivity
 import com.example.dutype.di.rememberInAppReviewTriggerService
 import com.dutype.app.R
@@ -219,7 +218,7 @@ internal val SvcRed = Color(0xFFDC2626)
 internal val SvcMuted = Color(0xFF64748B)
 internal val SvcInk = Color(0xFF0F172A)
 internal val SvcLine = Color(0xFFE2E8F0)
-internal val SvcPage = Color(0xFFF8FAFC)
+internal val SvcPage = Color(0xFFFFFFFF)
 private val IST: TimeZone = TimeZone.getTimeZone("Asia/Kolkata")
 val ACTIVE_CUSTOMER_CATEGORY_IDS = setOf(
     "CLEANING",
@@ -1175,7 +1174,7 @@ fun PostBookingRatingModal(
                     }
                 },
                 enabled = stars > 0 && !isSubmitting,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222)),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1777,180 +1776,6 @@ private fun HeroApplianceVisual() {
                     }
                     Spacer(Modifier.height(3.dp))
                     Text("99% PURE", color = Color.White, fontSize = 5.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HeroServiceAssuranceVisual() {
-    Box(
-        modifier = Modifier
-            .fillMaxHeight()
-            .width(120.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            modifier = Modifier
-                .size(90.dp)
-                .background(
-                    Brush.radialGradient(
-                        listOf(Color(0xFF10B981).copy(alpha = 0.5f), Color.Transparent)
-                    ),
-                    shape = CircleShape
-                )
-        )
-        Box(
-            modifier = Modifier
-                .size(68.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .background(Color(0xFF064E3B).copy(alpha = 0.6f))
-                .border(1.dp, Color(0xFF34D399).copy(alpha = 0.4f), RoundedCornerShape(18.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                Icons.Filled.Verified,
-                contentDescription = null,
-                tint = Color(0xFF34D399),
-                modifier = Modifier.size(36.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun ServicesPromoCarousel(
-    onBookPromo: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    LazyRow(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        item {
-            Card(
-                modifier = Modifier
-                    .width(310.dp)
-                    .clip(RoundedCornerShape(22.dp))
-                    .clickable(onClick = onBookPromo),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.linearGradient(
-                                listOf(Color(0xFF1E1B4B), Color(0xFF312E81), Color(0xFF4338CA))
-                            )
-                        )
-                        .padding(20.dp)
-                ) {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFFF59E0B))
-                                    .padding(horizontal = 8.dp, vertical = 3.dp)
-                            ) {
-                                Text("⚡ SPECIAL OFFER", color = Color(0xFF1E1B4B), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.6.sp)
-                            }
-                            Spacer(Modifier.width(8.dp))
-                            Text("LIMITED PERIOD", color = Color.White.copy(alpha = 0.7f), fontSize = 10.5.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            text = "Get 25% OFF on your first booking",
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            lineHeight = 23.sp
-                        )
-                        Spacer(Modifier.height(5.dp))
-                        Text(
-                            text = "AC repair, deep cleaning, plumbing & electricians",
-                            color = Color.White.copy(alpha = 0.82f),
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(Color.White)
-                                .padding(horizontal = 16.dp, vertical = 7.dp)
-                        ) {
-                            Text("Book Now", color = Color(0xFF1E1B4B), fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.width(5.dp))
-                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Color(0xFF1E1B4B), modifier = Modifier.size(13.dp))
-                        }
-                    }
-                }
-            }
-        }
-
-        item {
-            Card(
-                modifier = Modifier
-                    .width(310.dp)
-                    .clip(RoundedCornerShape(22.dp))
-                    .clickable(onClick = onBookPromo),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.linearGradient(
-                                listOf(Color(0xFF0F172A), Color(0xFF064E3B), Color(0xFF065F46))
-                            )
-                        )
-                        .padding(20.dp)
-                ) {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFF10B981).copy(alpha = 0.25f))
-                                    .border(1.dp, Color(0xFF10B981).copy(alpha = 0.4f), RoundedCornerShape(6.dp))
-                                    .padding(horizontal = 8.dp, vertical = 3.dp)
-                            ) {
-                                Text("🛡️ DUTYPE ASSURED", color = Color(0xFF34D399), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.6.sp)
-                            }
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            text = "Fixed Upfront Pricing & 7-Day Warranty",
-                            color = Color.White,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            lineHeight = 23.sp
-                        )
-                        Spacer(Modifier.height(5.dp))
-                        Text(
-                            text = "Background verified technicians • Pay post completion",
-                            color = Color.White.copy(alpha = 0.82f),
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(Color(0xFF10B981))
-                                .padding(horizontal = 16.dp, vertical = 7.dp)
-                        ) {
-                            Text("Explore Services", color = Color.White, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.width(5.dp))
-                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
-                        }
-                    }
                 }
             }
         }
@@ -4692,7 +4517,7 @@ fun BookServiceScreen(serviceId: String, navController: NavController, viewModel
                             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                         ) {
                             if (submitting) {
-                                CircularProgressIndicator(Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                                com.example.dutype.components.ButtonThreeDotsLoader()
                             } else {
                                 Text(
                                     text = when {
@@ -5693,7 +5518,7 @@ fun MicroWalletTopupSheet(
             ) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("💡 How it works:", fontWeight = FontWeight.Bold, fontSize = 12.5.sp, color = Color(0xFF1E293B))
-                    Text("• ₹$currentDepositAmount is loaded into your DutyPe closed-loop micro-wallet.", fontSize = 11.5.sp, color = Color(0xFF475569))
+                    Text("• ₹$currentDepositAmount will be credited after admin verification of your payment reference.", fontSize = 11.5.sp, color = Color(0xFF475569))
                     Text("• When booking, the ₹9 fee is auto-deducted invisibly in the background.", fontSize = 11.5.sp, color = Color(0xFF475569))
                     Text("• Cancelled before partner arrival? Fee is instantly refunded to your wallet.", fontSize = 11.5.sp, color = Color(0xFF475569))
                 }
@@ -5744,9 +5569,9 @@ fun MicroWalletTopupSheet(
                             scope.launch {
                                 viewModel.depositWalletFunds(currentDepositAmount, utrInput)
                                     .onSuccess {
-                                        Toast.makeText(context, "₹$currentDepositAmount added to DutyPe Micro-Wallet!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Deposit request for ₹$currentDepositAmount submitted with UTR $utrInput. Credits will be added once verified by admin.", Toast.LENGTH_LONG).show()
                                         isSubmitting = false
-                                        onTopupSuccess()
+                                        onDismiss()
                                     }
                                     .onFailure {
                                         Toast.makeText(context, it.message ?: "Deposit failed", Toast.LENGTH_LONG).show()
@@ -5760,9 +5585,9 @@ fun MicroWalletTopupSheet(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
                     ) {
                         if (isSubmitting) {
-                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            com.example.dutype.components.ButtonThreeDotsLoader()
                         } else {
-                            Text("Confirm Deposit & Proceed to Book", fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
+                            Text("Submit UTR for Admin Verification", fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
                         }
                     }
                 }
@@ -5829,7 +5654,7 @@ fun ServiceLaunchFeedbackBottomSheet(
                     onClick = onDismiss,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222))
                 ) {
                     Text("Done", fontWeight = FontWeight.Bold, color = Color.White)
                 }
@@ -5951,7 +5776,7 @@ fun ServiceLaunchFeedbackBottomSheet(
                     enabled = !isSubmitting,
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222))
                 ) {
                     if (isSubmitting) {
                         CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
@@ -6180,7 +6005,7 @@ private fun AddAddressBottomSheet(
                     .height(48.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF0F172A),
+                    containerColor = Color(0xFF222222),
                     disabledContainerColor = Color(0xFFE2E8F0)
                 )
             ) {
@@ -6282,10 +6107,10 @@ private fun CouponsBottomSheet(
                         enabled = inputCode.trim().length >= 3 && !quoting,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.height(54.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222))
                     ) {
                         if (quoting) {
-                            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
+                            com.example.dutype.components.ButtonThreeDotsLoader()
                         } else {
                             Text("APPLY", fontWeight = FontWeight.Bold)
                         }
@@ -6412,7 +6237,7 @@ private fun CouponsBottomSheet(
                                         },
                                         shape = RoundedCornerShape(10.dp),
                                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222))
                                     ) {
                                         Text("APPLY", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                     }
@@ -6665,7 +6490,12 @@ private fun ModernBookingStepper(b: ServiceBooking) {
 }
 
 @Composable
-private fun SearchingPartnerRadarHero(cityOrArea: String) {
+private fun SearchingPartnerUnifiedCard(
+    booking: ServiceBooking,
+    cityOrArea: String,
+    onCancel: () -> Unit,
+    busy: Boolean
+) {
     val infiniteTransition = rememberInfiniteTransition(label = "radarHeroTransition")
     val pulse1 by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -6695,11 +6525,13 @@ private fun SearchingPartnerRadarHero(cityOrArea: String) {
         label = "sweepAngle"
     )
 
+    val tint = categoryTint(booking.category)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
-        border = BorderStroke(1.dp, Color(0xFFBAE6FD).bg())
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bg())
     ) {
         Column(
             modifier = Modifier
@@ -6707,9 +6539,52 @@ private fun SearchingPartnerRadarHero(cityOrArea: String) {
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Service Info Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(tint.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(categoryIcon(booking.category), contentDescription = null, tint = tint)
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(booking.serviceName, fontWeight = FontWeight.Bold, fontSize = 17.sp, color = SvcInk.fg())
+                    Text(
+                        stringResource(R.string.svc_booking_id, booking.id.take(8).uppercase()),
+                        color = SvcMuted.fg(),
+                        fontSize = 12.sp
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(Color(0xFFFEF3C7))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "SEARCHING",
+                        color = Color(0xFFD97706),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+            HorizontalDivider(color = Color(0xFFF1F5F9).bg(), thickness = 1.dp)
+            Spacer(Modifier.height(16.dp))
+
             // Animated Radar Display
             Box(
-                modifier = Modifier.size(130.dp),
+                modifier = Modifier.size(115.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
@@ -6765,21 +6640,21 @@ private fun SearchingPartnerRadarHero(cityOrArea: String) {
                 // Center Icon Disc
                 Box(
                     modifier = Modifier
-                        .size(54.dp)
+                        .size(46.dp)
                         .clip(CircleShape)
                         .background(
                             Brush.linearGradient(
                                 listOf(Color(0xFF0284C7), Color(0xFF0B132B))
                             )
                         )
-                        .border(2.5.dp, Color.White, CircleShape),
+                        .border(2.dp, Color.White, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Filled.NearMe,
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
@@ -6792,25 +6667,25 @@ private fun SearchingPartnerRadarHero(cityOrArea: String) {
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
                     .background(Color(0xFFE0F2FE))
-                    .border(1.dp, Color(0xFF7DD3FC), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .border(1.dp, Color(0xFFBAE6FD), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
             ) {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF0284C7)))
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text = "Searching verified technicians in $cityOrArea",
-                    fontSize = 11.5.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color(0xFF0369A1)
                 )
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
 
             Text(
                 text = "Finding Your Best Service Partner...",
                 fontWeight = FontWeight.Bold,
-                fontSize = 17.sp,
+                fontSize = 16.5.sp,
                 color = SvcInk.fg(),
                 textAlign = TextAlign.Center
             )
@@ -6820,40 +6695,41 @@ private fun SearchingPartnerRadarHero(cityOrArea: String) {
                 fontSize = 12.sp,
                 color = SvcMuted.fg(),
                 textAlign = TextAlign.Center,
-                lineHeight = 17.sp
+                lineHeight = 16.5.sp
             )
 
-            Spacer(Modifier.height(14.dp))
+            if (booking.addressText.isNotBlank()) {
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.LocationOn, contentDescription = null, tint = SvcMuted, modifier = Modifier.size(15.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        booking.addressText,
+                        color = SvcMuted.fg(),
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
 
-            // Reassurance badges row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+            Spacer(Modifier.height(14.dp))
+            HorizontalDivider(color = Color(0xFFF1F5F9).bg(), thickness = 1.dp)
+            Spacer(Modifier.height(6.dp))
+
+            TextButton(
+                onClick = onCancel,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                TrustBadgeChip(icon = Icons.Filled.Verified, label = "Verified Pros")
-                TrustBadgeChip(icon = Icons.Filled.Schedule, label = "15-20m Arrival")
-                TrustBadgeChip(icon = Icons.Filled.CheckCircle, label = "Fair Pricing")
+                Text(
+                    text = "Cancel Booking",
+                    color = SvcRed,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
-    }
-}
-
-@Composable
-private fun TrustBadgeChip(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFFF8FAFC).bg())
-            .border(1.dp, SvcLine.bg(), RoundedCornerShape(8.dp))
-            .padding(horizontal = 8.dp, vertical = 5.dp)
-    ) {
-        Icon(icon, contentDescription = null, tint = SvcGreen, modifier = Modifier.size(13.dp))
-        Spacer(Modifier.width(4.dp))
-        Text(label, fontSize = 10.5.sp, fontWeight = FontWeight.Medium, color = SvcInk.fg())
     }
 }
 
@@ -7207,144 +7083,146 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             OfflineCachedNote()
-            ModernBookingStepper(b)
             // Live Booking Progress Tracker Hero
             val cityOrArea = b.area.trim().ifEmpty {
                 b.addressText.split(",").map { it.trim() }.filter { it.isNotBlank() }.let { parts ->
                     if (parts.size >= 2) parts[parts.size - 2] else parts.firstOrNull()
                 }?.takeIf { it.isNotBlank() } ?: "your area"
             }
-            val trackerStatusText = when (b.status) {
-                BookingStatus.PAYMENT_PENDING -> if (b.utr.isNotBlank()) "Payment Submitted • Awaiting Approval" else "Platform Fee Payment Required"
-                BookingStatus.SEARCHING -> "Finding the best partner near you"
-                BookingStatus.ASSIGNED -> "Technician Assigned"
-                BookingStatus.ON_THE_WAY -> "Technician On The Way"
-                BookingStatus.STARTED -> "Service In Progress"
-                BookingStatus.COMPLETED -> "Service Completed"
-                BookingStatus.CANCELLED -> "Booking Cancelled"
-                BookingStatus.NO_PARTNER -> "No Partner Available"
-                else -> "Booking Placed"
-            }
-            val trackerSubtext = when (b.status) {
-                BookingStatus.PAYMENT_PENDING -> if (b.utr.isNotBlank()) {
-                    "Your payment with UTR ${b.utr} has been submitted. Our team is verifying it; technician dispatch will begin immediately upon approval."
-                } else {
-                    "Please pay the platform fee (₹${b.bookingFee}) to initiate verified partner dispatch in $cityOrArea."
-                }
-                BookingStatus.SEARCHING -> "Matching you with the nearest verified professional in $cityOrArea..."
-                BookingStatus.ASSIGNED -> "Your partner has accepted and is preparing their tools."
-                BookingStatus.ON_THE_WAY -> "Partner is en route to your doorstep. Keep your start OTP ready."
-                BookingStatus.STARTED -> "Work is underway. OTP successfully verified."
-                BookingStatus.COMPLETED -> "Service successfully completed. Transparent pricing guaranteed."
-                BookingStatus.CANCELLED -> "This request was cancelled."
-                BookingStatus.NO_PARTNER -> "All partners are currently busy. We apologize for the inconvenience."
-                else -> "Your booking details have been confirmed."
-            }
 
-            SvcSection {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(tint.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                        Icon(categoryIcon(b.category), contentDescription = null, tint = tint)
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(b.serviceName, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = SvcInk.fg())
-                        Text(stringResource(R.string.svc_booking_id, b.id.take(8).uppercase()), color = SvcMuted.fg(), fontSize = 12.sp)
-                    }
-                }
-
-                // Live Tracker Status Card
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(statusColor(b.status).copy(alpha = 0.08f))
-                        .border(1.dp, statusColor(b.status).copy(alpha = 0.25f), RoundedCornerShape(12.dp))
-                        .padding(12.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(10.dp).clip(CircleShape).background(statusColor(b.status)))
-                        Spacer(Modifier.width(8.dp))
-                        Text(trackerStatusText, color = statusColor(b.status), fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Text(trackerSubtext, fontSize = 12.5.sp, color = SvcInk.fg(), lineHeight = 17.sp)
-                    if (b.status == BookingStatus.SEARCHING) {
-                        Spacer(Modifier.height(8.dp))
-                        LinearProgressIndicator(Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)), color = statusColor(b.status))
-                    }
-                    if (b.status in setOf(BookingStatus.PAYMENT_PENDING, BookingStatus.SEARCHING, BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY)) {
-                        Spacer(Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            Text(
-                                text = "Cancel Booking",
-                                color = SvcRed,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable(enabled = !busy) { confirmCancel = true }
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-                }
-
-                if (b.scheduledAt > 0) Text(stringResource(R.string.svc_scheduled_for, formatSlot(b.scheduledAt)), color = SvcMuted.fg(), fontSize = 13.sp)
-                Row(verticalAlignment = Alignment.Top) {
-                    Icon(Icons.Filled.LocationOn, contentDescription = null, tint = SvcMuted, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(b.addressText, color = SvcMuted.fg(), fontSize = 13.sp)
-                }
-            }
-
-            if (b.status == BookingStatus.PAYMENT_PENDING) {
-                PaymentPendingCard(
+            if (b.status == BookingStatus.SEARCHING) {
+                SearchingPartnerUnifiedCard(
                     booking = b,
-                    catalog = catalog,
-                    onSubmitUtr = { utr ->
-                        busy = true
-                        scope.launch {
-                            viewModel.submitBookingPayment(b.id, utr)
-                                .onSuccess {
-                                    Toast.makeText(context, "Payment submitted! Awaiting admin approval.", Toast.LENGTH_SHORT).show()
-                                }
-                                .onFailure {
-                                    Toast.makeText(context, it.message ?: "Failed to submit payment", Toast.LENGTH_LONG).show()
-                                }
-                            busy = false
+                    cityOrArea = cityOrArea,
+                    onCancel = { confirmCancel = true },
+                    busy = busy
+                )
+            } else {
+                ModernBookingStepper(b)
+                val trackerStatusText = when (b.status) {
+                    BookingStatus.PAYMENT_PENDING -> if (b.utr.isNotBlank()) "Payment Submitted • Awaiting Approval" else "Platform Fee Payment Required"
+                    BookingStatus.ASSIGNED -> "Technician Assigned"
+                    BookingStatus.ON_THE_WAY -> "Technician On The Way"
+                    BookingStatus.STARTED -> "Service In Progress"
+                    BookingStatus.COMPLETED -> "Service Completed"
+                    BookingStatus.CANCELLED -> "Booking Cancelled"
+                    BookingStatus.NO_PARTNER -> "No Partner Available"
+                    else -> "Booking Placed"
+                }
+                val trackerSubtext = when (b.status) {
+                    BookingStatus.PAYMENT_PENDING -> if (b.utr.isNotBlank()) {
+                        "Your payment with UTR ${b.utr} has been submitted. Our team is verifying it; technician dispatch will begin immediately upon approval."
+                    } else {
+                        "Please pay the platform fee (₹${b.bookingFee}) to initiate verified partner dispatch in $cityOrArea."
+                    }
+                    BookingStatus.ASSIGNED -> "Your partner has accepted and is preparing their tools."
+                    BookingStatus.ON_THE_WAY -> "Partner is en route to your doorstep. Keep your start OTP ready."
+                    BookingStatus.STARTED -> "Work is underway. OTP successfully verified."
+                    BookingStatus.COMPLETED -> "Service successfully completed. Transparent pricing guaranteed."
+                    BookingStatus.CANCELLED -> "This request was cancelled."
+                    BookingStatus.NO_PARTNER -> "All partners are currently busy. We apologize for the inconvenience."
+                    else -> "Your booking details have been confirmed."
+                }
+
+                SvcSection {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(tint.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                            Icon(categoryIcon(b.category), contentDescription = null, tint = tint)
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(b.serviceName, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = SvcInk.fg())
+                            Text(stringResource(R.string.svc_booking_id, b.id.take(8).uppercase()), color = SvcMuted.fg(), fontSize = 12.sp)
                         }
                     }
-                )
-            } else if (b.status == BookingStatus.SEARCHING) {
-                SearchingPartnerRadarHero(cityOrArea)
-            } else if (code.isNotBlank() && b.status in setOf(BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY)) {
-                StartOtpSecureCard(code)
-            }
 
-            // ── Live OpenFreeMap Tracker (Technician En Route) ──
-            if (b.status in setOf(BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY)) {
-                com.example.dutype.components.OpenFreeMapTrackerView(
-                    customerLat = b.lat,
-                    customerLng = b.lng,
-                    partnerLat = b.partnerLat,
-                    partnerLng = b.partnerLng,
-                    customerLabel = b.addressText.ifBlank { b.area },
-                    partnerName = b.partnerName.ifBlank { "Technician" },
-                    partnerPhone = b.partnerPhone,
-                    partnerBearing = b.partnerBearing,
-                    isPartnerMode = false
-                )
-            }
+                    // Live Tracker Status Card
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(statusColor(b.status).copy(alpha = 0.08f))
+                            .border(1.dp, statusColor(b.status).copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(10.dp).clip(CircleShape).background(statusColor(b.status)))
+                            Spacer(Modifier.width(8.dp))
+                            Text(trackerStatusText, color = statusColor(b.status), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        }
+                        Spacer(Modifier.height(4.dp))
+                        Text(trackerSubtext, fontSize = 12.5.sp, color = SvcInk.fg(), lineHeight = 17.sp)
+                        if (b.status in setOf(BookingStatus.PAYMENT_PENDING, BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY)) {
+                            Spacer(Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                Text(
+                                    text = "Cancel Booking",
+                                    color = SvcRed,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable(enabled = !busy) { confirmCancel = true }
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
+                    }
 
-            if (b.partnerName.isNotBlank() && b.status != BookingStatus.CANCELLED) {
-                AssignedPartnerCard(b, onCall = { dial(context, b.partnerPhone) })
-            }
+                    if (b.scheduledAt > 0) Text(stringResource(R.string.svc_scheduled_for, formatSlot(b.scheduledAt)), color = SvcMuted.fg(), fontSize = 13.sp)
+                    Row(verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Filled.LocationOn, contentDescription = null, tint = SvcMuted, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(b.addressText, color = SvcMuted.fg(), fontSize = 13.sp)
+                    }
+                }
 
-            StatusTimeline(b)
+                if (b.status == BookingStatus.PAYMENT_PENDING) {
+                    PaymentPendingCard(
+                        booking = b,
+                        catalog = catalog,
+                        onSubmitUtr = { utr ->
+                            busy = true
+                            scope.launch {
+                                viewModel.submitBookingPayment(b.id, utr)
+                                    .onSuccess {
+                                        Toast.makeText(context, "Payment submitted! Awaiting admin approval.", Toast.LENGTH_SHORT).show()
+                                    }
+                                    .onFailure {
+                                        Toast.makeText(context, it.message ?: "Failed to submit payment", Toast.LENGTH_LONG).show()
+                                    }
+                                busy = false
+                            }
+                        }
+                    )
+                } else if (code.isNotBlank() && b.status in setOf(BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY)) {
+                    StartOtpSecureCard(code)
+                }
+
+                // ── Live OpenFreeMap Tracker (Technician En Route) ──
+                if (b.status in setOf(BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY)) {
+                    com.example.dutype.components.OpenFreeMapTrackerView(
+                        customerLat = b.lat,
+                        customerLng = b.lng,
+                        partnerLat = b.partnerLat,
+                        partnerLng = b.partnerLng,
+                        customerLabel = b.addressText.ifBlank { b.area },
+                        partnerName = b.partnerName.ifBlank { "Technician" },
+                        partnerPhone = b.partnerPhone,
+                        partnerBearing = b.partnerBearing,
+                        isPartnerMode = false
+                    )
+                }
+
+                if (b.partnerName.isNotBlank() && b.status != BookingStatus.CANCELLED) {
+                    AssignedPartnerCard(b, onCall = { dial(context, b.partnerPhone) })
+                }
+
+                StatusTimeline(b)
+            }
 
             if (b.status == BookingStatus.CANCELLED && b.cancellationFee > 0) {
                 Card(
@@ -7464,7 +7342,7 @@ fun BookingDetailScreen(bookingId: String, navController: NavController, viewMod
                 ) { Text(stringResource(R.string.svc_book_again), fontWeight = FontWeight.Bold) }
             }
 
-            if (b.status in setOf(BookingStatus.PAYMENT_PENDING, BookingStatus.SEARCHING, BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY)) {
+            if (b.status in setOf(BookingStatus.PAYMENT_PENDING, BookingStatus.ASSIGNED, BookingStatus.ON_THE_WAY)) {
                 OutlinedButton(onClick = { confirmCancel = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.svc_cancel_booking), color = SvcRed)
                 }
@@ -7669,7 +7547,7 @@ private fun CancellationCompensationBottomSheet(
             Button(
                 onClick = onDismiss,
                 enabled = !busy,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A)),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222)),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
@@ -7690,7 +7568,7 @@ private fun CancellationCompensationBottomSheet(
                 modifier = Modifier.fillMaxWidth().height(48.dp)
             ) {
                 if (busy) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = SvcRed)
+                    com.example.dutype.components.ButtonThreeDotsLoader(dotColor = SvcRed)
                 } else {
                     Text(
                         text = "Cancel & Pay Travel Fare",
@@ -7865,7 +7743,7 @@ private fun PaymentPendingCard(
                     },
                     modifier = Modifier.fillMaxWidth().height(44.dp),
                     shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F172A))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF222222))
                 ) {
                     Icon(Icons.Filled.Payments, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(8.dp))

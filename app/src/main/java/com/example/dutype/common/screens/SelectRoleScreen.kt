@@ -218,7 +218,7 @@ private fun ContinueButton(onClick: () -> Unit) {
         shape = RoundedCornerShape(16.dp),
         elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color.Black,
+            containerColor = Color(0xFF222222),
             contentColor = Color.White
         )
     ) {

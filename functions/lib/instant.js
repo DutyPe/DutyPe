@@ -287,8 +287,11 @@ exports.getInstantWorkerContact = (0, secure_callable_1.onCallSecured)({}, async
     ]);
     if (!request.exists || request.get(schema_1.InstantRequests.EMPLOYER_ID) !== uid)
         (0, input_1.fail)("permission-denied", "Not your urgent need");
-    if (!response.exists)
-        (0, input_1.fail)("permission-denied", "This worker has not responded");
+    if (!response.exists) {
+        const card = await db.collection(schema_1.WorkerCards.COLLECTION).doc(workerId).get();
+        if (!card.exists)
+            (0, input_1.fail)("permission-denied", "Worker not found");
+    }
     const phone = String(worker.get(schema_1.WorkerProfiles.PHONE) || "");
     if (!phone)
         (0, input_1.fail)("not-found", "This worker has no phone number");

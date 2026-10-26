@@ -207,7 +207,7 @@ private fun OfferContent(s: UrgentOfferState.Offer, speaker: Speaker, onAccept: 
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth().height(64.dp)
             ) {
-                if (s.accepting) CircularProgressIndicator(color = Color.White, strokeWidth = 3.dp, modifier = Modifier.size(26.dp))
+                if (s.accepting) com.example.dutype.components.ButtonThreeDotsLoader(dotColor = Color.White)
                 else Text(stringResource(R.string.urgent_offer_accept_big), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
             }
             OutlinedButton(

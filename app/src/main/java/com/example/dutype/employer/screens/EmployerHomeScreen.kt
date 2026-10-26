@@ -1147,7 +1147,7 @@ fun EmployerHomeServicesSection(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(82.dp)
-                                .background(Color(0xFFF8FAFC)),
+                                .background(Color.White),
                             contentAlignment = Alignment.Center
                         ) {
                             OptimizedImage(
@@ -1453,7 +1453,7 @@ fun EmployerCompactPostActionRow(
                 .height(44.dp),
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF0F172A),
+                containerColor = Color(0xFF222222),
                 contentColor = Color.White
             ),
             contentPadding = PaddingValues(horizontal = 14.dp)

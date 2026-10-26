@@ -2,6 +2,7 @@ package com.example.dutype.ads
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -25,13 +26,16 @@ import timber.log.Timber
  */
 object AdMobConfig {
     /** Live AdMob Banner ID for Job Description pre-map and In-feed list */
-    const val BANNER_AD_UNIT_ID = "ca-app-pub-5503082977524600/2289947878"
+    val BANNER_AD_UNIT_ID: String
+        get() = if (com.dutype.app.BuildConfig.DEBUG) "ca-app-pub-3940256099942544/6300978111" else "ca-app-pub-5503082977524600/2289947878"
 
     /** Live AdMob Unit ID for Success & Post-Action screens */
-    const val SUCCESS_AD_UNIT_ID = "ca-app-pub-5503082977524600/1475559655"
+    val SUCCESS_AD_UNIT_ID: String
+        get() = if (com.dutype.app.BuildConfig.DEBUG) "ca-app-pub-3940256099942544/6300978111" else "ca-app-pub-5503082977524600/1475559655"
 
     /** Live AdMob Unit ID for Worker Earnings & Referral screens */
-    const val EARNINGS_AD_UNIT_ID = "ca-app-pub-5503082977524600/7322782701"
+    val EARNINGS_AD_UNIT_ID: String
+        get() = if (com.dutype.app.BuildConfig.DEBUG) "ca-app-pub-3940256099942544/6300978111" else "ca-app-pub-5503082977524600/7322782701"
 }
 
 /**
@@ -59,6 +63,10 @@ fun DutyPePostActionAdCard(
                 modifier = Modifier.fillMaxWidth(),
                 factory = { ctx ->
                     AdView(ctx).apply {
+                        layoutParams = android.view.ViewGroup.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                        )
                         this.adUnitId = adUnitId
                         setAdSize(AdSize.MEDIUM_RECTANGLE)
                         adListener = object : AdListener() {
@@ -115,6 +123,10 @@ fun DutyPePreMapAdBanner(
                 modifier = Modifier.fillMaxWidth(),
                 factory = { ctx ->
                     AdView(ctx).apply {
+                        layoutParams = android.view.ViewGroup.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                        )
                         this.adUnitId = adUnitId
                         setAdSize(AdSize.BANNER)
                         adListener = object : AdListener() {
@@ -160,6 +172,10 @@ fun DutyPeInFeedAdCard(
                 modifier = Modifier.fillMaxWidth(),
                 factory = { ctx ->
                     AdView(ctx).apply {
+                        layoutParams = android.view.ViewGroup.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                        )
                         this.adUnitId = adUnitId
                         setAdSize(AdSize.BANNER)
                         adListener = object : AdListener() {
@@ -205,6 +221,10 @@ fun DutyPeEarningsBanner(
                 modifier = Modifier.fillMaxWidth(),
                 factory = { ctx ->
                     AdView(ctx).apply {
+                        layoutParams = android.view.ViewGroup.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                        )
                         this.adUnitId = adUnitId
                         setAdSize(AdSize.BANNER)
                         adListener = object : AdListener() {
@@ -216,6 +236,67 @@ fun DutyPeEarningsBanner(
                                 Timber.d("AdMob earnings banner failed: ${error.message}")
                                 isLoaded = false
                                 isFailed = true
+                            }
+                        }
+                        loadAd(AdRequest.Builder().build())
+                    }
+                }
+            )
+        }
+    }
+}
+
+/**
+ * 5. Video-capable AdMob Card (for Job Description Location slot).
+ * Specifically loads AdSize.MEDIUM_RECTANGLE (300x250) which supports AdMob Video and rich media ads.
+ */
+@Composable
+fun DutyPeVideoAdCard(
+    modifier: Modifier = Modifier,
+    adUnitId: String = AdMobConfig.EARNINGS_AD_UNIT_ID
+) {
+    var isLoaded by remember { mutableStateOf(false) }
+    var isFailed by remember { mutableStateOf(false) }
+
+    if (!isFailed) {
+        Box(
+            modifier = modifier
+                .fillMaxWidth()
+                .then(if (isLoaded) Modifier.padding(vertical = 4.dp) else Modifier),
+            contentAlignment = Alignment.Center
+        ) {
+            AndroidView(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(260.dp),
+                factory = { ctx ->
+                    AdView(ctx).apply {
+                        layoutParams = android.view.ViewGroup.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                        )
+                        this.adUnitId = adUnitId
+                        setAdSize(AdSize.MEDIUM_RECTANGLE)
+                        adListener = object : AdListener() {
+                            override fun onAdLoaded() {
+                                isLoaded = true
+                                isFailed = false
+                            }
+                            override fun onAdFailedToLoad(error: LoadAdError) {
+                                Timber.d("AdMob video medium rectangle failed: ${error.message}, falling back to banner")
+                                setAdSize(AdSize.BANNER)
+                                adListener = object : AdListener() {
+                                    override fun onAdLoaded() {
+                                        isLoaded = true
+                                        isFailed = false
+                                    }
+                                    override fun onAdFailedToLoad(err: LoadAdError) {
+                                        Timber.d("AdMob video fallback banner failed: ${err.message}")
+                                        isLoaded = false
+                                        isFailed = true
+                                    }
+                                }
+                                loadAd(AdRequest.Builder().build())
                             }
                         }
                         loadAd(AdRequest.Builder().build())
@@ -239,6 +320,10 @@ fun AdMobBanner(
         modifier = modifier.fillMaxWidth(),
         factory = { ctx ->
             AdView(ctx).apply {
+                layoutParams = android.view.ViewGroup.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                )
                 this.adUnitId = adUnitId
                 setAdSize(adSize)
                 loadAd(AdRequest.Builder().build())

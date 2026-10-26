@@ -83,6 +83,7 @@ import com.example.dutype.viewmodels.OtpViewModel
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import timber.log.Timber
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.RepeatMode
@@ -852,14 +853,14 @@ private fun OtpLoginScreen(
                             enabled = buttonEnabled,
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color.Black,
+                                containerColor = Color(0xFF222222),
                                 contentColor = Color.White,
                                 disabledContainerColor = Color(0xFFCBD5E1).bg(),
                                 disabledContentColor = Color(0xFF64748B).fg()
                             )
                         ) {
                             if (otpState.isLoading && !isTruecallerBusy) {
-                                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+                                com.example.dutype.components.ButtonThreeDotsLoader()
                             } else {
                                 Row(
                                     modifier = Modifier
@@ -934,31 +935,74 @@ private fun OtpLoginScreen(
                             }
                         )
 
-                        // DEV-ONLY: Skip OTP
+                        // DEV-ONLY: Skip OTP - Navigate to Selected Role Home
                         if (LocalContext.current.isDebuggableBuild()) {
                             Spacer(modifier = Modifier.height(12.dp))
-                            OutlinedButton(
-                                onClick = { navigateToHome(role, navController) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(
-                                    contentColor = WorkerColors.TextSecondary
-                                ),
-                                border = BorderStroke(1.dp, Color(0xFFCBD5E1).bd())
-                            ) {
-                                Text(
-                                    text = "Skip (Dev) → ${role.name} home",
-                                    style = MaterialTheme.typography.labelLarge.copy(
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.SemiBold
+                            val launchDevHome: (UserRole) -> Unit = { targetRole ->
+                                scope.launch {
+                                    if (FirebaseAuth.getInstance().currentUser == null) {
+                                        runCatching {
+                                            FirebaseAuth.getInstance().signInAnonymously().await()
+                                        }
+                                    }
+                                    profileCompletionViewModel.saveUserInfoToLocalStorage(
+                                        email = "dev@dutype.com",
+                                        name = "Dev User",
+                                        role = targetRole
                                     )
-                                )
+                                    profileCompletionViewModel.markProfileComplete(targetRole)
+                                    profileCompletionViewModel.markProfileSetupAsShown(targetRole)
+                                    navigateToHome(targetRole, navController)
+                                }
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { launchDevHome(UserRole.WORKER) },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(44.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = if (role == UserRole.WORKER) Color.Black else WorkerColors.TextSecondary
+                                    ),
+                                    border = BorderStroke(1.dp, if (role == UserRole.WORKER) Color.Black else Color(0xFFCBD5E1).bd())
+                                ) {
+                                    Text(
+                                        text = "Dev → Worker",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontSize = 12.5.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        ),
+                                        maxLines = 1
+                                    )
+                                }
+                                OutlinedButton(
+                                    onClick = { launchDevHome(UserRole.EMPLOYER) },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(44.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = if (role == UserRole.EMPLOYER) Color.Black else WorkerColors.TextSecondary
+                                    ),
+                                    border = BorderStroke(1.dp, if (role == UserRole.EMPLOYER) Color.Black else Color(0xFFCBD5E1).bd())
+                                ) {
+                                    Text(
+                                        text = "Dev → Employer",
+                                        style = MaterialTheme.typography.labelMedium.copy(
+                                            fontSize = 12.5.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        ),
+                                        maxLines = 1
+                                    )
+                                }
                             }
                         }
+                    }
 
-                        }
 
                         // Terms & Privacy footer - cleanly anchored at bottom of card
                         Column(
@@ -1222,14 +1266,14 @@ private fun OtpInputSection(
                 .height(54.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Black,
+                containerColor = Color(0xFF222222),
                 contentColor = Color.White,
                 disabledContainerColor = Color(0xFFCBD5E1).bg(),
                 disabledContentColor = Color(0xFF64748B).fg()
             )
         ) {
             if (otpState.isLoading) {
-                CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+                com.example.dutype.components.ButtonThreeDotsLoader()
             } else {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

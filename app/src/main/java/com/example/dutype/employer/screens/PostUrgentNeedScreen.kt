@@ -1037,13 +1037,8 @@ private fun UrgentBroadcastButton(
             .height(56.dp)
     ) {
         if (loading) {
-            CircularProgressIndicator(
-                color = Color.White,
-                strokeWidth = 2.dp,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-        }
+            com.example.dutype.components.ButtonThreeDotsLoader(dotColor = Color.White)
+        } else
         Text(
             text = stringResource(R.string.urgent_need_post_now_btn),
             fontSize = 16.sp,

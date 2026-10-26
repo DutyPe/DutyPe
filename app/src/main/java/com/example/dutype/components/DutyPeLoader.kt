@@ -19,7 +19,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 fun DutyPeLoader(
     modifier: Modifier = Modifier,
     size: Dp = 48.dp,
-    color: Color = Color(0xFF8B5CF6)
+    color: Color = Color(0xFF222222)
 ) {
     val appConfigViewModel: AppConfigViewModel = hiltViewModel()
     val config by appConfigViewModel.dynamicFeaturesConfig.collectAsState()
@@ -44,16 +44,21 @@ fun DutyPeLoader(
                     modifier = Modifier.size(size)
                 )
             } else {
-                CircularProgressIndicator(
-                    color = color,
-                    modifier = Modifier.size(size / 2)
+                ThreeDotsBouncingLoader(
+                    dotSize = 7.dp,
+                    dotColor = color,
+                    bounceHeight = 5.dp,
+                    spacing = 5.dp
                 )
             }
         }
     } else {
-        CircularProgressIndicator(
-            color = color,
-            modifier = modifier.size(size)
+        ThreeDotsBouncingLoader(
+            modifier = modifier,
+            dotSize = 8.dp,
+            dotColor = color,
+            bounceHeight = 6.dp,
+            spacing = 6.dp
         )
     }
 }

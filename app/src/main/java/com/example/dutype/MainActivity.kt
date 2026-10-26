@@ -362,8 +362,7 @@ class MainActivity : ComponentActivity() {
                             // Otherwise, use dark icons.
                             val isAuthRoute = currentRouteForBars?.contains("login", ignoreCase = true) == true ||
                                 currentRouteForBars?.contains("register", ignoreCase = true) == true ||
-                                currentRouteForBars?.contains("otp", ignoreCase = true) == true ||
-                                currentRouteForBars?.contains("services", ignoreCase = true) == true
+                                currentRouteForBars?.contains("otp", ignoreCase = true) == true
                             isAppearanceLightStatusBars = if (isAuthRoute) false else (!darkTheme && !isColorDark)
                             isAppearanceLightNavigationBars = !darkTheme
                         }

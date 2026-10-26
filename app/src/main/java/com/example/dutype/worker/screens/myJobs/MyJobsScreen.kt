@@ -92,7 +92,7 @@ private val MyJobsFaint = Color(0xFF94A3B8)
 private val MyJobsBorder = Color(0xFFE2E8F0)
 private val MyJobsEmerald = Color(0xFF10B981)
 private val MyJobsEmeraldTint = Color(0xFFF0FDF4)
-private val MyJobsScreenBg = Color(0xFFF8FAFC)
+private val MyJobsScreenBg = Color(0xFFFFFFFF)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

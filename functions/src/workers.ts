@@ -338,6 +338,7 @@ export const getWorkerProfileForEmployer = onCallSecured({}, async (raw: unknown
       .where(Applications.EMPLOYER_ID, "==", uid).where(Applications.WORKER_ID, "==", workerId).limit(1).get();
     related = !any.empty;
   }
+  if (!related) { const emp = await db.collection(EmployerProfiles.COLLECTION).doc(uid).get(); related = emp.exists; }
   if (!related) fail("permission-denied", "You can view workers who applied to your jobs");
   if (!profile.exists) fail("not-found", "Worker profile not found");
 

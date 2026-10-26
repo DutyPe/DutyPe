@@ -211,9 +211,17 @@ exports.getWorkerContact = (0, secure_callable_1.onCallSecured)({}, async (raw, 
         db.collection(schema_1.Applications.COLLECTION).doc(applicationId(jobId, workerId)).get(),
         db.collection(schema_1.WorkerProfiles.COLLECTION).doc(workerId).get(),
     ]);
-    if (!job.exists || job.get(schema_1.Jobs.EMPLOYER_ID) !== uid)
-        (0, input_1.fail)("permission-denied", "Not your job");
-    const isApplicant = app.exists && app.get(schema_1.Applications.EMPLOYER_ID) === uid;
+    let isInstant = false;
+    if (!job.exists || job.get(schema_1.Jobs.EMPLOYER_ID) !== uid) {
+        const instantDoc = await db.collection(schema_1.InstantRequests.COLLECTION).doc(jobId).get();
+        if (instantDoc.exists && instantDoc.get(schema_1.InstantRequests.EMPLOYER_ID) === uid) {
+            isInstant = true;
+        }
+        else {
+            (0, input_1.fail)("permission-denied", "Not your job");
+        }
+    }
+    const isApplicant = isInstant || (app.exists && app.get(schema_1.Applications.EMPLOYER_ID) === uid);
     if (!isApplicant && job.get(schema_1.Jobs.STATUS) !== schema_1.Values.JobStatus.OPEN) {
         (0, input_1.fail)("failed-precondition", "This job is closed");
     }

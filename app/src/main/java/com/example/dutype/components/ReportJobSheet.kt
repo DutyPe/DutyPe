@@ -301,11 +301,7 @@ fun ReportJobSheet(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     if (isSubmitting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
-                        )
+                        ButtonThreeDotsLoader(dotColor = Color.White)
                     } else {
                         Text(
                             text = stringResource(R.string.auto_submit_report),

@@ -21,7 +21,7 @@ import { AUTO_COMPLETE_RULES } from "./auto-complete-rules";
 import { completeReferral } from "./referrals";
 import { BUSY_MESSAGE, busyWith } from "./lib/busy";
 import {
-  Applications, EmployerProfiles, JobContacts, Jobs, Values, WorkerCards, WorkerProfiles,
+  Applications, EmployerProfiles, InstantRequests, JobContacts, Jobs, Values, WorkerCards, WorkerProfiles,
 } from "./schema";
 
 const db = admin.firestore();
@@ -238,8 +238,16 @@ export const getWorkerContact = onCallSecured({}, async (raw: unknown, context) 
     db.collection(Applications.COLLECTION).doc(applicationId(jobId, workerId)).get(),
     db.collection(WorkerProfiles.COLLECTION).doc(workerId).get(),
   ]);
-  if (!job.exists || job.get(Jobs.EMPLOYER_ID) !== uid) fail("permission-denied", "Not your job");
-  const isApplicant = app.exists && app.get(Applications.EMPLOYER_ID) === uid;
+  let isInstant = false;
+  if (!job.exists || job.get(Jobs.EMPLOYER_ID) !== uid) {
+    const instantDoc = await db.collection(InstantRequests.COLLECTION).doc(jobId).get();
+    if (instantDoc.exists && instantDoc.get(InstantRequests.EMPLOYER_ID) === uid) {
+      isInstant = true;
+    } else {
+      fail("permission-denied", "Not your job");
+    }
+  }
+  const isApplicant = isInstant || (app.exists && app.get(Applications.EMPLOYER_ID) === uid);
   if (!isApplicant && job.get(Jobs.STATUS) !== Values.JobStatus.OPEN) {
     fail("failed-precondition", "This job is closed");
   }

@@ -291,7 +291,7 @@ fun LoginBottomSheet(
         dragHandle = null,
         scrimColor = Color.Black.copy(alpha = 0.32f),
         containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         sheetMaxWidth = Dp.Unspecified
     ) {
         Column(
@@ -583,11 +583,7 @@ private fun PhoneInputContent(
             )
         ) {
             if (isCheckingPhone || otpState.isLoading) {
-                CircularProgressIndicator(
-                    color = if (buttonEnabled) Color.White else WorkerColors.TextTertiary,
-                    strokeWidth = 2.dp,
-                    modifier = Modifier.size(20.dp)
-                )
+                ButtonThreeDotsLoader(dotColor = if (buttonEnabled) Color.White else WorkerColors.TextTertiary)
             } else {
                 Text(if (isTelugu) "కొనసాగించండి" else "Continue", style = AppTypography.buttonLarge)
             }
@@ -814,11 +810,7 @@ private fun OtpInputContent(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 if (otpState.isLoading) {
-                    CircularProgressIndicator(
-                        color = WorkerColors.CardBackground,
-                        strokeWidth = 2.5.dp,
-                        modifier = Modifier.size(22.dp)
-                    )
+                    ButtonThreeDotsLoader(dotColor = WorkerColors.CardBackground)
                 } else {
                     Text(if (isTelugu) "ధృవీకరించండి" else "Verify", style = AppTypography.buttonLarge)
                 }

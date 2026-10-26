@@ -419,20 +419,15 @@ fun JobDescriptionScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(WorkerColors.CardBackground)
-                        .border(1.dp, WorkerColors.Border, RoundedCornerShape(12.dp))
-                        .clickable { handleBackNavigation() },
-                    contentAlignment = Alignment.Center
+                IconButton(
+                    onClick = { handleBackNavigation() },
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.ArrowBack,
                         contentDescription = stringResource(R.string.back),
                         tint = WorkerColors.TextPrimary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
 
@@ -1319,51 +1314,9 @@ private fun JobDetailsContent(
             }
         }
 
-        // Sponsored Ad Banner right before Location Map
+        // Sponsored Video Ad Card (clean slot replacing map, without location card wrapper)
         item {
-            com.example.dutype.ads.DutyPePreMapAdBanner()
-        }
-
-        item { Spacer(modifier = Modifier.height(16.dp)) }
-
-        // "Job Location" card — Stitch design spec: title, a compact real map
-        // preview (reuses the app's GoogleMapView, centered on job.lat/lng —
-        // not a fake placeholder box) and a "Get Directions →" link that opens
-        // Google Maps navigation to the job's real coordinates.
-        item {
-            Card(
-                modifier = Modifier.fillMaxWidth().border(1.dp, WorkerColors.Border, RoundedCornerShape(16.dp)),
-                colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.LocalRoleColors.current.cardBackground),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(0.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = stringResource(R.string.auto_job_location),
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            color = WorkerColors.TextPrimary
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    if (job.lat != 0.0 || job.lng != 0.0) {
-                        com.example.dutype.worker.components.JobLocationPreview(
-                            jobId = job.id,
-                            lat = job.lat,
-                            lng = job.lng,
-                            placeLabel = job.area.ifBlank { job.district },
-                            distanceKm = null
-                        )
-                    } else {
-                        Text(
-                            text = job.addressText.ifBlank { job.area }.ifBlank { stringResource(R.string.job_desc_location_not_available) },
-                            style = MaterialTheme.typography.bodyMedium.copy(color = WorkerColors.TextSecondary)
-                        )
-                    }
-                }
-            }
+            com.example.dutype.ads.DutyPeVideoAdCard()
         }
 
         item { Spacer(modifier = Modifier.height(16.dp)) }

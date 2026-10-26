@@ -1927,7 +1927,7 @@ private fun BoxScope.PostJobBottomCta(
             elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp)
         ) {
             if (ctaBusy) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
+                com.example.dutype.components.ButtonThreeDotsLoader(dotColor = Color.White)
             } else {
                 Text(
                     text = stringResource(R.string.post_job),

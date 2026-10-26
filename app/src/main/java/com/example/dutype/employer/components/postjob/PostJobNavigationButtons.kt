@@ -111,16 +111,7 @@ fun PostJobNavigationButtons(
                 )
             ) {
                 if (isSubmitting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(R.string.auto_posting),
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    com.example.dutype.components.ButtonThreeDotsLoader(dotColor = Color.White)
                 } else {
                     Icon(
                         imageVector = Icons.Default.Check,

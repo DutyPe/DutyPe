@@ -210,9 +210,16 @@ fun EmployerUrgentNeedDetailScreen(
         matchedWorkersState = matchedWorkersState,
         onRefreshMatchedWorkers = { applicationViewModel.loadMatchedWorkers(requestId, force = true) },
         onBackClick = onNavigateBack,
-            onCallMatchedWorker = { worker ->
-                if (worker.phone.isNotBlank()) {
-                    openDialer(context, worker.phone)
+        onCallMatchedWorker = { worker ->
+            if (worker.phone.isNotBlank()) {
+                openDialer(context, worker.phone)
+            } else {
+                val resp = responses.firstOrNull { it.workerId == worker.workerId }
+                if (resp != null) {
+                    instantHelpViewModel.callWorker(resp) { phone ->
+                        if (phone.isNotBlank()) openDialer(context, phone)
+                        else Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), Toast.LENGTH_SHORT).show()
+                    }
                 } else {
                     applicationViewModel.fetchPhoneNumberForWorker(
                         jobId = requestId,
@@ -221,19 +228,31 @@ fun EmployerUrgentNeedDetailScreen(
                         onFailure = { Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), Toast.LENGTH_SHORT).show() }
                     )
                 }
-            },
-            onChatMatchedWorker = { worker ->
-                val phone = worker.phone
-                val reqTitle = request?.title ?: "Urgent Job"
-                if (phone.isNotBlank()) {
-                    openWhatsApp(context, phone, "Hello ${worker.fullName}, I have an urgent job opening on DutyPe: $reqTitle.")
+            }
+        },
+        onChatMatchedWorker = { worker ->
+            val phone = worker.phone
+            val reqTitle = request?.title ?: "Urgent Job"
+            val chatMsg = "Hello ${worker.fullName}, I have an urgent job opening on DutyPe: $reqTitle."
+            if (phone.isNotBlank()) {
+                openWhatsApp(context, phone, chatMsg)
+            } else {
+                val resp = responses.firstOrNull { it.workerId == worker.workerId }
+                if (resp != null) {
+                    instantHelpViewModel.callWorker(resp) { fetchedPhone ->
+                        if (fetchedPhone.isNotBlank()) {
+                            openWhatsApp(context, fetchedPhone, chatMsg)
+                        } else {
+                            Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 } else {
                     applicationViewModel.fetchPhoneNumberForWorker(
                         jobId = requestId,
                         workerId = worker.workerId,
                         onSuccess = { fetchedPhone ->
                             if (fetchedPhone.isNotBlank()) {
-                                openWhatsApp(context, fetchedPhone, "Hello ${worker.fullName}, I have an urgent job opening on DutyPe: $reqTitle.")
+                                openWhatsApp(context, fetchedPhone, chatMsg)
                             } else {
                                 Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show()
                             }
@@ -241,24 +260,25 @@ fun EmployerUrgentNeedDetailScreen(
                         onFailure = { Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show() }
                     )
                 }
-            },
-            onOpenMatchedWorkerProfile = { worker ->
-                navController.navigate(Routes.workerProfileViewRoute(worker.workerId))
-            },
-            onOpenWorkerProfile = { response -> navController.navigate(Routes.workerProfileViewRoute(response.workerId)) },
-            onCallWorker = { response -> instantHelpViewModel.callWorker(response) { phone -> openDialer(context, phone) } },
-            onSelectResponse = { response -> instantHelpViewModel.acceptEmployerInstantResponse(response) },
-            onCompleteResponse = { response -> pendingCompletionResponse = response },
-            onNoShowResponse = { response -> pendingNoShowResponse = response },
-            onRateResponse = { response ->
-                pendingRatingResponse = response
-                showRatingSheet = true
-            },
-            onMarkRequestFilled = { requestToFill -> instantHelpViewModel.markEmployerInstantRequestFilled(requestToFill) },
-            onCancelRequest = { requestToCancel -> pendingCancelRequest = requestToCancel },
-            onDeleteRequest = { showDeleteConfirm = true },
-            onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
-        )
+            }
+        },
+        onOpenMatchedWorkerProfile = { worker ->
+            navController.navigate(Routes.workerProfileViewRoute(worker.workerId))
+        },
+        onOpenWorkerProfile = { response -> navController.navigate(Routes.workerProfileViewRoute(response.workerId)) },
+        onCallWorker = { response -> instantHelpViewModel.callWorker(response) { phone -> openDialer(context, phone) } },
+        onSelectResponse = { response -> instantHelpViewModel.acceptEmployerInstantResponse(response) },
+        onCompleteResponse = { response -> pendingCompletionResponse = response },
+        onNoShowResponse = { response -> pendingNoShowResponse = response },
+        onRateResponse = { response ->
+            pendingRatingResponse = response
+            showRatingSheet = true
+        },
+        onMarkRequestFilled = { requestToFill -> instantHelpViewModel.markEmployerInstantRequestFilled(requestToFill) },
+        onCancelRequest = { requestToCancel -> pendingCancelRequest = requestToCancel },
+        onDeleteRequest = { showDeleteConfirm = true },
+        onPostUrgentNeed = { navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED) }
+    )
 }
 
 @Composable
@@ -301,8 +321,12 @@ private fun ReasonDialog(
 
 private fun openDialer(context: android.content.Context, phone: String) {
     if (phone.isBlank()) return
+    val cleanPhone = phone.trim().filter { it.isDigit() || it == '+' }
     runCatching {
-        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+        val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:$cleanPhone")).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
     }.onFailure {
         Toast.makeText(context, context.getString(R.string.unable_to_open_dialer), Toast.LENGTH_SHORT).show()
     }
@@ -314,7 +338,16 @@ private fun openWhatsApp(context: android.content.Context, phone: String, messag
     val formattedPhone = if (rawDigits.length == 10) "91$rawDigits" else rawDigits
     val waUri = Uri.parse("https://wa.me/$formattedPhone?text=${Uri.encode(message)}")
     runCatching {
-        context.startActivity(Intent(Intent.ACTION_VIEW, waUri))
+        val intent = Intent(Intent.ACTION_VIEW, waUri).apply {
+            setPackage("com.whatsapp")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    }.recoverCatching {
+        val fallbackIntent = Intent(Intent.ACTION_VIEW, waUri).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(fallbackIntent)
     }.onFailure {
         Toast.makeText(context, context.getString(R.string.whatsapp_not_installed), Toast.LENGTH_SHORT).show()
     }

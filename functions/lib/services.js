@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminAssignBookingPartner = exports.adminCreateServiceBooking = exports.verifyPartnerTopup = exports.reviewServicePartner = exports.requestPartnerTopup = exports.updateServiceBooking = exports.acceptServiceBooking = exports.getServiceOffer = exports.setPartnerOnline = exports.applyServicePartner = exports.approveBookingPayment = exports.submitBookingPayment = exports.rateServiceBooking = exports.cancelServiceBooking = exports.getWalletSummary = exports.depositWalletFunds = exports.previewServiceQuote = exports.createServiceBooking = exports.offerSender = exports.getServiceCatalog = exports.SEARCH_TIMEOUT_MS = exports.SERVICE_WAVE_INTERVAL_MS = exports.SERVICE_WAVES_KM = exports.TEST_DEV_PHONES = exports.PartnerStatus = exports.BookingStatus = void 0;
+exports.verifyWalletDeposit = exports.adminAssignBookingPartner = exports.adminCreateServiceBooking = exports.verifyPartnerTopup = exports.reviewServicePartner = exports.requestPartnerTopup = exports.updateServiceBooking = exports.acceptServiceBooking = exports.getServiceOffer = exports.setPartnerOnline = exports.applyServicePartner = exports.approveBookingPayment = exports.submitBookingPayment = exports.rateServiceBooking = exports.cancelServiceBooking = exports.getWalletSummary = exports.depositWalletFunds = exports.previewServiceQuote = exports.createServiceBooking = exports.offerSender = exports.getServiceCatalog = exports.SEARCH_TIMEOUT_MS = exports.SERVICE_WAVE_INTERVAL_MS = exports.SERVICE_WAVES_KM = exports.TEST_DEV_PHONES = exports.PartnerStatus = exports.BookingStatus = void 0;
 exports.loadConfig = loadConfig;
 exports.clearConfigCache = clearConfigCache;
 exports.inServiceArea = inServiceArea;
@@ -615,37 +615,74 @@ exports.depositWalletFunds = (0, secure_callable_1.onCallSecured)({ enforceAppCh
         (0, input_1.fail)("already-exists", "This transaction UTR has already been submitted.");
     }
     const depositRef = db.collection("wallet_deposits").doc();
-    const eventId = `deposit_${depositRef.id}`;
+    await depositRef.set({
+        uid,
+        amountRupees,
+        amountPaise: amountRupees * 100,
+        utr,
+        method: "UPI",
+        status: "PENDING",
+        createdAt: Timestamp.now(),
+    });
+    return {
+        ok: true,
+        amountRupees,
+        status: "PENDING",
+        depositId: depositRef.id,
+    };
+});
+/**
+ * Admin: approve or reject a customer micro-wallet deposit.
+ * On approval, credits the user's wallet via postEntry.
+ */
+exports.verifyWalletDeposit = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
+    if (!(await (0, app_config_1.isCallerAdmin)(context)))
+        (0, input_1.fail)("permission-denied", "Admins only");
+    const data = (0, input_1.obj)(raw);
+    const depositId = (0, input_1.str)(data, "depositId", { max: 64, pattern: /^[A-Za-z0-9_-]+$/ });
+    const approve = data.approve === true;
+    const reason = (0, input_1.str)(data, "reason", { max: 300, optional: true });
+    const depositRef = db.collection("wallet_deposits").doc(depositId);
+    const eventId = `deposit_${depositId}`;
     const out = await db.runTransaction(async (tx) => {
+        const d = await tx.get(depositRef);
+        if (!d.exists)
+            (0, input_1.fail)("not-found", "Wallet deposit not found");
+        if (d.get("status") !== "PENDING")
+            (0, input_1.fail)("failed-precondition", "Deposit already processed");
+        const uid = String(d.get("uid"));
+        const amountPaise = Number(d.get("amountPaise") || (Number(d.get("amountRupees") || 0) * 100));
+        const now = Timestamp.now();
+        if (!approve) {
+            tx.update(depositRef, {
+                status: "REJECTED",
+                verifiedAt: now,
+                verifiedBy: context.auth.uid,
+                ...(reason ? { rejectionReason: reason } : {}),
+            });
+            return { ok: true, status: "REJECTED" };
+        }
         const w = await (0, referrals_1.readWallet)(tx, uid);
         if (w.data[schema_1.Wallets.BLOCKED] === true) {
-            (0, input_1.fail)("permission-denied", "Your DutyPe wallet is blocked. Contact support.");
+            (0, input_1.fail)("permission-denied", "User wallet is blocked.");
         }
         const ledgerCheck = await tx.get((0, referrals_1.ledgerRef)(eventId));
         if (ledgerCheck.exists) {
             (0, input_1.fail)("already-exists", "Deposit already credited.");
         }
-        tx.set(depositRef, {
-            uid,
-            amountRupees,
-            amountPaise: amountRupees * 100,
-            utr,
-            method: "UPI",
+        tx.update(depositRef, {
             status: "COMPLETED",
-            createdAt: Timestamp.now(),
+            verifiedAt: now,
+            verifiedBy: context.auth.uid,
         });
-        (0, referrals_1.postEntry)(tx, uid, w, eventId, schema_1.Values.LedgerType.WALLET_DEPOSIT, amountRupees * 100, depositRef.id);
+        (0, referrals_1.postEntry)(tx, uid, w, eventId, schema_1.Values.LedgerType.WALLET_DEPOSIT, amountPaise, depositRef.id);
         return {
+            ok: true,
+            status: "COMPLETED",
             newBalanceRupees: w.balancePaise / 100,
-            depositId: depositRef.id,
         };
     });
-    return {
-        ok: true,
-        amountRupees,
-        newBalanceRupees: out.newBalanceRupees,
-        depositId: out.depositId,
-    };
+    return out;
 });
 /** Returns real-time micro-wallet status and first-booking waiver eligibility. */
 exports.getWalletSummary = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (_raw, context) => {
@@ -1486,7 +1523,7 @@ exports.adminCreateServiceBooking = (0, secure_callable_1.onCallSecured)({ enfor
     });
     return { ok: true, bookingId, startOtp: otp };
 });
-exports.adminAssignBookingPartner = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
+exports.verifyWalletDeposit = exports.adminAssignBookingPartner = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
     if (!(await (0, app_config_1.isCallerAdmin)(context)))
         (0, input_1.fail)("permission-denied", "Only admin can assign partners to bookings");
     const data = (0, input_1.obj)(raw);

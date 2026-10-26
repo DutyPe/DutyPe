@@ -132,10 +132,14 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
         // Diagnostic log: deferred off the startup critical path.
         applicationScope.launch { logFirebaseBinding() }
 
-        // PERFORMANCE & STORAGE: Defer notification channels, cache pruning, and AdMob initialization to background
+        // PERFORMANCE & STORAGE: Defer notification channels and cache pruning to background
         applicationScope.launch(Dispatchers.IO) {
             NotificationChannelManager.createNotificationChannels(this@DutyPeApplication)
             com.example.dutype.utils.StorageCacheManager.pruneStaleCache(this@DutyPeApplication)
+        }
+
+        // Initialize AdMob on main thread so internal WebViews initialize properly
+        applicationScope.launch(Dispatchers.Main) {
             runCatching {
                 com.google.android.gms.ads.MobileAds.initialize(this@DutyPeApplication)
             }

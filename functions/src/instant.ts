@@ -315,7 +315,10 @@ export const getInstantWorkerContact = onCallSecured({}, async (raw: unknown, co
     db.collection(WorkerProfiles.COLLECTION).doc(workerId).get(),
   ]);
   if (!request.exists || request.get(InstantRequests.EMPLOYER_ID) !== uid) fail("permission-denied", "Not your urgent need");
-  if (!response.exists) fail("permission-denied", "This worker has not responded");
+  if (!response.exists) {
+    const card = await db.collection(WorkerCards.COLLECTION).doc(workerId).get();
+    if (!card.exists) fail("permission-denied", "Worker not found");
+  }
   const phone = String(worker.get(WorkerProfiles.PHONE) || "");
   if (!phone) fail("not-found", "This worker has no phone number");
   return { phone };

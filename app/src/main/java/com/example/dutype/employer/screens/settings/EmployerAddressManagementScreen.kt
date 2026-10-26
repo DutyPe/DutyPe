@@ -43,6 +43,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.example.dutype.common.screens.AirbnbModernSwitch
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -96,15 +97,19 @@ fun EmployerAddressManagementScreen(
     // Employer theme color
     val employerBlue = EmployerColors.Primary
 
-    // Office addresses derived from SavedWorkLocationsStore
-    val officeAddresses = remember(savedWorkLocations) {
+    var activeAddressId by remember(savedWorkLocations) {
+        mutableStateOf(savedWorkLocations.firstOrNull()?.id)
+    }
+
+    // Office addresses derived from SavedWorkLocationsStore (only one active at a time)
+    val officeAddresses = remember(savedWorkLocations, activeAddressId) {
         savedWorkLocations.mapIndexed { index, workLocation ->
             OfficeAddress(
                 id = workLocation.id,
                 name = workLocation.label,
                 address = workLocation.address,
                 isDefault = index == 0,
-                isActive = true,
+                isActive = workLocation.id == activeAddressId,
                 latitude = workLocation.latitude,
                 longitude = workLocation.longitude
             )
@@ -366,12 +371,14 @@ fun EmployerAddressManagementScreen(
                             ).show()
                         },
                         onToggleActive = {
-                            // Active flag has no backing field in the in-memory store yet.
-                            android.widget.Toast.makeText(
-                                context,
-                                context.getString(R.string.address_activation_not_persisted),
-                                android.widget.Toast.LENGTH_SHORT
-                            ).show()
+                            if (activeAddressId != address.id) {
+                                activeAddressId = address.id
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "${address.name} set as active address",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            }
                         }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -502,21 +509,16 @@ private fun AddressCard(
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Switch(
+                    AirbnbModernSwitch(
                         checked = address.isActive,
-                        onCheckedChange = { onToggleActive() },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = employerBlue,
-                            uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = EmployerColors.Border
-                        )
+                        onCheckedChange = { onToggleActive() }
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = if (address.isActive) stringResource(R.string.active_status) else stringResource(R.string.inactive_status),
-                        fontSize = 12.sp,
-                        color = if (address.isActive) EmployerColors.Success else EmployerColors.TextSecondary
+                        fontSize = 12.5.sp,
+                        fontWeight = if (address.isActive) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (address.isActive) Color(0xFF10B981) else EmployerColors.TextSecondary
                     )
                 }
 

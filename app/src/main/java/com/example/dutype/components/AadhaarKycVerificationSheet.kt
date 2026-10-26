@@ -332,7 +332,7 @@ fun AadhaarKycVerificationSheet(
                             modifier = Modifier.fillMaxWidth().height(48.dp)
                         ) {
                             if (isSendingOtp) {
-                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                ButtonThreeDotsLoader(dotColor = Color.White)
                             } else {
                                 Text("Send Verification Code →", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
                             }
@@ -482,7 +482,7 @@ fun AadhaarKycVerificationSheet(
                             modifier = Modifier.fillMaxWidth().height(48.dp)
                         ) {
                             if (isVerifying) {
-                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                ButtonThreeDotsLoader(dotColor = Color.White)
                             } else {
                                 Text("Verify & Confirm Identity ✓", fontWeight = FontWeight.Bold, fontSize = 14.5.sp, color = Color.White)
                             }
@@ -585,7 +585,7 @@ fun AadhaarKycVerificationSheet(
                         modifier = Modifier.fillMaxWidth().height(48.dp)
                     ) {
                         if (isDigilockerLoading) {
-                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            ButtonThreeDotsLoader(dotColor = Color.White)
                         } else {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text("🏛️", fontSize = 14.sp)
@@ -638,7 +638,7 @@ fun AadhaarKycVerificationSheet(
                         modifier = Modifier.fillMaxWidth().height(48.dp)
                     ) {
                         if (isConfirmingKyc) {
-                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            ButtonThreeDotsLoader(dotColor = Color.White)
                         } else {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text("✓", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = Color.White)

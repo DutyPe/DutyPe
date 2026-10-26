@@ -328,6 +328,10 @@ exports.getWorkerProfileForEmployer = (0, secure_callable_1.onCallSecured)({}, a
             .where(schema_1.Applications.EMPLOYER_ID, "==", uid).where(schema_1.Applications.WORKER_ID, "==", workerId).limit(1).get();
         related = !any.empty;
     }
+    if (!related) {
+        const emp = await db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid).get();
+        related = emp.exists;
+    }
     if (!related)
         (0, input_1.fail)("permission-denied", "You can view workers who applied to your jobs");
     if (!profile.exists)

@@ -2365,7 +2365,7 @@ fun PartnerOfferScreen(bookingId: String, navController: NavController, viewMode
                 modifier = Modifier.fillMaxWidth().height(60.dp),
                 shape = RoundedCornerShape(14.dp)
             ) {
-                if (accepting) CircularProgressIndicator(Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
+                if (accepting) com.example.dutype.components.ButtonThreeDotsLoader(dotColor = Color.White)
                 else Text(if (o.mine || o.status == "ASSIGNED") "Accept & Confirm Order" else stringResource(R.string.svc_offer_accept), fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
             OutlinedButton(

@@ -1267,8 +1267,35 @@ fun WorkerHomeScreen(
                                                 locationPickerError = null
                                                 showLocationPickerSheet = true
                                             },
-                                            onWalletClick = {
-                                                navController.navigate(Routes.WORKER_EARNINGS)
+                                            isOnline = workerOnline,
+                                            isSavingOnline = savingOnline,
+                                            onOnlineChange = { online ->
+                                                if (isGuestUser) {
+                                                    loginSheetTitle = context.getString(R.string.guest_apply_login_title)
+                                                    loginSheetSubtitle = "Log in to turn ON Duty and start receiving instant job alerts."
+                                                    showLoginBottomSheet = true
+                                                    return@WorkerHomeGreetingHeader
+                                                }
+                                                val isTestModeActive = context.isDebuggableBuild() ||
+                                                    context.getSharedPreferences("dutype_prefs", Context.MODE_PRIVATE).getBoolean("test_mode_24_7", false) ||
+                                                    currentUser?.phoneNumber?.contains("8019151847") == true ||
+                                                    currentUser?.phoneNumber?.contains("9390693988") == true
+
+                                                if (online && !isTestModeActive) {
+                                                    val lat = currentLocation?.latitude
+                                                    val lng = currentLocation?.longitude
+                                                    if (lat != null && lng != null) {
+                                                        val dist = calculateHaversineDistanceKm(lat, lng, KHAMMAM_CENTER_LAT, KHAMMAM_CENTER_LNG)
+                                                        if (dist > KHAMMAM_SERVICE_RADIUS_KM) {
+                                                            outOfAreaDistanceKm = dist
+                                                            showOutOfAreaSheet = true
+                                                            return@WorkerHomeGreetingHeader
+                                                        }
+                                                    }
+                                                }
+                                                jobViewModel.setOnline(online) { message ->
+                                                    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                                                }
                                             }
                                         )
                                     }

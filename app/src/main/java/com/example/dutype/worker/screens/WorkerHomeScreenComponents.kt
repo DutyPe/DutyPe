@@ -423,140 +423,6 @@ fun EmptyJobsState(
     }
 }
 
-/**
- * Animated empty-state illustration: a soft pulsing gradient blob, a cycling
- * cast of expressive emoji that bob and tilt, and orbiting sparkles.
- *
- * Pure Compose, zero dependencies, runs offline at 60fps.
- */
-@Composable
-private fun JobHuntingIllustration(
-    isAppliedAllVariant: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val transition = rememberInfiniteTransition(label = "empty-state")
-
-    // Gentle vertical bob for the emoji
-    val bob by transition.animateFloat(
-        initialValue = -6f,
-        targetValue = 6f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1800, easing = EaseInOutSine),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "bob"
-    )
-    // Subtle tilt
-    val tilt by transition.animateFloat(
-        initialValue = -8f,
-        targetValue = 8f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2400, easing = EaseInOutSine),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "tilt"
-    )
-    // Backdrop pulse
-    val pulse by transition.animateFloat(
-        initialValue = 0.92f,
-        targetValue = 1.06f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2200, easing = EaseInOutSine),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse"
-    )
-    // Orbit angle for sparkles
-    val orbit by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 6000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "orbit"
-    )
-
-    // Cycle through expressive emojis every ~2.4s for the comedy reveal.
-    val cast = if (isAppliedAllVariant) WorkerAppliedAllEmojiCast else WorkerEmptyEmojiCast
-    var castIndex by remember(isAppliedAllVariant) { mutableStateOf(0) }
-    LaunchedEffect(isAppliedAllVariant) {
-        while (true) {
-            kotlinx.coroutines.delay(2400)
-            castIndex = (castIndex + 1) % cast.size
-        }
-    }
-    val currentEmoji = cast[castIndex]
-
-    val accent = if (isAppliedAllVariant) WorkerColors.Success else Color(0xFF6366F1)
-    val accentSoft = accent.copy(alpha = 0.18f)
-    val accentFaint = accent.copy(alpha = 0.08f)
-
-    Box(
-        modifier = modifier.size(180.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        // Soft pulsing gradient blob backdrop
-        Canvas(
-            modifier = Modifier
-                .size(160.dp)
-                .graphicsLayer {
-                    scaleX = pulse
-                    scaleY = pulse
-                }
-        ) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(accentSoft, accentFaint, Color.Transparent),
-                    center = Offset(size.width / 2f, size.height / 2f),
-                    radius = size.minDimension / 2f
-                )
-            )
-        }
-
-        // Orbiting sparkle dots
-        Canvas(modifier = Modifier.size(160.dp)) {
-            val centerX = size.width / 2f
-            val centerY = size.height / 2f
-            val radius = size.minDimension * 0.42f
-            val sparkles = listOf(
-                Triple(0f, 4f, accent),
-                Triple(120f, 3f, accent.copy(alpha = 0.7f)),
-                Triple(240f, 5f, accent.copy(alpha = 0.85f))
-            )
-            sparkles.forEach { (offsetDeg, dotRadius, color) ->
-                val angleRad = Math.toRadians((orbit + offsetDeg).toDouble())
-                val x = centerX + radius * kotlin.math.cos(angleRad).toFloat()
-                val y = centerY + radius * kotlin.math.sin(angleRad).toFloat()
-                drawCircle(color = color, radius = dotRadius, center = Offset(x, y))
-            }
-        }
-
-        // The emoji — cycles through a cast, bobs and tilts subtly
-        AnimatedContent<String>(
-            targetState = currentEmoji,
-            transitionSpec = {
-                (fadeIn(tween(420)) +
-                    scaleIn(initialScale = 0.6f, animationSpec = tween(420)))
-                    .togetherWith(
-                        fadeOut(tween(220)) +
-                            scaleOut(targetScale = 1.4f, animationSpec = tween(220))
-                    )
-            },
-            label = "emoji-cast"
-        ) { emoji ->
-            Text(
-                text = emoji,
-                fontSize = 72.sp,
-                modifier = Modifier.graphicsLayer {
-                    translationY = bob
-                    rotationZ = tilt
-                }
-            )
-        }
-    }
-}
-
 @Composable
 internal fun ErrorContent(
     error: String,
@@ -779,17 +645,6 @@ fun HomeSectionsContent(
             }
 
 
-            if (showOnlineToggle) {
-                item(key = "worker_home_online_toggle") {
-                    com.example.dutype.worker.components.OnlineToggleCard(
-                        isOnline = isOnline,
-                        isSaving = isSavingOnline,
-                        onChange = onOnlineChange,
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                }
-            }
-
             // DutyPe Services partner entry & home services booking in Khammam
             item(key = "worker_home_partner_entry") {
                 com.example.dutype.homeservices.PartnerEntryIfInArea(
@@ -799,35 +654,6 @@ fun HomeSectionsContent(
                     onBookServices = { rootNavController.navigate(com.example.dutype.navigation.Routes.SERVICES) },
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
-            }
-
-            if (showOnlineToggle && !isOnline) {
-                item(key = "worker_home_offline_notice") {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        color = Color(0xFFF8FAFC).bg(),
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd())
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = "⏸️", fontSize = 16.sp)
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = "Duty is OFF. Switch ON above to start receiving instant hiring alerts and home service bookings in Khammam.",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF64748B).fg(),
-                                    fontSize = 12.5.sp,
-                                    lineHeight = 17.sp
-                                )
-                            )
-                        }
-                    }
-                }
             }
 
             // Hidden for now: the "jobs near you · view map" hero card (the map tab is hidden too).
@@ -993,64 +819,6 @@ fun HomeSectionsContent(
         }
 
     }
-    }
-}
-
-@Composable
-private fun AppliedJobsSummaryCard(
-    appliedJobsCount: Int,
-    onOpenMyJobs: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(WorkerColors.ChipBackground),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = WorkerColors.Primary.fg(),
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.applied_jobs),
-                    style = MaterialTheme.typography.titleSmall.copy(
-                        color = WorkerColors.TextPrimary,
-                        fontWeight = FontWeight.Bold
-                    )
-                )
-                Text(
-                    text = stringResource(R.string.worker_applied_jobs_tracked, appliedJobsCount),
-                    style = MaterialTheme.typography.bodySmall.copy(color = WorkerColors.TextSecondary),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            TextButton(onClick = onOpenMyJobs) {
-                Text(stringResource(R.string.my_jobs), color = WorkerColors.Primary.fg())
-            }
-        }
     }
 }
 
@@ -1333,7 +1101,7 @@ private fun ServiceBookingCard(
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15803D))
                 ) {
                     if (isUpdating) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                        com.example.dutype.components.ButtonThreeDotsLoader()
                     } else {
                         Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
@@ -1364,7 +1132,7 @@ private fun ServiceBookingCard(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
                     ) {
                         if (isUpdating) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
+                            com.example.dutype.components.ButtonThreeDotsLoader()
                         } else {
                             Text(
                                 text = if (payout > 0) "Accept Order • ₹$payout" else "Accept Order",
@@ -1554,7 +1322,7 @@ private fun InstantRequestCard(
                     )
                 ) {
                     if (isUpdating) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = WorkerColors.CardBackground)
+                        com.example.dutype.components.ButtonThreeDotsLoader(dotColor = WorkerColors.CardBackground)
                     } else {
                         if (hasWorkerResponded && !isSvc) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(17.dp))
@@ -1752,163 +1520,6 @@ fun RecommendedJobsSection(
 }
 
 @Composable
-fun BrowseCategoriesSection(
-    onCategoryClick: (String) -> Unit,
-    onViewAllClick: () -> Unit,
-    getCategoryBadge: (String) -> String? = { null }
-) {
-    // Categories with emojis - all use same light gray background
-    val categories = listOf(
-        CategoryItem("Delivery", "\uD83D\uDEB4"),
-        CategoryItem("Shop Helper", "\uD83C\uDFEA"),
-        CategoryItem("Housekeeping", "\uD83E\uDDF9"),
-        CategoryItem("Construction", "\uD83D\uDC77"),
-        CategoryItem("Events", "\uD83C\uDFAA"),
-        CategoryItem("Kitchen", "\uD83C\uDF73"),
-        CategoryItem("Driver", "\uD83D\uDE97"),
-        CategoryItem("Security", "\uD83D\uDC82"),
-        CategoryItem("Teacher", "📚"),
-        CategoryItem("Electrician", "\uD83D\uDCA1"),
-        CategoryItem("Plumber", "\uD83D\uDD27"),
-        CategoryItem("Sales", "🛍️"),
-        CategoryItem("Telecaller", "📞"),
-        CategoryItem("Office Staff", "🗂️"),
-        CategoryItem("Customer Support", "🎧"),
-        CategoryItem("Field Work", "🧭"),
-        CategoryItem("Finance", "🏦"),
-        CategoryItem("Data Entry", "⌨️"),
-        CategoryItem("Healthcare", "⚕️"),
-        CategoryItem("Beautician", "💇")
-    )
-
-    Column(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        // Categories header with "See all" text
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .clickable { onViewAllClick() },
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.categories),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                    fontWeight = FontWeight.SemiBold
-                )
-            )
-            // "See all" text with arrow
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.auto_see_all),
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        color = com.example.dutype.ui.theme.WorkerColors.TextSecondary,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 13.sp
-                    )
-                )
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = "View All Categories",
-                    tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
-                    modifier = Modifier.size(IconSizes.Standard)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Home preview keeps categories compact: 2 rows, then "See all".
-        val visibleCategories = categories.take(10)
-        val chunkedCategories = visibleCategories.chunked(5)
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            chunkedCategories.forEach { rowCategories ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    rowCategories.forEach { category ->
-                        CategoryChip(
-                            category = category,
-                            onClick = { onCategoryClick(category.name) }
-                        )
-                    }
-                    // Fill empty spaces if row has less than 5 items
-                    repeat(5 - rowCategories.size) {
-                        Spacer(modifier = Modifier.width(68.dp))
-                    }
-                }
-            }
-        }
-    }
-}
-
-data class CategoryItem(
-    val name: String,
-    val emoji: String
-)
-
-@Composable
-internal fun CategoryChip(
-    category: CategoryItem,
-    onClick: () -> Unit
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier
-            .clickable(onClick = onClick)
-            .width(68.dp)
-    ) {
-        // Icon container - white background with subtle shadow
-        Card(
-            modifier = Modifier.size(60.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
-            ),
-            shape = RoundedCornerShape(14.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = category.emoji,
-                    fontSize = 26.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        // Category name
-        Text(
-            text = category.name,
-            style = MaterialTheme.typography.labelSmall.copy(
-                color = Color.White,
-                fontWeight = FontWeight.Medium,
-                fontSize = 10.sp
-            ),
-            textAlign = TextAlign.Center,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
-
-@Composable
 internal fun DutyPePromiseCarousel() {
     Box(
         modifier = Modifier
@@ -2035,7 +1646,7 @@ private fun HomeBrandWordmark(modifier: Modifier = Modifier) {
     )
 }
 
-/** Header row: DutyPe wordmark + location on the left, wallet icon + bell on the right. */
+/** Header row: DutyPe wordmark + location on the left, Duty ON/OFF switch (green when ON) + bell on the right. */
 @Composable
 internal fun WorkerHomeGreetingHeader(
     areaName: String,
@@ -2043,13 +1654,16 @@ internal fun WorkerHomeGreetingHeader(
     unreadNotificationCount: Int,
     onNotificationClick: () -> Unit,
     onLocationClick: () -> Unit,
+    isOnline: Boolean = false,
+    isSavingOnline: Boolean = false,
+    onOnlineChange: ((Boolean) -> Unit)? = null,
     onWalletClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(HomeScreenBackground.bg())
+            .background(Color.White.bg())
     ) {
         Spacer(modifier = Modifier.windowInsetsTopHeight(WindowInsets.statusBars))
         Row(
@@ -2104,87 +1718,24 @@ internal fun WorkerHomeGreetingHeader(
 
             Spacer(modifier = Modifier.width(10.dp))
 
-            // Right: Wallet icon + Bell icon
+            // Right: Duty ON/OFF switch (Green when ON) + Bell icon (No wallet icon)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                HomeWalletButton(onClick = onWalletClick)
+                if (onOnlineChange != null) {
+                    com.example.dutype.common.screens.AirbnbModernSwitch(
+                        checked = isOnline,
+                        onCheckedChange = onOnlineChange,
+                        activeTrackColor = Color(0xFF10B981)
+                    )
+                }
                 HomeBellButton(
                     hasUnread = unreadNotificationCount > 0,
                     onClick = onNotificationClick
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun HomeWalletButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .size(40.dp)
-            .clip(CircleShape)
-            .background(Color.White.bg())
-            .border(1.dp, HomeBorder.bd(), CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = Icons.Default.AccountBalanceWallet,
-            contentDescription = "Wallet",
-            tint = HomeInk.fg(),
-            modifier = Modifier.size(20.dp)
-        )
-    }
-}
-
-private val HomeScreenBackground = Color(0xFFF8FAFC)
-
-@Composable
-private fun HomeLocationChip(areaName: String, isLoading: Boolean, onClick: () -> Unit) {
-    val chipShape = RoundedCornerShape(18.dp)
-    Row(
-        modifier = Modifier
-            .height(36.dp)
-            .widthIn(max = 170.dp)
-            .clip(chipShape)
-            .background(Color.White.bg())
-            .border(1.dp, HomeBorder.bd(), chipShape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        if (isLoading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(13.dp),
-                strokeWidth = 1.5.dp,
-                color = HomeEmerald.fg()
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Outlined.LocationOn,
-                contentDescription = null,
-                tint = HomeEmerald.fg(),
-                modifier = Modifier.size(15.dp)
-            )
-        }
-        Text(
-            text = areaName,
-            color = HomeInk.fg(),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false)
-        )
-        Icon(
-            imageVector = Icons.Default.KeyboardArrowDown,
-            contentDescription = null,
-            tint = HomeSlate.fg(),
-            modifier = Modifier.size(14.dp)
-        )
     }
 }
 
@@ -2219,397 +1770,3 @@ private fun HomeBellButton(hasUnread: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** Dark hero card: real nearby-jobs count + "View map" pill. */
-@Composable
-private fun HomeHeroCard(
-    jobsCount: Int,
-    newInLastHour: Int,
-    hasLocation: Boolean,
-    onMapClick: () -> Unit
-) {
-    val countText = if (jobsCount == 1) {
-        stringResource(R.string.worker_stat_job_single)
-    } else {
-        stringResource(R.string.worker_stat_jobs_count, jobsCount)
-    }
-    val newText = if (newInLastHour > 0) stringResource(R.string.worker_new_in_last_hour, newInLastHour) else ""
-    val withinText = if (hasLocation) stringResource(R.string.worker_within_radius, WORKER_HOME_RADIUS_KM) else ""
-    val openAreaText = stringResource(R.string.worker_jobs_open_area)
-    val subline = buildString {
-        if (newText.isNotBlank()) append(newText)
-        if (withinText.isNotBlank()) {
-            if (isNotEmpty()) append(" · ")
-            append(withinText)
-        }
-        if (isEmpty()) append(openAreaText)
-    }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(HomeInk.bg())
-            .padding(18.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = stringResource(R.string.worker_near_you_today), color = HomeMuted.fg(), fontSize = 12.sp)
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = countText,
-                color = Color.White,
-                fontSize = 30.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(text = subline, color = HomeEmerald.fg(), fontSize = 12.sp, maxLines = 2)
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Row(
-            modifier = Modifier
-                .height(44.dp)
-                .clip(RoundedCornerShape(22.dp))
-                .background(HomeEmerald.bg())
-                .clickable(onClick = onMapClick)
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.worker_view_map),
-                color = HomeInk.fg(),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
-            )
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                tint = HomeInk.fg(),
-                modifier = Modifier.size(16.dp)
-            )
-        }
-    }
-}
-
-/** Hero card (one LazyColumn item). */
-@Composable
-private fun HomeHeroSection(
-    jobsCount: Int,
-    newInLastHour: Int,
-    hasLocation: Boolean,
-    onMapClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 20.dp, end = 20.dp)
-    ) {
-        HomeHeroCard(
-            jobsCount = jobsCount,
-            newInLastHour = newInLastHour,
-            hasLocation = hasLocation,
-            onMapClick = onMapClick
-        )
-    }
-}
-
-private class HomeQuickAction(
-    val label: String,
-    val subtitle: String,
-    val icon: ImageVector,
-    val container: Color,
-    val tint: Color
-)
-
-/** 2x2 grid of quick-action cards (two Rows, 12dp gaps, 20dp side padding). */
-@Composable
-private fun HomeQuickActionsGrid(
-    onBrowseJobs: () -> Unit,
-    onAppliedJobs: () -> Unit,
-    onEarnings: () -> Unit,
-    onHelpDesk: () -> Unit
-) {
-    val browseAction = HomeQuickAction(
-        label = stringResource(R.string.worker_action_browse_jobs),
-        subtitle = stringResource(R.string.worker_action_browse_jobs_sub),
-        icon = Icons.Default.Work,
-        container = Color(0xFFF0FDF4),
-        tint = Color(0xFF16A34A).fg()
-    )
-    val appliedAction = HomeQuickAction(
-        label = stringResource(R.string.worker_action_applied_jobs),
-        subtitle = stringResource(R.string.worker_action_applied_jobs_sub),
-        icon = Icons.Default.CheckCircle,
-        container = Color(0xFFEFF6FF),
-        tint = Color(0xFF2563EB).fg()
-    )
-    val earningsAction = HomeQuickAction(
-        label = stringResource(R.string.worker_action_earnings),
-        subtitle = stringResource(R.string.worker_action_earnings_sub),
-        icon = Icons.Default.AccountBalanceWallet,
-        container = Color(0xFFFEF3C7),
-        tint = Color(0xFFD97706).fg()
-    )
-    val helpAction = HomeQuickAction(
-        label = stringResource(R.string.worker_action_help),
-        subtitle = stringResource(R.string.worker_action_help_sub),
-        icon = Icons.Default.Headset,
-        container = Color(0xFFF1F5F9),
-        tint = Color(0xFF0F172A).fg()
-    )
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 20.dp, end = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            HomeQuickActionCard(browseAction, onBrowseJobs, Modifier.weight(1f))
-            HomeQuickActionCard(appliedAction, onAppliedJobs, Modifier.weight(1f))
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            HomeQuickActionCard(earningsAction, onEarnings, Modifier.weight(1f))
-            HomeQuickActionCard(helpAction, onHelpDesk, Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-private fun HomeQuickActionCard(action: HomeQuickAction, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val cardShape = RoundedCornerShape(16.dp)
-    Column(
-        modifier = modifier
-            .heightIn(min = 96.dp)
-            .clip(cardShape)
-            .background(Color.White.bg())
-            .border(1.dp, HomeBorder.bd(), cardShape)
-            .clickable(onClick = onClick)
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .background(action.container.bg(), RoundedCornerShape(12.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = action.icon,
-                contentDescription = null,
-                tint = action.tint,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = action.label,
-                color = HomeInk.fg(),
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = action.subtitle,
-                color = HomeSlate.fg(),
-                fontSize = 12.sp,
-                letterSpacing = 0.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun WorkerTopMetricItem(
-    icon: ImageVector,
-    label: String,
-    value: String,
-    subtitle: String,
-    iconTint: Color,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-        modifier = modifier.padding(horizontal = 4.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(14.dp)
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    color = Color(0xFF4B5563).fg(),
-                    fontWeight = FontWeight.SemiBold
-                )
-            )
-        }
-
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleMedium.copy(
-                color = WorkerColors.TextPrimary,
-                fontWeight = FontWeight.Bold
-            )
-        )
-
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.labelSmall.copy(color = WorkerColors.TextSecondary)
-        )
-    }
-}
-
-@Composable
-internal fun WorkerEarningsSummarySection(
-    todayEarningsAmount: Double = 0.0,
-    todayJobsDone: Int = 0,
-    thisWeekEarningsAmount: Double = 0.0,
-    weekJobsDone: Int = 0,
-    ratingValue: Float = 0f,
-    reviewCount: Int = 0,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Text(
-            text = stringResource(R.string.auto_your_earnings),
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A).fg(),
-                fontSize = 18.sp
-            )
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            WorkerStatCard(
-                title = stringResource(R.string.worker_stat_today),
-                value = formatRupeeCompact(todayEarningsAmount),
-                subtitle = if (todayJobsDone == 1) {
-                    stringResource(R.string.worker_stat_job_single)
-                } else {
-                    stringResource(R.string.worker_stat_jobs_count, todayJobsDone)
-                },
-                icon = Icons.Default.Work,
-                color = Color(0xFF16A34A).fg(),
-                modifier = Modifier.weight(1f)
-            )
-            WorkerStatCard(
-                title = stringResource(R.string.worker_stat_this_week),
-                value = formatRupeeCompact(thisWeekEarningsAmount),
-                subtitle = if (weekJobsDone == 1) {
-                    stringResource(R.string.worker_stat_job_single)
-                } else {
-                    stringResource(R.string.worker_stat_jobs_count, weekJobsDone)
-                },
-                icon = Icons.Default.CalendarToday,
-                color = Color(0xFF2563EB).fg(),
-                modifier = Modifier.weight(1f)
-            )
-            WorkerStatCard(
-                title = stringResource(R.string.worker_stat_rating),
-                value = String.format("%.1f", ratingValue),
-                subtitle = if (reviewCount == 1) {
-                    stringResource(R.string.worker_stat_review_single)
-                } else {
-                    stringResource(R.string.worker_stat_reviews_count, reviewCount)
-                },
-                icon = Icons.Default.Star,
-                color = Color(0xFFF59E0B).fg(),
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun WorkerStatCard(
-    title: String,
-    value: String,
-    subtitle: String,
-    icon: ImageVector,
-    color: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(0.dp),
-        colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground)
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .background(color.copy(alpha = 0.12f), RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, null, tint = color, modifier = Modifier.size(22.dp))
-            }
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A).fg(),
-                    fontSize = 20.sp
-                )
-            )
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = WorkerColors.TextSecondary,
-                    fontSize = 12.sp
-                )
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    color = Color(0xFF94A3B8).fg(),
-                    fontSize = 11.sp
-                )
-            )
-        }
-    }
-}
-
-private fun formatRupeeCompact(amount: Double): String {
-    return "₹${String.format("%.0f", amount.coerceAtLeast(0.0))}"
-}
-
-
-//@Preview(showBackground = true)
-//@Composable
-//fun WorkerHomeScreenPreview() {
-//    WorkerHomeScreen(
-//        navController = NavController(LocalContext.current),
-//        onStatusBarColorChange = {}
-//    )
-//}

@@ -1,8 +1,7 @@
 package com.example.dutype.components
 
-import com.dutype.app.R
-import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,19 +12,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,25 +32,31 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.NavController
 import com.example.dutype.auth.AuthManager
-import com.example.dutype.ui.theme.AppTypography
-import com.example.dutype.ui.theme.WorkerColors
+import com.example.dutype.ui.theme.bg
+import com.example.dutype.ui.theme.bd
+import com.example.dutype.ui.theme.fg
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
 /**
- * Professional Logout Bottom Sheet
- * Provides comprehensive logout functionality with proper cleanup
- * 
- * Google Sign-In has been removed - authentication is now OTP-only
+ * Airbnb-Style Logout Dialog
+ * Matches the exact modal dialog layout from Airbnb:
+ * - Rounded white card
+ * - Top-right close icon
+ * - "Are you sure you want to logout?" prompt
+ * - Subtle hairline divider
+ * - Cancel text on left, dark pill "Log out" button on right (#222222)
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfessionalLogoutDialog(
     isVisible: Boolean,
@@ -65,145 +68,115 @@ fun ProfessionalLogoutDialog(
     scope: CoroutineScope
 ) {
     if (isVisible) {
-        val sheetState = rememberModalBottomSheetState()
-        
-        ModalBottomSheet(
+        Dialog(
             onDismissRequest = onDismiss,
-            sheetState = sheetState,
-            scrimColor = Color.Black.copy(alpha = 0.32f),
-            containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground,
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            sheetMaxWidth = Dp.Unspecified
-        ) {
-            LogoutBottomSheetContent(
-                onDismiss = onDismiss,
-                onConfirmLogout = {
-                    // Bug #10 + #17 fix: dismiss the sheet IMMEDIATELY so the
-                    // user never stares at a stuck "Signing Out..." spinner.
-                    // performLogout itself navigates and runs cleanup async.
-                    onDismiss()
-                    performLogout(
-                        navController = navController,
-                        authManager = authManager,
-                        profileCompletionViewModel = profileCompletionViewModel,
-                        scope = scope,
-                        userRole = userRole
-                    )
-                },
-                userRole = userRole
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = true,
+                usePlatformDefaultWidth = false
             )
-        }
-    }
-}
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // Top row with close X icon at top right
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp, end = 10.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color(0xFF222222).fg(),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
 
-@Composable
-private fun LogoutBottomSheetContent(
-    onDismiss: () -> Unit,
-    onConfirmLogout: () -> Unit,
-    userRole: String
-) {
-    var isLoggingOut by remember { mutableStateOf(false) }
-    
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        // Header with icon - smaller size
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(CircleShape)
-                .background(WorkerColors.WarningLight),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                Icons.AutoMirrored.Filled.ExitToApp,
-                contentDescription = "Logout",
-                modifier = Modifier.size(26.dp),
-                tint = WorkerColors.Warning
-            )
-        }
-        
-        // Title
-        Text(
-            text = stringResource(R.string.auto_sign_out),
-            style = AppTypography.pageTitle.copy(
-                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-            ),
-            textAlign = TextAlign.Center
-        )
-        
-        // Description - more compact
-        Text(
-            text = stringResource(R.string.auto_are_you_sure_you_want_to_sign_out),
-            style = AppTypography.bodyMedium.copy(
-                color = WorkerColors.TextSecondary
-            ),
-            textAlign = TextAlign.Center
-        )
-        
-        Spacer(modifier = Modifier.height(4.dp))
-        
-        // Action buttons
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Cancel button
-            OutlinedButton(
-                onClick = onDismiss,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(44.dp),
-                enabled = !isLoggingOut,
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = WorkerColors.TextSecondary
-                )
-            ) {
-                Text(
-                    text = stringResource(R.string.auto_cancel),
-                    style = AppTypography.buttonMedium
-                )
-            }
-            
-            // Sign Out button - Black styling
-            Button(
-                onClick = {
-                    isLoggingOut = true
-                    onConfirmLogout()
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(44.dp),
-                enabled = !isLoggingOut,
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = WorkerColors.Primary
-                )
-            ) {
-                if (isLoggingOut) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        color = Color.White,
-                        strokeWidth = 2.dp
+                    // Question prompt
+                    Text(
+                        text = "Are you sure you want to logout?",
+                        style = TextStyle(
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF222222).fg()
+                        ),
+                        modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 26.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Hairline divider
+                    HorizontalDivider(
+                        color = Color(0xFFF0F0F0).bd(),
+                        thickness = 1.dp
+                    )
+
+                    // Bottom actions: Cancel on left, "Log out" button on right
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Cancel",
+                            style = TextStyle(
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF222222).fg()
+                            ),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable(onClick = onDismiss)
+                                .padding(vertical = 8.dp, horizontal = 4.dp)
+                        )
+
+                        Button(
+                            onClick = {
+                                onDismiss()
+                                performLogout(
+                                    navController = navController,
+                                    authManager = authManager,
+                                    profileCompletionViewModel = profileCompletionViewModel,
+                                    scope = scope,
+                                    userRole = userRole
+                                )
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF222222),
+                                contentColor = Color.White
+                            ),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                horizontal = 24.dp,
+                                vertical = 11.dp
+                            )
+                        ) {
+                            Text(
+                                text = "Log out",
+                                style = TextStyle(
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color.White
+                                )
+                            )
+                        }
+                    }
                 }
-                Text(
-                    text = if (isLoggingOut) "Signing Out..." else "Sign Out",
-                    style = AppTypography.buttonMedium.copy(
-                        color = Color.White
-                    )
-                )
             }
         }
-        
-        // Smaller bottom padding
-        Spacer(modifier = Modifier.height(4.dp))
     }
 }
 

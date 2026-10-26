@@ -31,7 +31,7 @@ object DarkMap {
     private fun hex(vararg values: Long) = values.map { Color(it).value }.toSet()
 
     private val whites = hex(0xFFFFFFFF)
-    private val pageGreys = hex(
+    internal val pageGreys = hex(
         0xFFFAFAFA, 0xFFFAFAFB, 0xFFFAFBFC, 0xFFF9FAFB, 0xFFF8FAFC, 0xFFF8F9FA, 0xFFF7F8FA, 0xFFF5F7FA,
         0xFFFAFAFF, 0xFFF6F7F9, 0xFFF5F5F5, 0xFFF7F7F7, 0xFFFCFCFD, 0xFFFBFBFB
     )
@@ -105,7 +105,7 @@ object DarkMap {
 /** This colour as a background / container in the current theme. */
 @Composable
 @ReadOnlyComposable
-fun Color.bg(): Color = if (isAppInDarkTheme()) DarkMap.background(this) else this
+fun Color.bg(): Color = if (isAppInDarkTheme()) DarkMap.background(this) else if (this.value in DarkMap.pageGreys) Color.White else this
 
 /** This colour as text / icon colour in the current theme (white stays white). */
 @Composable

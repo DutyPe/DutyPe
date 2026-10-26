@@ -89,23 +89,13 @@ private val Ink700 = Color(0xFF334155)
 private val Ink500 = Color(0xFF64748B)
 private val Ink400 = Color(0xFF94A3B8)
 private val Hairline = Color(0xFFE2E8F0)
-private val SurfaceMuted = Color(0xFFF8FAFC)
+private val SurfaceMuted = Color(0xFFFFFFFF)
 private val Danger = Color(0xFFEF4444)
-private val ScreenBg = Color(0xFFF8FAFC)
+private val ScreenBg = Color(0xFFFFFFFF)
 private val BlueAccent = Color(0xFF2563EB)
 private val BlueSoft = Color(0xFFEFF6FF)
 private val RingTrack = Color(0xFF1E293B)
 private val PlanTitleInk = Color(0xFF0F0F0F)
-
-private fun getPlanColor(planId: String): Color = when {
-    planId.contains("max_ai") -> IndicatorOrange
-    planId.contains("pro_ai") -> IndicatorPurple
-    planId.contains("basic") -> IndicatorGreen
-    planId.contains("starter") -> IndicatorGreen
-    planId.contains("growth") -> IndicatorOrange
-    planId.contains("premium") -> IndicatorPurple
-    else -> IndicatorYellow
-}
 
 // Plan class is imported from models
 
@@ -250,9 +240,11 @@ fun EmployerSubscriptionScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            if (plans.isNotEmpty()) {
+            val sortedPlans = remember(plans) { plans.sortedBy { it.pricePaise } }
+
+            if (sortedPlans.isNotEmpty()) {
                 PlansCarousel(
-                    plans = plans,
+                    plans = sortedPlans,
                     currentPlanId = subState.planId,
                     hasActiveSub = hasActiveSub,
                     onProceed = { plan ->
@@ -262,6 +254,31 @@ fun EmployerSubscriptionScreen(
                     },
                     onTalkToSales = { openSalesContact(context) }
                 )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(280.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        com.example.dutype.components.ThreeDotsBouncingLoader(
+                            dotSize = 9.dp,
+                            dotColor = Color(0xFF222222),
+                            bounceHeight = 7.dp,
+                            spacing = 7.dp
+                        )
+                        Text(
+                            text = "Loading subscription plans...",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Ink500.fg()
+                        )
+                    }
+                }
             }
 
             if (paymentRequests.isNotEmpty()) {
@@ -290,6 +307,9 @@ fun EmployerSubscriptionScreen(
         ModalBottomSheet(
             onDismissRequest = { showPaymentSheet = false },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            scrimColor = Color.Black.copy(alpha = 0.35f),
+            dragHandle = null,
             containerColor = Color.White.bg()
         ) {
             Column(
@@ -872,25 +892,6 @@ private fun CurrentPlanCard(
                 }
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        AiStatusRow(aiStatus)
-    }
-}
-
-/** "DutyPe AI: included, 100 a day" / "7 free tries left" — on the current-plan and no-plan cards. */
-@Composable
-private fun AiStatusRow(text: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFFF5F3FF), RoundedCornerShape(12.dp))
-            .border(1.dp, Color(0xFFEDE9FE), RoundedCornerShape(12.dp))
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(18.dp))
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(text = text, fontSize = 13.sp, color = Color(0xFF5B21B6), fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -925,8 +926,6 @@ private fun NoPlanCard(aiStatus: String) {
                 )
             }
         }
-        Spacer(modifier = Modifier.height(14.dp))
-        AiStatusRow(aiStatus)
     }
 }
 
@@ -935,9 +934,7 @@ private fun carouselStartPage(plans: List<Plan>, currentPlanId: String, hasActiv
         val current = plans.indexOfFirst { it.id == currentPlanId }
         if (current >= 0) return current
     }
-    val recommended = plans.indexOfFirst { it.id.startsWith("pro_ai") }
-        .takeIf { it >= 0 } ?: plans.indexOfFirst { it.name.contains("Growth", ignoreCase = true) || it.id.contains("growth") }
-    return if (recommended >= 0) recommended else 0
+    return 0
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -956,8 +953,8 @@ private fun PlansCarousel(
     )
     HorizontalPager(
         state = pagerState,
-        contentPadding = PaddingValues(start = 20.dp, end = 20.dp),
-        pageSpacing = 12.dp,
+        contentPadding = PaddingValues(start = 20.dp, end = 52.dp),
+        pageSpacing = 14.dp,
         modifier = Modifier.fillMaxWidth()
     ) { page ->
         if (page < plans.size) {

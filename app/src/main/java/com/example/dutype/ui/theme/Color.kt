@@ -7,6 +7,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.colorResource
 import com.dutype.app.R
 
+// Canonical Airbnb button / dark primary color
+val AirbnbBlack = Color(0xFF222222)
+val AirbnbButtonColor = Color(0xFF222222)
+
 // =============================================================================
 // LEGACY MATERIAL TOKENS (kept for compatibility with old Material 3 setup)
 // =============================================================================
@@ -26,7 +30,7 @@ val SecondaryTeal = Color(0xFF0D9488)
 val TertiaryGold = Color(0xFFD97706)
 
 val DarkBackground = Color(0xFF0F172A)
-val LightBackground = Color(0xFFF8FAFC)
+val LightBackground = Color(0xFFFFFFFF)
 val SurfaceDark = Color(0xFF1E293B)
 val SurfaceLight = Color(0xFFFFFFFF)
 
@@ -68,11 +72,11 @@ object WorkerColors {
 
     val StatusBarColor: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFF8FAFC)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFFFFFF)
 
     val ScreenBackground: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFF8FAFC)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFFFFFF)
     val CardBackground: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFF1A2233) else Color(0xFFFFFFFF)
@@ -92,7 +96,7 @@ object WorkerColors {
 
     val Primary: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF2E3A4F) else Color(0xFF0F0F0F)
+            if (isAppInDarkTheme()) Color(0xFF2E3A4F) else AirbnbBlack
     val PrimaryLight: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFF26262B) else Color(0xFFEDEDEF)
@@ -202,21 +206,21 @@ object WorkerColors {
 object EmployerColors {
     val HomeGradientStart: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFF8FAFC)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFFFFFF)
     val HomeGradientMiddle: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFF8FAFC)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFFFFFF)
     val HomeGradientEnd: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFF8FAFC)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFFFFFF)
 
     val StatusBarColor: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFF8FAFC)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFFFFFF)
 
     val ScreenBackground: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFF8FAFC)
+            if (isAppInDarkTheme()) Color(0xFF0B1220) else Color(0xFFFFFFFF)
     val CardBackground: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFF1A2233) else Color(0xFFFFFFFF)
@@ -236,7 +240,7 @@ object EmployerColors {
 
     val Primary: Color
         @Composable @ReadOnlyComposable get() =
-            if (isAppInDarkTheme()) Color(0xFF2E3A4F) else Color(0xFF0F172A)
+            if (isAppInDarkTheme()) Color(0xFF2E3A4F) else AirbnbBlack
     val PrimaryLight: Color
         @Composable @ReadOnlyComposable get() =
             if (isAppInDarkTheme()) Color(0xFF1E293B) else Color(0xFFEFF6FF)

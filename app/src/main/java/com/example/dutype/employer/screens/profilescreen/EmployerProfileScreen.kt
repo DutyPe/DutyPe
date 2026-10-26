@@ -142,14 +142,13 @@ private fun empPillText(sub: EmployerSubscription, planName: String?): String? {
 }
 
 @Composable
-private fun EmpTopBar(onHelp: () -> Unit) {
+private fun EmpTopBar() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(52.dp)
             .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
             text = stringResource(R.string.emp_profile_account),
@@ -157,22 +156,6 @@ private fun EmpTopBar(onHelp: () -> Unit) {
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold
         )
-        Box(
-            modifier = Modifier
-                .height(32.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .border(1.dp, EmpCobalt.bd(), RoundedCornerShape(16.dp))
-                .clickable(onClick = onHelp)
-                .padding(horizontal = 14.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = stringResource(R.string.emp_profile_help_desk),
-                color = EmpCobalt.fg(),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-        }
     }
 }
 
@@ -189,7 +172,11 @@ private fun EmpAvatar(ui: EmpProfileUi, onClick: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         when {
-            ui.uploading -> CircularProgressIndicator(modifier = Modifier.size(24.dp), color = EmpCobalt.fg(), strokeWidth = 2.dp)
+            ui.uploading -> com.example.dutype.components.ThreeDotsBouncingLoader(
+                dotSize = 5.dp,
+                spacing = 3.dp,
+                dotColor = EmpCobalt.fg()
+            )
             !ui.imageModel.isNullOrBlank() -> com.example.dutype.components.OptimizedProfileImage(
                 imageUrl = ui.imageModel,
                 contentDescription = "Profile photo",
@@ -322,7 +309,7 @@ private fun profileTextStyle(size: androidx.compose.ui.unit.TextUnit, weight: Fo
 
 @Composable
 private fun ProfileRowDivider() {
-    HorizontalDivider(thickness = 1.dp, color = Color(0xFFF1F5F9).bd())
+    HorizontalDivider(thickness = 0.75.dp, color = Color(0xFFF0F0F0))
 }
 
 @Composable
@@ -336,22 +323,21 @@ private fun EmpMenuRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .height(54.dp)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp),
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             painter = painterResource(id = iconRes),
             contentDescription = null,
-            // Black line icons: drawn light in dark mode.
-            tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color.Unspecified,
-            modifier = Modifier.size(20.dp)
+            tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222),
+            modifier = Modifier.size(25.dp)
         )
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = title,
-            style = profileTextStyle(15.sp, FontWeight.Medium, Color(0xFF0F0F0F).fg()),
+            style = profileTextStyle(16.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
@@ -378,68 +364,12 @@ private fun EmpMenuRow(
             }
             Spacer(modifier = Modifier.width(8.dp))
         }
-        Text(
-            text = "›",
-            style = profileTextStyle(16.sp, FontWeight.Normal, Color(0xFF94A3B8).fg())
+        Icon(
+            painter = painterResource(id = R.drawable.ic_airbnb_chevron_right),
+            contentDescription = null,
+            tint = Color(0xFF717171),
+            modifier = Modifier.size(18.dp)
         )
-    }
-}
-
-@Composable
-private fun EmpQuickActionTile(
-    iconRes: Int,
-    title: String,
-    badge: String? = null,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 14.dp, horizontal = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(contentAlignment = Alignment.TopEnd) {
-                Icon(
-                    painter = painterResource(id = iconRes),
-                    contentDescription = null,
-                    tint = Color(0xFF0F172A).fg(),
-                    modifier = Modifier.size(24.dp)
-                )
-                if (!badge.isNullOrBlank()) {
-                    Box(
-                        modifier = Modifier
-                            .offset(x = 18.dp, y = (-6).dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFFEFF6FF).bg())
-                            .padding(horizontal = 4.dp, vertical = 1.dp)
-                    ) {
-                        Text(
-                            text = badge,
-                            style = profileTextStyle(10.sp, FontWeight.Bold, Color(0xFF2563EB).fg())
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = title,
-                style = profileTextStyle(12.sp, FontWeight.Medium, Color(0xFF0F0F0F).fg()),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center
-            )
-        }
     }
 }
 
@@ -448,105 +378,98 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(horizontal = 20.dp)
     ) {
-        // Group 1: Job Posting, Subscription, Addresses & History Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                EmpMenuRow(
-                    iconRes = R.drawable.myjobs,
-                    title = stringResource(R.string.emp_profile_my_posted_jobs),
-                    pill = null,
-                    onClick = actions.onMyJobs
-                )
-                ProfileRowDivider()
-                EmpMenuRow(
-                    iconRes = R.drawable.ic_profile_wallet,
-                    title = "Services Wallet",
-                    pill = "₹${ui.walletBalanceRupees}",
-                    onClick = actions.onWallet
-                )
-                ProfileRowDivider()
-                EmpMenuRow(
-                    iconRes = R.drawable.ic_profile_wallet,
-                    title = stringResource(R.string.emp_profile_subscription_credits),
-                    pill = null,
-                    onClick = actions.onSubscription
-                )
-                ProfileRowDivider()
-                EmpMenuRow(
-                    iconRes = R.drawable.ic_profile_globe,
-                    title = stringResource(R.string.emp_profile_work_locations),
-                    pill = null,
-                    onClick = actions.onLocations
-                )
-            }
-        }
+        // Section 1: Hiring & Management
+        Text(
+            text = "Hiring & Management",
+            style = profileTextStyle(18.sp, FontWeight.SemiBold, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+        )
+        EmpMenuRow(
+            iconRes = R.drawable.myjobs,
+            title = stringResource(R.string.emp_profile_my_posted_jobs),
+            pill = null,
+            onClick = actions.onMyJobs
+        )
+        ProfileRowDivider()
+        EmpMenuRow(
+            iconRes = R.drawable.ic_profile_wallet,
+            title = "Services Wallet",
+            pill = "₹${ui.walletBalanceRupees}",
+            onClick = actions.onWallet
+        )
+        ProfileRowDivider()
+        EmpMenuRow(
+            iconRes = R.drawable.ic_profile_wallet,
+            title = stringResource(R.string.emp_profile_subscription_credits),
+            pill = null,
+            onClick = actions.onSubscription
+        )
+        ProfileRowDivider()
+        EmpMenuRow(
+            iconRes = R.drawable.ic_profile_globe,
+            title = stringResource(R.string.emp_profile_work_locations),
+            pill = null,
+            onClick = actions.onLocations
+        )
 
-        // Group 2: Help Desk & Refer Earn Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                EmpMenuRow(
-                    iconRes = R.drawable.ic_profile_help,
-                    title = stringResource(R.string.emp_profile_help_support),
-                    pill = null,
-                    onClick = actions.onHelp
-                )
-                ProfileRowDivider()
-                EmpMenuRow(
-                    iconRes = R.drawable.ic_profile_gift,
-                    title = stringResource(R.string.emp_profile_refer_employer, EmpReferAmount),
-                    pill = null,
-                    onClick = actions.onRefer
-                )
-            }
-        }
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(thickness = 0.75.dp, color = Color(0xFFEBEBEB))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Group 3: Settings & Legal Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                EmpMenuRow(
-                    iconRes = R.drawable.ic_profile_settings,
-                    title = stringResource(R.string.settings),
-                    pill = null,
-                    onClick = actions.onSettings
-                )
-                ProfileRowDivider()
-                EmpMenuRow(
-                    iconRes = R.drawable.ic_profile_help,
-                    title = stringResource(R.string.guide_entry),
-                    pill = null,
-                    onClick = actions.onGuidelines
-                )
-                ProfileRowDivider()
-                EmpMenuRow(
-                    iconRes = R.drawable.ic_profile_star,
-                    title = stringResource(R.string.about_nav_rate_playstore),
-                    pill = null,
-                    onClick = actions.onRateApp,
-                    showStars = true
-                )
-            }
-        }
+        // Section 2: Support & Referral
+        Text(
+            text = "Support & Referral",
+            style = profileTextStyle(18.sp, FontWeight.SemiBold, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        EmpMenuRow(
+            iconRes = R.drawable.ic_profile_help,
+            title = stringResource(R.string.emp_profile_help_support),
+            pill = null,
+            onClick = actions.onHelp
+        )
+        ProfileRowDivider()
+        EmpMenuRow(
+            iconRes = R.drawable.ic_profile_gift,
+            title = stringResource(R.string.emp_profile_refer_employer, EmpReferAmount),
+            pill = null,
+            onClick = actions.onRefer
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(thickness = 0.75.dp, color = Color(0xFFEBEBEB))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Section 3: Settings & About
+        Text(
+            text = "Settings & About",
+            style = profileTextStyle(18.sp, FontWeight.SemiBold, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        EmpMenuRow(
+            iconRes = R.drawable.ic_profile_settings,
+            title = stringResource(R.string.settings),
+            pill = null,
+            onClick = actions.onSettings
+        )
+        ProfileRowDivider()
+        EmpMenuRow(
+            iconRes = R.drawable.ic_profile_help,
+            title = stringResource(R.string.guide_entry),
+            pill = null,
+            onClick = actions.onGuidelines
+        )
+        ProfileRowDivider()
+        EmpMenuRow(
+            iconRes = R.drawable.ic_profile_star,
+            title = stringResource(R.string.about_nav_rate_playstore),
+            pill = null,
+            onClick = actions.onRateApp,
+            showStars = true
+        )
+        ProfileRowDivider()
     }
 }
 
@@ -838,7 +761,7 @@ fun EmployerProfileScreen(
             val isOnline by connectivityViewModel.isOnline.collectAsState()
             com.example.dutype.components.OfflineBanner(isOffline = !isOnline)
 
-            EmpTopBar(onHelp = actions.onHelp)
+            EmpTopBar()
             EmpProfileBody(ui = ui, actions = actions, modifier = Modifier.weight(1f))
         }
     }

@@ -401,11 +401,7 @@ fun FeedbackBottomSheet(
                             )
                         ) {
                             if (isSubmitting) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    color = Color.White,
-                                    strokeWidth = 2.dp
-                                )
+                                ButtonThreeDotsLoader(dotColor = Color.White)
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.Send,

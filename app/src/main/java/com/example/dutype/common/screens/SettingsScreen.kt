@@ -8,9 +8,9 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -18,29 +18,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.outlined.DarkMode
-import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.Language
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Phone
-import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,8 +52,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -82,15 +76,13 @@ import com.google.firebase.functions.FirebaseFunctions
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-private val SettingsBg = Color(0xFFF8FAFC)
-private val SettingsInk = Color(0xFF0F172A)
-private val SettingsRowText = Color(0xFF0F0F0F)
-private val SettingsMuted = Color(0xFF64748B)
-private val SettingsFaint = Color(0xFF94A3B8)
-private val SettingsBorder = Color(0xFFE2E8F0)
-private val SettingsDivider = Color(0xFFF1F5F9)
-private val SettingsDanger = Color(0xFFEF4444)
-private val SettingsOn = Color(0xFF10B981)
+// Airbnb style clean color palette
+private val AirbnbTitleColor = Color(0xFF222222)
+private val AirbnbSubtitleColor = Color(0xFF717171)
+private val AirbnbDividerColor = Color(0xFFF0F0F0)
+private val AirbnbSwitchActiveColor = Color(0xFF222222)
+private val AirbnbSwitchTrackInactive = Color(0xFFB0B0B0)
+private val AirbnbDangerColor = Color(0xFFE11D48)
 
 private const val SETTINGS_PREFS = "dutype_settings_prefs"
 private const val KEY_PUSH_ENABLED = "push_notifications_enabled"
@@ -171,49 +163,130 @@ fun SettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SettingsBg.bg())
+            .background(Color.White.bg())
+            .windowInsetsPadding(WindowInsets.statusBars)
     ) {
-        com.example.dutype.components.CommonHeader(
+        // Airbnb Style Header: Back button + Large Title + Subtitle
+        AirbnbSettingsHeader(
             title = stringResource(R.string.settings),
-            navController = navController,
-            backgroundColor = SettingsBg.bg()
+            subtitle = "Control your account, preferences, and privacy settings on DutyPe.",
+            onBack = { navController.navigateUp() }
         )
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 32.dp)
+                .padding(bottom = 40.dp)
         ) {
-            SettingsSectionLabel(stringResource(R.string.settings_account))
-            AccountCard(
-                phoneNumber = phoneNumber,
-                onEditProfile = openEditProfile
+            // Section 1: Account
+            AirbnbSectionHeader(title = stringResource(R.string.settings_account))
+            AirbnbActionRow(
+                iconRes = R.drawable.ic_profile_person,
+                title = stringResource(R.string.edit_profile),
+                onClick = openEditProfile
+            )
+            AirbnbHairlineDivider()
+            AirbnbInfoRow(
+                iconRes = R.drawable.ic_profile_person,
+                title = stringResource(R.string.phone_number),
+                value = if (phoneNumber.isBlank()) "—" else phoneNumber,
+                onClick = openEditProfile
             )
 
-            SettingsSectionLabel(stringResource(R.string.settings_preferences))
-            PreferencesCard()
+            // Section 2: Preferences
+            AirbnbSectionHeader(title = stringResource(R.string.settings_preferences))
+            val themeViewModel: ThemeModeViewModel = hiltViewModel()
+            val themeMode = LocalThemeMode.current
+            val systemDark = isSystemInDarkTheme()
+            val isDark = themeMode == ThemeMode.DARK || (themeMode == ThemeMode.SYSTEM && systemDark)
 
-            SettingsSectionLabel(stringResource(R.string.notifications))
-            NotificationsCard()
+            AirbnbSwitchRow(
+                iconRes = R.drawable.ic_profile_settings,
+                title = stringResource(R.string.dark_mode),
+                checked = isDark,
+                onCheckedChange = { on ->
+                    themeViewModel.setMode(if (on) ThemeMode.DARK else ThemeMode.LIGHT)
+                }
+            )
+            AirbnbHairlineDivider()
+            AirbnbLanguageRow()
 
-            SettingsSectionLabel(stringResource(R.string.settings_legal))
-            LegalCard(
-                navController = navController,
-                userRole = roleForEdit
+            // Section 3: Notifications
+            AirbnbSectionHeader(title = stringResource(R.string.notifications))
+            var pushEnabled by remember { mutableStateOf(readSettingsFlag(context, KEY_PUSH_ENABLED)) }
+            var whatsappEnabled by remember { mutableStateOf(false) }
+            var whatsappBusy by remember { mutableStateOf(false) }
+            val signedIn = currentUser != null
+
+            LaunchedEffect(signedIn) {
+                if (!signedIn) return@LaunchedEffect
+                runCatching { callWhatsappPromos(null) }.onSuccess { whatsappEnabled = it }
+            }
+
+            AirbnbSwitchRow(
+                iconRes = R.drawable.ic_bell_outline,
+                title = stringResource(R.string.push_notifications),
+                checked = pushEnabled,
+                onCheckedChange = { on ->
+                    pushEnabled = on
+                    writeSettingsFlag(context, KEY_PUSH_ENABLED, on)
+                }
+            )
+            AirbnbHairlineDivider()
+            AirbnbSwitchRow(
+                iconRes = R.drawable.ic_profile_message,
+                title = stringResource(R.string.whatsapp_alerts),
+                checked = whatsappEnabled,
+                onCheckedChange = { on ->
+                    if (!signedIn || whatsappBusy) return@AirbnbSwitchRow
+                    whatsappBusy = true
+                    whatsappEnabled = on
+                    scope.launch {
+                        runCatching { callWhatsappPromos(on) }
+                            .onSuccess { whatsappEnabled = it }
+                            .onFailure {
+                                whatsappEnabled = !on
+                                Toast.makeText(context, R.string.whatsapp_offers_failed, Toast.LENGTH_SHORT).show()
+                            }
+                        whatsappBusy = false
+                    }
+                }
             )
 
+            // Section 4: Legal & Policies
+            AirbnbSectionHeader(title = stringResource(R.string.settings_legal))
+            AirbnbActionRow(
+                iconRes = R.drawable.ic_profile_hand_privacy,
+                title = stringResource(R.string.privacy_policy),
+                onClick = { navController.navigate(Routes.PRIVACY_POLICY) }
+            )
+            AirbnbHairlineDivider()
+            AirbnbActionRow(
+                iconRes = R.drawable.ic_profile_legal_book,
+                title = stringResource(R.string.terms_of_service),
+                onClick = { navController.navigate(Routes.TERMS_OF_SERVICE) }
+            )
+
+            // Section 5: Account Actions (Logout & Delete)
             if (currentUser != null) {
-                Spacer(modifier = Modifier.height(20.dp))
-                DangerCard(
-                    logoutText = stringResource(R.string.log_out),
-                    deleteText = stringResource(R.string.delete_account),
-                    onLogout = { showLogoutDialog = true },
-                    onDelete = { showAccountDeletionDialog = true }
+                AirbnbSectionHeader(title = "Account Management")
+                AirbnbActionRow(
+                    iconRes = R.drawable.ic_profile_logout_door,
+                    title = stringResource(R.string.log_out),
+                    onClick = { showLogoutDialog = true }
+                )
+                AirbnbHairlineDivider()
+                AirbnbActionRow(
+                    iconRes = R.drawable.ic_profile_logout_door,
+                    title = stringResource(R.string.delete_account),
+                    isDestructive = true,
+                    onClick = { showAccountDeletionDialog = true }
                 )
             }
 
-            SettingsFooter(appVersion = appVersion)
+            Spacer(modifier = Modifier.height(28.dp))
+            SettingsAirbnbFooter(appVersion = appVersion)
         }
     }
 
@@ -242,340 +315,380 @@ fun SettingsScreen(
     }
 }
 
+/**
+ * Top Header matching Airbnb Privacy Screen screenshot:
+ * Clean back arrow, bold 30sp Title, lightweight 15sp subtitle text.
+ */
 @Composable
-private fun SettingsHeader(title: String, onBack: () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+private fun AirbnbSettingsHeader(
+    title: String,
+    subtitle: String,
+    onBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+    ) {
         IconButton(
             onClick = onBack,
-            modifier = Modifier.size(32.dp)
+            modifier = Modifier
+                .size(40.dp)
+                .offset(x = (-8).dp)
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = stringResource(R.string.back),
-                tint = SettingsInk.fg(),
-                modifier = Modifier.size(20.dp)
+                tint = AirbnbTitleColor.fg(),
+                modifier = Modifier.size(24.dp)
             )
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = title,
             style = TextStyle(
-                fontSize = 22.sp,
+                fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
-                color = SettingsInk.fg()
+                color = AirbnbTitleColor.fg(),
+                letterSpacing = (-0.5).sp
             )
         )
-    }
-}
-
-@Composable
-private fun SettingsSectionLabel(text: String) {
-    Text(
-        text = text.uppercase(),
-        style = TextStyle(
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = SettingsFaint.fg(),
-            letterSpacing = 0.6.sp
-        ),
-        modifier = Modifier.padding(start = 4.dp, top = 18.dp, end = 0.dp, bottom = 8.dp)
-    )
-}
-
-@Composable
-private fun SettingsCard(content: @Composable () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(Color.White.bg())
-            .border(BorderStroke(1.dp, SettingsBorder.bd()), RoundedCornerShape(16.dp))
-    ) {
-        content()
-    }
-}
-
-@Composable
-private fun SettingsDividerLine() {
-    HorizontalDivider(color = SettingsDivider.bd(), thickness = 1.dp)
-}
-
-@Composable
-private fun settingsRowTextStyle() = androidx.compose.material3.MaterialTheme.typography.bodyMedium.copy(
-    fontSize = 15.sp,
-    fontWeight = FontWeight.Medium,
-    color = Color(0xFF0F0F0F).fg(),
-    lineHeight = androidx.compose.ui.unit.TextUnit.Unspecified,
-    letterSpacing = 0.sp
-)
-
-@Composable
-private fun SettingsRow(
-    icon: ImageVector,
-    title: String,
-    onClick: (() -> Unit)? = null,
-    trailing: @Composable () -> Unit
-) {
-    val base = Modifier
-        .fillMaxWidth()
-        .height(52.dp)
-    val clickModifier = if (onClick != null) base.clickable(onClick = onClick) else base
-    Row(
-        modifier = clickModifier.padding(start = 16.dp, end = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = Color(0xFF0F0F0F).fg(),
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = title,
-            style = settingsRowTextStyle(),
-            modifier = Modifier.weight(1f)
+            text = subtitle,
+            style = TextStyle(
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Normal,
+                color = AirbnbSubtitleColor.fg(),
+                lineHeight = 22.sp
+            )
         )
-        trailing()
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
+/**
+ * Airbnb Section Header: Clean 18sp semi-bold black label, unboxed.
+ */
 @Composable
-private fun SettingsChevron() {
+private fun AirbnbSectionHeader(title: String) {
     Text(
-        text = "›",
-        style = settingsRowTextStyle().copy(
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Normal,
-            color = Color(0xFF94A3B8).fg()
-        )
+        text = title,
+        style = TextStyle(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = AirbnbTitleColor.fg(),
+            letterSpacing = (-0.2).sp
+        ),
+        modifier = Modifier.padding(start = 20.dp, top = 26.dp, end = 20.dp, bottom = 10.dp)
     )
 }
 
+/**
+ * Subtle hairline divider between flat rows
+ */
 @Composable
-private fun NavRow(
-    icon: ImageVector? = null,
+private fun AirbnbHairlineDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp),
+        thickness = 0.8.dp,
+        color = AirbnbDividerColor.bd()
+    )
+}
+
+/**
+ * Airbnb Action Row: Sleek outline icon, title, optional subtitle, and subtle chevron right.
+ */
+@Composable
+private fun AirbnbActionRow(
     iconRes: Int? = null,
+    icon: ImageVector? = null,
     title: String,
+    subtitle: String? = null,
+    isDestructive: Boolean = false,
     onClick: () -> Unit
 ) {
-    val base = Modifier
-        .fillMaxWidth()
-        .height(52.dp)
-        .clickable(onClick = onClick)
     Row(
-        modifier = base.padding(start = 16.dp, end = 16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (iconRes != null) {
             Icon(
-                painter = androidx.compose.ui.res.painterResource(id = iconRes),
+                painter = painterResource(id = iconRes),
                 contentDescription = null,
-                tint = SettingsInk.fg(),
-                modifier = Modifier.size(20.dp)
+                tint = if (isDestructive) AirbnbDangerColor.fg() else AirbnbTitleColor.fg(),
+                modifier = Modifier.size(25.dp)
             )
+            Spacer(modifier = Modifier.width(16.dp))
         } else if (icon != null) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = SettingsInk.fg(),
-                modifier = Modifier.size(20.dp)
+                tint = if (isDestructive) AirbnbDangerColor.fg() else AirbnbTitleColor.fg(),
+                modifier = Modifier.size(25.dp)
             )
+            Spacer(modifier = Modifier.width(16.dp))
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = TextStyle(
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = if (isDestructive) AirbnbDangerColor.fg() else AirbnbTitleColor.fg()
+                )
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    style = TextStyle(
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = AirbnbSubtitleColor.fg(),
+                        lineHeight = 18.sp
+                    )
+                )
+            }
         }
         Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = title,
-            style = settingsRowTextStyle(),
-            modifier = Modifier.weight(1f)
+        Icon(
+            painter = painterResource(id = R.drawable.ic_airbnb_chevron_right),
+            contentDescription = null,
+            tint = Color(0xFF717171).fg(),
+            modifier = Modifier.size(18.dp)
         )
-        SettingsChevron()
     }
 }
 
+/**
+ * Airbnb Info Row: displays current value on the right
+ */
 @Composable
-private fun ToggleRow(
-    icon: ImageVector,
+private fun AirbnbInfoRow(
+    iconRes: Int,
     title: String,
+    value: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            painter = painterResource(id = iconRes),
+            contentDescription = null,
+            tint = AirbnbTitleColor.fg(),
+            modifier = Modifier.size(25.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = title,
+            style = TextStyle(
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Normal,
+                color = AirbnbTitleColor.fg()
+            ),
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = value,
+            style = TextStyle(
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Normal,
+                color = AirbnbSubtitleColor.fg()
+            )
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Icon(
+            painter = painterResource(id = R.drawable.ic_airbnb_chevron_right),
+            contentDescription = null,
+            tint = Color(0xFF717171).fg(),
+            modifier = Modifier.size(18.dp)
+        )
+    }
+}
+
+/**
+ * Airbnb Switch Row: exactly matching the switch in image 1 (black rounded pill with white checkmark when on)
+ */
+@Composable
+private fun AirbnbSwitchRow(
+    iconRes: Int,
+    title: String,
+    subtitle: String? = null,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
-    SettingsRow(
-        icon = icon,
-        title = title,
-        onClick = { onCheckedChange(!checked) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        FlatToggle(checked = checked, onCheckedChange = onCheckedChange)
+        Icon(
+            painter = painterResource(id = iconRes),
+            contentDescription = null,
+            tint = AirbnbTitleColor.fg(),
+            modifier = Modifier.size(25.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = TextStyle(
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = AirbnbTitleColor.fg()
+                )
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    style = TextStyle(
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = AirbnbSubtitleColor.fg(),
+                        lineHeight = 18.sp
+                    )
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(14.dp))
+        AirbnbModernSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 
+/**
+ * Custom Airbnb Pill Switch:
+ * Exactly matches Airbnb's native switch (image 1 & 2):
+ * - Checked: Solid black pill track (#222222) with white thumb featuring a crisp black checkmark.
+ * - Unchecked: Medium grey pill track (#B0B0B0) with clean white circle thumb.
+ * - Standard proportional height (32.dp) and width (52.dp).
+ */
 @Composable
-private fun FlatToggle(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+internal fun AirbnbModernSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    activeTrackColor: Color = Color(0xFF222222)
+) {
+    val trackBg by animateColorAsState(
+        targetValue = if (checked) activeTrackColor else Color(0xFFB0B0B0),
+        animationSpec = androidx.compose.animation.core.tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        label = "switchTrack"
+    )
+    val thumbOffset by animateDpAsState(
+        targetValue = if (checked) 20.dp else 0.dp,
+        animationSpec = androidx.compose.animation.core.tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing),
+        label = "switchThumb"
+    )
+
     Box(
-        modifier = Modifier
-            .width(44.dp)
-            .height(26.dp)
-            .clip(RoundedCornerShape(13.dp))
-            .background(if (checked) SettingsOn.bg() else SettingsBorder.bg())
-            .toggleable(
-                value = checked,
-                role = Role.Switch,
-                onValueChange = onCheckedChange
-            )
-            .padding(3.dp),
-        contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart
+        modifier = modifier
+            .width(52.dp)
+            .height(32.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(trackBg.bg())
+            .clickable(
+                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                indication = null
+            ) { onCheckedChange(!checked) }
+            .padding(2.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
         Box(
             modifier = Modifier
-                .size(20.dp)
+                .offset(x = thumbOffset)
+                .size(28.dp)
                 .clip(CircleShape)
-                .background(if (checked) SettingsRowText.bg() else Color.White.bg())
-        )
-    }
-}
-
-@Composable
-private fun AccountCard(phoneNumber: String, onEditProfile: () -> Unit) {
-    SettingsCard {
-        NavRow(
-            iconRes = R.drawable.ic_profile_person,
-            title = stringResource(R.string.edit_profile),
-            onClick = onEditProfile
-        )
-        SettingsDividerLine()
-        SettingsRow(
-            icon = Icons.Outlined.Phone,
-            title = stringResource(R.string.phone_number),
-            onClick = onEditProfile
+                .background(Color.White),
+            contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = if (phoneNumber.isBlank()) "—" else phoneNumber,
-                style = TextStyle(fontSize = 14.sp, color = SettingsMuted.fg())
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            SettingsChevron()
-        }
-    }
-}
-
-@Composable
-private fun PreferencesCard() {
-    val themeViewModel: ThemeModeViewModel = hiltViewModel()
-    val themeMode = LocalThemeMode.current
-    val systemDark = isSystemInDarkTheme()
-    val isDark = themeMode == ThemeMode.DARK || (themeMode == ThemeMode.SYSTEM && systemDark)
-    SettingsCard {
-        SettingsRow(
-            icon = Icons.Outlined.Language,
-            title = stringResource(R.string.language)
-        ) {
-            LanguageChips()
-        }
-        SettingsDividerLine()
-        ToggleRow(
-            icon = Icons.Outlined.DarkMode,
-            title = stringResource(R.string.dark_mode),
-            checked = isDark,
-            onCheckedChange = { on ->
-                themeViewModel.setMode(if (on) ThemeMode.DARK else ThemeMode.LIGHT)
+            if (checked) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = activeTrackColor,
+                    modifier = Modifier.size(16.dp)
+                )
             }
-        )
+        }
     }
 }
 
 @Composable
-private fun LanguageChips() {
+private fun AirbnbLanguageRow() {
     val context = LocalContext.current
     val current = LocaleHelper.getLanguage(context)
+
     Row(
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        LanguageChip("EN", current == LocaleHelper.LANGUAGE_ENGLISH) {
-            applyLanguageChange(context, LocaleHelper.LANGUAGE_ENGLISH)
-        }
-        LanguageChip("हिन्दी", current == LocaleHelper.LANGUAGE_HINDI) {
-            applyLanguageChange(context, LocaleHelper.LANGUAGE_HINDI)
-        }
-        LanguageChip("తెలుగు", current == LocaleHelper.LANGUAGE_TELUGU) {
-            applyLanguageChange(context, LocaleHelper.LANGUAGE_TELUGU)
+        Icon(
+            painter = painterResource(id = R.drawable.translate_indic_24),
+            contentDescription = null,
+            tint = AirbnbTitleColor.fg(),
+            modifier = Modifier.size(25.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = stringResource(R.string.language),
+            style = TextStyle(
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Normal,
+                color = AirbnbTitleColor.fg()
+            ),
+            modifier = Modifier.weight(1f)
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            AirbnbLanguageChip("EN", current == LocaleHelper.LANGUAGE_ENGLISH) {
+                applyLanguageChange(context, LocaleHelper.LANGUAGE_ENGLISH)
+            }
+            AirbnbLanguageChip("हिन्दी", current == LocaleHelper.LANGUAGE_HINDI) {
+                applyLanguageChange(context, LocaleHelper.LANGUAGE_HINDI)
+            }
+            AirbnbLanguageChip("తెలుగు", current == LocaleHelper.LANGUAGE_TELUGU) {
+                applyLanguageChange(context, LocaleHelper.LANGUAGE_TELUGU)
+            }
         }
     }
 }
 
 @Composable
-private fun LanguageChip(label: String, active: Boolean, onClick: () -> Unit) {
+private fun AirbnbLanguageChip(label: String, active: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .height(28.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (active) SettingsRowText.bg() else Color.Transparent)
+            .height(30.dp)
+            .clip(RoundedCornerShape(15.dp))
+            .background(if (active) AirbnbTitleColor.bg() else Color(0xFFF7F7F7).bg())
             .clickable(onClick = onClick)
-            .padding(start = if (active) 12.dp else 10.dp, end = if (active) 12.dp else 10.dp),
+            .padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
             style = TextStyle(
-                fontSize = 12.sp,
-                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                color = if (active) Color.White else SettingsMuted.fg()
+                fontSize = 13.sp,
+                fontWeight = if (active) FontWeight.Medium else FontWeight.Normal,
+                color = if (active) Color.White else AirbnbTitleColor.fg()
             )
         )
     }
 }
 
-@Composable
-private fun NotificationsCard() {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var pushEnabled by remember { mutableStateOf(readSettingsFlag(context, KEY_PUSH_ENABLED)) }
-    // "WhatsApp offers" lives on the server (consent record, STOP replies); off until switched on.
-    var whatsappEnabled by remember { mutableStateOf(false) }
-    var whatsappBusy by remember { mutableStateOf(false) }
-    val signedIn = FirebaseAuth.getInstance().currentUser != null
-    LaunchedEffect(signedIn) {
-        if (!signedIn) return@LaunchedEffect
-        runCatching { callWhatsappPromos(null) }.onSuccess { whatsappEnabled = it }
-    }
-    SettingsCard {
-        ToggleRow(
-            icon = Icons.Outlined.Notifications,
-            title = stringResource(R.string.push_notifications),
-            checked = pushEnabled,
-            onCheckedChange = { on ->
-                pushEnabled = on
-                writeSettingsFlag(context, KEY_PUSH_ENABLED, on)
-            }
-        )
-        SettingsDividerLine()
-        ToggleRow(
-            icon = Icons.Outlined.ChatBubbleOutline,
-            title = stringResource(R.string.whatsapp_alerts),
-            checked = whatsappEnabled,
-            onCheckedChange = { on ->
-                if (!signedIn || whatsappBusy) return@ToggleRow
-                whatsappBusy = true
-                whatsappEnabled = on
-                scope.launch {
-                    runCatching { callWhatsappPromos(on) }
-                        .onSuccess { whatsappEnabled = it }
-                        .onFailure {
-                            whatsappEnabled = !on
-                            Toast.makeText(context, R.string.whatsapp_offers_failed, Toast.LENGTH_SHORT).show()
-                        }
-                    whatsappBusy = false
-                }
-            }
-        )
-        Text(
-            text = stringResource(R.string.whatsapp_offers_sub),
-            style = TextStyle(fontSize = 12.sp, color = SettingsMuted.fg(), lineHeight = 17.sp),
-            modifier = Modifier.padding(start = 48.dp, end = 16.dp, bottom = 12.dp)
-        )
-    }
-}
-
-/** Reads ([enabled] = null) or sets the server's "WhatsApp offers" switch; returns the saved value. */
 private suspend fun callWhatsappPromos(enabled: Boolean?): Boolean {
     val payload = if (enabled == null) emptyMap<String, Any>() else mapOf("enabled" to enabled)
     val data = FirebaseFunctions.getInstance("asia-south1")
@@ -584,76 +697,28 @@ private suspend fun callWhatsappPromos(enabled: Boolean?): Boolean {
 }
 
 @Composable
-private fun LegalCard(navController: NavController, userRole: String = "WORKER") {
-    SettingsCard {
-        NavRow(
-            icon = Icons.Outlined.Shield,
-            title = stringResource(R.string.privacy_policy),
-            onClick = { navController.navigate(Routes.PRIVACY_POLICY) }
-        )
-        SettingsDividerLine()
-        NavRow(
-            icon = Icons.Outlined.Description,
-            title = stringResource(R.string.terms_of_service),
-            onClick = { navController.navigate(Routes.TERMS_OF_SERVICE) }
-        )
-    }
-}
-
-@Composable
-private fun DangerRow(text: String, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .clickable(onClick = onClick)
-            .padding(start = 16.dp, end = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = text,
-            style = settingsRowTextStyle().copy(color = SettingsDanger.fg())
-        )
-    }
-}
-
-@Composable
-private fun DangerCard(
-    logoutText: String,
-    deleteText: String,
-    onLogout: () -> Unit,
-    onDelete: () -> Unit
-) {
-    SettingsCard {
-        DangerRow(text = logoutText, onClick = onLogout)
-        SettingsDividerLine()
-        DangerRow(text = deleteText, onClick = onDelete)
-    }
-}
-
-@Composable
-private fun SettingsFooter(appVersion: String) {
+private fun SettingsAirbnbFooter(appVersion: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 24.dp),
+            .padding(horizontal = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Text(
             text = "DutyPe v$appVersion",
             style = TextStyle(
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-                color = SettingsFaint.fg()
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Normal,
+                color = AirbnbSubtitleColor.fg()
             )
         )
         Text(
             text = stringResource(R.string.about_made_in_bharat),
             style = TextStyle(
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = SettingsFaint.fg()
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Normal,
+                color = AirbnbSubtitleColor.fg()
             )
         )
     }

@@ -475,14 +475,13 @@ fun WorkerProfileScreen(
                 }
             }
 
-            // Top bar: Account title + Help Desk button matching employer profile
+            // Top bar: Account title
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
                     .padding(horizontal = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 androidx.compose.material3.Text(
                     text = androidx.compose.ui.res.stringResource(R.string.emp_profile_account),
@@ -490,24 +489,6 @@ fun WorkerProfileScreen(
                     fontSize = 20.sp,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                 )
-                Box(
-                    modifier = Modifier
-                        .height(32.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .border(1.dp, androidx.compose.ui.graphics.Color(0xFF10B981).bd(), RoundedCornerShape(16.dp))
-                        .clickable {
-                            localNavController?.navigate(Routes.HELP) ?: rootNavController.navigate(Routes.HELP)
-                        }
-                        .padding(horizontal = 14.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    androidx.compose.material3.Text(
-                        text = androidx.compose.ui.res.stringResource(R.string.emp_profile_help_desk),
-                        color = androidx.compose.ui.graphics.Color(0xFF10B981).fg(),
-                        fontSize = 12.sp,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
-                    )
-                }
             }
 
             LazyColumn(
@@ -544,10 +525,10 @@ fun WorkerProfileScreen(
                             ) {
                                 when {
                                     isUploadingImage -> {
-                                        CircularProgressIndicator(
-                                            modifier = Modifier.size(24.dp),
-                                            color = Color(0xFF10B981).fg(),
-                                            strokeWidth = 2.dp
+                                        com.example.dutype.components.ThreeDotsBouncingLoader(
+                                            dotSize = 5.dp,
+                                            spacing = 3.dp,
+                                            dotColor = Color(0xFF10B981).fg()
                                         )
                                     }
                                     profileImageUri != null -> {
@@ -1108,32 +1089,32 @@ private fun ProfileListRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .height(54.dp)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp),
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (iconRes != null) {
             Icon(
                 painter = painterResource(id = iconRes),
                 contentDescription = null,
-                // Black line icons: drawn light in dark mode.
-                tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color.Unspecified,
-                modifier = Modifier.size(20.dp)
+                tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222),
+                modifier = Modifier.size(25.dp)
             )
         } else if (icon != null) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = Color(0xFF0F0F0F).fg(),
-                modifier = Modifier.size(20.dp)
+                tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222),
+                modifier = Modifier.size(25.dp)
             )
         }
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = title,
-            style = profileTextStyle(15.sp, FontWeight.Medium, Color(0xFF0F0F0F).fg()),
+            style = profileTextStyle(16.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
         if (showStars) {
@@ -1143,9 +1124,11 @@ private fun ProfileListRow(
             )
             Spacer(modifier = Modifier.width(8.dp))
         }
-        Text(
-            text = "\u203A",
-            style = profileTextStyle(16.sp, FontWeight.Normal, Color(0xFF94A3B8).fg())
+        Icon(
+            painter = painterResource(id = R.drawable.ic_airbnb_chevron_right),
+            contentDescription = null,
+            tint = Color(0xFF717171),
+            modifier = Modifier.size(18.dp)
         )
     }
 }
@@ -1196,64 +1179,6 @@ private fun ProfileCompletenessCard(percent: Int, hint: String, onAdd: () -> Uni
 }
 
 @Composable
-private fun QuickActionTile(
-    iconRes: Int,
-    title: String,
-    badge: String? = null,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 14.dp, horizontal = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Box(contentAlignment = Alignment.TopEnd) {
-                Icon(
-                    painter = painterResource(id = iconRes),
-                    contentDescription = null,
-                    tint = Color(0xFF0F172A).fg(),
-                    modifier = Modifier.size(24.dp)
-                )
-                if (!badge.isNullOrBlank()) {
-                    Box(
-                        modifier = Modifier
-                            .offset(x = 18.dp, y = (-6).dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFFDCFCE7).bg())
-                            .padding(horizontal = 4.dp, vertical = 1.dp)
-                    ) {
-                        Text(
-                            text = badge,
-                            style = profileTextStyle(10.sp, FontWeight.Bold, Color(0xFF16A34A).fg())
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = title,
-                style = profileTextStyle(12.sp, FontWeight.Medium, Color(0xFF0F0F0F).fg()),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-@Composable
 private fun ProfileSettingsCard(
     onEditProfile: () -> Unit,
     onWorkHistory: () -> Unit,
@@ -1272,127 +1197,111 @@ private fun ProfileSettingsCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .padding(horizontal = 20.dp)
     ) {
-        // Flat Menu Card: Work History, My Earnings, Booked Services, Help Desk
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                ProfileListRow(
-                    title = stringResource(R.string.work_history),
-                    onClick = onWorkHistory,
-                    iconRes = R.drawable.ic_profile_history
-                )
-                ProfileRowDivider()
-                ProfileListRow(
-                    title = stringResource(R.string.my_earnings),
-                    onClick = onEarnings,
-                    iconRes = R.drawable.ic_profile_wallet
-                )
-                /*
-                ProfileRowDivider()
-                ProfileListRow(
-                    title = "Book Home Services",
-                    onClick = onBookServices,
-                    icon = Icons.Filled.HomeRepairService
-                )
-                ProfileRowDivider()
-                ProfileListRow(
-                    title = "My Booked Services",
-                    onClick = onServicesBookings,
-                    icon = Icons.Filled.History
-                )
-                */
-                ProfileRowDivider()
-                ProfileListRow(
-                    title = stringResource(R.string.emp_profile_help_desk),
-                    onClick = onHelp,
-                    iconRes = R.drawable.ic_profile_help
-                )
-            }
-        }
+        // Section 1: Work & Earnings
+        Text(
+            text = "Work & Earnings",
+            style = profileTextStyle(18.sp, FontWeight.SemiBold, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+        )
+        ProfileListRow(
+            title = stringResource(R.string.work_history),
+            onClick = onWorkHistory,
+            iconRes = R.drawable.ic_profile_history
+        )
+        ProfileRowDivider()
+        ProfileListRow(
+            title = stringResource(R.string.my_earnings),
+            onClick = onEarnings,
+            iconRes = R.drawable.ic_profile_wallet
+        )
+        ProfileRowDivider()
+        ProfileListRow(
+            title = stringResource(R.string.emp_profile_help_desk),
+            onClick = onHelp,
+            iconRes = R.drawable.ic_profile_help
+        )
 
-        // Group 1: Referral & Earn Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(thickness = 0.75.dp, color = Color(0xFFEBEBEB))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Section 2: Referral
+        Text(
+            text = "Referral",
+            style = profileTextStyle(18.sp, FontWeight.SemiBold, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp)
+                .clickable(onClick = onReferEarn)
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
+            Icon(
+                painter = painterResource(id = R.drawable.ic_profile_gift),
+                contentDescription = null,
+                tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222),
+                modifier = Modifier.size(25.dp)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = stringResource(R.string.refer_earn),
+                style = profileTextStyle(16.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+                modifier = Modifier.weight(1f)
+            )
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onReferEarn)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(Color(0xFFFEF3C7).bg())
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
             ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_profile_gift),
-                    contentDescription = null,
-                    tint = Color(0xFF0F0F0F).fg(),
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
                 Text(
-                    text = stringResource(R.string.refer_earn),
-                    style = profileTextStyle(15.sp, FontWeight.Medium, Color(0xFF0F0F0F).fg()),
-                    modifier = Modifier.weight(1f)
-                )
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFFFEF3C7).bg())
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
-                ) {
-                    Text(
-                        text = "₹100",
-                        style = profileTextStyle(11.sp, FontWeight.Bold, Color(0xFFD97706).fg())
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "›",
-                    style = profileTextStyle(16.sp, FontWeight.Normal, Color(0xFF94A3B8).fg())
+                    text = "₹100",
+                    style = profileTextStyle(11.sp, FontWeight.Bold, Color(0xFFD97706).fg())
                 )
             }
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(
+                painter = painterResource(id = R.drawable.ic_airbnb_chevron_right),
+                contentDescription = null,
+                tint = Color(0xFF717171),
+                modifier = Modifier.size(18.dp)
+            )
         }
 
-        // Group 2: Settings, Legal & App Rating Card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                ProfileListRow(
-                    title = stringResource(R.string.settings),
-                    onClick = onSettings,
-                    iconRes = R.drawable.ic_profile_settings
-                )
-                ProfileRowDivider()
-                ProfileListRow(
-                    title = stringResource(R.string.guide_entry),
-                    onClick = onGuidelines,
-                    iconRes = R.drawable.ic_profile_help
-                )
-                ProfileRowDivider()
-                ProfileListRow(
-                    title = stringResource(R.string.about_nav_rate_playstore),
-                    onClick = onRateApp,
-                    iconRes = R.drawable.ic_profile_star,
-                    showStars = true
-                )
-            }
-        }
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(thickness = 0.75.dp, color = Color(0xFFEBEBEB))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Section 3: Settings & About
+        Text(
+            text = "Settings & About",
+            style = profileTextStyle(18.sp, FontWeight.SemiBold, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        ProfileListRow(
+            title = stringResource(R.string.settings),
+            onClick = onSettings,
+            iconRes = R.drawable.ic_profile_settings
+        )
+        ProfileRowDivider()
+        ProfileListRow(
+            title = stringResource(R.string.guide_entry),
+            onClick = onGuidelines,
+            iconRes = R.drawable.ic_profile_help
+        )
+        ProfileRowDivider()
+        ProfileListRow(
+            title = stringResource(R.string.about_nav_rate_playstore),
+            onClick = onRateApp,
+            iconRes = R.drawable.ic_profile_star,
+            showStars = true
+        )
+        ProfileRowDivider()
 
         // Subtle App Version at the bottom
         val context = androidx.compose.ui.platform.LocalContext.current
@@ -1407,7 +1316,7 @@ private fun ProfileSettingsCard(
             textAlign = TextAlign.Center,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 12.dp)
+                .padding(vertical = 16.dp)
         )
     }
 }
@@ -1445,320 +1354,5 @@ private fun openWhatsAppCommunity(context: android.content.Context) {
 
 @Composable
 private fun ProfileRowDivider() {
-    HorizontalDivider(thickness = 1.dp, color = Color(0xFFF1F5F9).bd())
-}
-
-/**
- * Clean lightweight profile menu item — plain outline icon, no background circle
- */
-@Composable
-private fun MeeshoMenuItem(
-    icon: ImageVector,
-    title: String,
-    subtitle: String? = null,
-    badgeText: String? = null,
-    isDestructive: Boolean = false,
-    iconColor: Color = Color(0xFF2563EB),
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (isDestructive) Color(0xFFDC2626).fg() else Color(0xFF6B7280).fg(),
-            modifier = Modifier.size(22.dp)
-        )
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (isDestructive) Color(0xFFDC2626).fg() else Color(0xFF0F172A).fg(),
-                        fontSize = 15.sp
-                    )
-                )
-                if (!badgeText.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFFEEF2FF).bg())
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = badgeText,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = Color(0xFF4F46E5).fg(),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp
-                            )
-                        )
-                    }
-                }
-            }
-            if (!subtitle.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF94A3B8).fg(),
-                        fontSize = 12.sp
-                    )
-                )
-            }
-        }
-
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = Color(0xFFCBD5E1).fg(),
-            modifier = Modifier.size(18.dp)
-        )
-    }
-}
-
-/**
- * Meesho-style quick action button using drawable resource
- * Clean bordered box with no background fill
- */
-@Composable
-private fun QuickActionButtonDrawable(
-    @androidx.annotation.DrawableRes iconRes: Int,
-    title: String,
-    modifier: Modifier = Modifier,
-    iconTint: Color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = modifier
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = Color.Transparent  // No background - Meesho style
-        ),
-        shape = RoundedCornerShape(0.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        border = androidx.compose.foundation.BorderStroke(
-            1.dp,
-            com.example.dutype.ui.theme.WorkerColors.Border
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 14.dp, horizontal = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                painter = painterResource(id = iconRes),
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(22.dp)
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = title,
-                style = com.example.dutype.ui.theme.AppTypography.quickActionLabel.copy(
-                    color = com.example.dutype.ui.theme.WorkerColors.TextPrimary,
-                    fontFamily = com.example.dutype.ui.theme.MeeshoFontFamily
-                ),
-                textAlign = TextAlign.Center
-            )
-        }
-    }
-}
-
-/**
- * Thin divider for menu items
- */
-@Composable
-private fun MenuDivider() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 52.dp)
-            .height(1.dp)
-            .background(com.example.dutype.ui.theme.WorkerColors.Divider)
-    )
-}
-
-
-// COMMENTED OUT - Follow Us Section
-/*
-@Composable
-private fun FollowUsSection() {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val whatsAppChannelUrl = "https://chat.whatsapp.com/ITnhw0jk2G0I9TNlDCaNQI?s=cl&p=a&ilr=4"
-    val instagramUrl = "https://www.instagram.com/dutype.in"
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 13.dp, vertical = 3.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground
-        ),
-        shape = RoundedCornerShape(0.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.auto_follow_us_on),
-                fontSize = 16.sp,
-                color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-            )
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Instagram
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-
-                        .border(1.dp, Color(0xFFE5E7EB).bd(), CircleShape)
-                        .clickable {
-                            val intent = android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse(instagramUrl)
-                            )
-                            context.startActivity(intent)
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_instagram),
-                        contentDescription = "Instagram",
-                        tint = Color(0xFF1F2937).fg(),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                // WhatsApp
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-
-                        .border(1.dp, Color(0xFFE5E7EB).bd(), CircleShape)
-                        .clickable {
-                            val intent = android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse(whatsAppChannelUrl)
-                            )
-                            context.startActivity(intent)
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_whatsapp),
-                        contentDescription = "WhatsApp",
-                        tint = Color(0xFF1F2937).fg(),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-*/
-
-// Role Management Menu Item
-/**
- * Role Management Menu Item - Flat design matching other menu items
- * Shows current role with chevron icon for switching
- */
-@Composable
-private fun RoleManagementMenuItem(
-    currentRole: com.example.dutype.models.UserRole,
-    onSwitchClick: () -> Unit
-) {
-    val roleIcon = when (currentRole) {
-        com.example.dutype.models.UserRole.WORKER -> Icons.Outlined.Person
-        com.example.dutype.models.UserRole.EMPLOYER -> Icons.Default.Business
-        else -> Icons.Outlined.Person
-    }
-
-    val roleColor = when (currentRole) {
-        com.example.dutype.models.UserRole.WORKER -> Color(0xFF10B981) // Green
-        com.example.dutype.models.UserRole.EMPLOYER -> Color(0xFF3B82F6) // Blue
-        else -> Color(0xFF6B7280)
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onSwitchClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f)
-        ) {
-            Icon(
-                imageVector = roleIcon,
-                contentDescription = null,
-                tint = com.example.dutype.ui.theme.WorkerColors.IconPrimary,
-                modifier = Modifier.size(com.example.dutype.ui.theme.IconSizes.Standard)
-            )
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column {
-                Text(
-                    text = stringResource(R.string.auto_switch_role),
-                    style = com.example.dutype.ui.theme.AppTypography.menuItemTitle.copy(
-                        color = com.example.dutype.ui.theme.WorkerColors.TextPrimary
-                    )
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = stringResource(R.string.auto_active),
-                        style = com.example.dutype.ui.theme.AppTypography.menuItemSubtitle.copy(
-                            color = com.example.dutype.ui.theme.WorkerColors.TextSecondary
-                        )
-                    )
-                    Text(
-                        text = when (currentRole) {
-                            com.example.dutype.models.UserRole.WORKER -> stringResource(R.string.worker)
-                            com.example.dutype.models.UserRole.EMPLOYER -> stringResource(R.string.employer)
-                            else -> currentRole.name.lowercase().replaceFirstChar { it.uppercase() }
-                        },
-                        style = com.example.dutype.ui.theme.AppTypography.menuItemSubtitle.copy(
-                            color = roleColor,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    )
-                }
-            }
-        }
-
-        // Chevron icon (matching other menu items)
-        Icon(
-            imageVector = Icons.Filled.ChevronRight,
-            contentDescription = null,
-            tint = Color(0xFF9CA3AF).fg(),
-            modifier = Modifier.size(24.dp)
-        )
-    }
+    HorizontalDivider(thickness = 0.75.dp, color = Color(0xFFF0F0F0))
 }
