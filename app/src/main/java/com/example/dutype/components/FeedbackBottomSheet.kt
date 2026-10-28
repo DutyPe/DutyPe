@@ -24,6 +24,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -71,6 +73,15 @@ fun FeedbackBottomSheet(
     userRole: String = "worker"
 ) {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    DisposableEffect(Unit) {
+        onDispose {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+        }
+    }
     val scope = rememberCoroutineScope()
     var selectedRating by remember { mutableIntStateOf(0) }
     var feedbackText by remember { mutableStateOf("") }
@@ -88,6 +99,8 @@ fun FeedbackBottomSheet(
         ModalBottomSheet(
             onDismissRequest = {
                 if (!isSubmitting && !showSuccessAnimation) {
+                    focusManager.clearFocus(force = true)
+                    keyboardController?.hide()
                     selectedRating = 0
                     feedbackText = ""
                     selectedCategory = "General"
@@ -320,7 +333,9 @@ fun FeedbackBottomSheet(
                         // Skip button
                         OutlinedButton(
                             onClick = {
-                                selectedRating = 0
+                                focusManager.clearFocus(force = true)
+                    keyboardController?.hide()
+                    selectedRating = 0
                                 feedbackText = ""
                                 selectedCategory = "General"
                                 onDismiss()
@@ -369,6 +384,11 @@ fun FeedbackBottomSheet(
                                         }
 
                                         Timber.i("Feedback submitted: rating=$selectedRating, category=$selectedCategory, version=$appVersion")
+                                        try {
+                                            com.example.dutype.di.ComposeServiceEntryPoint.from(context).inAppReviewManager().markFeedbackGiven()
+                                        } catch (reviewErr: Exception) {
+                                            Timber.w(reviewErr, "Could not notify review manager")
+                                        }
 
                                         // Show success animation
                                         showSuccessAnimation = true
@@ -377,7 +397,9 @@ fun FeedbackBottomSheet(
                                         delay(2000)
 
                                         // Reset and close
-                                        selectedRating = 0
+                                        focusManager.clearFocus(force = true)
+                    keyboardController?.hide()
+                    selectedRating = 0
                                         feedbackText = ""
                                         selectedCategory = "General"
                                         showSuccessAnimation = false

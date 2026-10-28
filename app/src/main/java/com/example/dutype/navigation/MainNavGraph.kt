@@ -698,6 +698,9 @@ fun MainNavGraph(
                 onBackClick = { navController.popBackStack() },
                 onSubscribeClick = {
                     navController.navigate(Routes.EMPLOYER_SUBSCRIPTION)
+                },
+                onWorkerClick = { workerId ->
+                    navController.navigate(Routes.workerProfileViewRoute(workerId))
                 }
             )
         }
@@ -718,6 +721,9 @@ fun MainNavGraph(
                 onBackClick = { navController.popBackStack() },
                 onSubscribeClick = {
                     navController.navigate(Routes.EMPLOYER_SUBSCRIPTION)
+                },
+                onWorkerClick = { workerId ->
+                    navController.navigate(Routes.workerProfileViewRoute(workerId))
                 }
             )
         }

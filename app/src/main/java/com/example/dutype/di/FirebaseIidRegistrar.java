@@ -21,6 +21,8 @@ import java.util.List;
 @Keep
 public class FirebaseIidRegistrar implements ComponentRegistrar {
 
+    private static final NoOpFirebaseInstanceIdInternal INSTANCE = new NoOpFirebaseInstanceIdInternal();
+
     @Keep
     public FirebaseIidRegistrar() {
     }
@@ -30,13 +32,13 @@ public class FirebaseIidRegistrar implements ComponentRegistrar {
         @Override
         @Nullable
         public String getId() {
-            return null;
+            return "";
         }
 
         @Override
         @Nullable
         public String getToken() {
-            return null;
+            return "";
         }
 
         @Override
@@ -57,10 +59,13 @@ public class FirebaseIidRegistrar implements ComponentRegistrar {
     @Override
     @NonNull
     public List<Component<?>> getComponents() {
-        NoOpFirebaseInstanceIdInternal provider = new NoOpFirebaseInstanceIdInternal();
-
         Component<FirebaseInstanceIdInternal> component = Component.builder(FirebaseInstanceIdInternal.class)
-                .factory(container -> provider)
+                .factory(new com.google.firebase.components.ComponentFactory<FirebaseInstanceIdInternal>() {
+                    @Override
+                    public FirebaseInstanceIdInternal create(com.google.firebase.components.ComponentContainer container) {
+                        return INSTANCE;
+                    }
+                })
                 .build();
 
         return Collections.singletonList(component);

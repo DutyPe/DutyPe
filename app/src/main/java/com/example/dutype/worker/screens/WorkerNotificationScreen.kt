@@ -72,6 +72,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.dutype.components.NotificationItemShimmer
+import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.models.Notification
 import com.example.dutype.models.NotificationType
 import com.example.dutype.models.getDisplayName
@@ -148,6 +149,7 @@ fun WorkerNotificationScreen(
     // If the user previously denied POST_NOTIFICATIONS, landing on this screen is a
     // strong signal that they want notifications — re-prompt the system dialog.
     val context = androidx.compose.ui.platform.LocalContext.current
+    var showNotificationBottomSheet by remember { mutableStateOf(false) }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -161,7 +163,7 @@ fun WorkerNotificationScreen(
                 android.Manifest.permission.POST_NOTIFICATIONS
             ) == android.content.pm.PackageManager.PERMISSION_GRANTED
             if (!granted) {
-                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                showNotificationBottomSheet = true
             }
         }
     }
@@ -197,6 +199,19 @@ fun WorkerNotificationScreen(
     }
 
     // Show notification dialog if data is present
+    NotificationPermissionBottomSheet(
+        isVisible = showNotificationBottomSheet,
+        onDismiss = { showNotificationBottomSheet = false },
+        onEnableNotifications = {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                com.example.dutype.components.openNotificationSettings(context)
+            }
+        },
+        userRole = "worker"
+    )
+
     dialogData?.let { data ->
         com.example.dutype.components.NotificationDialog(
             data = data,

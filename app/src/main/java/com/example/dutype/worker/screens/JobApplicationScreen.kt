@@ -57,6 +57,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
+import com.example.dutype.components.NotificationPermissionBottomSheet
 import com.example.dutype.models.JobListing
 import com.example.dutype.ui.theme.AppTypography
 import com.example.dutype.ui.theme.WorkerColors
@@ -629,6 +630,7 @@ private fun ApplicationSentSuccess(
         }
     }
     var showNotificationCard by remember { mutableStateOf(!hasNotificationPermission) }
+    var showNotificationBottomSheet by remember { mutableStateOf(false) }
 
     val notificationPermissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
         contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
@@ -694,6 +696,19 @@ private fun ApplicationSentSuccess(
             textAlign = TextAlign.Center
         )
 
+        NotificationPermissionBottomSheet(
+            isVisible = showNotificationBottomSheet,
+            onDismiss = { showNotificationBottomSheet = false },
+            onEnableNotifications = {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    com.example.dutype.components.openNotificationSettings(context)
+                }
+            },
+            userRole = "worker"
+        )
+
         if (showNotificationCard) {
             Spacer(modifier = Modifier.height(16.dp))
             Card(
@@ -738,9 +753,7 @@ private fun ApplicationSentSuccess(
                     }
                     TextButton(
                         onClick = {
-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                            }
+                            showNotificationBottomSheet = true
                         }
                     ) {
                         Text(

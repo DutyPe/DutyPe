@@ -236,11 +236,16 @@
 -keep class androidx.work.impl.background.systemalarm.SystemAlarmService { *; }
 -keep class androidx.work.impl.foreground.SystemForegroundService { *; }
 -dontwarn androidx.work.impl.**
-# Firebase Component Discovery — required for Firebase to find its own modules via reflection
+# Firebase Component Discovery & Runtime — required for Firebase to find its own modules via reflection
 # Without these, R8 strips ComponentRegistrar implementations and FirebaseInitProvider crashes with MissingDependencyException.
--keep class * implements com.google.firebase.components.ComponentRegistrar { *; }
--keepclassmembers class * implements com.google.firebase.components.ComponentRegistrar { *; }
-
+-keep class * implements com.google.firebase.components.ComponentRegistrar {
+    public <init>();
+    public java.util.List getComponents();
+}
+-keepclassmembers class * implements com.google.firebase.components.ComponentRegistrar {
+    public <init>();
+    public java.util.List getComponents();
+}
 
 -keep class com.google.firebase.components.** { *; }
 -keep interface com.google.firebase.components.** { *; }
@@ -249,16 +254,25 @@
 -keep interface com.google.firebase.inject.** { *; }
 -keep class com.google.firebase.provider.FirebaseInitProvider { *; }
 -keep class com.google.firebase.components.ComponentDiscoveryService { *; }
--keep class com.example.dutype.di.FirebaseIidRegistrar { *; }
+-keep class com.google.firebase.annotations.concurrent.** { *; }
+-keep @interface com.google.firebase.annotations.concurrent.** { *; }
+
+-keep class com.example.dutype.di.FirebaseIidRegistrar {
+    public <init>();
+    public java.util.List getComponents();
+}
 -keep class com.example.dutype.di.FirebaseIidRegistrar$* { *; }
 -keepclassmembers class com.example.dutype.di.FirebaseIidRegistrar { *; }
 -keepclassmembers class com.example.dutype.di.FirebaseIidRegistrar$* { *; }
 -keep class com.google.firebase.iid.internal.** { *; }
 -keep interface com.google.firebase.iid.internal.** { *; }
+-keepclassmembers class com.google.firebase.iid.internal.** { *; }
+-keepclassmembers interface com.google.firebase.iid.internal.** { *; }
 
 # Keep firebase-common, firebase-installations, and analytics which ComponentRuntime depends on
 -keep class com.google.firebase.** { *; }
 -keep interface com.google.firebase.** { *; }
+-keepclassmembers class com.google.firebase.** { *; }
 -dontwarn com.google.firebase.**
 
 # -----------------------------------------------------------------------------

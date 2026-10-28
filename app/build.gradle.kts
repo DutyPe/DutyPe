@@ -53,8 +53,8 @@ android {
 		applicationId = "com.dutype.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 846
-        versionName = "6.7"
+        versionCode = 849
+        versionName = "7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -386,19 +386,20 @@ dependencies {
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.13.0"))
-    implementation("com.google.firebase:firebase-analytics-ktx")
-    implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-common")
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
     implementation("com.firebase:geofire-android-common:3.2.0")
     // NOTE: firebase-iid has been REMOVED (deprecated service with old Registrar).
-    // firebase-iid-interop:17.1.0 is required by firebase-functions-ktx to provide FirebaseInstanceIdInternal.
+    // firebase-iid-interop:17.1.0 is required by firebase-functions to provide FirebaseInstanceIdInternal.
     implementation("com.google.firebase:firebase-iid-interop:17.1.0")
     implementation("com.google.firebase:firebase-messaging")
-    implementation("com.google.firebase:firebase-storage-ktx")
+    implementation("com.google.firebase:firebase-storage")
     implementation("com.google.firebase:firebase-appcheck")
     implementation("com.google.firebase:firebase-appcheck-playintegrity")
-    implementation("com.google.firebase:firebase-crashlytics-ktx")
-    implementation("com.google.firebase:firebase-functions-ktx") // For Cloud Functions calls
+    implementation("com.google.firebase:firebase-crashlytics")
+    implementation("com.google.firebase:firebase-functions") // For Cloud Functions calls
 
     // Play Integrity API client is pulled in transitively by firebase-appcheck-playintegrity
 

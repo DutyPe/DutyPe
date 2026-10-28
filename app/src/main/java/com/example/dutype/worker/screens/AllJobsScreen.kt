@@ -611,9 +611,17 @@ private fun JobCategoryTile(
  */
 @Composable
 private fun PullableFill(content: @Composable () -> Unit) {
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 140.dp)
+    ) {
         item(key = "pullable_fill") {
-            Box(modifier = Modifier.fillParentMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+                    .padding(bottom = 24.dp)
+            ) {
                 content()
             }
         }

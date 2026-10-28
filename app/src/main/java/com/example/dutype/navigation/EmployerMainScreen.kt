@@ -355,7 +355,11 @@ fun EmployerMainScreen(
                             onApplicationClick = { application ->
                                 navController.navigate(Routes.workerProfileViewRoute(application.workerId, application.id))
                             },
-                            onBackClick = { navController.popBackStack() }
+                            onBackClick = { navController.popBackStack() },
+                            onSubscribeClick = { navController.navigate(Routes.EMPLOYER_SUBSCRIPTION) },
+                            onWorkerClick = { workerId ->
+                                navController.navigate(Routes.workerProfileViewRoute(workerId))
+                            }
                         )
                     }
 
@@ -371,7 +375,11 @@ fun EmployerMainScreen(
                             onApplicationClick = { application ->
                                 navController.navigate(Routes.workerProfileViewRoute(application.workerId, application.id))
                             },
-                            onBackClick = { navController.popBackStack() }
+                            onBackClick = { navController.popBackStack() },
+                            onSubscribeClick = { navController.navigate(Routes.EMPLOYER_SUBSCRIPTION) },
+                            onWorkerClick = { workerId ->
+                                navController.navigate(Routes.workerProfileViewRoute(workerId))
+                            }
                         )
                     }
 

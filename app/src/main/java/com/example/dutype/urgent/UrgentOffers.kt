@@ -122,7 +122,8 @@ object UrgentOffers {
         try {
             NotificationManagerCompat.from(context).notify(id, notification)
             UrgentSoundAlertManager.playAlertIfNew(context, requestId)
-        } catch (_: SecurityException) {
+        } catch (e: Exception) {
+            timber.log.Timber.w(e, "UrgentOffers: notification post or alert audio failed")
         }
     }
 

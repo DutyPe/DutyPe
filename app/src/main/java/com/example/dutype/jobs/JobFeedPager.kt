@@ -82,7 +82,7 @@ class JobFeedPager internal constructor(
     private val stages: List<FeedSection> = when {
         !hasLocation -> listOf(FeedSection.ANYWHERE)
         query.maxRadiusKm != null -> bands
-        else -> bands + listOf(FeedSection.DISTRICT, FeedSection.STATE)
+        else -> bands + listOf(FeedSection.DISTRICT, FeedSection.STATE, FeedSection.ANYWHERE)
     }
     private var stageIndex = -1
     private var section: FeedSection? = null
@@ -138,16 +138,29 @@ class JobFeedPager internal constructor(
             }
             FeedSection.DISTRICT -> {
                 val id = place?.districtId
-                release { id != null && it.district.isNotBlank() && it.district == place?.district }
-                if (id != null) sources.add(Source(null, Jobs.DISTRICT_ID, id))
+                val name = place?.district
+                release { (id != null && it.district.isNotBlank() && it.district == name) || (name != null && it.district.equals(name, ignoreCase = true)) }
+                if (id != null) {
+                    sources.add(Source(null, Jobs.DISTRICT_ID, id))
+                } else if (!name.isNullOrBlank()) {
+                    sources.add(Source(null, Jobs.DISTRICT, name))
+                }
             }
             FeedSection.STATE -> {
                 val id = place?.stateId
-                release { id != null && it.state.isNotBlank() && it.state == place?.state }
-                held.clear()   // anything left is past 20 km in another state
-                if (id != null) sources.add(Source(null, Jobs.STATE_ID, id))
+                val name = place?.state
+                release { (id != null && it.state.isNotBlank() && it.state == name) || (name != null && it.state.equals(name, ignoreCase = true)) }
+                if (id != null) {
+                    sources.add(Source(null, Jobs.STATE_ID, id))
+                } else if (!name.isNullOrBlank()) {
+                    sources.add(Source(null, Jobs.STATE, name))
+                }
             }
-            FeedSection.ANYWHERE -> sources.add(Source(null, null, null))
+            FeedSection.ANYWHERE -> {
+                release { true }
+                held.clear()
+                sources.add(Source(null, null, null))
+            }
         }
         return true
     }

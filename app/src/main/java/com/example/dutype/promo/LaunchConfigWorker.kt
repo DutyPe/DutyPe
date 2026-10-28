@@ -29,11 +29,16 @@ class LaunchConfigWorker(
 
     override suspend fun doWork(): Result {
         return try {
-            LaunchConfigFetcher.refresh(applicationContext)
+            val ctx = applicationContext
+            if (!com.example.dutype.utils.SafeStorageUtils.isUserUnlocked(ctx)) {
+                Timber.tag("PromoConfig").d("Device locked; postponing LaunchConfigWorker retry")
+                return Result.retry()
+            }
+            LaunchConfigFetcher.refresh(ctx)
             // Expiry/kill-switch revert must not depend on the user opening the app: if the app
             // is not in the foreground, reconcile the launcher icon now (no-op when unchanged).
             if (!AppLifecycleTracker.isAppInForeground()) {
-                AppIconManager.reconcile(applicationContext)
+                AppIconManager.reconcile(ctx)
             }
             Result.success()
         } catch (t: Throwable) {

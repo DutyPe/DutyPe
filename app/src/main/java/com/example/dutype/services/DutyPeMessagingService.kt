@@ -1,5 +1,7 @@
 package com.example.dutype.services
 
+import com.example.dutype.utils.SafeStorageUtils
+
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -48,49 +50,66 @@ class DutyPeMessagingService : FirebaseMessagingService() {
      * Called when a new FCM message is received
      * Handles both foreground and background messages
      */
+    private fun isUserLoggedInSafely(): Boolean {
+        return try {
+            if (SafeStorageUtils.isUserUnlocked(this)) {
+                auth.currentUser != null
+            } else {
+                SafeStorageUtils.isDeviceProtectedUserLoggedIn(this)
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "Safe auth check exception; checking DE store")
+            SafeStorageUtils.isDeviceProtectedUserLoggedIn(this)
+        }
+    }
+
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
 
-        Timber.d("🔔 FCM Message received from: ${remoteMessage.from}")
+        try {
+            Timber.d("🔔 FCM Message received from: ${remoteMessage.from}")
 
-        // Extract notification data
-        val notification = remoteMessage.notification
-        val data = remoteMessage.data
+            // Extract notification data
+            val notification = remoteMessage.notification
+            val data = remoteMessage.data
 
-        // Urgent job offer: ring with Accept / Skip, only while this worker is Online.
-        if (data["type"] == com.example.dutype.urgent.UrgentOffers.TYPE) {
-            if (com.example.dutype.jobs.PlaceRepository.isOnline(this) && auth.currentUser != null) {
-                com.example.dutype.urgent.UrgentOffers.showOffer(this, data)
+            // Urgent job offer: ring with Accept / Skip, only while this worker is Online (Direct Boot safe).
+            if (data["type"] == com.example.dutype.urgent.UrgentOffers.TYPE) {
+                if (com.example.dutype.jobs.PlaceRepository.isOnline(this) && isUserLoggedInSafely()) {
+                    com.example.dutype.urgent.UrgentOffers.showOffer(this, data)
+                }
+                return
             }
-            return
+
+            // DutyPe Services job offer for a partner: ring and open the offer screen.
+            if (data["type"] == com.example.dutype.homeservices.ServiceOffers.TYPE) {
+                if (isUserLoggedInSafely()) com.example.dutype.homeservices.ServiceOffers.showOffer(this, data)
+                return
+            }
+
+            // Get title and body
+            val title = notification?.title ?: data["title"] ?: return
+            val body = notification?.body ?: data["body"] ?: return
+
+            // Get notification metadata
+            val type = data["type"] ?: "GENERAL"
+            val deepLink = data["deepLink"]?.takeIf { it.isNotBlank() } ?: deepLinkFor(type, data)
+            val channelId = data["channel"] ?: NotificationChannelManager.getChannelForType(type)
+
+            Timber.d("🔔 Notification: type=$type, channel=$channelId")
+
+            // Show notification (handles both foreground and background)
+            showNotification(
+                title = title,
+                body = body,
+                type = type,
+                deepLink = deepLink,
+                channelId = channelId,
+                data = data
+            )
+        } catch (t: Throwable) {
+            Timber.e(t, "🔔 Exception in onMessageReceived (resilient against background crash)")
         }
-
-        // DutyPe Services job offer for a partner: ring and open the offer screen.
-        if (data["type"] == com.example.dutype.homeservices.ServiceOffers.TYPE) {
-            if (auth.currentUser != null) com.example.dutype.homeservices.ServiceOffers.showOffer(this, data)
-            return
-        }
-
-        // Get title and body
-        val title = notification?.title ?: data["title"] ?: return
-        val body = notification?.body ?: data["body"] ?: return
-
-        // Get notification metadata
-        val type = data["type"] ?: "GENERAL"
-        val deepLink = data["deepLink"]?.takeIf { it.isNotBlank() } ?: deepLinkFor(type, data)
-        val channelId = data["channel"] ?: NotificationChannelManager.getChannelForType(type)
-
-        Timber.d("🔔 Notification: type=$type, channel=$channelId")
-
-        // Show notification (handles both foreground and background)
-        showNotification(
-            title = title,
-            body = body,
-            type = type,
-            deepLink = deepLink,
-            channelId = channelId,
-            data = data
-        )
     }
 
     /**
@@ -111,7 +130,11 @@ class DutyPeMessagingService : FirebaseMessagingService() {
      * Allows Cloud Functions to send targeted notifications
      */
     private fun saveFCMToken(token: String) {
-        val userId = auth.currentUser?.uid
+        if (!SafeStorageUtils.isUserUnlocked(this)) {
+            Timber.w("🔔 Device locked - deferring FCM token Firestore save to unlock")
+            return
+        }
+        val userId = runCatching { auth.currentUser?.uid }.getOrNull()
 
         if (userId == null) {
             Timber.w("🔔 Cannot save FCM token - user not authenticated")
@@ -208,8 +231,8 @@ class DutyPeMessagingService : FirebaseMessagingService() {
         try {
             NotificationManagerCompat.from(this).notify(notificationId, notification)
             Timber.d("🔔 ✅ Notification shown: $title")
-        } catch (e: SecurityException) {
-            Timber.e(e, "🔔 ❌ Failed to show notification - permission denied")
+        } catch (e: Exception) {
+            Timber.e(e, "🔔 ❌ Failed to show notification: ${e.message}")
         }
     }
 

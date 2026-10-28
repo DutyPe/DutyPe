@@ -1,5 +1,7 @@
 package com.example.dutype.jobs
 
+import com.example.dutype.utils.SafeStorageUtils
+
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
@@ -48,7 +50,7 @@ class PlaceRepository @Inject constructor(
         val state: String
     )
 
-    private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+    private val prefs = SafeStorageUtils.getSafeSharedPreferences(context, PREFS)
     private val memory = HashMap<String, Place>()
     private val mutex = Mutex()
 
@@ -83,6 +85,10 @@ class PlaceRepository @Inject constructor(
         _online.value = online
         val messaging = FirebaseMessaging.getInstance()
         val editor = prefs.edit().putBoolean(KEY_ONLINE, online)
+        runCatching {
+            SafeStorageUtils.getDeviceProtectedSharedPreferences(context, PREFS)
+                .edit().putBoolean(KEY_ONLINE, online).apply()
+        }
         if (online) {
             // Join the last known area now; the next GPS fix moves it if the worker has moved.
             prefs.getString(KEY_LAST_CELL, null)?.takeIf { it.isNotBlank() }?.let { cell ->
@@ -204,13 +210,22 @@ class PlaceRepository @Inject constructor(
 
         /** On sign-out: stop urgent offers for the old account's area and go Offline. */
         fun clearUrgentTopic(context: Context) {
-            val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val prefs = SafeStorageUtils.getSafeSharedPreferences(context, PREFS)
             prefs.getString(KEY_URGENT_TOPIC, null)?.let { FirebaseMessaging.getInstance().unsubscribeFromTopic(it) }
             prefs.edit().remove(KEY_URGENT_TOPIC).remove(KEY_TRACKED).putBoolean(KEY_ONLINE, false).apply()
+            runCatching {
+                SafeStorageUtils.getDeviceProtectedSharedPreferences(context, PREFS)
+                    .edit().remove(KEY_URGENT_TOPIC).remove(KEY_TRACKED).putBoolean(KEY_ONLINE, false).apply()
+            }
         }
 
-        /** Read on the push path (no Firestore): show urgent offers only while Online. */
+        /** Read on the push path (no Firestore): show urgent offers only while Online (Direct Boot safe). */
         fun isOnline(context: Context): Boolean =
-            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ONLINE, false)
+            try {
+                SafeStorageUtils.getSafeSharedPreferences(context, PREFS, forceDeviceProtected = true)
+                    .getBoolean(KEY_ONLINE, false)
+            } catch (_: Exception) {
+                false
+            }
     }
 }

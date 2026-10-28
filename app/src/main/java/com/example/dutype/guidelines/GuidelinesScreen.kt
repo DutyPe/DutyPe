@@ -49,6 +49,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -117,206 +126,248 @@ private val Line = Color(0xFFE2E8F0)
 private val Red = Color(0xFFDC2626)
 private val Green = Color(0xFF10B981)
 
-/** The rules as a column of sections (used by the screen and the accept dialog). */
+/** The rules as a column of unboxed sections matching Settings/Airbnb styling */
 @Composable
 fun GuidelinesContent(role: String, modifier: Modifier = Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        // Clean Intro Card
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color.White.bg())
-                .border(1.dp, Line.bd(), RoundedCornerShape(16.dp))
-                .padding(18.dp)
-        ) {
-            Text(
-                text = stringResource(titleFor(role)),
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 17.sp,
-                color = Ink.fg()
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = stringResource(R.string.guide_intro),
-                fontSize = 13.sp,
-                color = Muted.fg(),
-                lineHeight = 19.sp
-            )
-        }
-
-        sectionsFor(role).forEach { GuideCard(it) }
-        GuideCard(GuideSection(R.string.guide_sec_help, R.array.guide_help, Icons.Filled.Call))
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        sectionsFor(role).forEach { GuideSectionItem(it) }
+        GuideSectionItem(GuideSection(R.string.guide_sec_help, R.array.guide_help, Icons.Filled.Call))
     }
 }
 
 @Composable
-private fun GuideCard(section: GuideSection) {
-    val iconTint = if (section.warn) Red else Ink.fg()
-    val cardBorder = if (section.warn) Color(0xFFFCA5A5).bd() else Line.bd()
-    val cardBg = Color.White.bg()
+private fun GuideSectionItem(section: GuideSection) {
+    val titleColor = if (section.warn) Red else Color(0xFF222222).fg()
 
     Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(cardBg)
-            .border(1.dp, cardBorder, RoundedCornerShape(16.dp))
-            .padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Box(
-                Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (section.warn) Color(0xFFFEF2F2).bg() else Color(0xFFF1F5F9).bg()),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(section.icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            if (section.warn) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = "Never Allowed",
-                            fontWeight = FontWeight.Bold,
-                            color = Red,
-                            fontSize = 15.5.sp
-                        )
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFFFEF2F2).bg())
-                                .padding(horizontal = 7.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "ZERO TOLERANCE",
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Red
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        text = "Permanent account ban + police complaint for violations",
-                        fontSize = 12.sp,
-                        color = Red.copy(alpha = 0.8f),
-                        lineHeight = 16.sp
-                    )
-                }
-            } else {
-                Text(
-                    stringResource(section.title),
+            Text(
+                text = if (section.warn) "Never Allowed" else stringResource(section.title),
+                style = TextStyle(
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Ink.fg(),
-                    fontSize = 15.sp,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-        stringArrayResource(section.items).forEach { line ->
-            Row(
-                verticalAlignment = Alignment.Top,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+                    color = titleColor,
+                    letterSpacing = (-0.2).sp
+                ),
+                modifier = Modifier.weight(1f)
+            )
+            if (section.warn) {
                 Box(
                     modifier = Modifier
-                        .padding(top = 2.dp)
-                        .size(18.dp)
-                        .clip(RoundedCornerShape(5.dp))
-                        .background(if (section.warn) Color(0xFFFEE2E2).bg() else Color(0xFFDCFCE7).bg()),
-                    contentAlignment = Alignment.Center
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFFFEF2F2).bg())
+                        .padding(horizontal = 7.dp, vertical = 2.dp)
                 ) {
-                    Icon(
-                        imageVector = if (section.warn) Icons.Filled.Close else Icons.Filled.Check,
-                        contentDescription = null,
-                        tint = if (section.warn) Red else Green,
-                        modifier = Modifier.size(12.dp)
+                    Text(
+                        text = "ZERO TOLERANCE",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Red
                     )
                 }
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    text = line,
-                    fontSize = 13.5.sp,
-                    color = if (section.warn) Ink.fg() else Color(0xFF334155).fg(),
-                    lineHeight = 20.sp,
-                    modifier = Modifier.weight(1f)
-                )
             }
         }
+
+        if (section.warn) {
+            Text(
+                text = "Permanent account ban + police complaint for violations.",
+                style = TextStyle(
+                    fontSize = 13.5.sp,
+                    color = Red.copy(alpha = 0.85f),
+                    lineHeight = 18.sp
+                )
+            )
+        }
+
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            stringArrayResource(section.items).forEach { line ->
+                Row(
+                    verticalAlignment = Alignment.Top,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 3.dp)
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .background(if (section.warn) Color(0xFFFEE2E2).bg() else Color(0xFFDCFCE7).bg()),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (section.warn) Icons.Filled.Close else Icons.Filled.Check,
+                            contentDescription = null,
+                            tint = if (section.warn) Red else Green,
+                            modifier = Modifier.size(10.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = line,
+                        style = TextStyle(
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = Color(0xFF475569).fg(),
+                            lineHeight = 22.sp
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(
+            thickness = 0.8.dp,
+            color = Color(0xFFF0F0F0).bd()
+        )
     }
 }
 
 @Composable
 fun GuidelinesScreen(role: String, navController: NavController) {
+    val scrollState = rememberScrollState()
+    val compactTitleProgress by remember {
+        derivedStateOf {
+            ((scrollState.value - 30f) / 60f).coerceIn(0f, 1f)
+        }
+    }
     val context = LocalContext.current
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White.bg())
+            .statusBarsPadding()
     ) {
-        com.example.dutype.components.CommonHeader(
-            title = stringResource(R.string.guide_title),
-            navController = navController,
-            backgroundColor = Color.White.bg()
-        )
-        LazyColumn(
-            Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+        // Sticky Top Row with Back Button and Collapsible Compact Title
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            item { GuidelinesContent(role) }
-            item {
-                Spacer(Modifier.height(4.dp))
-                // Clean Emergency Card
-                Row(
+            IconButton(
+                onClick = { navController.navigateUp() },
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back),
+                    tint = Color(0xFF222222).fg(),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = stringResource(R.string.guide_title),
+                style = TextStyle(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF222222).fg(),
+                    letterSpacing = (-0.2).sp
+                ),
+                modifier = Modifier.graphicsLayer {
+                    alpha = compactTitleProgress
+                    translationY = (1f - compactTitleProgress) * 12f
+                }
+            )
+        }
+        HorizontalDivider(
+            thickness = 0.8.dp,
+            color = Color(0xFFF0F0F0).bd().copy(alpha = compactTitleProgress)
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(bottom = 40.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Large Title + Subtitle
+            Column {
+                Text(
+                    text = stringResource(R.string.guide_title),
+                    style = TextStyle(
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF222222).fg(),
+                        letterSpacing = (-0.5).sp
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(titleFor(role)) + " — " + stringResource(R.string.guide_intro),
+                    style = TextStyle(
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = Color(0xFF717171).fg(),
+                        lineHeight = 22.sp
+                    )
+                )
+            }
+
+            HorizontalDivider(
+                thickness = 0.8.dp,
+                color = Color(0xFFF0F0F0).bd()
+            )
+
+            GuidelinesContent(role)
+
+            Spacer(Modifier.height(4.dp))
+
+            // Clean Emergency 112 Section (Airbnb styled)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFFEF2F2).bg())
+                    .clickable { runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:112"))) } }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White.bg())
-                        .border(1.dp, Line.bd(), RoundedCornerShape(14.dp))
-                        .clickable { runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:112"))) } }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFFEF2F2).bg()),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Filled.Call, contentDescription = null, tint = Red, modifier = Modifier.size(18.dp))
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Emergency Police & Medical: 112",
-                            fontSize = 14.sp,
+                    Icon(Icons.Filled.Call, contentDescription = null, tint = Red, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Emergency Police & Medical: 112",
+                        style = TextStyle(
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = Ink.fg()
+                            color = Red
                         )
-                        Text(
-                            text = "Tap to call immediately in case of distress",
-                            fontSize = 12.sp,
-                            color = Muted.fg()
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Tap to call immediately in case of distress",
+                        style = TextStyle(
+                            fontSize = 13.sp,
+                            color = Color(0xFF991B1B)
                         )
-                    }
+                    )
                 }
             }
         }
     }
 }
-
 /** Row for profile / home menus that opens the rules (Pronto / UC B&W matching). */
 @Composable
 fun GuidelinesEntryRow(onClick: () -> Unit, modifier: Modifier = Modifier) {

@@ -96,7 +96,7 @@ object AppIconManager {
                 if (enabled.size == 1 && enabled[0] == targetAlias) return@synchronized true
 
                 val toDefault = targetAlias == ALIASES[DEFAULT_ID]
-                val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                val prefs = com.example.dutype.utils.SafeStorageUtils.getSafeSharedPreferences(ctx, PREFS)
                 val now = System.currentTimeMillis()
                 if (!toDefault && now - prefs.getLong(KEY_LAST_APPLY_AT, 0L) < THROTTLE_MS) {
                     Timber.tag(TAG).d("Icon switch to '%s' throttled (24h)", iconId)

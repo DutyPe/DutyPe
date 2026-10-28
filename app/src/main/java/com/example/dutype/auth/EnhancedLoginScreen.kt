@@ -1,106 +1,75 @@
 package com.example.dutype.auth
 
-import com.example.dutype.ui.theme.bd
-import com.example.dutype.ui.theme.bg
-import com.example.dutype.ui.theme.fg
-import com.dutype.app.R
 import android.app.Activity
 import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.AddCircleOutline
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.*
-import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.autofill.AutofillNode
-import androidx.compose.ui.autofill.AutofillType
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.platform.LocalAutofill
-import androidx.compose.ui.platform.LocalAutofillTree
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowCompat
-import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import kotlinx.coroutines.delay
-
+import com.dutype.app.R
 import com.example.dutype.components.LanguageSelectionBottomSheet
-
 import com.example.dutype.models.UserRole
 import com.example.dutype.navigation.Routes
-import com.example.dutype.utils.FirestoreUtils
 import com.example.dutype.utils.LocaleHelper
 import com.example.dutype.utils.ValidationUtils
-import com.example.dutype.utils.isDebuggableBuild
 import com.example.dutype.viewmodels.OtpViewModel
 import com.example.dutype.viewmodels.ProfileCompletionViewModel
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import timber.log.Timber
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.animateFloat
-import com.example.dutype.ui.theme.WorkerColors
 
-private val BrandBluePrimary = Color(0xFF0F0F0F)
-private val BrandBlueLight = Color(0xFFF8FAFC)
-private val BrandBlueBorder = Color(0xFFE2E8F0)
-private val BrandEmeraldAccent = Color(0xFF10B981)
-private val Ink900 = Color(0xFF0F172A)
-private val Ink600 = Color(0xFF475569)
-private val Ink400 = Color(0xFF94A3B8)
-private val CardBorder = Color(0xFFE2E8F0)
-private val SurfaceBg = Color(0xFFF8FAFC)
+// Brand Palette matching PhonePe Business design
+private val BrandBlue = Color(0xFF0077F0)
+private val BrandGreen = Color(0xFF007A3D)
+private val BrandGreenLight = Color(0xFFE8F5E9)
+private val WhatsAppGreen = Color(0xFF25D366)
+private val TextDark = Color(0xFF0F172A)
+private val TextMuted = Color(0xFF64748B)
+private val BorderNormal = Color(0xFFCBD5E1)
+private val BorderFaint = Color(0xFFE2E8F0)
+private val DisabledGray = Color(0xFFBDBDBD)
 
 @Composable
 fun EnhancedLoginScreen(
@@ -111,7 +80,7 @@ fun EnhancedLoginScreen(
     otpViewModel: OtpViewModel = hiltViewModel()
 ) {
     val profileCompletionViewModel: ProfileCompletionViewModel = hiltViewModel()
-    
+
     val selectedRole = remember(initialRole) {
         when (initialRole.uppercase()) {
             "WORKER" -> UserRole.WORKER
@@ -133,7 +102,6 @@ fun EnhancedLoginScreen(
     )
 }
 
-@OptIn(ExperimentalAnimationApi::class, ExperimentalComposeUiApi::class)
 @Composable
 private fun OtpLoginScreen(
     role: UserRole,
@@ -143,17 +111,27 @@ private fun OtpLoginScreen(
 ) {
     var phoneNumber by remember { mutableStateOf("") }
     var otpValue by remember { mutableStateOf("") }
-    var isCheckingPhone by remember { mutableStateOf(false) }
-    var showLanguageBottomSheet by remember { mutableStateOf(false) }
+    var phoneHasFocus by remember { mutableStateOf(false) }
+    var isNavigatingAway by remember { mutableStateOf(false) }
 
     val selectedCountryCode = "+91"
     val context = LocalContext.current
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
     val scope = rememberCoroutineScope()
     val otpState by otpViewModel.otpState.collectAsState()
+    val resendCooldown by otpViewModel.resendCooldownSeconds.collectAsState()
 
     val phoneFocusRequester = remember { FocusRequester() }
+    val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    DisposableEffect(Unit) {
+        onDispose {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+            otpViewModel.resetState()
+        }
+    }
 
     val smsRetrieverHelper = remember {
         SmsAutoRetrieverHelper(
@@ -174,83 +152,71 @@ private fun OtpLoginScreen(
         }
     }
 
-    val view = androidx.compose.ui.platform.LocalView.current
+    // Light Status Bar with dark icons
+    val view = LocalView.current
     DisposableEffect(view) {
-        val window = (view.context as? android.app.Activity)?.window
-        val insetsController = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView) }
+        val window = (view.context as? Activity)?.window
+        val insetsController = window?.let { WindowCompat.getInsetsController(it, it.decorView) }
         val originalLightStatusBars = insetsController?.isAppearanceLightStatusBars ?: true
         val originalLightNavBars = insetsController?.isAppearanceLightNavigationBars ?: true
-        val originalStatusBarColor = window?.statusBarColor
-        val originalNavBarColor = window?.navigationBarColor
 
-        // Status bar: Dark hero background -> White icons (signal, wifi, battery, clock)
-        insetsController?.isAppearanceLightStatusBars = false
+        insetsController?.isAppearanceLightStatusBars = true
         insetsController?.isAppearanceLightNavigationBars = true
-        window?.statusBarColor = android.graphics.Color.BLACK
+        window?.statusBarColor = android.graphics.Color.WHITE
         window?.navigationBarColor = android.graphics.Color.WHITE
 
         onDispose {
             insetsController?.isAppearanceLightStatusBars = originalLightStatusBars
             insetsController?.isAppearanceLightNavigationBars = originalLightNavBars
-            originalStatusBarColor?.let { window?.statusBarColor = it }
-            originalNavBarColor?.let { window?.navigationBarColor = it }
         }
     }
 
-    LaunchedEffect(Unit) {
-        withFrameNanos { }
-        runCatching {
-            phoneFocusRequester.requestFocus()
-            keyboardController?.show()
+    // Auto-focus phone number field on initial composition
+    LaunchedEffect(otpState.otpSent) {
+        if (!otpState.otpSent && !isNavigatingAway && !otpState.otpVerified) {
+            delay(150)
+            runCatching {
+                phoneFocusRequester.requestFocus()
+                keyboardController?.show()
+            }
         }
     }
 
     // Auto-redirect if user is already signed in and not in the middle of entering OTP
     val currentAuthUser = FirebaseAuth.getInstance().currentUser
-    LaunchedEffect(currentAuthUser) {
-        if (currentAuthUser != null && !otpState.otpSent) {
+    LaunchedEffect(currentAuthUser, isNavigatingAway, otpState.otpVerified) {
+        if (currentAuthUser != null && !otpState.otpSent && !isNavigatingAway && !otpState.otpVerified) {
             navigateToHome(role, navController)
         }
     }
 
     BackHandler {
         if (otpState.otpSent) {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
             otpViewModel.resetState()
         } else {
             safeAuthBackNavigation(navController)
         }
     }
 
+    // OTP Verification Success -> Unified Auth Resolution
     LaunchedEffect(otpState.otpVerified) {
         if (otpState.otpVerified) {
+            isNavigatingAway = true
             Timber.d("📱 OTP VERIFICATION SUCCESS - Starting unified auth resolution")
-
             try {
                 val currentUser = FirebaseAuth.getInstance().currentUser
-
                 if (currentUser != null) {
-                    val authResult = otpViewModel.resolveUnifiedAuth(
-                        role = role
-                    )
+                    val authResult = otpViewModel.resolveUnifiedAuth(role = role)
                     authResult.fold(
                         onSuccess = { outcome ->
-                            val tc = otpViewModel.lastTruecallerResult
                             val resolvedName = outcome.user?.name?.trim()?.takeIf { it.isNotBlank() && !it.equals("User", ignoreCase = true) }
-                                ?: tc?.name?.trim()?.takeIf { it.isNotBlank() }
-                            val resolvedEmail = tc?.email?.trim().orEmpty()
-                            val resolvedPhoto = tc?.photoUrl?.trim() ?: outcome.user?.photoUrl
-
                             profileCompletionViewModel.saveUserInfoToLocalStorage(
-                                email = resolvedEmail,
+                                email = "",
                                 name = resolvedName ?: "",
                                 role = outcome.role
                             )
-                            if (!tc?.phone.isNullOrBlank()) {
-                                profileCompletionViewModel.savePhoneNumber(tc.phone)
-                            }
-                            if (!resolvedPhoto.isNullOrBlank()) {
-                                profileCompletionViewModel.saveUserPhotoUrl(resolvedPhoto)
-                            }
                             if (outcome.destination == OtpViewModel.PostOtpDestination.HOME) {
                                 profileCompletionViewModel.markProfileComplete(outcome.role)
                                 profileCompletionViewModel.markProfileSetupAsShown(outcome.role)
@@ -266,6 +232,7 @@ private fun OtpLoginScreen(
                             }
                         },
                         onFailure = { error ->
+                            isNavigatingAway = false
                             Timber.e(error, "OTP VERIFICATION SUCCESS - Auth resolution failed")
                             val msg = error.message.orEmpty()
                             val toastText = if (msg.contains("phone-already-registered-as:")) {
@@ -276,9 +243,9 @@ private fun OtpLoginScreen(
                                 error.message ?: context.getString(R.string.auth_verification_failed)
                             }
                             Toast.makeText(context, toastText, Toast.LENGTH_LONG).show()
+                            otpViewModel.resetState()
                         }
                     )
-                    otpViewModel.resetState()
                     return@LaunchedEffect
                 } else {
                     navController.navigate(Routes.SELECT_ROLE) {
@@ -289,8 +256,6 @@ private fun OtpLoginScreen(
                 Timber.e(e, "📱 Error checking profile")
                 navigateToProfileSetup(role, navController)
             }
-
-            otpViewModel.resetState()
         }
     }
 
@@ -321,435 +286,127 @@ private fun OtpLoginScreen(
         }
     }
 
-    if (otpState.otpSent) {
-        // Ensure SMS Retriever is active on OTP screen
-        LaunchedEffect(Unit) {
-            smsRetrieverHelper.startListening()
-            otpViewModel.onSmsRetrieverStarted()
+    // Auto-fill OTP field when Play Services delivers the SMS code
+    LaunchedEffect(otpState.autoRetrievedOtp) {
+        val autoCode = otpState.autoRetrievedOtp
+        if (!autoCode.isNullOrBlank() && autoCode.length == 6) {
+            otpValue = autoCode
         }
+    }
 
-        // Auto-fill OTP field when Play Services delivers the code
-        LaunchedEffect(otpState.autoRetrievedOtp) {
-            val autoCode = otpState.autoRetrievedOtp
-            if (!autoCode.isNullOrBlank() && autoCode.length == 6) {
-                otpValue = autoCode   // fill the UI boxes
-                // verifyOtp is already called by onSmsAutoRetrieved; no double-call needed
-            }
-        }
-        // ────────────────────────────────────────────────────────────────────
 
-        val resendCooldown by otpViewModel.resendCooldownSeconds.collectAsState()
-        Column(
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = Color.White
+    ) {
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black)
+                .statusBarsPadding()
         ) {
-            // Top Hero Section
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.Black)
-                    .statusBarsPadding()
-            ) {
-                    Canvas(modifier = Modifier.matchParentSize()) {
-                        drawCircle(
-                            color = Color(0xFF141416),
-                            radius = size.width * 0.48f,
-                            center = Offset(x = size.width * 0.90f, y = size.height * 0.15f)
-                        )
-                    }
-
-                    Column(
+            if (!otpState.otpSent && !isNavigatingAway && !otpState.otpVerified) {
+                // =========================================================================
+                // SCREEN 1: Enter Your Mobile Number (PhonePe Business replicated)
+                // =========================================================================
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // Top App Header: Logo + Help & Support Button
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 16.dp, bottom = 24.dp)
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Top Navigation / Help Bar
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                onClick = { otpViewModel.resetState(keepActiveSession = true) },
-                                shape = CircleShape,
-                                color = Color(0x20FFFFFF),
-                                border = BorderStroke(1.dp, Color(0x40FFFFFF))
-                            ) {
-                                Box(
-                                    modifier = Modifier.size(38.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                        contentDescription = stringResource(R.string.back),
-                                        tint = Color.White,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-                            }
+                        DutyPeBrandBadge()
 
-                            Surface(
-                                onClick = {
-                                    val whatsappUrl = "https://wa.me/918019151847?text=Hello%20DutyPe%20Team!%20I%20need%20help%20with%20OTP."
-                                    try {
-                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                            data = android.net.Uri.parse(whatsappUrl)
-                                            setPackage("com.whatsapp")
-                                        }
-                                        context.startActivity(intent)
-                                    } catch (e: Exception) {
-                                        val browserIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(whatsappUrl))
-                                        context.startActivity(browserIntent)
-                                    }
-                                },
-                                shape = CircleShape,
-                                color = Color.Transparent,
-                                border = BorderStroke(1.dp, Color(0x60FFFFFF))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_whatsapp),
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = stringResource(R.string.auth_help),
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
-                                            fontSize = 13.5.sp
-                                        )
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(24.dp))
-
-                        Text(
-                            text = "DutyPe",
-                            modifier = Modifier.padding(horizontal = 24.dp),
-                            style = MaterialTheme.typography.displayMedium.copy(
-                                fontSize = 42.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color.White,
-                                letterSpacing = (-1.5).sp
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        Text(
-                            text = stringResource(R.string.auth_code_sent_whatsapp),
-                            modifier = Modifier.padding(horizontal = 24.dp),
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                color = Color(0xFFCBD5E1),
-                                fontSize = 16.sp
-                            )
-                        )
-                    }
-                }
-
-                // Bottom White Card
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-                    color = Color.White
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .navigationBarsPadding()
-                            .padding(horizontal = 24.dp, vertical = 24.dp)
-                    ) {
-                        OtpInputSection(
-                            otpValue = otpValue,
-                            onOtpChange = { newValue ->
-                                if (newValue.all { it.isDigit() } && newValue.length <= 6) {
-                                    otpValue = newValue
-                                    if (newValue.length == 6 && !otpState.isLoading && !otpState.otpVerified) {
-                                        otpViewModel.verifyOtp(newValue, context)
-                                    }
-                                }
-                            },
-                            phoneNumber = phoneNumber,
-                            otpState = otpState,
-                            onVerifyClick = { otpViewModel.verifyOtp(otpValue, context) },
-                            onResendWhatsapp = {
-                                val fullPhoneNumber = selectedCountryCode + phoneNumber
-                                otpViewModel.resendViaWhatsapp(fullPhoneNumber, context, mode = "unified")
-                            },
-                            onBackClick = { otpViewModel.resetState(keepActiveSession = true) },
-                            resendCooldownSeconds = resendCooldown
-                        )
-                    }
-                }
-            }
-        } else {
-        // Phone-entry screen — matches media_1791261378906.png pixel-for-pixel:
-        // Top black hero (Help pill, DutyPe 46sp, tagline, 3 badges) +
-        // Bottom white card (Enter your number, +91 input, Send OTP arrow button, 18+ T&C footer)
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black)
-        ) {
-            // Top Hero Section with Pure Black Base, Saffron Warm Shade & Dark Depth Circles
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(0.9f)
-                    .background(Color.Black)
-                    .statusBarsPadding()
-            ) {
-                    // Saffron warm shade covering top half and above branding section
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight(0.60f)
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color(0xFFE65100).copy(alpha = 0.38f), // DutyPe Rich Saffron
-                                        Color(0xFFFF9800).copy(alpha = 0.18f), // Soft ambient glow
-                                        Color.Transparent
-                                    )
-                                )
-                            )
-                    )
-                    Canvas(modifier = Modifier.matchParentSize()) {
-                        drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    Color(0xFFFF6D00).copy(alpha = 0.30f),
-                                    Color.Transparent
-                                ),
-                                center = Offset(x = size.width * 0.5f, y = size.height * 0.20f),
-                                radius = size.width * 0.70f
-                            )
-                        )
-                        drawCircle(
-                            color = Color(0xFF141416),
-                            radius = size.width * 0.48f,
-                            center = Offset(x = size.width * 0.90f, y = size.height * 0.15f)
-                        )
-                        drawCircle(
-                            color = Color(0xFF101012),
-                            radius = size.width * 0.42f,
-                            center = Offset(x = size.width * 0.05f, y = size.height * 0.90f)
-                        )
-                    }
-
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(top = 16.dp, bottom = 24.dp),
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        // WhatsApp Help Button (Top-Right)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                onClick = {
-                                    val whatsappUrl = "https://wa.me/918019151847?text=Hello%20DutyPe%20Team!%20I%20need%20help%20logging%20in."
-                                    try {
-                                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                                            data = android.net.Uri.parse(whatsappUrl)
-                                            setPackage("com.whatsapp")
-                                        }
-                                        context.startActivity(intent)
-                                    } catch (e: Exception) {
-                                        val browserIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(whatsappUrl))
-                                        context.startActivity(browserIntent)
-                                    }
-                                },
-                                shape = CircleShape,
-                                color = Color.Transparent,
-                                border = BorderStroke(1.dp, Color(0x60FFFFFF))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.ic_whatsapp),
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = stringResource(R.string.auth_help),
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White,
-                                            fontSize = 13.5.sp
-                                        )
-                                    )
-                                }
-                            }
-                        }
-
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                // DutyPe Wordmark
-                                Text(
-                                    text = "DutyPe",
-                                    modifier = Modifier.padding(horizontal = 24.dp),
-                                    style = MaterialTheme.typography.displayMedium.copy(
-                                        fontSize = 46.sp,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = Color.White,
-                                        letterSpacing = (-1.5).sp
-                                    )
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                // Tagline: "Jobs & home services, made simple."
-                                Text(
-                                    text = buildAnnotatedString {
-                                        withStyle(SpanStyle(color = Color(0xFFCBD5E1), fontWeight = FontWeight.Normal, fontSize = 18.sp)) {
-                                            append("Jobs & home services,\n")
-                                        }
-                                        withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)) {
-                                            append("made simple.")
-                                        }
-                                    },
-                                    lineHeight = 25.sp,
-                                    modifier = Modifier.padding(horizontal = 24.dp)
-                                )
-                            }
-
-                            // 3 Badges Row - placed directly below DutyPe wordmark & tagline
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 20.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                LoginFeatureBadge(
-                                    icon = Icons.Outlined.LocationOn,
-                                    text = "Jobs near you"
-                                )
-                                LoginFeatureBadge(
-                                    icon = Icons.Outlined.Home,
-                                    text = "Home services"
-                                )
-                                LoginFeatureBadge(
-                                    icon = Icons.Outlined.AddCircleOutline,
-                                    text = "Hire in minutes"
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // White Bottom Card (top rounded 32.dp, draws all the way to bottom edge)
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1.25f),
-                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-                    color = Color.White
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .navigationBarsPadding()
-                            .imePadding()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 24.dp, vertical = 20.dp),
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            // Title: "Enter your number"
-                            Text(
-                                text = stringResource(R.string.auth_enter_mobile_number),
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Ink900.fg(),
-                                    letterSpacing = (-0.4).sp
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                        // Phone Input Box: Flag | +91 | Divider | Number
+                        // Help & Support pill button
                         Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(58.dp),
-                            shape = RoundedCornerShape(16.dp),
+                            onClick = {
+                                navController.navigate(Routes.CONTACT_US)
+                            },
+                            shape = RoundedCornerShape(20.dp),
                             color = Color.White,
-                            border = BorderStroke(
-                                if (phoneNumber.isNotEmpty()) 1.5.dp else 1.dp,
-                                if (phoneNumber.isNotEmpty()) Color.Black else BrandBlueBorder.bd()
-                            )
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderNormal)
                         ) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 16.dp),
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                                    contentDescription = "Help & Support",
+                                    tint = TextDark,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "🇮🇳",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 20.sp)
+                                    text = if (isTelugu) "సహాయం" else "Help",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = TextDark
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
+                            }
+                        }
+                    }
+
+                    // Main Content (Enter Mobile Number) - 22.dp padding for slightly narrower input width
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 22.dp)
+                    ) {
+                        Spacer(modifier = Modifier.height(32.dp))
+
+                        Text(
+                            text = if (isTelugu) "మీ మొబైల్ నంబర్‌ను నమోదు చేయండి" else "Enter Your Mobile Number",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextDark
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = if (isTelugu) "లాగిన్ లేదా సైన్ అప్ చేయడానికి దయచేసి మొబైల్ నంబర్‌ను నమోదు చేయండి" else "Please enter the mobile number for login or signup",
+                            fontSize = 14.5.sp,
+                            color = TextMuted,
+                            lineHeight = 20.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(26.dp))
+
+                        // Large rounded input box with black focused border
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(64.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .border(
+                                    width = 1.8.dp,
+                                    color = if (phoneHasFocus) Color(0xFF0F0F0F) else BorderNormal,
+                                    shape = RoundedCornerShape(10.dp)
+                                )
+                                .background(Color.White)
+                                .clickable {
+                                    phoneFocusRequester.requestFocus()
+                                    keyboardController?.show()
+                                }
+                                .padding(horizontal = 16.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
                                 Text(
-                                    text = selectedCountryCode,
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 18.sp,
-                                        color = Ink900.fg()
-                                    )
+                                    text = "+91  ",
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextDark
                                 )
-                                Spacer(modifier = Modifier.width(12.dp))
-
-                                Box(
-                                    modifier = Modifier
-                                        .width(1.dp)
-                                        .height(24.dp)
-                                        .background(CardBorder.bg())
-                                )
-
-                                Spacer(modifier = Modifier.width(14.dp))
-
-                                val autofill = LocalAutofill.current
-                                val autofillTree = LocalAutofillTree.current
-                                val autofillNode = remember {
-                                    AutofillNode(
-                                        autofillTypes = listOf(AutofillType.PhoneNumberNational, AutofillType.PhoneNumber),
-                                        onFill = { filled ->
-                                            val digits = filled.filter { it.isDigit() }.takeLast(10)
-                                            phoneNumber = digits
-                                        }
-                                    )
-                                }
-                                LaunchedEffect(autofillNode) {
-                                    autofillTree += autofillNode
-                                }
 
                                 BasicTextField(
                                     value = phoneNumber,
@@ -758,546 +415,437 @@ private fun OtpLoginScreen(
                                     },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .focusRequester(phoneFocusRequester),
+                                        .focusRequester(phoneFocusRequester)
+                                        .onFocusChanged { phoneHasFocus = it.isFocused },
                                     singleLine = true,
-                                    textStyle = androidx.compose.ui.text.TextStyle(
-                                        color = Color.Transparent,
-                                        fontSize = 18.sp,
-                                        letterSpacing = 1.sp
+                                    textStyle = TextStyle(
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextDark,
+                                        letterSpacing = 1.2.sp
                                     ),
-                                    cursorBrush = SolidColor(Color.Black),
+                                    cursorBrush = SolidColor(Color(0xFF0F0F0F)),
                                     keyboardOptions = KeyboardOptions(
                                         keyboardType = KeyboardType.Number,
                                         imeAction = ImeAction.Done
                                     ),
-                                    keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
+                                    keyboardActions = KeyboardActions(onDone = {
+                                        keyboardController?.hide()
+                                        focusManager.clearFocus()
+                                    }),
                                     decorationBox = { innerTextField ->
-                                        Box(contentAlignment = Alignment.CenterStart) {
-                                            if (phoneNumber.isEmpty()) {
-                                                Text(
-                                                    text = "9876543210",
-                                                    style = MaterialTheme.typography.bodyLarge.copy(
-                                                        fontSize = 18.sp,
-                                                        color = Color(0xFF94A3B8),
-                                                        letterSpacing = 1.sp
-                                                    )
+                                        if (phoneNumber.isEmpty()) {
+                                            Text(
+                                                text = "987654321",
+                                                style = TextStyle(
+                                                    fontSize = 22.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = BorderNormal,
+                                                    letterSpacing = 1.2.sp
                                                 )
-                                            } else {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                                    phoneNumber.forEachIndexed { index, char ->
-                                                        AnimatedContent<Char>(
-                                                            targetState = char,
-                                                            transitionSpec = {
-                                                                (slideInVertically(animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.6f, stiffness = androidx.compose.animation.core.Spring.StiffnessMedium)) { it / 2 } +
-                                                                 scaleIn(initialScale = 0.5f, animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.55f, stiffness = androidx.compose.animation.core.Spring.StiffnessMedium)) +
-                                                                 fadeIn(tween(130)))
-                                                                    .togetherWith(
-                                                                        slideOutVertically { -it / 2 } +
-                                                                        scaleOut(targetScale = 0.6f) +
-                                                                        fadeOut(tween(100))
-                                                                    )
-                                                            },
-                                                            label = "phone_digit_$index"
-                                                        ) { digit ->
-                                                            Text(
-                                                                text = digit.toString(),
-                                                                style = MaterialTheme.typography.bodyLarge.copy(
-                                                                    fontSize = 18.sp,
-                                                                    color = Ink900.fg(),
-                                                                    fontWeight = FontWeight.SemiBold,
-                                                                    letterSpacing = 1.sp
-                                                                )
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            innerTextField()
+                                            )
                                         }
+                                        innerTextField()
                                     }
                                 )
                             }
                         }
+                    }
 
-                        Spacer(modifier = Modifier.height(18.dp))
+                    // Bottom Area (18+ Terms & Docked CONTINUE Button)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                    ) {
+                        HorizontalDivider(color = BorderFaint, thickness = 1.dp)
 
-                        var isTruecallerBusy by remember { mutableStateOf(false) }
-                        val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading && !isTruecallerBusy
-                        val sendArrowTransition = rememberInfiniteTransition(label = "send_arrow_pulse")
-                        val sendArrowOffset by sendArrowTransition.animateFloat(
-                            initialValue = 0f,
-                            targetValue = if (buttonEnabled) 6f else 0f,
-                            animationSpec = infiniteRepeatable(
-                                animation = tween(600, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                                repeatMode = RepeatMode.Reverse
-                            ),
-                            label = "send_arrow_offset"
-                        )
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                        // Send OTP Button
+                        // Terms and 18+ requirement in 2 lines with light black links
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = if (isTelugu) "కొనసాగడం ద్వారా, మీరు 18+ సంవత్సరాల వయస్సు కలిగి ఉన్నారని మరియు మా" else "By continuing, you agree that you are 18+ years old and accept our",
+                                fontSize = 12.sp,
+                                color = TextMuted,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 17.sp
+                            )
+                            Spacer(modifier = Modifier.height(3.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = if (isTelugu) "నిబంధనలు & షరతులు" else "Terms & Conditions",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1E293B),
+                                    modifier = Modifier.clickable { navController.navigate(Routes.TERMS_OF_SERVICE) }
+                                )
+                                Text(
+                                    text = if (isTelugu) " మరియు " else " & ",
+                                    fontSize = 12.sp,
+                                    color = TextMuted
+                                )
+                                Text(
+                                    text = if (isTelugu) "గోప్యతా విధానం" else "Privacy Policy",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1E293B),
+                                    modifier = Modifier.clickable { navController.navigate(Routes.PRIVACY_POLICY) }
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        val buttonEnabled = ValidationUtils.isValidIndianPhoneNumber(phoneNumber) && !otpState.isLoading
+
+                        // Docked Full-Width CONTINUE Button (Solid Black with 3-dot animated loader)
                         Button(
                             onClick = {
+                                focusManager.clearFocus(force = true)
+                                keyboardController?.hide()
                                 val fullPhoneNumber = selectedCountryCode + phoneNumber
                                 smsRetrieverHelper.startListening()
                                 otpViewModel.onSmsRetrieverStarted()
-
                                 scope.launch {
                                     profileCompletionViewModel.saveAuthMethod("PHONE_OTP")
                                     profileCompletionViewModel.savePhoneNumber(fullPhoneNumber)
                                 }
                                 otpViewModel.sendOtp(fullPhoneNumber, context, mode = "unified")
                             },
+                            enabled = buttonEnabled,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(54.dp),
-                            enabled = buttonEnabled,
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(0.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF222222),
+                                containerColor = Color.Black,
                                 contentColor = Color.White,
-                                disabledContainerColor = Color(0xFFCBD5E1).bg(),
-                                disabledContentColor = Color(0xFF64748B).fg()
-                            )
+                                disabledContainerColor = DisabledGray,
+                                disabledContentColor = Color(0xFF757575)
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                         ) {
-                            if (otpState.isLoading && !isTruecallerBusy) {
-                                com.example.dutype.components.ButtonThreeDotsLoader()
+                            if (otpState.isLoading) {
+                                com.example.dutype.components.ButtonThreeDotsLoader(dotColor = Color.White)
                             } else {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = stringResource(R.string.auth_send_otp),
-                                        style = MaterialTheme.typography.labelLarge.copy(
-                                            fontSize = 16.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
-                                    )
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier
-                                            .offset(x = sendArrowOffset.dp)
-                                            .size(20.dp)
-                                    )
-                                }
+                                Text(
+                                    text = "CONTINUE",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (buttonEnabled) Color.White else Color(0xFF757575)
+                                )
                             }
                         }
-
-                        // Official Truecaller one-tap login button
-                        TruecallerLoginButton(
-                            busy = isTruecallerBusy,
-                            onAuthorized = { code, verifier ->
-                                isTruecallerBusy = true
-                                scope.launch {
-                                    try {
-                                        otpViewModel.truecallerExchange(code, verifier, role = role.name, mode = "unified").fold(
-                                            onSuccess = { res ->
-                                                if (res.roleConflict) {
-                                                    isTruecallerBusy = false
-                                                    val conflictingRoleLabel = if (res.existingRole?.contains("EMPLOYER") == true) {
-                                                        context.getString(R.string.employer)
-                                                    } else {
-                                                        context.getString(R.string.worker)
-                                                    }
-                                                    Toast.makeText(
-                                                        context,
-                                                        context.getString(R.string.auth_phone_registered_as_role, conflictingRoleLabel, conflictingRoleLabel),
-                                                        Toast.LENGTH_LONG
-                                                    ).show()
-                                                } else if (res.allowed) {
-                                                    otpViewModel.signInWithTruecaller(res)
-                                                } else {
-                                                    isTruecallerBusy = false
-                                                    Toast.makeText(context, context.getString(R.string.auth_verification_failed), Toast.LENGTH_SHORT).show()
-                                                }
-                                            },
-                                            onFailure = { err ->
-                                                isTruecallerBusy = false
-                                                val cleanMsg = err.message?.takeIf { it.isNotBlank() && !it.contains("INTERNAL", ignoreCase = true) }
-                                                    ?: "Truecaller verification failed. Please try with OTP."
-                                                Toast.makeText(context, cleanMsg, Toast.LENGTH_SHORT).show()
-                                            }
-                                        )
-                                    } catch (_: Exception) {
-                                        isTruecallerBusy = false
-                                    }
-                                }
+                    }
+                }
+            } else {
+                // =========================================================================
+                // SCREEN 2: Enter the 6 Digit OTP sent (PhonePe Business replicated)
+                // =========================================================================
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // Top App Header with Back Arrow + DutyPe + Help Button
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = {
+                                focusManager.clearFocus(force = true)
+                                keyboardController?.hide()
+                                otpViewModel.resetState()
                             },
-                            onFailed = {
-                                isTruecallerBusy = false
-                                Toast.makeText(context, context.getString(R.string.auth_verification_failed), Toast.LENGTH_SHORT).show()
-                            }
-                        )
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = TextDark,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
 
-                        // DEV-ONLY: Skip OTP - Navigate to Selected Role Home
-                        if (LocalContext.current.isDebuggableBuild()) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            val launchDevHome: (UserRole) -> Unit = { targetRole ->
-                                scope.launch {
-                                    if (FirebaseAuth.getInstance().currentUser == null) {
-                                        runCatching {
-                                            FirebaseAuth.getInstance().signInAnonymously().await()
-                                        }
-                                    }
-                                    profileCompletionViewModel.saveUserInfoToLocalStorage(
-                                        email = "dev@dutype.com",
-                                        name = "Dev User",
-                                        role = targetRole
-                                    )
-                                    profileCompletionViewModel.markProfileComplete(targetRole)
-                                    profileCompletionViewModel.markProfileSetupAsShown(targetRole)
-                                    navigateToHome(targetRole, navController)
-                                }
-                            }
+                        Spacer(modifier = Modifier.width(6.dp))
+
+                        DutyPeBrandBadge()
+
+                        Spacer(modifier = Modifier.weight(1f))
+
+                        // Help & Support button
+                        Surface(
+                            onClick = {
+                                navController.navigate(Routes.CONTACT_US)
+                            },
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color.White,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, BorderNormal)
+                        ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                OutlinedButton(
-                                    onClick = { launchDevHome(UserRole.WORKER) },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(44.dp),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = if (role == UserRole.WORKER) Color.Black else WorkerColors.TextSecondary
-                                    ),
-                                    border = BorderStroke(1.dp, if (role == UserRole.WORKER) Color.Black else Color(0xFFCBD5E1).bd())
-                                ) {
-                                    Text(
-                                        text = "Dev → Worker",
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            fontSize = 12.5.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        ),
-                                        maxLines = 1
-                                    )
-                                }
-                                OutlinedButton(
-                                    onClick = { launchDevHome(UserRole.EMPLOYER) },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(44.dp),
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = if (role == UserRole.EMPLOYER) Color.Black else WorkerColors.TextSecondary
-                                    ),
-                                    border = BorderStroke(1.dp, if (role == UserRole.EMPLOYER) Color.Black else Color(0xFFCBD5E1).bd())
-                                ) {
-                                    Text(
-                                        text = "Dev → Employer",
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            fontSize = 12.5.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        ),
-                                        maxLines = 1
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                                    contentDescription = "Help & Support",
+                                    tint = TextDark,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isTelugu) "సహాయం" else "Help",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = TextDark
+                                )
                             }
                         }
                     }
 
+                    // Main Content (OTP Input)
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = 20.dp)
+                    ) {
+                        Spacer(modifier = Modifier.height(28.dp))
 
-                        // Terms & Privacy footer - cleanly anchored at bottom of card
-                        Column(
+                        Text(
+                            text = if (isTelugu) "పంపిన 6 అంకెల OTP ని నమోదు చేయండి" else "Enter the 6 Digit OTP sent",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextDark
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "to ",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextDark
+                            )
+                            Text(
+                                text = phoneNumber,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = BrandGreen
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(28.dp))
+
+                        // 6 Distinct OTP Rectangular Input Boxes
+                        OtpSixDigitInputRow(
+                            otpValue = otpValue,
+                            onOtpChange = { newCode ->
+                                otpValue = newCode
+                                if (newCode.length == 6) {
+                                    keyboardController?.hide()
+                                    focusManager.clearFocus()
+                                    otpViewModel.verifyOtp(newCode, context)
+                                }
+                            }
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Auto-reading indicator / Resend options
+                        if (resendCooldown > 0) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator(
+                                    color = BrandGreen,
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text(
+                                    text = if (isTelugu) "OTP ఆటో రీడింగ్ $resendCooldown సెకన్లు" else "Auto reading OTP $resendCooldown secs",
+                                    fontSize = 14.5.sp,
+                                    color = TextMuted
+                                )
+                            }
+                        } else {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Text(
+                                    text = if (isTelugu) "మళ్లీ OTP పంపండి" else "Resend OTP",
+                                    fontSize = 14.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = BrandGreen,
+                                    modifier = Modifier.clickable {
+                                        val fullPhoneNumber = selectedCountryCode + phoneNumber
+                                        otpViewModel.sendOtp(fullPhoneNumber, context, mode = "unified")
+                                    }
+                                )
+
+                                Text(
+                                    text = "Resend via WhatsApp",
+                                    fontSize = 14.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = WhatsAppGreen,
+                                    modifier = Modifier.clickable {
+                                        val fullPhoneNumber = selectedCountryCode + phoneNumber
+                                        otpViewModel.resendViaWhatsapp(fullPhoneNumber, context, mode = "unified")
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    val verifyButtonEnabled = otpValue.length == 6 && !otpState.isLoading && !isNavigatingAway && !otpState.otpVerified
+
+                    // Docked VERIFY Button (Solid Black)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                    ) {
+                        Button(
+                            onClick = {
+                                focusManager.clearFocus(force = true)
+                                keyboardController?.hide()
+                                otpViewModel.verifyOtp(otpValue, context)
+                            },
+                            enabled = verifyButtonEnabled,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(top = 16.dp, bottom = 4.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .height(54.dp),
+                            shape = RoundedCornerShape(0.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.Black,
+                                contentColor = Color.White,
+                                disabledContainerColor = DisabledGray,
+                                disabledContentColor = Color(0xFF757575)
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                         ) {
-                            val termsPrefix = stringResource(R.string.auth_by_continuing_agree)
-                            val termsTitle = stringResource(R.string.auth_terms)
-                            val privacyTitle = stringResource(R.string.auth_privacy_policy_short)
-                            val termsAnnotated = buildAnnotatedString {
-                                append(termsPrefix)
-                                pushStringAnnotation(tag = "TERMS", annotation = "terms")
-                                withStyle(SpanStyle(color = Color.Black, fontWeight = FontWeight.Bold)) {
-                                    append(termsTitle)
-                                }
-                                pop()
-                                append(" & ")
-                                pushStringAnnotation(tag = "PRIVACY", annotation = "privacy")
-                                withStyle(SpanStyle(color = Color.Black, fontWeight = FontWeight.Bold)) {
-                                    append(privacyTitle)
-                                }
-                                pop()
+                            if (otpState.isLoading || isNavigatingAway || otpState.otpVerified) {
+                                com.example.dutype.components.ButtonThreeDotsLoader(dotColor = Color.White)
+                            } else {
+                                Text(
+                                    text = "VERIFY",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (verifyButtonEnabled) Color.White else Color(0xFF757575)
+                                )
                             }
-                            androidx.compose.foundation.text.ClickableText(
-                                text = termsAnnotated,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF64748B),
-                                    fontSize = 12.5.sp,
-                                    textAlign = TextAlign.Center,
-                                    lineHeight = 18.sp
-                                ),
-                                modifier = Modifier.fillMaxWidth(),
-                                onClick = { offset ->
-                                    termsAnnotated.getStringAnnotations(tag = "TERMS", start = offset, end = offset)
-                                        .firstOrNull()?.let {
-                                            navController.navigate(Routes.TERMS_OF_SERVICE)
-                                        }
-                                    termsAnnotated.getStringAnnotations(tag = "PRIVACY", start = offset, end = offset)
-                                        .firstOrNull()?.let {
-                                            navController.navigate(Routes.PRIVACY_POLICY)
-                                        }
-                                }
-                            )
                         }
                     }
                 }
             }
         }
-
-    if (showLanguageBottomSheet) {
-        LanguageSelectionBottomSheet(
-            onDismiss = { showLanguageBottomSheet = false }
-        )
     }
+
 }
 
+/**
+ * DutyPe Brand wordmark - Clean black text matching WorkerHomeScreen
+ */
 @Composable
-private fun LoginFeatureBadge(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    text: String
-) {
-    Surface(
-        shape = CircleShape,
-        color = Color.White,
-        shadowElevation = 0.dp
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.5.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = Color.Black,
-                modifier = Modifier.size(13.5.dp)
-            )
-            Spacer(modifier = Modifier.width(5.dp))
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                ),
-                maxLines = 1
-            )
-        }
-    }
+private fun DutyPeBrandBadge(modifier: Modifier = Modifier) {
+    Text(
+        text = "DutyPe",
+        color = Color.Black,
+        fontSize = 24.sp,
+        fontWeight = FontWeight.ExtraBold,
+        letterSpacing = 0.sp,
+        modifier = modifier
+    )
 }
 
+/**
+ * Replicated 6-digit OTP row with thin rectangular borders exactly like Image 3
+ */
 @Composable
-private fun OtpInputSection(
+private fun OtpSixDigitInputRow(
     otpValue: String,
-    onOtpChange: (String) -> Unit,
-    phoneNumber: String,
-    otpState: com.example.dutype.viewmodels.OtpState,
-    onVerifyClick: () -> Unit,
-    onResendWhatsapp: () -> Unit,
-    onBackClick: () -> Unit,
-    resendCooldownSeconds: Int = 0
+    onOtpChange: (String) -> Unit
 ) {
-    val context = LocalContext.current
-    val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    var isInputFocused by remember { mutableStateOf(false) }
 
-    Column(
+    LaunchedEffect(Unit) {
+        delay(150)
+        focusRequester.requestFocus()
+        keyboardController?.show()
+    }
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 8.dp),
-        horizontalAlignment = Alignment.Start
+            .clickable {
+                focusRequester.requestFocus()
+                keyboardController?.show()
+            }
     ) {
-        // Top Header Bar: Back arrow and "Verify OTP" aligned on the exact header row
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .clickable(onClick = onBackClick),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = stringResource(R.string.back),
-                    tint = Ink900.fg(),
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = stringResource(R.string.auth_verify_otp),
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Ink900.fg(),
-                    letterSpacing = (-0.2).sp
-                )
-            )
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // "+91 98765 43210 · Change number"
-        val changeNumberText = stringResource(R.string.auth_change_number_action)
-
-        val annotatedText = buildAnnotatedString {
-            append("+91 $phoneNumber")
-            append("  ·  ")
-            pushStringAnnotation(tag = "CHANGE", annotation = "change")
-            withStyle(SpanStyle(color = BrandBluePrimary.fg(), fontWeight = FontWeight.SemiBold, textDecoration = TextDecoration.Underline)) {
-                append(changeNumberText)
-            }
-            pop()
-        }
-
-        androidx.compose.foundation.text.ClickableText(
-            text = annotatedText,
-            style = MaterialTheme.typography.bodyMedium.copy(color = Ink600.fg(), fontSize = 14.sp),
             modifier = Modifier.fillMaxWidth(),
-            onClick = { offset ->
-                annotatedText.getStringAnnotations(tag = "CHANGE", start = offset, end = offset)
-                    .firstOrNull()?.let {
-                        onBackClick()
-                    }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-        Text(
-            text = "Enter 6-Digit Code",
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Ink900.fg()
-            )
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-
-        AuthOtpBoxes(
-            otpValue = otpValue,
-            onOtpChange = onOtpChange,
-            digitCount = 6
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Resend Action: WhatsApp chip centered
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start)
         ) {
-            Surface(
-                onClick = onResendWhatsapp,
-                enabled = resendCooldownSeconds <= 0 && !otpState.isLoading,
-                shape = RoundedCornerShape(20.dp),
-                color = Color.White.bg(),
-                border = BorderStroke(
-                    1.dp,
-                    if (resendCooldownSeconds <= 0) Color(0xFF25D366).bd() else CardBorder.bd()
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_whatsapp),
-                        contentDescription = null,
-                        tint = Color(0xFF25D366).fg(),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    val waMinutes = resendCooldownSeconds / 60
-                    val waSeconds = resendCooldownSeconds % 60
-                    Text(
-                        text = if (resendCooldownSeconds > 0) {
-                            stringResource(R.string.auth_resend_via_whatsapp_in, waMinutes, waSeconds)
-                        } else {
-                            stringResource(R.string.auth_resend_via_whatsapp)
-                        },
-                        style = MaterialTheme.typography.labelMedium.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp,
-                            color = if (resendCooldownSeconds <= 0) Color(0xFF1B5E20).fg() else Ink600.fg()
-                        ),
-                        maxLines = 1
-                    )
-                }
-            }
-        }
+            repeat(6) { index ->
+                val digit = otpValue.getOrNull(index)?.toString() ?: ""
+                val isActive = (index == otpValue.length && isInputFocused) || (index == 5 && otpValue.length == 6)
 
-        Spacer(modifier = Modifier.height(28.dp))
-
-        val verifyButtonEnabled = otpValue.length == 6 && !otpState.isLoading
-        val verifyArrowTransition = rememberInfiniteTransition(label = "verify_arrow_pulse")
-        val verifyArrowOffset by verifyArrowTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = if (verifyButtonEnabled) 6f else 0f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(600, easing = androidx.compose.animation.core.FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "verify_arrow_offset"
-        )
-
-        // Verify & Continue button — grayed out until all 6 digits are entered
-        Button(
-            onClick = onVerifyClick,
-            enabled = verifyButtonEnabled,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(54.dp),
-            shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF222222),
-                contentColor = Color.White,
-                disabledContainerColor = Color(0xFFCBD5E1).bg(),
-                disabledContentColor = Color(0xFF64748B).fg()
-            )
-        ) {
-            if (otpState.isLoading) {
-                com.example.dutype.components.ButtonThreeDotsLoader()
-            } else {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = stringResource(R.string.auth_verify_and_continue),
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (verifyButtonEnabled) Color.White else Color(0xFF94A3B8).fg()
+                Box(
+                    modifier = Modifier
+                        .width(46.dp)
+                        .height(58.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(
+                            width = if (isActive) 1.5.dp else 1.dp,
+                            color = if (isActive) Color(0xFF0F0F0F) else BorderNormal,
+                            shape = RoundedCornerShape(8.dp)
                         )
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
-                        tint = if (verifyButtonEnabled) Color.White else Color(0xFF94A3B8).fg(),
-                        modifier = Modifier
-                            .offset(x = verifyArrowOffset.dp)
-                            .size(18.dp)
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = digit,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextDark
                     )
                 }
             }
         }
+
+        // Invisible BasicTextField capturing input
+        BasicTextField(
+            value = otpValue,
+            onValueChange = { newValue ->
+                val clean = newValue.filter { it.isDigit() }.take(6)
+                if (clean != otpValue) {
+                    onOtpChange(clean)
+                }
+            },
+            modifier = Modifier
+                .matchParentSize()
+                .focusRequester(focusRequester)
+                .onFocusChanged { isInputFocused = it.isFocused },
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done
+            ),
+            keyboardActions = KeyboardActions(onDone = { keyboardController?.hide() }),
+            textStyle = TextStyle(color = Color.Transparent)
+        )
     }
 }

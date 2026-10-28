@@ -51,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -68,6 +69,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -151,6 +153,15 @@ fun LoginBottomSheet(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    DisposableEffect(Unit) {
+        onDispose {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+        }
+    }
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
     val scope = rememberCoroutineScope()
     val otpState by otpViewModel.otpState.collectAsState()
@@ -203,7 +214,9 @@ fun LoginBottomSheet(
                                 outcome.destination == OtpViewModel.PostOtpDestination.PROFILE_SETUP &&
                                     onProfileSetupRequired != null
 
-                            otpViewModel.resetState()
+                            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+            otpViewModel.resetState()
                             isCheckingProfile = false
 
                             if (shouldGoToProfileSetup) {
@@ -248,7 +261,9 @@ fun LoginBottomSheet(
                                 toastText,
                                 Toast.LENGTH_LONG
                             ).show()
-                            otpViewModel.resetState()
+                            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+            otpViewModel.resetState()
                             isCheckingProfile = false
                         }
                     )
@@ -256,7 +271,9 @@ fun LoginBottomSheet(
                 }
             } catch (e: Exception) {
                 Timber.e(e, "📱 Error in login flow")
-                otpViewModel.resetState()
+                focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+            otpViewModel.resetState()
                 isCheckingProfile = false
             }
         }
@@ -284,6 +301,8 @@ fun LoginBottomSheet(
 
     ModalBottomSheet(
         onDismissRequest = {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
             otpViewModel.resetState()
             onDismiss()
         },
@@ -307,7 +326,9 @@ fun LoginBottomSheet(
             ) {
                 IconButton(
                     onClick = {
-                        otpViewModel.resetState()
+                        focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+            otpViewModel.resetState()
                         onDismiss()
                     },
                     modifier = Modifier.size(36.dp)
@@ -660,6 +681,15 @@ private fun OtpInputContent(
     resendCooldownSeconds: Int = 0  // Add parameter for ViewModel cooldown
 ) {
     val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    DisposableEffect(Unit) {
+        onDispose {
+            focusManager.clearFocus(force = true)
+            keyboardController?.hide()
+        }
+    }
     val isTelugu = LocaleHelper.getLanguage(context) == LocaleHelper.LANGUAGE_TELUGU
 
     Column(

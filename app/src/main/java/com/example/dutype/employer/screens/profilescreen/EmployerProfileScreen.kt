@@ -337,7 +337,7 @@ private fun EmpMenuRow(
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = title,
-            style = profileTextStyle(16.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            style = profileTextStyle(16.sp, FontWeight(450), if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
@@ -480,21 +480,7 @@ private fun EmpAccountCard(ui: EmpProfileUi, actions: EmpProfileActions) {
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
-
-        val context = androidx.compose.ui.platform.LocalContext.current
-        val version = remember(context) {
-            runCatching {
-                context.packageManager.getPackageInfo(context.packageName, 0).versionName
-            }.getOrNull() ?: "1.0.0"
-        }
-        Text(
-            text = "APP VERSION: $version",
-            style = profileTextStyle(11.sp, FontWeight.Normal, Color(0xFF94A3B8).fg()),
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp)
-        )
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 

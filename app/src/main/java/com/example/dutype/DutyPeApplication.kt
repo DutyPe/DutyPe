@@ -79,17 +79,20 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
     private var appCheckDebugHintLogged = false
 
     override fun attachBaseContext(base: Context) {
-        // Apply saved language preference before super.attachBaseContext
-        super.attachBaseContext(LocaleHelper.setLocale(base))
+        // Apply saved language preference before super.attachBaseContext (fail-safe for Direct Boot)
+        val localized = runCatching { LocaleHelper.setLocale(base) }.getOrDefault(base)
+        super.attachBaseContext(localized)
     }
 
     override fun onCreate() {
         super.onCreate()
 
         // PERF: Warm the start-destination SharedPreferences file on a background thread so the
-        // first-frame routing read in AppStartupViewModel doesn't pay the disk load on main.
-        applicationScope.launch(Dispatchers.IO) {
-            runCatching { com.example.dutype.navigation.StartDestinationCache.read(this@DutyPeApplication) }
+        // first-frame routing read in AppStartupViewModel doesn't pay the disk load on main (unlocked state only).
+        if (com.example.dutype.utils.SafeStorageUtils.isUserUnlocked(this)) {
+            applicationScope.launch(Dispatchers.IO) {
+                runCatching { com.example.dutype.navigation.StartDestinationCache.read(this@DutyPeApplication) }
+            }
         }
 
         // Register lifecycle callbacks for app-wide background tracking
@@ -135,15 +138,16 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
         // PERFORMANCE & STORAGE: Defer notification channels and cache pruning to background
         applicationScope.launch(Dispatchers.IO) {
             NotificationChannelManager.createNotificationChannels(this@DutyPeApplication)
-            com.example.dutype.utils.StorageCacheManager.pruneStaleCache(this@DutyPeApplication)
-        }
-
-        // Initialize AdMob on main thread so internal WebViews initialize properly
-        applicationScope.launch(Dispatchers.Main) {
-            runCatching {
-                com.google.android.gms.ads.MobileAds.initialize(this@DutyPeApplication)
+            if (com.example.dutype.utils.SafeStorageUtils.isUserUnlocked(this@DutyPeApplication) &&
+                com.example.dutype.utils.AppLifecycleTracker.isAppInForeground()
+            ) {
+                com.example.dutype.utils.StorageCacheManager.pruneStaleCache(this@DutyPeApplication)
             }
         }
+
+        // AdMob is initialized asynchronously in MainActivity.onCreate (foreground only)
+        // to prevent background FCM / BroadcastReceiver wakeups from stalling the Main Looper
+        // with nativePollOnce ANRs on Vivo and low-power devices.
 
         // Initialize MainThreadChecker with ANRHandler for production-safe error handling.
         // PERF: off the main thread; ANRHandler is only needed when a violation is reported.
@@ -185,7 +189,8 @@ class DutyPeApplication : Application(), Configuration.Provider, ImageLoaderFact
      * reminders); cancel the device workers that older app versions scheduled.
      */
     private fun cancelRetiredWork() {
-        val prefs = getSharedPreferences("dutype_startup_cleanup", Context.MODE_PRIVATE)
+        if (!com.example.dutype.utils.SafeStorageUtils.isUserUnlocked(this)) return
+        val prefs = com.example.dutype.utils.SafeStorageUtils.getSafeSharedPreferences(this, "dutype_startup_cleanup")
         if (prefs.getBoolean("retired_work_cancelled_v2", false)) return
         runCatching {
             val workManager = androidx.work.WorkManager.getInstance(this)

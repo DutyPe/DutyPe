@@ -218,55 +218,11 @@ private fun OnboardingHeader(
     onSkipClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    var showLanguageBottomSheet by remember { mutableStateOf(false) }
-
-    val activeLangName = when (com.example.dutype.utils.LocaleHelper.getLanguage(context)) {
-        com.example.dutype.utils.LocaleHelper.LANGUAGE_TELUGU -> "తెలుగు"
-        com.example.dutype.utils.LocaleHelper.LANGUAGE_HINDI -> "हिन्दी"
-        else -> "English"
-    }
-
     Row(
         modifier = modifier.height(48.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Top Left Language Selector Chip (matching SelectRoleScreen)
-        Surface(
-            onClick = { showLanguageBottomSheet = true },
-            shape = RoundedCornerShape(20.dp),
-            color = Color.White,
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd())
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.Translate,
-                    contentDescription = null,
-                    tint = Color(0xFF2563EB).fg(),
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = activeLangName,
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF0F172A).fg()
-                    )
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Icon(
-                    imageVector = androidx.compose.material.icons.Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = Color(0xFF475569).fg(),
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-        }
-
         // Top Right Skip Button
         AnimatedVisibility(
             visible = !isLastPage,
@@ -286,12 +242,6 @@ private fun OnboardingHeader(
                 )
             }
         }
-    }
-
-    if (showLanguageBottomSheet) {
-        com.example.dutype.components.LanguageSelectionBottomSheet(
-            onDismiss = { showLanguageBottomSheet = false }
-        )
     }
 }
 

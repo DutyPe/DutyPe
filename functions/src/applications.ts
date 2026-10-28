@@ -251,7 +251,11 @@ export const getWorkerContact = onCallSecured({}, async (raw: unknown, context) 
   if (!isApplicant && job.get(Jobs.STATUS) !== Values.JobStatus.OPEN) {
     fail("failed-precondition", "This job is closed");
   }
-  const phone = String(worker.get(WorkerProfiles.PHONE) || "");
+  let phone = String(worker.get(WorkerProfiles.PHONE) || "");
+  if (!phone) {
+    const userDoc = await db.collection("users").doc(workerId).get();
+    phone = String(userDoc.get("phoneNumber") || userDoc.get("phone") || "");
+  }
   if (!phone) fail("not-found", "This worker has no phone number");
 
   const unlockRef = db.collection(EmployerProfiles.COLLECTION).doc(uid)

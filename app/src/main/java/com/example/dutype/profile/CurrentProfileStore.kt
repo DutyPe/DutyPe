@@ -63,6 +63,15 @@ class CurrentProfileStore @Inject constructor(
         }
     }
 
+    fun decrementInstantCredit() {
+        val current = _subscription.value
+        if (current.instantCredits > 0) {
+            val updated = current.copy(instantCredits = current.instantCredits - 1)
+            _subscription.value = updated
+            _employer.value = _employer.value?.copy(subscription = updated)
+        }
+    }
+
     fun stop() {
         registration?.remove()
         registration = null

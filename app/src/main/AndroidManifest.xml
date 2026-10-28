@@ -166,13 +166,15 @@
         </activity>
         
         <!-- Firebase Cloud Messaging Service - Enterprise Grade -->
-        <!-- Accept / Skip on urgent job offer notifications -->
+        <!-- Accept / Skip on urgent job offer notifications (Direct Boot & Lock Screen Compliant) -->
         <receiver
             android:name="com.example.dutype.urgent.UrgentOfferReceiver"
+            android:directBootAware="true"
             android:exported="false" />
 
         <service
             android:name="com.example.dutype.services.DutyPeMessagingService"
+            android:directBootAware="true"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />

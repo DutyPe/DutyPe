@@ -126,9 +126,11 @@ fun EmployerReferEarnScreen(
         )
 
         when {
-            uiState.isLoading -> {
+            uiState.isLoading || isCheckingProfileStatus -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = com.example.dutype.ui.theme.EmployerColors.TextPrimary, strokeWidth = 3.dp)
+                    com.example.dutype.components.ThreeDotsBouncingLoader(
+                        dotColor = com.example.dutype.ui.theme.EmployerColors.TextPrimary
+                    )
                 }
             }
             uiState.error != null -> {

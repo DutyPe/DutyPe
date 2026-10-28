@@ -1479,24 +1479,6 @@ private fun ServicesLocationTopRow(
                     modifier = Modifier.size(20.dp)
                 )
             }
-
-            // Profile / Account button
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(Color.White.copy(alpha = 0.18f))
-                    .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
-                    .clickable(onClick = onProfileClick),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Filled.Person,
-                    contentDescription = "Profile",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
         }
     }
 }
@@ -2963,11 +2945,6 @@ fun ServicesHomeScreen(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
                         )
                     }
-                }
-
-                // 8. Brand Signature Footer (Blinkit / Swiggy style: large bold signature + Crafted with love in India)
-                item(key = "services_brand_footer") {
-                    ServicesBrandFooter()
                 }
 
                 // Extra bottom spacer

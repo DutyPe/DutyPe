@@ -97,6 +97,7 @@ class SessionManager @Inject constructor(
             .apply()
         
         _sessionState.value = SessionState.Active(sessionId, user.uid)
+        com.example.dutype.utils.SafeStorageUtils.setDeviceProtectedUserLoggedIn(context, true)
         
         Timber.d("🔐 Session started: $sessionId (user: ${user.uid})")
         
@@ -219,6 +220,7 @@ class SessionManager @Inject constructor(
         tokenRefreshJob?.cancel()
         tokenRefreshJob = null
         prefs.edit().clear().apply()
+        com.example.dutype.utils.SafeStorageUtils.setDeviceProtectedUserLoggedIn(context, false)
         _sessionState.value = SessionState.Ended
         
         Timber.d("🔐 Session ended: $sessionId")
@@ -228,6 +230,7 @@ class SessionManager @Inject constructor(
      * Handle auth state changes
      */
     private suspend fun handleAuthStateChange(user: FirebaseUser?) {
+        com.example.dutype.utils.SafeStorageUtils.setDeviceProtectedUserLoggedIn(context, user != null)
         if (user != null) {
             // User signed in
             val sessionId = prefs.getString(KEY_SESSION_ID, null)

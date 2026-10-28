@@ -40,6 +40,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -160,25 +162,90 @@ fun SettingsScreen(
         }
     }
 
+    val scrollState = rememberScrollState()
+    val compactTitleProgress by remember {
+        derivedStateOf {
+            ((scrollState.value - 30f) / 60f).coerceIn(0f, 1f)
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White.bg())
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
-        // Airbnb Style Header: Back button + Large Title + Subtitle
-        AirbnbSettingsHeader(
-            title = stringResource(R.string.settings),
-            subtitle = "Control your account, preferences, and privacy settings on DutyPe.",
-            onBack = { navController.navigateUp() }
+        // Pinned sticky top bar with Back Button and scroll-linked compact title
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = { navController.navigateUp() },
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back),
+                    tint = AirbnbTitleColor.fg(),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = stringResource(R.string.settings),
+                style = TextStyle(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = AirbnbTitleColor.fg(),
+                    letterSpacing = (-0.2).sp
+                ),
+                modifier = Modifier.graphicsLayer {
+                    alpha = compactTitleProgress
+                    translationY = (1f - compactTitleProgress) * 12f
+                }
+            )
+        }
+        HorizontalDivider(
+            thickness = 0.8.dp,
+            color = AirbnbDividerColor.bd().copy(alpha = compactTitleProgress)
         )
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(scrollState)
                 .padding(bottom = 40.dp)
         ) {
+            // Large Title + Subtitle inside the scrollable column so it scrolls up
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.settings),
+                    style = TextStyle(
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AirbnbTitleColor.fg(),
+                        letterSpacing = (-0.5).sp
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Control your account, preferences, and privacy settings on DutyPe.",
+                    style = TextStyle(
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = AirbnbSubtitleColor.fg(),
+                        lineHeight = 22.sp
+                    )
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
             // Section 1: Account
             AirbnbSectionHeader(title = stringResource(R.string.settings_account))
             AirbnbActionRow(
@@ -438,7 +505,7 @@ private fun AirbnbActionRow(
                 text = title,
                 style = TextStyle(
                     fontSize = 16.sp,
-                    fontWeight = FontWeight.Normal,
+                    fontWeight = FontWeight(450),
                     color = if (isDestructive) AirbnbDangerColor.fg() else AirbnbTitleColor.fg()
                 )
             )
@@ -493,7 +560,7 @@ private fun AirbnbInfoRow(
             text = title,
             style = TextStyle(
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Normal,
+                fontWeight = FontWeight(450),
                 color = AirbnbTitleColor.fg()
             ),
             modifier = Modifier.weight(1f)
@@ -546,7 +613,7 @@ private fun AirbnbSwitchRow(
                 text = title,
                 style = TextStyle(
                     fontSize = 16.sp,
-                    fontWeight = FontWeight.Normal,
+                    fontWeight = FontWeight(450),
                     color = AirbnbTitleColor.fg()
                 )
             )
@@ -588,15 +655,15 @@ internal fun AirbnbModernSwitch(
         label = "switchTrack"
     )
     val thumbOffset by animateDpAsState(
-        targetValue = if (checked) 20.dp else 0.dp,
+        targetValue = if (checked) (19.5).dp else 0.dp,
         animationSpec = androidx.compose.animation.core.tween(200, easing = androidx.compose.animation.core.FastOutSlowInEasing),
         label = "switchThumb"
     )
 
     Box(
         modifier = modifier
-            .width(52.dp)
-            .height(32.dp)
+            .width((51.5).dp)
+            .height((31.5).dp)
             .clip(RoundedCornerShape(16.dp))
             .background(trackBg.bg())
             .clickable(
@@ -609,7 +676,7 @@ internal fun AirbnbModernSwitch(
         Box(
             modifier = Modifier
                 .offset(x = thumbOffset)
-                .size(28.dp)
+                .size((27.5).dp)
                 .clip(CircleShape)
                 .background(Color.White),
             contentAlignment = Alignment.Center
@@ -619,7 +686,7 @@ internal fun AirbnbModernSwitch(
                     imageVector = Icons.Default.Check,
                     contentDescription = null,
                     tint = activeTrackColor,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size((15.5).dp)
                 )
             }
         }
@@ -648,7 +715,7 @@ private fun AirbnbLanguageRow() {
             text = stringResource(R.string.language),
             style = TextStyle(
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Normal,
+                fontWeight = FontWeight(450),
                 color = AirbnbTitleColor.fg()
             ),
             modifier = Modifier.weight(1f)

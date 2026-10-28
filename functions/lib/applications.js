@@ -225,7 +225,11 @@ exports.getWorkerContact = (0, secure_callable_1.onCallSecured)({}, async (raw, 
     if (!isApplicant && job.get(schema_1.Jobs.STATUS) !== schema_1.Values.JobStatus.OPEN) {
         (0, input_1.fail)("failed-precondition", "This job is closed");
     }
-    const phone = String(worker.get(schema_1.WorkerProfiles.PHONE) || "");
+    let phone = String(worker.get(schema_1.WorkerProfiles.PHONE) || "");
+    if (!phone) {
+        const userDoc = await db.collection("users").doc(workerId).get();
+        phone = String(userDoc.get("phoneNumber") || userDoc.get("phone") || "");
+    }
     if (!phone)
         (0, input_1.fail)("not-found", "This worker has no phone number");
     const unlockRef = db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid)

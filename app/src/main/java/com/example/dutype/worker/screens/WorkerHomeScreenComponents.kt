@@ -611,7 +611,7 @@ fun HomeSectionsContent(
             state = listState,
             contentPadding = PaddingValues(
                 top = 0.dp,
-                bottom = 100.dp
+                bottom = 130.dp
             ),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             scrollStateManager = scrollStateManager
@@ -766,6 +766,7 @@ fun HomeSectionsContent(
                     onHelpDesk = { navController.navigate(Routes.HELP) },
                     onBrowseAll = { com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS) }
                 )
+                Spacer(modifier = Modifier.height(36.dp))
             }
         } else if (skillMatchedJobs.isEmpty()) {
             // Jobs still loading (urgent jobs may already be on screen): skeleton, not a blank gap.
@@ -811,11 +812,6 @@ fun HomeSectionsContent(
             item {
                 DutyPePromiseCarousel()
             }
-        }
-
-        // Footer: Made with love in Bharat (always shown).
-        item {
-            com.example.dutype.components.MadeWithLoveFooter()
         }
 
     }

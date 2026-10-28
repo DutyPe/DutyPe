@@ -25,7 +25,7 @@ object LaunchConfigStore {
     @Volatile var promoShownThisSession = false
 
     private fun prefs(ctx: Context) =
-        ctx.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        com.example.dutype.utils.SafeStorageUtils.getSafeSharedPreferences(ctx.applicationContext, PREFS)
 
     /** Last good parsed config, or null when none was ever fetched. */
     fun current(ctx: Context): LaunchConfig? {

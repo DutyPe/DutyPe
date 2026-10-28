@@ -68,6 +68,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material3.IconButton
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -86,45 +92,183 @@ private val Ink600 = Color(0xFF475569)
 private val Ink400 = Color(0xFF94A3B8)
 
 /**
- * Enterprise Terms of Service Screen
+ * Enterprise Terms of Service Screen (Airbnb typography & styling)
  */
 @Composable
 fun TermsOfServiceScreen(navController: NavController) {
-    TermsAccordionScreen(navController)
+    PolicyDocumentScreen(
+        title = stringResource(R.string.terms_conditions),
+        subtitle = "Please review the terms and conditions governing your use of DutyPe platform and services.",
+        navController = navController
+    ) {
+        TermsOfServiceContent()
+    }
 }
 
 /**
- * Enterprise Privacy Policy Screen
+ * Enterprise Privacy Policy Screen (Airbnb typography & styling)
  */
 @Composable
 fun PrivacyPolicyScreen(navController: NavController) {
+    PolicyDocumentScreen(
+        title = stringResource(R.string.privacy_policy),
+        subtitle = "Learn how DutyPe collects, protects, and handles your personal information and data privacy.",
+        navController = navController
+    ) {
+        PrivacyPolicyContent()
+    }
+}
+
+@Composable
+private fun PolicyDocumentScreen(
+    title: String,
+    subtitle: String,
+    navController: NavController,
+    content: @Composable () -> Unit
+) {
+    val scrollState = rememberScrollState()
+    val compactTitleProgress by remember {
+        derivedStateOf {
+            ((scrollState.value - 30f) / 60f).coerceIn(0f, 1f)
+        }
+    }
+    val context = LocalContext.current
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White.bg())
+            .statusBarsPadding()
     ) {
-        CommonHeader(
-            title = stringResource(R.string.privacy_policy),
-            navController = navController,
-            backgroundColor = Color.White.bg()
+        // Sticky Top Row with Back Button and Collapsible Compact Title
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = { navController.navigateUp() },
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back),
+                    tint = Color(0xFF222222).fg(),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = title,
+                style = TextStyle(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF222222).fg(),
+                    letterSpacing = (-0.2).sp
+                ),
+                modifier = Modifier.graphicsLayer {
+                    alpha = compactTitleProgress
+                    translationY = (1f - compactTitleProgress) * 12f
+                }
+            )
+        }
+        HorizontalDivider(
+            thickness = 0.8.dp,
+            color = Color(0xFFF0F0F0).bd().copy(alpha = compactTitleProgress)
         )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(start = 20.dp, end = 20.dp, bottom = 32.dp)
+                .verticalScroll(scrollState)
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(bottom = 40.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = stringResource(R.string.policy_last_updated_short),
-                fontSize = 12.sp,
-                color = Ink400.fg()
+            // Large Title + Subtitle
+            Column {
+                Text(
+                    text = title,
+                    style = TextStyle(
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF222222).fg(),
+                        letterSpacing = (-0.5).sp
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = subtitle,
+                    style = TextStyle(
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = Color(0xFF717171).fg(),
+                        lineHeight = 22.sp
+                    )
+                )
+            }
+
+            HorizontalDivider(
+                thickness = 0.8.dp,
+                color = Color(0xFFF0F0F0).bd()
             )
-            Spacer(modifier = Modifier.height(20.dp))
-            PvPermissionCards()
-            Spacer(modifier = Modifier.height(20.dp))
-            PvAccordionCard()
-            Spacer(modifier = Modifier.height(24.dp))
-            PvGrievanceFooter()
+
+            content()
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Grievance Contact & Legal Section
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(R.string.auto_dutype_technologies),
+                    style = TextStyle(
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF222222).fg()
+                    )
+                )
+                Text(
+                    text = stringResource(R.string.policy_grievance_contact),
+                    style = TextStyle(
+                        fontSize = 15.sp,
+                        color = Ink600.fg(),
+                        lineHeight = 22.sp
+                    )
+                )
+                Row(
+                    modifier = Modifier
+                        .clickable {
+                            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                data = Uri.parse("mailto:support@dutype.in")
+                                putExtra(Intent.EXTRA_SUBJECT, "DutyPe Support & Policy Query")
+                            }
+                            try { context.startActivity(intent) } catch (_: Exception) {}
+                        },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Email,
+                        contentDescription = null,
+                        tint = BrandBlue.fg(),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "support@dutype.in",
+                        style = TextStyle(
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = BrandBlue.fg()
+                        )
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(R.string.policy_last_updated),
+                    style = TextStyle(fontSize = 13.sp, color = Ink400.fg())
+                )
+            }
         }
     }
 }

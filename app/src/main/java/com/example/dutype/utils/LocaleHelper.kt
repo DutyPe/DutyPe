@@ -1,5 +1,7 @@
 package com.example.dutype.utils
 
+import timber.log.Timber
+
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
@@ -34,14 +36,29 @@ object LocaleHelper {
     
     /**
      * Get the currently selected language
+     * Always uses Device-Protected storage to guarantee access even when device is locked (Direct Boot).
      */
     fun getLanguage(context: Context): String {
-        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-        return prefs.getString(KEY_LANGUAGE, LANGUAGE_ENGLISH) ?: LANGUAGE_ENGLISH
+        return try {
+            val dePrefs = SafeStorageUtils.getSafeSharedPreferences(context, PREF_NAME, forceDeviceProtected = true)
+            var lang = dePrefs.getString(KEY_LANGUAGE, null)
+            if (lang == null && SafeStorageUtils.isUserUnlocked(context)) {
+                // If not yet in DE storage, opportunistically read from CE storage and migrate
+                val cePrefs = SafeStorageUtils.getSafeSharedPreferences(context, PREF_NAME, forceDeviceProtected = false)
+                lang = cePrefs.getString(KEY_LANGUAGE, LANGUAGE_ENGLISH) ?: LANGUAGE_ENGLISH
+                dePrefs.edit().putString(KEY_LANGUAGE, lang).apply()
+            }
+            lang ?: LANGUAGE_ENGLISH
+        } catch (_: Exception) {
+            LANGUAGE_ENGLISH
+        }
     }
     
     /**
      * Save the selected language preference.
+     *
+     * Persists to both Device-Protected (DE) storage (for background FCM/Direct Boot)
+     * and Credential-Protected (CE) storage.
      *
      * Also writes the language to the user's Firestore profile (best-effort,
      * fire-and-forget) so server-side notification fan-out can localise pushes,
@@ -49,27 +66,45 @@ object LocaleHelper {
      * so admin broadcasts deliver the right copy.
      */
     fun saveLanguage(context: Context, language: String) {
-        val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-        val previous = prefs.getString(KEY_LANGUAGE, null)
-        prefs.edit().putString(KEY_LANGUAGE, language).apply()
+        val previous = getLanguage(context)
+        
+        // 1. Save to Device-Protected storage (Direct Boot & lock screen safe)
+        runCatching {
+            SafeStorageUtils.getSafeSharedPreferences(context, PREF_NAME, forceDeviceProtected = true)
+                .edit()
+                .putString(KEY_LANGUAGE, language)
+                .apply()
+        }
+
+        // 2. Save to standard storage if user unlocked
+        runCatching {
+            if (SafeStorageUtils.isUserUnlocked(context)) {
+                SafeStorageUtils.getSafeSharedPreferences(context, PREF_NAME, forceDeviceProtected = false)
+                    .edit()
+                    .putString(KEY_LANGUAGE, language)
+                    .apply()
+            }
+        }
 
         if (previous == language) return
 
         // Best-effort sync to Firestore so cloud functions can read user_tokens/{uid}.language.
         // Silent failure is acceptable — local SharedPreferences remains the source of truth
         // for the UI; server-side localization just falls back to English.
-        runCatching {
-            FirebaseAuth.getInstance().currentUser?.uid?.let { uid ->
-                FirebaseFirestore.getInstance()
-                    .collection(com.example.dutype.firestore.FirestoreSchema.UserTokens.COLLECTION)
-                    .document(uid)
-                    .set(
-                        mapOf(
-                            com.example.dutype.firestore.FirestoreSchema.UserTokens.LANGUAGE to language,
-                            com.example.dutype.firestore.FirestoreSchema.UserTokens.UPDATED_AT to Timestamp.now()
-                        ),
-                        com.google.firebase.firestore.SetOptions.merge()
-                    )
+        if (SafeStorageUtils.isUserUnlocked(context)) {
+            runCatching {
+                FirebaseAuth.getInstance().currentUser?.uid?.let { uid ->
+                    FirebaseFirestore.getInstance()
+                        .collection(com.example.dutype.firestore.FirestoreSchema.UserTokens.COLLECTION)
+                        .document(uid)
+                        .set(
+                            mapOf(
+                                com.example.dutype.firestore.FirestoreSchema.UserTokens.LANGUAGE to language,
+                                com.example.dutype.firestore.FirestoreSchema.UserTokens.UPDATED_AT to Timestamp.now()
+                            ),
+                            com.google.firebase.firestore.SetOptions.merge()
+                        )
+                }
             }
         }
 
@@ -77,7 +112,7 @@ object LocaleHelper {
         // workers_hi / employers_hi / all_users_hi / app_updates_hi are delivered.
         runCatching {
             val messaging = FirebaseMessaging.getInstance()
-            if (previous != null) {
+            if (previous.isNotBlank()) {
                 FCM_BASE_TOPICS.forEach { base ->
                     val cleanOld = "${base}_$previous".replace(Regex("[^a-zA-Z0-9-_.~%]"), "_").trim('_')
                     if (cleanOld.isNotBlank()) messaging.unsubscribeFromTopic(cleanOld)
@@ -101,28 +136,33 @@ object LocaleHelper {
      * Call this in Application.attachBaseContext() and Activity.attachBaseContext()
      */
     fun setLocale(context: Context, language: String? = null): Context {
-        val lang = language ?: getLanguage(context)
-        val locale = Locale(lang)
-        Locale.setDefault(locale)
-        
-        val config = Configuration(context.resources.configuration)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            config.setLocales(LocaleList(locale))
-        } else {
-            @Suppress("DEPRECATION")
-            config.locale = locale
-        }
+        return try {
+            val lang = language ?: getLanguage(context)
+            val locale = Locale(lang)
+            Locale.setDefault(locale)
+            
+            val config = Configuration(context.resources.configuration)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                config.setLocales(LocaleList(locale))
+            } else {
+                @Suppress("DEPRECATION")
+                config.locale = locale
+            }
 
-        @Suppress("DEPRECATION")
-        context.resources.updateConfiguration(config, context.resources.displayMetrics)
-        runCatching {
             @Suppress("DEPRECATION")
-            context.applicationContext?.resources?.updateConfiguration(config, context.applicationContext.resources.displayMetrics)
-        }
+            runCatching { context.resources.updateConfiguration(config, context.resources.displayMetrics) }
+            runCatching {
+                @Suppress("DEPRECATION")
+                context.applicationContext?.resources?.updateConfiguration(config, context.applicationContext.resources.displayMetrics)
+            }
 
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            context.createConfigurationContext(config)
-        } else {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                context.createConfigurationContext(config)
+            } else {
+                context
+            }
+        } catch (t: Throwable) {
+            Timber.w(t, "LocaleHelper.setLocale fallback to original context")
             context
         }
     }

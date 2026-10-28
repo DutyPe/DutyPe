@@ -10,6 +10,9 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -105,15 +108,18 @@ private fun planBenefits(plan: com.example.dutype.models.Plan): List<AnnotatedSt
     val isBasic = plan.id.contains("basic", ignoreCase = true) || plan.priceRupees <= 99
     val isLaunch = plan.id.contains("launch", ignoreCase = true) || plan.name.contains("Launch", ignoreCase = true) || plan.priceRupees in 100..250
 
+    val jobCredits = if (plan.jobs > 0) plan.jobs else if (isBasic) 3 else if (isLaunch) 5 else 20
+    val contactUnlocks = if (plan.instantUnlocks > 0) plan.instantUnlocks else if (isBasic) 25 else if (isLaunch) 50 else 100
+
     if (isBasic) {
-        add(buildAnnotatedString { append("3 job posting credits") })
-        add(buildAnnotatedString { append("5 worker contact unlocks") })
+        add(buildAnnotatedString { append("$jobCredits job posting credits") })
+        add(buildAnnotatedString { append("$contactUnlocks worker contact unlocks") })
         add(buildAnnotatedString { append("Browse available hiring opportunities") })
         add(buildAnnotatedString { append("Contact workers directly") })
         add(buildAnnotatedString { append("30-day plan validity") })
     } else if (isLaunch) {
-        add(buildAnnotatedString { append("5 job posting credits") })
-        add(buildAnnotatedString { append("15 worker contact unlocks") })
+        add(buildAnnotatedString { append("$jobCredits job posting credits") })
+        add(buildAnnotatedString { append("$contactUnlocks worker contact unlocks") })
         add(buildAnnotatedString {
             withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) {
                 append("Liri AI voice assistant")
@@ -1291,6 +1297,8 @@ private fun TransactionCard(
 
 @Composable
 private fun CreditsEducationSection(context: android.content.Context) {
+    var isExpanded by remember { mutableStateOf(false) }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1301,78 +1309,97 @@ private fun CreditsEducationSection(context: android.content.Context) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Info,
-                contentDescription = null,
-                tint = BlueAccent.fg(),
-                modifier = Modifier.size(18.dp)
-            )
-            Text(
-                text = "Understanding Your Plan & Credits",
-                fontSize = 14.5.sp,
-                fontWeight = FontWeight.Bold,
-                color = Ink900.fg()
-            )
-        }
-
-        CreditExplainerItem(
-            title = "1 Job Posting Credit",
-            description = "Lets you publish 1 job post visible to all workers in your selected area for 30 days."
-        )
-        CreditExplainerItem(
-            title = "1 Worker Contact Unlock",
-            description = "Unlocks direct phone number and WhatsApp contact for 1 worker who matches or applies."
-        )
-        CreditExplainerItem(
-            title = "30-Day Plan Validity",
-            description = "All credits, recommendations, and AI voice assistance are active for 30 days from purchase."
-        )
-
-        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(1.dp)
-                .background(Hairline.bg())
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                        data = Uri.parse("https://api.whatsapp.com/send?phone=918019151847&text=Hi%20DutyPe,%20I%20have%20questions%20about%20employer%20subscription%20plans.")
-                    }
-                    try {
-                        context.startActivity(intent)
-                    } catch (e: Exception) {
-                        Toast.makeText(context, "Contact WhatsApp: +91 8019151847", Toast.LENGTH_SHORT).show()
-                    }
-                },
+                .clickable { isExpanded = !isExpanded },
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = null,
+                    tint = Color(0xFF0F0F0F),
+                    modifier = Modifier.size(18.dp)
+                )
                 Text(
-                    text = "Have questions before buying?",
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    text = "Understanding Your Plan & Credits",
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.Bold,
                     color = Ink900.fg()
                 )
-                Text(
-                    text = "Chat with DutyPe team on WhatsApp",
-                    fontSize = 11.5.sp,
-                    color = Color(0xFF059669)
-                )
             }
-            Text(
-                text = "Chat now ›",
-                fontSize = 12.5.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF059669)
+            Icon(
+                imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                contentDescription = if (isExpanded) "Collapse" else "Expand",
+                tint = Ink900.fg(),
+                modifier = Modifier.size(20.dp)
             )
+        }
+
+        AnimatedVisibility(visible = isExpanded) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                CreditExplainerItem(
+                    title = "1 Job Posting Credit",
+                    description = "Lets you publish 1 job post visible to all workers in your selected area for 30 days."
+                )
+                CreditExplainerItem(
+                    title = "1 Worker Contact Unlock",
+                    description = "Unlocks direct phone number and WhatsApp contact for 1 worker who matches or applies."
+                )
+                CreditExplainerItem(
+                    title = "30-Day Plan Validity",
+                    description = "All credits, recommendations, and AI voice assistance are active for 30 days from purchase."
+                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(Hairline.bg())
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                                data = Uri.parse("https://api.whatsapp.com/send?phone=918019151847&text=Hi%20DutyPe,%20I%20have%20questions%20about%20employer%20subscription%20plans.")
+                            }
+                            try {
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Contact WhatsApp: +91 8019151847", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(
+                            text = "Have questions before buying?",
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Ink900.fg()
+                        )
+                        Text(
+                            text = "Chat with DutyPe team on WhatsApp",
+                            fontSize = 11.5.sp,
+                            color = Color(0xFF059669)
+                        )
+                    }
+                    Text(
+                        text = "Chat now ›",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF059669)
+                    )
+                }
+            }
         }
     }
 }

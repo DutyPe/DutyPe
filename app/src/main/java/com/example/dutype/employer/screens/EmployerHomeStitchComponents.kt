@@ -1095,6 +1095,7 @@ fun EmployerJobManagementCard(
     isUrgent: Boolean,
     facepile: List<EmployerFacepileItem>,
     onReviewClick: () -> Unit,
+    onShareClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val shape = RoundedCornerShape(16.dp)
@@ -1104,6 +1105,7 @@ fun EmployerJobManagementCard(
             .clip(shape)
             .background(Color.White.bg())
             .border(1.dp, EhBorder.bd(), shape)
+            .clickable { onReviewClick() }
             .padding(16.dp)
     ) {
         Row(
@@ -1149,21 +1151,40 @@ fun EmployerJobManagementCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             EmployerFacepile(facepile)
-            Box(
-                modifier = Modifier
-                    .height(32.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(EhNavy.bg())
-                    .clickable { onReviewClick() }
-                    .padding(horizontal = 16.dp),
-                contentAlignment = Alignment.Center
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.employer_home_review),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White
-                )
+                IconButton(
+                    onClick = onShareClick,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFF1F5F9))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Share,
+                        contentDescription = "Share Job",
+                        tint = EhInk.fg(),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .height(32.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(EhNavy.bg())
+                        .clickable { onReviewClick() }
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.employer_home_review),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
+                    )
+                }
             }
         }
     }

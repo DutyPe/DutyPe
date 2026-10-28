@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifyWalletDeposit = exports.adminAssignBookingPartner = exports.adminCreateServiceBooking = exports.verifyPartnerTopup = exports.reviewServicePartner = exports.requestPartnerTopup = exports.updateServiceBooking = exports.acceptServiceBooking = exports.getServiceOffer = exports.setPartnerOnline = exports.applyServicePartner = exports.approveBookingPayment = exports.submitBookingPayment = exports.rateServiceBooking = exports.cancelServiceBooking = exports.getWalletSummary = exports.depositWalletFunds = exports.previewServiceQuote = exports.createServiceBooking = exports.offerSender = exports.getServiceCatalog = exports.SEARCH_TIMEOUT_MS = exports.SERVICE_WAVE_INTERVAL_MS = exports.SERVICE_WAVES_KM = exports.TEST_DEV_PHONES = exports.PartnerStatus = exports.BookingStatus = void 0;
+exports.adminAssignBookingPartner = exports.adminCreateServiceBooking = exports.verifyPartnerTopup = exports.reviewServicePartner = exports.requestPartnerTopup = exports.updateServiceBooking = exports.acceptServiceBooking = exports.getServiceOffer = exports.setPartnerOnline = exports.applyServicePartner = exports.approveBookingPayment = exports.submitBookingPayment = exports.rateServiceBooking = exports.cancelServiceBooking = exports.getWalletSummary = exports.verifyWalletDeposit = exports.depositWalletFunds = exports.previewServiceQuote = exports.createServiceBooking = exports.offerSender = exports.getServiceCatalog = exports.SEARCH_TIMEOUT_MS = exports.SERVICE_WAVE_INTERVAL_MS = exports.SERVICE_WAVES_KM = exports.TEST_DEV_PHONES = exports.PartnerStatus = exports.BookingStatus = void 0;
 exports.loadConfig = loadConfig;
 exports.clearConfigCache = clearConfigCache;
 exports.inServiceArea = inServiceArea;
@@ -654,12 +654,7 @@ exports.verifyWalletDeposit = (0, secure_callable_1.onCallSecured)({ enforceAppC
         const amountPaise = Number(d.get("amountPaise") || (Number(d.get("amountRupees") || 0) * 100));
         const now = Timestamp.now();
         if (!approve) {
-            tx.update(depositRef, {
-                status: "REJECTED",
-                verifiedAt: now,
-                verifiedBy: context.auth.uid,
-                ...(reason ? { rejectionReason: reason } : {}),
-            });
+            tx.update(depositRef, Object.assign({ status: "REJECTED", verifiedAt: now, verifiedBy: context.auth.uid }, (reason ? { rejectionReason: reason } : {})));
             return { ok: true, status: "REJECTED" };
         }
         const w = await (0, referrals_1.readWallet)(tx, uid);
@@ -1523,7 +1518,7 @@ exports.adminCreateServiceBooking = (0, secure_callable_1.onCallSecured)({ enfor
     });
     return { ok: true, bookingId, startOtp: otp };
 });
-exports.verifyWalletDeposit = exports.adminAssignBookingPartner = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
+exports.adminAssignBookingPartner = (0, secure_callable_1.onCallSecured)({ enforceAppCheck: false }, async (raw, context) => {
     if (!(await (0, app_config_1.isCallerAdmin)(context)))
         (0, input_1.fail)("permission-denied", "Only admin can assign partners to bookings");
     const data = (0, input_1.obj)(raw);

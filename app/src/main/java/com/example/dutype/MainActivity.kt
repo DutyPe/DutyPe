@@ -237,6 +237,11 @@ class MainActivity : ComponentActivity() {
                     fcmTokenManager.unsubscribeFromLanguageTopicPublic(FCMTokenManager.TOPIC_GUEST_USERS)
                 }
             }.onFailure { Timber.w(it, "Guest engagement topic setup failed (non-fatal)") }
+
+            // Initialize AdMob asynchronously in foreground Activity
+            runCatching {
+                com.google.android.gms.ads.MobileAds.initialize(this@MainActivity)
+            }
         }
 
         // Enable edge-to-edge for Android 15+ compatibility with WHITE status bar

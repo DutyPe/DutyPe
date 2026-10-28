@@ -9,9 +9,11 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.provider.Settings
+import com.example.dutype.utils.SafeStorageUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -24,6 +26,9 @@ import timber.log.Timber
  * 2. Works for online workers, including newly registered or freshly visiting workers.
  * 3. Once ignored or dismissed, it will NEVER make sound again for that urgent request.
  * 4. Can be stopped immediately when worker accepts, skips, or leaves the screen.
+ * 5. DIRECT BOOT & VIVO SAFE: Uses Device-Protected storage and background dispatchers so that
+ *    it never blocks the Main Looper or attempts to read Credential-Protected files when the
+ *    device is locked.
  */
 object UrgentSoundAlertManager {
     private const val PREFS_NAME = "dutype_urgent_alerts"
@@ -32,7 +37,8 @@ object UrgentSoundAlertManager {
 
     private var activeRingtone: Ringtone? = null
     private var stopJob: Job? = null
-    private val scope = CoroutineScope(Dispatchers.Main)
+    // Dispatchers.Default avoids touching Looper.getMainLooper() during background FCM delivery
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val alertedInMemory = mutableSetOf<String>()
     private val ignoredInMemory = mutableSetOf<String>()
@@ -42,7 +48,7 @@ object UrgentSoundAlertManager {
         if (requestId.isBlank()) return true
         if (ignoredInMemory.contains(requestId)) return true
         return try {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val prefs = SafeStorageUtils.getDeviceProtectedSharedPreferences(context, PREFS_NAME)
             val set = prefs.getStringSet(KEY_IGNORED_IDS, emptySet()) ?: emptySet()
             if (set.contains(requestId)) {
                 ignoredInMemory.add(requestId)
@@ -60,7 +66,7 @@ object UrgentSoundAlertManager {
         if (requestId.isBlank()) return true
         if (alertedInMemory.contains(requestId)) return true
         return try {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val prefs = SafeStorageUtils.getDeviceProtectedSharedPreferences(context, PREFS_NAME)
             val set = prefs.getStringSet(KEY_ALERTED_IDS, emptySet()) ?: emptySet()
             if (set.contains(requestId)) {
                 alertedInMemory.add(requestId)
@@ -79,7 +85,7 @@ object UrgentSoundAlertManager {
         stopSound()
         ignoredInMemory.add(requestId)
         try {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val prefs = SafeStorageUtils.getDeviceProtectedSharedPreferences(context, PREFS_NAME)
             val current = prefs.getStringSet(KEY_IGNORED_IDS, emptySet())?.toMutableSet() ?: mutableSetOf()
             current.add(requestId)
             prefs.edit().putStringSet(KEY_IGNORED_IDS, current).apply()
@@ -93,7 +99,7 @@ object UrgentSoundAlertManager {
         if (requestId.isBlank()) return
         alertedInMemory.add(requestId)
         try {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val prefs = SafeStorageUtils.getDeviceProtectedSharedPreferences(context, PREFS_NAME)
             val current = prefs.getStringSet(KEY_ALERTED_IDS, emptySet())?.toMutableSet() ?: mutableSetOf()
             current.add(requestId)
             prefs.edit().putStringSet(KEY_ALERTED_IDS, current).apply()

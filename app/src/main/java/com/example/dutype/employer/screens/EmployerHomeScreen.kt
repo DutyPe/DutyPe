@@ -1727,20 +1727,7 @@ fun DashboardContent(
                     )
                 }
 
-                // 3. Quick Post Section (Cook, Helper, Driver, Security)
-                item(key = "employer_quick_post") {
-                    EmployerQuickPostSection(
-                        onRoleClick = { roleTitle ->
-                            navController.navigate(Routes.employerPostJobRoute(roleTitle))
-                        },
-                        onSeeAllClick = {
-                            navController.navigate(Routes.EMPLOYER_POST_JOB)
-                        },
-                        modifier = Modifier.padding(bottom = 24.dp)
-                    )
-                }
-
-                // 4. Home Services Section with WebApp Remote Images
+                // Home Services Section with WebApp Remote Images
                 item(key = "employer_home_services") {
                     EmployerHomeServicesSection(
                         onOpenServices = onOpenHomeServices,
@@ -1760,8 +1747,9 @@ fun DashboardContent(
                     }
                 }
 
-                // 6. Active Openings Management (when employer has active listings)
-                if (hasActiveJobs) {
+                // 6. Active Openings & Instant Jobs Management
+                val activeUrgentNeeds = urgentRequests.filter { !it.status.equals("completed", ignoreCase = true) && !it.status.equals("cancelled", ignoreCase = true) }
+                if (hasActiveJobs || activeUrgentNeeds.isNotEmpty()) {
                     item(key = "active_openings_label") {
                         EmployerSectionLabel(
                             text = stringResource(R.string.employer_home_active_openings),
@@ -1769,6 +1757,7 @@ fun DashboardContent(
                         )
                     }
 
+                    // Regular Vacancy Postings
                     items(activeOpenJobs, key = { it.id }) { job ->
                         val jobApps = applicationsByJobId[job.id].orEmpty()
                         val count = maxOf(job.applicationCount, jobApps.size)
@@ -1784,16 +1773,35 @@ fun DashboardContent(
                                     Routes.employerApplicationsJobRoute(job.id)
                                 )
                             },
+                            onShareClick = {
+                                onShareJob(job.id, job.title)
+                            },
                             modifier = Modifier.padding(bottom = 12.dp)
                         )
                     }
-                }
 
-                // 7. Signature Brand Footer ("India's local jobs & service app" with blue heart)
-                item(key = "employer_brand_footer") {
-                    com.example.dutype.components.MadeWithLoveFooter(
-                        modifier = Modifier.padding(start = 2.dp, top = 16.dp, bottom = 32.dp)
-                    )
+                    // Instant Requests Posted
+                    items(activeUrgentNeeds, key = { "urgent_${it.requestId}" }) { request ->
+                        val responses = urgentResponsesByRequestId[request.requestId].orEmpty()
+                        val count = maxOf(request.responseCount, responses.size)
+                        EmployerJobManagementCard(
+                            title = request.title.ifBlank { request.category },
+                            applicantCount = count,
+                            isUrgent = true,
+                            facepile = responses.take(3).map {
+                                EmployerFacepileItem(it.workerName, null)
+                            },
+                            onReviewClick = {
+                                navController.navigate(
+                                    Routes.employerUrgentNeedDetailRoute(request.requestId)
+                                )
+                            },
+                            onShareClick = {
+                                onShareJob(request.requestId, request.title)
+                            },
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                    }
                 }
 
                 item {

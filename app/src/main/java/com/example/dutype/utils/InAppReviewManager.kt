@@ -35,58 +35,74 @@ class InAppReviewManager @Inject constructor(
         private val KEY_REVIEW_DISMISSED_COUNT = longPreferencesKey("review_dismissed_count")
         private val KEY_POSITIVE_ACTIONS_COUNT = longPreferencesKey("positive_actions_count")
 
-        private const val MIN_HOURS_BETWEEN_REQUESTS = 24L
-        private const val MAX_DISMISS_COUNT = 10
+        private const val MIN_HOURS_BETWEEN_REQUESTS = 72L // 3 days cooldown
+        private const val MAX_DISMISS_COUNT = 2L // Max 2 dismissals ever
 
         const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.dutype.app"
-
-        fun isInstalledFromGooglePlay(context: Context): Boolean {
-            return try {
-                val pm = context.packageManager
-                val installer = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-                    pm.getInstallSourceInfo(context.packageName).installingPackageName
-                } else {
-                    @Suppress("DEPRECATION")
-                    pm.getInstallerPackageName(context.packageName)
-                }
-                installer == "com.android.vending"
-            } catch (_: Exception) {
-                false
-            }
-        }
     }
 
     private val _showRatingPromptFlow = MutableStateFlow(false)
     val showRatingPromptFlow: StateFlow<Boolean> = _showRatingPromptFlow.asStateFlow()
 
     /**
-     * Marks that a native Google Play review sheet should be shown. Eligibility (has rated,
-     * dismiss cap, 24h cooldown) is preserved; `force` bypasses it as before. MainActivity
-     * observes [showRatingPromptFlow] and launches the Play In-App Review flow.
+     * Marks feedback as submitted. Permanently silences the review prompt.
+     */
+    fun markFeedbackGiven() {
+        _showRatingPromptFlow.value = false
+        CoroutineScope(Dispatchers.IO).launch {
+            context.reviewDataStore.edit { prefs ->
+                prefs[KEY_HAS_RATED] = true
+                prefs[KEY_LAST_REVIEW_REQUEST] = System.currentTimeMillis()
+            }
+            Timber.d("Feedback submitted: in-app review permanently silenced")
+        }
+    }
+
+    /**
+     * Triggers the rating prompt or official Google Play Review.
+     * Guaranteed never to prompt if user has already rated/submitted feedback or dismissed >= 2 times.
      */
     fun triggerRatingPrompt(activity: Activity? = null, force: Boolean = false) {
         CoroutineScope(Dispatchers.Main).launch {
             try {
-                if (force || shouldShowReviewPrompt()) {
-                    val isPlayStore = isInstalledFromGooglePlay(context)
-                    if (isPlayStore && activity != null && !activity.isFinishing && !activity.isDestroyed) {
-                        launchNativeReview(activity)
-                    } else {
-                        // When installed outside Play Store (direct APK, debug, Firebase Distribution)
-                        // or when activity is null: display our guaranteed in-app rating prompt dialog!
-                        _showRatingPromptFlow.value = true
+                val prefs = context.reviewDataStore.data.first()
+                val hasRated = prefs[KEY_HAS_RATED] ?: false
+                if (hasRated) {
+                    Timber.d("Review skipped: user has already rated or submitted feedback")
+                    return@launch
+                }
+
+                val dismissCount = prefs[KEY_REVIEW_DISMISSED_COUNT] ?: 0
+                if (dismissCount >= MAX_DISMISS_COUNT) {
+                    Timber.d("Review skipped: user dismissed %d times (max %d)", dismissCount, MAX_DISMISS_COUNT)
+                    return@launch
+                }
+
+                if (!force) {
+                    val lastRequest = prefs[KEY_LAST_REVIEW_REQUEST] ?: 0L
+                    if (lastRequest > 0L) {
+                        val hoursSinceLast = (System.currentTimeMillis() - lastRequest) / (1000 * 60 * 60)
+                        if (hoursSinceLast < MIN_HOURS_BETWEEN_REQUESTS) {
+                            Timber.d("Review skipped: within cooldown (%d hrs < %d hrs)", hoursSinceLast, MIN_HOURS_BETWEEN_REQUESTS)
+                            return@launch
+                        }
                     }
+                }
+
+                if (activity != null && !activity.isFinishing && !activity.isDestroyed) {
+                    launchNativeReview(activity)
+                } else {
+                    _showRatingPromptFlow.value = true
                 }
             } catch (e: Exception) {
                 Timber.e(e, "Error evaluating review eligibility")
-                _showRatingPromptFlow.value = true
             }
         }
     }
 
     /**
-     * Requests and launches the official Google Play In-App Review flow. Always clears the
-     * pending flag, records the request time (cooldown), and never throws.
+     * Requests and launches the official Google Play In-App Review flow.
+     * Uses com.google.android.play.core.review.ReviewManager.
      */
     suspend fun launchNativeReview(activity: Activity) {
         _showRatingPromptFlow.value = false
@@ -105,23 +121,29 @@ class InAppReviewManager @Inject constructor(
                         val reviewInfo = request.result
                         if (reviewInfo != null) {
                             manager.launchReviewFlow(activity, reviewInfo).addOnCompleteListener {
-                                Timber.d("In-app review flow completed")
+                                Timber.d("Official Google Play In-App Review flow completed")
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    context.reviewDataStore.edit { prefs ->
+                                        prefs[KEY_HAS_RATED] = true
+                                    }
+                                }
                             }
-                        } else {
+                            return@addOnCompleteListener
+                        }
+                    }
+                    // Only fallback to custom prompt if user hasn't rated & hasn't exceeded dismiss count
+                    CoroutineScope(Dispatchers.Main).launch {
+                        val prefs = context.reviewDataStore.data.first()
+                        if (!(prefs[KEY_HAS_RATED] ?: false) && (prefs[KEY_REVIEW_DISMISSED_COUNT] ?: 0) < MAX_DISMISS_COUNT) {
                             _showRatingPromptFlow.value = true
                         }
-                    } else {
-                        Timber.w(request.exception, "Review flow not launched, falling back to Play Store prompt")
-                        _showRatingPromptFlow.value = true
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "Error launching review flow")
-                    _showRatingPromptFlow.value = true
                 }
             }
         } catch (e: Exception) {
             Timber.e(e, "Error requesting in-app review")
-            _showRatingPromptFlow.value = true
         }
     }
 

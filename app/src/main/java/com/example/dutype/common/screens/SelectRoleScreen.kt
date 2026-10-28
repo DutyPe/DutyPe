@@ -110,6 +110,13 @@ fun SelectRoleScreen(
             androidx.hilt.navigation.compose.hiltViewModel()
 
         var selectedRole by remember { mutableStateOf("WORKER") }
+        var showLanguageBottomSheet by remember { mutableStateOf(false) }
+
+        val activeLangName = when (LocaleHelper.getLanguage(context)) {
+            LocaleHelper.LANGUAGE_TELUGU -> "తెలుగు"
+            LocaleHelper.LANGUAGE_HINDI -> "हिन्दी"
+            else -> "English"
+        }
 
         fun applyRole(role: String) {
             Timber.d("🔍 Role selected: $role")
@@ -135,7 +142,39 @@ fun SelectRoleScreen(
                 .navigationBarsPadding()
                 .padding(start = 24.dp, end = 24.dp)
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
+            // Top Bar with PhonePe style compact language selector pill on top right
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp, bottom = 4.dp),
+                contentAlignment = Alignment.TopEnd
+            ) {
+                Surface(
+                    onClick = { showLanguageBottomSheet = true },
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.White,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Translate,
+                            contentDescription = "Language",
+                            tint = Color(0xFF0F172A),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = activeLangName,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF0F172A)
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.weight(1.35f))
 
@@ -170,6 +209,12 @@ fun SelectRoleScreen(
             ContinueButton(onClick = { applyRole(selectedRole) })
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        if (showLanguageBottomSheet) {
+            com.example.dutype.components.LanguageSelectionBottomSheet(
+                onDismiss = { showLanguageBottomSheet = false }
+            )
         }
     }
 }

@@ -309,18 +309,19 @@ exports.matchWorkersForJob = (0, secure_callable_1.onCallSecured)({ timeoutSecon
 });
 // ─────────────────────────── employer's worker view ───────────────────────────
 exports.getWorkerProfileForEmployer = (0, secure_callable_1.onCallSecured)({}, async (raw, context) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
     const uid = context.auth.uid;
     const data = (0, input_1.obj)(raw);
     const workerId = (0, input_1.str)(data, "workerId", { max: 128, pattern: /^[A-Za-z0-9_-]+$/ });
     const jobId = (0, input_1.str)(data, "jobId", { max: 64, optional: true, pattern: /^[A-Za-z0-9_-]+$/ });
     const unlockRef = db.collection(schema_1.EmployerProfiles.COLLECTION).doc(uid)
         .collection(schema_1.EmployerProfiles.Unlocks.COLLECTION).doc(workerId);
-    const [unlock, app, profile, card] = await Promise.all([
+    const [unlock, app, profile, card, userDoc] = await Promise.all([
         unlockRef.get(),
         jobId ? db.collection(schema_1.Applications.COLLECTION).doc(`${jobId}_${workerId}`).get() : Promise.resolve(null),
         db.collection(schema_1.WorkerProfiles.COLLECTION).doc(workerId).get(),
         db.collection(schema_1.WorkerCards.COLLECTION).doc(workerId).get(),
+        db.collection("users").doc(workerId).get(),
     ]);
     let related = unlock.exists || (!!app && app.exists && app.get(schema_1.Applications.EMPLOYER_ID) === uid);
     if (!related) {
@@ -334,29 +335,36 @@ exports.getWorkerProfileForEmployer = (0, secure_callable_1.onCallSecured)({}, a
     }
     if (!related)
         (0, input_1.fail)("permission-denied", "You can view workers who applied to your jobs");
-    if (!profile.exists)
+    if (!profile.exists && !card.exists && !userDoc.exists)
         (0, input_1.fail)("not-found", "Worker profile not found");
     const P = schema_1.WorkerProfiles;
     const p = profile.data() || {};
     const c = card.data() || {};
+    const u = userDoc.data() || {};
+    const resolvedPhone = unlock.exists ? (p[P.PHONE] || u["phoneNumber"] || u["phone"] || "") : "";
+    const resolvedName = p[P.NAME] || c[schema_1.WorkerCards.NAME] || u["name"] || u["displayName"] || "Worker";
+    const resolvedPhoto = p[P.PHOTO_URL] || c[schema_1.WorkerCards.PHOTO_URL] || u["photoUrl"] || u["profileImageUrl"] || "";
+    const resolvedArea = p[P.AREA] || c[schema_1.WorkerCards.AREA] || "";
+    const resolvedSkills = (Array.isArray(p[P.SKILLS]) && p[P.SKILLS].length > 0) ? p[P.SKILLS] : (Array.isArray(c[schema_1.WorkerCards.SKILLS]) ? c[schema_1.WorkerCards.SKILLS] : []);
+    const resolvedYears = (_b = (_a = p[P.EXPERIENCE_YEARS]) !== null && _a !== void 0 ? _a : c[schema_1.WorkerCards.EXPERIENCE_YEARS]) !== null && _b !== void 0 ? _b : 0;
     return {
         profile: {
             workerId,
-            [P.NAME]: (_a = p[P.NAME]) !== null && _a !== void 0 ? _a : "",
-            [P.PHOTO_URL]: (_b = p[P.PHOTO_URL]) !== null && _b !== void 0 ? _b : "",
+            [P.NAME]: resolvedName,
+            [P.PHOTO_URL]: resolvedPhoto,
             [P.GENDER]: (_c = p[P.GENDER]) !== null && _c !== void 0 ? _c : "",
             [P.DATE_OF_BIRTH]: (_d = p[P.DATE_OF_BIRTH]) !== null && _d !== void 0 ? _d : "",
             [P.EDUCATION]: (_e = p[P.EDUCATION]) !== null && _e !== void 0 ? _e : "",
-            [P.EXPERIENCE_YEARS]: (_f = p[P.EXPERIENCE_YEARS]) !== null && _f !== void 0 ? _f : 0,
-            [P.SKILLS]: (_g = p[P.SKILLS]) !== null && _g !== void 0 ? _g : [],
-            [P.BIO]: (_h = p[P.BIO]) !== null && _h !== void 0 ? _h : "",
-            [P.AREA]: (_j = p[P.AREA]) !== null && _j !== void 0 ? _j : "",
-            [P.AVAILABLE]: p[P.AVAILABLE] === true,
-            [schema_1.WorkerCards.RATING]: (_k = c[schema_1.WorkerCards.RATING]) !== null && _k !== void 0 ? _k : 0,
-            [schema_1.WorkerCards.RATING_COUNT]: (_l = c[schema_1.WorkerCards.RATING_COUNT]) !== null && _l !== void 0 ? _l : 0,
-            [schema_1.WorkerCards.JOBS_COMPLETED]: (_m = c[schema_1.WorkerCards.JOBS_COMPLETED]) !== null && _m !== void 0 ? _m : 0,
+            [P.EXPERIENCE_YEARS]: resolvedYears,
+            [P.SKILLS]: resolvedSkills,
+            [P.BIO]: (_f = p[P.BIO]) !== null && _f !== void 0 ? _f : "",
+            [P.AREA]: resolvedArea,
+            [P.AVAILABLE]: p[P.AVAILABLE] === true || c[schema_1.WorkerCards.AVAILABLE] === true,
+            [schema_1.WorkerCards.RATING]: (_g = c[schema_1.WorkerCards.RATING]) !== null && _g !== void 0 ? _g : 0,
+            [schema_1.WorkerCards.RATING_COUNT]: (_h = c[schema_1.WorkerCards.RATING_COUNT]) !== null && _h !== void 0 ? _h : 0,
+            [schema_1.WorkerCards.JOBS_COMPLETED]: (_j = c[schema_1.WorkerCards.JOBS_COMPLETED]) !== null && _j !== void 0 ? _j : 0,
             // The phone is shown only after the employer revealed it (getWorkerContact).
-            [P.PHONE]: unlock.exists ? (_o = p[P.PHONE]) !== null && _o !== void 0 ? _o : "" : "",
+            [P.PHONE]: resolvedPhone,
         },
     };
 });

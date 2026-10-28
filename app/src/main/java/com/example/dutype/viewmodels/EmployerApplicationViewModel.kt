@@ -205,6 +205,7 @@ class EmployerApplicationViewModel @Inject constructor(
                 data?.get("phone") as? String ?: ""
             }.onSuccess { phone ->
                 if (phone.isBlank()) return@onSuccess onFailure()
+                profileStore.decrementInstantCredit()
                 _uiState.update { it.copy(unlockedWorkerIds = it.unlockedWorkerIds + workerId, phones = it.phones + (workerId to phone)) }
                 applyFilters()
                 _matchedWorkersState.update { state ->
@@ -242,12 +243,19 @@ class EmployerApplicationViewModel @Inject constructor(
         val jobs = jobRepository.getCards(list.map { it.jobId }).getOrDefault(emptyList()).associateBy { it.id }
         return list.map { app ->
             val job = jobs[app.jobId]
-            val worker = cards[app.workerId]?.let { card ->
-                if (job != null && card.lat != 0.0 && card.lng != 0.0) {
-                    card.copy(distanceKm = com.example.dutype.jobs.Geohash.distanceKm(job.lat, job.lng, card.lat, card.lng))
-                } else card
+            val card = cards[app.workerId]
+            val worker = card?.let { c ->
+                if (job != null && c.lat != 0.0 && c.lng != 0.0) {
+                    c.copy(distanceKm = com.example.dutype.jobs.Geohash.distanceKm(job.lat, job.lng, c.lat, c.lng))
+                } else c
             }
-            app.copy(worker = worker ?: app.worker, job = job)
+            app.copy(
+                worker = worker ?: app.worker,
+                job = job,
+                workerName = app.workerName.ifBlank { card?.name.orEmpty() },
+                workerPhoto = app.workerPhoto.ifBlank { card?.photoUrl.orEmpty() },
+                workerSkill = app.workerSkill.ifBlank { card?.skills?.firstOrNull().orEmpty() }
+            )
         }
     }
 

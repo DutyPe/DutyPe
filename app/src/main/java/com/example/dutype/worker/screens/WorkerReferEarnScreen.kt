@@ -154,12 +154,14 @@ fun WorkerReferEarnScreen(
         )
 
         when {
-            uiState.isLoading -> {
+            uiState.isLoading || isCheckingProfileStatus -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = com.example.dutype.ui.theme.WorkerColors.TextPrimary, strokeWidth = 3.dp)
+                    com.example.dutype.components.ThreeDotsBouncingLoader(
+                        dotColor = com.example.dutype.ui.theme.WorkerColors.TextPrimary
+                    )
                 }
             }
             uiState.error != null -> {
@@ -483,55 +485,7 @@ private fun ReferEarnTopSections(
     val mute = Color(0xFF94A3B8).fg()
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Hero card
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4).bg()),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFA7F3D0).bd()),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFDCFCE7).bg()),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.CardGiftcard,
-                        contentDescription = null,
-                        tint = green,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-                Spacer(Modifier.width(14.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    ReferText(
-                        text = stringResource(R.string.refer_hero_title, rewardAmount),
-                        color = ink,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(Modifier.height(3.dp))
-                    ReferText(
-                        text = stringResource(R.string.refer_hero_subtitle),
-                        color = slate,
-                        fontSize = 13.sp
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(14.dp))
-
-        // Referral code box with dashed border
+        // Referral code box with dashed border directly at top
         val dashShape = RoundedCornerShape(16.dp)
         Column(
             modifier = Modifier
@@ -543,11 +497,11 @@ private fun ReferEarnTopSections(
                     drawRoundRect(
                         color = green,
                         topLeft = androidx.compose.ui.geometry.Offset(inset, inset),
-                        size = Size(size.width - stroke, size.height - stroke),
-                        cornerRadius = CornerRadius(16.dp.toPx() - inset, 16.dp.toPx() - inset),
-                        style = Stroke(
+                        size = androidx.compose.ui.geometry.Size(size.width - stroke, size.height - stroke),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx() - inset, 16.dp.toPx() - inset),
+                        style = androidx.compose.ui.graphics.drawscope.Stroke(
                             width = stroke,
-                            pathEffect = PathEffect.dashPathEffect(
+                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(
                                 floatArrayOf(6.dp.toPx(), 4.dp.toPx()),
                                 0f
                             )
@@ -625,21 +579,53 @@ private fun ReferEarnTopSections(
             }
         }
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(14.dp))
 
-        // 3-step explainer
-        Row(
+        // Clean white-based reward perk card shown directly below the referral code
+        Card(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.Top
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White.bg()),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
         ) {
-            ReferStep(Icons.Outlined.Share, ink, stringResource(R.string.refer_step_share), slate)
-            ReferArrow(mute)
-            ReferStep(Icons.Outlined.PersonAdd, ink, stringResource(R.string.refer_step_joins), slate)
-            ReferArrow(mute)
-            ReferStep(Icons.Outlined.CurrencyRupee, green, stringResource(R.string.refer_step_each, rewardAmount), slate)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFF1F5F9).bg()),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.CurrencyRupee,
+                        contentDescription = null,
+                        tint = green,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    ReferText(
+                        text = stringResource(R.string.refer_hero_title, rewardAmount),
+                        color = ink,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    ReferText(
+                        text = stringResource(R.string.refer_hero_subtitle),
+                        color = slate,
+                        fontSize = 13.sp
+                    )
+                }
+            }
         }
-
     }
 }
 

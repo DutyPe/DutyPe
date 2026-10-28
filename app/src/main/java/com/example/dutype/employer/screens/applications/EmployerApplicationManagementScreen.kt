@@ -88,11 +88,14 @@ fun EmployerApplicationManagementScreen(
     jobId: String? = null,
     onApplicationClick: (JobApplication) -> Unit = {},
     onBackClick: () -> Unit = {},
-    onSubscribeClick: () -> Unit = {}
+    onSubscribeClick: () -> Unit = {},
+    onWorkerClick: (String) -> Unit = { workerId -> onApplicationClick(JobApplication(workerId = workerId)) }
 ) {
     val context = LocalContext.current
     val viewModel: EmployerApplicationViewModel = hiltViewModel()
     val jobViewModel: EmployerJobsViewModel = hiltViewModel()
+    val subscriptionViewModel: com.example.dutype.viewmodels.SubscriptionViewModel = hiltViewModel()
+    val subState by subscriptionViewModel.activeSubscription.collectAsStateWithLifecycle()
     val reviewTriggerService = rememberInAppReviewTriggerService()
     val scope = rememberCoroutineScope()
     val ratingService = remember { com.example.dutype.di.ratingServiceFromHilt(context) }
@@ -374,6 +377,9 @@ fun EmployerApplicationManagementScreen(
             applicantsCount = applicantCountForSummary,
             nearbyCount = matchedWorkersState.workers.size,
             callReadyCount = callReadyCandidates,
+            contactCredits = subState.instantCredits,
+            onSubscribeClick = onSubscribeClick,
+            onWorkerClick = onWorkerClick,
             selectedTabIndex = selectedTabIndex,
             onTabSelected = { newTab ->
                 selectedTabIndex = newTab
@@ -393,12 +399,20 @@ fun EmployerApplicationManagementScreen(
                 val phone = worker.phone
                 if (phone.isNotBlank()) {
                     dialWorkerPhone(context, phone)
+                } else if (subState.instantCredits <= 0 && !subState.isUnlimitedCampaign) {
+                    Toast.makeText(context, "No contact unlocks remaining. Please upgrade your plan to unlock worker contacts.", Toast.LENGTH_LONG).show()
+                    onSubscribeClick()
                 } else {
-                    Toast.makeText(context, context.getString(R.string.fetching_phone_number), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Unlocking contact with 1 credit...", Toast.LENGTH_SHORT).show()
                     viewModel.fetchPhoneNumberForWorker(
                         jobId = jobId,
                         workerId = worker.workerId,
-                        onSuccess = { p -> if (p.isNotBlank()) dialWorkerPhone(context, p) },
+                        onSuccess = { p ->
+                            if (p.isNotBlank()) {
+                                Toast.makeText(context, "Contact unlocked! 1 credit used", Toast.LENGTH_SHORT).show()
+                                dialWorkerPhone(context, p)
+                            }
+                        },
                         onFailure = { Toast.makeText(context, context.getString(R.string.failed_fetch_phone_number), Toast.LENGTH_SHORT).show() }
                     )
                 }
@@ -408,11 +422,20 @@ fun EmployerApplicationManagementScreen(
                 val jobTitleMsg = jobTitleForActions.ifBlank { "DutyPe" }
                 if (phone.isNotBlank()) {
                     openWorkerWhatsApp(context, phone, "Hello ${worker.fullName}, I have a job opening on DutyPe: $jobTitleMsg.")
+                } else if (subState.instantCredits <= 0 && !subState.isUnlimitedCampaign) {
+                    Toast.makeText(context, "No contact unlocks remaining. Please upgrade your plan to unlock worker contacts.", Toast.LENGTH_LONG).show()
+                    onSubscribeClick()
                 } else {
+                    Toast.makeText(context, "Unlocking contact with 1 credit...", Toast.LENGTH_SHORT).show()
                     viewModel.fetchPhoneNumberForWorker(
                         jobId = jobId,
                         workerId = worker.workerId,
-                        onSuccess = { p -> if (p.isNotBlank()) openWorkerWhatsApp(context, p, "Hello ${worker.fullName}, I have a job opening on DutyPe: $jobTitleMsg.") },
+                        onSuccess = { p ->
+                            if (p.isNotBlank()) {
+                                Toast.makeText(context, "Contact unlocked! 1 credit used", Toast.LENGTH_SHORT).show()
+                                openWorkerWhatsApp(context, p, "Hello ${worker.fullName}, I have a job opening on DutyPe: $jobTitleMsg.")
+                            }
+                        },
                         onFailure = { Toast.makeText(context, context.getString(R.string.failed_fetch_phone_number), Toast.LENGTH_SHORT).show() }
                     )
                 }
@@ -426,10 +449,19 @@ fun EmployerApplicationManagementScreen(
                 val phone = application.workerPhone.trim()
                 if (phone.isNotBlank()) {
                     dialWorkerPhone(context, phone)
+                } else if (subState.instantCredits <= 0 && !subState.isUnlimitedCampaign) {
+                    Toast.makeText(context, "No contact unlocks remaining. Please upgrade your plan to unlock worker contacts.", Toast.LENGTH_LONG).show()
+                    onSubscribeClick()
                 } else {
+                    Toast.makeText(context, "Unlocking contact with 1 credit...", Toast.LENGTH_SHORT).show()
                     viewModel.unlockContact(
                         application = application,
-                        onSuccess = { p -> if (p.isNotBlank()) dialWorkerPhone(context, p) },
+                        onSuccess = { p ->
+                            if (p.isNotBlank()) {
+                                Toast.makeText(context, "Contact unlocked! 1 credit used", Toast.LENGTH_SHORT).show()
+                                dialWorkerPhone(context, p)
+                            }
+                        },
                         onFailure = { Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show() }
                     )
                 }
@@ -440,10 +472,19 @@ fun EmployerApplicationManagementScreen(
                 val defaultWaMsg = context.getString(R.string.whatsapp_msg_application, displayName)
                 if (phone.isNotBlank()) {
                     openWorkerWhatsApp(context, phone, defaultWaMsg)
+                } else if (subState.instantCredits <= 0 && !subState.isUnlimitedCampaign) {
+                    Toast.makeText(context, "No contact unlocks remaining. Please upgrade your plan to unlock worker contacts.", Toast.LENGTH_LONG).show()
+                    onSubscribeClick()
                 } else {
+                    Toast.makeText(context, "Unlocking contact with 1 credit...", Toast.LENGTH_SHORT).show()
                     viewModel.unlockContact(
                         application = application,
-                        onSuccess = { p -> if (p.isNotBlank()) openWorkerWhatsApp(context, p, defaultWaMsg) },
+                        onSuccess = { p ->
+                            if (p.isNotBlank()) {
+                                Toast.makeText(context, "Contact unlocked! 1 credit used", Toast.LENGTH_SHORT).show()
+                                openWorkerWhatsApp(context, p, defaultWaMsg)
+                            }
+                        },
                         onFailure = { Toast.makeText(context, context.getString(R.string.phone_number_not_available), Toast.LENGTH_SHORT).show() }
                     )
                 }
@@ -571,6 +612,9 @@ private fun HiringRoomReplicatedLayout(
     applicantsCount: Int,
     nearbyCount: Int,
     callReadyCount: Int,
+    contactCredits: Int = 0,
+    onSubscribeClick: () -> Unit = {},
+    onWorkerClick: (String) -> Unit = {},
     selectedTabIndex: Int,
     onTabSelected: (Int) -> Unit,
     onBackClick: () -> Unit,
@@ -606,6 +650,8 @@ private fun HiringRoomReplicatedLayout(
             applicantsCount = applicantsCount,
             nearbyCount = nearbyCount,
             callReadyCount = callReadyCount,
+            contactCredits = contactCredits,
+            onSubscribeClick = onSubscribeClick,
             onBackClick = onBackClick
         )
 
@@ -690,6 +736,7 @@ private fun HiringRoomReplicatedLayout(
                             MatchedWorkerCardMockup(
                                 worker = worker,
                                 defaultJobTitle = jobTitle,
+                                onClick = { onWorkerClick(worker.workerId) },
                                 onCall = { onCallMatchedWorker(worker) },
                                 onWhatsApp = { onWhatsAppMatchedWorker(worker) }
                             )
@@ -744,6 +791,8 @@ private fun HiringRoomYellowHero(
     applicantsCount: Int,
     nearbyCount: Int,
     callReadyCount: Int,
+    contactCredits: Int = 0,
+    onSubscribeClick: () -> Unit = {},
     onBackClick: () -> Unit
 ) {
     Surface(
@@ -843,6 +892,67 @@ private fun HiringRoomYellowHero(
                     label = "Status",
                     modifier = Modifier.weight(1f)
                 )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Contact Unlocks Credit Indicator
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .clickable { onSubscribeClick() },
+                shape = RoundedCornerShape(14.dp),
+                color = Color.White.copy(alpha = 0.95f),
+                border = BorderStroke(1.dp, Color(0xFFFDE68A))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFEF3C7)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Phone,
+                                contentDescription = null,
+                                tint = Color(0xFFD97706),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "Contact Unlock Credits",
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1E293B)
+                            )
+                            Text(
+                                text = "$contactCredits remaining",
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (contactCredits > 0) Color(0xFF059669) else Color(0xFFDC2626)
+                            )
+                        }
+                    }
+                    Text(
+                        text = if (contactCredits > 0) "Get More ›" else "Buy Credits ›",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFD97706)
+                    )
+                }
             }
         }
     }
@@ -1050,11 +1160,14 @@ private fun HiringRoomPillTabs(
 private fun MatchedWorkerCardMockup(
     worker: MatchedWorker,
     defaultJobTitle: String,
+    onClick: () -> Unit = {},
     onCall: () -> Unit,
     onWhatsApp: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
@@ -1157,7 +1270,8 @@ private fun MatchedWorkerCardMockup(
                 )
             }
 
-            // Dual Action Buttons: Yellow [Call] and Cream [WhatsApp]
+            // Dual Action Buttons: Yellow [Call] and Cream [WhatsApp] with Lock Icon when not unlocked
+            val isUnlocked = worker.phone.isNotBlank()
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1179,10 +1293,10 @@ private fun MatchedWorkerCardMockup(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.Call,
-                            contentDescription = null,
+                            imageVector = if (isUnlocked) Icons.Filled.Call else Icons.Default.Lock,
+                            contentDescription = if (isUnlocked) "Call" else "Unlock & Call",
                             tint = Color(0xFF1E293B),
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(if (isUnlocked) 18.dp else 15.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
@@ -1211,10 +1325,10 @@ private fun MatchedWorkerCardMockup(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.ChatBubbleOutline,
-                            contentDescription = null,
+                            imageVector = if (isUnlocked) Icons.Outlined.ChatBubbleOutline else Icons.Default.Lock,
+                            contentDescription = if (isUnlocked) "WhatsApp" else "Unlock & WhatsApp",
                             tint = Color(0xFF78350F),
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(if (isUnlocked) 18.dp else 15.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
@@ -1373,7 +1487,8 @@ private fun AppliedCandidateCardMockup(
                 )
             }
 
-            // Action Buttons: Call & WhatsApp
+            // Action Buttons: Call & WhatsApp with Lock Icon when not unlocked
+            val isUnlocked = application.workerPhone.isNotBlank()
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1395,10 +1510,10 @@ private fun AppliedCandidateCardMockup(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.Call,
-                            contentDescription = null,
+                            imageVector = if (isUnlocked) Icons.Filled.Call else Icons.Default.Lock,
+                            contentDescription = if (isUnlocked) "Call" else "Unlock & Call",
                             tint = Color(0xFF1E293B),
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(if (isUnlocked) 18.dp else 15.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
@@ -1427,10 +1542,10 @@ private fun AppliedCandidateCardMockup(
                         horizontalArrangement = Arrangement.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.ChatBubbleOutline,
-                            contentDescription = null,
+                            imageVector = if (isUnlocked) Icons.Outlined.ChatBubbleOutline else Icons.Default.Lock,
+                            contentDescription = if (isUnlocked) "WhatsApp" else "Unlock & WhatsApp",
                             tint = Color(0xFF78350F),
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(if (isUnlocked) 18.dp else 15.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
@@ -2058,6 +2173,7 @@ private fun MatchedWorkerCard(
     isJobLive: Boolean,
     isDisabledForFilledJob: Boolean,
     isContactUnlocked: Boolean,
+    onClick: () -> Unit = {},
     onUnlockContact: () -> Unit,
     onCallWorker: (MatchedWorker) -> Unit,
     onChatWorker: (() -> Unit)? = null,
@@ -2077,7 +2193,9 @@ private fun MatchedWorkerCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = cardContainerColor),
         elevation = CardDefaults.cardElevation(defaultElevation = if (isDisabledForFilledJob) 0.dp else 1.dp),
         shape = RoundedCornerShape(14.dp)
