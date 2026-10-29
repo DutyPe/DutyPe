@@ -41,6 +41,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavController
 import com.example.dutype.components.CommonHeader
 import com.example.dutype.components.OfflineBanner
+import com.example.dutype.components.cascadeEnter
+import com.example.dutype.components.bouncyClickable
 import com.example.dutype.viewmodels.ConnectivityViewModel
 import com.example.dutype.navigation.Routes
 import com.example.dutype.components.ReusableSearchBar
@@ -567,7 +569,7 @@ private fun JobCategoryTile(
         modifier = Modifier
             .width(64.dp)
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
+            .bouncyClickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
@@ -784,10 +786,12 @@ private fun JobsList(
                     }
                 }
                 item(key = jobListKey(job), contentType = "job_card") {
-                    WorkerHomeJobCard(
-                        job = job,
-                        onCardClick = { onNavigateToJob(it) }
-                    )
+                    Box(modifier = Modifier.cascadeEnter(index = index.coerceAtMost(7))) {
+                        WorkerHomeJobCard(
+                            job = job,
+                            onCardClick = { onNavigateToJob(it) }
+                        )
+                    }
                 }
 
                 // Native in-feed ad banner inserted every 6th job card

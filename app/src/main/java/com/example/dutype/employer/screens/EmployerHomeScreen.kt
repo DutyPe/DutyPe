@@ -118,6 +118,8 @@ import com.example.dutype.components.OptimizedImage
 import com.example.dutype.components.GuestWelcomeBonusCard
 import com.example.dutype.components.WelcomeCelebrationOverlay
 import com.example.dutype.components.consumeWelcomeCelebrationFlag
+import com.example.dutype.components.cascadeEnter
+import com.example.dutype.components.bouncyClickable
 import com.example.dutype.employer.components.EmployerJobCard
 import com.example.dutype.employer.models.JobCategory
 import com.example.dutype.employer.models.PayType
@@ -729,7 +731,7 @@ fun EmployerBentoGrid(
                 .weight(1.15f)
                 .clip(RoundedCornerShape(24.dp))
                 .background(Color(0xFFFFF0E8))
-                .clickable(onClick = onActiveJobClick)
+                .bouncyClickable(onClick = onActiveJobClick)
                 .padding(16.dp)
         ) {
             Column(
@@ -849,7 +851,7 @@ fun EmployerBentoGrid(
                     .clip(RoundedCornerShape(20.dp))
                     .background(Color.White)
                     .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(20.dp))
-                    .clickable(onClick = onCallReadyClick)
+                    .bouncyClickable(onClick = onCallReadyClick)
                     .padding(14.dp)
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -930,7 +932,7 @@ fun EmployerBentoGrid(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(20.dp))
                     .background(Color(0xFFFFF0E8))
-                    .clickable(onClick = onNearbyClick)
+                    .bouncyClickable(onClick = onNearbyClick)
                     .padding(14.dp)
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -1657,29 +1659,31 @@ fun DashboardContent(
                         val showcaseSlides = filteredShowcases.map { com.example.dutype.components.showcaseToSlide(it) }
                         announcementSlides + showcaseSlides
                     }
-                    com.example.dutype.components.PromotionalBannerCarousel(
-                        isWorker = false,
-                        customSlides = dynamicPromoSlides,
-                        onAction = { target ->
-                            val trimmed = target.trim()
-                            when {
-                                trimmed.startsWith("promo_showcase/") -> navController.navigate(trimmed)
-                                trimmed.startsWith("showcase:") -> navController.navigate(Routes.promoShowcaseRoute(trimmed.removePrefix("showcase:")))
-                                trimmed.startsWith("showcase/") -> navController.navigate(Routes.promoShowcaseRoute(trimmed.removePrefix("showcase/")))
-                                trimmed == "promote_business" || trimmed.contains("promote-business") || trimmed.contains("partner") -> {
-                                    DeepLinkHandler.handleAnnouncementAction(trimmed, navController, context)
+                    Box(modifier = Modifier.cascadeEnter(index = 0)) {
+                        com.example.dutype.components.PromotionalBannerCarousel(
+                            isWorker = false,
+                            customSlides = dynamicPromoSlides,
+                            onAction = { target ->
+                                val trimmed = target.trim()
+                                when {
+                                    trimmed.startsWith("promo_showcase/") -> navController.navigate(trimmed)
+                                    trimmed.startsWith("showcase:") -> navController.navigate(Routes.promoShowcaseRoute(trimmed.removePrefix("showcase:")))
+                                    trimmed.startsWith("showcase/") -> navController.navigate(Routes.promoShowcaseRoute(trimmed.removePrefix("showcase/")))
+                                    trimmed == "promote_business" || trimmed.contains("promote-business") || trimmed.contains("partner") -> {
+                                        DeepLinkHandler.handleAnnouncementAction(trimmed, navController, context)
+                                    }
+                                    trimmed == "post_job" -> navController.navigate(Routes.EMPLOYER_POST_JOB)
+                                    trimmed == "urgent_need" -> navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED)
+                                    trimmed == "refer_earn" -> navController.navigate(Routes.EMPLOYER_REFER_EARN)
+                                    trimmed.startsWith("dutype://") || trimmed.contains("://") -> {
+                                        DeepLinkHandler.handleAnnouncementAction(trimmed, navController, context)
+                                    }
+                                    else -> DeepLinkHandler.handleAnnouncementAction(trimmed, navController, context)
                                 }
-                                trimmed == "post_job" -> navController.navigate(Routes.EMPLOYER_POST_JOB)
-                                trimmed == "urgent_need" -> navController.navigate(Routes.EMPLOYER_POST_URGENT_NEED)
-                                trimmed == "refer_earn" -> navController.navigate(Routes.EMPLOYER_REFER_EARN)
-                                trimmed.startsWith("dutype://") || trimmed.contains("://") -> {
-                                    DeepLinkHandler.handleAnnouncementAction(trimmed, navController, context)
-                                }
-                                else -> DeepLinkHandler.handleAnnouncementAction(trimmed, navController, context)
-                            }
-                        },
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
+                            },
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+                    }
                 }
 
 
@@ -1704,46 +1708,52 @@ fun DashboardContent(
                     val callReadyCount = uncontactedApplications.size
                     val nearbyCount = unacceptedUrgentResponses.size
 
-                    EmployerBentoGrid(
-                        activeJobTitle = activeJobTitle,
-                        matchCount = matchCount,
-                        totalMatches = totalMatches,
-                        callReadyCount = callReadyCount,
-                        nearbyCount = nearbyCount,
-                        onActiveJobClick = {
-                            if (firstJob != null) {
-                                navController.navigate(Routes.employerApplicationsJobRoute(firstJob.id))
-                            } else {
-                                navController.navigate(Routes.EMPLOYER_MY_JOBS)
-                            }
-                        },
-                        onCallReadyClick = {
-                            navController.navigate(Routes.EMPLOYER_APPLICATIONS)
-                        },
-                        onNearbyClick = {
-                            navController.navigate(Routes.employerPostUrgentNeedRoute(null))
-                        },
-                        modifier = Modifier.padding(bottom = 24.dp)
-                    )
+                    Box(modifier = Modifier.cascadeEnter(index = 1)) {
+                        EmployerBentoGrid(
+                            activeJobTitle = activeJobTitle,
+                            matchCount = matchCount,
+                            totalMatches = totalMatches,
+                            callReadyCount = callReadyCount,
+                            nearbyCount = nearbyCount,
+                            onActiveJobClick = {
+                                if (firstJob != null) {
+                                    navController.navigate(Routes.employerApplicationsJobRoute(firstJob.id))
+                                } else {
+                                    navController.navigate(Routes.EMPLOYER_MY_JOBS)
+                                }
+                            },
+                            onCallReadyClick = {
+                                navController.navigate(Routes.EMPLOYER_APPLICATIONS)
+                            },
+                            onNearbyClick = {
+                                navController.navigate(Routes.employerPostUrgentNeedRoute(null))
+                            },
+                            modifier = Modifier.padding(bottom = 24.dp)
+                        )
+                    }
                 }
 
                 // Home Services Section with WebApp Remote Images
                 item(key = "employer_home_services") {
-                    EmployerHomeServicesSection(
-                        onOpenServices = onOpenHomeServices,
-                        modifier = Modifier.padding(bottom = 20.dp)
-                    )
+                    Box(modifier = Modifier.cascadeEnter(index = 2)) {
+                        EmployerHomeServicesSection(
+                            onOpenServices = onOpenHomeServices,
+                            modifier = Modifier.padding(bottom = 20.dp)
+                        )
+                    }
                 }
 
                 // 5. Referral Free Post Reward (if employer has earned referral posts)
                 if (referralPostsLeft > 0) {
                     item(key = "referral_post") {
-                        ReferralFreePostCard(
-                            postsLeft = referralPostsLeft,
-                            onPost = { navController.navigate(Routes.EMPLOYER_POST_JOB) },
-                            onRefer = { navController.navigate(Routes.EMPLOYER_REFER_EARN) },
-                            modifier = Modifier.padding(bottom = 16.dp)
-                        )
+                        Box(modifier = Modifier.cascadeEnter(index = 3)) {
+                            ReferralFreePostCard(
+                                postsLeft = referralPostsLeft,
+                                onPost = { navController.navigate(Routes.EMPLOYER_POST_JOB) },
+                                onRefer = { navController.navigate(Routes.EMPLOYER_REFER_EARN) },
+                                modifier = Modifier.padding(bottom = 16.dp)
+                            )
+                        }
                     }
                 }
 
@@ -1759,48 +1769,54 @@ fun DashboardContent(
 
                     // Regular Vacancy Postings
                     items(activeOpenJobs, key = { it.id }) { job ->
+                        val jobIndex = activeOpenJobs.indexOf(job)
                         val jobApps = applicationsByJobId[job.id].orEmpty()
                         val count = maxOf(job.applicationCount, jobApps.size)
-                        EmployerJobManagementCard(
-                            title = job.title,
-                            applicantCount = count,
-                            isUrgent = job.urgency.equals("HIGH", ignoreCase = true),
-                            facepile = jobApps.take(3).map {
-                                EmployerFacepileItem(it.workerName, it.workerPhoto)
-                            },
-                            onReviewClick = {
-                                navController.navigate(
-                                    Routes.employerApplicationsJobRoute(job.id)
-                                )
-                            },
-                            onShareClick = {
-                                onShareJob(job.id, job.title)
-                            },
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
+                        Box(modifier = Modifier.cascadeEnter(index = 4 + jobIndex.coerceAtMost(5))) {
+                            EmployerJobManagementCard(
+                                title = job.title,
+                                applicantCount = count,
+                                isUrgent = job.urgency.equals("HIGH", ignoreCase = true),
+                                facepile = jobApps.take(3).map {
+                                    EmployerFacepileItem(it.workerName, it.workerPhoto)
+                                },
+                                onReviewClick = {
+                                    navController.navigate(
+                                        Routes.employerApplicationsJobRoute(job.id)
+                                    )
+                                },
+                                onShareClick = {
+                                    onShareJob(job.id, job.title)
+                                },
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+                        }
                     }
 
                     // Instant Requests Posted
                     items(activeUrgentNeeds, key = { "urgent_${it.requestId}" }) { request ->
+                        val reqIndex = activeUrgentNeeds.indexOf(request)
                         val responses = urgentResponsesByRequestId[request.requestId].orEmpty()
                         val count = maxOf(request.responseCount, responses.size)
-                        EmployerJobManagementCard(
-                            title = request.title.ifBlank { request.category },
-                            applicantCount = count,
-                            isUrgent = true,
-                            facepile = responses.take(3).map {
-                                EmployerFacepileItem(it.workerName, null)
-                            },
-                            onReviewClick = {
-                                navController.navigate(
-                                    Routes.employerUrgentNeedDetailRoute(request.requestId)
-                                )
-                            },
-                            onShareClick = {
-                                onShareJob(request.requestId, request.title)
-                            },
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
+                        Box(modifier = Modifier.cascadeEnter(index = 5 + reqIndex.coerceAtMost(5))) {
+                            EmployerJobManagementCard(
+                                title = request.title.ifBlank { request.category },
+                                applicantCount = count,
+                                isUrgent = true,
+                                facepile = responses.take(3).map {
+                                    EmployerFacepileItem(it.workerName, null)
+                                },
+                                onReviewClick = {
+                                    navController.navigate(
+                                        Routes.employerUrgentNeedDetailRoute(request.requestId)
+                                    )
+                                },
+                                onShareClick = {
+                                    onShareJob(request.requestId, request.title)
+                                },
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+                        }
                     }
                 }
 

@@ -3,6 +3,7 @@ package com.example.dutype.employer.screens
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.fg
 import com.example.dutype.ui.theme.bg
+import com.example.dutype.components.bouncyClickable
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -1105,7 +1106,7 @@ fun EmployerJobManagementCard(
             .clip(shape)
             .background(Color.White.bg())
             .border(1.dp, EhBorder.bd(), shape)
-            .clickable { onReviewClick() }
+            .bouncyClickable { onReviewClick() }
             .padding(16.dp)
     ) {
         Row(

@@ -3,6 +3,8 @@ package com.example.dutype.employer.screens
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
+import com.example.dutype.components.cascadeEnter
+import com.example.dutype.components.bouncyClickable
 import com.dutype.app.R
 import android.Manifest
 import android.content.Context
@@ -1692,92 +1694,104 @@ private fun PostJobSinglePageForm(
             .padding(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 112.dp)
     ) {
         if (freeRemaining > 0) {
-            Surface(
-                color = Color(0xFFECFDF5).bg(),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 14.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+            Box(modifier = Modifier.cascadeEnter(index = 0)) {
+                Surface(
+                    color = Color(0xFFECFDF5).bg(),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 14.dp)
                 ) {
-                    Text(
-                        text = "🎁",
-                        fontSize = 18.sp
-                    )
-                    Column {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                         Text(
-                            text = "Free Job Posting ($freeRemaining of 1 remaining)",
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                            color = Color(0xFF065F46)
+                            text = "🎁",
+                            fontSize = 18.sp
                         )
-                        Text(
-                            text = "Your first job posting on DutyPe is 100% free.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF047857)
-                        )
+                        Column {
+                            Text(
+                                text = "Free Job Posting ($freeRemaining of 1 remaining)",
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                color = Color(0xFF065F46)
+                            )
+                            Text(
+                                text = "Your first job posting on DutyPe is 100% free.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF047857)
+                            )
+                        }
                     }
                 }
             }
         }
 
         // Job Title
-        PjField(
-            value = c.title,
-            onValueChange = {
-                c.title = it
-                c.customCategory = it.trim()
-            },
-            label = stringResource(R.string.post_job_title_label),
-            placeholder = stringResource(R.string.job_title_placeholder)
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        PostJobQuickTitleChips(c)
+        Box(modifier = Modifier.cascadeEnter(index = 1)) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                PjField(
+                    value = c.title,
+                    onValueChange = {
+                        c.title = it
+                        c.customCategory = it.trim()
+                    },
+                    label = stringResource(R.string.post_job_title_label),
+                    placeholder = stringResource(R.string.job_title_placeholder)
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                PostJobQuickTitleChips(c)
+            }
+        }
 
-        PjSectionLabel("Workers needed")
-        PjCountStepper(
-            count = c.vacancies.toIntOrNull()?.coerceIn(1, 50) ?: 1,
-            onCountChange = { c.vacancies = it.toString() },
-            min = 1,
-            max = 50
-        )
+        Box(modifier = Modifier.cascadeEnter(index = 2)) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                PjSectionLabel("Workers needed")
+                PjCountStepper(
+                    count = c.vacancies.toIntOrNull()?.coerceIn(1, 50) ?: 1,
+                    onCountChange = { c.vacancies = it.toString() },
+                    min = 1,
+                    max = 50
+                )
 
-        PjSectionLabel("Job Description")
-        PjField(
-            value = c.description,
-            onValueChange = { c.description = it },
-            label = "Job Description",
-            placeholder = "Describe the work, timings, what you expect",
-            singleLine = false,
-            minHeight = 96.dp
-        )
-        if (c.description.isNotEmpty() && c.description.trim().length < MIN_DESCRIPTION_CHARS) {
-            Text(
-                text = stringResource(R.string.post_job_description_required),
-                fontSize = 11.sp,
-                color = EmployerColors.Error,
-                modifier = Modifier.padding(top = 4.dp)
-            )
+                PjSectionLabel("Job Description")
+                PjField(
+                    value = c.description,
+                    onValueChange = { c.description = it },
+                    label = "Job Description",
+                    placeholder = "Describe the work, timings, what you expect",
+                    singleLine = false,
+                    minHeight = 96.dp
+                )
+                if (c.description.isNotEmpty() && c.description.trim().length < MIN_DESCRIPTION_CHARS) {
+                    Text(
+                        text = stringResource(R.string.post_job_description_required),
+                        fontSize = 11.sp,
+                        color = EmployerColors.Error,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
         }
 
         // Job Location
         Spacer(modifier = Modifier.height(8.dp))
         val savedWorkLocations by c.employerJobViewModel.savedWorkLocationsStore.locations.collectAsState()
-        EnhancedLocationSection(
-            location = c.location,
-            onLocationChange = { c.location = it },
-            locationService = c.locationService,
-            isLoadingLocation = c.isLoadingLocation,
-            locationError = c.locationError,
-            onLocationButtonClick = { c.onLocationButtonClick() },
-            onLocationSelected = { lat, lon -> c.onLocationSelected(lat, lon) },
-            locationLatitude = c.locationLatitude,
-            locationLongitude = c.locationLongitude,
-            savedLocations = savedWorkLocations
-        )
+        Box(modifier = Modifier.cascadeEnter(index = 3)) {
+            EnhancedLocationSection(
+                location = c.location,
+                onLocationChange = { c.location = it },
+                locationService = c.locationService,
+                isLoadingLocation = c.isLoadingLocation,
+                locationError = c.locationError,
+                onLocationButtonClick = { c.onLocationButtonClick() },
+                onLocationSelected = { lat, lon -> c.onLocationSelected(lat, lon) },
+                locationLatitude = c.locationLatitude,
+                locationLongitude = c.locationLongitude,
+                savedLocations = savedWorkLocations
+            )
+        }
 
         // Wage
         PjSectionLabel("Wage")
@@ -2931,7 +2945,7 @@ private fun PjChip(
             .clip(shape)
             .background(if (selected) selectedFill.bg() else Color.White.bg())
             .border(1.dp, if (selected) selectedFill.bg() else PjLine.bd(), shape)
-            .clickable(onClick = onClick)
+            .bouncyClickable(onClick = onClick)
             .padding(start = 16.dp, end = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center

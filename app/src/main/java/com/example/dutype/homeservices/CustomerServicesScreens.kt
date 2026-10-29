@@ -1,5 +1,7 @@
 package com.example.dutype.homeservices
 
+import com.example.dutype.components.cascadeEnter
+import com.example.dutype.components.bouncyClickable
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -677,7 +679,7 @@ internal fun CategoryTiles(
                     Column(
                         Modifier
                             .weight(1f)
-                            .clickable { onSelect(cat.id) },
+                            .bouncyClickable { onSelect(cat.id) },
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Box(
@@ -2661,6 +2663,7 @@ fun ServicesHomeScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .cascadeEnter(index = 0)
                             .background(
                                 Brush.verticalGradient(
                                     listOf(
@@ -2771,33 +2774,41 @@ fun ServicesHomeScreen(
                     )
                 }
                 item(key = "categories") {
-                    CategoryTiles(
-                        categories = customerCategories,
-                        lang = lang,
-                        selected = null,
-                        onSelect = { catId ->
-                            nav.navigate(Routes.servicesCategoryRoute(catId))
-                        },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
+                    Box(modifier = Modifier.cascadeEnter(index = 1)) {
+                        CategoryTiles(
+                            categories = customerCategories,
+                            lang = lang,
+                            selected = null,
+                            onSelect = { catId ->
+                                nav.navigate(Routes.servicesCategoryRoute(catId))
+                            },
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        )
+                    }
                 }
 
                 // 🏪 Local Brands & Shops / Khammam Specials
                 if (localShowcases.isNotEmpty()) {
                     item(key = "local_brands_showcase") {
-                        com.example.dutype.components.LocalBrandsShowcaseSection(
-                            showcases = localShowcases,
-                            onShowcaseClick = { showcaseId ->
-                                nav.navigate(Routes.promoShowcaseRoute(showcaseId))
-                            },
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
+                        Box(modifier = Modifier.cascadeEnter(index = 2)) {
+                            com.example.dutype.components.LocalBrandsShowcaseSection(
+                                showcases = localShowcases,
+                                onShowcaseClick = { showcaseId ->
+                                    nav.navigate(Routes.promoShowcaseRoute(showcaseId))
+                                },
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
                     }
                 }
 
                 // Showcase Card: DutyPe Verified Staff & Workers Hiring
                 item(key = "hiring_showcase_hero") {
-                    Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .cascadeEnter(index = 3)
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                    ) {
                         EmployerExecutiveHeroCard(
                             companyName = "",
                             onCardClick = {
@@ -2846,12 +2857,14 @@ fun ServicesHomeScreen(
                 // 3. New and Noteworthy Section (Configured by admin via noteworthyServiceIds)
                 if (noteworthyFiltered.isNotEmpty()) {
                     item(key = "new_and_noteworthy") {
-                        NewAndNoteworthySection(
-                            services = noteworthyFiltered,
-                            lang = lang,
-                            onBookService = { nav.navigate(Routes.servicesBookRoute(it)) },
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-                        )
+                        Box(modifier = Modifier.cascadeEnter(index = 4)) {
+                            NewAndNoteworthySection(
+                                services = noteworthyFiltered,
+                                lang = lang,
+                                onBookService = { nav.navigate(Routes.servicesBookRoute(it)) },
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                            )
+                        }
                     }
                 }
 
@@ -2859,12 +2872,14 @@ fun ServicesHomeScreen(
                 // 5. Most Booked Services (Image 4!)
                 if (mostBookedFiltered.isNotEmpty()) {
                     item(key = "most_booked") {
-                        MostBookedServicesSection(
-                            services = mostBookedFiltered,
-                            lang = lang,
-                            onBookService = { nav.navigate(Routes.servicesBookRoute(it)) },
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-                        )
+                        Box(modifier = Modifier.cascadeEnter(index = 5)) {
+                            MostBookedServicesSection(
+                                services = mostBookedFiltered,
+                                lang = lang,
+                                onBookService = { nav.navigate(Routes.servicesBookRoute(it)) },
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                            )
+                        }
                     }
                 }
 

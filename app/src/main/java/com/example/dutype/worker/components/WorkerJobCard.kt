@@ -1,5 +1,7 @@
 package com.example.dutype.worker.components
 
+import com.example.dutype.components.bouncyClickable
+
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
@@ -207,7 +209,7 @@ private fun JobCardInternal(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onCardClick() },
+            .bouncyClickable { onCardClick() },
         colors = CardDefaults.cardColors(containerColor = WorkerColors.CardBackground),
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, WorkerColors.Border),
@@ -724,7 +726,7 @@ fun WorkerHomeJobCard(
             .clip(cardShape)
             .background(Color.White.bg())
             .border(1.dp, HomeCardBorder.bd(), cardShape)
-            .clickable { openJob() }
+            .bouncyClickable { openJob() }
             .padding(14.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {

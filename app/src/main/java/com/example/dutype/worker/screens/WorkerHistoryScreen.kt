@@ -3,6 +3,8 @@ package com.example.dutype.worker.screens
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
 import com.example.dutype.ui.theme.bd
+import com.example.dutype.components.cascadeEnter
+import com.example.dutype.components.bouncyClickable
 import com.dutype.app.R
 import android.content.Intent
 import android.net.Uri
@@ -211,13 +213,15 @@ fun WorkerHistoryScreen(
                             items = filteredApplications,
                             key = { index, application -> "app_hist_${application.id.ifBlank { "app" }}_$index" },
                             contentType = { _, _ -> "history_application_card" }
-                        ) { _, application ->
-                            HistoryApplicationCard(
-                                application = application,
-                                onClick = {
-                                    navController.navigate(Routes.jobDetailRoute(application.jobId))
-                                }
-                            )
+                        ) { index, application ->
+                            Box(modifier = Modifier.cascadeEnter(index = index.coerceAtMost(6))) {
+                                HistoryApplicationCard(
+                                    application = application,
+                                    onClick = {
+                                        navController.navigate(Routes.jobDetailRoute(application.jobId))
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -255,13 +259,15 @@ private fun TimelineView(
                 items = applications,
                 key = { index, application -> "app_tl_${application.id.ifBlank { "app" }}_$index" },
                 contentType = { _, _ -> "timeline_application_card" }
-            ) { _, application ->
+            ) { index, application ->
                 val isLastInMonth = applications.last() == application
-                TimelineJobCard(
-                    application = application,
-                    isLastInMonth = isLastInMonth,
-                    onClick = { onJobClick(application) }
-                )
+                Box(modifier = Modifier.cascadeEnter(index = index.coerceAtMost(6))) {
+                    TimelineJobCard(
+                        application = application,
+                        isLastInMonth = isLastInMonth,
+                        onClick = { onJobClick(application) }
+                    )
+                }
             }
 
             // Spacer between months
@@ -363,11 +369,13 @@ private fun WorkerUrgentHistoryContent(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                itemsIndexed(responses, key = { index, response -> "worker_urgent_${response.responseId.ifBlank { "resp" }}_$index" }) { _, response ->
-                    WorkerUrgentHistoryCard(
-                        response = response,
-                        onCallEmployer = onCallEmployer
-                    )
+                itemsIndexed(responses, key = { index, response -> "worker_urgent_${response.responseId.ifBlank { "resp" }}_$index" }) { index, response ->
+                    Box(modifier = Modifier.cascadeEnter(index = index.coerceAtMost(6))) {
+                        WorkerUrgentHistoryCard(
+                            response = response,
+                            onCallEmployer = onCallEmployer
+                        )
+                    }
                 }
             }
         }
@@ -567,7 +575,7 @@ private fun TimelineJobCard(
             modifier = Modifier
                 .weight(1f)
                 .padding(bottom = 16.dp)
-                .clickable { onClick() },
+                .bouncyClickable { onClick() },
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = com.example.dutype.ui.theme.WorkerColors.CardBackground),
             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),

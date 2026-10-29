@@ -1,5 +1,8 @@
 package com.example.dutype.worker.screens.profile
 
+import com.example.dutype.components.cascadeEnter
+import com.example.dutype.components.bouncyClickable
+
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
@@ -533,7 +536,8 @@ fun WorkerProfileScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp, vertical = 6.dp)
-                            .clickable {
+                            .cascadeEnter(index = 0)
+                            .bouncyClickable {
                                 if (isLoggedIn) openProfileDetails()
                                 else rootNavController.navigate("${Routes.ENHANCED_LOGIN}?role=WORKER")
                             },
@@ -653,7 +657,8 @@ fun WorkerProfileScreen(
                 val pct = completionPercent
                 if (isLoggedIn && pct != null && pct < 100) {
                     item {
-                        ProfileCompletenessCard(
+                        Box(modifier = Modifier.cascadeEnter(index = 1)) {
+                            ProfileCompletenessCard(
                             percent = pct.coerceIn(0, 100),
                             hint = when {
                                 !hasPhoto -> stringResource(R.string.worker_profile_hint_photo)
@@ -662,13 +667,15 @@ fun WorkerProfileScreen(
                                 else -> stringResource(R.string.worker_profile_hint_complete)
                             },
                             onAdd = openProfileDetails
-                        )
+                            )
+                        }
                     }
                 }
 
                 // SETTINGS LIST CARD (mockup: exactly 5 rows)
                 item {
-                    ProfileSettingsCard(
+                    Box(modifier = Modifier.cascadeEnter(index = 2)) {
+                        ProfileSettingsCard(
                         onEditProfile = openProfileDetails,
                         onWorkHistory = {
                             if (isLoggedIn) {
@@ -712,7 +719,8 @@ fun WorkerProfileScreen(
                         onSettings = { rootNavController.navigate(Routes.SETTINGS) },
                         onPrivacy = { rootNavController.navigate(Routes.PRIVACY_POLICY) },
                         onTerms = { rootNavController.navigate(Routes.TERMS_OF_SERVICE) }
-                    )
+                        )
+                    }
                 }
 
 
@@ -1105,7 +1113,7 @@ private fun ProfileListRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(54.dp)
-            .clickable(onClick = onClick)
+            .bouncyClickable(onClick = onClick)
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1114,20 +1122,20 @@ private fun ProfileListRow(
                 painter = painterResource(id = iconRes),
                 contentDescription = null,
                 tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222),
-                modifier = Modifier.size(25.dp)
+                modifier = Modifier.size(22.dp)
             )
         } else if (icon != null) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
                 tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222),
-                modifier = Modifier.size(25.dp)
+                modifier = Modifier.size(22.dp)
             )
         }
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = title,
-            style = profileTextStyle(14.5.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            style = profileTextStyle(13.5.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
@@ -1217,7 +1225,7 @@ private fun ProfileSettingsCard(
         // Section 1: Work & Earnings
         Text(
             text = "Work & Earnings",
-            style = profileTextStyle(15.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            style = profileTextStyle(13.sp, FontWeight.Medium, Color(0xFF64748B).fg()),
             modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
         )
         ProfileListRow(
@@ -1245,14 +1253,14 @@ private fun ProfileSettingsCard(
         // Section 2: Referral
         Text(
             text = "Referral",
-            style = profileTextStyle(15.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            style = profileTextStyle(13.sp, FontWeight.Medium, Color(0xFF64748B).fg()),
             modifier = Modifier.padding(bottom = 8.dp)
         )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(54.dp)
-                .clickable(onClick = onReferEarn)
+                .bouncyClickable(onClick = onReferEarn)
                 .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1260,12 +1268,12 @@ private fun ProfileSettingsCard(
                 painter = painterResource(id = R.drawable.ic_profile_gift),
                 contentDescription = null,
                 tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222),
-                modifier = Modifier.size(25.dp)
+                modifier = Modifier.size(22.dp)
             )
             Spacer(modifier = Modifier.width(16.dp))
             Text(
                 text = stringResource(R.string.refer_earn),
-                style = profileTextStyle(14.5.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+                style = profileTextStyle(13.5.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
                 modifier = Modifier.weight(1f)
             )
             Box(
@@ -1295,7 +1303,7 @@ private fun ProfileSettingsCard(
         // Section 3: Settings & About
         Text(
             text = "Settings & About",
-            style = profileTextStyle(15.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            style = profileTextStyle(13.sp, FontWeight.Medium, Color(0xFF64748B).fg()),
             modifier = Modifier.padding(bottom = 8.dp)
         )
         ProfileListRow(

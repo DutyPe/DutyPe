@@ -1,5 +1,8 @@
 package com.example.dutype.employer.screens.profilescreen
 
+import com.example.dutype.components.cascadeEnter
+import com.example.dutype.components.bouncyClickable
+
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
@@ -201,7 +204,7 @@ private fun EmpHero(ui: EmpProfileUi, actions: EmpProfileActions) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 6.dp)
-            .clickable(onClick = if (ui.isLoggedIn) actions.onEdit else actions.onLogin),
+            .bouncyClickable(onClick = if (ui.isLoggedIn) actions.onEdit else actions.onLogin),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0).bd()),
@@ -330,7 +333,7 @@ private fun EmpMenuRow(
         modifier = Modifier
             .fillMaxWidth()
             .height(54.dp)
-            .clickable(onClick = onClick)
+            .bouncyClickable(onClick = onClick)
             .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -338,12 +341,12 @@ private fun EmpMenuRow(
             painter = painterResource(id = iconRes),
             contentDescription = null,
             tint = if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222),
-            modifier = Modifier.size(25.dp)
+            modifier = Modifier.size(22.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = title,
-            style = profileTextStyle(14.5.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            style = profileTextStyle(13.5.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
@@ -389,7 +392,7 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
         // Section 1: Hiring & Management
         Text(
             text = "Hiring & Management",
-            style = profileTextStyle(15.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            style = profileTextStyle(13.sp, FontWeight.Medium, Color(0xFF64748B).fg()),
             modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
         )
         EmpMenuRow(
@@ -427,7 +430,7 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
         // Section 2: Support & Referral
         Text(
             text = "Support & Referral",
-            style = profileTextStyle(15.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            style = profileTextStyle(13.sp, FontWeight.Medium, Color(0xFF64748B).fg()),
             modifier = Modifier.padding(bottom = 8.dp)
         )
         EmpMenuRow(
@@ -451,7 +454,7 @@ private fun EmpMenuCard(ui: EmpProfileUi, actions: EmpProfileActions) {
         // Section 3: Settings & About
         Text(
             text = "Settings & About",
-            style = profileTextStyle(15.sp, FontWeight.Normal, if (com.example.dutype.ui.theme.LocalDarkMode.current) com.example.dutype.ui.theme.DarkMap.Text else Color(0xFF222222)),
+            style = profileTextStyle(13.sp, FontWeight.Medium, Color(0xFF64748B).fg()),
             modifier = Modifier.padding(bottom = 8.dp)
         )
         EmpMenuRow(
@@ -498,11 +501,17 @@ private fun EmpProfileBody(ui: EmpProfileUi, actions: EmpProfileActions, modifie
             .padding(top = 4.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        EmpHero(ui = ui, actions = actions)
-        if (ui.isLoggedIn && ui.pct < 100) {
-            EmpCompletenessCard(ui = ui, onClick = actions.onCompany)
+        Box(modifier = Modifier.cascadeEnter(index = 0)) {
+            EmpHero(ui = ui, actions = actions)
         }
-        EmpMenuCard(ui = ui, actions = actions)
+        if (ui.isLoggedIn && ui.pct < 100) {
+            Box(modifier = Modifier.cascadeEnter(index = 1)) {
+                EmpCompletenessCard(ui = ui, onClick = actions.onCompany)
+            }
+        }
+        Box(modifier = Modifier.cascadeEnter(index = 2)) {
+            EmpMenuCard(ui = ui, actions = actions)
+        }
         EmpAccountCard(ui = ui, actions = actions)
         Spacer(modifier = Modifier.height(90.dp))
     }

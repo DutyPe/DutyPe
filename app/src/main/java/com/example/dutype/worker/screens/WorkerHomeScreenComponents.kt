@@ -1,5 +1,8 @@
 package com.example.dutype.worker.screens
 
+import com.example.dutype.components.cascadeEnter
+import com.example.dutype.components.bouncyClickable
+
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.bg
 import com.example.dutype.ui.theme.fg
@@ -617,12 +620,15 @@ fun HomeSectionsContent(
             scrollStateManager = scrollStateManager
         ) {
             item(key = "worker_home_header_item") {
-                headerContent()
+                Box(modifier = Modifier.cascadeEnter(0)) {
+                    headerContent()
+                }
             }
 
             if (dynamicPromoSlides.isNotEmpty() || promoBannerUrl.isNotBlank()) {
                 item(key = "worker_home_promo_carousel") {
-                    com.example.dutype.components.PromotionalBannerCarousel(
+                    Box(modifier = Modifier.cascadeEnter(1)) {
+                        com.example.dutype.components.PromotionalBannerCarousel(
                         isWorker = true,
                         onAction = { target ->
                             when {
@@ -640,20 +646,23 @@ fun HomeSectionsContent(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
+                        )
+                    }
                 }
             }
 
 
             // DutyPe Services partner entry & home services booking in Khammam
             item(key = "worker_home_partner_entry") {
-                com.example.dutype.homeservices.PartnerEntryIfInArea(
+                Box(modifier = Modifier.cascadeEnter(2)) {
+                    com.example.dutype.homeservices.PartnerEntryIfInArea(
                     lat = currentLocation?.latitude ?: 17.2473,
                     lng = currentLocation?.longitude ?: 80.1514,
                     onClick = { rootNavController.navigate(com.example.dutype.navigation.Routes.PARTNER) },
                     onBookServices = { rootNavController.navigate(com.example.dutype.navigation.Routes.SERVICES) },
                     modifier = Modifier.padding(horizontal = 16.dp)
-                )
+                    )
+                }
             }
 
             // Hidden for now: the "jobs near you · view map" hero card (the map tab is hidden too).
@@ -696,12 +705,14 @@ fun HomeSectionsContent(
 
             if (isOnline && hasLocationPermission && urgentPreview.isNotEmpty()) {
                 item(key = "worker_home_urgent_jobs") {
-                    HomeUrgentJobsSection(
+                    Box(modifier = Modifier.cascadeEnter(3)) {
+                        HomeUrgentJobsSection(
                         jobs = urgentPreview,
                         savedJobsViewModel = savedJobsViewModel,
                         onViewAllClick = { com.example.dutype.components.navigateToWorkerTab(navController, WorkerBottomRoutes.JOBS) },
                         onNavigateToJob = onNavigateToJob
-                    )
+                        )
+                    }
                 }
             }
 
@@ -1505,11 +1516,13 @@ fun RecommendedJobsSection(
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            jobs.forEach { job ->
-                WorkerHomeJobCard(
-                    job = job,
-                    onCardClick = { onNavigateToJob(it) }
-                )
+            jobs.forEachIndexed { idx, job ->
+                Box(modifier = Modifier.cascadeEnter(index = idx.coerceAtMost(6))) {
+                    WorkerHomeJobCard(
+                        job = job,
+                        onCardClick = { onNavigateToJob(it) }
+                    )
+                }
             }
         }
     }
