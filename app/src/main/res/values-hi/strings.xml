@@ -224,6 +224,7 @@
     <string name="auth_help">सहायता</string>
     <string name="auth_send_otp">ओटीपी भेजें</string>
     <string name="auth_continue_with_truecaller">Truecaller के साथ जारी रखें</string>
+    <string name="auth_truecaller_failed">Truecaller साइन-इन विफल रहा। कृपया मोबाइल ओटीपी का उपयोग करें।</string>
     <string name="auth_dont_have_account">क्या खाता नहीं है? </string>
     <string name="auth_create_account">खाता बनाएं</string>
     <string name="auth_enter_otp">ओटीपी दर्ज करें</string>

@@ -6,14 +6,19 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import com.dutype.app.R
+import com.example.dutype.components.ButtonThreeDotsLoader
 import com.example.dutype.ui.theme.bd
 import com.example.dutype.ui.theme.fg
 import com.example.dutype.utils.findActivity
@@ -99,7 +105,13 @@ object TruecallerAuth {
 
     /** Starts the SDK once; harmless to call again. Does nothing without a client ID. */
     fun init(context: Context) {
-        if (started) return
+        if (started) {
+            runCatching {
+                val usable = TcSdk.getInstance().isOAuthFlowUsable
+                _usable.value = usable
+            }
+            return
+        }
         val clientId = runCatching { context.getString(R.string.truecaller_client_id) }.getOrNull().orEmpty()
         if (clientId.isBlank()) {
             Timber.w("Truecaller client ID is blank; button will remain hidden")
@@ -108,7 +120,7 @@ object TruecallerAuth {
         started = true
         runCatching {
             val options = TcSdkOptions.Builder(context.applicationContext, callback)
-                .buttonColor(android.graphics.Color.parseColor("#0F0F0F"))
+                .buttonColor(android.graphics.Color.parseColor("#0087FF"))
                 .buttonTextColor(android.graphics.Color.WHITE)
                 .loginTextPrefix(TcSdkOptions.LOGIN_TEXT_PREFIX_TO_GET_STARTED)
                 .ctaText(TcSdkOptions.CTA_TEXT_CONTINUE)
@@ -217,8 +229,7 @@ fun TruecallerLoginButton(
     val clientId = remember(context) { runCatching { context.getString(R.string.truecaller_client_id) }.getOrNull().orEmpty() }
     if (clientId.isBlank()) return
 
-    Spacer(modifier = Modifier.height(12.dp))
-    OutlinedButton(
+    Button(
         onClick = {
             if (!usable) {
                 val isInstalled = runCatching {
@@ -227,9 +238,23 @@ fun TruecallerLoginButton(
                 if (!isInstalled) {
                     Toast.makeText(context, "Truecaller app is not installed on this device. Please use Mobile OTP.", Toast.LENGTH_LONG).show()
                 } else {
-                    Toast.makeText(context, "Please ensure you are signed in to the Truecaller app, or use Mobile OTP.", Toast.LENGTH_LONG).show()
+                    val recheck = runCatching { TcSdk.getInstance().isOAuthFlowUsable }.getOrDefault(false)
+                    if (recheck) {
+                        val started = TruecallerAuth.begin()
+                        pending = started
+                        if (started == null) {
+                            failed()
+                        } else {
+                            val activity = context.findActivity()
+                            val intent = Intent(context, TruecallerActivity::class.java)
+                            if (activity == null) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            (activity ?: context).startActivity(intent)
+                        }
+                    } else {
+                        Toast.makeText(context, "Please ensure you are signed in to the Truecaller app, or use Mobile OTP.", Toast.LENGTH_LONG).show()
+                    }
                 }
-                return@OutlinedButton
+                return@Button
             }
             val started = TruecallerAuth.begin()
             pending = started
@@ -245,27 +270,43 @@ fun TruecallerLoginButton(
         enabled = !busy,
         modifier = modifier
             .fillMaxWidth()
-            .height(54.dp),
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(1.2.dp, Color(0xFF0087FF).bd())
+            .height(52.dp),
+        shape = RoundedCornerShape(10.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color(0xFF0087FF),
+            contentColor = Color.White,
+            disabledContainerColor = Color(0xFF66B7FF),
+            disabledContentColor = Color.White.copy(alpha = 0.7f)
+        ),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 2.dp)
     ) {
         if (busy) {
-            CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(22.dp), color = Color(0xFF0087FF))
+            ButtonThreeDotsLoader(dotColor = Color.White)
         } else {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_truecaller),
-                    contentDescription = "Truecaller",
-                    tint = Color.Unspecified,
-                    modifier = Modifier.size(22.dp)
-                )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(26.dp)
+                        .background(Color.White, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_truecaller),
+                        contentDescription = "Truecaller",
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = stringResource(R.string.auth_continue_with_truecaller),
                     style = MaterialTheme.typography.labelLarge.copy(
                         fontSize = 15.5.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0087FF).fg()
+                        color = Color.White
                     )
                 )
             }

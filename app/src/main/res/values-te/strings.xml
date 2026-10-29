@@ -239,6 +239,7 @@
     <string name="auth_or_divider">లేదా</string>
     <string name="auth_continue_with_google">Google తో కొనసాగండి</string>
     <string name="auth_continue_with_truecaller">ట్రూకాలర్‌తో కొనసాగండి</string>
+    <string name="auth_truecaller_failed">ట్రూకాలర్ సైన్-ఇన్ విఫలమైంది. దయచేసి మొబైల్ ఓటీపీని ఉపయోగించండి.</string>
     <string name="auth_google_coming_soon">Google సైన్ ఇన్ త్వరలో వస్తుంది</string>
     <string name="auth_by_continuing_agree">కొనసాగించడం ద్వారా, మీరు 18 సంవత్సరాల వయస్సు కలిగి ఉన్నారని మరియు వీటిని అంగీకరిస్తున్నారని ధృవీకరిస్తున్నారు: </string>
     <string name="auth_terms">నిబంధనలు &amp; షరతులు</string>
