@@ -201,12 +201,12 @@ fun EmployerMainScreen(
                     if (fromIndex != -1 && toIndex != -1) {
                         if (toIndex > fromIndex) {
                             slideInHorizontally(
-                                initialOffsetX = { (it * 0.22f).toInt() },
+                                initialOffsetX = { (it * 0.30f).toInt() },
                                 animationSpec = tween(280, easing = FastOutSlowInEasing)
                             ) + fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing))
                         } else {
                             slideInHorizontally(
-                                initialOffsetX = { (-it * 0.22f).toInt() },
+                                initialOffsetX = { (-it * 0.30f).toInt() },
                                 animationSpec = tween(280, easing = FastOutSlowInEasing)
                             ) + fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing))
                         }
@@ -225,12 +225,12 @@ fun EmployerMainScreen(
                     if (fromIndex != -1 && toIndex != -1) {
                         if (toIndex > fromIndex) {
                             slideOutHorizontally(
-                                targetOffsetX = { (-it * 0.22f).toInt() },
+                                targetOffsetX = { (-it * 0.30f).toInt() },
                                 animationSpec = tween(280, easing = FastOutSlowInEasing)
                             ) + fadeOut(animationSpec = tween(240, easing = FastOutLinearInEasing))
                         } else {
                             slideOutHorizontally(
-                                targetOffsetX = { (it * 0.22f).toInt() },
+                                targetOffsetX = { (it * 0.30f).toInt() },
                                 animationSpec = tween(280, easing = FastOutSlowInEasing)
                             ) + fadeOut(animationSpec = tween(240, easing = FastOutLinearInEasing))
                         }
@@ -249,12 +249,12 @@ fun EmployerMainScreen(
                     if (fromIndex != -1 && toIndex != -1) {
                         if (toIndex > fromIndex) {
                             slideInHorizontally(
-                                initialOffsetX = { (it * 0.22f).toInt() },
+                                initialOffsetX = { (it * 0.30f).toInt() },
                                 animationSpec = tween(280, easing = FastOutSlowInEasing)
                             ) + fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing))
                         } else {
                             slideInHorizontally(
-                                initialOffsetX = { (-it * 0.22f).toInt() },
+                                initialOffsetX = { (-it * 0.30f).toInt() },
                                 animationSpec = tween(280, easing = FastOutSlowInEasing)
                             ) + fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing))
                         }
@@ -273,12 +273,12 @@ fun EmployerMainScreen(
                     if (fromIndex != -1 && toIndex != -1) {
                         if (toIndex > fromIndex) {
                             slideOutHorizontally(
-                                targetOffsetX = { (-it * 0.22f).toInt() },
+                                targetOffsetX = { (-it * 0.30f).toInt() },
                                 animationSpec = tween(280, easing = FastOutSlowInEasing)
                             ) + fadeOut(animationSpec = tween(240, easing = FastOutLinearInEasing))
                         } else {
                             slideOutHorizontally(
-                                targetOffsetX = { (it * 0.22f).toInt() },
+                                targetOffsetX = { (it * 0.30f).toInt() },
                                 animationSpec = tween(280, easing = FastOutSlowInEasing)
                             ) + fadeOut(animationSpec = tween(240, easing = FastOutLinearInEasing))
                         }

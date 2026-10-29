@@ -405,7 +405,7 @@ fun MainNavGraph(
             modifier = Modifier.fillMaxSize(),
             enterTransition = {
                 slideInHorizontally(
-                    initialOffsetX = { (it * 0.25f).toInt() },
+                    initialOffsetX = { (it * 0.30f).toInt() },
                     animationSpec = tween(300, easing = FastOutSlowInEasing)
                 ) + fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing))
             },
@@ -423,7 +423,7 @@ fun MainNavGraph(
             },
             popExitTransition = {
                 slideOutHorizontally(
-                    targetOffsetX = { (it * 0.25f).toInt() },
+                    targetOffsetX = { (it * 0.30f).toInt() },
                     animationSpec = tween(300, easing = FastOutSlowInEasing)
                 ) + fadeOut(animationSpec = tween(220, easing = FastOutLinearInEasing))
             }
